@@ -62,6 +62,7 @@ class TdPreventionRulesDroolsUnitTest {
     private static final String REPEAT_TD = "Needs repeat Td";
     private static final String NEEDS_TD = "Needs Td";
     private static final String NEEDS_TDAP = "Needs Tdap";
+    private static final String ADULT_TDAP = "Needs adult Tdap (one dose)";
 
     private static KieBase kieBase;
 
@@ -121,8 +122,9 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
-    void shouldRemindOfARepeatTd_whenTheOnlyTdIsTwelveYearsOld() {
-        assertThat(fireRules(adultWith("Td", 12)).getWarnings()).contains(REPEAT_TD);
+    void shouldRemindOfARepeatTd_whenTheOnlyTdIsTwelveYearsOldAfterTheAdultTdap() {
+        // The adult Tdap was given at 30, so the 10-year Td rule decides (#5048: while it is due, it is the only one).
+        assertThat(fireRules(adultWith("Tdap", 40, "Td", 12)).getWarnings()).contains(REPEAT_TD).doesNotContain(ADULT_TDAP);
     }
 
     @Test
@@ -142,7 +144,7 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldAskForATdOnce_whenTheOnlyTetanusVaccineIsATdapElevenYearsOld() {
-        assertThat(fireRules(adultWith("Tdap", 11)).getWarnings()).contains(NEEDS_TD).doesNotContain(REPEAT_TD);
+        assertThat(fireRules(adultWith("Tdap", 11)).getWarnings()).contains(NEEDS_TD).doesNotContain(REPEAT_TD, ADULT_TDAP);
     }
 
     @Test
@@ -168,7 +170,8 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotAskForTheTeenTdapYet_whenALaterTdapIpvBoosterIsUnderTenYearsOld() {
-        assertThat(fireRules(personWith(16, "DTaP-IPV", 15, "Tdap-IPV", 9)).getWarnings()).doesNotContain(NEEDS_TDAP);
+        // At 15, before the latest-by-16 reminder, the 10-year clock alone decides.
+        assertThat(fireRules(personWith(15, "DTaP-IPV", 14, "Tdap-IPV", 8)).getWarnings()).doesNotContain(NEEDS_TDAP);
     }
 
     @Test
@@ -196,9 +199,10 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotAskForTheTeenTdapYet_whenALaterBoosterDtapIpvHibIsUnderTenYearsOld() {
-        Prevention teen = personWithDosesAtAgeInMonths(16, "DTaP-IPV", 6);
+        // At 15, before the latest-by-16 reminder, the 10-year clock alone decides.
+        Prevention teen = personWithDosesAtAgeInMonths(15, "DTaP-IPV", 6);
         Calendar booster = Calendar.getInstance();
-        booster.setTime(yearsAgo(16));
+        booster.setTime(yearsAgo(15));
         booster.add(Calendar.MONTH, 100);
         teen.addPreventionItem(new PreventionItem("DTaP-IPV-Hib", booster.getTime()));
         assertThat(fireRules(teen).getWarnings()).doesNotContain(NEEDS_TDAP);
@@ -217,8 +221,11 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
-    void shouldAskForATd_whenTheOnlyTetanusVaccineIsATdpIpvHibTwelveYearsOld() {
-        assertThat(fireRules(adultWith("TdP-IPV-Hib", 12)).getWarnings()).contains(NEEDS_TD).doesNotContain(REPEAT_TD);
+    void shouldAskOnlyForTheAdultTdap_whenAnAdultsOnlyTetanusVaccineIsATdpIpvHibTwelveYearsOld() {
+        // The first Td is due too, but the adult Tdap is the one dose to give (#5048); the Td rule's counting of a
+        // TdP-IPV-Hib booster is covered at 16 (shouldAskForATd_whenATdpIpvHibBoosterGivenAtFiveIsElevenYearsOld).
+        assertThat(fireRules(adultWith("TdP-IPV-Hib", 12)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(NEEDS_TD, REPEAT_TD, NEEDS_TDAP);
     }
 
     @Test
@@ -283,8 +290,9 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
-    void shouldNotAskForATdap_whenATdapIsOnFile() {
-        assertThat(fireRules(personWith(30, "Tdap-IPV", 25, "Tdap", 15)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    void shouldNotAskForTheTeenTdapButForTheAdultOne_whenTheTdapOnFileWasGivenAtFifteen() {
+        assertThat(fireRules(personWith(30, "Tdap-IPV", 25, "Tdap", 15)).getWarnings())
+                .doesNotContain(NEEDS_TDAP).containsOnlyOnce(ADULT_TDAP);
     }
 
     @Test
@@ -294,8 +302,16 @@ class TdPreventionRulesDroolsUnitTest {
     }
 
     @Test
-    void shouldAskForATd_whenTheOnlyTetanusVaccineIsATdIpvTwelveYearsOld() {
-        assertThat(fireRules(adultWith("Td-IPV", 12)).getWarnings()).contains(NEEDS_TD).doesNotContain(NEEDS_TDAP, REPEAT_TD);
+    void shouldAskForATd_whenASeventeenYearOldsOnlyTetanusVaccineIsATdIpvTwelveYearsOld() {
+        // Under 18 the adult Tdap does not apply, so the first Td rule's counting of a Td-IPV shows on its own.
+        assertThat(fireRules(personWith(17, "Td-IPV", 12)).getWarnings())
+                .containsOnlyOnce(NEEDS_TD).doesNotContain(NEEDS_TDAP, REPEAT_TD, ADULT_TDAP);
+    }
+
+    @Test
+    void shouldAskOnlyForTheAdultTdap_whenAnAdultsOnlyTetanusVaccineIsATdIpvTwelveYearsOld() {
+        assertThat(fireRules(adultWith("Td-IPV", 12)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(NEEDS_TD, NEEDS_TDAP, REPEAT_TD);
     }
 
     @Test
@@ -306,5 +322,102 @@ class TdPreventionRulesDroolsUnitTest {
     @Test
     void shouldAskForATd_whenATdapWasFollowedByATdapIpvElevenYearsAgo() {
         assertThat(fireRules(adultWith("Tdap", 20, "Tdap-IPV", 11)).getWarnings()).contains(NEEDS_TD);
+    }
+
+    // Adult Tdap (#5048). Canadian Immunization Guide, Pertussis vaccine: "Adults who have not received an adult dose
+    // of pertussis-containing vaccine should receive one dose of Tdap vaccine, which can be administered regardless of
+    // the interval since the last dose of tetanus and diphtheria toxoid-containing vaccine."
+
+    @Test
+    void shouldAskForTheAdultTdapOnce_whenAnAdultHasNoTetanusRecord() {
+        assertThat(fireRules(personWith(30)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(NEEDS_TDAP, NEEDS_TD, REPEAT_TD);
+    }
+
+    @Test
+    void shouldAskForTheAdultTdap_atExactlyEighteen() {
+        assertThat(fireRules(personWith(18)).getWarnings()).containsOnlyOnce(ADULT_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheAdultTdap_atSeventeen() {
+        assertThat(fireRules(personWith(17, "DTaP-IPV", 12)).getWarnings()).doesNotContain(ADULT_TDAP).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheAdultTdapAndNotTheTeenOne_whenAnAdultsSchoolBoosterIsOld() {
+        assertThat(fireRules(personWith(25, "DTaP-IPV", 20)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheAdultTdap_whenTheTdapWasGivenAtSeventeenYearsElevenMonths() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(30, "Tdap", 215)).getWarnings()).containsOnlyOnce(ADULT_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheAdultTdap_whenTheTdapWasGivenAtEighteen() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(30, "Tdap", 216)).getWarnings()).doesNotContain(ADULT_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheAdultTdap_whenATdapIpvWasGivenAsAnAdult() {
+        assertThat(fireRules(personWith(40, "Tdap-IPV", 10)).getWarnings()).doesNotContain(ADULT_TDAP, NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheAdultTdap_regardlessOfARecentTd() {
+        assertThat(fireRules(adultWith("Td", 2)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(NEEDS_TD, REPEAT_TD);
+    }
+
+    @Test
+    void shouldAskOnlyForTheAdultTdap_whenARepeatTdIsAlsoDue() {
+        // One Tdap dose is also the 10-year tetanus booster, so "Needs repeat Td" waits until it is on file.
+        assertThat(fireRules(adultWith("Td", 12)).getWarnings())
+                .containsOnlyOnce(ADULT_TDAP).doesNotContain(REPEAT_TD, NEEDS_TD);
+    }
+
+    @Test
+    void shouldNotAskForTheAdultTdap_whenTheTdapIsMarkedNeverRemind() {
+        Prevention adult = personWith(30);
+        adult.addPreventionItem(new PreventionItem("Tdap", yearsAgo(20), "1", null));
+        assertThat(fireRules(adult).getWarnings()).doesNotContain(ADULT_TDAP);
+    }
+
+    // The teen Tdap stays inside the guide's 14-16 window (#5048): a school booster given late, so that its 10 years
+    // end after 16, is followed by the reminder at 16 at the latest.
+
+    @Test
+    void shouldAskForTheTeenTdapAtSixteen_whenTheSchoolBoosterWasGivenLate() {
+        assertThat(fireRules(personWith(16, "DTaP-IPV", 9)).getWarnings()).containsOnlyOnce(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdapAtSixteen_whenALaterTdapIpvBoosterIsUnderTenYearsOld() {
+        assertThat(fireRules(personWith(16, "DTaP-IPV", 15, "Tdap-IPV", 9)).getWarnings()).containsOnlyOnce(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdapAtSeventeen_whenTheLateBoosterIsStillUnderTenYearsOld() {
+        assertThat(fireRules(personWith(17, "DTaP-IPV", 9)).getWarnings()).containsOnlyOnce(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdapAtSixteen_whenTheBoosterWasGivenJustBeforeFourteen() {
+        assertThat(fireRules(personWithDosesAtAgeInMonths(16, "Tdap-IPV", 167)).getWarnings()).containsOnlyOnce(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdapAtSixteen_whenTheBoosterWasGivenAtFourteen() {
+        // A pertussis booster given at 14 or later is the teen dose.
+        assertThat(fireRules(personWithDosesAtAgeInMonths(16, "Tdap-IPV", 168)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdapAtEighteen_whenTheLateBoosterIsUnderTenYearsOld() {
+        // From 18 the adult Tdap takes over.
+        assertThat(fireRules(personWith(18, "DTaP-IPV", 9)).getWarnings())
+                .doesNotContain(NEEDS_TDAP).containsOnlyOnce(ADULT_TDAP);
     }
 }

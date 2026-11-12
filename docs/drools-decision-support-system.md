@@ -478,7 +478,7 @@ Referenced by `ClinicalReports.xml` for population health indicator reporting.
 
 | File | Location | Fact Class | Vaccine/Prevention Types |
 |------|----------|-----------|------------------------|
-| `prevention.drl` | `src/main/resources/oscar/prevention/` | Prevention | DTaP-IPV (6 rules), Tdap-IPV (1), Rot (2), Hib (6), Pneu-C (6), MMR (2), MMRV (1), MenC-C (3), HPV (1), VZ (4), dTap (1), Td (2), Flu (4), HPV-CERVIX (3), PAP (4+debug), MAM (5+debug), FOBT (4), Smoking (1), BMD (1), PHV (2), Annual Physical (2), Obesity (2) |
+| `prevention.drl` | `src/main/resources/oscar/prevention/` | Prevention | DTaP-IPV (6 rules), Tdap-IPV (1), Rot (5), Hib (6), Pneu-C (6), MMR (2), MMRV (1), MenC-C (3), HPV (1), VZ (4), Tdap (3), Td (2), Flu (4), HPV-CERVIX (3), PAP (4+debug), MAM (5+debug), FOBT (4), Smoking (1), BMD (1), PHV (2), Annual Physical (2), Obesity (2) |
 
 ### Workflow DRL Files
 

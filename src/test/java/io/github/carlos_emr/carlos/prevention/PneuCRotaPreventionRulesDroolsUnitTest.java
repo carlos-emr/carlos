@@ -63,6 +63,7 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
     private static final String NEEDS_THIRD_PNEU_C = "Needs Third Pneu-C";
     private static final String NEEDS_FOURTH_PNEU_C = "Needs Fourth Pneu-C";
     private static final String NEEDS_SECOND_ROTA = "Needs Second Rota vaccine";
+    private static final String NEEDS_THIRD_ROTA = "Needs Third Rota vaccine";
 
     private static KieBase kieBase;
 
@@ -134,6 +135,32 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         }
         Prevention prev = new Prevention("F", monthsAgo(5));
         prev.addPreventionItem(new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), null)));
+        return prev;
+    }
+
+    /**
+     * A rotavirus record saved the way the prevention page saves it: the given type, dated that many days ago, a
+     * dose given unless refused, with a next date that many days from today (negative: in the past), or none.
+     */
+    private static PreventionItem rotaRecord(String type, int daysAgo, boolean refused, Integer nextDateInDays) {
+        io.github.carlos_emr.carlos.commn.model.Prevention record = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        record.setPreventionType(type);
+        record.setPreventionDate(daysFromToday(-daysAgo));
+        if (refused) {
+            record.setRefused(true);
+        }
+        if (nextDateInDays != null) {
+            record.setNextDate(daysFromToday(nextDateInDays));
+        }
+        return new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), null));
+    }
+
+    /** An infant of the given age in months with the given rotavirus records, oldest first. */
+    private static Prevention infantWithRotaRecords(int ageInMonths, PreventionItem... records) {
+        Prevention prev = new Prevention("F", monthsAgo(ageInMonths));
+        for (PreventionItem record : records) {
+            prev.addPreventionItem(record);
+        }
         return prev;
     }
 
@@ -337,6 +364,114 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         @Test
         void shouldNotRemind_whenTheRota1DoseIsMarkedNeverRemind() {
             assertThat(reminders(infantWithOneRotaDose("Rota-1", true, true), NEEDS_SECOND_ROTA)).isZero();
+        }
+    }
+
+    /**
+     * #5048, Canadian Immunization Guide, Rotavirus vaccine: Rot-1 (Rotarix) is 2 doses and Rot-5 (RotaTeq) 3; "If any
+     * dose in the series was Rot-5 vaccine, a total of 3 doses." The third dose follows the second's 4-week minimum
+     * interval and the before-8-months limit, and a next date set on the second dose decides when the reminder starts,
+     * never before day 28, as for the second dose.
+     */
+    @Nested
+    @DisplayName("Rota 3: third rotavirus dose after a Rot-5 dose")
+    class ThirdRotaDose {
+
+        @Test
+        void shouldRemind_whenBothDosesWereRota5AndTheSecondIsTwentyEightDaysOld() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-5", 28, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+            assertThat(prev.getWarnings()).doesNotContain(NEEDS_SECOND_ROTA);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheSecondRota5DoseIsTwentySevenDaysOld() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-5", 27, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenOnlyTheFirstDoseWasRota5() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-1", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldRemind_whenOnlyTheSecondDoseWasRota5() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-1", 60, false, null), rotaRecord("Rota-5", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenBothDosesWereRota1() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-1", 60, false, null), rotaRecord("Rota-1", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenBothDosesWereRecordedUnderThePlainName() {
+            // Only a dose recorded as Rota-5 makes the series three doses.
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota", 60, false, null), rotaRecord("Rota", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenASevenMonthOldStillNeedsTheThirdDose() {
+            Prevention prev = infantWithRotaRecords(7, rotaRecord("Rota-5", 120, false, null), rotaRecord("Rota-5", 60, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheInfantIsEightMonthsOld() {
+            Prevention prev = infantWithRotaRecords(8, rotaRecord("Rota-5", 150, false, null), rotaRecord("Rota-5", 90, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_afterTheThirdDose() {
+            Prevention prev = infantWithRotaRecords(5, rotaRecord("Rota-5", 90, false, null), rotaRecord("Rota-5", 60, false, null),
+                    rotaRecord("Rota-5", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenOneOfTheTwoRota5RecordsIsARefusal() {
+            // One dose given: not yet the third.
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, true, null), rotaRecord("Rota-5", 30, false, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheThirdDoseWasRefused() {
+            Prevention prev = infantWithRotaRecords(5, rotaRecord("Rota-5", 90, false, null), rotaRecord("Rota-5", 60, false, null),
+                    rotaRecord("Rota-5", 30, true, null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheSecondDoseIsMarkedNeverRemind() {
+            Prevention prev = new Prevention("F", monthsAgo(4));
+            prev.addPreventionItem(new PreventionItem("Rota-5", daysFromToday(-60), "0", null));
+            prev.addPreventionItem(new PreventionItem("Rota-5", daysFromToday(-30), "1", null));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_beforeTheNextDateSetOnTheSecondDose() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-5", 30, false, 7));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_onceTheNextDateSetOnTheSecondDoseHasPassed() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 70, false, null), rotaRecord("Rota-5", 35, false, -2));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenThePassedNextDateComesBeforeDayTwentyEight() {
+            Prevention prev = infantWithRotaRecords(4, rotaRecord("Rota-5", 60, false, null), rotaRecord("Rota-5", 20, false, -2));
+            assertThat(reminders(prev, NEEDS_THIRD_ROTA)).isZero();
         }
     }
 }

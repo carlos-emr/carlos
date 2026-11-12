@@ -4,10 +4,11 @@
  * A patient's prevention reminders. The prevention page shows the decision-support warnings that prevention.drl raises
  * for the patient; gap-clinical-prevention-notifications covers only the on/off setting and prevention-recall-report the
  * roster report, so no check reads one patient's reminders.
- * User path: E-Chart ▸ Preventions (the Prevention Recommendations box); ▸ Inf ▸ Completed today ▸ Save; ▸ Td ▸
- * Completed twelve years ago ▸ Save.
+ * User path: E-Chart ▸ Preventions (the Prevention Recommendations box); ▸ Inf ▸ Completed today ▸ Save; ▸ Tdap ▸
+ * Completed forty years ago ▸ Save; ▸ Td ▸ Completed twelve years ago ▸ Save.
  * Asserts: a 70-year-old with no flu shot is told "Needs Flu Shot" and decision support reports no error; recording a
- * flu shot today takes that reminder away; LAST, a Td from twelve years ago, the patient's only tetanus vaccine, raises
+ * flu shot today takes that reminder away; LAST, after an adult Tdap from forty years ago (so the adult Tdap reminder,
+ * which comes first while due, #5048, is satisfied), a Td from twelve years ago, the patient's only Td, raises
  * "Needs repeat Td".
  * Fixtures: the runWorkflow FAKE- patient, made 70 by SQL; its preventions and their ext rows are removed in cleanup.
  */
@@ -47,6 +48,7 @@ async function workflow(s) {
   }
   const today = sql.value('SELECT CURDATE()');
   const twelveYearsAgo = sql.value('SELECT DATE_SUB(CURDATE(), INTERVAL 12 YEAR)');
+  const fortyYearsAgo = sql.value('SELECT DATE_SUB(CURDATE(), INTERVAL 40 YEAR)');
 
   await s.step('a 70-year-old with no flu shot is told "Needs Flu Shot", and decision support reports no error', async () => {
     const shown = await reminders();
@@ -59,9 +61,11 @@ async function workflow(s) {
     assert(!shown.includes('Needs Flu Shot'), `The flu reminder is still shown after today's flu shot: ${shown.slice(0, 300)}`);
   });
 
-  await s.step('a Td from twelve years ago, the only tetanus vaccine, raises "Needs repeat Td"', async () => {
+  await s.step('after an adult Tdap forty years ago, a Td from twelve years ago, the only Td, raises "Needs repeat Td"', async () => {
+    await record('Tdap', fortyYearsAgo);
     const shown = await remindersListing(await record('Td', twelveYearsAgo));
     await index.close();
+    assert(!shown.includes('Needs adult Tdap'), `The adult Tdap reminder is still shown after an adult Tdap: ${shown.slice(0, 300)}`);
     assert(shown.includes('Needs repeat Td'), `No repeat-Td reminder for a Td twelve years old: ${shown.slice(0, 300)}`);
   });
 }
