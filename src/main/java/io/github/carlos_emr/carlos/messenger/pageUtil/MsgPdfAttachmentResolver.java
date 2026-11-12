@@ -157,7 +157,7 @@ public class MsgPdfAttachmentResolver {
             case CURRENT_ENCOUNTER:
                 return Optional.of(new Attachment(item, null,
                         safeTitle(label(labels, "messenger.generatePreviewPDF.currentEncounter",
-                                "Current encounter notes"))));
+                                "All current chart notes and CPP"))));
             case ENCOUNTER:
                 EChart chart = eChartDao.getLatestChart(demographicNo);
                 if (chart == null || chart.getId() == null || chart.getDemographicNo() != demographicNo

@@ -369,7 +369,7 @@ async function workflow(s) {
       `The stored PDFs do not carry distinct FILE_IDs: ${JSON.stringify(fileIds)}`);
     const titles = entries.map(entry => (entry.match(/<TITLE>([^<]*)<\/TITLE>/) || [])[1] || '');
     h.assert(titles[0].includes(s.marker) && /information/i.test(titles[0])
-      && /current encounter notes/i.test(titles[1]) && /prescriptions/i.test(titles[2]),
+      && /all current chart notes and cpp/i.test(titles[1]) && /prescriptions/i.test(titles[2]),
       `The stored titles are not the server-computed ones: ${JSON.stringify(titles)}`);
     // #5856: the stored current encounter is the chart print of the saved note and the CPP.
     const encounterContent = (entries[1].match(/<CONTENT>([^<]*)<\/CONTENT>/) || [])[1] || '';

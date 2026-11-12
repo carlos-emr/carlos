@@ -47,8 +47,9 @@
   The form posts item KEYS to messenger/Doc2PDF (item=demographic|currentEncounter|encounter|
   prescriptions, or previewItem=<key> with isPreview=true) and the server renders each item itself
   (MsgAttachPDF2Action / MsgPdfAttachmentResolver). The current encounter (#5856) is the patient's
-  notes and CPP from the modern chart, printed as the chart prints them; the historical encounter
-  is the last legacy revision, offered only when it has content. The page used to load each item into the
+  notes and CPP from the modern chart (every current note, locked notes left out), printed as the
+  chart prints them; the historical encounter is the last legacy revision, offered only when it has
+  content. The page used to load each item into the
   frameset's hidden source frame and post the captured page HTML back; that let a forged request
   store arbitrary markup as a chart PDF and was refused by the front-door WAF (#4133).
 
@@ -197,7 +198,7 @@
          * Streams one item back as a PDF into this frame. Only the item key is posted; the
          * server renders the page (messenger/Doc2PDF, MsgAttachPDF2Action).
          *
-         * @param {string} itemKey - demographic | encounter | prescriptions
+         * @param {string} itemKey - demographic | currentEncounter | encounter | prescriptions
          */
         function PreviewPDF(itemKey) {
             var form = document.getElementById('attachForm');

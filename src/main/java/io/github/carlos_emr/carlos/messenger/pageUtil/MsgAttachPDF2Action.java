@@ -94,10 +94,11 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * included gate action that refuses would render the error page into the capture and that page
  * would be stored as the "PDF".</p>
  *
- * <p><b>The current encounter</b> (#5856) is the one item with no route: it is printed by the
+ * <p><b>The chart notes</b> (#5856) are the one item with no route: they are printed by the
  * modern chart's own print ({@link MsgEncounterPdfComposer}), which makes the PDF itself, after the
  * same checks the chart print makes. A chart the print cannot show in full is refused with 409, and
- * nothing is staged.</p>
+ * nothing is staged. Attached chart notes are audited as a chart print sent through Messenger, just
+ * before they are staged; a preview is not.</p>
  *
  * <p><b>Which message.</b> The chooser posts the key of the compose window that opened it
  * ({@code attachmentKey}), and the PDFs are staged under that key with the patient they were
@@ -129,11 +130,17 @@ public class MsgAttachPDF2Action extends ActionSupport {
         }
     }
 
-    /** Prints the current encounter as a PDF ({@link MsgEncounterPdfComposer#compose}). */
+    /** Prints the chart notes as a PDF ({@link MsgEncounterPdfComposer#compose}). */
     @FunctionalInterface
     interface EncounterPrinter {
         byte[] print(HttpServletRequest request, LoggedInInfo loggedInInfo, int demographicNo)
                 throws IOException, DocumentException;
+    }
+
+    /** Records attached chart notes ({@link MsgEncounterPdfComposer#recordAttached}); strict. */
+    @FunctionalInterface
+    interface AttachedRecorder {
+        void recordAttached(LoggedInInfo loggedInInfo, int demographicNo);
     }
 
     private static final Logger logger = MiscUtils.getLogger();
@@ -151,6 +158,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
     private final RouteRenderer routeRenderer;
     private final PdfConverter pdfConverter;
     private final EncounterPrinter encounterPrinter;
+    private final AttachedRecorder attachedRecorder;
 
     public MsgAttachPDF2Action() {
         this(SpringUtils.getBean(SecurityInfoManager.class),
@@ -168,18 +176,20 @@ public class MsgAttachPDF2Action extends ActionSupport {
                         return Doc2PDF.parseString2Bin(req, res, html);
                     }
                 },
-                MsgEncounterPdfComposer::composeWithChartServices);
+                MsgEncounterPdfComposer::composeWithChartServices,
+                MsgEncounterPdfComposer::recordAttached);
     }
 
     MsgAttachPDF2Action(SecurityInfoManager securityInfoManager, DemographicManager demographicManager,
                         MsgPdfAttachmentResolver resolver, RouteRenderer routeRenderer, PdfConverter pdfConverter,
-                        EncounterPrinter encounterPrinter) {
+                        EncounterPrinter encounterPrinter, AttachedRecorder attachedRecorder) {
         this.securityInfoManager = securityInfoManager;
         this.demographicManager = demographicManager;
         this.resolver = resolver;
         this.routeRenderer = routeRenderer;
         this.pdfConverter = pdfConverter;
         this.encounterPrinter = encounterPrinter;
+        this.attachedRecorder = attachedRecorder;
     }
 
     /**
@@ -320,6 +330,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
         // Render every item first and only then replace the set, so a failure part-way through
         // (an exception from a lookup, say) leaves the message's existing attachments as they were.
         List<String[]> rendered = new ArrayList<>();
+        boolean chartNotesPrinted = false;
         for (Item item : selected) {
             Optional<Attachment> attachment = resolver.resolve(item, demographicNo, patientName, labels);
             if (attachment.isEmpty()) {
@@ -338,6 +349,7 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     return NONE;
                 }
                 pdf = printed == null ? null : Base64.getEncoder().encodeToString(printed);
+                chartNotesPrinted = printed != null;
             } else {
                 String html = render(attachment.get(), demographicNo, loggedInInfo);
                 pdf = html == null ? null : pdfConverter.toBase64Pdf(request, response, html);
@@ -365,6 +377,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
                     MessageTbl.PDF_ATTACHMENT_MAX_BYTES);
             response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, PDFS_TOO_LARGE);
             return NONE;
+        }
+        if (chartNotesPrinted) {
+            // The chart notes leave the chart here. Strict: if this cannot be recorded it throws, and
+            // nothing is staged.
+            attachedRecorder.recordAttached(loggedInInfo, demographicNo);
         }
         MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, demographicNo, stored);
         return SUCCESS;
@@ -408,10 +425,11 @@ public class MsgAttachPDF2Action extends ActionSupport {
     }
 
     /**
-     * Prints the current encounter (the item that makes its own PDF) for an authorized patient.
+     * Prints the chart notes (the item that makes its own PDF) for an authorized patient.
      *
      * @return the PDF, or {@code null} if it did not print
      * @throws CdsLegacyProjectionException if the chart print cannot show this patient's record
+     * @throws SecurityException if the chart print refuses this user
      */
     private byte[] printOwnPdf(Attachment attachment, int demographicNo, LoggedInInfo loggedInInfo) {
         try {
@@ -419,6 +437,9 @@ public class MsgAttachPDF2Action extends ActionSupport {
             return pdf == null || pdf.length == 0 ? null : pdf;
         } catch (CdsLegacyProjectionException unsupported) {
             throw unsupported;
+        } catch (SecurityException refused) {
+            // The print refused (a chart context that is not this user's): a refusal, not a failure.
+            throw refused;
         } catch (IOException | RuntimeException e) {
             // OpenPDF's DocumentException is a RuntimeException.
             // No PHI: the item kind and the exception's class only, never its message or the patient.

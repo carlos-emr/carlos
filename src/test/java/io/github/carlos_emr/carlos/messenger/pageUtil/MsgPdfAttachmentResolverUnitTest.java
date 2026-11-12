@@ -50,7 +50,7 @@ class MsgPdfAttachmentResolverUnitTest {
             return new Object[][]{
                     {"messenger.generatePreviewPDF.information", "Information"},
                     {"messenger.generatePreviewPDF.historicalEncounter", "Historical encounter:"},
-                    {"messenger.generatePreviewPDF.currentEncounter", "Current encounter notes"},
+                    {"messenger.generatePreviewPDF.currentEncounter", "All current chart notes and CPP"},
                     {"messenger.generatePreviewPDF.currentPrescriptions", "Current Prescriptions"}};
         }
     };
@@ -87,7 +87,7 @@ class MsgPdfAttachmentResolverUnitTest {
         assertThat(resolver.resolve(Item.PRESCRIPTIONS, 12, "", LABELS))
                 .get().extracting(Attachment::title).isEqualTo("Current Prescriptions");
         assertThat(resolver.resolve(Item.CURRENT_ENCOUNTER, 12, "", LABELS))
-                .get().extracting(Attachment::title).isEqualTo("Current encounter notes");
+                .get().extracting(Attachment::title).isEqualTo("All current chart notes and CPP");
     }
 
     @Test
