@@ -1155,7 +1155,8 @@ OAUTH_ACCESS_DEFAULTS
         # organisms seen" as "No", "N/A" as "N" and the blood group "A positive"
         # as "A": answers the lab did not give, in the flowsheets, the
         # Measurements module and decision support. The stock line now accepts a
-        # word only as the whole result (^(word)$); numbers and dates are
+        # word or a date only as the whole result (^(word)$, ^date$), so
+        # "Negative 2026-10-09" is not filed as the date either; numbers are
         # unchanged. Same discipline as the #4613 block above, which runs first:
         # under the provisioning lock, ONLY the exact #4613 stock line, ONLY when
         # the key is defined once, ONLY once (the sentinel is written on fresh

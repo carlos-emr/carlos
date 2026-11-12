@@ -4,8 +4,9 @@
 
 The #4613 stock filter matched each of its words at the START of a result
 (``^\\\\b(word)\\\\b`` run with find()), so Hl7textResultsData filed "No organisms
-seen" as "No", "N/A" as "N" and "A positive" as "A". The stock line now accepts
-a word only as the whole result (``^(word)$``). install_once copied the #4613
+seen" as "No", "N/A" as "N" and "A positive" as "A", and its dates anywhere, so
+"Negative 2026-10-09" was filed as the date. The stock line now accepts a word
+or a date only as the whole result (``^(word)$``, ``^date$``). install_once copied the #4613
 line into /etc/carlos-emr/carlos.properties, the override that wins over the
 WAR default, so the postinst rewrites that exact line once.
 
@@ -106,11 +107,12 @@ class TestLabFilterWordsMigration(unittest.TestCase):
                                    encoding="utf-8")
         self.properties.chmod(0o640)
 
-    def test_shipped_line_is_the_4613_line_with_whole_word_alternatives(self):
+    def test_shipped_line_is_the_4613_line_with_whole_value_words_and_dates(self):
         old, new = alternatives(old_line()), alternatives(shipped_line())
         self.assertEqual(len(old), len(new))
-        # Dates and the leading number are unchanged.
-        self.assertEqual(old[:3], new[:3])
+        # The two date alternatives must be the whole result; the leading number is unchanged.
+        self.assertEqual(new[:2], ["^" + date + "$" for date in old[:2]])
+        self.assertEqual(old[2], new[2])
         for before, after in zip(old[3:], new[3:]):
             with self.subTest(word=before):
                 self.assertTrue(before.startswith("^\\\\b("), before)

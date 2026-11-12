@@ -489,7 +489,9 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "No growth    | No growth",
                 "Non-reactive | Non-reactive",
                 "Test not performed | Test not performed",
-                "lrg++        | lrg++"})
+                "lrg++        | lrg++",
+                // A date that is the whole result is still filed (#6121).
+                "2026/11/01   | 2026/11/01"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 
@@ -505,13 +507,16 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         /**
-         * A listed word counts only as the whole result (#6121). Matched at the start of a longer result, it filed an
-         * answer the lab did not give: "No organisms seen" as "No", "N/A" as "N", blood group "A positive" as "A".
+         * A listed word or a date counts only as the whole result (#6121). Matched at the start of a longer result, a
+         * word filed an answer the lab did not give: "No organisms seen" as "No", "N/A" as "N", blood group
+         * "A positive" as "A". Matched anywhere, a date filed the date instead of the lab's answer:
+         * "Negative 2026-10-09" as "2026-10-09".
          */
         @ParameterizedTest(name = "[{0}] is not filed")
         @CsvSource(delimiter = '|', value = {"No organisms seen", "N/A", "A positive", "Negative for malignancy",
-                "Positive for E. coli", "Normal flora", "Moderate growth", "No growth after 48 hours", "Yes - see report"})
-        void shouldNotFileAShorterWord_whenTheWordIsOnlyTheStartOfTheResult(String result) throws IOException {
+                "Positive for E. coli", "Normal flora", "Moderate growth", "No growth after 48 hours", "Yes - see report",
+                "Negative 2026-10-09", "Collected 2026-10-09", "Positive (2026-10-09)", "Positive, repeat 2026/11/01"})
+        void shouldNotFilePartOfTheResult_whenAWordOrDateIsNotTheWholeResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
         }
