@@ -220,6 +220,27 @@ class SmsReminderChannelUnitTest {
         verify(queue, never()).enqueue(any());
     }
 
+    /**
+     * #884 (review): a database or lookup error before anything reaches the queue sent nothing. It is a failure, so its
+     * one retry runs; never unconfirmed, which would say it may have gone, never retry it, and cover other bookings.
+     */
+    @Test
+    @DisplayName("should record a failure, not an unconfirmed send, for an error before the queue")
+    void shouldRecordAFailure_whenALookupFailsBeforeTheQueue() {
+        when(extras.getValueForDemoKey(PATIENT, SmsReminderChannel.CELL_PHONE_KEY))
+                .thenThrow(new IllegalStateException("FAKE database failure"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(ReminderOutcome.because(AppointmentReminderStatus.FAILED,
+                new IllegalStateException("FAKE database failure")));
+
+        org.mockito.Mockito.reset(extras);
+        when(extras.getValueForDemoKey(PATIENT, SmsReminderChannel.CELL_PHONE_KEY)).thenReturn("416-555-0142");
+        when(clinics.getClinic()).thenThrow(new IllegalStateException("FAKE database failure"));
+
+        assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.FAILED);
+        verify(queue, never()).enqueue(any());
+    }
+
     @Test
     @DisplayName("should send other languages in English, since they would not fit one segment")
     void shouldSendOtherLanguages_inEnglish() {

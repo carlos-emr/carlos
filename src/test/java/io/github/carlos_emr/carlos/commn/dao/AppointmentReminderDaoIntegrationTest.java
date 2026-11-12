@@ -297,6 +297,24 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
                 .extracting(found -> found.reminder().getId()).containsExactly(unticked.getId());
     }
 
+    /** #884: a text handed to the SMS queue for the visit is found too, after its booking moved. */
+    @Test
+    void shouldFindATextQueuedForTheVisit_afterItsBookingMoved() {
+        AppointmentReminder mine = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.SMS);
+        Appointment moved = appointment(DAY, LocalTime.of(9, 0));
+        AppointmentReminder queued = reminder(moved, ReminderChannel.SMS);
+        queued.startSending(at(DAY, LocalTime.of(9, 0)), now);
+        queued.finish(AppointmentReminderStatus.QUEUED, null, 55L, now);
+        reminders.merge(queued);
+        moved.setStartTime(java.sql.Time.valueOf(LocalTime.of(11, 0)));
+        moved.setEndTime(java.sql.Time.valueOf(LocalTime.of(11, 15)));
+        entityManager.merge(moved);
+        entityManager.flush();
+
+        assertThat(reminders.findSameVisit(ReminderChannel.SMS, 42, DAY.atTime(9, 0), mine.getId(), HANDED_OVER))
+                .extracting(found -> found.reminder().getId()).containsExactly(queued.getId());
+    }
+
     /** ...and after its booking moved to another time: it was sent for this one. */
     @Test
     void shouldFindAReminderAlreadySentForTheVisit_afterItsBookingMoved() {

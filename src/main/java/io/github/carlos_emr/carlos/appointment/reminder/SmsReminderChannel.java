@@ -165,36 +165,39 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
 
     @Override
     public ReminderOutcome send(ClaimedReminder reminder) {
-        Demographic patient;
-        String cell;
+        SmsSendCommand command;
         try {
             LoggedInInfo system = EmailReminderChannel.systemUser(providers);
             if (system == null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NOT_PERMITTED);
             }
-            patient = demographics.getDemographic(system, reminder.demographicNo());
+            Demographic patient = demographics.getDemographic(system, reminder.demographicNo());
             if (patient == null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NO_ADDRESS);
             }
-            cell = cellNumber(extras.getValueForDemoKey(reminder.demographicNo(), CELL_PHONE_KEY));
+            String cell = cellNumber(extras.getValueForDemoKey(reminder.demographicNo(), CELL_PHONE_KEY));
+            if (cell.isEmpty()) {
+                return ReminderOutcome.of(AppointmentReminderStatus.NO_ADDRESS);
+            }
+            if (SmsPhoneNumbers.normalizeToE164(cell).isEmpty()) {
+                return ReminderOutcome.of(AppointmentReminderStatus.INVALID_ADDRESS);
+            }
+            String body = text(patient, reminder.start());
+            if (SmsSegments.count(body).segments() > 1) {
+                // A clinic name or phone the wording did not plan for: never cut, never split, never retried.
+                return ReminderOutcome.because(AppointmentReminderStatus.TOO_LONG, "tooLong");
+            }
+            command = SmsSendCommand.appointmentReminder(reminder.demographicNo(), cell, body,
+                    reminder.requestedBy(), reminder.appointmentNo(),
+                    window.sendBy(reminder.start(), LocalDateTime.now(clock)).atZone(zone).toInstant());
         } catch (SecurityException | PatientDirectiveException e) {
             // The system provider may not read this patient (a restricted program or a patient's directive).
             return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, e);
+        } catch (RuntimeException e) {
+            // A database or lookup error before anything reached the queue: nothing was sent. A failure, so its one
+            // retry runs; never unconfirmed, which would say it may have gone and cover other bookings.
+            return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
         }
-        if (cell.isEmpty()) {
-            return ReminderOutcome.of(AppointmentReminderStatus.NO_ADDRESS);
-        }
-        if (SmsPhoneNumbers.normalizeToE164(cell).isEmpty()) {
-            return ReminderOutcome.of(AppointmentReminderStatus.INVALID_ADDRESS);
-        }
-        String body = text(patient, reminder.start());
-        if (SmsSegments.count(body).segments() > 1) {
-            // A clinic name or phone the wording did not plan for: never cut, never split, never retried.
-            return ReminderOutcome.because(AppointmentReminderStatus.TOO_LONG, "tooLong");
-        }
-        SmsSendCommand command = SmsSendCommand.appointmentReminder(reminder.demographicNo(), cell, body,
-                reminder.requestedBy(), reminder.appointmentNo(),
-                window.sendBy(reminder.start(), LocalDateTime.now(clock)).atZone(zone).toInstant());
         try {
             return outcome(queue.enqueue(command));
         } catch (RuntimeException e) {

@@ -39,8 +39,9 @@ The `appointment_reminder` table and `sms_transaction.expires_at` come from the 
   restricted program or a patient directive) gets no text.
 - **Timing:** the text is handed to the queue from `hours_before` before the start until 2 hours before. A booking
   made inside that window is reminded at the next run, as long as more than 2 hours remain.
-- **Quiet hours:** no text goes out between 21:00 and 08:00, server time. A reminder that falls in those hours is
-  handed over at 08:00 if more than 2 hours remain before the start; otherwise no text goes.
+- **Quiet hours:** no text goes out between 21:00 and 08:00, server time, and none is handed over in the 10
+  minutes before 21:00, where it would barely have time to go. A reminder that falls in those hours is handed over
+  at 08:00 if more than 2 hours remain before the start; otherwise no text goes.
 - **One text per appointment start:** moving an appointment by changing its date or time sends a reminder for the
   new time, so the patient's latest text always has the right time (the owner's decision). Unticking the box stops
   a text not yet handed over.

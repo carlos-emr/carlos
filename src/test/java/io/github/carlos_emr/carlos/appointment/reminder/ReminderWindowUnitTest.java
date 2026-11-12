@@ -203,4 +203,28 @@ class ReminderWindowUnitTest {
                 .as("no quiet hours: the cutoff").isEqualTo(LocalDateTime.of(2026, 11, 19, 12, 0));
     }
 
+
+    /**
+     * #884 (review): no text is handed over in the 10 minutes before the quiet hours. Its limit would be that close,
+     * and a text the queue could not send by 21:00 would expire; it waits for 08:00 instead, time allowing.
+     */
+    @Test
+    void shouldPauseTheHandover_justBeforeTheQuietHours() {
+        ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+        LocalDateTime tomorrowAfternoon = LocalDateTime.of(2026, 11, 19, 14, 0);
+
+        assertThat(sms.isDue(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 20, 49), null)).isTrue();
+        assertThat(sms.isDue(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 20, 50), null)).isFalse();
+        assertThat(sms.nextSendTime(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 20, 55)))
+                .contains(LocalDateTime.of(2026, 11, 19, 8, 0));
+        assertThat(sms.isQuiet(LocalTime.of(20, 55))).as("the quiet hours themselves are unchanged").isFalse();
+        // Without quiet hours (email) nothing pauses.
+        assertThat(new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2))
+                .isDue(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 20, 55), null)).isTrue();
+        // A margin that wraps past midnight, for quiet hours starting at 00:05.
+        ReminderWindow early = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2), LocalTime.of(0, 5),
+                LocalTime.of(6, 0), Duration.ofMinutes(10));
+        assertThat(early.isDue(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 23, 58), null)).isFalse();
+        assertThat(early.isDue(tomorrowAfternoon, LocalDateTime.of(2026, 11, 18, 23, 50), null)).isTrue();
+    }
 }

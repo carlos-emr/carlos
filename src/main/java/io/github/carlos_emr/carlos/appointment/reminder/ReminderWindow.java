@@ -50,6 +50,11 @@ public final class ReminderWindow {
      */
     public static final LocalTime SMS_QUIET_FROM = LocalTime.of(21, 0);
     public static final LocalTime SMS_QUIET_UNTIL = LocalTime.of(8, 0);
+    /**
+     * No text is handed over in the last minutes before the quiet hours (#884): its limit would be that close, and a
+     * text the queue could not send in those minutes would expire. It waits for the morning instead, time allowing.
+     */
+    public static final Duration SMS_HANDOVER_MARGIN = Duration.ofMinutes(10);
     public static final int DEFAULT_HOURS_BEFORE = 24;
     /** More than the cutoff, so every reminder has an hour to go out in. */
     public static final int MIN_HOURS_BEFORE = 3;
@@ -67,6 +72,8 @@ public final class ReminderWindow {
     /** Quiet hours, or both {@code null}: none. They may wrap past midnight. */
     private final LocalTime quietFrom;
     private final LocalTime quietUntil;
+    /** How long before the quiet hours nothing is handed over any more; zero without quiet hours. */
+    private final Duration handoverMargin;
 
     /**
      * The window for the clinic's {@value #HOURS_BEFORE_PROPERTY} setting, as written in the properties file.
@@ -84,7 +91,7 @@ public final class ReminderWindow {
      */
     public static ReminderWindow forSmsHoursBefore(String configured) {
         return new ReminderWindow(Duration.ofHours(boundedHours(configured, SMS_HOURS_BEFORE_PROPERTY)), DEFAULT_CUTOFF,
-                SMS_QUIET_FROM, SMS_QUIET_UNTIL);
+                SMS_QUIET_FROM, SMS_QUIET_UNTIL, SMS_HANDOVER_MARGIN);
     }
 
     private static int boundedHours(String configured, String property) {
@@ -118,6 +125,12 @@ public final class ReminderWindow {
 
     /** @param quietFrom when quiet hours start, or {@code null} with {@code quietUntil} for none */
     public ReminderWindow(Duration lead, Duration cutoff, LocalTime quietFrom, LocalTime quietUntil) {
+        this(lead, cutoff, quietFrom, quietUntil, Duration.ZERO);
+    }
+
+    /** @param handoverMargin how long before the quiet hours hand-over stops (none without quiet hours) */
+    public ReminderWindow(Duration lead, Duration cutoff, LocalTime quietFrom, LocalTime quietUntil,
+                          Duration handoverMargin) {
         this.lead = Objects.requireNonNull(lead, "lead");
         this.cutoff = Objects.requireNonNull(cutoff, "cutoff");
         if (lead.isNegative() || cutoff.isNegative() || cutoff.compareTo(lead) >= 0) {
@@ -128,6 +141,7 @@ public final class ReminderWindow {
         }
         this.quietFrom = quietFrom;
         this.quietUntil = quietUntil;
+        this.handoverMargin = quietFrom == null || handoverMargin == null ? Duration.ZERO : handoverMargin;
     }
 
     /** Whether {@code time} is inside the quiet hours, which may wrap past midnight. */
@@ -150,7 +164,7 @@ public final class ReminderWindow {
         if (start == null || now == null || start.equals(sentFor)) {
             return false;
         }
-        return !now.isBefore(start.minus(lead)) && now.isBefore(start.minus(cutoff)) && !isQuiet(now.toLocalTime());
+        return !now.isBefore(start.minus(lead)) && now.isBefore(start.minus(cutoff)) && !handoverPaused(now.toLocalTime());
     }
 
     /** The first moment a reminder for {@code start} may go: after the quiet hours, if it opens inside them. */
@@ -186,9 +200,24 @@ public final class ReminderWindow {
         return quiet.isBefore(limit) ? quiet : limit;
     }
 
-    /** {@code time}, or the end of the quiet hours when it falls inside them. */
+    /** Whether nothing is handed over at {@code time}: the quiet hours, and the margin just before them. */
+    private boolean handoverPaused(LocalTime time) {
+        if (isQuiet(time)) {
+            return true;
+        }
+        if (handoverMargin.isZero()) {
+            return false;
+        }
+        LocalTime pauseFrom = quietFrom.minus(handoverMargin);
+        // The margin may itself wrap past midnight when the quiet hours start just after it.
+        return pauseFrom.isBefore(quietFrom)
+                ? !time.isBefore(pauseFrom) && time.isBefore(quietFrom)
+                : !time.isBefore(pauseFrom) || time.isBefore(quietFrom);
+    }
+
+    /** {@code time}, or the end of the quiet hours when it falls inside them or the margin before them. */
     private LocalDateTime outsideQuietHours(LocalDateTime time) {
-        if (!isQuiet(time.toLocalTime())) {
+        if (!handoverPaused(time.toLocalTime())) {
             return time;
         }
         LocalDateTime end = time.toLocalDate().atTime(quietUntil);

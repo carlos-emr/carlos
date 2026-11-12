@@ -331,6 +331,20 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
          * A booking whose reminder already went for this visit covers it whatever staff did to the booking after:
          * unticked its box, cancelled it, or moved it. Otherwise ticking another booking sends a second email.
          */
+        /** #884 (review): a text handed to the SMS queue is handed over, so the query also reads queued ones. */
+        @Test
+        void shouldAskForQueuedTexts_amongTheRemindersHandedOver() {
+            assertThat(AppointmentReminderService.HANDED_OVER).contains(AppointmentReminderStatus.QUEUED);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+
+            service.processDue(10);
+
+            verify(reminders).findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(start), eq(7L),
+                    org.mockito.ArgumentMatchers.argThat(statuses -> statuses.contains(AppointmentReminderStatus.QUEUED)));
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"unticked", "cancelled", "moved"})
         void shouldRecordTheReminderAsCovered_whenTheBookingThatWasRemindedChangedAfter(String change) {
@@ -1179,7 +1193,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         private Optional<ReminderStatusLine> line(LocalDateTime now, int leadHours, LocalDateTime start,
                                                   AppointmentReminder reminder) {
             ReminderWindow window = new ReminderWindow(Duration.ofHours(leadHours), Duration.ofHours(2),
-                    ReminderWindow.SMS_QUIET_FROM, ReminderWindow.SMS_QUIET_UNTIL);
+                    ReminderWindow.SMS_QUIET_FROM, ReminderWindow.SMS_QUIET_UNTIL, ReminderWindow.SMS_HANDOVER_MARGIN);
             AppointmentReminderChannel sms = new AppointmentReminderChannel() {
                 @Override
                 public ReminderChannel channel() {
@@ -1215,6 +1229,18 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         private AppointmentReminder textRequested() {
             return AppointmentReminder.requested(APPOINTMENT, ReminderChannel.SMS, "999998", at(NOW.minusDays(3)));
+        }
+
+        @Test
+        @DisplayName("should say 08:00 for a text due in the last minutes before the quiet hours")
+        void shouldSayItGoesAtEight_whenDueJustBeforeTheQuietHours() {
+            ReminderWindow sms = ReminderWindow.forSmsHoursBefore("24");
+            LocalDateTime justBefore = NOW.withHour(20).withMinute(55);
+            LocalDateTime tomorrow = NOW.plusDays(1).withHour(14);
+
+            assertThat(sms.nextSendTime(tomorrow, justBefore)).contains(NOW.plusDays(1).withHour(8));
+            assertThat(line(justBefore, 24, tomorrow, textRequested()))
+                    .contains(new ReminderStatusLine(KEYS + "scheduled", shown.format(NOW.plusDays(1).withHour(8))));
         }
 
         @Test
