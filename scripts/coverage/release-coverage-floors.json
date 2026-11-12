@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "82668cd8b3c5cc9093309e83ad9ad8289a3a86f3",
+  "comparisonSha256": "be1af4e8877dabb3a52aa7ff1d629e35ab879cc02ef3c6d8e18f30db8ad88d9b",
+  "baselineCommit": "c2f1351d044ddae24cbfdd34530c3a40d4f70109",
+  "baselineSourceTree": "82668cd8b3c5cc9093309e83ad9ad8289a3a86f3",
+  "baselineReportSha256": "b7cc5e6ae9ed40e459d044b5b1a9087f2b3dc5b65175cbfa1b5727995df862f6",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 2), not through verify-release-evidence.py. Source: a local test merge (57a704564c) of release 1b27a8fd2c with #6161 (c2f1351d04), #6163 (b7a0d7567f) and #6164 (cdada16300). Maven ran 36,220 tests, 217 skipped, 1 failure (EFormRenderCompletenessReportUnitTest, fixed since by the test-only #6164 commit 1ee19f233c).",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
-    "failures": 0,
+    "tests": 36220,
+    "skipped": 217,
+    "failures": 1,
     "errors": 0
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "ed12e36df371f42fe6cce171408d3826f08c84659a44253389012f9227c3013e",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -2935,13 +2935,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "1c1910e5a8fa219ec2a5b8a3ed492865d426b490"
+      "sourceBlob": "85804ba44f1a1f2b1766faf7db402998354803e1"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 91.66666666666667,
-      "sourceBlob": "8f0f394c94e734d3ddd6cbb1d50adc89d52c38ca"
+      "sourceBlob": "f113512ec8ba5bae36bcf9867be2e82da635ea2f"
     },
     "src/main/java/io/github/carlos_emr/carlos/model/BaseObject.java": {
       "lines": 100.0,
@@ -4424,6 +4424,18 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cc85bd782fc33f0c0b642f15c9faaa1e1cba44b5"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgEncounterPdfComposer.java": {
+      "lines": 96.15384615384616,
+      "instructions": 92.98245614035088,
+      "branches": 100.0,
+      "sourceBlob": "29e749c7a06e0408163ab901aa125cbb1f4d8de6"
     }
   },
   "exclusions": {
@@ -4465,31 +4477,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "57a704564cd3918161f8c8f90673ac87597349aa"
 }
