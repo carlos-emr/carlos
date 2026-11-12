@@ -267,9 +267,9 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         assertThat(reminders.findSameVisit(ReminderChannel.EMAIL, 42, null, mine.getId(), HANDED_OVER)).isEmpty();
     }
 
-    /** What a booking's reminder did that keeps covering the visit, whatever happens to the booking after. */
-    private static final java.util.Set<AppointmentReminderStatus> HANDED_OVER = java.util.EnumSet.of(
-            AppointmentReminderStatus.SENT, AppointmentReminderStatus.UNCONFIRMED, AppointmentReminderStatus.SENDING);
+    /** What the service passes: the statuses that keep covering the visit, whatever happens to the booking after. */
+    private static final java.util.Set<AppointmentReminderStatus> HANDED_OVER =
+            io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService.HANDED_OVER;
 
     /** A reminder already sent for {@code start}, on a booking for {@code start}. */
     private AppointmentReminder sentFor(LocalDateTime start, Appointment appointment) {
