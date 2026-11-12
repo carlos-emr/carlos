@@ -114,7 +114,8 @@ public class InboxService extends AbstractServiceImpl {
             inboxItem.setDateReceived(result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : ""));
             inboxItem.setPriority(result.getPriority());
             inboxItem.setStatus(status);
-            // Health-card identifiers belong to an authorized patient detail flow, not queue listings.
+            // Part of the published inbox item: clients match a result to its patient by health card number.
+            inboxItem.setHin(result.getHealthNumber());
 
             responseItems.add(inboxItem);
 

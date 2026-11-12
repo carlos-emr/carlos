@@ -71,7 +71,7 @@ REQUIRED_CASES = {
     "ScheduleSyncMariaDbIntegrationTest": {
         "shouldApplyProgramProviderPatientFilters_whilePagingNativeTies",
         "shouldContinuePastConsentBlockedRows_withoutReturningAFalseEmptyNativePage",
-        "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+        "shouldExtendLegacyTiePages_toCompleteNativeTimestampGroups",
         "shouldKeepASingleRepeatableReadSnapshot_acrossNativeBatchQueries",
         "shouldPageArchiveTiesWithoutLoss_onTheNativeSchema",
         "shouldPageCurrentTiesWithoutLoss_onTheNativeSchema",

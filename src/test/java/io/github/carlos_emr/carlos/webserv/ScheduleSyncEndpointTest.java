@@ -7,7 +7,6 @@ import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.managers.AppointmentUpdatePage;
 import io.github.carlos_emr.carlos.managers.ScheduleManager;
-import io.github.carlos_emr.carlos.managers.ScheduleSyncBoundaryException;
 import io.github.carlos_emr.carlos.test.base.CarlosSoapTestBase;
 import jakarta.xml.ws.BindingProvider;
 import java.util.Calendar;
@@ -88,10 +87,14 @@ class ScheduleSyncEndpointTest extends CarlosSoapTestBase {
         assertThatThrownBy(() -> proxy.getAppointmentsUpdatedAfterDate(new Date(0),1,false)).hasMessageContaining("does not match");
         verifyNoInteractions(schedules);
     }
-    @Test void shouldFaultLegacyTieBoundaries_insteadOfReturningAnApparentlyCompletePartialPage() {
-        when(schedules.getAppointmentUpdatedAfterDate(any(),any(),anyInt())).thenThrow(new ScheduleSyncBoundaryException());
-        assertThatThrownBy(() -> client(Map.of()).getAppointmentsUpdatedAfterDate(new Date(0),1,false))
-                .hasMessageContaining("splits a shared update timestamp");
+    @Test void shouldReturnALongerHeaderlessPage_whenTheManagerCompletesASharedTimestamp() {
+        // The manager may answer a header-less request with more rows than asked for; see ScheduleLegacySyncEndpointTest.
+        when(schedules.getAppointmentUpdatedAfterDate(any(),eq(new Date(0)),eq(1))).thenReturn(List.of(row(1),row(2),row(3)));
+        var proxy = client(Map.of());
+        assertThat(proxy.getAppointmentsUpdatedAfterDate(new Date(0),1,false)).extracting(value -> value.getId()).containsExactly(1,2,3);
+        assertThat(headers(proxy)).containsEntry(ScheduleSyncHeaders.PROFILE,List.of("legacy-timestamp"))
+                .doesNotContainKeys(ScheduleSyncHeaders.MORE,ScheduleSyncHeaders.NEXT);
+        verify(schedules,never()).getAppointmentUpdatedPage(any(),any(),anyInt(),anyInt());
     }
     @Test void shouldRejectMalformedDuplicateAndUnselectedCursorHeaders_beforeCallingTheManager() {
         for (var headers : List.of(Map.of(ScheduleSyncHeaders.PROFILE,List.of("unknown")),

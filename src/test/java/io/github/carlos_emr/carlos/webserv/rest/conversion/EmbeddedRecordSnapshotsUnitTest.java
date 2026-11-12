@@ -51,23 +51,44 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
         provider.setDob(new Date(123456789)); return provider;
     }
     @ParameterizedTest @MethodSource("mappers")
-    void shouldRetainEveryEstablishedPatientMemberAndValue_exceptMinimizedIdentifiersAndIdentifierText(ObjectMapper mapper) throws Exception {
+    void shouldRetainEveryEstablishedPatientMemberAndValue_exceptTheSin(ObjectMapper mapper) throws Exception {
         Demographic original = patient();
         var detached = EmbeddedRecordSnapshots.demographic(actor,original);
         ObjectNode expected = mapper.valueToTree(original), actual = mapper.valueToTree(detached);
-        expected.remove(List.of("sin","hin","standardIdentificationHtml","label")); actual.remove(List.of("sin","hin","standardIdentificationHtml","label"));
+        // The health card number, and the label and identification text built from it, are what the
+        // embedded patient always carried; only the SIN is withheld.
+        assertThat(actual.path("hin").asText()).isEqualTo("PRIVATE_HIN");
+        assertThat(actual.path("label").asText()).contains("Patient", "Synthetic", "HIN:PRIVATE_HIN");
+        assertThat(actual.path("standardIdentificationHtml").asText()).contains("PRIVATE_HIN");
+        expected.remove("sin"); actual.remove("sin");
         assertThat(actual).isEqualTo(expected);
-        assertThat(mapper.writeValueAsString(detached)).doesNotContain("PRIVATE_SIN","PRIVATE_HIN");
-        assertThat(detached.getLabel()).contains("Patient", "Synthetic");
+        assertThat(mapper.writeValueAsString(detached)).doesNotContain("PRIVATE_SIN");
         assertThat(original.getSin()).isEqualTo("PRIVATE_SIN"); assertThat(original.getHin()).isEqualTo("PRIVATE_HIN");
     }
     @ParameterizedTest @MethodSource("mappers")
-    void shouldPreserveAuthorizedProviderValues_andRedactBillingWithoutPermission(ObjectMapper mapper) throws Exception {
+    void shouldCarryTheHealthCardNumber_inPatientsEmbeddedInAppointmentAndConsultationResponses(ObjectMapper mapper) throws Exception {
+        var appointment = new AppointmentTo1(); appointment.setDemographic(patient());
+        var request = new ConsultationRequestSearchResult(); request.setDemographic(patient());
+        var response = new ConsultationResponseSearchResult(); response.setDemographic(patient());
+        for (Object owner : List.of(appointment, request, response)) {
+            var wire = mapper.readTree(mapper.writeValueAsBytes(owner));
+            assertThat(wire.at("/demographic/hin").asText()).as(owner.getClass().getSimpleName()).isEqualTo("PRIVATE_HIN");
+            assertThat(wire.at("/demographic/label").asText()).contains("HIN:PRIVATE_HIN");
+            assertThat(wire.toString()).doesNotContain("PRIVATE_SIN");
+        }
+    }
+    @ParameterizedTest @MethodSource("mappers")
+    void shouldPreserveEveryProviderValue_withoutBillingPermissionOrCallerContext(ObjectMapper mapper) throws Exception {
         Provider source = provider();
-        when(security.hasPrivilege(actor,"_billing","r",(String)null)).thenReturn(true);
-        assertThat(mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(EmbeddedRecordSnapshots.provider(actor,source))).isEqualTo(mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(source));
-        when(security.hasPrivilege(actor,"_billing","r",(String)null)).thenReturn(false);
-        assertThat(mapper.writeValueAsString(EmbeddedRecordSnapshots.provider(actor,source))).doesNotContain("PRIVATE_");
+        var expected = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(source);
+        // The security mock denies every privilege: the billing identifiers of an embedded provider
+        // are part of the established wire contract and do not depend on _billing.
+        for (LoggedInInfo caller : new LoggedInInfo[]{actor, null}) {
+            var snapshot = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(EmbeddedRecordSnapshots.provider(caller,source));
+            assertThat(snapshot).isEqualTo(expected);
+            assertThat(snapshot.toString()).contains("PRIVATE_BILLING","PRIVATE_OHIP","PRIVATE_HSO","PRIVATE_RMA");
+        }
+        verifyNoInteractions(security);
         assertThat(source.getBillingNo()).isEqualTo("PRIVATE_BILLING");
     }
     @ParameterizedTest @MethodSource("mappers")
@@ -87,11 +108,14 @@ class EmbeddedRecordSnapshotsUnitTest extends CarlosUnitTestBase {
         var wire = mapper.<com.fasterxml.jackson.databind.JsonNode>valueToTree(appointment);
         assertThat(wire.at("/demographic/firstName").asText()).isEqualTo("Synthetic");
         assertThat(wire.at("/provider/providerNo").asText()).isEqualTo("7");
+        assertThat(wire.at("/provider/billingNo").asText()).isEqualTo("PRIVATE_BILLING");
+        assertThat(wire.at("/provider/ohipNo").asText()).isEqualTo("PRIVATE_OHIP");
         assertThat(wire.has("demographicSnapshot")).isFalse(); assertThat(wire.has("providerSnapshot")).isFalse();
         var decoded = mapper.readValue(mapper.writeValueAsBytes(appointment),AppointmentTo1.class);
         assertThat(decoded.getDemographic().getDemographicNo()).isEqualTo(42);
         assertThat(decoded.getProvider().getProviderNo()).isEqualTo("7");
-        assertThat(mapper.writeValueAsString(decoded)).doesNotContain("PRIVATE_");
+        assertThat(decoded.getDemographic().getHin()).isEqualTo("PRIVATE_HIN");
+        assertThat(mapper.writeValueAsString(decoded)).doesNotContain("PRIVATE_SIN");
     }
     @ParameterizedTest @MethodSource("mappers")
     void shouldSnapshotNoteIssues_withoutTraversingTheReverseClinicalNotesCollection(ObjectMapper mapper) throws Exception {

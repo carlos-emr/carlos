@@ -8,7 +8,7 @@ import org.apache.cxf.message.Message;
 import org.apache.cxf.phase.AbstractPhaseInterceptor;
 import org.apache.cxf.phase.Phase;
 
-/** Acknowledge only document operations that selected the profile. */
+/** Acknowledges the profile a document request named; a header-less request named none and gets no such header. */
 public final class DocumentListProfileOutInterceptor extends AbstractPhaseInterceptor<Message> {
     public DocumentListProfileOutInterceptor() { super(Phase.PREPARE_SEND); }
     @Override public void handleMessage(Message message) {
@@ -19,7 +19,7 @@ public final class DocumentListProfileOutInterceptor extends AbstractPhaseInterc
         Map<String, List<String>> existing = (Map<String, List<String>>) message.get(Message.PROTOCOL_HEADERS);
         Map<String, List<String>> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         if (existing != null) headers.putAll(existing);
-        headers.put(DocumentListProfile.HEADER, List.of(profile.wireName()));
+        if (profile.wireName() != null) headers.put(DocumentListProfile.HEADER, List.of(profile.wireName()));
         // Document operations use SOAP POST. Responses may contain private clinical metadata.
         headers.put("Cache-Control", List.of("no-store"));
         message.put(Message.PROTOCOL_HEADERS, headers);
