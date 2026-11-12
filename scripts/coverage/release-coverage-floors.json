@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "82668cd8b3c5cc9093309e83ad9ad8289a3a86f3",
-  "comparisonSha256": "be1af4e8877dabb3a52aa7ff1d629e35ab879cc02ef3c6d8e18f30db8ad88d9b",
-  "baselineCommit": "c2f1351d044ddae24cbfdd34530c3a40d4f70109",
-  "baselineSourceTree": "82668cd8b3c5cc9093309e83ad9ad8289a3a86f3",
-  "baselineReportSha256": "b7cc5e6ae9ed40e459d044b5b1a9087f2b3dc5b65175cbfa1b5727995df862f6",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 2), not through verify-release-evidence.py. Source: a local test merge (57a704564c) of release 1b27a8fd2c with #6161 (c2f1351d04), #6163 (b7a0d7567f) and #6164 (cdada16300). Maven ran 36,220 tests, 217 skipped, 1 failure (EFormRenderCompletenessReportUnitTest, fixed since by the test-only #6164 commit 1ee19f233c).",
+  "sourceTree": "d64bcb32d6c7fe5a44a9090473b75f7ed6711498",
+  "comparisonSha256": "b05b434d993d1eab6cfed404423ff7611577e051ce5d859604121cda1c664cd3",
+  "baselineCommit": "f8d722b66d894b495046a67223178860bf1be3e4",
+  "baselineSourceTree": "d64bcb32d6c7fe5a44a9090473b75f7ed6711498",
+  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
   "baselineTestCounts": {
-    "tests": 36220,
-    "skipped": 217,
-    "failures": 1,
-    "errors": 0
+    "tests": 36370,
+    "skipped": 219,
+    "failures": 0,
+    "errors": 2
   },
-  "baselineTestReportsSha256": "ed12e36df371f42fe6cce171408d3826f08c84659a44253389012f9227c3013e",
+  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -2935,7 +2935,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "85804ba44f1a1f2b1766faf7db402998354803e1"
+      "sourceBlob": "fe826e06c26d8fe3e2160e9e766e8f0f5172401b"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java": {
       "lines": 100.0,
@@ -4435,7 +4435,7 @@
       "lines": 96.15384615384616,
       "instructions": 92.98245614035088,
       "branches": 100.0,
-      "sourceBlob": "29e749c7a06e0408163ab901aa125cbb1f4d8de6"
+      "sourceBlob": "bfd5103f683b96372040698ec4e050df2ebb8b9d"
     }
   },
   "exclusions": {
@@ -4478,5 +4478,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "57a704564cd3918161f8c8f90673ac87597349aa"
+  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
 }
