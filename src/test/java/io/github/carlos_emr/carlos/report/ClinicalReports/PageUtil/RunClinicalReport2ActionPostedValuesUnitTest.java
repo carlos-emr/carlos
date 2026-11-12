@@ -86,6 +86,22 @@ class RunClinicalReport2ActionPostedValuesUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("clinicalReportUnknown")).isNull();
     }
 
+    /** A listed extra numerator still runs beside the main one. */
+    @Test
+    void shouldRunTheReport_whenAnExtraNumeratorIsListed() throws Exception {
+        var request = runnableRequest();
+        request.setParameter("numerator2", "n");
+        var reports = mock(ClinicalReportManager.class);
+        var denominator = mock(Denominator.class); when(denominator.getDenominatorList()).thenReturn(List.of("101"));
+        when(denominator.getDenominatorName()).thenReturn("FAKE-denominator");
+        var numerator = mock(Numerator.class); when(numerator.getOutputFields()).thenReturn(new String[0]);
+        when(numerator.getNumeratorName()).thenReturn("FAKE-numerator");
+        when(reports.getDenominatorById("d")).thenReturn(denominator); when(reports.getNumeratorById("n")).thenReturn(numerator);
+        assertThat(run(request, reports)).isEqualTo(ActionSupport.SUCCESS);
+        assertThat(request.getAttribute("clinicalReportUnknown")).isNull();
+        assertThat(request.getAttribute("max_numerator")).isEqualTo(2);
+    }
+
     @Test
     void shouldKeepTheTickedFields_whenSomeAreTicked() {
         String[] ticked = {"lastName", "sex"};

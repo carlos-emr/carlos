@@ -85,6 +85,16 @@ class RemoveClinicalReportFromHistory2ActionUnitTest extends CarlosUnitTestBase 
     }
 
     @Test
+    @DisplayName("should show the page when no report has been run in this session")
+    void shouldShowThePage_whenNoReportHasBeenRun() {
+        request.setParameter("id", "0");
+
+        assertThat(remove()).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(request.getSession().getAttribute("ClinicalReports")).isNull();
+    }
+
+    @Test
     @DisplayName("should still clear the whole list on clear=yes")
     void shouldClearTheList_whenClearIsYes() {
         reports("FAKE report A", "FAKE report B");
