@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "3ef862e08d7f014e9fc4a5633f8f215c8a79bab5",
+  "comparisonSha256": "c5304f29f1d9e49cc931c078fc824b41d3c650c951c286adba945336f68f32f9",
+  "baselineCommit": "3e77d10d9a488d8513d9c4f576fa1c296dbe808f",
+  "baselineSourceTree": "3ef862e08d7f014e9fc4a5633f8f215c8a79bab5",
+  "baselineReportSha256": "3d1a0d4e9488d0a8f583f7833966d8e20937673015cc8ea1b8d8f96af71c5959",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 2), not through verify-release-evidence.py. Source: a local test merge (f5c8f2b931) of release 1b27a8fd2c with #6174 (3e77d10d9a) and #6163 (39835729fc). Maven ran 36,234 tests, 217 skipped, 1 failure and 1 error, both in classes neither PR touches: CdsXmlParserLargeInputUnitTest (a bounded parser probe passed its 180-second deadline under load) and PrescriptionQrCodeUIBeanUnitTest (a ZXing ChecksumException decoding its test QR code).",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
-    "failures": 0,
-    "errors": 0
+    "tests": 36234,
+    "skipped": 217,
+    "failures": 1,
+    "errors": 1
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "2d758624e9d35b037368d2aa99e8746558d412eceae0fe229e0a6f5fd673b67a",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -4424,6 +4424,30 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/print/OscarChartPrinter.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "b4d9755a70d19c4e6c9d4fa9ff8e470289a1e9e4"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementManagerImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "f5472a9ef86421f4cac743d453cfc757e374193d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrint.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "5e697759b59738036abddf89410ba3ffb82fdb27"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/casemgmt/service/CaseManagementPrintPdf.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "323990c656bf06d042b05343895b123488231da8"
     }
   },
   "exclusions": {
@@ -4465,31 +4489,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "f5c8f2b931a77f368d8083ce9589356961483a93"
 }
