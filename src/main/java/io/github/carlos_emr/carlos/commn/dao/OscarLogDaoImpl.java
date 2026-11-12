@@ -51,9 +51,17 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     private static final Logger logger = MiscUtils.getLogger();
 
+    /**
+     * Leaves the audit rows of refused attempts ({@code LogConst.NORIGHT}) out of the recent-patient
+     * lists. Such a row names the patient so the refusal can be found from the chart, but being
+     * refused is not having opened the record: counting it would put a patient the provider may not
+     * open into that provider's "recent patients" (and fail the lists that then load each patient).
+     */
+    private static final String NOT_A_REFUSAL = " and (l.action is null or l.action <> 'no right')";
+
     /** Recently opened, live, unmerged patients for a provider (?1), latest access first. */
     private static final String RECENT_PATIENTS = "select l.demographicId from OscarLog l"
-            + " where l.providerNo = ?1 and l.demographicId > 0"
+            + " where l.providerNo = ?1 and l.demographicId > 0" + NOT_A_REFUSAL
             + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
             + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
             + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
@@ -61,7 +69,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
 
     /** As {@link #RECENT_PATIENTS}, leaving out the patients in the bound set (?2) the caller may not open. */
     private static final String RECENT_PATIENTS_EXCEPT_DENIED = "select l.demographicId from OscarLog l"
-            + " where l.providerNo = ?1 and l.demographicId > 0"
+            + " where l.providerNo = ?1 and l.demographicId > 0" + NOT_A_REFUSAL
             + " and exists (select d.demographicNo from Demographic d where d.demographicNo = l.demographicId"
             + " and (d.patientStatus is null or d.patientStatus <> 'DE'))"
             + " and not exists (select m.id from DemographicMerged m where m.demographicNo = l.demographicId and m.deleted = 0)"
@@ -219,7 +227,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProvider(String providerNo, int startPosition,
                                                                 int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.demographicId is not null and l.demographicId != -1" + NOT_A_REFUSAL + " group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
@@ -241,7 +249,7 @@ public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarL
     @Override
     public List<Object[]> getRecentDemographicsViewedByProviderAfterDateIncluded(String providerNo, Date date,
                                                                                  int startPosition, int itemsToReturn) {
-        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != -1 group by l.demographicId order by MAX(l.created) desc";
+        String sqlCommand = "select l.demographicId,MAX(l.created) as dt from " + modelClass.getSimpleName() + " l where l.providerNo = ?1 and l.created >= ?2 and l.demographicId is not null and l.demographicId != -1" + NOT_A_REFUSAL + " group by l.demographicId order by MAX(l.created) desc";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, providerNo);
