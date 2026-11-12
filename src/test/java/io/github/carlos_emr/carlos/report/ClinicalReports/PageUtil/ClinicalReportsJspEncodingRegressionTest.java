@@ -63,8 +63,17 @@ class ClinicalReportsJspEncodingRegressionTest extends io.github.carlos_emr.carl
     private static final Path JSP = Path.of("src", "main", "webapp", "WEB-INF", "jsp", "report", "ClinicalReports.jsp");
 
     /** A {@code <carlos:encode value='<%= ... %>' .../>} tag, whose scriptlet is encoded output. */
-    private static final Pattern ENCODE_TAG = Pattern.compile("<carlos:encode\\s+value='<%=.*?%>'[^>]*/>", Pattern.DOTALL);
+    private static final Pattern ENCODE_TAG = Pattern.compile("<carlos:encode\\s+value='<%=.*?%>'([^>]*)/>", Pattern.DOTALL);
     private static final Pattern RAW_OUTPUT = Pattern.compile("<%=(.*?)%>", Pattern.DOTALL);
+
+    private static final Pattern ATTRIBUTE_PREFIX = Pattern.compile("[\\w:-]+\\s*=\\s*[\"']$");
+    private static final Set<String> REVIEWED_ATTRIBUTE_CALLS = Set.of(
+            "SafeEncode.forHtmlAttribute(measurementTypes.getType())");
+    private static final Set<String> REVIEWED_CONTENT_CALLS = Set.of(
+            "SafeEncode.forHtmlContent(measurementTypes.getTypeDisplayName())",
+            "SafeEncode.forHtmlContent(measurementTypes.getType())",
+            "SafeEncode.forHtmlContent(measurementTypes.getMeasuringInstrc())",
+            "SafeEncode.forHtmlContent(measInst)");
 
     /** Raw outputs reviewed as server-built (whitespace removed). */
     private static final Set<String> REVIEWED_RAW = Set.of(
@@ -72,7 +81,6 @@ class ClinicalReportsJspEncodingRegressionTest extends io.github.carlos_emr.carl
             // The As Of Date box starts empty.
             "\"\"",
             "request.getContextPath()",
-            "request.getScheme()+\"://\"+request.getServerName()+\":\"+request.getServerPort()+request.getContextPath()+\"/\"",
             "re.getNumeratorCount()", "re.getDenominatorCount()",
             // Set by RunClinicalReport2Action with Integer.toString.
             "request.getAttribute(\"numerator\")", "request.getAttribute(\"denominator\")",
@@ -108,6 +116,8 @@ class ClinicalReportsJspEncodingRegressionTest extends io.github.carlos_emr.carl
                 .contains("title=\"<carlos:encode value='<%= re.getName() %>' context=\"htmlAttribute\"/>\"")
                 .contains("value=\"<carlos:encode value='<%= n.getId() %>' context=\"htmlAttribute\"/>\"")
                 .contains("<carlos:encode value='<%= n.getNumeratorName() %>'/>")
+                .contains("value=\"<carlos:encode value='<%= d.getId() %>' context=\"htmlAttribute\"/>\"")
+                .contains("value=\"<carlos:encode value='<%= h.get(\"providerNo\") %>' context=\"htmlAttribute\"/>\"")
                 .contains("<carlos:encode value='<%= d.getDenominatorName() %>'/>")
                 .contains("<carlos:encode value='<%= h.get(\"lastName\") %>'/>")
                 .contains("value=\"<carlos:encode value='<%= listName %>' context=\"htmlAttribute\"/>\"");
@@ -116,19 +126,81 @@ class ClinicalReportsJspEncodingRegressionTest extends io.github.carlos_emr.carl
     @Test
     @DisplayName("should print raw only values the server builds itself")
     void shouldPrintOnlyReviewedServerValues_withoutEncoding() throws Exception {
-        String rest = ENCODE_TAG.matcher(read()).replaceAll("");
+        assertThat(unreviewedOutputs(read()))
+                .as("output that is neither encoded for its context nor reviewed").isEmpty();
+    }
+
+    @Test
+    @DisplayName("should encode the assembled base URL for its href attribute")
+    void shouldEncodeBaseUrl_whenPrintedIntoHref() throws Exception {
+        assertThat(read()).contains("<base href=\"<carlos:encode value='<%= request.getScheme()"
+                + " + \"://\" + request.getServerName() + \":\" + request.getServerPort()"
+                + " + request.getContextPath() + \"/\" %>' context=\"htmlAttribute\"/>\">");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"baseRaw", "denominatorDefault", "providerContent", "unknownEncoder", "measurementAttribute"})
+    @DisplayName("should reject output whose encoder does not match its surrounding context")
+    void shouldRejectWrongContext_whenAuditingOutput(String change) throws Exception {
+        String original = read();
+        String changed = switch (change) {
+            case "baseRaw" -> {
+                Matcher base = ENCODE_TAG.matcher(original);
+                assertThat(base.find()).isTrue();
+                assertThat(base.group()).contains("request.getServerName()");
+                Matcher expression = RAW_OUTPUT.matcher(base.group());
+                assertThat(expression.find()).isTrue();
+                yield original.substring(0, base.start()) + expression.group() + original.substring(base.end());
+            }
+            case "denominatorDefault" -> original.replace(
+                    "value='<%= d.getId() %>' context=\"htmlAttribute\"",
+                    "value='<%= d.getId() %>'");
+            case "providerContent" -> original.replace(
+                    "<carlos:encode value='<%= h.get(\"providerNo\") %>' context=\"htmlAttribute\"/>",
+                    "<%= SafeEncode.forHtmlContent(h.get(\"providerNo\")) %>");
+            case "unknownEncoder" -> original.replace(
+                    "SafeEncode.forHtmlAttribute(measurementTypes.getType())",
+                    "SafeEncode.forJavaScript(measurementTypes.getType())");
+            case "measurementAttribute" -> original.replace(
+                    "SafeEncode.forHtmlContent(measurementTypes.getTypeDisplayName())",
+                    "SafeEncode.forHtmlAttribute(measurementTypes.getTypeDisplayName())");
+            default -> throw new IllegalArgumentException(change);
+        };
+        assertThat(changed).isNotEqualTo(original);
+        assertThat(unreviewedOutputs(changed)).as(change).isNotEmpty();
+    }
+
+    private static List<String> unreviewedOutputs(String jsp) {
         List<String> unreviewed = new ArrayList<>();
+        Matcher tags = ENCODE_TAG.matcher(jsp);
+        while (tags.find()) {
+            boolean attribute = isAttribute(jsp, tags.start());
+            String options = tags.group(1).trim();
+            boolean correctContext = attribute
+                    ? options.equals("context=\"htmlAttribute\"")
+                    : options.isEmpty() || options.equals("context=\"html\"");
+            if (!correctContext) {
+                unreviewed.add(tags.group());
+            }
+        }
+
+        String rest = ENCODE_TAG.matcher(jsp).replaceAll("");
         Matcher m = RAW_OUTPUT.matcher(rest);
         while (m.find()) {
             String expr = m.group(1).replaceAll("\\s+", "");
             boolean flag = expr.startsWith("sel(") || expr.startsWith("dchecked(");
-            boolean encoded = expr.startsWith("SafeEncode.");
+            boolean encoded = isAttribute(rest, m.start())
+                    ? REVIEWED_ATTRIBUTE_CALLS.contains(expr) : REVIEWED_CONTENT_CALLS.contains(expr);
             if (!flag && !encoded && !REVIEWED_RAW.contains(expr)) {
                 unreviewed.add(expr);
             }
         }
+        return unreviewed;
+    }
 
-        assertThat(unreviewed).as("raw <%%= %%> output that is neither encoded nor reviewed").isEmpty();
+    // The page's encoded attribute outputs start immediately after their opening quote.
+    private static boolean isAttribute(String jsp, int outputStart) {
+        return ATTRIBUTE_PREFIX.matcher(jsp.substring(Math.max(0, outputStart - 100), outputStart)).find();
     }
 
     private static String read() throws Exception {
