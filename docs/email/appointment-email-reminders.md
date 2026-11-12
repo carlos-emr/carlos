@@ -1,0 +1,68 @@
+# Email Appointment Reminders
+
+CARLOS can email a patient a reminder before an appointment (issue #5887). Staff ask for it per appointment with
+the **Email Reminder** box on Add and Edit Appointment. A background job sends it through the normal patient email
+path (`EmailManager`), so every email rule that applies to staff-sent patient email applies here too.
+
+## Turning it on
+
+| Setting | Where | Meaning |
+|---|---|---|
+| `emailApptReminder` | `carlos.properties` | `yes`, `true` or `on` shows the box on Add/Edit Appointment and runs the reminder job every 5 minutes. Off by default. |
+| `appointment_reminder.email.sender` | `carlos.properties` | The sender address reminders go from. It must be an **active** sender in Administration > Email configuration. Without it, nothing is sent and each reminder records "not set up". |
+| `appointment_reminder.email.hours_before` | `carlos.properties` | How many hours before the start the reminder goes. Default 24; kept between 3 and 168. A missing or invalid value uses 24, and the log says so. |
+
+Properties are read at startup, so restart Tomcat after changing them.
+
+The clinic email footer must be configured, as for every patient email. The `appointment_reminder` table and the
+`_edoc` write right for the system account come from the release's database migration.
+
+## Who gets a reminder, and when
+- **The appointment:** it has a patient, the box was ticked, and it is not cancelled (`C`) or a no-show (`N`).
+- **Consent:** the patient has given **explicit** consent to email under the clinic's electronic-communication
+  consent type. Implied or unknown consent is not enough, and there is no override for the job.
+- **Address:** the patient has a valid email address on their demographic record. The first valid address is used.
+- **Timing:** the reminder goes from `hours_before` before the start until 2 hours before. A booking made inside
+  that window is reminded at the next run, as long as more than 2 hours remain.
+- **Once per start:** each appointment start is reminded once. Moving the appointment (by any path: Edit, REST,
+  HL7, recurring bookings) makes it due again for the new start. Unticking the box stops it. A reminder already sent
+  cannot be recalled.
+- **Retry:** one retry, 30 minutes after a definite mail-server failure. A refusal (consent, address, setup) or an
+  unconfirmed send is never retried, so a patient is not emailed twice.
+
+## What the patient receives
+The subject is "Appointment reminder: {clinic}". The body:
+
+> This is a reminder of your appointment at {clinic} on {date} at {time}. If you need to change or cancel it,
+> please call {phone}. Please do not reply to this email.
+
+- **Language:** the patient's spoken language where CARLOS has a translation (English, French, Spanish, Polish,
+  Brazilian Portuguese), otherwise their official language, otherwise English.
+- **Never included:** the provider, the reason, notes or any clinical detail.
+- **Clinic with no phone on file:** "please contact the clinic" in place of "please call {phone}".
+
+## Where staff see the outcome
+- **Edit Appointment:** a line under the box says when the reminder will go, that it went (and when), or why it was
+  not sent:
+  - not opted in;
+  - no valid address;
+  - not set up;
+  - no access;
+  - too close to the appointment.
+- **Administration > Manage Emails:** each sent reminder is an email log row, marked "Type: Appointment reminder".
+  The Type filter lists reminders on their own. Failures and unconfirmed sends are handled there like any other
+  email.
+- **Chart:** each reminder is archived to the chart like every patient email, without a chart note.
+- **Audit log:**
+  - ticking and unticking the box: `AppointmentReminder.requested` / `.withdrawn`, under the staff user;
+  - each attempt: `AppointmentReminder.EMAIL.<outcome>`, under the system account (`-1`);
+  - no address or message text is logged.
+
+## Several servers
+Each reminder is claimed with `SELECT … FOR UPDATE SKIP LOCKED` before it is sent, as the SMS queue does, so every
+server may run the job. An attempt is recorded before the email is sent: a server stopping mid-send can leave a
+reminder "not confirmed", but never sends it twice.
+
+## Later: SMS
+Each reminder row names its channel. SMS reminders (#3843) can be added as a second channel without a schema
+change, using the SMS module's own consent gate.
