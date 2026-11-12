@@ -3,7 +3,7 @@
 The published WSDLs and nullable DTO properties remain unchanged. Two identifiers are treated differently:
 
 - **SIN is never sent.** Conversion into `DemographicTo1`, `DemographicTransfer` and `DemographicTransfer2`, and the patient records embedded in appointment and consultation responses, omit it. A client cannot read a SIN through these APIs.
-- **HIN is sent wherever it was sent before 2026.08.** The health card number is how existing clients identify and match a patient, so an unmodified client keeps receiving it and does not need to change:
+- **HIN is sent wherever 2026.08.0-beta6 sent it.** The health card number is how existing clients identify and match a patient, so an unmodified client keeps receiving it and does not need to change:
 
 | Response | HIN |
 | --- | --- |

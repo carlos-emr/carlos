@@ -139,7 +139,7 @@ class AppointmentUpdatePagesUnitTest {
         assertThat(queries.get()).isLessThanOrEqualTo(12);
     }
     @Test void shouldReturnTheRequestedRowsWithoutAFault_whenTheHardLimitCannotHoldTheSharedTimestamp() {
-        // 5,001 rows written in one second cannot fit any response; the pre-2026.08 answer is the requested page.
+        // 5,001 rows written in one second cannot fit any response; the 2026.08.0-beta6 answer is the requested page.
         var source = rows(5001); var later = new Appointment(); later.setId(5002); later.setUpdateDateTime(new Date(2000)); source.add(later);
         try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(AppointmentUpdatePages.class)) {
             assertThat(legacy(source,new Date(0),7,Function.identity(),new AtomicInteger()))
@@ -147,7 +147,7 @@ class AppointmentUpdatePagesUnitTest {
             assertThat(legacy(source,new Date(0),5000,Function.identity(),new AtomicInteger())).hasSize(5000);
             assertThat(log.messages()).hasSize(2).allSatisfy(message -> assertThat(message).contains("timestamp-id"));
         }
-        // The client is not stopped: it moves past the oversized second exactly as it did before 2026.08.
+        // The client is not stopped: it moves past the oversized second exactly as it did at 2026.08.0-beta6.
         var pageSizes = new ArrayList<Integer>();
         assertThat(synchronize(source,7,Function.identity(),pageSizes)).containsExactly(1,2,3,4,5,6,7,5002);
         assertThat(pageSizes).containsExactly(7,1);

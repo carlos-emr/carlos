@@ -243,7 +243,7 @@ class ScheduleLegacySyncIntegrationTest {
 
         List<Appointment> page = manager.getAppointmentUpdatedAfterDate(actor, START, 3);
 
-        // The pre-2026.08 answer: exactly the requested rows. Nothing is refused.
+        // The 2026.08.0-beta6 answer: exactly the requested rows. Nothing is refused.
         assertThat(page).extracting(Appointment::getId).containsExactly(1, 2, 3);
         Date bound = page.getLast().getUpdateDateTime();
         assertThat(manager.getAppointmentUpdatedAfterDate(actor, bound, 3))

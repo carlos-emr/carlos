@@ -76,7 +76,7 @@ final class AppointmentUpdatePages {
      *
      * <p>This method never refuses a page. A fault would be repeated for every retry of the same
      * request and stop the caller for good. When even the hard limit cannot hold the whole group,
-     * the answer is the pre-2026.08 one: exactly the first {@code limit} rows. The rest of that
+     * the answer is the one 2026.08.0-beta6 gave: exactly the first {@code limit} rows. The rest of that
      * group is then missed by a timestamp-only caller, as it always was; only the timestamp/ID
      * profile can page through a group of that size.</p>
      *

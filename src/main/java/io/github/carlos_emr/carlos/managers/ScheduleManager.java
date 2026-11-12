@@ -114,7 +114,7 @@ public interface ScheduleManager {
      * group is extended to the end of the group, so the caller's next request cannot skip rows: the result
      * can hold more than {@code itemsToReturn} rows, by at most the rest of that one group, and never more
      * than the DAO hard limit. A request is never refused because of a shared timestamp. Only when the hard
-     * limit cannot hold the whole group is the page cut at {@code itemsToReturn}, as it was before 2026.08;
+     * limit cannot hold the whole group is the page cut at {@code itemsToReturn}, as it was at 2026.08.0-beta6;
      * the explicit timestamp/ID methods below page through groups of any size.</p>
      *
      * @param loggedInInfo LoggedInInfo the authenticated caller
