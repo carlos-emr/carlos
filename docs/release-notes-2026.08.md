@@ -166,6 +166,16 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   when rendering is unavailable. Check that service in standalone deployments.
   Restored upstream Chart.js defaults also show gridlines on Dashboard, Growth
   Chart and Health Tracker charts.
+- The stock `HL7_LAB_MEASUREMENT_FILTER` files a listed word only when it is the whole
+  lab result ([#6121](https://github.com/carlos-emr/carlos/issues/6121)): `No organisms seen`,
+  `N/A` and the blood group `A positive` are no longer filed as `No`, `N` and `A`.
+  Numbers and dates are filed as before.
+  - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
+    once. It leaves an edited line alone, and warns when that line still matches words at the
+    start of a result.
+  - A blank value now files every result whole, as an unset one does; it used to file blank
+    values.
+  - Measurements filed earlier keep their values.
 - displaytag, JFreeChart, production POI and Selenium are removed from the WAR.
   `/taglibs.jsp` no longer declares `display` or `display-el` prefixes.
   Table paging/sorting is client-side, so old displaytag `d-…-p/s/o` bookmarks

@@ -285,6 +285,63 @@ for (const [name, after, sentinel, error] of [
   });
 }
 
+// The second one-time rewrite (#6121): the #4613 stock line, whose words matched the start of a result, to the
+// skeleton's whole-word line. Its old line is the postinst's LAB_FILTER_WORDS_OLD.
+const LAB_FILTER_WORDS_OLD = /^\s*LAB_FILTER_WORDS_OLD='([^']*)'$/m.exec(
+  fs.readFileSync(path.join(__dirname, '..', 'debian', 'carlos-emr.postinst'), 'utf8'))[1];
+const LAB_FILTER_WORDS_SENTINEL = '.lab-measurement-filter-words-migrated';
+
+function labFilterWordsFixture(t, { wordsSentinel = false } = {}) {
+  const fixture = setup(t);
+  const props = path.join(fixture.env.CARLOS_ETC_DIR, 'carlos.properties');
+  const skel = path.join(fixture.env.CARLOS_SHARE_DIR, 'skel', 'carlos.properties');
+  fs.mkdirSync(path.dirname(skel), { recursive: true });
+  fs.writeFileSync(skel, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\n`);
+  fs.writeFileSync(props, `rx_fax_enabled=true\n${LAB_FILTER_WORDS_OLD}\nother=kept\n`);
+  // The #4613 rewrite ran on an earlier upgrade.
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_SENTINEL), '');
+  if (wordsSentinel) fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+  fixture.baseline();
+  return { ...fixture, props };
+}
+
+test('upgrade verifier digest of the #4613 lab filter is the postinst whole-word migration line', () => {
+  const verify = fs.readFileSync(path.join(__dirname, 'deb-upgrade-verify.sh'), 'utf8');
+  const sha = /^LAB_FILTER_WORDS_OLD_SHA=([0-9a-f]{16})$/m.exec(verify);
+  assert.ok(sha, 'deb-upgrade-verify.sh states LAB_FILTER_WORDS_OLD_SHA');
+  assert.equal(crypto.createHash('sha256').update(`${LAB_FILTER_WORDS_OLD}\n`).digest('hex').slice(0, 16), sha[1]);
+  // The #4613 line matches its words at the start of a result; the shipped one only as the whole result.
+  assert.ok(LAB_FILTER_WORDS_OLD.includes('|^\\\\b(no)\\\\b|'), LAB_FILTER_WORDS_OLD);
+  assert.ok(!LAB_FILTER_NEW.includes('^\\\\b('), LAB_FILTER_NEW);
+  assert.ok(LAB_FILTER_NEW.includes('|^(no)$|'), LAB_FILTER_NEW);
+});
+
+test('upgrade verifier accepts the one-time whole-word lab-filter migration', t => {
+  const fixture = labFilterWordsFixture(t);
+  fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${LAB_FILTER_NEW}\nother=kept\n`);
+  fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+  const result = fixture.run('deb-upgrade-verify.sh');
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /changed only by the one-time stock-default migrations .*lab filter: yes/);
+  assert.match(result.stdout, /PASS the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line/);
+  assert.match(result.stdout, /PASS lab-filter whole-word migration sentinel written/);
+});
+
+for (const [name, after, sentinel, error] of [
+  ['a whole-word lab-filter migration that skipped its sentinel', LAB_FILTER_NEW, false, /FAIL lab-filter whole-word migration sentinel missing/],
+  ['a whole-word lab-filter rewrite after that migration already ran', LAB_FILTER_NEW, 'pre', /FAIL cfg.carlos.properties.sha changed/],
+  ['an upgrade that left the #4613 lab filter in place', LAB_FILTER_WORDS_OLD, 'post', /FAIL HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line/],
+]) {
+  test(`upgrade verifier rejects ${name}`, t => {
+    const fixture = labFilterWordsFixture(t, { wordsSentinel: sentinel === 'pre' });
+    fs.writeFileSync(fixture.props, `rx_fax_enabled=true\n${after}\nother=kept\n`);
+    if (sentinel === 'post') fs.writeFileSync(path.join(fixture.env.CARLOS_STATE_DIR, LAB_FILTER_WORDS_SENTINEL), '');
+    const result = fixture.run('deb-upgrade-verify.sh');
+    assert.equal(result.status, 1, result.stdout + result.stderr);
+    assert.match(result.stdout, error);
+  });
+}
+
 test('upgrade verifier rejects an unmigrated lab filter when the skeleton itself still has the old line', t => {
   // The skeleton's digest equals the old one, so "post equals skeleton" proves nothing.
   const fixture = labFilterFixture(t, { skelLine: LAB_FILTER_OLD });

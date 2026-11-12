@@ -479,7 +479,17 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
                 "<br />negative | negative",
                 // A signed qualitative result keeps its sign, as it did before (#4613 review).
                 "+ve          | +",
-                "-ve          | -"})
+                "-ve          | -",
+                // A listed word is filed when it is the whole result (#6121).
+                "No           | No",
+                "N            | N",
+                "A            | A",
+                "AB           | AB",
+                "Yes          | Yes",
+                "No growth    | No growth",
+                "Non-reactive | Non-reactive",
+                "Test not performed | Test not performed",
+                "lrg++        | lrg++"})
         void shouldFileValueTheLabSent_whenShippedFilterMatchesResult(String result, String expected) throws IOException {
             Measurement measurement = fileResult(result, shippedFilter(), OBSERVED, ENTERED);
 
@@ -490,6 +500,18 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         @ParameterizedTest(name = "[{0}] is not filed")
         @CsvSource(delimiter = '|', value = {"see report", "Comment to follow", "(see below)", "Pending"})
         void shouldNotFileMeasurement_whenShippedFilterRejectsResult(String result) throws IOException {
+            assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
+            verify(measurementDao, never()).persist(any(Measurement.class));
+        }
+
+        /**
+         * A listed word counts only as the whole result (#6121). Matched at the start of a longer result, it filed an
+         * answer the lab did not give: "No organisms seen" as "No", "N/A" as "N", blood group "A positive" as "A".
+         */
+        @ParameterizedTest(name = "[{0}] is not filed")
+        @CsvSource(delimiter = '|', value = {"No organisms seen", "N/A", "A positive", "Negative for malignancy",
+                "Positive for E. coli", "Normal flora", "Moderate growth", "No growth after 48 hours", "Yes - see report"})
+        void shouldNotFileAShorterWord_whenTheWordIsOnlyTheStartOfTheResult(String result) throws IOException {
             assertThat(fileResult(result, shippedFilter(), OBSERVED, ENTERED)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
         }

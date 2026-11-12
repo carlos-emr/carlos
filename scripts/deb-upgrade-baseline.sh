@@ -112,7 +112,8 @@ value=$(grep -E '^health_tracker=' "$CARLOS_ETC_DIR/carlos.properties" || true);
 OAUTH_ACCESS_MIGRATIONS=(oauth.scope.enforcement.enabled oauth.scope.legacy.access)
 # The postinst also rewrites the old stock HL7_LAB_MEASUREMENT_FILTER line to
 # the one the package's skeleton carries, once (.lab-measurement-filter-migrated,
-# #4613). The line is long and full of ';' and '%', so the snapshot carries
+# #4613), and then the #4613 stock line to it, once
+# (.lab-measurement-filter-words-migrated, #6121). The line is long and full of ';' and '%', so the snapshot carries
 # digests instead of the value: of the key's definition lines in the /etc file,
 # and of the skeleton's line (empty when there is no skeleton). A definition is
 # taken in java.util.Properties syntax (indented, or with a whitespace separator),
@@ -179,7 +180,7 @@ value=$(properties_without_cutover | sed -E -e 's/^[[:space:]]+//' -e 's/[[:spac
     | grep -vE "$migrated_keys_re" | { grep -vE "$reporting_keys_re" || true; } | LC_ALL=C sort | sha256sum) || exit 1
 emit cfg.carlos.properties.active.sha "${value:0:16}"
 emit cfg.initialAdminTxt "$([ -e "$CARLOS_ETC_DIR/initial-admin.txt" ] && echo present || echo absent)"
-for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
+for s in .consult-signature-default-migrated .health-tracker-default-migrated .oscar-feature-defaults-migrated .oauth-access-defaults-migrated .lab-measurement-filter-migrated .lab-measurement-filter-words-migrated .help-url-default-migrated .db-name-default-migrated .first-configure-pending .seed-credential-live; do
     emit "sentinel.$s" "$([ -e "$CARLOS_STATE_DIR/$s" ] && echo yes || echo no)"
 done
 emit docs.store ok
