@@ -126,7 +126,7 @@ class BrowserChartRendererUnitTest {
         }
     }
 
-    /** ChartMeds grows 30px per drug past ten; JFreeChart drew any count, so long lists stay drawable. */
+    /** ChartMeds grows 30px per drug past twenty (#6165); JFreeChart drew any count, so long lists stay drawable. */
     @Test
     void shouldAcceptTallMedicationCharts_withinTheHeightCap() {
         int fiveHundredMedications = 500 * 30;

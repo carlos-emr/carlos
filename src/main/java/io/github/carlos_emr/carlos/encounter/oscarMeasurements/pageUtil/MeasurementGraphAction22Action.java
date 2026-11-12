@@ -130,8 +130,9 @@ public class MeasurementGraphAction22Action extends ActionSupport {
         try {
             MeasurementChart chart = requestedChart(demographicNo, typeIdName, typeIdName2, chartTitle, method);
             String[] drugs = request.getParameterValues("drug");
-            if ("ChartMeds".equals(method) && drugs != null && drugs.length > 10) {
-                height = drugs.length * 30;
+            if ("ChartMeds".equals(method) && drugs != null) {
+                // About 30 px per medication row, but never shorter than the default height (#6165).
+                height = Math.max(height, drugs.length * 30);
             }
             BrowserChartRenderer.write(request.getServletContext(), image, chart, width, height, "png");
         } catch (IOException | ParseException | RuntimeException unavailable) {
