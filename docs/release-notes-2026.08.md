@@ -165,6 +165,8 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   page, with a note that its downloads are held back. A larger `.max_html_mb` needs more server
   memory (three to four times the setting for each report running at once), and the packaged proxy
   stops waiting after 300 seconds.
+- A form report, a demographic or antenatal CSV download, or a clinical report that passes its row,
+  size or time limit now shows a message saying so and what to do, instead of an error page.
 - BC CSV exports use ungrouped decimal money (for example `1234.50`) and
   `dd-MMM-yy` dates. Update downstream parsers that assumed localized values.
 - Dx Research XLSX exports use string cells. Report by Template and Clinical
