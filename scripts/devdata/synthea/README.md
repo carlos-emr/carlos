@@ -41,10 +41,11 @@ python3 -I scripts/devdata/synthea/generate_dev_patients.py \
 
 `run_synthea.sh` refuses a jar with another SHA-256 and fixes every setting that would otherwise come
 from the clock or the machine: two runs on 12 November 2026 wrote byte-identical CSV files (181 patients,
-about 101 MB) in about three minutes each. Not fixed by the script: the Java build and the locale. The pinned
-output was made with OpenJDK 21.0.11+10 (the development container's Java) under `LANG`/`LC_ALL=en_US.UTF-8`
-and `TZ=America/Toronto` (Synthea's own dates are UTC). A rerun with another Java or locale may write
-different files; the generator then refuses them rather than using them. The generator refuses CSV files with another digest
+about 101 MB) in about three minutes each. The script also fixes the JVM's locale
+(`en_US`), time zone (`America/Toronto`) and file encoding (UTF-8), the values the pinned run used, so the
+shell's own locale and time zone don't matter. Only the Java build is not fixed: the pinned output was made
+with OpenJDK 21.0.11+10 (the development container's Java). A rerun with another Java may write different
+files; the generator then refuses them rather than using them. The generator refuses CSV files with another digest
 (`--allow-other-input` overrides, for trying another seed or release), and the same CSV files always
 give the same SQL file, byte for byte.
 

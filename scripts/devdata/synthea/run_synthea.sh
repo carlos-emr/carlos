@@ -17,9 +17,9 @@
 # number with FAKE ones.
 #
 # Every setting that would otherwise come from the clock or the machine is fixed (seeds, the
-# reference and end date, one thread), so a rerun writes the same files, byte for byte. The Java build and
-# the locale are not: the pinned output was made with OpenJDK 21.0.11+10, en_US.UTF-8 and TZ America/Toronto
-# (see README.md); generate_dev_patients.py refuses any other output.
+# reference and end date, one thread, and the JVM's locale, time zone and file encoding, set below to those of
+# the pinned run), so a rerun writes the same files, byte for byte. Only the Java build is not fixed: the pinned
+# output was made with OpenJDK 21.0.11+10 (see README.md); generate_dev_patients.py refuses any other output.
 set -euo pipefail
 
 JAR_SHA256=ed43c20ad40ba5c3bc724503a5af032715fe3c491620b766148e7c2361e6ecc1
@@ -71,7 +71,8 @@ while read -r _ f; do mkdir -p "$cp_dir/$(dirname "$f")"; cp "$ca/$f" "$cp_dir/$
 # whole history. Only the seven tables the generator reads are written (Synthea ignores the include
 # list while its default exclude list is also set, so that list is cleared).
 cd "$out"
-exec java -Xmx2g -cp "$cp_dir:$jar" App -c "$here/synthea-ca.properties" \
+exec java -Xmx2g -Duser.language=en -Duser.country=US -Duser.timezone=America/Toronto -Dfile.encoding=UTF-8 \
+    -cp "$cp_dir:$jar" App -c "$here/synthea-ca.properties" \
     -s 6148 -cs 6148 -r 20261101 -e 20261101 -p 150 -a 25-90 \
     --generate.thread_pool_size=1 \
     --exporter.baseDirectory="$out/" \
