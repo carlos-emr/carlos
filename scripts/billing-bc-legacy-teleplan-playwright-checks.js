@@ -26,7 +26,9 @@ async function workflow(s) {
   const physician = bc.createBillingPhysician(s);
   bc.makeBcPatient(s); bc.registerOwnedBcBillCleanup(s);
   const claim = bc.seedOwnedBcBill({ ...s, provider: physician.providerNo }, { amount: '12.34' });
-  sql.execute(`UPDATE billingmaster SET payee_no=${q(physician.payeeNo)},practitioner_no=${q(physician.ohipNo)} WHERE billingmaster_no=${claim.billingmasterNo}`);
+  // The claim comment is C02 field P58; the legacy export once sent it as twenty spaces.
+  const comment = 'LEGACY P58 COMMENT';
+  sql.execute(`UPDATE billingmaster SET payee_no=${q(physician.payeeNo)},practitioner_no=${q(physician.ohipNo)},claim_comment=${q(comment)} WHERE billingmaster_no=${claim.billingmasterNo}`);
   const home = path.resolve(process.env.HOME_DIR);
   s.cleanup(() => {
     const rows = sql.rows(`SELECT ohipfilename,htmlfilename FROM billactivity WHERE providerohipno=${q(physician.ohipNo)}`);
@@ -98,6 +100,12 @@ async function workflow(s) {
     h.assert(creator === s.provider, 'The hidden creator overrode the authenticated login');
     h.assert(total === '12.34', 'Legacy activity total differs from the claim');
     h.assert(fs.readFileSync(path.join(home, filename), 'utf8').includes(claim.billingmasterNo.padStart(7, '0')), 'Legacy output lacks the owned claim');
+    // Each record is written as LF, 424 characters, CR. P54 (office folio, the claim number) is characters 140-146
+    // and P58 (the claim comment) characters 148-167.
+    const record = fs.readFileSync(path.join(home, filename), 'utf8').split('\n').map(line => line.replace(/\r$/, ''))
+      .find(line => line.startsWith('C02') && line.slice(139, 146) === claim.billingmasterNo.padStart(7, '0'));
+    h.assert(record && record.length === 424, 'Legacy output lacks a 424-character C02 record for the owned claim');
+    h.assert(record.slice(147, 167) === comment.padEnd(20, ' '), 'The legacy C02 record does not carry the claim comment in P58');
     h.assert(fs.readFileSync(path.join(home, html), 'utf8').includes(claim.billingmasterNo.padStart(7, '0')), 'Legacy HTML lacks the owned claim');
     h.assert(sql.value(`SELECT billingstatus FROM billingmaster WHERE billingmaster_no=${claim.billingmasterNo}`) === 'B', 'Claim was not marked billed');
     h.assert(sql.value(`SELECT status FROM billing WHERE billing_no=${claim.billingNo}`) === 'B', 'Invoice was not marked billed');
