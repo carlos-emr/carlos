@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +19,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -189,6 +192,44 @@ class EFormRenderMessageUnitTest {
                 .doesNotContain("approval is invalid or expired")
                 .doesNotContain("This eForm and its attachments could not be prepared for faxing")
                 .doesNotContain("The document could not be prepared for faxing");
+    }
+
+    /** Each action's own render-failure messages, as it takes them from {@link EFormRenderMessage}. */
+    static Stream<Arguments> callSiteMessages() {
+        return Stream.of(
+                Arguments.of("eform/actions/AddEForm2Action.java", List.of(
+                        "EFormRenderMessage.NOT_ADDED_TO_DOCUMENTS.text(request)",
+                        "EFormRenderMessage.NOT_DOWNLOADED.text(request)",
+                        "EFormRenderMessage.EDOC_FAILURE.text(request)",
+                        "EFormRenderMessage.DOWNLOAD_FAILURE.text(request)",
+                        "EFormRenderMessage.PREVIEW_NOT_GENERATED.text(request)")),
+                Arguments.of("fax/action/Fax2Action.java", List.of(
+                        "EFormRenderMessage.NOT_FAXED.text(request)",
+                        "EFormRenderMessage.FAX_NOT_PREPARED.text(request)",
+                        "EFormRenderMessage.FAX_DOCUMENT_NOT_PREPARED.text(request)")),
+                Arguments.of("eform/util/EFormSavedRenderResponse.java", List.of(
+                        "(edoc ? EFormRenderMessage.NOT_ADDED_TO_DOCUMENTS : EFormRenderMessage.NOT_DOWNLOADED).text(request)",
+                        "request.setAttribute(\"missingContentMessage\", message);")),
+                Arguments.of("documentManager/actions/DocumentPreview2Action.java", List.of(
+                        "EFORM_RENDER_FAILED(\"eform_render_failed\", EFormRenderMessage.PREVIEW_RENDER_FAILED)",
+                        "EFORM_RENDER_BUSY(\"eform_render_busy\", EFormRenderMessage.PREVIEW_RENDER_BUSY)",
+                        "EFORM_APPROVAL_INVALID(\"eform_approval_invalid\", EFormRenderMessage.PREVIEW_APPROVAL_INVALID)",
+                        "EFORM_MISSING_CONTENT(\"eform_missing_content\", EFormRenderMessage.PREVIEW_MISSING_CONTENT)",
+                        "return translated == null ? message : translated.text(request);")));
+    }
+
+    /**
+     * The check above only finds English left behind; this one fails when an action stops using one
+     * of its render-failure messages (dropped, or replaced by a blank string). The behaviour on each
+     * failure path is covered by the actions' own tests, such as {@code Fax2ActionIncompleteRenderUnitTest}
+     * and {@code EFormSavedRenderResponseUnitTest}.
+     */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("callSiteMessages")
+    @DisplayName("should keep taking each action's render-failure messages from EFormRenderMessage")
+    void shouldUseItsRenderMessages_inEveryCallSite(String source, List<String> uses) throws IOException {
+        String java = Files.readString(JAVA.resolve(source), StandardCharsets.UTF_8);
+        assertThat(java).contains(uses);
     }
 
     @Test
