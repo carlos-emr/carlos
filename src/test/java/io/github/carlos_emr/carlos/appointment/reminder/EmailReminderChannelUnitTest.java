@@ -112,8 +112,8 @@ class EmailReminderChannelUnitTest {
         when(clinics.getClinic()).thenReturn(clinic);
         when(security.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq(SecurityInfoManager.WRITE), isNull()))
                 .thenReturn(true);
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
-                eq(PATIENT))).thenReturn(true);
+        when(security.hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(String.valueOf(PATIENT)))).thenReturn(true);
         channel = new EmailReminderChannel(emails, compose, senders, demographics, clinics, providers, security,
                 () -> configuredSender);
     }
@@ -257,8 +257,8 @@ class EmailReminderChannelUnitTest {
     void shouldRefuseWithoutSending_whenTheSystemProviderMayNotReadThePatient() {
         // As DemographicManagerImpl.getDemographic does: the same privilege question, refused with a plain
         // RuntimeException, which on its own would read as a failure and be retried.
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
-                eq(PATIENT))).thenReturn(false);
+        when(security.hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(String.valueOf(PATIENT)))).thenReturn(false);
         when(demographics.getDemographic(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
                 .thenThrow(new RuntimeException("missing required sec object (_demographic)"));
 
