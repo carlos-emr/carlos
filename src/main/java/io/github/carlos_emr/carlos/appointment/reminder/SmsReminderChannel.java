@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -104,6 +105,7 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
     private final DemographicExtDao extras;
     private final ClinicDAO clinics;
     private final ProviderDao providers;
+    private final SecurityInfoManager security;
     private final BooleanSupplier switchedOn;
     private final Supplier<String> clinicNameSetting;
     private final ReminderWindow window;
@@ -112,8 +114,9 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
 
     @Autowired
     public SmsReminderChannel(SmsQueueService queue, SmsTransactionDao texts, DemographicManager demographics,
-                              DemographicExtDao extras, ClinicDAO clinics, ProviderDao providers) {
-        this(queue, texts, demographics, extras, clinics, providers,
+                              DemographicExtDao extras, ClinicDAO clinics, ProviderDao providers,
+                              SecurityInfoManager security) {
+        this(queue, texts, demographics, extras, clinics, providers, security,
                 () -> CarlosProperties.getInstance().isPropertyActive(ENABLED_PROPERTY),
                 () -> CarlosProperties.getInstance().getProperty(CLINIC_NAME_PROPERTY, null),
                 ReminderWindow.forSmsHoursBefore(
@@ -122,14 +125,16 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
     }
 
     SmsReminderChannel(SmsQueueService queue, SmsTransactionDao texts, DemographicManager demographics,
-                       DemographicExtDao extras, ClinicDAO clinics, ProviderDao providers, BooleanSupplier switchedOn,
-                       Supplier<String> clinicNameSetting, ReminderWindow window, Clock clock) {
+                       DemographicExtDao extras, ClinicDAO clinics, ProviderDao providers, SecurityInfoManager security,
+                       BooleanSupplier switchedOn, Supplier<String> clinicNameSetting, ReminderWindow window,
+                       Clock clock) {
         this.queue = Objects.requireNonNull(queue, "queue");
         this.texts = Objects.requireNonNull(texts, "texts");
         this.demographics = Objects.requireNonNull(demographics, "demographics");
         this.extras = Objects.requireNonNull(extras, "extras");
         this.clinics = Objects.requireNonNull(clinics, "clinics");
         this.providers = Objects.requireNonNull(providers, "providers");
+        this.security = Objects.requireNonNull(security, "security");
         this.switchedOn = Objects.requireNonNull(switchedOn, "switchedOn");
         this.clinicNameSetting = Objects.requireNonNull(clinicNameSetting, "clinicNameSetting");
         this.window = Objects.requireNonNull(window, "window");
@@ -170,6 +175,12 @@ public class SmsReminderChannel implements AppointmentReminderChannel {
             LoggedInInfo system = EmailReminderChannel.systemUser(providers);
             if (system == null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NOT_PERMITTED);
+            }
+            // getDemographic asks the same question but refuses with a plain RuntimeException, which would be
+            // recorded as a failure and retried. Asked here, a refusal (a patient's record lock, or a clinic that
+            // removed the right) is recorded as no access.
+            if (!security.hasPrivilege(system, "_demographic", SecurityInfoManager.READ, reminder.demographicNo())) {
+                return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess");
             }
             Demographic patient = demographics.getDemographic(system, reminder.demographicNo());
             if (patient == null) {

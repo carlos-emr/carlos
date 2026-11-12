@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.sms.SmsMessagePurpose;
 import io.github.carlos_emr.carlos.sms.SmsRecipientPhoneType;
 import io.github.carlos_emr.carlos.sms.SmsStatus;
@@ -61,6 +62,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -90,6 +92,7 @@ class SmsReminderChannelUnitTest {
     private final DemographicExtDao extras = mock(DemographicExtDao.class);
     private final ClinicDAO clinics = mock(ClinicDAO.class);
     private final ProviderDao providers = mock(ProviderDao.class);
+    private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final Demographic patient = new Demographic();
     private final Clinic clinic = new Clinic();
     private boolean switchedOn = true;
@@ -106,12 +109,14 @@ class SmsReminderChannelUnitTest {
         clinic.setClinicName("FAKE Maple Clinic");
         clinic.setClinicPhone("(613) 555-0100");
         when(clinics.getClinic()).thenReturn(clinic);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(PATIENT))).thenReturn(true);
         channel = channelAt(HANDOVER);
     }
 
     private SmsReminderChannel channelAt(Clock clock) {
-        return new SmsReminderChannel(queue, texts, demographics, extras, clinics, providers, () -> switchedOn,
-                () -> null, ReminderWindow.forSmsHoursBefore("24"), clock);
+        return new SmsReminderChannel(queue, texts, demographics, extras, clinics, providers, security,
+                () -> switchedOn, () -> null, ReminderWindow.forSmsHoursBefore("24"), clock);
     }
 
     private SmsSendCommand handedOver() {
@@ -287,6 +292,22 @@ class SmsReminderChannelUnitTest {
 
         when(providers.getProvider(Provider.SYSTEM_PROVIDER_NO)).thenReturn(null);
         assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NOT_PERMITTED);
+        verify(queue, never()).enqueue(any());
+    }
+
+    @Test
+    @DisplayName("should record no access, not a failure, when the manager refuses the patient")
+    void shouldRecordNoAccess_whenTheManagerRefusesThePatient() {
+        // As DemographicManagerImpl.getDemographic does: the same privilege question, refused with a plain
+        // RuntimeException, which on its own would read as a failure and be retried.
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(PATIENT))).thenReturn(false);
+        when(demographics.getDemographic(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
+                .thenThrow(new RuntimeException("missing required sec object (_demographic)"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess"));
+        verify(demographics, never()).getDemographic(any(LoggedInInfo.class), anyInt());
         verify(queue, never()).enqueue(any());
     }
 

@@ -47,8 +47,9 @@ The `appointment_reminder` table and `sms_transaction.expires_at` come from the 
   a text not yet handed over.
 - **A time limit:** each text must be sent by 2 hours before the start, or by 21:00 on the day it is handed over if
   that comes first. A text still waiting then (a retry, the rate limit, an outage, sending switched off) is failed as
-  `QUEUE_EXPIRED`: it is never sent late, and never at night. A text already handed over is not withdrawn when the
-  appointment is cancelled or moved; the time limit still applies to it.
+  `QUEUE_EXPIRED`: it is never sent late, and never at night. Nor is it handed over again the next morning, even when
+  time remains before the appointment: the patient gets no text for that start. A text already handed over is not
+  withdrawn when the appointment is cancelled or moved; the time limit still applies to it.
 - **The other buttons on the form keep it,** as for email: Repeat Booking, a repeat-series Group Update, Group Appt
   (one booking gets the text) and Group Action then Group Update. Cut and Paste does not copy the choice. As for
   email, the patient gets one text per visit: a box ticked later on another booking at the same time is not texted
