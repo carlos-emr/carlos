@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "32787eaeb3c05c92d84a11d96523e9220d9d2573",
-  "comparisonSha256": "e3188609d8859c4645f62200072f8b94709a7dca1c80f270d7d2b5df93ff220a",
-  "baselineCommit": "1a26716c49628022acf781b045a2ffb1fff91c5e",
-  "baselineSourceTree": "32787eaeb3c05c92d84a11d96523e9220d9d2573",
-  "baselineReportSha256": "5cc9ee217caa4c59a19c20122fb4911c85422015d7ee0c0d678f220e3f479602",
-  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 2), not through verify-release-evidence.py. Source: a local test merge (5961b1e3f3) of release 1b27a8fd2c with #6163 (1a26716c49) and #6164 (f97312d611). Maven ran 36,208 tests, 217 skipped, 1 failure (CdsXmlParserLargeInputUnitTest: a bounded parser probe passed its 180-second deadline under load; the class passed in the four earlier runs that night, and neither PR touches CDS).",
+  "sourceTree": "430b8b6efff975632a36d9e7e20550c9de09cf55",
+  "comparisonSha256": "ec017e372a147525929fe1b2b015da2a8aec61d060c4ca82f35672a40e1fe0f2",
+  "baselineCommit": "22d340f966fd893a90d64cccd3595e5e780d5a6f",
+  "baselineSourceTree": "430b8b6efff975632a36d9e7e20550c9de09cf55",
+  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
   "baselineTestCounts": {
-    "tests": 36208,
-    "skipped": 217,
-    "failures": 1,
-    "errors": 0
+    "tests": 36370,
+    "skipped": 219,
+    "failures": 0,
+    "errors": 2
   },
-  "baselineTestReportsSha256": "61b2000447d9cff4ecdd1aea9ef9a8d61e1429ae26c99231992d26ba39258396",
+  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1951,7 +1951,7 @@
       "lines": 81.02766798418972,
       "instructions": 79.12657290895633,
       "branches": 77.8894472361809,
-      "sourceBlob": "761f5ace08a389c7d6752addf599d48cea07ca87"
+      "sourceBlob": "212646fb12e80fa00115a7f1feeadd96bfd7c0de"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarMeasurements/pageUtil/ScatterPlotChartServlet.java": {
       "lines": 100.0,
@@ -4429,7 +4429,7 @@
       "lines": 100.0,
       "instructions": 98.51851851851852,
       "branches": 95.0,
-      "sourceBlob": "f101182d3db742722ef9f2f12cf08a189ae9a5ab"
+      "sourceBlob": "137340ad8c6ae33095dc69633d6fc027ae4e9149"
     }
   },
   "exclusions": {
@@ -4472,5 +4472,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "5961b1e3f30962b39f7a05d3db93324d4f916abf"
+  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
 }
