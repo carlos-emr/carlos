@@ -32,6 +32,8 @@ package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.util.List;
 
+import org.apache.commons.lang3.StringUtils;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -47,19 +49,24 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanFileWriter;
 import io.github.carlos_emr.carlos.billings.ca.bc.MSP.TeleplanSubmission;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillActivityDAO;
 import io.github.carlos_emr.carlos.billings.ca.bc.data.BillingmasterDAO;
+import io.github.carlos_emr.carlos.billings.ca.on.web.BillingRequestGuards;
 import io.github.carlos_emr.carlos.providers.data.ProviderData;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 
-
-/**
- * Goals
- * + Take file generation logic out of jsp page
- *
- * @author jay
- */
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Generate Teleplan File: the page that writes the MSP claim file for the chosen billing physicians (or all of
+ * them) into HOME_DIR, records the batch in billactivity, marks the claims billed and lists earlier batches.
+ *
+ * <p>Opening the page (the Administration menu item, the year archive links) is a GET with no {@code providers}
+ * and only renders it. Generating is the page's Create Report form, a POST naming {@code providers}; a GET or HEAD
+ * naming them is refused with 405 before anything is read or written, because the menu GET used to write a batch
+ * of its own (issue #4439 D3).</p>
+ *
+ * @author jay
+ */
 public class GenerateTeleplanFile2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -79,7 +86,20 @@ public class GenerateTeleplanFile2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        MiscUtils.getLogger().debug("SimulateTeleplanAction2 action jackson");
+        // A plain GET or HEAD only opens the page and its Activity List; anything else is a request to generate.
+        String method = request.getMethod();
+        boolean readOnly = ("GET".equals(method) || "HEAD".equals(method)) && request.getParameter("providers") == null;
+        if (readOnly) {
+            return SUCCESS;
+        }
+        if (!BillingRequestGuards.requirePost(request, response)) {
+            return NONE;
+        }
+        if (StringUtils.isBlank(request.getParameter("providers"))) {
+            // With no physician chosen the lookup matches none, and the commit still wrote an empty batch.
+            request.setAttribute("error", "Select a provider to generate the Teleplan file.");
+            return SUCCESS;
+        }
 
         String home_dir = CarlosProperties.getInstance().getProperty("HOME_DIR");
         String dataCenterId = CarlosProperties.getInstance().getProperty("dataCenterId");

@@ -524,7 +524,7 @@
             if(providerNo !== '' && roleName !== '') {
                 return true;
             } else {
-                alert('Please enter in a providers and a corresponding role');
+                alert('Please enter in a provider and a corresponding role');
                 return false;
             }
         }
@@ -535,7 +535,7 @@
 	 */
     function enableAddRoleButton(e) {
 		// get the originally selected values from all the other
-        // roles set for this providers.
+        // roles set for this provider.
 	    const forms = document.getElementsByClassName(e.form.attributes.class.value);
 	    const SELECTED_ROLE_VALUES = [];
 	    for(let i=0;i<forms.length;i++) {

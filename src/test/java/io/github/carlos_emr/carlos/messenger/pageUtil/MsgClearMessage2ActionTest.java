@@ -42,7 +42,8 @@ import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 /**
- * Regression coverage for clearing Messenger attachments and its missing-bean redirect.
+ * Regression coverage for clearing Messenger attachments and its missing-bean redirect. Clear
+ * drops only the attachments of the compose window it was pressed in (issue #4673).
  *
  * @since 2026-08-11
  */
@@ -89,24 +90,39 @@ class MsgClearMessage2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should clear every attachment when the message bean exists")
-    void shouldClearAttachments_whenMessageBeanExists() throws Exception {
+    @DisplayName("should drop only this compose window's attachments when the message bean exists")
+    void shouldClearOnlyThisWindowsAttachments_whenMessageBeanExists() throws Exception {
         allowPrivilege("_msg", "w");
-        MsgSessionBean bean = new MsgSessionBean();
-        bean.setAttachment("<item>document</item>");
-        bean.setPDFAttachment("encoded-pdf");
-        bean.setTotalAttachmentCount(3);
-        bean.setCurrentAttachmentCount(2);
-        getMockSession().setAttribute("msgSessionBean", bean);
+        getMockSession().setAttribute("msgSessionBean", new MsgSessionBean());
+        String thisWindow = MsgAttachmentStaging.newKey();
+        String otherWindow = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(getMockSession(), thisWindow, 101, "<PDF>FAKE this patient</PDF>");
+        MsgAttachmentStaging.stageItems(getMockSession(), thisWindow, "<item>document</item>");
+        MsgAttachmentStaging.stagePdfs(getMockSession(), otherWindow, 202, "<PDF>FAKE other patient</PDF>");
+        getMockRequest().setParameter(MsgAttachmentStaging.KEY_PARAMETER, thisWindow);
 
         String result = executeAction(action);
 
         assertThat(result).isEqualTo(ActionSupport.SUCCESS);
-        assertThat(bean.getAttachment()).isNull();
-        assertThat(bean.getPDFAttachment()).isNull();
-        assertThat(bean.getTotalAttachmentCount()).isZero();
-        assertThat(bean.getCurrentAttachmentCount()).isZero();
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+        // Issue #4673: Clear in one compose window used to empty the login-wide bean, discarding
+        // what another window, for another patient, had attached.
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfAttachment())
+                .isEqualTo("<PDF>FAKE other patient</PDF>");
         assertThat(getMockResponse().getRedirectedUrl()).isNull();
+    }
+
+    @Test
+    @DisplayName("should drop nothing when the Clear link names no compose window")
+    void shouldDropNothing_whenComposeKeyMissing() throws Exception {
+        allowPrivilege("_msg", "w");
+        getMockSession().setAttribute("msgSessionBean", new MsgSessionBean());
+        String otherWindow = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(getMockSession(), otherWindow, 202, "<PDF>FAKE other patient</PDF>");
+
+        assertThat(executeAction(action)).isEqualTo(ActionSupport.SUCCESS);
+
+        assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow)).isNotNull();
     }
 
     @Test

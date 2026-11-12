@@ -48,6 +48,7 @@ import org.hibernate.ScrollMode;
 import org.hibernate.ScrollableResults;
 
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NonUniqueResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.persistence.Query;
@@ -66,13 +67,15 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
 
     @Override
     public List<Appointment> findRecurringSeries(Appointment anchor, Date endDate) {
+        // Pre-#5199 rows can contain CRLF while new copies store LF. Compare the
+        // canonical text without rewriting the original appointment or its archive.
         return entityManager.createQuery("SELECT a FROM Appointment a WHERE a.providerNo=:provider "
                 + "AND a.appointmentDate BETWEEN :start AND :end "
                 + "AND a.startTime=:startTime AND a.endTime=:endTime "
                 + "AND a.demographicNo=:demographic AND a.programId=:program "
                 + "AND COALESCE(a.name,'')=COALESCE(:name,'') "
-                + "AND COALESCE(a.notes,'')=COALESCE(:notes,'') "
-                + "AND COALESCE(a.reason,'')=COALESCE(:reason,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.notes,''),:crlf,:lf),:cr,:lf)=COALESCE(:notes,'') "
+                + "AND REPLACE(REPLACE(COALESCE(a.reason,''),:crlf,:lf),:cr,:lf)=COALESCE(:reason,'') "
                 + "AND COALESCE(a.creator,'')=COALESCE(:creator,'') "
                 + "AND (a.createDateTime=:created OR (a.createDateTime IS NULL AND :created IS NULL)) "
                 + "ORDER BY a.appointmentDate, a.id", Appointment.class)
@@ -80,8 +83,9 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 .setParameter("start", anchor.getAppointmentDate()).setParameter("end", endDate)
                 .setParameter("startTime", anchor.getStartTime()).setParameter("endTime", anchor.getEndTime())
                 .setParameter("demographic", anchor.getDemographicNo()).setParameter("program", anchor.getProgramId())
-                .setParameter("name", anchor.getName()).setParameter("notes", anchor.getNotes())
-                .setParameter("reason", anchor.getReason()).setParameter("creator", anchor.getCreator())
+                .setParameter("name", anchor.getName()).setParameter("notes", Appointment.normalizeLineEndings(anchor.getNotes()))
+                .setParameter("reason", Appointment.normalizeLineEndings(anchor.getReason())).setParameter("creator", anchor.getCreator())
+                .setParameter("crlf", "\r\n").setParameter("lf", "\n").setParameter("cr", "\r")
                 .setParameter("created", anchor.getCreateDateTime()).setMaxResults(367)
                 .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE).getResultList();
     }
@@ -96,11 +100,13 @@ public class OscarAppointmentDaoImpl extends AbstractDaoImpl<Appointment> implem
                 Appointment.class);
         query.setParameter(1, appointmentNo);
         List<Appointment> rows = query.getResultList();
-        if (rows.isEmpty()) return null;
+        if (rows.isEmpty()) {
+            return null;
+        }
         Appointment appointment = rows.get(0);
-        // A native result can reuse an already-managed instance. Compare against the locked
-        // database state even if this persistence context loaded the appointment earlier.
-        entityManager.refresh(appointment, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        // A native lock query may resolve to an entity already in the persistence context.
+        // Use a locking refresh so MariaDB REPEATABLE READ also returns the current row.
+        entityManager.refresh(appointment, LockModeType.PESSIMISTIC_WRITE);
         return appointment;
     }
 

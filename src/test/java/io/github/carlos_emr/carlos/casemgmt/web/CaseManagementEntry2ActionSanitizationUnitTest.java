@@ -456,13 +456,15 @@ class CaseManagementEntry2ActionSanitizationUnitTest {
         original.setDemographic_no("1");
         original.setAppointmentNo(456);
         original.setHistory("Previous revision");
+        original.setNote("Stored clinical text");
         CaseManagementNote recovered = CaseManagementEntry2Action.restoreDraftNote(
                 original, "Recovered draft", "999998", "1");
-        assertThat(recovered).isSameAs(original);
+        assertThat(recovered).isNotSameAs(original);
         assertThat(recovered.getId()).isEqualTo(123L);
         assertThat(recovered.getAppointmentNo()).isEqualTo(456);
         assertThat(recovered.getHistory()).isEqualTo("Previous revision");
         assertThat(recovered.getNote()).isEqualTo("Recovered draft");
+        assertThat(original.getNote()).isEqualTo("Stored clinical text");
     }
 
     @Test

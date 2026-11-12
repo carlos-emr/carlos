@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 
 import jakarta.xml.bind.annotation.XmlRootElement;
 
@@ -43,6 +45,7 @@ public class AppDefinitionTo1 implements Serializable {
     private String appType;
     private Boolean active;
     private String addedBy;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date added;
     private Boolean authenticated;
 

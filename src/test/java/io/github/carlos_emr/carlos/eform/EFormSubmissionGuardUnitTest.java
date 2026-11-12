@@ -55,6 +55,26 @@ class EFormSubmissionGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldReportStorageCommitted_onlyAfterConfirmedCommit() {
+        var transactions = new io.github.carlos_emr.carlos.test.unit.RecordingTransactionManager();
+        var template = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        try (var claim = EFormSubmissionGuard.attempt(session, issue(), "1", "123").claim()) {
+            assertThat(claim.storageCommitted()).isFalse();
+            template.executeWithoutResult(tx -> claim.storageStarted());
+            assertThat(claim.storageCommitted()).isTrue();
+            assertThat(claim.canRetry()).isFalse();
+        }
+        // A lost commit acknowledgement: neither saved nor retryable, so AddEForm2Action says it could not confirm.
+        transactions.failCommit = true;
+        try (var claim = EFormSubmissionGuard.attempt(session, issue(), "1", "123").claim()) {
+            assertThatThrownBy(() -> template.executeWithoutResult(tx -> claim.storageStarted()))
+                    .isInstanceOf(org.springframework.transaction.TransactionSystemException.class);
+            assertThat(claim.storageCommitted()).isFalse();
+            assertThat(claim.canRetry()).isFalse();
+        }
+    }
+
+    @Test
     void shouldPermitRetry_whenValidationStopsBeforeStorage() {
         String token = issue();
         try (var claim = EFormSubmissionGuard.attempt(session, token, "1", "123").claim()) {

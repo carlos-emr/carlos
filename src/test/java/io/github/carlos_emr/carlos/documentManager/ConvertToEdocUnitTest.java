@@ -6,25 +6,86 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.jsoup.nodes.Document;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.Mockito;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("ConvertToEdoc unit tests")
 @Tag("unit")
 @Tag("fast")
+@Isolated
 class ConvertToEdocUnitTest extends CarlosUnitTestBase {
+    private Object originalRealPath;
+
+    @Test
+    void shouldKeepEachConcurrentConversionInItsOwnResourceRoot_whenResourceResolutionOverlaps(@TempDir Path tempDir) throws Exception {
+        Path firstRoot = Files.createDirectory(tempDir.resolve("first"));
+        Path secondRoot = Files.createDirectory(tempDir.resolve("second"));
+        for (Path root : java.util.List.of(firstRoot, secondRoot)) {
+            Files.createFile(root.resolve("stamp.png"));
+        }
+        String html = "<html><body><img src='stamp.png'></body></html>";
+        CountDownLatch searching = new CountDownLatch(1);
+        CountDownLatch resume = new CountDownLatch(1);
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        AtomicReference<Thread> secondThread = new AtomicReference<>();
+        try (var workers = Executors.newFixedThreadPool(2)) {
+            var first = workers.submit(() -> {
+                try (var files = Mockito.mockStatic(Files.class, Mockito.CALLS_REAL_METHODS)) {
+                    AtomicBoolean paused = new AtomicBoolean();
+                    files.when(() -> Files.walk(firstRoot)).thenAnswer(call -> {
+                        if (paused.compareAndSet(false, true)) {
+                            searching.countDown();
+                            if (!resume.await(5, TimeUnit.SECONDS)) throw new AssertionError("Conversion was not resumed");
+                        }
+                        return call.callRealMethod();
+                    });
+                    return ConvertToEdoc.tidyDocument(html, firstRoot.toString());
+                }
+            });
+            assertThat(searching.await(5, TimeUnit.SECONDS)).isTrue();
+            var second = workers.submit(() -> {
+                secondThread.set(Thread.currentThread()); secondStarted.countDown();
+                return ConvertToEdoc.tidyDocument(html, secondRoot.toString());
+            });
+            try {
+                assertThat(secondStarted.await(5, TimeUnit.SECONDS)).isTrue();
+                long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+                while (!second.isDone() && secondThread.get().getState() != Thread.State.BLOCKED
+                        && System.nanoTime() < deadline) Thread.yield();
+            } finally { resume.countDown(); }
+            assertThat(first.get(5, TimeUnit.SECONDS)).contains(firstRoot.resolve("stamp.png").toString())
+                    .doesNotContain(secondRoot.resolve("stamp.png").toString());
+            assertThat(second.get(5, TimeUnit.SECONDS)).contains(secondRoot.resolve("stamp.png").toString())
+                    .doesNotContain(firstRoot.resolve("stamp.png").toString());
+        } finally { resume.countDown(); }
+    }
 
     @BeforeEach
     void setUp() {
+        originalRealPath = org.springframework.test.util.ReflectionTestUtils.getField(ConvertToEdoc.class, "realPath");
         registerMock(NioFileManager.class, Mockito.mock(NioFileManager.class));
+    }
+
+    @AfterEach
+    void restoreResourceRoot() {
+        synchronized (ConvertToEdoc.class) {
+            org.springframework.test.util.ReflectionTestUtils.setField(ConvertToEdoc.class, "realPath", originalRealPath);
+        }
     }
 
     @Test

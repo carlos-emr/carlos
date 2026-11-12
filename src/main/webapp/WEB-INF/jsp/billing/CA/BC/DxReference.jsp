@@ -62,7 +62,8 @@
     <c:if test="${ not empty dxList }">
         <select class="form-select" size="10" style="width:100%;height:100%;">
             <c:forEach items="${ dxList }" var="dx">
-                <option onClick="quickPickDiagnostic('${ dx.dx }');return false;" title="${ dx.desc }">
+                <option onClick="quickPickDiagnostic('${carlos:forJavaScriptAttribute(dx.dx)}');return false;"
+                        title="${carlos:forHtmlAttribute(dx.desc)}">
                     ${carlos:forHtml(dx.dx)} - ${carlos:forHtml(dx.numMonthSinceDate)}m
                 </option>
             </c:forEach>

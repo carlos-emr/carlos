@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.lab.ca.all;
 
 import io.github.carlos_emr.carlos.util.NativeQueryValues;
 
+import java.text.ParsePosition;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -64,6 +65,7 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted;
 import io.github.carlos_emr.carlos.commn.model.MeasurementsExt;
 import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -93,16 +95,51 @@ public class Hl7textResultsData {
         // no one should instantiate this
     }
 
+    /**
+     * Observation-time layouts the HL7 message parsers hand back. HL7 OBR-7 may carry 14 digits (with
+     * seconds), 12 (no seconds), 10 (hour only) or 8 (date only), and the parsers (e.g.
+     * {@code CMLHandler.formatDateTime}, {@code DefaultGenericHandler}) render them as these shapes.
+     */
+    private static final String[] OBSERVATION_DATE_PATTERNS = {
+            "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH", "yyyy-MM-dd"};
+
+    /**
+     * Parses a handler-formatted observation time, accepting a missing seconds, minutes or time
+     * component so a result observed in the past is never re-dated to the moment it was filed
+     * (issue #4619). Each layout must match the whole value and be a real calendar time, so a short
+     * layout can never silently swallow the date prefix of a longer or malformed value.
+     *
+     * @param observationDate the handler's formatted timestamp, may be null
+     * @return the parsed instant, or {@code null} when no supported layout matches
+     */
+    static Date parseObservationDate(String observationDate) {
+        if (observationDate == null) {
+            return null;
+        }
+        String trimmed = observationDate.trim();
+        for (String pattern : OBSERVATION_DATE_PATTERNS) {
+            // SimpleDateFormat is not thread-safe, so build one per call.
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setLenient(false);
+            ParsePosition position = new ParsePosition(0);
+            Date parsed = format.parse(trimmed, position);
+            if (parsed != null && position.getIndex() == trimmed.length()) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public static void populateMeasurementsTable(String lab_no, String demographic_no) {
         MessageHandler h = Factory.getHandler(lab_no);
-        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         Calendar calender = Calendar.getInstance();
         String day = Integer.toString(calender.get(Calendar.DAY_OF_MONTH));
         String month = Integer.toString(calender.get(Calendar.MONTH) + 1);
         String year = Integer.toString(calender.get(Calendar.YEAR));
-        String hour = Integer.toString(calender.get(Calendar.HOUR));
+        String hour = Integer.toString(calender.get(Calendar.HOUR_OF_DAY));
         String min = Integer.toString(calender.get(Calendar.MINUTE));
         String second = Integer.toString(calender.get(Calendar.SECOND));
         String dateEntered = year + "-" + month + "-" + day + " " + hour + ":" + min + ":" + second + ":";
@@ -225,15 +262,32 @@ public class Hl7textResultsData {
                  * Trim and remove HTML
                  */
                 String trimmed = StringUtils.trimToEmpty(result);
-                trimmed = trimmed.replaceAll("\\<br\\s?/?\\>", "");
+                // Trim again once the markers are gone: a result such as "<br /> -5.2" (handlers turn \.br\ into
+                // <br />) would otherwise reach the filter with a leading space and be filed with it, or, for a word
+                // result such as "<br />negative", not at all.
+                trimmed = StringUtils.trimToEmpty(trimmed.replaceAll("\\<br\\s?/?\\>", ""));
                 Matcher matcher = pattern.matcher(trimmed.toLowerCase());
                 Measurement m = new Measurement();
 
                 if (matcher.find()) {
+                    // The match, not the whole result, is the value filed: the filter both selects and extracts.
+                    String value = matcher.group();
+                    // measurements.dataField holds 255 characters. The packaged install (MariaDB sql_mode="", and
+                    // jdbcCompliantTruncation=false in the JDBC URL) would cut a longer value to fit without an error,
+                    // and a strict server would roll back the whole lab. The lab report keeps the full result, so such
+                    // a value is left out of measurements rather than filed as something the lab did not send (#4613).
+                    // Counted in code points: the utf8mb4 column counts characters, not UTF-16 units.
+                    int characters = value.codePointCount(0, value.length());
+                    if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+                        logger.warn("A result of {} characters matched HL7_LAB_MEASUREMENT_FILTER but is longer than a"
+                                + " measurement holds; not filed as a measurement (lab {}, OBX {}-{})",
+                                characters, LogSafe.sanitize(lab_no), i, j);
+                        continue;
+                    }
                     m.setType(measType);
                     m.setDemographicId(Integer.parseInt(demographic_no));
                     m.setProviderNo("0");
-                    m.setDataField(matcher.group());
+                    m.setDataField(value);
                     m.setMeasuringInstruction(measInst);
                     try {
                         m.setCreateDate(simpleDateFormat.parse(dateEntered));
@@ -244,11 +298,13 @@ public class Hl7textResultsData {
                     /*
                      * This should be the OBR date - not the date the lab or measurement was received.
                      */
-                    try {
-                        m.setDateObserved(simpleDateFormat.parse(observationDate));
-                    } catch (Exception e) {
-                        m.setDateObserved(new Date());
+                    Date observed = parseObservationDate(observationDate);
+                    if (observed == null) {
+                        logger.warn("Unparseable HL7 observation time for lab " + LogSafe.sanitize(lab_no)
+                                + "; filing the measurement as observed now");
+                        observed = new Date();
                     }
+                    m.setDateObserved(observed);
 
                     m.setAppointmentNo(0);
 
@@ -759,6 +815,16 @@ public class Hl7textResultsData {
     }
 
     public static ArrayList<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate) {
+        return new ArrayList<>(populateHl7ResultsData(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, startDate, endDate, null));
+    }
+
+    /**
+     * As above, additionally keeping only labs whose routing row changed at or after
+     * {@code acknowledgedSince}; see {@link Hl7TextInfoDao#findLabAndDocsViaMagic}.
+     *
+     * @param acknowledgedSince inclusive lower bound on the routing row's timestamp, or null for none
+     */
+    public static List<LabResultData> populateHl7ResultsData(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, Date startDate, Date endDate, Date acknowledgedSince) {
 
         if (providerNo == null) {
             providerNo = "";
@@ -783,7 +849,7 @@ public class Hl7textResultsData {
         // note to self: lab reports not found in the providerLabRouting table will not show up - need to ensure every lab is entered in providerLabRouting, with '0'
         // for the providers number if unable to find correct providers
 
-        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate)) {
+        for (Object[] i : hl7TxtInfoDao.findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, acknowledgedSince)) {
 
             String label = String.valueOf(i[0]);
             String lab_no = String.valueOf(i[1]);

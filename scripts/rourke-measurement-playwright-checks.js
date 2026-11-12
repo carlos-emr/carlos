@@ -4,6 +4,7 @@
  * and redisplay, using an owned synthetic patient. GET/HEAD rejection remains independently
  * covered by get-reject-rourke-form. All owned measurements and form versions are cleaned up. */
 const h = require('./lib/playwright-harness');
+const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { captureRequest } = require('./lib/get-reject-probe');
 
@@ -23,7 +24,7 @@ async function workflow(s) {
   const weightLink = () => form.locator(`a[onclick*="displayDemographicMeasurements('p1_wt1w'"]`).first();
   await s.step('E-Chart Forms opens Rourke 2017 for the owned patient', async () => {
     const chart = await s.chart();
-    await chart.locator('#menuTitle1 a').hover();
+    await ui.openFormsMenu(chart);
     form = await s.popup(chart, chart.getByRole('link', {name:'Rourke2017', exact:true}), 'rourke');
     await form.locator('#frmP1').waitFor();
     h.assert(new URL(form.url()).searchParams.get('demographic_no') === patient, 'Rourke opened another patient');

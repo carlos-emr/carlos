@@ -30,6 +30,13 @@
 package io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.V2_3;
 
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.DateTimeException;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.ResolverStyle;
+import java.time.temporal.ChronoField;
+import java.util.Locale;
 import java.util.ArrayList;
 
 import org.apache.logging.log4j.Logger;
@@ -47,6 +54,33 @@ import io.github.carlos_emr.carlos.lab.ca.bc.PathNet.HL7.Node;
  * www.andromedia.ca
  */
 public class PID extends Node {
+    private static final DateTimeFormatter BIRTH_DATE_FORMAT = new DateTimeFormatterBuilder()
+            .appendValue(ChronoField.YEAR, 4)
+            .appendValue(ChronoField.MONTH_OF_YEAR, 2)
+            .appendValue(ChronoField.DAY_OF_MONTH, 2)
+            .optionalStart().appendPattern("HH")
+                .optionalStart().appendPattern("mm")
+                    .optionalStart().appendPattern("ss")
+                        .optionalStart().appendFraction(ChronoField.NANO_OF_SECOND, 1, 4, true).optionalEnd()
+                    .optionalEnd()
+                .optionalEnd()
+            .optionalEnd()
+            .optionalStart().appendOffset("+HHMM", "+0000").optionalEnd()
+            .parseDefaulting(ChronoField.HOUR_OF_DAY, 0)
+            .parseDefaulting(ChronoField.MINUTE_OF_HOUR, 0)
+            .parseDefaulting(ChronoField.SECOND_OF_MINUTE, 0)
+            .toFormatter(Locale.ROOT).withResolverStyle(ResolverStyle.STRICT);
+
+    /** Preserve the literal HL7 birth date; never normalize an invalid date or discard malformed trailing data. */
+    private static java.util.Date parseBirthDate(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return java.sql.Date.valueOf(LocalDate.parse(value, BIRTH_DATE_FORMAT));
+        } catch (DateTimeException _) {
+            return null;
+        }
+    }
+
     private static Logger logger = MiscUtils.getLogger();
     private static Hl7PidDao dao = SpringUtils.getBean(Hl7PidDao.class);
     private ArrayList<PIDContainer> containers;
@@ -114,13 +148,14 @@ public class PID extends Node {
     public int ToDatabase(int parent) throws SQLException {
 
         Hl7Pid h = new Hl7Pid();
+        h.setMessageId(parent);
         h.setSetId(get("set_id", ""));
         h.setExternalId(get("external_id", ""));
         h.setInternalId(get("internal_id", ""));
         h.setAlternateId(get("alternate_id", ""));
         h.setPatientName(get("patient_name", ""));
         h.setMotherMaidenName(get("mother_maiden_name", ""));
-        h.setDateOfBirth(this.convertTSToDate(get("date_of_birth", "")));
+        h.setDateOfBirth(parseBirthDate(get("date_of_birth", "")));
         h.setSex(get("sex", ""));
         h.setPatientAlias(get("patient_alias", ""));
         h.setRace(get("race", ""));

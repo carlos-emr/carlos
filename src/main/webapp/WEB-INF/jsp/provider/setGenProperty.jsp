@@ -63,40 +63,12 @@
 
         <link rel="stylesheet" type="text/css"
               href="<%= request.getContextPath() %>/encounter/encounterStyles.css">
-        <!-- calendar stylesheet -->
-        <link rel="stylesheet" type="text/css" media="all"
-              href="${carlos:forHtmlAttribute(ctx)}/share/calendar/calendar.css"
-              title="win2k-cold-1">
-
         <c:if test="${method eq 'saveConsultationRequestCuffOffDate'}">
             <script src="${carlos:forHtmlAttribute(ctx)}/share/javascript/provider_form_validations.js"
                     type="text/javascript"></script>
         </c:if>
 
-        <!-- main calendar program -->
-        <script type="text/javascript"
-                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar.js"></script>
-
-        <!-- language for the calendar -->
-        <script type="text/javascript"
-                src="${carlos:forJavaScript(ctx)}/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
-
-        <!-- the following script defines the Calendar.setup helper function, which makes
-                       adding a calendar a matter of 1 or 2 lines of code. -->
-        <script type="text/javascript"
-                src="${carlos:forJavaScript(ctx)}/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript">
-            function setup() {
-                Calendar.setup({
-                    inputField: "staleDate",
-                    ifFormat: "%Y-%m-%d",
-                    showsTime: false,
-                    button: "staleDate_cal",
-                    singleClick: true,
-                    step: 1
-                });
-            }
-
             function validate() {
                 var date = document.getElementById("staleDate");
                 if (date.value == "") {
@@ -143,11 +115,17 @@
                 </p>
 
                 <% if (request.getAttribute("dropOpts") == null) { %>
+                <%-- Only the consultation cut-off date is a number (of months). validateForm() and
+                     provider_form_validations.js check the box with id numericFormField, so the other
+                     preferences this page sets as text (the OntarioMD username) carry their own id. --%>
                 <input type="text"
-                        id="numericFormField"
+                        id="${method eq 'saveConsultationRequestCuffOffDate' ? 'numericFormField' : 'dateProperty.value'}"
                         name="dateProperty.value"  value="${carlos:forHtmlAttribute(dateProperty.value)}" />
                 <%if (request.getAttribute("dateProperty2") != null) {%>
-                <input type="text" name="dateProperty2.value" id="dateProperty2.value" />
+                <%-- The OntarioMD password. It opens empty and an empty box keeps the stored password;
+                     new-password stops the browser filling in the CARLOS sign-in password. --%>
+                <input type="password" name="dateProperty2.value" id="dateProperty2.value" autocomplete="new-password"
+                       aria-label="<fmt:message key='Logon.passWord'/>" />
                 <%}%>
                 <% } else { %>
                 <select name="dateProperty.value" id="dateProperty.value">

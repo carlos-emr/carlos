@@ -67,11 +67,10 @@ public class PageMonitorDaoImpl extends AbstractDaoImpl<PageMonitor> implements 
 
     @Override
     public void updatePage(String pageName, String pageId) {
-        Query query = entityManager.createQuery("SELECT e FROM PageMonitor e WHERE e.pageName=?1 and e.pageId=?2 order by e.updateDate desc");
-        query.setParameter(1, pageName);
-        query.setParameter(2, pageId);
-        @SuppressWarnings("unchecked")
-        List<PageMonitor> results = query.getResultList();
+        // Appointment lock checks include overlapping intervals, whose page ids differ from the
+        // requested slot. Expire those rows too so an abandoned overlap cannot block bookings forever.
+        List<PageMonitor> results = "addappointment".equals(pageName)
+                ? findByPageName(pageName) : findByPage(pageName, pageId);
         for (PageMonitor result : results) {
             Date now = new Date();
             Calendar c = Calendar.getInstance();

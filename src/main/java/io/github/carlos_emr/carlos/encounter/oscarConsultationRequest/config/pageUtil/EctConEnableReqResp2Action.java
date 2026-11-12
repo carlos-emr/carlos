@@ -59,8 +59,15 @@ public class EctConEnableReqResp2Action extends ActionSupport {
 
     public String execute()
             throws ServletException, IOException {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_con", "u", null)) {
-            throw new SecurityException("missing required sec object (_con)");
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_admin,_admin.consult", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.consult)");
+        }
+
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         PropertyDao propertyDao = (PropertyDao) SpringUtils.getBean(PropertyDao.class);

@@ -586,6 +586,30 @@ class EFormRenderPdfHtmlComposerUnitTest {
     }
 
     @Test
+    @DisplayName("should not restyle the eForm with Bootstrap CSS on the PDF render surface")
+    void shouldOmitBootstrapStylesheet_whenApplyingSavedViewerProfile() {
+        // Issue #3944: Bootstrap's reboot (body margin and font, box-sizing on every element, table
+        // and heading margins) moved legacy absolutely positioned fields in the saved PDF. The
+        // render surface has no toolbar or alert, so it needs no Bootstrap CSS; the script bundle
+        // stays for clinic form code that calls Bootstrap's JavaScript.
+        EForm eForm = mockEformWithHtml(
+                "<html><head><title>Requisition</title><link rel=\"stylesheet\" href=\"/clinic.css\"></head>"
+                + "<body><form><p>Field</p></form></body></html>");
+        when(eForm.getFid()).thenReturn("8");
+        when(eForm.getDemographicNo()).thenReturn("123");
+
+        EFormRenderPdfHtmlComposer.applyRendererViewProfile(eForm, "/carlos", "77");
+        org.jsoup.nodes.Document rendered = org.jsoup.Jsoup.parse(eForm.getFormHtml());
+
+        assertThat(rendered.select("link[rel=stylesheet]"))
+                .extracting(link -> link.attr("href"))
+                .noneMatch(href -> href.contains("bootstrap"))
+                .contains("/clinic.css", "/carlos/library/jquery/jquery-ui-1.14.2.min.css");
+        assertThat(rendered.select("script[src$=/library/bootstrap/5.3.8/js/bootstrap.bundle.min.js]"))
+                .hasSize(1);
+    }
+
+    @Test
     @DisplayName("should retain the generated fax timer target after stripping interactive controls")
     void shouldKeepFaxTimerTarget_whenRenderingGeneratedForm() {
         EForm eForm = mockEformWithHtml("<html><head><script src=\"/library/eforms/faxControl.js\"></script>"

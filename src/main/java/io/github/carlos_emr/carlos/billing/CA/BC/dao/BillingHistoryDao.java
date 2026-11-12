@@ -28,7 +28,10 @@
  */
 package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import jakarta.persistence.Query;
 
@@ -42,6 +45,16 @@ import io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile;
 
 @Repository
 public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
+
+    /**
+     * History totals used by the Bill Status OWED and PAID columns, respectively.
+     *
+     * @param includingAdjustments payments plus internal adjustments
+     * @param excludingAdjustments payments with internal adjustments excluded
+     */
+    public record PaymentTotals(double includingAdjustments, double excludingAdjustments) {
+        public static final PaymentTotals ZERO = new PaymentTotals(0.0, 0.0);
+    }
 
     public BillingHistoryDao() {
         super(BillingHistory.class);
@@ -97,5 +110,56 @@ public class BillingHistoryDao extends AbstractDaoImpl<BillingHistory> {
         }
 
         return ((Number) d).doubleValue();
+    }
+
+    /**
+     * Loads payment and internal-adjustment totals for one report in a single query.
+     * Bills without history are absent; callers should use a zero default.
+     *
+     * @param billingMasterNos billing line IDs selected by the report
+     * @return totals keyed by billing line ID, including internal adjustments
+     */
+    public Map<Integer, Double> getTotalPaidFromHistoryByBillingMasterNos(Collection<Integer> billingMasterNos) {
+        Map<Integer, Double> totals = new HashMap<>();
+        if (billingMasterNos.isEmpty()) {
+            return totals;
+        }
+        List<Object[]> rows = entityManager.createQuery(
+                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)) FROM BillingHistory bh "
+                        + "WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo", Object[].class)
+                .setParameter("billingMasterNos", billingMasterNos)
+                .getResultList();
+        for (Object[] row : rows) {
+            totals.put((Integer) row[0], row[1] == null ? 0.0 : ((Number) row[1]).doubleValue());
+        }
+        return totals;
+    }
+
+    /**
+     * Loads both variants in one query for the bulk-settle list. PAID excludes internal
+     * adjustments on private bills, while OWED includes them for every bill type.
+     *
+     * @param billingMasterNos billing line IDs selected by the list
+     * @return both totals by billing line ID; bills without history are absent
+     */
+    public Map<Integer, PaymentTotals> getPaymentTotalsByBillingMasterNos(Collection<Integer> billingMasterNos) {
+        Map<Integer, PaymentTotals> totals = new HashMap<>();
+        if (billingMasterNos.isEmpty()) {
+            return totals;
+        }
+        List<Object[]> rows = entityManager.createQuery(
+                "SELECT bh.billingMasterNo, SUM(CAST(bh.amountReceived AS double)), "
+                        + "SUM(CASE WHEN bh.paymentTypeId <> :adjustmentType THEN CAST(bh.amountReceived AS double) ELSE 0 END) "
+                        + "FROM BillingHistory bh WHERE bh.billingMasterNo IN :billingMasterNos GROUP BY bh.billingMasterNo",
+                Object[].class)
+                .setParameter("adjustmentType", Integer.valueOf(MSPReconcile.PAYTYPE_IA))
+                .setParameter("billingMasterNos", billingMasterNos)
+                .getResultList();
+        for (Object[] row : rows) {
+            totals.put((Integer) row[0], new PaymentTotals(
+                    row[1] == null ? 0.0 : ((Number) row[1]).doubleValue(),
+                    row[2] == null ? 0.0 : ((Number) row[2]).doubleValue()));
+        }
+        return totals;
     }
 }

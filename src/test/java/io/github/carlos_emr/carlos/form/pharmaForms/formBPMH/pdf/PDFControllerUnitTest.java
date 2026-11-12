@@ -31,6 +31,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.reflect.Method;
 import java.net.URL;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -40,6 +44,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.pdfbox.text.TextPosition;
+import org.openpdf.text.pdf.PdfReader;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.form.pharmaForms.formBPMH.bean.BpmhDrug;
@@ -124,5 +133,113 @@ class PDFControllerUnitTest {
         Map<String, Method> getterMethods = PDFController.getGetterMethods(data);
         assertThat(PDFController.invokeValue("democratic.fakemethod", getterMethods, data)).isNull();
         assertThat(PDFController.invokeValue("fakemethod", getterMethods, data)).isNull();
+    }
+
+    @Test
+    void shouldContinueTheActualClippedInstructionWithItsMedicationAndDirections(@TempDir Path output) throws Exception {
+        String instruction = "FAKE-PW1234567890abcdef continue at discharge";
+        byte[] bytes = renderInstructions(output, List.of(instruction), true);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(2);
+            PDFTextStripper first = new PDFTextStripper(); first.setEndPage(1);
+            assertThat(first.getText(pdf)).contains("See instructions #1");
+            String continuation = continuationTextAndCheckGeometry(bytes);
+            assertThat(compact(continuation)).contains(compact(instruction));
+            assertThat(continuation).contains("FAKE medication 1 20 mg", "Take 1 tablet by mouth daily", "Instruction #1:");
+        }
+    }
+
+    @Test
+    void shouldPaginateLongClinicalTextAndUnbrokenUnicodeWithoutShrinking(@TempDir Path output) throws Exception {
+        String clinical = "Take 1 tablet by mouth with breakfast; hold if dizzy and contact the pharmacist. ".repeat(180) + " END-CLINICAL";
+        String unicode = "Nguyễn Łukasz ≥ 5 中文 用藥指示 " + "LONGIDENTIFIER1234567890".repeat(30) + " 結束 END-UNICODE";
+        byte[] bytes = renderInstructions(output, List.of(clinical, unicode), true);
+        try (var pdf = Loader.loadPDF(bytes)) { assertThat(pdf.getNumberOfPages()).isGreaterThan(3); }
+        String text = compact(continuationTextAndCheckGeometry(bytes));
+        assertThat(text).contains(compact(clinical), compact(unicode));
+    }
+
+    @Test
+    void shouldKeepShortInstructionsInTheExistingRowsAtReadableSize(@TempDir Path output) throws Exception {
+        byte[] bytes = renderInstructions(output, List.of("With food", ""), true);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isEqualTo(1);
+            assertThat(new PDFTextStripper().getText(pdf)).contains("With food").doesNotContain("See instructions");
+            Positions positions = new Positions(); positions.getText(pdf);
+            assertThat(positions.glyphs.stream().filter(g -> g.getXDirAdj() > 490 && g.getUnicode().contains("W")))
+                    .isNotEmpty().allSatisfy(g -> assertThat(g.getFontSizeInPt()).isGreaterThanOrEqualTo(7));
+        }
+    }
+
+    @Test
+    void shouldNamePatientWithoutRecordNumber_onEveryContinuationPage(@TempDir Path output) throws Exception {
+        String clinical = "Take 1 tablet by mouth with breakfast; hold if dizzy and contact the pharmacist. ".repeat(120);
+        byte[] bytes = renderInstructions(output, List.of(clinical), true);
+        try (var pdf = Loader.loadPDF(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isGreaterThan(2);
+            for (int page = 2; page <= pdf.getNumberOfPages(); page++) {
+                PDFTextStripper stripper = new PDFTextStripper(); stripper.setStartPage(page); stripper.setEndPage(page);
+                String text = stripper.getText(pdf);
+                assertThat(text).contains("BPMH medication instruction notes (continued)", "Patient: Warren, Dennis");
+                assertThat(text).doesNotContain("2345").doesNotContain("12345");
+            }
+        }
+    }
+
+    @Test
+    void shouldLeaveContinuationDisabledForCallersThatDoNotOptIn(@TempDir Path output) throws Exception {
+        byte[] bytes = renderInstructions(output, List.of("FAKE-PW1234567890abcdef continue at discharge"), false);
+        try (var pdf = Loader.loadPDF(bytes)) { assertThat(pdf.getNumberOfPages()).isEqualTo(1); }
+    }
+
+    private byte[] renderInstructions(Path output, List<String> instructions, boolean continueInstructions) throws IOException {
+        List<BpmhDrug> drugs = new ArrayList<>();
+        for (int i = 0; i < instructions.size(); i++) {
+            BpmhDrug drug = new BpmhDrug();
+            drug.setWhat("FAKE medication " + (i + 1) + " 20 mg");
+            drug.setHow("Take 1 tablet by mouth daily");
+            drug.setInstruction(instructions.get(i));
+            drugs.add(drug);
+        }
+        data.setDrugs(drugs);
+        data.setNote("FAKE preserved note");
+        pdfController.setContinueInstructions(continueInstructions);
+        pdfController.setOutputPath(output.toString());
+        pdfController.writeDataToPDF(data, new String[]{"1"}, "FAKE-UNIT");
+        return Files.readAllBytes(Path.of(pdfController.getOutputPath()));
+    }
+
+    private String continuationTextAndCheckGeometry(byte[] bytes) throws Exception {
+        StringBuilder text = new StringBuilder();
+        try (var pdf = Loader.loadPDF(bytes); PdfReader reader = new PdfReader(bytes)) {
+            assertThat(pdf.getNumberOfPages()).isGreaterThan(1);
+            for (int page = 2; page <= pdf.getNumberOfPages(); page++) {
+                Positions positions = new Positions(); positions.setStartPage(page); positions.setEndPage(page);
+                String pageText = positions.getText(pdf);
+                assertThat(pageText).contains("BPMH medication instruction notes");
+                text.append(pageText.replaceAll("BPMH medication instruction notes[^\\n]*\\n", "")
+                        .replaceAll("Patient: [^\\n]*\\n", ""));
+                assertThat(positions.glyphs).isNotEmpty().allSatisfy(glyph -> {
+                    assertThat(glyph.getFontSizeInPt()).isGreaterThanOrEqualTo(10);
+                    assertThat(glyph.getXDirAdj()).isGreaterThanOrEqualTo(35.9f);
+                    assertThat(glyph.getXDirAdj() + glyph.getWidthDirAdj()).isLessThanOrEqualTo(576.1f);
+                    assertThat(glyph.getYDirAdj()).isBetween(25.9f, 756.1f);
+                });
+                // Text extraction can include invisible clipped text. Continuations must have no clip operators.
+                assertThat(new String(reader.getPageContent(page), StandardCharsets.ISO_8859_1))
+                        .doesNotMatch("(?s).*\\sW\\*?\\s.*");
+            }
+        }
+        return text.toString();
+    }
+
+    private static String compact(String value) { return value.replaceAll("\\s+", ""); }
+
+    private static final class Positions extends PDFTextStripper {
+        final List<TextPosition> glyphs = new ArrayList<>();
+        Positions() throws IOException { super(); }
+        @Override protected void processTextPosition(TextPosition position) {
+            glyphs.add(position); super.processTextPosition(position);
+        }
     }
 }

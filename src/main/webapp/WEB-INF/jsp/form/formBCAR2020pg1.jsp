@@ -104,6 +104,10 @@
                 src="<%=request.getContextPath()%>/share/calendar/lang/<fmt:message key='global.javascript.calendar'/>"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/share/calendar/calendar-setup.js"></script>
         <script type="text/javascript" src="<%=request.getContextPath()%>/js/formBCAR2020Record.js"></script>
+        <%-- The measurement dialog loads its own jQuery. Include it before this page's jQuery, jQuery UI and
+             plugins (the order Rourke 2020 uses): included after them, it replaced the jQuery they had attached
+             to, so the page's start-up failed on .dialog and Save never became enabled (issue #4919). --%>
+        <%@ include file="demographicMeasurementModal.jsp" %>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-3.7.1.min.js" type="text/javascript"></script>
         <script src="<%=request.getContextPath() %>/library/jquery/jquery-compat.js" type="text/javascript"></script>
 
@@ -173,8 +177,6 @@
                 $('form').trigger('checkform.areYouSure');
             }
         </script>
-
-        <%@ include file="demographicMeasurementModal.jsp" %>
 
         <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
@@ -1093,8 +1095,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1173,8 +1175,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1253,8 +1255,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>
@@ -1333,8 +1335,8 @@
                                                 <option value=""><fmt:message key="form.formBCAR2020pg1.option.other"/></option>
                                                 <option value="SVD">SVD</option>
                                                 <option value="C-section"><fmt:message key="form.formBCAR2020pg1.option.cSection"/></option>
-                                                <option value="Vacuum">Vacuum</option>
-                                                <option value="Forceps">Forceps</option>
+                                                <option value="Vacuum"><fmt:message key="form.formBCAR2020pg1.option.vacuum"/></option>
+                                                <option value="Forceps"><fmt:message key="form.formBCAR2020pg1.option.forceps"/></option>
                                                 <option value="Vacuum and Forceps"><fmt:message key="form.formBCAR2020pg1.option.vacuumAndForceps"/></option>
                                                 <option value="Forceps Trial and C-section"><fmt:message key="form.formBCAR2020pg1.option.forcepsTrialAndCSection"/></option>
                                                 </option>

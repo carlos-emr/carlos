@@ -201,7 +201,7 @@ class DemographicUpdate2ActionUnitTest extends CarlosWebTestBase {
     }
 
     @ParameterizedTest
-    @CsvSource({"nameUsed,31", "pronouns,26", "gender,26"})
+    @CsvSource({"nameUsed,71", "pronouns,26", "gender,26"})
     @DisplayName("should refuse over-length identity fields before loading or changing the patient")
     void shouldRefuseOverlongIdentityFields_beforeChangingPatientData(String field, int length) throws Exception {
         allowPrivilege("_demographic", "w");

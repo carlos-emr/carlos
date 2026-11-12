@@ -110,6 +110,7 @@ class LabMutationMethodUnitTest extends CarlosUnitTestBase {
                     });
             assertThat(new ReportStatusUpdate2Action().executemain()).isEqualTo(mutationFails ? "failure" : ActionSupport.SUCCESS);
             if (mutationFails) {
+                assertThat(response.getStatus()).isEqualTo(500);
                 logActionMock.verifyNoInteractions();
                 assertThat(logs.messages()).anyMatch(message -> message.contains("IllegalStateException"));
                 assertThat(logs.messages().toString()).doesNotContain("PRIVATE_ROUTING");

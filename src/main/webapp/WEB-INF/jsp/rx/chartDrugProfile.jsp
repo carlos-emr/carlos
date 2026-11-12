@@ -73,8 +73,15 @@
     StringBuffer sb = new StringBuffer();
     Hashtable h = new Hashtable();
     String drugForGraph = "";
-    if (request.getParameterValues("drug") != null) {
+    // The Med List form posts selectionSubmitted. An unticked checkbox sends nothing, so without
+    // it "every box cleared" was indistinguishable from the first visit and graphed (and ticked)
+    // every product again (#5004). Only the first visit defaults to all non-custom products.
+    boolean selectionSubmitted = "true".equals(request.getParameter("selectionSubmitted"));
+    if (selectionSubmitted || request.getParameterValues("drug") != null) {
         String[] drugs = request.getParameterValues("drug");
+        if (drugs == null) {
+            drugs = new String[0];
+        }
         for (String d : drugs) {
             sb.append("&drug=" + SafeEncode.forUriComponent(d));
             h.put(d, "drug");
@@ -157,6 +164,7 @@
                     <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographicNo %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="testName" value="<carlos:encode value='<%= testName %>' context="htmlAttribute"/>"/>
                     <input type="hidden" name="identifier" value="<carlos:encode value='<%= identifier %>' context="htmlAttribute"/>"/>
+                    <input type="hidden" name="selectionSubmitted" value="true"/>
                     <input type="submit" value="Add Meds to Graph"/>
                     <ul>
                         <%

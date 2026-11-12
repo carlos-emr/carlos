@@ -20,6 +20,8 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { revealAuditLink } = require('./lib/playwright-link-audit');
 
 const TIMEOUT = 20000;
 
@@ -80,7 +82,7 @@ async function workflow(s) {
   const ownedSuggestion = `SELECT CONCAT(COUNT(*),':',COALESCE(MAX(active),'-')) FROM tickler_text_suggest
     WHERE suggested_text=${S} AND creator=${h.sqlString(provider)} AND id>${baselineMax}`;
 
-  const ticklerList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+  const ticklerList = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
   await ticklerList.waitForLoadState('domcontentloaded');
   async function openAdd() {
     const add = await s.popup(ticklerList, ticklerList.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
@@ -220,6 +222,11 @@ async function workflow(s) {
     sql.execute(`INSERT INTO ctl_document (module,module_id,document_no,status) VALUES ('demographic',${patient},${documentNo},'A')`);
     const chart = await s.chart();
     const link = chart.locator(`#leftNavBar a[onclick*="segmentID=${documentNo}'"], #rightNavBar a[onclick*="segmentID=${documentNo}'"]`).first();
+    // Where the Documents panel files documents into collapsed folders by type (#4741, the provider's eChart
+    // preference, on by default; release/2026.08 has no folders): open the document's folder first, as
+    // document-pagination does. With no folder to open this reveals nothing.
+    await link.waitFor({ state: 'attached', timeout: TIMEOUT });
+    await revealAuditLink(chart, link, TIMEOUT);
     // The trailing date <span> overlays the link's centre (as in the eChart navbar), so click its start.
     const viewer = await ui.clickOpensPopup(chart, link,
       { context: s.context, recorder, label: 'show-document', timeout: TIMEOUT, position: { x: 4, y: 4 } });

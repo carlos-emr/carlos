@@ -326,7 +326,7 @@ order by billing.billingtype;]]>
 					<bottomPen lineWidth="0.0" lineStyle="Solid" lineColor="#000000" />
 					<rightPen lineWidth="0.0" lineStyle="Solid" lineColor="#FFFFFF" />
 				</box>
-				<expression><![CDATA[NumberFormat.getCurrencyInstance().format(new Double($F{amount}))]]></expression>
+				<expression><![CDATA[NumberFormat.getCurrencyInstance(java.util.Locale.CANADA).format(new Double($F{amount}))]]></expression>
 			</element>
 			<element kind="textField" mode="Transparent" x="0" y="0" width="45" height="10" forecolor="#000000" backcolor="#FFFFFF" key="textField-2" hTextAlign="Left" vTextAlign="Middle" fontSize="8.0" rotation="None" textAdjust="StretchHeight" blankWhenNull="true" pattern="dd-MMM-yy" removeLineWhenBlank="true" printWhenDetailOverflows="true">
 				<paragraph lineSpacing="Single" />

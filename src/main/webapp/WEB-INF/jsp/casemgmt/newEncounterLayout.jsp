@@ -74,7 +74,7 @@
 
     CaseManagementNoteExt cme = new CaseManagementNoteExt();
 
-    String frmName = "caseManagementEntryForm" + request.getParameter("demographicNo");
+    String frmName = io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.formKey(request, request.getParameter("demographicNo"));
     CaseManagementEntryFormBean cform = (CaseManagementEntryFormBean) session.getAttribute(frmName);
 
     String encTimeMandatoryValue = CarlosProperties.getInstance().getProperty("ENCOUNTER_TIME_MANDATORY", "false");
@@ -109,6 +109,7 @@
 
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-3.7.1.min.js"></script>
         <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/library/jquery/jquery-ui-1.14.2.min.js"></script>
+        <script src="${carlos:forHtmlAttribute(ctx)}/js/formOpenGuard.js"></script>
         <script type="text/javascript">jQuery.noConflict();</script>
         <!-- Prototype.js/Scriptaculous removed — using prototype-compat.js shim + carlos-ajax.js (Phase 4d migration) -->
         <!-- jQuery.noConflict() frees $ for the Prototype shim; use jQuery() or jQuery.ajax() for jQuery calls -->
@@ -169,6 +170,9 @@
 
 
 <script type="text/javascript" src="${pageContext.request.contextPath}/js/validateTextInputs.js"></script>
+<script>
+window.carlosChartContext = '<%= SafeEncode.forJavaScript(io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request)) %>';
+</script>
 <!--js code for newCaseManagementView.jsp -->
 <script type="text/javascript" src="${carlos:forHtmlAttribute(ctx)}/js/newCaseManagementView.js.jsp"></script>
 

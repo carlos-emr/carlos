@@ -21,6 +21,7 @@
 package io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil;
 
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,6 +33,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Function;
 
 import jakarta.servlet.ServletException;
@@ -52,6 +54,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.FaxManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LogSafe;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -85,7 +88,9 @@ import org.apache.struts2.ServletActionContext;
  * <ul>
  *   <li><b>eForms</b> - rendered via {@link FaxManager}</li>
  *   <li><b>Documents</b> - images converted via {@link ImagePDFCreator}, PDFs included directly</li>
- *   <li><b>Lab results</b> - rendered via {@link LabPDFCreator} with embedded documents</li>
+ *   <li><b>Lab results</b> - HL7 labs rendered via {@link LabPDFCreator} with embedded documents;
+ *       the labs it cannot draw (CML, MDS, PathNet, unconfirmed source) are named on a page right
+ *       after the consultation form by {@link ConsultationLabsNotIncluded} (issue #4693)</li>
  *   <li><b>HRM reports</b> - rendered via {@link HRMPDFCreator}</li>
  *   <li><b>Forms</b> - rendered via {@link FaxManager} with {@link FormTransportContainer}</li>
  * </ul>
@@ -181,10 +186,14 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
         CommonLabResultData consultLabs = new CommonLabResultData();
         ArrayList<InputStream> streams = new ArrayList<InputStream>();
 
+        List<LabResultData> listedLabs = consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED);
         List<LabResultData> labs = retainOwned(DocumentType.LAB, ownerDemographicNo,
-                AttachmentOwnershipService.renderableLabsOnly(
-                        consultLabs.populateLabResultsData(loggedInInfo, demoNo, reqId, CommonLabResultData.ATTACHED)),
-                LabResultData::getSegmentID);
+                AttachmentOwnershipService.renderableLabsOnly(listedLabs), LabResultData::getSegmentID);
+        // Issue #4693: the labs LabPDFCreator cannot draw are still attached; a page right after the
+        // letter names them, as the main consultation packet does.
+        Locale readerLocale = LocaleUtils.resolveBundleLocale(request);
+        List<String> labsNotIncluded = ConsultationLabsNotIncluded.describe(
+                AttachmentOwnershipService.labsNotRenderable(listedLabs), readerLocale);
         String error = "";
         Exception exception = null;
         try {
@@ -198,6 +207,12 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             bos.close();
             streams.add(bis);
             alist.add(bis);
+
+            if (!labsNotIncluded.isEmpty()) {
+                InputStream notice = new ByteArrayInputStream(ConsultationLabsNotIncluded.noticePage(labsNotIncluded, readerLocale));
+                streams.add(notice);
+                alist.add(notice);
+            }
 
             // attached eForms
             List<EFormData> eForms = retainOwned(DocumentType.EFORM, ownerDemographicNo,
@@ -217,10 +232,10 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
                 // stream was created but never added to the cleanup list, leaking one file
                 // descriptor per attached eForm on every print (see attached-forms site below
                 // for the matching leak).
-                // The renderer chose this path itself (eForm ids are already narrowed to this request's
-                // patient by retainOwned and gated by the _eform privilege); no request text names it.
-                // nosemgrep: carlos.httpservlet-path-traversal -- server-generated renderer output, not a request-chosen path
-                InputStream attachedFormStream = Files.newInputStream(attachedForm);
+                // Renderers write into CARLOS-owned temp roots. Confine the returned path before
+                // reading it, including canonical resolution of any symlink in that path.
+                InputStream attachedFormStream = Files.newInputStream(
+                        PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
                 streams.add(attachedFormStream);
                 alist.add(attachedFormStream);
             }
@@ -541,7 +556,8 @@ public class EctConsultationFormRequestPrintAction22Action extends ActionSupport
             formTransportContainer.setRealPath(ServletActionContext.getServletContext().getRealPath(File.separator));
             Path attachedForm = faxManager.renderFaxDocument(
                     loggedInInfo, FaxManager.TransactionType.FORM, formTransportContainer);
-            return Files.newInputStream(attachedForm);
+            return Files.newInputStream(
+                    PathValidationUtils.validateApplicationTempPath(attachedForm == null ? null : attachedForm.toFile()).toPath());
         } catch (SQLException | IOException | ServletException | RuntimeException e) {
             throw new PDFGenerationException(
                     "Attached form \"" + formName + "\" could not be rendered: " + e.getMessage(), e);

@@ -52,6 +52,8 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
 public final class RxViewScript2Action extends ActionSupport {
+    private static final String SAVE_AND_PRINT = "saveAndPrint";
+
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
@@ -92,12 +94,22 @@ public final class RxViewScript2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_rx)");
         }
 
+        if ("true".equals(request.getParameter(SAVE_AND_PRINT)) && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+
         // Setup variables
 
 
         HttpSession session = request.getSession();
         RxSessionBean bean = RxRequestedPatientAccess.resolveForRead(securityInfoManager, request, "_rx", "r");
         if (bean == null) {
+            if (RxSessionBeanResolver.requestedDemographicNo(request) <= 0) {
+                response.sendError(HttpServletResponse.SC_CONFLICT);
+                return NONE;
+            }
             response.sendRedirect("error.html");
             return null;
         }
@@ -106,7 +118,7 @@ public final class RxViewScript2Action extends ActionSupport {
         // selected a different reprint in between; authorize and pin the requested saved script
         // instead of adopting that newer workspace. Legacy Save And Print sends literal "null".
         String requestedScriptId = request.getParameter("scriptId");
-        if ("true".equals(request.getParameter("saveAndPrint"))
+        if ("true".equals(request.getParameter(SAVE_AND_PRINT))
                 && (requestedScriptId == null || requestedScriptId.isEmpty() || "null".equals(requestedScriptId))) {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
@@ -143,7 +155,7 @@ public final class RxViewScript2Action extends ActionSupport {
     }
 
     private String viewRequestedScript(RxSessionBean liveBean, String scriptId, LoggedInInfo loggedInInfo) throws IOException {
-        boolean saveAndPrint = "true".equals(request.getParameter("saveAndPrint"));
+        boolean saveAndPrint = "true".equals(request.getParameter(SAVE_AND_PRINT));
         if (saveAndPrint) {
             if (!"POST".equals(request.getMethod())) {
                 response.setHeader("Allow", "POST");

@@ -76,6 +76,7 @@ const {
 } = require('./lib/playwright-harness');
 
 const config = readConfig({ require: ['MYSQL_PASSWORD'] });
+const { selectTicklerAssignee } = require('./lib/tickler-clinic');
 const demographicNo = process.env.TICKLER_DEMOGRAPHIC_NO || '1';
 assert(/^\d+$/.test(demographicNo), 'TICKLER_DEMOGRAPHIC_NO must be numeric');
 const stamp = `PW_TICKLER_ATTACH_${Date.now()}`;
@@ -222,6 +223,7 @@ async function postEditForm(page, fields) {
     wirePage(addPage, 'tickler-add', recorder);
     await gotoApp(addPage, config.baseUrl, `/tickler/ViewAddTickler?updateParent=true&bFirstDisp=false&demographic_no=${encodeURIComponent(demographicNo)}`, 'load');
     await addPage.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 30000 });
+    await selectTicklerAssignee(addPage, providerNo);
     await addPage.locator('textarea[name="ticklerMessage"]').fill(message);
     await openPicker(addPage);
     const picked = await checkFirstOfEachKind(addPage);

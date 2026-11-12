@@ -56,12 +56,12 @@ import io.github.carlos_emr.carlos.commn.model.MeasurementType;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
-import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
+
 
 /**
  * Renders scatter plot and line chart images (JPEG) for clinical measurements
@@ -78,29 +78,13 @@ public class ScatterPlotChartServlet extends HttpServlet {
     public void service(HttpServletRequest request, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         String type = request.getParameter("type");
         String mInstrc = request.getParameter("mInstrc");
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-        String demographicNo = null;
-
-        if (request.getParameter("demographicNo") != null) {
-            demographicNo = request.getParameter("demographicNo");
-        }
-
-        if (demographicNo == null && bean != null) {
-            demographicNo = bean.getDemographicNo();
-        }
-
-        // Security fix (issue #2623): patient-scoped authorization check,
-        // mirroring the pattern in MeasurementData2Action.java (measurements/web).
-        //
-        // A missing demographicNo is rejected outright, before any privilege
-        // check runs: hasPrivilege() falls back to a general role check when
-        // demographicNo is null, which would reopen the IDOR gap this fix is
-        // meant to close (flagged by automated review on this PR).
-        if (demographicNo == null) {
-            httpServletResponse.sendError(HttpServletResponse.SC_FORBIDDEN);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            httpServletResponse.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
             return;
         }
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             httpServletResponse.sendError(HttpServletResponse.SC_UNAUTHORIZED);

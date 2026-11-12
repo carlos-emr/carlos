@@ -111,6 +111,18 @@ public class ServiceSpecialistsDaoIntegrationTest extends CarlosTestBase {
                 .extracting(row -> ((ProfessionalSpecialist) row[0]).getId()).containsExactly(36181);
     }
 
+    @Test
+    void shouldExcludeDeletedSpecialists_fromConsultationPickers() {
+        createServiceSpecialist(3336, 33361);
+        createServiceSpecialist(3336, 33362);
+        entityManager.find(ProfessionalSpecialist.class, 33362).setDeleted(true);
+        entityManager.flush();
+        assertThat(dao.findSpecialists(3336))
+                .extracting(row -> ((ProfessionalSpecialist) row[1]).getId()).containsExactly(33361);
+        assertThat(dao.findAllSpecialistsWithService())
+                .extracting(row -> ((ProfessionalSpecialist) row[1]).getId()).contains(33361).doesNotContain(33362);
+    }
+
     @Nested
     @DisplayName("CRUD operations")
     class CrudOperations {

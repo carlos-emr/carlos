@@ -12,7 +12,8 @@
 // number under JE whose text carries the run marker. Cleanup deletes only those rows and restores
 // the hide_prevention_item snapshot. That property is global: run with EXCLUSIVE=1.
 // lot-number-search covers the search form against a seeded lot; this check covers add/delete.
-// Print runs LAST: on release/2026.08 its form posts to /WEB-INF/jsp/prevention/printPrevention (404).
+// Print runs last. prevention-print covers the print form (selection-only POST, Enter in the
+// vaccine box, Print Immunizations Only, error handling) in depth.
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const { assert, sqlString, withExpectedDialogs } = require('./lib/playwright-harness');
@@ -171,7 +172,7 @@ async function workflow(s) {
     await index.close();
   });
 
-  // Last, so every provable step is proven first: the print form's action is an application defect.
+  // Last: the print opens its own Preventions page after the list-manager steps restored it.
   await s.step('Enable Print then Print returns a PDF of the patient\'s preventions', async () => {
     const index = await openIndex();
     const button = index.locator('input[name="printButton"]');

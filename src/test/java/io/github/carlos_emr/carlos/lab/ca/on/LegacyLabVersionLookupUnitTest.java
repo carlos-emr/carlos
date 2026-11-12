@@ -13,6 +13,9 @@ import java.util.List;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7OrcDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao;
@@ -69,11 +72,69 @@ class LegacyLabVersionLookupUnitTest extends CarlosUnitTestBase {
         when(orcDao.findFillerAndStatusChageByMessageId(42))
                 .thenReturn(List.<Object[]>of(new Object[]{"ACCESSION-1-1", Timestamp.valueOf("2026-09-01 12:00:00")}));
         when(pidDao.findByFillerOrderNumber("%ACCESSION%"))
-                .thenReturn(List.of(new Object[]{41, Timestamp.valueOf("2026-08-31 12:00:00")},
-                        new Object[]{42, Timestamp.valueOf("2026-09-01 12:00:00")},
-                        new Object[]{9, Timestamp.valueOf("2020-09-01 12:00:00")}));
+                .thenReturn(List.of(new Object[]{41, Timestamp.valueOf("2026-08-31 12:00:00"), "ACCESSION-1-2"},
+                        new Object[]{42, Timestamp.valueOf("2026-09-01 12:00:00"), "ACCESSION-1-1"},
+                        new Object[]{9, Timestamp.valueOf("2020-09-01 12:00:00"), "ACCESSION-1-3"}));
         assertThat(data.getMatchingLabs("42")).isEqualTo("41,42");
         verify(orcDao).findFillerAndStatusChageByMessageId(42);
+    }
+
+    @Test
+    void shouldExcludeSubstringAccession_whenCandidateDatesAreWithinWindow() throws Exception {
+        var orcs = mock(Hl7OrcDao.class);
+        var pids = mock(Hl7PidDao.class);
+        registerMock(Hl7PidDao.class, pids);
+        var data = pathnet(orcs);
+        var date = Timestamp.valueOf("2026-09-01 12:00:00");
+        when(orcs.findFillerAndStatusChageByMessageId(42))
+                .thenReturn(List.<Object[]>of(new Object[]{"123-01-01", date}));
+        when(pids.findByFillerOrderNumber("%123%"))
+                .thenReturn(List.of(new Object[]{40, date, "9123-01-01"},
+                        new Object[]{41, date, "123-01-02"}, new Object[]{41, date, "123-01-02"},
+                        new Object[]{42, date, "123-01-01"}));
+        assertThat(data.getMatchingLabs("42", true)).isEqualTo("41,42");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"FAKE5052", "FAKE-5052", "A%B_5052"})
+    void shouldPreserveOrdinaryIdentifier_whenResolvingVersions(String filler) throws Exception {
+        var orcs = mock(Hl7OrcDao.class);
+        var pids = mock(Hl7PidDao.class);
+        registerMock(Hl7PidDao.class, pids);
+        var data = pathnet(orcs);
+        var date = Timestamp.valueOf("2026-09-01 12:00:00");
+        when(orcs.findFillerAndStatusChageByMessageId(42))
+                .thenReturn(List.<Object[]>of(new Object[]{filler, date}));
+        when(pids.findByFillerOrderNumber("%" + filler + "%"))
+                .thenReturn(List.of(new Object[]{41, date, "OTHER" + filler}, new Object[]{42, date, filler}));
+        assertThat(data.justGetAccessionNumber(filler)).isEqualTo(filler);
+        assertThat(data.getMatchingLabs("42", true)).isEqualTo("42");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = " ")
+    void shouldUseSelectedReportAlone_whenFillerIsAbsent(String filler) throws Exception {
+        var orcs = mock(Hl7OrcDao.class);
+        var pids = mock(Hl7PidDao.class);
+        registerMock(Hl7PidDao.class, pids);
+        var data = pathnet(orcs);
+        when(orcs.findFillerAndStatusChageByMessageId(42))
+                .thenReturn(List.<Object[]>of(new Object[]{filler, Timestamp.valueOf("2026-09-01 12:00:00")}));
+        assertThat(data.getMatchingLabs("42", true)).isEqualTo("42");
+        verifyNoInteractions(pids);
+    }
+
+    @Test
+    void shouldUseSelectedReportAlone_whenMultipleFillersArePresent() throws Exception {
+        var orcs = mock(Hl7OrcDao.class);
+        var pids = mock(Hl7PidDao.class);
+        registerMock(Hl7PidDao.class, pids);
+        var date = Timestamp.valueOf("2026-09-01 12:00:00");
+        when(orcs.findFillerAndStatusChageByMessageId(42))
+                .thenReturn(List.of(new Object[]{"123-01-01", date}, new Object[]{"456-01-01", date}));
+        assertThat(pathnet(orcs).getMatchingLabs("42", true)).isEqualTo("42");
+        verifyNoInteractions(pids);
     }
 
     @Test
@@ -119,7 +180,7 @@ class LegacyLabVersionLookupUnitTest extends CarlosUnitTestBase {
         field.setAccessible(true);
         field.set(data, dao);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> data.getMatchingCMLLabs("42", true))
-                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version lookup failed");
+                .isInstanceOf(IllegalStateException.class).hasMessage("Lab version chain could not be determined");
     }
 
     @Test

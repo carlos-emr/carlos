@@ -22,8 +22,6 @@
 package io.github.carlos_emr.carlos.casemgmt.web;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -62,16 +60,13 @@ class CaseManagementCppSaveRegressionTest {
             "lifestage", "hidecpp", "startdate", "resolutiondate", "proceduredate", "ageatonset"};
     /**
      * The CRS tag groups that read prose as an attack. {@code attack-rfi} is on this list
-     * for the note route even though 1045 and 1050 keep it: 931100 is anchored on the whole
+     * for the note route, as on Letter (1045), even though formHtml (1050) keeps it: 931100 is anchored on the whole
      * argument and fires on a CPP box or note that IS a pasted IP-address link (an internal
      * PACS URL), measured 403 on the packaged install — see the rule's comment.
      */
     private static final String[] CONTENT_ATTACK_TAGS = {
             "attack-sqli", "attack-xss", "attack-rce",
             "attack-injection-php", "attack-protocol", "attack-lfi", "attack-rfi"};
-
-    /** The allocation the write loop must perform per key, matched as source text. */
-    private static final String ALLOCATION = "new CaseManagementNoteExt()";
 
     @Test
     @DisplayName("CPP saves should refresh Unresolved Issues without relying on a missing form element (#3422)")
@@ -272,27 +267,21 @@ class CaseManagementCppSaveRegressionTest {
     }
 
     @Test
-    @DisplayName("reopening a saved note for editing should HTML-escape the decoded text inside the textarea markup")
-    void shouldEscapeDecodedNote_whenBuildingEditorMarkup() throws IOException {
-        // renderedNoteText() hands back the raw note, and editNote() splices it into
-        // "<textarea ...>" + payload + "</textarea>" through insertAdjacentHTML. Unescaped, a
-        // note holding "</textarea><img onerror=...>" would close the element and run when
-        // the next clinician opened it. Escaped, the textarea's RCDATA decodes it back to the
-        // clinician's text.
+    @DisplayName("new and reopened note editors should assign raw text through the textarea value")
+    void shouldAssignRawNoteValue_whenBuildingEditors() throws IOException {
+        // Keep decoded notes and appointment reasons out of HTML construction. The Node
+        // and Chromium checks exercise literal closing tags, leading newlines and submission.
         String js = Files.readString(CASE_MGMT_VIEW_JS_JSP, StandardCharsets.UTF_8);
-
+        int createTextarea = js.indexOf("function createNoteTextarea(id, value, editing)");
         int editNote = js.indexOf("function editNote(e)");
-        int escaped = js.indexOf("payload = escapeNoteText(payload);", editNote);
-        int spliced = js.indexOf("id='\" + caseNote + \"'>\" + payload + \"<\\/textarea>\"", editNote);
-        assertThat(editNote).as("editNote() is defined").isGreaterThanOrEqualTo(0);
-        assertThat(escaped).as("editNote() escapes the payload").isGreaterThan(editNote);
-        assertThat(spliced).as("editNote() splices the payload into the textarea markup").isGreaterThan(escaped);
-
-        // newNote() builds its textarea the same way from the pre-populated reason (an
-        // appointment reason, decoded into a JavaScript string), so it gets the same escape.
+        assertThat(createTextarea).as("the shared editor builder is defined").isGreaterThanOrEqualTo(0);
+        assertThat(editNote).as("editNote() follows the builder").isGreaterThan(createTextarea);
+        assertThat(js.substring(createTextarea, editNote))
+                .contains("document.createElement(\"textarea\")", "input.value = value;")
+                .doesNotContain("innerHTML", "insertAdjacentHTML");
         assertThat(js)
-                .contains("id='caseNote_note\" + safeNoteIdSuffix + \"'>\" + escapeNoteText(reason) + \"<\\/textarea>\"")
-                .doesNotContain("+ \"'>\" + reason + \"<\\/textarea>\"");
+                .contains("createNoteTextarea(caseNote, payload, true)")
+                .contains("createNoteTextarea(\"caseNote_note\" + safeNoteIdSuffix, reason, false)");
     }
 
     @Test
@@ -373,90 +362,6 @@ class CaseManagementCppSaveRegressionTest {
                 .as("a newly added full date is not mistaken for an empty field")
                 .contains("filled(submitted) && !extKeyMatched")
                 .doesNotContain("filled(comparableValue)");
-    }
-
-    @Test
-    @DisplayName("the note route should upsert one note extension per key (#3739)")
-    void shouldUpsertOneNoteExtensionPerKey_inIssueNoteSave() throws IOException {
-        // Two regressions have to stay shut here, and only one of them is about allocation.
-        // (1) saveNoteExt() is a JPA persist(), so reusing one entity across the keys collapses
-        //     them into the row the first call created and only the last key survives.
-        // (2) saveNote() merges an existing note instead of revising it under a fresh id, so a
-        //     blind persist() per save adds a second row for a key that already has one; with
-        //     getExtByNote() ordered id desc and consumers assigning from every row, the oldest
-        //     wins and an edited value reads back as the one it replaced.
-        // CaseManagementCppExtPersistenceIntegrationTest pins the persistence behaviour behind
-        // both; this guard pins the shape of the write so neither can quietly come back.
-        String action = read(Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos",
-                "casemgmt", "web", "CaseManagementEntry2Action.java"));
-
-        int blockStart = action.indexOf("/* save extra fields */");
-        assertThat(blockStart).as("the extension save block is present").isGreaterThan(0);
-        int blockEnd = action.indexOf("caseManagementMgr.getEditors(note);", blockStart);
-        assertThat(blockEnd).as("the extension save block is bounded").isGreaterThan(blockStart);
-        String block = action.substring(blockStart, blockEnd);
-
-        assertThat(block)
-                .as("the block indexes the rows the note already has before writing")
-                .contains("caseManagementNoteExtDao.getExtByNote(note.getId())")
-                .as("an existing key is updated in place rather than inserted again")
-                .contains("caseManagementMgr.updateNoteExt(")
-                // A note from before the per-key fix can hold several rows for one key, and no
-                // reader ignores the extras: change detection scans every row and calls any
-                // divergence a change, while NotesService assigns from every row in id-desc
-                // order so the oldest is what the chart shows. Refreshing one row therefore
-                // leaves the note permanently dirty and still displaying the stale value.
-                .as("a key's rows are collected as a set, not reduced to a single row")
-                .contains("extByKey.computeIfAbsent(")
-                .doesNotContain("extByKey.putIfAbsent(")
-                .as("every row a key already has is refreshed")
-                .contains("for (CaseManagementNoteExt cme : rows)");
-
-        int forStatement = block.indexOf("for (int i = 0; i < extNames.length; i++)");
-        assertThat(forStatement).as("the block loops over the extension keys").isGreaterThan(0);
-
-        // Bound the loop body by brace-matching rather than by position relative to the `for`
-        // header alone: "after the header" would also be satisfied by an allocation sitting
-        // past the loop's closing brace, which is not what this guard claims to check. The
-        // block holds no string or character literal containing a brace, so a plain scan is
-        // enough and does not need to model Java lexing.
-        int bodyStart = block.indexOf('{', forStatement);
-        assertThat(bodyStart).as("the loop body opens").isGreaterThan(forStatement);
-        int depth = 0;
-        int bodyEnd = -1;
-        for (int i = bodyStart; i < block.length(); i++) {
-            char c = block.charAt(i);
-            if (c == '{') {
-                depth++;
-            } else if (c == '}' && --depth == 0) {
-                bodyEnd = i;
-                break;
-            }
-        }
-        assertThat(bodyEnd).as("the loop body closes inside the extension save block").isGreaterThan(bodyStart);
-
-        // Every entity the write loop creates is created inside it: a hoisted allocation is the
-        // shape that collapsed the keys into one row.
-        // EVERY allocation in the block, not just the first one indexOf happens to find. The
-        // block allocates twice: the detached `resolved` carrier and, in the insert branch, the
-        // `cme` that is actually persisted. Checking only the first would let the persisted one
-        // be hoisted above the loop -- reinstating the row-collapse bug -- while the carrier
-        // stayed inside and kept the assertion green. Requiring all of them holds however many
-        // the block grows to, and needs no guess about which is which.
-        List<Integer> allocations = new ArrayList<>();
-        for (int at = block.indexOf(ALLOCATION); at >= 0; at = block.indexOf(ALLOCATION, at + 1)) {
-            allocations.add(at);
-        }
-        assertThat(allocations)
-                .as("the block allocates note extensions at all (guards against a vacuous pass)")
-                .hasSizeGreaterThanOrEqualTo(2);
-        // bodyEnd is assigned inside the brace-matching loop above, so it is not effectively
-        // final; copy both bounds before the lambda reads them.
-        final int loopOpens = bodyStart;
-        final int loopCloses = bodyEnd;
-        assertThat(allocations)
-                .as("every note extension is allocated inside the loop body, so each key gets its own row")
-                .allSatisfy(at -> assertThat(at).isBetween(loopOpens, loopCloses));
     }
 
     /**

@@ -34,7 +34,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
+import jakarta.ws.rs.WebApplicationException;
 import io.github.carlos_emr.carlos.commn.model.CaseManagementTmpSave;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -80,10 +80,16 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         loggedInInfo = new LoggedInInfo();
         loggedInInfo.setLoggedInProvider(provider);
 
+        var request = new org.springframework.mock.web.MockHttpServletRequest();
         service = new NotesService() {
             @Override
             protected LoggedInInfo getLoggedInInfo() {
                 return loggedInInfo;
+            }
+
+            @Override
+            protected jakarta.servlet.http.HttpServletRequest getHttpServletRequest() {
+                return request;
             }
         };
         injectDependency(service, "caseManagementMgr", caseManagementMgr);
@@ -91,6 +97,8 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         injectDependency(service, "programManager2", programManager2);
 
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("r"), any()))
+                .thenReturn(true);
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_casemgmt.notes"), eq("r"), any()))
                 .thenReturn(true);
         lenient().when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class)))
                 .thenReturn(true);
@@ -110,7 +118,8 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         ObjectNode json = emptyJson();
 
         assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 
     @Test
@@ -123,7 +132,8 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         ObjectNode json = emptyJson();
 
         assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 
     @Test
@@ -134,7 +144,8 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         ObjectNode json = emptyJson();
 
         assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 
     @Test
@@ -159,6 +170,7 @@ class NotesServiceGetCurrentNoteUnitTest extends CarlosUnitTestBase {
         ObjectNode json = emptyJson();
 
         assertThatThrownBy(() -> service.getCurrentNote(DEMOGRAPHIC_NO, json))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 }

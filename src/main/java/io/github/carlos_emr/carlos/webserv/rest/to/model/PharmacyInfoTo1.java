@@ -31,6 +31,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 
 @XmlRootElement
@@ -47,6 +49,7 @@ public class PharmacyInfoTo1 implements Serializable {
     private String email;
     private String serviceLocationIdentifier;
     private String notes;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date addDate;
     private Character status;
 

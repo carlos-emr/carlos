@@ -41,6 +41,7 @@ import jakarta.ws.rs.core.Response;
 import io.github.carlos_emr.carlos.casemgmt.dao.IssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 import io.github.carlos_emr.carlos.commn.dao.DxresearchDAO;
+import io.github.carlos_emr.carlos.commn.dao.QuickListCodingSystem;
 import io.github.carlos_emr.carlos.commn.dao.QuickListDao;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.commn.model.QuickList;
@@ -90,11 +91,13 @@ public class DiseaseRegistryService extends AbstractServiceImpl {
                 quickListMap.put(item.getQuickListName(), dxList);
             }
 
-            String desc = dxresearchDao.getDescription(item.getCodingSystem(), item.getDxResearchCode());
+            // A row stored under an older name of its coding system (the seeded lists' "ichppc") reads as that coding system (#4989).
+            String codingSystem = QuickListCodingSystem.canonical(item.getCodingSystem());
+            String desc = dxresearchDao.getDescription(codingSystem, item.getDxResearchCode());
             if (desc != null) {
                 DiagnosisTo1 dx = new DiagnosisTo1();
                 dx.setCode(item.getDxResearchCode());
-                dx.setCodingSystem(item.getCodingSystem());
+                dx.setCodingSystem(codingSystem);
                 dx.setDescription(desc);
                 dxList.getDxList().add(dx);
             }

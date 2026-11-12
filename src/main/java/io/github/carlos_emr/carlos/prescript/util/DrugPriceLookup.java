@@ -37,7 +37,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 import org.apache.logging.log4j.Logger;
@@ -66,8 +68,8 @@ import io.github.carlos_emr.CarlosProperties;
  *   <li>Active {@link ResourceStorage} record of type {@link ResourceStorage#LU_CODES}</li>
  *   <li>Bundled classpath resource {@code oscar/oscarRx/data_extract_20250730.xml}</li>
  * </ol>
- * The map is populated lazily on first use via double-checked locking and stored in a
- * thread-safe {@link ConcurrentHashMap}.
+ * The map is populated lazily on first use via double-checked locking and
+ * published as complete immutable snapshots through an atomic reference.
  *
  * @since 2026-03-22
  */
@@ -75,7 +77,7 @@ public class DrugPriceLookup {
 
 	private static Logger log = MiscUtils.getLogger();
 
-	static final Map<String, String> costLookup = new ConcurrentHashMap<>();
+	static final AtomicReference<Map<String, String>> costLookup = new AtomicReference<>(Collections.emptyMap());
 	static volatile boolean loaded = false;
 
 	/** Utility class — not instantiable. */
@@ -99,22 +101,21 @@ public class DrugPriceLookup {
 			return null;
 		}
 		loadCostLookupInformation();
-		log.debug("current lookup for din {} yields {}", din, costLookup.get(din));
-		return costLookup.get(din);
+		Map<String, String> prices = costLookup.get();
+		log.debug("current lookup for din {} yields {}", din, prices.get(din));
+		return prices.get(din);
 	}
 
 	/**
-	 * Clears the internal price cache and reloads all formulary data from the configured source.
+	 * Reloads formulary data and atomically replaces the complete price cache.
 	 * <p>
-	 * This method is thread-safe; it acquires the class-level monitor before clearing and
-	 * reloading.
+	 * This method holds the class-level monitor while building a replacement. Readers
+	 * retain the previous complete snapshot, including when a reload cannot be parsed.
 	 *
 	 * @since 2026-03-22
 	 */
 	static public synchronized void reLoadLookupInformation() {
-		loaded = false;
-		costLookup.clear();
-		loadCostLookupInformation();
+		loadCostLookupInformation(true);
 	}
 
 	/**
@@ -165,15 +166,19 @@ public class DrugPriceLookup {
 	}
 
 	static private void loadCostLookupInformation() {
-		log.debug("current price lookup size {}", costLookup.size());
-		if (!loaded) {
+		loadCostLookupInformation(false);
+	}
+
+	static private void loadCostLookupInformation(boolean force) {
+		log.debug("current price lookup size {}", costLookup.get().size());
+		if (force || !loaded) {
 			synchronized (DrugPriceLookup.class) {
-				if (!loaded) {
+				if (force || !loaded) {
 					ResourceStorageDao resourceStorageDao = SpringUtils.getBean(ResourceStorageDao.class);
 					try (InputStream is = resolveOdbInputStream(resourceStorageDao)) {
 
 						if (is == null) {
-							log.error("Drug price formulary resource could not be resolved; pricing will be unavailable");
+							log.error("Drug price formulary resource could not be resolved; retaining the previous price cache");
 							return;
 						}
 
@@ -188,9 +193,10 @@ public class DrugPriceLookup {
 						Element root = doc.getRootElement();
 						Element formulary = root.getChild("formulary");
 						if (formulary == null) {
-							log.error("Drug price XML is missing <formulary> element; pricing will be unavailable");
+							log.error("Drug price XML is missing <formulary>; retaining the previous price cache");
 							return;
 						}
+						Map<String, String> replacement = new HashMap<>();
 						Iterator<Element> drugs = formulary.getDescendants(new ElementFilter("drug")).iterator();
 
 						while (drugs.hasNext()) {
@@ -201,11 +207,12 @@ public class DrugPriceLookup {
 							String din = drug.getAttribute("id").getValue();
 							String cost = drug.getChildText("individualPrice");
 							if (din != null && cost != null) {
-								costLookup.put(din, cost);
+								replacement.put(din, cost);
 							}
 						}
 
-						log.debug("Drug Prices loaded=true size: {}", costLookup.size());
+						costLookup.set(Collections.unmodifiableMap(replacement));
+						log.debug("Drug Prices loaded=true size: {}", replacement.size());
 						loaded = true;
 
 					} catch (JDOMException | IOException e) {

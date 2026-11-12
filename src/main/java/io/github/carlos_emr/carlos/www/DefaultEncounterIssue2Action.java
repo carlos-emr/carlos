@@ -121,6 +121,21 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         return "editRemove";
     }
 
+    /**
+     * The issues whose code is exactly the entered text (trimmed); none for blank text. The page
+     * asks for issue codes; the earlier search matched the text anywhere in any code or
+     * description, so "ICSW100" also assigned ICSW1000 (issue #4855). The code column is not
+     * unique, so every issue with that exact code is returned, not just the first.
+     */
+    private static List<Issue> findIssuesByCode(IssueDAO issueDao, String enteredCode) {
+        String code = enteredCode == null ? "" : enteredCode.trim();
+        if (code.isEmpty()) {
+            return new ArrayList<Issue>();
+        }
+        List<Issue> issues = issueDao.findIssueByCode(new String[]{code});
+        return issues == null ? new ArrayList<Issue>() : issues;
+    }
+
     public String save() {
         String issueNames = request.getParameter("issueNames");
         if (issueNames == null || issueNames.length() == 0) {
@@ -134,11 +149,7 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         Set<Long> issueIdSet = new HashSet<Long>();
         String[] issueNamesArr = issueNames.split(",");
         for (String issueName : issueNamesArr) {
-            List<Issue> issueList = issueDao.findIssueBySearch(issueName.trim());
-            if (issueList == null || issueList.size() == 0) {
-                continue;
-            }
-            for (Issue issue : issueList) {
+            for (Issue issue : findIssuesByCode(issueDao, issueName)) {
                 issueIdSet.add(issue.getId());
             }
         }
@@ -206,13 +217,10 @@ public class DefaultEncounterIssue2Action extends ActionSupport {
         String[] issueNamesArr = issueNames.split(",");
         StringBuilder idSb = new StringBuilder();
         for (String issueName : issueNamesArr) {
-            List<Issue> issueList = issueDao.findIssueBySearch(issueName.trim());
-            if (issueList == null || issueList.size() == 0) {
-                continue;
-            }
-            for (Issue issue : issueList) {
-                issueIdSet.add(issue.getId());
-                idSb.append(issue.getId().toString() + ",");
+            for (Issue issue : findIssuesByCode(issueDao, issueName)) {
+                if (issueIdSet.add(issue.getId())) {
+                    idSb.append(issue.getId().toString() + ",");
+                }
             }
         }
 

@@ -59,26 +59,47 @@ public class ValidationsDaoImpl extends AbstractDaoImpl<Validations> implements 
     public List<Validations> findByAll(String regularExpParam, Double minValueParam, Double maxValueParam,
                                        Integer minLengthParam, Integer maxLengthParam, Boolean isNumericParam,
                                        Boolean isDateParam) {
+        return findMatching(regularExpParam, minValueParam, maxValueParam, minLengthParam, maxLengthParam,
+                isNumericParam, isDateParam, false);
+    }
+
+    @Override
+    public List<Validations> findByDefinition(Validations definition) {
+        return findMatching(definition.getRegularExp(), definition.getMinValue(), definition.getMaxValue(),
+                definition.getMinLength(), definition.getMaxLength(), definition.isNumeric(), definition.isDate(), true);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Validations> findMatching(String regularExpParam, Double minValueParam, Double maxValueParam,
+            Integer minLengthParam, Integer maxLengthParam, Boolean isNumericParam, Boolean isDateParam,
+            boolean exactDefinition) {
 
         StringBuilder buf = new StringBuilder();
         Map<String, Object> params = new HashMap<String, Object>();
         for (Object[] i : new Object[][]{{"regularExp", regularExpParam}, {"minValue", minValueParam}, {"maxValue", maxValueParam}, {"minLength", minLengthParam}, {"maxLength", maxLengthParam}, {"isNumeric", isNumericParam}, {"isDate", isDateParam}}) {
             String name = (String) i[0];
             Object value = i[1];
-            if (value == null) {
+            if (value == null && !exactDefinition) {
                 continue;
             }
             if (buf.length() > 0) {
                 buf.append(" AND ");
             }
-            buf.append("v.").append(name).append(" = :").append(name);
-            params.put(name, value);
+            buf.append("v.").append(name);
+            if (value == null) {
+                // Absence means no constraint during reuse, never a wildcard for a stricter rule.
+                buf.append(" IS NULL");
+            } else {
+                buf.append(" = :").append(name);
+                params.put(name, value);
+            }
         }
 
         if (buf.length() > 0) {
             buf.insert(0, " WHERE ");
         }
         buf.insert(0, "FROM Validations v");
+        if (exactDefinition) buf.append(" ORDER BY v.id");
 
         Query query = entityManager.createQuery(buf.toString());
         for (Entry<String, Object> e : params.entrySet()) {

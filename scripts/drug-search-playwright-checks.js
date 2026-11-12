@@ -48,6 +48,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors, wireStrictPage, assertStrictPage } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -59,7 +60,6 @@ const {
   login,
   screenshot,
   validateBaseUrl,
-  wirePage,
 } = require('./eform-local-playwright-utils');
 
 const config = {
@@ -88,12 +88,13 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
       );
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    context.on('page', page => wireStrictPage(page, 'drug-search', recorder, { baseline: [] }));
     const landing = await login(context, config, recorder);
     await landing.close();
 
     const rxPage = await context.newPage();
-    wirePage(rxPage, 'drug-search', recorder);
+    wireStrictPage(rxPage, 'drug-search', recorder, { baseline: [] });
     await gotoApp(rxPage, config.baseUrl, `/rx/choosePatient?demographicNo=${demographicNo}`);
     await rxPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
     await assertNotErrorPage(rxPage, 'rx module');
@@ -185,8 +186,10 @@ assert(searchTerm.length >= 3, `DRUG_SEARCH_TERM must be at least 3 characters, 
     await rxPage.close();
 
     assertNoPageErrors(recorder);
+    assertStrictPage(recorder);
 
     await context.close();
+    assertStrictPage(recorder);
 
     console.log(
       `PASS drug search: "${searchTerm}" returned ${payload.results.length} result(s) over `

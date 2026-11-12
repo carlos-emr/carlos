@@ -127,6 +127,17 @@ public class MdsZMNDaoIntegrationTest extends CarlosTestBase {
 
     @Test
     @Tag("read")
+    @DisplayName("should return the result codes of the requested report group")
+    void shouldReturnResultCodes_whenSegmentHasRowsInReportGroup() {
+        MdsZMN saved = createAndPersist("RPT_CODES", "MNEM_CODES");
+
+        List<String> codes = dao.findResultCodes(saved.getId(), "GRP1");
+
+        assertThat(codes).containsExactly("RC01");
+    }
+
+    @Test
+    @Tag("read")
     @DisplayName("should return empty list when no result codes match")
     void shouldReturnEmptyList_whenNoResultCodesMatch() {
         List<String> codes = dao.findResultCodes(99999, "NONEXISTENT");

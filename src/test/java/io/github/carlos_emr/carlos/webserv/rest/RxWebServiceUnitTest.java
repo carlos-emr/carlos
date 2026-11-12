@@ -104,6 +104,11 @@ class RxWebServiceUnitTest {
     }
 
     private jakarta.ws.rs.core.StreamingOutput prescriptionPdf(String text) {
+        service.prescriptionManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.PrescriptionManager.class);
+        var script = new Prescription();
+        script.setDemographicId(1);
+        org.mockito.Mockito.when(service.prescriptionManager.getPrescription(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1))).thenReturn(script);
+        org.mockito.Mockito.when(service.prescriptionManager.getDrugsByScriptNo(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(1), org.mockito.ArgumentMatchers.isNull())).thenReturn(java.util.List.of());
         service.demographicManager = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.managers.DemographicManager.class);
         var request = new io.github.carlos_emr.carlos.webserv.rest.to.model.PrintRxTo1();
         request.setWidth(612f);

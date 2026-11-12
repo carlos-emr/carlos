@@ -35,7 +35,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Security gate for the Provider Add Role admin page.
  *
- * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege.
+ * <p>Requires either {@code _admin} or {@code _admin.userAdmin} read privilege for display and search,
+ * and write privilege for saving. The JSP uses the same write decision to show its Save button.
  * POST method is enforced for save operations ({@code submit=Save}); GET requests are allowed for initial form display.
  * All role add/search business logic is handled by the JSP.</p>
  *
@@ -63,7 +64,14 @@ public class ProviderAddRole2Action extends ActionSupport {
         // Only the Save mutation requires POST; initial form display (GET) is allowed.
         String submit = request.getParameter("submit");
         boolean isSave = "Save".equals(submit);
+        boolean canSave = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                || securityInfoManager.hasPrivilege(loggedInInfo, "_admin.userAdmin", "w", null);
+        if (isSave && !canSave) {
+            throw new SecurityException("missing required sec object (_admin or _admin.userAdmin)");
+        }
+        request.setAttribute("canSaveRole", canSave);
         if (isSave && !"POST".equalsIgnoreCase(request.getMethod())) {
+            response.setHeader("Allow", "POST");
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
             return NONE;
         }

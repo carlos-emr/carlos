@@ -169,7 +169,14 @@ class CaseManagementEntry2ActionPostOnlyUnitTest {
             action.withSession(new HashMap<>());
             String result = action.execute();
 
-            verify(securityInfoManager).hasPrivilege(sessionInfo, "_demographic", "r", null);
+            String operation = request.getParameter("method");
+            if (operation == null) operation = (String) request.getAttribute("method");
+            if (!"POST".equals(httpMethod) && java.util.Set.of("releaseNoteLock", "isNoteEdited", "updateNoteLock")
+                    .contains(operation == null ? "" : operation)) {
+                Mockito.verifyNoInteractions(securityInfoManager);
+            } else {
+                verify(securityInfoManager).hasPrivilege(sessionInfo, "_demographic", "r", null);
+            }
             return new Outcome(result, response, beans);
         }
     }

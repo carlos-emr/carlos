@@ -48,11 +48,15 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
             when(mock.serviceCodeExists("11000")).thenReturn(true);
         });
         bundleText = null;
+        // Struts formats every bundle text with MessageFormat; the default-value overload passes it no arguments.
         action = new SupServiceCodeAssoc2Action() {
-            @Override public String getText(String key, String defaultValue) {
-                return bundleText != null ? bundleText : key;
-            }
+            @Override public String getText(String key) { return text(key, new Object[0]); }
+            @Override public String getText(String key, String defaultValue) { return text(key, new Object[0]); }
+            @Override public String getText(String key, String[] args) { return text(key, args); }
         };
+    }
+    private String text(String key, Object[] args) {
+        return bundleText != null ? java.text.MessageFormat.format(bundleText, args) : key;
     }
     @AfterEach void tearDown() { persistence.close(); servlet.close(); }
     @Test void shouldSaveAssociation_whenBothCodesAreValid() {
@@ -122,6 +126,17 @@ class SupServiceCodeAssoc2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(request.getAttribute("actionErrors"))
             .asInstanceOf(InstanceOfAssertFactories.list(String.class))
             .containsExactly("Service code: 42 does not exist in database");
+    }
+    @ParameterizedTest @ValueSource(booleans = {true, false})
+    void shouldNameTheRefusedCode_inTheErrorMessage(boolean primary) {
+        // The English text as it is once #4943 escapes its apostrophe for MessageFormat.
+        bundleText = "Service code: {0} doesn''t exist in database<br/>";
+        action.setActionMode("edit");
+        action.setPrimaryCode(primary ? "99999" : "00100"); action.setSecondaryCode(primary ? "11000" : "99999");
+        assertThat(action.execute()).isEqualTo("success");
+        assertThat(request.getAttribute("actionErrors"))
+            .asInstanceOf(InstanceOfAssertFactories.list(String.class))
+            .containsExactly("Service code: 99999 doesn't exist in database");
     }
     @Test void shouldExposeErrors_toTheJspRenderer() {
         action.setActionMode("edit"); action.setPrimaryCode("invalid"); action.setSecondaryCode("11000");

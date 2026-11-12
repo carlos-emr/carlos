@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7PidDao;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
 import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
-import io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl;
+import io.github.carlos_emr.carlos.billing.CA.BC.dao.Hl7LinkDao;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
@@ -73,7 +73,7 @@ class MessageUnitTest extends CarlosUnitTestBase {
     private Hl7PidDao pids;
     private Hl7ObrDao obrs;
     private ProviderDao providers;
-    private DemographicDaoImpl demographics;
+    private DemographicDao demographics;
 
     @BeforeEach
     void setUpDaos() {
@@ -87,10 +87,10 @@ class MessageUnitTest extends CarlosUnitTestBase {
         registerMock(Hl7ObrDao.class, obrs);
         registerMock(Hl7MessageDao.class, mock(Hl7MessageDao.class));
         providers = mock(ProviderDao.class);
-        demographics = mock(DemographicDaoImpl.class);
+        demographics = mock(DemographicDao.class);
         registerMock(ProviderDao.class, providers);
-        registerMock(DemographicDaoImpl.class, demographics);
-        registerMock(DemographicDao.class, mock(DemographicDao.class));
+        registerMock(DemographicDao.class, demographics);
+        registerMock(Hl7LinkDao.class, mock(Hl7LinkDao.class));
     }
 
     private static Hl7Obr obr(String orderingProvider, String resultCopiesTo) {
@@ -102,6 +102,7 @@ class MessageUnitTest extends CarlosUnitTestBase {
 
     private static Hl7Pid pid(String patientName) {
         Hl7Pid pid = new Hl7Pid();
+        pid.setId(3);
         pid.setPatientName(patientName);
         pid.setDateOfBirth(new Date(0));
         pid.setSex("F");
@@ -245,7 +246,7 @@ class MessageUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldRouteToUnmatchedPatient_whenPidNameIsMalformed() {
+    void shouldRouteToUnmatchedPatient_whenPhnIsAbsent() {
         when(pids.findByMessageId(7)).thenReturn(List.of(pid("SMITH")));
 
         new Message("now").patientRouteReport(7);
@@ -258,10 +259,13 @@ class MessageUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldRouteToMatchedPatient_whenPidMatchesDemographic() {
-        when(pids.findByMessageId(7)).thenReturn(List.of(pid("SMITH^JANE")));
+        Hl7Pid patient = pid("SMITH^JANE");
+        patient.setExternalId("505200001");
+        patient.setDateOfBirth(null);
+        when(pids.findByMessageId(7)).thenReturn(List.of(patient));
         Demographic matched = new Demographic();
         matched.setDemographicNo(42);
-        when(demographics.findByCriterion(any())).thenReturn(List.of(matched));
+        when(demographics.findActiveByExactHin("505200001")).thenReturn(List.of(matched));
 
         new Message("now").patientRouteReport(7);
 
@@ -272,12 +276,69 @@ class MessageUnitTest extends CarlosUnitTestBase {
 
     @Test
     void shouldPropagateFailure_whenDemographicLookupFails() {
-        when(pids.findByMessageId(7)).thenReturn(List.of(pid("SMITH^JANE")));
-        when(demographics.findByCriterion(any())).thenThrow(new PersistenceException("database unavailable"));
+        Hl7Pid patient = pid("SMITH^JANE");
+        patient.setExternalId("505200001");
+        patient.setDateOfBirth(null);
+        when(pids.findByMessageId(7)).thenReturn(List.of(patient));
+        when(demographics.findActiveByExactHin("505200001")).thenThrow(new PersistenceException("database unavailable"));
 
         // Before, this was stored as unmatched and the batch committed.
         assertThatThrownBy(() -> new Message("now").patientRouteReport(7))
                 .isInstanceOf(PersistenceException.class);
         verify(patientRouting, never()).persist(any());
     }
+    @Test
+    void shouldLeaveUnmatched_whenPhnMatchesSeveralPatients() {
+        Hl7Pid patient = pid("FAKE^PATIENT");
+        patient.setExternalId("505200001");
+        patient.setDateOfBirth(null);
+        when(pids.findByMessageId(7)).thenReturn(List.of(patient));
+        Demographic first = new Demographic();
+        first.setDemographicNo(42);
+        Demographic second = new Demographic();
+        second.setDemographicNo(43);
+        when(demographics.findActiveByExactHin("505200001")).thenReturn(List.of(first, second));
+        new Message("now").patientRouteReport(7);
+        ArgumentCaptor<PatientLabRouting> captured = ArgumentCaptor.forClass(PatientLabRouting.class);
+        verify(patientRouting).persist(captured.capture());
+        assertThat(captured.getValue().getDemographicNo()).isZero();
+    }
+
+    @Test
+    void shouldUseBirthDateAndIgnoreNameAndSex_whenPhnIsPresent() {
+        Hl7Pid patient = pid("DIFFERENT");
+        patient.setExternalId("505200001");
+        patient.setDateOfBirth(java.sql.Date.valueOf("1980-01-15"));
+        when(pids.findByMessageId(7)).thenReturn(List.of(patient));
+        Demographic wrongDob = new Demographic();
+        wrongDob.setDemographicNo(41);
+        wrongDob.setYearOfBirth("1981");
+        Demographic matched = new Demographic();
+        matched.setDemographicNo(42);
+        matched.setYearOfBirth("1980");
+        matched.setMonthOfBirth("1");
+        matched.setDateOfBirth("15");
+        when(demographics.findActiveByExactHin("505200001")).thenReturn(List.of(wrongDob, matched));
+        new Message("now").patientRouteReport(7);
+        ArgumentCaptor<PatientLabRouting> captured = ArgumentCaptor.forClass(PatientLabRouting.class);
+        verify(patientRouting).persist(captured.capture());
+        assertThat(captured.getValue().getDemographicNo()).isEqualTo(42);
+    }
+
+    @Test
+    void shouldLeaveUnmatched_whenBirthDateDisagrees() {
+        Hl7Pid patient = pid("FAKE^PATIENT");
+        patient.setExternalId("505200001");
+        patient.setDateOfBirth(java.sql.Date.valueOf("1980-01-15"));
+        when(pids.findByMessageId(7)).thenReturn(List.of(patient));
+        Demographic other = new Demographic();
+        other.setDemographicNo(42);
+        other.setYearOfBirth("1981");
+        when(demographics.findActiveByExactHin("505200001")).thenReturn(List.of(other));
+        new Message("now").patientRouteReport(7);
+        ArgumentCaptor<PatientLabRouting> captured = ArgumentCaptor.forClass(PatientLabRouting.class);
+        verify(patientRouting).persist(captured.capture());
+        assertThat(captured.getValue().getDemographicNo()).isZero();
+    }
+
 }

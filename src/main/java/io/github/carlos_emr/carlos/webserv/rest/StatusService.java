@@ -38,6 +38,19 @@ import io.github.carlos_emr.carlos.PMmodule.service.ProviderManager;
 import io.github.carlos_emr.carlos.webserv.rest.to.RestResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 
+/**
+ * Authentication probe for REST clients.
+ *
+ * <p><b>Authorization (#2798).</b> {@code /checkIfAuthed} is deliberately not gated by a security
+ * object. It is the call a client makes to learn whether its own session or OAuth token is still
+ * valid, and it returns only the caller's own provider number, which the caller already holds.
+ * There is no patient, configuration or other provider's data to protect, and gating it on an
+ * object would be circular: a user without that object would be told they are logged out. It still
+ * fails closed for anonymous callers. {@code AuthenticationInInterceptor} answers 401 on
+ * {@code /ws/rs} without a logged-in session, {@code OAuthInterceptor} rejects {@code /ws/services}
+ * requests that carry no valid OAuth credentials, and {@code getLoggedInInfo()} throws when no
+ * caller is attached to the request.</p>
+ */
 @Path("/status")
 @Consumes(MediaType.APPLICATION_JSON)
 public class StatusService extends AbstractServiceImpl {
@@ -45,6 +58,11 @@ public class StatusService extends AbstractServiceImpl {
     @Autowired
     ProviderManager providerManager;
 
+    /**
+     * Confirms the caller is authenticated.
+     *
+     * @return a success response whose body is the caller's own provider number
+     */
     @GET
     @Path("/checkIfAuthed")
     @Produces("application/json")

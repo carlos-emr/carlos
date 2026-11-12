@@ -16,7 +16,7 @@
  * `appointmentType` rows after each save/delete, the validation alerts, the preview and calendar
  * rendering of the owned code and holiday, and that GET cannot reach any of the mutators.
  * Fixtures: a throwaway login (doctor + an owned role holding _admin.schedule; the seeded admin
- * role carries _site_access_privacy, which hides Holiday/Template Code Setting) with one seeded day
+ * role carries _site_access_privacy; #4528 stopped that hiding Holiday/Template Code Setting) with one seeded day
  * template, an unused template code character, a holiday on a free far-future date, and a marker
  * appointment type. One editable appointment
  * status is snapshotted, changed through the UI and restored (run with EXCLUSIVE=1: the status
@@ -109,8 +109,9 @@ async function workflow(s) {
   const statusSnapshot = () => JSON.stringify(sql.rows(`SELECT description,color,active FROM appointment_status WHERE id=${Number(statusId)}`));
   const originalStatus = statusSnapshot();
   const fixture = throwawayLoginFixture({sql, marker, provider, testUser: s.config.testUser});
-  // The seeded admin role carries _site_access_privacy, which hides Holiday Setting and Template
-  // Code Setting. The throwaway is a doctor plus an owned schedule-administrator role instead.
+  // The throwaway is a doctor plus an owned schedule-administrator role, so the check owns its
+  // privileges. The role deliberately has no _site_access_privacy: the seeded admin's does not hide
+  // Holiday/Template Code Setting since #4528, which the unit test on the JSP pins.
   const role = `PW${hex}`;
   let owner = null;
   // Cleanups run in reverse: settings rows go before the throwaway login.
@@ -487,4 +488,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('schedule-admin-settings', workflow, {openPatient: false});
-module.exports = {workflow};
+module.exports = {workflow, openAdminSection, frameNavigation, navigates};

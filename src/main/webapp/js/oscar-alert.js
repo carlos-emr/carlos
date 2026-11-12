@@ -70,25 +70,31 @@ function createAndShowAlert(alertId, message, alertType, duration, onDismissEven
     oscarAlert.showAlert().then(undefined);
 }
 
+/*
+ * The helpers below call createAndShowAlert directly, not as this.createAndShowAlert: `this` is the
+ * window only for a bare call in sloppy mode, so the old form threw when a helper was used as an
+ * event handler, a method or from strict code, and the clinician saw no alert at all.
+ */
+
 /**
  * Show an error alert
  */
 function showErrorAlert() {
-    this.createAndShowAlert('submit-error-alert', 'The form could not be saved. Please try again.', 'danger', 5, undefined);
+    createAndShowAlert('submit-error-alert', 'The form could not be saved. Please try again.', 'danger', 5, undefined);
 }
 
 /**
  * Show a success alert
  */
 function showSuccessAlert(onDismissEvent) {
-    this.createAndShowAlert('submit-success-alert', 'The form has been saved successfully.', 'success', 5, onDismissEvent);
+    createAndShowAlert('submit-success-alert', 'The form has been saved successfully.', 'success', 5, onDismissEvent);
 }
 
 /**
  * Show a warning alert
  */
 function showWarningAlert(message, onDismissEvent) {
-    this.createAndShowAlert('submit-warning-alert', message, 'warning', 7, onDismissEvent);
+    createAndShowAlert('submit-warning-alert', message, 'warning', 7, onDismissEvent);
 }
 
 function sleep(ms) {
@@ -99,11 +105,18 @@ function sleep(ms) {
 /**
  * The `OscarAlert` class, which is to create and manage
  * Bootstrap alert messages dynamically with customizable countdown timers and
- * dismissal functionality.Z
+ * dismissal functionality.
+ *
+ * The alert is mounted inside a host element carrying `carlos-eform-ui`, the scope of the
+ * Bootstrap copy eForm pages load (bootstrap-eform-scoped.min.css). eForm pages no longer load
+ * the global Bootstrap stylesheet, because its reboot restyles the legacy form (#3944), so an alert
+ * outside the host would render unstyled.
  * */
 class OscarAlert {
 
     constructor(alertId, alertType, message, duration) {
+        this.hostDiv = document.createElement('div');
+        this.hostDiv.className = 'carlos-eform-ui oscar-alert-host';
         this.alertDiv = document.createElement('div');
         this.alertDiv.id = alertId;
         this.alertType = alertType;
@@ -116,6 +129,7 @@ class OscarAlert {
         this.alertDiv.innerHTML = this.getInnerHTML(message); // nosemgrep: javascript.browser.security.insecure-document-method.insecure-document-method
 
         this.alertDiv.querySelector('.btn-close').addEventListener('click', () => this.dismissAlert());
+        this.hostDiv.appendChild(this.alertDiv);
     }
 
     counter() {
@@ -153,7 +167,7 @@ class OscarAlert {
         clearInterval(this.counterHandlerNumber);
         this.updateAlertVisibility(false);
         this.resetCountdownInterval();
-        this.alertDiv.remove();
+        this.hostDiv.remove();
         if (this.onDismissEvent)
             this.onDismissEvent();
     }
@@ -163,7 +177,7 @@ class OscarAlert {
     }
 
     injectInToParentBefore(parent) {
-        parent.appendChild(this.alertDiv);
+        parent.appendChild(this.hostDiv);
     }
 
     setOnDismissEvent(onDismissEvent) {

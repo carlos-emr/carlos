@@ -24,10 +24,46 @@ const h = require('./lib/playwright-harness');
 const { clickAndAwaitReload, markOpener } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { documentChain, pickInPopup, lostOpenerMessage, assertId } = require('./lib/popup-opener-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
+const { registerSwipeSupportCleanup } = require('./patient-swipe-card-search-playwright-checks');
 
 const TIMEOUT = 20000;
 
+// This scenario submits the master-record form, so seed a valid postal value in
+// its own patient only and reload the already-opened record before any picker.
+function ownedPostalClause(s) {
+  const patient = String(s.patient);
+  h.assert(/^[1-9]\d*$/.test(patient) && patient.length <= 10 && BigInt(patient) <= 2147483647n,
+    'The owned patient identity is invalid');
+  h.assert(/^FAKE-PW[0-9a-f]{16}$/.test(s.marker), 'The fixture marker is invalid');
+  return `demographic_no=${patient} AND last_name=${h.sqlString(s.marker)}`;
+}
+
+async function assertOwnedPostal(s) {
+  const owner = ownedPostalClause(s);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner} AND postal='K1A0B1'`) === '1',
+    'The owned patient postal fixture changed');
+  h.assert(await s.master.locator('input[name="postal"]').inputValue() === 'K1A0B1',
+    'A picker changed the owned patient postal field');
+}
+
+async function prepareOwnedPostal(s) {
+  const patient = String(s.patient);
+  const owner = ownedPostalClause(s);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner}`) === '1',
+    'Patient fixture ownership changed');
+  s.sql.execute(`UPDATE demographic SET postal='K1A0B1' WHERE ${owner}`);
+  h.assert(s.sql.value(`SELECT COUNT(*) FROM demographic WHERE ${owner} AND postal='K1A0B1'`) === '1',
+    'The owned patient postal fixture was not stored');
+  await s.master.reload({ waitUntil: 'domcontentloaded' });
+  h.assert(new URL(s.master.url()).searchParams.get('demographic_no') === patient,
+    'The reloaded Master Record belongs to another patient');
+  await assertOwnedPostal(s);
+}
+
 async function workflow(s) {
+  registerSwipeSupportCleanup(s);
+  await prepareOwnedPostal(s);
   const { sql, marker } = s;
   const q = h.sqlString;
   const referrerFirstName = `R O'Neil "Q" & Co`;
@@ -38,6 +74,10 @@ async function workflow(s) {
   let contactId;
   let specialistId;
   s.cleanup(() => {
+    // Archive IDs in the imported demo history can overlap new archive IDs;
+    // child cleanup must be scoped to the owned patient, never that ID alone.
+    sql.execute(`DELETE FROM demographicExtArchive WHERE demographic_no=${s.patient};
+      DELETE FROM demographiccust WHERE demographic_no=${s.patient}`);
     if (second) {
       sql.execute(`DELETE FROM DemographicContact WHERE demographicNo IN (${ownedPatients()})
         OR (type=1 AND contactId IN (${ownedPatients().split(',').map(q).join(',')}))`);
@@ -53,8 +93,10 @@ async function workflow(s) {
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM DemographicContact WHERE demographicNo IN (${ownedPatients()}))
       + (SELECT COUNT(*) FROM Contact WHERE lastName=${q(marker)})
       + (SELECT COUNT(*) FROM professionalSpecialists WHERE lName=${q(marker)})
-      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})`) === '0',
-    'Owned contact, specialist or second-patient rows were not removed');
+      + (SELECT COUNT(*) FROM demographic WHERE last_name=${q(marker)} AND demographic_no<>${s.patient})
+      + (SELECT COUNT(*) FROM demographicExtArchive WHERE demographic_no=${s.patient})
+      + (SELECT COUNT(*) FROM demographiccust WHERE demographic_no=${s.patient})`) === '0',
+    'Owned contact, specialist, patient or update rows were not removed');
   });
   h.assert(sql.value(`SELECT COUNT(*) FROM DemographicContact WHERE demographicNo=${s.patient}`) === '0',
     'The owned patient unexpectedly has contact associations');
@@ -104,6 +146,7 @@ async function workflow(s) {
         : await lostOpenerMessage(label, popup, chain);
     } else if (!closed) failure = `${label}: the picker filled the row but did not close itself`;
     if (!popup.isClosed()) await popup.close();
+    await assertOwnedPostal(s);
     return failure;
   };
   const pickers = async (...args) => {
@@ -121,7 +164,7 @@ async function workflow(s) {
   };
 
   await s.step('Manage Contacts opens from the Master Record with empty personal and professional lists', async () => {
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts');
     await contacts.locator('form#contactForm').waitFor();
     h.assert(await contacts.locator('#contact_container > *').count() === 0
       && await contacts.locator('#procontact_container > *').count() === 0, 'Manage Contacts opened with rows for a patient that has none');
@@ -166,13 +209,14 @@ async function workflow(s) {
       'Manage Contacts closed without reloading the Master Record (its window.opener.location.reload() was lost)');
     const listed = (await master.locator('body').innerText()).toLowerCase();
     h.assert(listed.split(marker.toLowerCase()).length - 1 >= 2, 'The reloaded Master Record does not list the saved contacts');
+    await assertOwnedPostal(s);
   });
 
   // Last, and collected: the pickers a defect breaks. Every working path above is proven
   // first; this step tries all three and names each one that fails.
   await s.step('Specialist, professional-contact and Referral Doctor pickers each hand the pick back and it saves', async () => {
     const failures = [];
-    contacts = await s.popup(master, master.locator('a[onclick*="/demographic/Contact?method=manage"]').first(), 'manage-contacts-2');
+    contacts = await s.popup(master, masterRecordLink(master, '/demographic/Contact?method=manage').first(), 'manage-contacts-2');
     await contacts.locator('form#contactForm').waitFor();
     const specialistRow = await addRow('procontact');
     await contacts.locator(`[name="${specialistRow}.type"]`).selectOption('3');
@@ -203,6 +247,7 @@ async function workflow(s) {
     const closed = await pickInPopup(popup, popup.locator('#tblDocs tbody tr', { hasText: marker }));
     const ohip = await master.locator('[name="r_doctor_ohip"]').inputValue();
     const name = await master.locator('[name="r_doctor"]').inputValue();
+    await assertOwnedPostal(s);
     if (ohip !== referralNo || name !== referralName) {
       failures.push(closed ? 'Referral Doctor search: the picker closed but the referral fields do not hold the picked specialist'
         : await lostOpenerMessage('Referral Doctor search (billing/CA/ON/ViewSearchRefDoc)', popup, chain));
@@ -211,7 +256,12 @@ async function workflow(s) {
       h.assert(closed, 'The referral doctor picker filled the fields but did not close itself');
       await clickAndAwaitReload(master, master.locator('#updateButton input[type="submit"]').first(),
         { timeout: TIMEOUT, label: 'Update Record' });
-      await expectValue(sql, `SELECT family_doctor LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
+      // family_doctor is an XML fragment. Since 0369b05d5b its text is XML-escaped (the referrer's "& Co" is stored
+      // as &amp;); decode it once, &amp; last, so the raw picked name matches on builds that escape and on those that
+      // do not.
+      const decodedFamilyDoctor = "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(family_doctor, '&lt;', '<'), '&gt;', '>'), "
+        + "'&quot;', '\"'), '&apos;', ''''), '&amp;', '&')";
+      await expectValue(sql, `SELECT ${decodedFamilyDoctor} LIKE ${q(`%<rdohip>${referralNo}</rdohip>%<rd>${referralName}</rd>%`)}
         FROM demographic WHERE demographic_no=${s.patient}`, '1', 'The saved record does not carry the picked referral doctor');
     }
     const broken = failures.filter(Boolean);
@@ -220,4 +270,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('popup-opener-master-record', workflow, { openPatient: true });
-module.exports = { workflow };
+module.exports = { workflow, prepareOwnedPostal, assertOwnedPostal };

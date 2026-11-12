@@ -145,6 +145,7 @@ body#demographiceditdemographic .MainTableLeftColumn td,
     font-size: 12px;
 }
 
+body#demographiceditdemographic .MainTableLeftColumn .eligibility-trigger,
 body#demographiceditdemographic .MainTableLeftColumn td a[href],
 body#demographiceditdemographic .MainTableLeftColumn td a,
 body#demographiceditdemographic .MainTableLeftColumn a[href],
@@ -164,6 +165,17 @@ body#demographiceditdemographic .MainTableBottomRowLeftColumn a,
     border-bottom: 1px solid rgba(255,255,255,0.2);
 }
 
+body#demographiceditdemographic .MainTableLeftColumn .eligibility-trigger {
+    box-sizing: border-box;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    text-align: left;
+    cursor: pointer;
+}
+
+body#demographiceditdemographic .MainTableLeftColumn .eligibility-trigger:hover,
 body#demographiceditdemographic .MainTableLeftColumn td a[href]:hover,
 body#demographiceditdemographic .MainTableLeftColumn td a:hover,
 body#demographiceditdemographic .MainTableBottomRowLeftColumn td a[href]:hover,

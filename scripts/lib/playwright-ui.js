@@ -163,6 +163,8 @@ async function clickOpensPopup(page, locator, options = {}) {
  * the only honest reading of a control whose behaviour is a deployment setting.
  *
  * Returns { page, isPopup }. The caller closes the page only when isPopup.
+ * checkErrorPage defaults to true; an aggregate audit may pass false and record
+ * the destination's error page itself before continuing with its next control.
  */
 async function clickOpensPopupOrNavigates(page, locator, options = {}) {
   const context = options.context || page.context();
@@ -206,7 +208,7 @@ async function clickOpensPopupOrNavigates(page, locator, options = {}) {
     await outcome.page.waitForURL(url => String(url) !== 'about:blank', { timeout, waitUntil: 'domcontentloaded' });
     await outcome.page.waitForLoadState('domcontentloaded', { timeout });
     await outcome.page.waitForLoadState('networkidle', { timeout }).catch(() => {});
-    await assertNotErrorPage(outcome.page, label, options);
+    if (options.checkErrorPage !== false) await assertNotErrorPage(outcome.page, label, options);
     return outcome;
   } catch (error) {
     // The caller never receives a rejected popup. Close it here so the next
@@ -761,6 +763,20 @@ const REQUIRED_SECTIONS = [
   'administration', 'preferences', 'logout',
 ];
 
+/**
+ * Hover the eChart Forms module's "+" (#menuTitle1 a) so its Add Form menu (#menu1) shows.
+ *
+ * The hover is forced. showPopup (share/javascript/popupmenu.js) opens the menu under the cursor (offsets -30/-5),
+ * so after the mouseover the menu's own heading covers the "+", and on a layout where it does Playwright's
+ * actionability re-check never settles ("locator.hover: Timeout", before the check reaches its form). A user simply
+ * lands in the open menu. Callers still prove the entry by finding its link in the menu and clicking it.
+ *
+ * @param {import('playwright').Page} chart the eChart page
+ */
+async function openFormsMenu(chart) {
+  await chart.locator('#menuTitle1 a').hover({ force: true });
+}
+
 module.exports = {
   NAVIGATION,
   REQUIRED_SECTIONS,
@@ -775,6 +791,7 @@ module.exports = {
   expectOpenerRefresh,
   inFrame,
   markOpener,
+  openFormsMenu,
   pathOnly,
   pickDate,
   pressShortcut,

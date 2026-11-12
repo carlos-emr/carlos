@@ -4,6 +4,7 @@ allowed-tools:
   - Bash(mariadb -h db -u root -ppassword carlos < *)
   - Bash(mariadb -h db -uroot -ppassword carlos *)
   - Bash(mariadb -h db -uroot -ppassword carlos -e *)
+  - Bash(sh /workspace/.devcontainer/db/scripts/reapply_security_migrations.sh /workspace/database/mysql/migration carlos *)
   - Bash(curl * http://localhost:8080/*)
   - Bash(date *)
   - Bash(wc -l *)
@@ -17,7 +18,7 @@ This command resets the developer database data while preserving the schema, the
 
 1. **Preserves schema** - Uses TRUNCATE (not DROP), keeping all table structures intact
 2. **Reloads demo data** - Loads `development.sql` which truncates ~400 tables and inserts fresh demo data
-3. **Restores privileges** - Reapplies current Administration privileges that the snapshot's older `secObjPrivilege` rows clobber
+3. **Restores privileges** - Re-applies the Flyway migrations that add security objects, then the current role privileges that the snapshot's older `secObjPrivilege` rows clobber, so the roles match a packaged install
 4. **Seeds fake specialists** - Loads the 60-entry clearly-fake referral specialist list and provider/facility links
 5. **Applies FAKE sanitization v2** - Prefixes person names with "FAKE-" across all name-bearing tables (patients, providers, appointments, forms, HL7 info, ...) and replaces known real names
 
@@ -43,11 +44,12 @@ mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/de
 
 This file is approximately 54 MB and contains TRUNCATE + INSERT statements for all demo data.
 
-### Step 3: Restore Administration Privileges
+### Step 3: Restore Privileges
 
-The snapshot carries an older `secObjPrivilege` set; restore the current one:
+The snapshot carries an older security set. First re-apply every Flyway migration that touches the `sec*` tables (it wipes the security objects added after it was taken, issue #4369), then restore the role rows it carries differently from the Flyway seeds (issue #4566). Run them in this order, as `populate_db.sh` does:
 
 ```bash
+sh /workspace/.devcontainer/db/scripts/reapply_security_migrations.sh /workspace/database/mysql/migration carlos -h db -u root -ppassword
 mariadb -h db -u root -ppassword carlos < /workspace/.devcontainer/db/scripts/development_privileges.sql
 ```
 
@@ -106,7 +108,8 @@ If the command fails:
 ## Source Files
 
 - `/workspace/.devcontainer/db/scripts/development.sql` - Main demo data (~54 MB)
-- `/workspace/.devcontainer/db/scripts/development_privileges.sql` - Administration privileges restore
+- `/workspace/.devcontainer/db/scripts/reapply_security_migrations.sh` - Re-applies the security-object Flyway migrations
+- `/workspace/.devcontainer/db/scripts/development_privileges.sql` - Role privileges restore (matches the Flyway seeds)
 - `/workspace/.devcontainer/db/scripts/demo-provider-links.sql` - Guarded provider/facility links
 - `/workspace/.devcontainer/db/scripts/demo-specialists.sql` - 60 clearly-fake referral specialists
 - `/workspace/.devcontainer/db/scripts/demo-name-sanitization.sql` - FAKE- sanitization v2 (common tables)

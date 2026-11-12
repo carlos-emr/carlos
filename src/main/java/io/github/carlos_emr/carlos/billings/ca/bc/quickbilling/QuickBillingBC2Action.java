@@ -78,6 +78,12 @@ public class QuickBillingBC2Action extends ActionSupport {
     }
 
     
+    /** Request parameter that removes the bill at the given row. */
+    private static final String REMOVE_PARAM = "remove";
+
+    /** Request attribute set when an add named no patient; the page then shows that the bill was not added. */
+    static final String PATIENT_NOT_FOUND = "patientNotFound";
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     public String execute() throws ServletException, IOException {
@@ -89,7 +95,18 @@ public class QuickBillingBC2Action extends ActionSupport {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
-        quickBillingHandler = new QuickBillingBCHandler();
+        // Add (data) and remove change the bill list; they accept only POST, as the page sends them.
+        // HTTP method names are case-sensitive (RFC 9110), so only an exact POST is accepted.
+        boolean changesBills = request.getParameter("data") != null || request.getParameter(REMOVE_PARAM) != null;
+        if (changesBills && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        // The header and the bills added so far must survive between requests: the page adds or
+        // removes one bill per request and the save action reads them all.
+        QuickBillingBCFormBean quickBillingBCFormBean = QuickBillingBCFormBean.fromSession(request.getSession());
+        quickBillingHandler = new QuickBillingBCHandler(quickBillingBCFormBean);
 
         if (request.getParameter("data") != null) {
 
@@ -98,27 +115,30 @@ public class QuickBillingBC2Action extends ActionSupport {
 
             // check if the main header items are set.
             // if not then set them otherwise go on to get the other input.
-            if (!this.getHeaderSet()) {
+            if (!Boolean.TRUE.equals(quickBillingBCFormBean.getIsHeaderSet())) {
 
                 quickBillingHandler.setHeader(billingEntry);
-                this.setHeaderSet(true);
+                quickBillingBCFormBean.setIsHeaderSet(true);
             }
 
-            // add data to the quick billing session form bean
-            quickBillingHandler.addBill(LoggedInInfo.getLoggedInInfoFromSession(request), this.billingEntry);
+            // add data to the quick billing session form bean; an add whose patient number matches no
+            // patient adds nothing, and the page says so
+            if (!quickBillingHandler.addBill(LoggedInInfo.getLoggedInInfoFromSession(request), this.billingEntry)) {
+                request.setAttribute(PATIENT_NOT_FOUND, Boolean.TRUE);
+            }
 
             return SUCCESS;
 
             // if request is to remove an entry.
-        } else if (request.getParameter("remove") != null) {
+        } else if (request.getParameter(REMOVE_PARAM) != null) {
 
-            if (quickBillingHandler.removeBill(request.getParameter("remove"))) {
+            if (quickBillingHandler.removeBill(request.getParameter(REMOVE_PARAM))) {
 
                 return SUCCESS;
 
             }
 
-            // if not adding or removing data then create a fresh form.
+            // Opening or refreshing the page retains queued invoices, including a failed save.
         } else {
 
             // add some needed form elements to the bean
@@ -127,9 +147,8 @@ public class QuickBillingBC2Action extends ActionSupport {
 
             List<ProviderData> activeProviders = quickBillingHandler.getProviderDao().findAll(false);
 
-            quickBillingHandler.reset();
-            this.setProviderList(activeProviders);
-            this.setBillingVisitTypes(billingVisit);
+            quickBillingBCFormBean.setProviderList(activeProviders);
+            quickBillingBCFormBean.setBillingVisitTypes(billingVisit);
         }
 
         return SUCCESS;

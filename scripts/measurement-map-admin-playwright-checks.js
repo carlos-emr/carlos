@@ -11,7 +11,10 @@
 // Asserts the measurementMap rows each save writes: two owned LOINC definitions
 // (and a duplicate refused), a FLOWSHEET mapping of a measurement type to the owned
 // code, its remap to the second code and every deletion, with the recyclebin rows
-// the removals record; plus what View Mapping and the search lists show.
+// the removals record; plus what View Mapping and the search lists show. Since #3335
+// the Add and Remove/Remap links open their pages by GET (a write still needs POST), Search
+// reloads them by GET, and an Update or Remap with nothing selected and a cancelled DELETE
+// write nothing.
 //
 // Fixtures: owned X<hex> LOINC codes named with the run marker. The measurement type
 // is an existing unmapped type (types are listed from an application cache that a
@@ -178,13 +181,45 @@ async function workflow(s) {
     await view.close();
   });
 
-  // Every step from here opens a page through a link that currently answers 405.
+  // Every step from here opens a page through a link that answered 405 before #3335.
   const offeredCodes = async page => (await page.locator('select[name="loinc_code"] option').allInnerTexts())
     .map(t => t.trim()).filter(t => t.startsWith(`X${hex.slice(0, 11)}`));
   await s.step('Add Measurement Mapping offers both owned codes to map to', async () => {
     const page = await open('Add Measurement Mapping', 'add-measurement-mapping');
     h.assert(JSON.stringify(await offeredCodes(page)) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
       'The identifier mapping page does not offer exactly the owned codes');
+    await page.close();
+  });
+
+  await s.step('Update Measurement Mapping with nothing selected reports failure and writes nothing', async () => {
+    const page = await open('Add Measurement Mapping', 'empty-measurement-mapping');
+    const before = mapRows().length;
+    const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'AddMeasurementMap',
+      () => page.getByRole('button', {name: 'Update Measurement Mapping', exact: true}).click()));
+    h.assert(dialogs.length === 1 && dialogs[0].text === 'Failed to update the measurement mappings',
+      'An Update with nothing selected did not report failure exactly once');
+    h.assert(mapRows().length === before, 'An Update with nothing selected wrote a mapping');
+    await page.close();
+  });
+
+  // The Remap list defaults to None Selected (code 0); remapping to it used to store a code-0
+  // mapping and then remove the one being replaced.
+  await s.step('REMAP with nothing selected reports failure and keeps the mapping', async () => {
+    const page = await open('Remove/Remap Measurement Mapping', 'empty-remap-measurement-mapping');
+    const flowsheet = () => JSON.stringify(mapRows().filter(r => r[3] === 'FLOWSHEET'));
+    const before = flowsheet();
+    const oldId = sql.value(`SELECT id FROM measurementMap WHERE loinc_code=${q(first.loinc)} AND lab_type='FLOWSHEET'`);
+    const row = codeRow(page, first.loinc).filter({hasText: 'FLOWSHEET'});
+    const remap = await s.popup(page, row.getByRole('button', {name: 'REMAP', exact: true}), 'empty-remap-measurement');
+    h.assert((await remap.locator('select[name="loinc_code"]').inputValue()) === '0', 'The Remap list does not default to None Selected');
+    const dialogs = await h.withExpectedDialogs(remap, () => landOn(remap, 'RemapMeasurementMap',
+      () => remap.getByRole('button', {name: 'Remap Measurement', exact: true}).click()));
+    h.assert(dialogs.length === 1 && dialogs[0].text === 'Failed to remap the measurement',
+      'A Remap with nothing selected did not report failure exactly once');
+    h.assert(flowsheet() === before, 'A Remap with nothing selected changed the FLOWSHEET mapping');
+    h.assert(sql.value(`SELECT COUNT(*) FROM recyclebin WHERE table_name='measurementMap' AND keyword=${q(oldId)}`) === '0',
+      'A Remap with nothing selected removed the mapping it was to replace');
+    await remap.close();
     await page.close();
   });
 
@@ -216,6 +251,16 @@ async function workflow(s) {
     // The recycle-bin keyword is the removed row's id; scoping to these ids leaves out the
     // entry the REMAP step recorded for the row it replaced.
     const removedIds = sql.rows(`SELECT id FROM measurementMap WHERE loinc_code IN (${owned})`).map(([id]) => id);
+    // Cancelling the confirmation must not submit the form (the button used to submit anyway).
+    const kept = mapRows().length;
+    const submitted = page.waitForEvent('framenavigated', {timeout: 5000, predicate: f => f === page.mainFrame()})
+      .then(() => true, () => false);
+    const cancelled = await h.withExpectedDialogs(page,
+      () => ownedRow().getByRole('button', {name: 'DELETE', exact: true}).click(), {accept: false});
+    h.assert(!(await submitted), 'A cancelled DELETE still submitted the form');
+    h.assert(cancelled.map(d => d.text).join('|') === 'Are you sure you want to delete the mapping?',
+      'DELETE did not ask for confirmation exactly once');
+    h.assert(mapRows().length === kept, 'A cancelled DELETE removed a mapping');
     for (let left = mapRows().length; left > 0; left--) {
       h.assert(await ownedRow().count() === 1, 'The removal table does not list a remaining owned mapping');
       const dialogs = await h.withExpectedDialogs(page, () => landOn(page, 'RemoveMeasurementMap',
@@ -231,13 +276,14 @@ async function workflow(s) {
     await page.close();
   });
 
-  // Search posts the form to the GET-only View* gate (405 today), so it is asserted last.
+  // Search reloads the page by GET with only the search fields (before #3335 it re-posted the
+  // mapping form to a GET-only view gate, a 405).
   await s.step('Search by name on Add Measurement Mapping narrows the codes to the owned ones', async () => {
     sql.execute(`INSERT INTO measurementMap(loinc_code,ident_code,name,lab_type)
       VALUES ${codes.map(c => `(${q(c.loinc)},${q(c.loinc)},${q(c.name)},'PATHL7')`).join(',')}`);
     const page = await open('Add Measurement Mapping', 'search-measurement-mapping');
     await page.locator('input[name="searchstring"]').fill(marker);
-    await landOn(page, 'ViewAddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
+    await landOn(page, 'AddMeasurementMap', () => page.getByRole('button', {name: 'Search', exact: true}).click());
     const offered = (await page.locator('select[name="loinc_code"] option').allInnerTexts()).map(t => t.trim()).filter(t => t !== 'None Selected');
     h.assert(JSON.stringify(offered) === JSON.stringify(codes.map(c => `${c.loinc} - ${c.name}`)),
       'Searching by name does not offer exactly the owned codes');

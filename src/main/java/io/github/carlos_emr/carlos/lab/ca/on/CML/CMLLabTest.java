@@ -130,11 +130,14 @@ public class CMLLabTest {
         }
     }
 
+    public boolean versionChainReliable = true;
+
     public void populateLab(String labid) {
         labID = labid;
 
-        CommonLabResultData data = new CommonLabResultData();
-        this.multiLabId = data.getMatchingLabs(labid, "CML");
+        var chain = new io.github.carlos_emr.carlos.mds.data.MDSResultsData().getCmlVersionChain(labid);
+        this.multiLabId = chain.ids();
+        this.versionChainReliable = chain.reliable();
 
         LabPatientPhysicianInfoDao dao = SpringUtils.getBean(LabPatientPhysicianInfoDao.class);
 

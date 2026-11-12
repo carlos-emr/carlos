@@ -30,6 +30,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.data;
 
 import java.text.NumberFormat;
+import java.util.Locale;
 
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
@@ -102,40 +103,42 @@ public class PayRefSummary {
         }
     }
 
+    // The service runs under C.UTF-8 (language-only en). A host-default formatter prints the generic
+    // currency sign there, or a different currency on other hosts; BC report amounts are always CAD.
     public String getCash() {
-        return NumberFormat.getCurrencyInstance().format(cash);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(cash);
     }
 
     public String getCheque() {
-        return NumberFormat.getCurrencyInstance().format(cheque);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(cheque);
     }
 
     public String getVisa() {
-        return NumberFormat.getCurrencyInstance().format(visa);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(visa);
     }
 
     public String getMc() {
-        return NumberFormat.getCurrencyInstance().format(mc);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(mc);
     }
 
     public String getAmex() {
-        return NumberFormat.getCurrencyInstance().format(amex);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(amex);
     }
 
     public String getElectronic() {
-        return NumberFormat.getCurrencyInstance().format(electronic);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(electronic);
     }
 
     public String getDebit() {
-        return NumberFormat.getCurrencyInstance().format(debit);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(debit);
     }
 
     public String getOther() {
-        return NumberFormat.getCurrencyInstance().format(other);
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(other);
     }
 
     public String getTotal() {
-        return NumberFormat.getCurrencyInstance().format(getRawTotal());
+        return NumberFormat.getCurrencyInstance(Locale.CANADA).format(getRawTotal());
     }
 
     public double getRawTotal() {

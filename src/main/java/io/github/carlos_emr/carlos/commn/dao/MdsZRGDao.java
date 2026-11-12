@@ -36,7 +36,21 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.MdsZRG;
 
 public interface MdsZRGDao extends AbstractDao<MdsZRG> {
+    /**
+     * Returns one row per report group of a report, in report-sequence order.
+     *
+     * @param id the report's segmentID
+     * @return rows of {@code [reportGroupDesc (String), reportGroupID (String), row count (Long),
+     *         heading (String, meaningful when the count is 1), first reportSequence (String)]}
+     */
     List<Object[]> findById(Integer id);
 
+    /**
+     * Returns the headings of one report group, in report-sequence order.
+     *
+     * @param id the report's segmentID
+     * @param reportGroupId the group's {@code reportGroupID}
+     * @return the heading of each row of the group (a heading may be null)
+     */
     List<Object> findReportGroupHeadingsById(Integer id, String reportGroupId);
 }

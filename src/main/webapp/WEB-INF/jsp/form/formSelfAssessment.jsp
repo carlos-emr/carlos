@@ -29,6 +29,7 @@
 
 --%>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<%@ taglib uri="https://owasp.org/www-project-csrfguard/Owasp.CsrfGuard.tld" prefix="csrf" %>
 <%
     String roleName2$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
     boolean authed = true;
@@ -49,6 +50,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecord" %>
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -95,6 +97,7 @@
     <body bgproperties="fixed" topmargin="0" leftmargin="0" rightmargin="0" onload="window.resizeTo(768,768)" bgcolor="#eeeeee">
 
     <form action="${pageContext.request.contextPath}/form/formname" method="post">
+        <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>"/>
         <input type="hidden" name="demographic_no" value="<%= props.getProperty("demographic_no", "0") %>"/>
         <input type="hidden" name="formCreated" value="<%= props.getProperty("formCreated", "") %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
@@ -220,30 +223,30 @@
                     <fmt:message key="form.selfAssessment.hospitalizations"/> <br>
                     <fmt:message key="form.selfAssessment.whenDateWhy"/> <br>
                     <textarea name="Hospitalizations" id="Hospitalizations" rows="0"
-                              cols="111"><%= props.getProperty("Hospitalizations", "")%></textarea><br>
+                              cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("Hospitalizations", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.surgery"/> <br>
                     <textarea name="Surgery" id="Surgery" rows="0"
-                              cols="111"><%= props.getProperty("Surgery", "")%></textarea><br>
+                              cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("Surgery", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.medicalIllnesses"/> <br><textarea name="Medicalillnesses" id="Medicalillnesses" rows="0"
-                                                     cols="111"><%= props.getProperty("Medicalillnesses", "")%></textarea><br>
+                                                     cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("Medicalillnesses", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.currentlyTakingMedication"/> <input type="text" name="CurrentMedications"
                                                                 value="<%= props.getProperty("CurrentMedications", "")%>">
                     <br>
                     <fmt:message key="form.selfAssessment.pleaseList"/><br><textarea name="CurrentMedicationsList" id="CurrentMedicationsList" rows="0"
-                                              cols="111"><%= props.getProperty("CurrentMedicationsList", "")%></textarea><br>
+                                              cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("CurrentMedicationsList", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.previousPsychiatricMedication"/> <input type="text" name="psychiatricMedications"
                                                                              value="<%= props.getProperty("psychiatricMedications", "")%>">
                     <br>
                     <fmt:message key="form.selfAssessment.pleaseList"/><br><textarea name="psychiatricMedicationsList" id="psychiatricMedicationsList" rows="0"
-                                              cols="111"><%= props.getProperty("psychiatricMedicationsList", "")%></textarea><br>
+                                              cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("psychiatricMedicationsList", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.additionalInformation"/><br><textarea name="HospitalizationsOther"
                                                                       id="HospitalizationsOther" rows="0"
-                                                                      cols="111"><%= props.getProperty("HospitalizationsOther", "")%></textarea><br>
+                                                                      cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("HospitalizationsOther", ""))%></textarea><br>
                 </TD>
             </TR>
             <TR>
@@ -288,14 +291,14 @@
 
                     <fmt:message key="form.selfAssessment.medicationName"/> <br><textarea name="PastReactionsMedicationList" id="PastReactionsMedicationList"
                                                    rows="0"
-                                                   cols="111"><%= props.getProperty("PastReactionsMedicationList", "")%></textarea><br>
+                                                   cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("PastReactionsMedicationList", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.suicideAttempts"/> <input type="text" name="PastSuicideAttempts"
                                              value="<%= props.getProperty("PastSuicideAttempts", "")%>"> <br>
                     <fmt:message key="form.selfAssessment.howMany"/><br><textarea name="PastSuicideMany" id="PastSuicideMany" rows="0"
-                                           cols="111"><%= props.getProperty("PastSuicideMany", "")%></textarea><br>
+                                           cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("PastSuicideMany", ""))%></textarea><br>
                     <fmt:message key="form.selfAssessment.when"/><br><textarea name="PastSuicideWhen" id="PastSuicideWhen" rows="0"
-                                       cols="111"><%= props.getProperty("PastSuicideWhen", "")%></textarea><br>
+                                       cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("PastSuicideWhen", ""))%></textarea><br>
 
                     <fmt:message key="form.selfAssessment.selfHarmCutting"/> <input type="text" name="PastCutting"
                                               value="<%= props.getProperty("PastCutting", "")%>"> <br>
@@ -304,7 +307,7 @@
 
                     <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="PastPASTPSYCHIATRICOther"
                                                                        id="PastPASTPSYCHIATRICOther" rows="0"
-                                                                       cols="111"><%= props.getProperty("PastPASTPSYCHIATRICOther", "")%></textarea><br>
+                                                                       cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("PastPASTPSYCHIATRICOther", ""))%></textarea><br>
                 </TD>
             </TR>
             <TR>
@@ -351,7 +354,7 @@
                                     value="<%= props.getProperty("FamilyAlcohol", "")%>"> <br>
                     <fmt:message key="form.selfAssessment.drugsSpecify"/>
                     <br><textarea name="FamilyDrugs" id="FamilyDrugs" rows="0"
-                                  cols="111"><%= props.getProperty("FamilyDrugs", "")%></textarea><br>
+                                  cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("FamilyDrugs", ""))%></textarea><br>
                     <fmt:message key="form.selfAssessment.trauma"/>
                     <UL>
                         <LI><fmt:message key="form.selfAssessment.emotional"/> <input type="text" name="FamilyEmotional"
@@ -375,7 +378,7 @@
 
                     <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="FamilyPsychiatricOther"
                                                                        id="FamilyPsychiatricOther" rows="0"
-                                                                       cols="111"><%= props.getProperty("FamilyPsychiatricOther", "")%></textarea><br>
+                                                                       cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("FamilyPsychiatricOther", ""))%></textarea><br>
                 </TD>
             </TR>
             <TR>
@@ -413,7 +416,7 @@
                     <fmt:message key="form.selfAssessment.religiousAffiliation"/> <input type="text" name="ReligiousAffiliation" size="100" maxlength="150"
                                                   value="<%= props.getProperty("ReligiousAffiliation", "")%>"> <br>
                     <fmt:message key="form.selfAssessment.additionalInformation"/> <br><textarea name="GeneralOther" id="GeneralOther" rows="0"
-                                                                       cols="111"><%= props.getProperty("GeneralOther", "")%></textarea><br>
+                                                                       cols="111"><%= SafeEncode.forHtmlContent(props.getProperty("GeneralOther", ""))%></textarea><br>
 
                 </TD>
             </TR>

@@ -43,6 +43,25 @@ published port, who takes the snapshot — is documented in that repository's
 README under "Migrating a clinic from OSCAR 19". This guide is the Debian
 package's.
 
+The importer snapshots the complete input set privately and binds its ordered
+hashes, the ETL rules and the target physical schema to the run. Keep sufficient
+disk for those snapshots. Cleanup removes the extracted inputs and immutable source snapshots after verified
+preservation; backup excludes both sets of raw inputs while retaining the ledgers,
+reports and preserved archive export. Package purge also removes nested source
+properties copies under the existing credential-removal policy.
+Resume uses the same source set; changing a component
+or upgrading the ETL during a partial import requires restoring the pre-import
+backup and starting again. `staging-diagnostics.txt` and `source-set.json` in the private
+workspace support diagnosis without printing clinical values on the terminal.
+
+Source encodings and accepted collation aliases are retained in staging. Data is
+then copied into Flyway-created CARLOS columns, with the CARLOS indexes and
+comparison rules. Warnings, numeric loss and stored-value mismatches are checked
+before checkpoints; keyless tables are checked by content and multiplicity.
+Final verification checks the physical schema and declared foreign keys, then
+refreshes optimizer statistics. See [the collation and index policy](database-collation-policy.md)
+for the reviewed column exceptions and the forward migrations for existing hosts.
+
 ## 1. Assess the clinic first (before any backup is shipped)
 
 Write the standalone assessment script on the CARLOS host (it carries the
@@ -203,16 +222,39 @@ tar -czf - o19.sql.gz o19-documents.tar.gz oscar.properties \
       -pass file:PASSFILE -out o19-bundle.tar.gz.enc
 ```
 
-The members sit at the archive root as plain files, with no directory
-prefix: exactly one `*.sql` or `*.sql.gz`, exactly one `*.properties`, at
-most one `*.tar`/`*.tar.gz` of documents, and at most one `*.json` of
-content digests. Anything else in the archive, a member reached through a
-path, or a name beginning with `-`, is refused. Two files of the same
-role are refused as well — the importer never guesses which of two dumps
-(or two digest documents) describes the clinic. If the content digests
-were shipped separately rather than in the bundle, pass them to the
-importer with `--o19-digests PATH`. The bundle file itself must be named `.tar`, `.tar.gz`,
-`.tar.enc` or `.tar.gz.enc`.
+The root-only bundle above remains supported. Native OSCAR full backups may
+also have nested context directories, multiple complementary EMR SQL dumps
+(for example transactional and MyISAM parts), embedded documents and auxiliary
+artifacts. Auxiliary `drugref`, `mysql` and `sys` dumps are retained outside the
+EMR source set. Other artifacts are retained for the technical handoff. Links,
+special files, absolute paths and traversal are refused.
+
+Every SQL part must be a complete dump from the same stopped source. Identical
+overlapping tables are restored once; conflicting definitions, data or relevant
+session settings stop the import. Different dump orderings can be conservatively
+reported as conflicts; resolve the source backup set rather than choosing a copy
+arbitrarily. Incremental SQL replay is not supported. For separate files, repeat
+`--dump FILE` for each SQL part. Repeat `--documents FILE` in full then incremental
+restore order; the latest entry for a path wins. Deleted paths cannot be inferred
+from an incremental archive and must be reconciled against the frozen source.
+
+When roles or document ordering are ambiguous, include `o19-inputs.json` at any
+level of the outer archive. Paths are relative to the outer archive root:
+
+```json
+{
+  "format": 1,
+  "dumps": ["backup/oscar.sql.gz", "backup/oscar-MyISAM.sql.gz"],
+  "properties": "backup/oscar/oscar.properties",
+  "documents": ["backup/documents-full.tar.gz", "backup/documents-incremental.tar.gz"],
+  "digests": "backup/o19-digests.json"
+}
+```
+
+`documents` and `digests` are optional. The importer never guesses the order of
+multiple documents archives. Generic JSON artifacts are not mistaken for content
+digests. Separately supplied content digests use `--o19-digests PATH`.
+The outer bundle must be named `.tar`, `.tar.gz`, `.tar.enc` or `.tar.gz.enc`.
 
 ```bash
 sha256sum o19-bundle.tar.gz.enc

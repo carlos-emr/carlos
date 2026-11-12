@@ -75,9 +75,19 @@
             var popup = window.open(varpage, windowname, windowprops);
         }
 
+        // Search only reads: it reloads this page by GET through the read-only view gate,
+        // carrying just the search fields. Re-submitting the mapping form instead would POST to
+        // that GET-only gate (HTTP 405), and the form's CSRF token must not end up in a URL
+        // (issue #3335).
         function reloadPage() {
-            document.CONFIG.action = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap';
-            return true;
+            var form = document.CONFIG;
+            window.location.href = '<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewRemapMeasurementMap'
+                + '?id=' + encodeURIComponent(form.elements['id'].value)
+                + '&identifier=' + encodeURIComponent(form.elements['identifier'].value)
+                + '&name=' + encodeURIComponent(form.elements['name'].value)
+                + '&type=' + encodeURIComponent(form.elements['type'].value)
+                + '&searchstring=' + encodeURIComponent(form.elements['searchstring'].value);
+            return false;
         }
 
 

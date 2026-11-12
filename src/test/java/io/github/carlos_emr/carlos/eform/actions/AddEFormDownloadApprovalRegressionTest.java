@@ -95,4 +95,27 @@ class AddEFormDownloadApprovalRegressionTest {
                 .contains("stabilizationCapped")
                 .contains("labDecisionSupportStubbed");
     }
+
+    @Test
+    @DisplayName("should send the template id and patient in the approval action's query string")
+    void shouldCarryFormIdentity_inApprovalActionQueryString() throws IOException {
+        // The eForm view an approved download returns is shown at the approval form's action URL, and
+        // APCache.js reads the form id from that page's query string: without it every lookup there
+        // answered "Invalid fid" and the APCache fields stayed blank (#4979).
+        String approvalPage = Files.readString(Path.of("src", "main", "webapp", "WEB-INF", "jsp",
+                "eform", "EFormRenderMissingContent.jsp"), StandardCharsets.UTF_8);
+
+        assertThat(approvalPage).contains("action=\"${pageContext.request.contextPath}/${approvalAction}"
+                + "<c:if test=\"${not empty approvalFormId}\">"
+                + "?efmfid=${carlos:forUriComponent(approvalFormId)}"
+                + "&amp;efmdemographic_no=${carlos:forUriComponent(demographicNo)}</c:if>\"");
+    }
+
+    @Test
+    @DisplayName("should pass the submission's template id to the approval page")
+    void shouldPassTemplateId_toApprovalPage() throws IOException {
+        String source = Files.readString(ADD_EFORM_ACTION, StandardCharsets.UTF_8);
+
+        assertThat(source).contains("requestFdid, demographicNo, request.getParameter(\"efmfid\"), operation, null, false,");
+    }
 }

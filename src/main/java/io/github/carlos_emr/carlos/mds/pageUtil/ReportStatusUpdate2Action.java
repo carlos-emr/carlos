@@ -160,7 +160,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             }
             return SUCCESS;
         } catch (Exception e) {
-            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
+            response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in ReportStatusUpdate2Action ({})", e.getClass().getSimpleName());
             return "failure";
         }
@@ -195,7 +195,7 @@ public class ReportStatusUpdate2Action extends ActionSupport {
             withDocumentWriteLock(labNo, lab_type, () -> CommonLabResultData.updateReportStatus(labNo, providerNo, status, comment, lab_type));
 
         } catch (Exception e) {
-            if ("DOC".equals(lab_type)) response.setStatus(e instanceof SecurityException ? 403 : 500);
+            response.setStatus(e instanceof SecurityException ? 403 : 500);
             logger.error("exception in setting comment ({})", e.getClass().getSimpleName());
             return "failure";
         }

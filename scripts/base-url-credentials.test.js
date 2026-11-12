@@ -14,6 +14,56 @@ function collectScripts(directory, prefix = '') {
   });
 }
 const scripts = collectScripts(__dirname);
+
+function scheduleUrlContext() {
+  const source = fs.readFileSync(path.join(__dirname, 'schedule-links-playwright-checks.js'), 'utf8');
+  const context = vm.createContext({ URL, process: { env: {} } });
+  for (const name of ['validateBaseUrl', 'appUrl', 'safeGoto', 'clickScheduleLink']) {
+    const start = source.indexOf(`function ${name}(`);
+    assert.ok(start >= 0, `Schedule URL helper ${name} is missing`);
+    const declaration = source.slice(start - 6, start) === 'async ' ? start - 6 : start;
+    vm.runInContext(source.slice(declaration, source.indexOf('\n}', start) + 2), context);
+  }
+  vm.runInContext('const baseUrl = validateBaseUrl("https://127.0.0.1/carlos");', context);
+  return context;
+}
+
+test('schedule restoration keeps its provider/date query on the validated application origin', async () => {
+  const context = scheduleUrlContext();
+  let destination;
+  const query = '?provider_no=999998&year=2026&month=10&day=18';
+  await context.safeGoto({ goto: async url => { destination = new URL(url); } },
+    '/provider/providercontrol', { waitUntil: 'domcontentloaded' }, query);
+  assert.equal(destination.origin, 'https://127.0.0.1');
+  assert.equal(destination.pathname, '/carlos/provider/providercontrol');
+  assert.equal(destination.search, query);
+});
+
+test('schedule navigation cannot select another host through its path or query', () => {
+  const context = scheduleUrlContext();
+  for (const route of ['https://attacker.invalid/schedule', '//attacker.invalid/schedule']) {
+    assert.throws(() => context.appUrl(route), /root-relative/);
+  }
+  for (const query of ['?next=https://attacker.invalid/', '//attacker.invalid/', 'https://attacker.invalid/']) {
+    const target = new URL(context.appUrl('/provider/providercontrol', query));
+    assert.equal(target.origin, 'https://127.0.0.1');
+    assert.equal(target.pathname, '/carlos/provider/providercontrol');
+  }
+});
+
+test('schedule audit rejects an off-origin or different source view before clicking', async () => {
+  const context = scheduleUrlContext();
+  for (const url of ['https://attacker.invalid/carlos/provider/providercontrol',
+    'https://127.0.0.1/carlos/report/ViewReportindex']) {
+    const page = {
+      url: () => url,
+      locator: () => ({ first: () => ({ waitFor: async () => {} }) }),
+    };
+    await assert.rejects(context.clickScheduleLink({}, page, { selector: 'a', label: 'test' }),
+      /outside the expected application view/);
+  }
+});
+
 for (const name of scripts) {
   const source = fs.readFileSync(path.join(__dirname, name), 'utf8');
   const start = source.indexOf('function validateBaseUrl(');

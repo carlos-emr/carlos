@@ -30,6 +30,8 @@
 --%>
 
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicListSearch" %>
+<%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
 
 <%--
     Displays the general patient search and recently viewed patient list.
@@ -80,6 +82,8 @@
 //     Boolean isMobileOptimized = session.getAttribute("mobileOptimized") != null;
 
     LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+    Set<Integer> deniedPatients = PatientReadAccess.deniedPatientsFromRequest(request,
+            SpringUtils.getBean(SecurityInfoManager.class), loggedInInfo, "_demographic", SecurityInfoManager.READ);
 
     GregorianCalendar now = new GregorianCalendar();
     int curYear = now.get(Calendar.YEAR);
@@ -103,8 +107,6 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicDao" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicMerged" %>
 <%@ page import="org.owasp.encoder.Encode" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.DemographicExt" %>
 <%@ page import="io.github.carlos_emr.Misc" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO" %>
@@ -360,7 +362,7 @@
 
                     if (Boolean.TRUE.equals(request.getAttribute("showRecentPatients"))) {
                         int mostRecentPatientListSize = Integer.parseInt(CarlosProperties.getInstance().getProperty("MOST_RECENT_PATIENT_LIST_SIZE", "3"));
-                        List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize);
+                        List<Integer> results = oscarLogDao.getRecentDemographicsAccessedByProvider(providerNo, 0, mostRecentPatientListSize, deniedPatients);
                         demoList = new ArrayList<Demographic>();
                         for (Integer r : results) {
                             // A patient can disappear after the recent-ID query.
@@ -369,7 +371,7 @@
                         }
 
                     } else {
-                        demoList = doSearch(demographicDao, searchMode, ptStatus, keyword, limit, offset, orderBy, providerNo, outOfDomain);
+                        demoList = doSearch(demographicDao, searchMode, ptStatus, keyword, limit, offset, orderBy, providerNo, outOfDomain, deniedPatients);
                         hasNextPage = demoList.size() > limit;
                         if (hasNextPage) demoList = demoList.subList(0, limit);
                     }
@@ -409,6 +411,7 @@
                     DemographicMerged dmDAO = new DemographicMerged();
 
                     for (Demographic demo : demoList) {
+                        if (deniedPatients.contains(demo.getDemographicNo())) continue;
 
 
                         String dem_no = demo.getDemographicNo().toString();
@@ -548,35 +551,17 @@
 </html>
 <%!
 
-    List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain) {
+    List<Demographic> doSearch(DemographicDao demographicDao, String searchMode, String ptstatus, String keyword, int limit, int offset, String orderBy, String providerNo, boolean outOfDomain, Set<Integer> deniedPatients) {
         CarlosProperties props = CarlosProperties.getInstance();
         String pstatus = props.getProperty("inactive_statuses", "IN, DE, IC, ID, MO, FI");
         pstatus = pstatus.replaceAll("'", "").replaceAll("\\s", "");
         List<String> stati = Arrays.asList(pstatus.split(","));
 
 
-        if ("search_band_number".equals(searchMode)) {
-            keyword = getDemographicNumberWithBandNumber(keyword);
-            searchMode = "search_demographic_no";
-        }
+        // search_band_number is a DemographicDao search mode of its own, so every record carrying the number is listed.
         List<String> statuses = "active".equals(ptstatus) || "inactive".equals(ptstatus) ? stati : null;
         return demographicDao.searchForPatientList(new DemographicListSearch(searchMode, keyword, orderBy,
-                statuses, "active".equals(ptstatus), offset, limit), providerNo, outOfDomain);
-    }
-
-    String getDemographicNumberWithBandNumber(String bandNumber) {
-        //Gets the demographicExtDao
-        DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-        //Gets the demographicExts that match the given key and value
-        List<DemographicExt> demographicExts = demographicExtDao.getDemographicExtByKeyAndValue("statusNum", bandNumber);
-        //Creates a demographicNumber string with the value of '-1'
-        String demographicNumber = "-1";
-        //If the list is not null and is not empty, gets the demographic number from the first record and converts it to a string
-        if (demographicExts != null && !demographicExts.isEmpty()) {
-            demographicNumber = demographicExts.get(0).getDemographicNo().toString();
-        }
-        //Returns the demographicNumber
-        return demographicNumber;
+                statuses, "active".equals(ptstatus), offset, limit, deniedPatients), providerNo, outOfDomain);
     }
 
 %>

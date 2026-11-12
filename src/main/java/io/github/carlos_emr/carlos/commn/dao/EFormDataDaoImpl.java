@@ -307,13 +307,13 @@ public class EFormDataDaoImpl extends AbstractDaoImpl<EFormData> implements EFor
         return results;
     }
 
-    // for EFormReportTool
+    // for EFormReportTool: only current instances; one deleted from the chart (status 0) is left out.
     @Override
     public List<Object[]> findMetaFieldsByFormId(Integer formId) {
 
         Query query = entityManager
                 .createQuery("select distinct x.id, x.demographicId,x.formDate, x.formTime, x.providerNo  from "
-                        + modelClass.getSimpleName() + " x where x.formId = ?1");
+                        + modelClass.getSimpleName() + " x where x.formId = ?1 and x.current = true");
         query.setParameter(1, formId);
 
         @SuppressWarnings("unchecked")

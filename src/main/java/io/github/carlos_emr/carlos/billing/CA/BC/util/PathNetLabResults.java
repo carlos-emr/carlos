@@ -35,6 +35,24 @@ import io.github.carlos_emr.carlos.commn.model.PatientLabRouting;
 import io.github.carlos_emr.carlos.commn.model.ProviderLabRoutingModel;
 
 public class PathNetLabResults {
+    /**
+     * HQL aggregate for a report's status over its OBR rows. A report whose OBRs all carry one
+     * status keeps it; a report mixing statuses with anything still pending (for example F with P
+     * or I) is reported as {@code P}, never {@code F}: the alphabetical {@code MIN} alone ranks F
+     * ahead of I and P and listed a partly pending report as Final (finding 165, #4552).
+     * <ul>
+     * <li>{@code MIN}/{@code MAX} skip nulls, so an OBR with no status beside an F would leave both
+     * equal to F; the {@code COUNT} comparison makes such a report pending as well.</li>
+     * <li>C (corrected) beside F keeps the previous {@code MIN} result {@code C}: both are
+     * complete, and no valid HL7 result status sorts between them.</li>
+     * </ul>
+     */
+    public static final String REPORT_STATUS_HQL =
+            "CASE WHEN COUNT(obr.resultStatus) <> COUNT(obr.id) THEN 'P' "
+                    + "WHEN MIN(obr.resultStatus) = MAX(obr.resultStatus) THEN MIN(obr.resultStatus) "
+                    + "WHEN MIN(obr.resultStatus) = 'C' AND MAX(obr.resultStatus) = 'F' THEN 'C' "
+                    + "ELSE 'P' END";
+
     private Hl7Msh hl7Msh;
     private Hl7Pid hl7Pid;
     private Hl7Orc hl7Orc;

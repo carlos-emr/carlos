@@ -36,6 +36,8 @@ import jakarta.persistence.*;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @Entity
 @Table(name = "professionalSpecialists")
 public class ProfessionalSpecialist extends AbstractModel<Integer> implements Serializable, ContactInterface {
@@ -90,6 +92,7 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
     private boolean deleted = false;
 
     @Temporal(TemporalType.TIMESTAMP)
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdated = new Date();
 
     private Integer eformId;

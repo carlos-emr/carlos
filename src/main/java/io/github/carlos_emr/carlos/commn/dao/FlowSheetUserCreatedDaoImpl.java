@@ -57,9 +57,11 @@ public class FlowSheetUserCreatedDaoImpl extends AbstractDaoImpl<FlowSheetUserCr
     }
 
     public List<FlowSheetUserCreated> findActiveByScope(String scope) {
-        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope = ?2");
+        // The provider scope has two stored spellings; list both under either.
+        List<String> scopes = FlowSheetUserCreated.isProviderScope(scope) ? FlowSheetUserCreated.PROVIDER_SCOPES : List.of(scope);
+        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope IN (?2)");
         query.setParameter(1, false);
-        query.setParameter(2, scope);
+        query.setParameter(2, scopes);
         return query.getResultList();
     }
 
@@ -73,9 +75,9 @@ public class FlowSheetUserCreatedDaoImpl extends AbstractDaoImpl<FlowSheetUserCr
     }
 
     public FlowSheetUserCreated findByProviderScope(String template, String providerNo) {
-        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope = ?2 AND f.scopeProviderNo = ?3 AND f.template = ?4");
+        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope IN (?2) AND f.scopeProviderNo = ?3 AND f.template = ?4");
         query.setParameter(1, false);
-        query.setParameter(2, FlowSheetUserCreated.SCOPE_PROVIDER);
+        query.setParameter(2, FlowSheetUserCreated.PROVIDER_SCOPES);
         query.setParameter(3, providerNo);
         query.setParameter(4, template);
         return this.getSingleResultOrNull(query);
@@ -99,9 +101,9 @@ public class FlowSheetUserCreatedDaoImpl extends AbstractDaoImpl<FlowSheetUserCr
     }
 
     public FlowSheetUserCreated findByProviderScopeName(String name, String providerNo) {
-        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope = ?2 AND f.scopeProviderNo = ?3 AND f.name = ?4");
+        Query query = entityManager.createQuery("SELECT f FROM FlowSheetUserCreated f WHERE f.archived=?1 AND f.scope IN (?2) AND f.scopeProviderNo = ?3 AND f.name = ?4");
         query.setParameter(1, false);
-        query.setParameter(2, FlowSheetUserCreated.SCOPE_PROVIDER);
+        query.setParameter(2, FlowSheetUserCreated.PROVIDER_SCOPES);
         query.setParameter(3, providerNo);
         query.setParameter(4, name);
         return this.getSingleResultOrNull(query);

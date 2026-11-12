@@ -41,9 +41,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Date;
-import java.util.Hashtable;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.ResourceBundle;
 
@@ -342,7 +343,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
 
         if (this.getMode().equals("") && this.getFunction().equals("") && this.getFunctionId().equals("")) {
             // file size exceeds the upload limit
-            Hashtable errors = new Hashtable();
+            Map<String, String> errors = new HashMap<>();
             errors.put("uploaderror", "dms.error.uploadError");
             request.setAttribute("docerrors", errors);
             request.setAttribute("editDocumentNo", "");
@@ -359,7 +360,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
                 IncomingDocumentCapacityResponse.requirePatientDocumentWriteAccess(securityInfoManager,
                         LoggedInInfo.getLoggedInInfoFromSession(request), this.getFunctionId() == null ? null : this.getFunctionId().trim());
             }
-            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors hashtables while trying to avoid POSTDATA messages)
+            // if add/edit success then send redirect, if failed send a forward (need the formdata and errors maps while trying to avoid POSTDATA messages)
             if (addDocument(request)) { // if success
                 try {
                     response.sendRedirect(buildAddSuccessRedirect());
@@ -425,7 +426,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
             return false;
         }
 
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
         try {
             if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
                 errors.put("descmissing", "dms.error.descriptionInvalid");
@@ -601,7 +602,7 @@ public class AddEditDocument2Action extends ActionSupport implements UploadedFil
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     private String editDocument(HttpServletRequest request) {
-        Hashtable errors = new Hashtable();
+        Map<String, String> errors = new HashMap<>();
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "w", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
@@ -1151,7 +1152,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
         if (docDesc == null || docDesc.codePointCount(0, docDesc.length()) <= MAX_DESCRIPTION_LENGTH) {
             return false;
         }
-        Hashtable<String, String> errors = new Hashtable<>();
+        Map<String, String> errors = new HashMap<>();
         errors.put("descmissing", "dms.error.descriptionTooLong");
         request.setAttribute("docerrors", errors);
         response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -1463,7 +1464,7 @@ this.getSource(), 'A', this.getObservationDate(), reviewerId, reviewDateTime, th
 
     private String docFileFileName;
     private String docFileContentType;
-    /** Error hashtable key set when filename validation fails during bind; checked by execute methods. */
+    /** Error map key set when filename validation fails during bind; checked by execute methods. */
     private String docFileBindErrorKey;
 
     public String getDocFileFileName() {

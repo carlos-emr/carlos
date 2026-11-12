@@ -26,7 +26,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 import jakarta.ws.rs.core.Response;
@@ -44,7 +46,9 @@ import io.github.carlos_emr.carlos.commn.dao.ContactDao;
 import io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListDao;
 import io.github.carlos_emr.carlos.commn.dao.WaitingListNameDao;
+import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
 import io.github.carlos_emr.carlos.managers.AllergyManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.MeasurementManager;
@@ -302,6 +306,60 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(wireJson.at("/documents")).hasSize(0);
             assertThat(wireJson.at("/medicationSummary").isArray()).isTrue();
             assertThat(wireJson.at("/medicationSummary")).hasSize(0);
+        }
+
+        @Test
+        @DisplayName("should write midnight timestamps as epoch milliseconds in the record and its includes")
+        void shouldWriteMidnightTimestampsAsEpochMillis_whenRecordIncludesAllergiesAndMeasurements() {
+            // Issue #3877: on /ws/services these timestamps were "yyyy-MM-dd" strings whenever they
+            // fell on local midnight, and a number otherwise, which broke Ocean's sync.
+            Calendar calendar = Calendar.getInstance();
+            calendar.clear();
+            calendar.set(2026, Calendar.MARCH, 11);
+            Date midnight = calendar.getTime();
+            Demographic demo = createTestDemographic(42, "Jane", "Doe");
+            demo.setLastUpdateDate(midnight);
+            Allergy allergy = new Allergy();
+            allergy.setId(7);
+            allergy.setDemographicNo(42);
+            allergy.setDescription("FAKE-allergen");
+            allergy.setArchived(false);
+            allergy.setLastUpdateDate(midnight);
+            Measurement weight = new Measurement();
+            weight.setDemographicId(42);
+            weight.setType("WT");
+            weight.setDataField("70");
+            weight.setDateObserved(midnight);
+            weight.setCreateDate(midnight);
+            when(mockDemographicManager.getDemographic(any(LoggedInInfo.class), eq(42))).thenReturn(demo);
+            when(mockDemographicManager.getDemographicExts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockWaitingListDao.search_wlstatus(42)).thenReturn(Collections.emptyList());
+            when(mockWaitingListNameDao.findAll(any(), any())).thenReturn(Collections.emptyList());
+            when(mockSpecialistDao.findAll()).thenReturn(Collections.emptyList());
+            when(mockSecUserRoleDao.getSecUserRolesByRoleName(any())).thenReturn(Collections.emptyList());
+            when(mockDemographicManager.getDemographicContacts(any(LoggedInInfo.class), eq(42)))
+                .thenReturn(Collections.emptyList());
+            when(mockAllergyManager.getActiveAllergies(any(LoggedInInfo.class), eq(42))).thenReturn(List.of(allergy));
+            when(mockMeasurementManager.getMeasurementByType(any(LoggedInInfo.class), eq(42), any()))
+                .thenReturn(Collections.emptyList());
+            when(mockMeasurementManager.getLatestMeasurementsByDemographicIdObservedAfter(
+                    any(LoggedInInfo.class), eq(42), any(Date.class)))
+                .thenReturn(new ArrayList<>(List.of(weight)));
+
+            Response response = request().path("/demographics/42")
+                .query("includes[]", "allergies").query("includes[]", "measurements").get();
+
+            assertThat(response.getStatus()).isEqualTo(200);
+            var wireJson = responseJson(response);
+            for (String pointer : List.of("/lastUpdateDate", "/allergies/0/lastUpdateDate",
+                    "/measurements/0/createDate", "/measurements/0/dateObserved")) {
+                assertThat(wireJson.at(pointer).isIntegralNumber()).as("%s on the wire: %s", pointer,
+                        wireJson.at(pointer)).isTrue();
+                assertThat(wireJson.at(pointer).longValue()).as(pointer).isEqualTo(midnight.getTime());
+            }
+            // A calendar date beside them keeps its string shape.
+            assertThat(wireJson.at("/dateOfBirth").textValue()).isEqualTo("1980-06-15");
         }
     }
 

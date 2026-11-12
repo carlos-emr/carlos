@@ -52,6 +52,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const {
   assert,
   assertNoPageErrors,
@@ -261,7 +262,7 @@ async function checkUncertainUpdateResponse(context) {
     // a real exposure rather than the self-signed localhost cert the runbook expects.
     const loopback = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
     const isLoopback = loopback.has(config.baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase());
-    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback, viewport: { width: 1280, height: 900 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(config.baseUrl), viewport: { width: 1280, height: 900 } });
     const landing = await login(context, config, recorder);
     await landing.close();
 
@@ -281,12 +282,18 @@ async function checkUncertainUpdateResponse(context) {
       predicate: (r) => r.url().includes(ENDPOINT) && postedMethod(r) === 'verify',
       timeout: 30000,
     });
+    // Keep the original promise for the assertion below, while observing a
+    // teardown rejection if an earlier navigation/readiness assertion fails.
+    verifyResponsePromise.catch(() => {});
     const [popup] = await Promise.all([
       context.waitForEvent('page', { timeout: 20000 }),
       link.evaluate((a) => a.click()),
     ]);
     wirePage(popup, 'update-drugref', recorder);
     await popup.waitForLoadState('domcontentloaded', { timeout: 30000 });
+    // A new popup's initial about:blank document can finish before its real
+    // navigation. Require the actual page's DOM before inspecting its body.
+    await popup.locator('#dbInfo').waitFor({ state: 'attached', timeout: 30000 });
     await assertNotErrorPage(popup, 'Update Drugref page');
     const popupUrl = new URL(popup.url());
     assert(popupUrl.origin === config.baseUrl.origin

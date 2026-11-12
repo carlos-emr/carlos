@@ -53,6 +53,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 /** Bundle key each message line is compared against, and its English value. */
 const MISSING_DATE_KEY = 'tickler.ticklerAdd.msgMissingDate';
@@ -219,7 +220,7 @@ async function workflow(s) {
     ticklerList = await s.context.newPage();
     await h.gotoApp(ticklerList, s.config.baseUrl, `/tickler/ViewTicklerMain?demoview=${patient}`);
   } else {
-    ticklerList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(),
+    ticklerList = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(),
       'tickler-list');
   }
   await ticklerList.waitForLoadState('domcontentloaded', { timeout: 20000 });

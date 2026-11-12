@@ -37,15 +37,13 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.EChartDao;
 import io.github.carlos_emr.carlos.commn.dao.EncounterTemplateDao;
 import io.github.carlos_emr.carlos.commn.dao.MeasurementGroupStyleDao;
-import io.github.carlos_emr.carlos.commn.dao.MessageTblDao;
-import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
-import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EChart;
 import io.github.carlos_emr.carlos.commn.model.EncounterTemplate;
 import io.github.carlos_emr.carlos.commn.model.MeasurementGroupStyle;
-import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.messenger.service.MessageEncounterService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -101,8 +99,6 @@ public class EctSessionBean implements java.io.Serializable {
     public String template = "";
     public String oscarMsgID;
     public String oscarMsg = "";
-    public ArrayList<String> appointmentsIdArray;
-    public ArrayList<String> appointmentsNamesArray;
     public ArrayList<String> templateNames;
     public ArrayList<String> measurementGroupNames;
     public String source;
@@ -140,9 +136,21 @@ public class EctSessionBean implements java.io.Serializable {
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo) {
         resetAll();
+        requireRecordAccess(loggedInInfo, demographicNo);
 
-        appointmentsIdArray = new ArrayList<String>();
-        appointmentsNamesArray = new ArrayList<String>();
+        // Legacy CAISI editors consume the same explicit, patient-linked handoff as modern
+        // charts. Authorize before loading clinical rows: a numeric message ID is not access
+        // to its body, and an old bean's message must never survive a refused or absent handoff.
+        if (oscarMsgID != null && !oscarMsgID.isBlank()) {
+            if (!oscarMsgID.matches("[0-9]{1,10}") || Integer.parseInt(oscarMsgID) <= 0) {
+                throw new IllegalArgumentException("Invalid encounter message ID");
+            }
+            int patient = Integer.parseInt(demographicNo);
+            if (patient <= 0) throw new IllegalArgumentException("Invalid encounter patient");
+            oscarMsg = SpringUtils.getBean(MessageEncounterService.class)
+                    .load(loggedInInfo, Integer.parseInt(oscarMsgID), patient);
+        }
+
         templateNames = new ArrayList<String>();
         measurementGroupNames = new ArrayList<String>();
 
@@ -171,12 +179,6 @@ public class EctSessionBean implements java.io.Serializable {
         if (StringUtils.filled(yearOfBirth) && !"0".equals(yearOfBirth)) {
             patientAge = UtilDateUtilities
                     .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
-        }
-
-        OscarAppointmentDao apptDao = SpringUtils.getBean(OscarAppointmentDao.class);
-        for (Appointment appt : apptDao.findByProviderAndDate(curProviderNo, ConversionUtils.fromDateString(appointmentDate))) {
-            appointmentsIdArray.add(appt.getId().toString());
-            appointmentsNamesArray.add(appt.getName() + " " + ConversionUtils.toTimeString(appt.getStartTime()));
         }
 
         EncounterTemplateDao ectDao = SpringUtils.getBean(EncounterTemplateDao.class);
@@ -216,143 +218,27 @@ public class EctSessionBean implements java.io.Serializable {
             }
         }
 
-        if (oscarMsgID != null) {
-            MessageTblDao mtDao = SpringUtils.getBean(MessageTblDao.class);
-            MessageTbl mt = mtDao.find(ConversionUtils.fromIntString(oscarMsgID));
-            if (mt != null) {
-                String message = mt.getMessage();
-                String subject = mt.getSubject();
-                String sentby = mt.getSentBy();
-                String sentto = mt.getSentTo();
-                String thetime = ConversionUtils.toTimeString(mt.getTime());
-                String thedate = ConversionUtils.toDateString(mt.getDate());
-                oscarMsg = "From: " + sentby + "\n" + "To: " + sentto + "\n" + "Date: " + thedate + " " + thetime
-                        + "\n" + "Subject: " + subject + "\n" + message;
-            }
-        }
-
-
     }
 
     /**
-     * over loaded method sets up the encounter page as befits entrance from the select box of
-     * today's appointments on the encounter/Index.jsp page
+     * Sets up this bean to print one revision of one patient's legacy chart. Callers print a
+     * request-owned bean for the patient their request names, never the login-wide session bean
+     * (issue #4673).
      *
-     * @param appointmentNo
-     */
-    public void setUpEncounterPage(LoggedInInfo loggedInInfo, String appointmentNo) {
-        resetAll();
-        
-        appointmentsIdArray = new ArrayList<String>();
-        appointmentsNamesArray = new ArrayList<String>();
-        templateNames = new ArrayList<String>();
-
-        OscarAppointmentDao apptDao = SpringUtils.getBean(OscarAppointmentDao.class);
-        Appointment appt = apptDao.find(ConversionUtils.fromIntString(appointmentNo));
-        demographicNo = "" + appt.getDemographicNo();
-        this.appointmentNo = appointmentNo;
-        reason = appt.getReason();
-        reasonCode = appt.getReasonCode() != null ? appt.getReasonCode().toString() : null;
-
-        // If reason text is empty but reasonCode exists, use the reasonCode label
-        if ((reason == null || reason.trim().isEmpty()) && appt.getReasonCode() != null) {
-            io.github.carlos_emr.carlos.commn.dao.LookupListItemDao lookupListItemDao = SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.LookupListItemDao.class);
-            io.github.carlos_emr.carlos.commn.model.LookupListItem item = lookupListItemDao.find(appt.getReasonCode());
-            if (item != null && item.getLabel() != null && !item.getLabel().trim().isEmpty()) {
-                reason = item.getLabel().trim();
-            }
-        }
-
-        encType = new String("face to face encounter with client");
-        appointmentDate = ConversionUtils.toDateString(appt.getAppointmentDate());
-        startTime = ConversionUtils.toDateString(appt.getStartTime());
-        status = appt.getStatus();
-
-        for (Appointment a : apptDao.findByProviderAndDate(curProviderNo, appt.getAppointmentDate())) {
-            appointmentsIdArray.add(a.getId().toString());
-            appointmentsNamesArray.add(a.getName() + " " + ConversionUtils.toTimeString(a.getStartTime()));
-        }
-
-        EncounterTemplateDao ectDao = SpringUtils.getBean(EncounterTemplateDao.class);
-        for (EncounterTemplate ect : ectDao.findAll()) {
-            templateNames.add(ect.getEncounterTemplateName());
-        }
-
-        CarlosProperties properties = CarlosProperties.getInstance();
-        if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
-            EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
-            List<EChart> ecs = ecDao.getChartsForDemographic(ConversionUtils.fromIntString(demographicNo));
-            if (!ecs.isEmpty()) {
-                EChart ec = ecs.get(0);
-                eChartId = ec.getId().toString();
-                eChartTimeStamp = ec.getTimestamp();
-                socialHistory = ec.getSocialHistory();
-                familyHistory = ec.getFamilyHistory();
-                medicalHistory = ec.getMedicalHistory();
-                ongoingConcerns = ec.getOngoingConcerns();
-                reminders = ec.getReminders();
-                encounter = ec.getEncounter();
-                subject = ec.getSubject();
-            } else {
-                eChartTimeStamp = null;
-                socialHistory = "";
-                familyHistory = "";
-                medicalHistory = "";
-                ongoingConcerns = "";
-                reminders = "";
-                encounter = "";
-                subject = "";
-            }
-        }
-
-        //apointmentsIdArray and the appointmentsNamesArray are
-        //already set up so no need to get them again
-
-        //
-        DemographicManager demogaphicManager = SpringUtils.getBean(DemographicManager.class);
-        Demographic demo = demogaphicManager.getDemographic(loggedInInfo, demographicNo);
-        if (demo != null) {
-            patientLastName = demo.getLastName();
-            patientFirstName = demo.getFirstName();
-            address = demo.getAddress();
-            city = demo.getCity();
-            postal = demo.getPostal();
-            phone = demo.getPhone();
-            familyDoctorNo = demo.getProviderNo();
-            yearOfBirth = demo.getYearOfBirth();
-            monthOfBirth = demo.getMonthOfBirth();
-            dateOfBirth = demo.getDateOfBirth();
-            roster = demo.getRosterStatus();
-            patientSex = demo.getSex();
-            if (yearOfBirth.equals("null")) {
-                yearOfBirth = "0";
-            }
-            if (monthOfBirth.equals("null")) {
-                monthOfBirth = "0";
-            }
-            if (dateOfBirth.equals("null")) {
-                dateOfBirth = "0";
-            }
-        }
-        patientAge = UtilDateUtilities
-                .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
-
-    }
-
-    /**
-     * over loaded method sets up the encounter page for print
-     *
-     * @param echartid
-     * @param demographicNo
+     * @param loggedInInfo the user printing; reading the patient record checks {@code _demographic} read
+     * @param echartid the revision to print; a missing, unknown or other patient's revision prints only
+     *                 the patient's header
+     * @param demographicNo the printed patient
      */
     public void setUpEncounterPage(LoggedInInfo loggedInInfo, String echartid, String demographicNo) {
         resetAll();
+        requireRecordAccess(loggedInInfo, demographicNo);
 
         CarlosProperties properties = CarlosProperties.getInstance();
         if (!Boolean.parseBoolean(properties.getProperty("AbandonOldChart", "false"))) {
             EChartDao ecDao = SpringUtils.getBean(EChartDao.class);
             EChart ec = ecDao.find(ConversionUtils.fromIntString(echartid));
-            if (ec.getDemographicNo() != ConversionUtils.fromIntString(demographicNo)) {
+            if (ec != null && ec.getDemographicNo() != ConversionUtils.fromIntString(demographicNo)) {
                 ec = null;
             }
 
@@ -384,18 +270,28 @@ public class EctSessionBean implements java.io.Serializable {
             dateOfBirth = demo.getDateOfBirth();
             roster = demo.getRosterStatus();
             patientSex = demo.getSex();
-            if (yearOfBirth.equals("null")) {
+            if ("null".equals(yearOfBirth)) {
                 yearOfBirth = "0";
             }
-            if (monthOfBirth.equals("null")) {
+            if ("null".equals(monthOfBirth)) {
                 monthOfBirth = "0";
             }
-            if (dateOfBirth.equals("null")) {
+            if ("null".equals(dateOfBirth)) {
                 dateOfBirth = "0";
             }
         }
         patientAge = UtilDateUtilities
                 .calcAge(UtilDateUtilities.calcDate(yearOfBirth, monthOfBirth, dateOfBirth));
+    }
+
+    /** Record exclusions apply before either the entry or print bean loads clinical rows. */
+    private static void requireRecordAccess(LoggedInInfo loggedInInfo, String patient) {
+        int patientNo = Integer.parseInt(patient);
+        if (patientNo <= 0) throw new IllegalArgumentException("Invalid encounter patient");
+        if (loggedInInfo == null || !SpringUtils.getBean(SecurityInfoManager.class)
+                .isAllowedAccessToPatientRecord(loggedInInfo, patientNo)) {
+            throw new SecurityException("Patient record access denied");
+        }
     }
 
     public String getTeam() {

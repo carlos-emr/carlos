@@ -518,7 +518,7 @@
                                                         <tr>
                                                             <td></td>
                                                             <td width="10%"></td>
-                                                            <td><font style="font-weight: bold"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font>
+                                                            <td><span style="font-weight: bold"><fmt:message key="form.lateLifeFDI.disability.cannotDo"/></span>
                                                         </tr>
                                                     </table>
                                                     <br>
@@ -978,7 +978,7 @@
                                     <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.aLittle"/></font></td>
                                     <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.some"/></font></td>
                                     <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.quiteALot"/></font></td>
-                                    <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font></td>
+                                    <td width="5%"><span style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.disability.cannotDo"/></span></td>
             </tr>
             <tr>
                 <td class="question" valign="top" width="5%">F17.</td>
@@ -1433,7 +1433,7 @@
                             <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.aLittle"/></font></td>
                             <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.some"/></font></td>
                             <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.quiteALot"/></font></td>
-                            <td width="5%"><font style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.function.cannotDo"/></font></td>
+                            <td width="5%"><span style="font-size: 65%;"><fmt:message key="form.lateLifeFDI.disability.cannotDo"/></span></td>
                         </tr>
                         <tr>
                             <td class="question" valign="top" width="5%">FD7.</td>

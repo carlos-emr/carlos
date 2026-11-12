@@ -719,17 +719,23 @@ body {
             </div>
         </div>
 
+        <%-- The agreement is written unencoded because it is markup, so it must be the
+             sanitized form (.html, never .text): Administration can publish this file, and
+             this page is shown before sign-in. It is rendered only while show_aua enables
+             it; uploading text alone does not publish it here. --%>
+        <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable }">
         <div id="auaText" class="auaContainer" style="display:none;">
             <div class="card">
                 <div class="card-header">
                     Acceptable Use Agreement
                 </div>
                 <div class="card-body">
-                    ${ LoginResourceBean.acceptableUseAgreementManager.text }
+                    ${ LoginResourceBean.acceptableUseAgreementManager.html }
                 </div>
                 <div class="card-footer"></div>
             </div>
         </div>
+        </c:if>
 
 
         <c:if test="${ LoginResourceBean.acceptableUseAgreementManager.auaAvailable and LoginResourceBean.acceptableUseAgreementManager.alwaysShow }">

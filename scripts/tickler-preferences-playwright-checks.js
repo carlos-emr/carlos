@@ -27,6 +27,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { waitForSaveSentinel } = require('./tickler-forward-filters-playwright-checks');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 const PREFERENCE = 'tickler_task_assignee';
 
@@ -96,7 +97,7 @@ async function workflow(s) {
   });
 
   await s.step('a new tickler form preselects the preferred assignee and the save carries it', async () => {
-    const patientList = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'patient-tickler-list');
+    const patientList = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'patient-tickler-list');
     const add = await s.popup(patientList, patientList.locator('input.btn-primary[onclick*="/tickler/ViewAddTickler"]').first(), 'tickler-add');
     await add.locator('form[name="serviceform"]').waitFor({ state: 'visible', timeout: 20000 });
     h.assert(await add.locator('form[name="serviceform"] input[name="demographic_no"]').last().inputValue() === patient, 'The add form did not open for the owned patient');

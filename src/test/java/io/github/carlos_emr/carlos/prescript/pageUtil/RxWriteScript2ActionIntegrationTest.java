@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.RxManager;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
+import io.github.carlos_emr.carlos.prescript.util.RxUtil;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,14 +38,18 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.springframework.test.context.transaction.TestTransaction;
 
 import java.util.Set;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
@@ -84,6 +89,291 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         // MockHttpServletRequest defaults to no method; the mutating entry points require POST.
         mockRequest.setMethod("POST");
         action = new RxWriteScript2Action();
+    }
+
+    /** The parser AJAX response and staged prescription must agree on the dose, quantity and original instructions. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "1000 mg po tid x 7 days | 1 | 21",
+        "Take 5mg po tid x 7 days | 1 | 21",
+        "Take 5mL po tid x 7 days | 5 | 105",
+        "Apply 2 g BID x 7 days | 2 | 28",
+        "Rub well in 2g BID x 7 days | 2 | 28",
+        "2g TOP. BID x 7 days | 2 | 28",
+        "20 IU SC BID x 7 days | 20 | 280",
+        "20 mEq IV daily x 3 days | 20 | 60",
+        "20IU IM BID x 7 days | 20 | 280",
+        "20 IU qhs x 30 days | 20 | 600",
+        "20IU IV qhs x 30 days | 20 | 600",
+        "20IU sl qhs x 7 days | 1 | 7",
+        "20 IU per dose PO BID x 7 days | 20 | 280",
+        "20IU/dose SL BID x 7 days | 20 | 280",
+        "Take 17 g per dose PO daily x 7 days | 17 | 119",
+        "Take 17g/dose PO daily x 7 days | 17 | 119",
+        "500 mg per dose PO BID x 7 days | 1 | 14",
+        "100IU/mL SC tid x 7 days | 0 | 0",
+        "100IU/5mL IM tid x 7 days | 0 | 0",
+        "100units/mL SC tid x 7 days | 0 | 0",
+        "250mg/5mL PO TID x 7 days | 0 | 0",
+        "Take 250 mg per 5 mL TID x 7 days | 0 | 0",
+        "Mix medication in 100 mL BID x 7 days | 0 | 0",
+        "100 mg/5mL PO 10mL TID x 7 days | 10 | 210",
+        "250mg/5mL PO 10 mL TID x 7 days | 10 | 210",
+        "100units/mL SC 0.5mL BID x 7 days | 0.5 | 7",
+        "1000 mg po 10mL tid x 7 days | 10 | 210",
+        "1000 mg PO 2 tablets TID x 7 days | 2 | 42",
+        "Take 1 sachet in 125 mL BID x 7 days | 1 | 14",
+        "Take 0.5mL po OD x 7 days | 0.5 | 4",
+        "0.5IU SC OD x 7 days | 0.5 | 4",
+        "1000 mg po 2 tid x 7 days | 2 | 42",
+        "1000 mg (2 tabs) po tid x 7 days | 2 | 42",
+        "Take 1 1/2 TID x 10 days | 1.5 | 45",
+        "1 g IV in 100 mL Q8H x 7 days | 1 | 21",
+        "Take 1000 mg PO, max 8 tabs daily x 7 days | 1 | 7",
+        "Take 1000 IU by mouth daily x 30 days | 1 | 30",
+        "2 g topically BID x 14 days | 2 | 56",
+        "Take 10 mg/kg po tid x 7 days | 0 | 0"
+    })
+    void shouldReturnCorrectQuantity_whenParsingStrengthInstructions(String instruction,
+            double dose, String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(dose);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(dose);
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getSpecial()).contains(instruction);
+    }
+
+    /**
+     * A drug chosen from the drug reference carries its strength in {@code dosage} ("500.0mg" as
+     * the Rx page stages it, "500.0 mg" from the legacy drug-choice page) and its form in
+     * {@code drugForm}. A typed strength is divided by that strength, so the response and the staged
+     * card agree on the number of units per dose and the quantity; a strength that is not a whole
+     * number of units of the product calculates nothing, and a combination product in either
+     * format keeps the one-unit default.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "1000 mg po tid x 7 days | 500.0mg | TABLET | 2 | 42",
+        "1000 mg po tid x 7 days | 500.0 mg | TABLET | 2 | 42",
+        "Take 325 mg po q4h x 5 days | 325.0mg 30.0mg | TABLET | 1 | 30",
+        "Take 5 mg po q4h x 5 days | 5.0 mg / 325.0 mg | TABLET | 1 | 30",
+        "Take 100 mcg INH BID x 30 days | 50.0mcg/act | METERED-DOSE AEROSOL | 2 | 120",
+        "Take 0.5 mg po qhs x 30 days | 1.0mg | TABLET | 0.5 | 15",
+        "Take 3 mg po daily x 30 days | 1.0mg | TABLET | 3 | 90",
+        "Take 1 g po tid x 7 days | 500.0mg | CAPSULE | 2 | 42",
+        "Take 300 mg po daily x 30 days | 500.0mg | TABLET | 0 | 0",
+        "Take 250 mg po tid x 10 days | 250.0mg/5.0ml | SUSPENSION | 0 | 0"
+    })
+    void shouldDivideByProductStrength_whenStagedDrugHasKnownStrength(String instruction, String dosage,
+            String drugForm, double dose, String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setDosage(dosage);
+        rx.setDrugForm(drugForm);
+        rx.setUnit("MG");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(dose);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(dose);
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        RxPrescriptionData.Prescription staged = bean.getStashItem2(123);
+        assertThat(staged.getTakeMin()).isEqualTo((float) dose);
+        assertThat(staged.getQuantity()).isEqualTo(quantity);
+        assertThat(staged.getDosage()).isEqualTo(dosage);
+        assertThat(staged.getSpecial()).isEqualTo(instruction);
+    }
+
+    /**
+     * A concentration-only instruction supplies no administered amount, so the response
+     * carries no dose and a zero calculated quantity: the Rx page replaces the card's
+     * quantity only for a nonzero result, and Save reads the quantity still displayed.
+     */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "100units/mL SC BID x 7 days | BID",
+        "250mg/5mL PO TID x 7 days | TID",
+        "100 IU per mL SC OD x 7 days | OD"
+    })
+    void shouldReturnZeroQuantity_whenInstructionGivesOnlyAConcentration(String instruction,
+            String frequency) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setQuantity("200");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isZero();
+        assertThat(body.path("takeMax").asDouble()).isZero();
+        assertThat(body.path("frequency").asText()).isEqualToIgnoringCase(frequency);
+        assertThat(body.path("duration").asText()).isEqualTo("7");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("0");
+        assertThat(bean.getStashItem2(123).getSpecial()).isEqualTo(instruction);
+    }
+
+    /**
+     * The quantity callback derives the duration from the typed quantity and the structured dose.
+     * A 1000-unit dose used to be rendered as "1,000" and the division threw, so the callback
+     * answered nothing and the card kept no duration.
+     */
+    @Test
+    void shouldDeriveDuration_whenUpdateQtyFollowsAThousandUnitDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 1000 units po daily");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "30000");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        assertThat(getMockResponse().getContentAsString()).isNotEmpty();
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(1000d);
+        assertThat(body.path("duration").asText()).isEqualTo("30");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("D");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("30000");
+    }
+
+    /** The quantity callback divides by the exact interval of a periodic frequency: one dose every three months lasts three months. */
+    @Test
+    void shouldDeriveWholeMonths_whenUpdateQtyFollowsAQuarterlyDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 1 tab po q3month");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "1");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("duration").asText()).isEqualTo("3");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("M");
+        assertThat(body.path("calQuantity").asText()).isEqualTo("1");
+    }
+
+    /** The quantity callback divides by the stored numeric dose, not its three-decimal text: two tablets at two thirds a day last three days. */
+    @Test
+    void shouldDeriveWholeDays_whenUpdateQtyFollowsAThirdsDose() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setSpecial("Take 2/3 tab po daily");
+        RxUtil.instrucParser(rx);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "updateQty");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("quantity", "2");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMax").asDouble()).isCloseTo(2d / 3, within(1e-6));
+        assertThat(body.path("duration").asText()).isEqualTo("3");
+        assertThat(body.path("durationUnit").asText()).isEqualTo("D");
+    }
+
+    /**
+     * A staged prescription that carries its own administered unit keeps the amount typed
+     * with per-dose syntax, so the structured dose the export reads agrees with the directions.
+     */
+    @Test
+    void shouldPreserveStoredDoseUnit_whenExplicitGramDoseIsParsed() throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        rx.setUnit("gm");
+        rx.setDosage("");
+        rx.setCustomName("Polyethylene glycol powder");
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", "Take 17 g per dose PO daily x 7 days");
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        assertThat(body.path("takeMin").asDouble()).isEqualTo(17d);
+        assertThat(body.path("takeMax").asDouble()).isEqualTo(17d);
+        assertThat(body.path("calQuantity").asText()).isEqualTo("119");
+        RxPrescriptionData.Prescription staged = bean.getStashItem2(123);
+        assertThat(staged.getTakeMin()).isEqualTo(17f);
+        assertThat(staged.getUnit()).isEqualTo("gm");
+        assertThat(staged.getDosage()).isEmpty();
+        assertThat(staged.getSpecial()).isEqualTo("Take 17 g per dose PO daily x 7 days");
+    }
+
+    /** A fraction is carried exactly to the final rounding, so an exact course total is not inflated. */
+    @ParameterizedTest
+    @CsvSource(delimiter = '|', value = {
+        "5/6 tab PO daily x 6 days | 5 | 6 | 5",
+        "5/3 tab PO TID x 1 days | 5 | 3 | 5",
+        "1/2 tab PO daily x 7 days | 1 | 2 | 4"
+    })
+    void shouldRoundFractionDoses_atTheFinalDivision(String instruction, int numerator, int denominator,
+            String quantity) throws Exception {
+        RxSessionBean bean = stageReRxSession(1001);
+        RxPrescriptionData.Prescription rx = new RxPrescriptionData.Prescription(0, "999998", 1001);
+        rx.setRandomId(123);
+        bean.getStashList().add(rx);
+        addRequestParameter("demographicNo", "1001");
+        addRequestParameter("action", "parseInstructions");
+        addRequestParameter("randomId", "123");
+        addRequestParameter("instruction", instruction);
+
+        executeActionMethod(action, "updateDrug");
+
+        assertThat(getMockResponse().getStatus()).isEqualTo(HttpServletResponse.SC_OK);
+        JsonNode body = OBJECT_MAPPER.readTree(getMockResponse().getContentAsString());
+        double dose = (double) numerator / denominator;
+        assertThat(body.path("takeMin").asDouble()).isCloseTo(dose, within(1e-6));
+        assertThat(body.path("takeMax").asDouble()).isCloseTo(dose, within(1e-6));
+        assertThat(body.path("calQuantity").asText()).isEqualTo(quantity);
+        assertThat(bean.getStashItem2(123).getQuantity()).isEqualTo(quantity);
     }
 
     @Test
@@ -280,6 +570,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(foreignDrugId, ownedDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, foreignDrugId);
             verifyAudited(logAction, ownedDrugId);
         }
@@ -308,6 +599,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(firstDrugId, secondDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, firstDrugId);
             verifyAudited(logAction, secondDrugId);
         }
@@ -451,6 +743,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(ownedDrugId), "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, ownedDrugId);
         }
 
@@ -478,6 +771,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
         try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(savedDrugId), "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, tickedOnlyDrugId);
             verifyAudited(logAction, savedDrugId);
         }
@@ -507,6 +801,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(deniedDrugId, ownedDrugId),
                     "127.0.0.1", "audit");
 
+            commitAuditTransaction(logAction);
             verifyNotAudited(logAction, deniedDrugId);
             verifyAudited(logAction, ownedDrugId);
         }
@@ -578,6 +873,7 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
                      org.mockito.Mockito.mockConstruction(io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData.class,
                              (mock, context) -> when(mock.saveScript(any(), any())).thenReturn("77"))) {
             scriptId = action.persistStash(mockLoggedInInfo, bean);
+            commitAuditTransaction(logAction);
             verifyAudited(logAction, 3003);
         }
 
@@ -622,6 +918,36 @@ class RxWriteScript2ActionIntegrationTest extends CarlosWebTestBase {
             logAction.verifyNoInteractions();
         }
         verify(mockRxManager, never()).archiveDrug(any(), anyInt(), anyInt(), any(String.class));
+    }
+
+    @Test
+    @DisplayName("should not emit a successful archival audit when its transaction rolls back")
+    void shouldNotAuditArchival_whenTransactionRollsBack() {
+        RxSessionBean bean = new RxSessionBean();
+        bean.setDemographicNo(1001);
+        bean.getReRxDrugIdList().add("3003");
+        when(mockRxManager.archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED))).thenReturn(true);
+
+        try (MockedStatic<LogAction> logAction = mockStatic(LogAction.class)) {
+            assertThat(action.archiveReRxDrugs(mockLoggedInInfo, bean, Set.of(3003), "127.0.0.1", "audit")).isTrue();
+            logAction.verifyNoInteractions();
+
+            TestTransaction.flagForRollback();
+            TestTransaction.end();
+
+            logAction.verifyNoInteractions();
+        }
+        verify(mockRxManager).archiveDrug(any(), eq(3003), eq(1001), eq(Drug.REPRESCRIBED));
+    }
+
+    /**
+     * These tests replace drug persistence/archival with mocks, so committing writes no fixture rows.
+     * Keep the audit mock open through the real commit, and prove it was not called beforehand.
+     */
+    private void commitAuditTransaction(MockedStatic<LogAction> logAction) {
+        logAction.verifyNoInteractions();
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
     }
 
     /**

@@ -33,7 +33,6 @@ package io.github.carlos_emr.carlos.form.pageUtil;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.TreeMap;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -66,7 +65,8 @@ public class FrmSetupSelect2Action extends ActionSupport {
         EncounterFormDao encounterFormDao = (EncounterFormDao) SpringUtils.getBean(EncounterFormDao.class);
         List<EncounterForm> forms = encounterFormDao.findAll();
 
-        TreeMap<Integer, EncounterForm> formShownVector = new TreeMap<Integer, EncounterForm>();
+        // Every shown form, by place and then name: keyed by place, forms sharing one replaced each other (issue #4945).
+        List<EncounterForm> formShownVector = ShownEncounterForms.inDisplayOrder(forms);
         ArrayList<EncounterForm> formHiddenVector = new ArrayList<EncounterForm>();
 
         for (EncounterForm encounterForm : forms) {
@@ -75,10 +75,9 @@ public class FrmSetupSelect2Action extends ActionSupport {
             }
 
             if (encounterForm.isHidden()) formHiddenVector.add(encounterForm);
-            else formShownVector.put(encounterForm.getDisplayOrder(), encounterForm);
         }
 
-        request.setAttribute("formShownVector", formShownVector.values());
+        request.setAttribute("formShownVector", formShownVector);
         request.setAttribute("formHiddenVector", formHiddenVector);
 
         return "continue";

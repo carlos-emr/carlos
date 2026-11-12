@@ -68,7 +68,7 @@ const {
   SkipCheck, assert, assertStrictPage, createRecorder, launchBrowser, login, newContext,
   readConfig, runCheck,
 } = require('./lib/playwright-harness');
-const { clickDownloadsOrOpens } = require('./lib/playwright-ui');
+const { clickLabelOutput } = require('./lib/label-file-output');
 const { openMasterRecord } = require('./master-record-tabs-playwright-checks');
 
 /*
@@ -170,9 +170,10 @@ async function checkItem(context, masterPage, menu, item, recorder, timeout) {
   // had nothing of this popup to find. The check validated bytes and text while
   // the strict browser contract it claims to enforce was not being applied to
   // the one page it opens.
-  const produced = await clickDownloadsOrOpens(masterPage, entry, {
+  const produced = await clickLabelOutput(masterPage, entry, {
     context, label: `label:${item.label}`, recorder, timeout,
   });
+  let primaryFailure;
   try {
     assert(produced.url && !/^about:blank$/i.test(produced.url),
       `${item.label} opened, but to nothing: the control produced no address`);
@@ -187,7 +188,7 @@ async function checkItem(context, masterPage, menu, item, recorder, timeout) {
       // correct page; only the error markers mean anything here.
       assert(!/CARLOS has encountered an unexpected error|CARLOS Error|Exception Report|HTTP Status \d/i.test(text),
         `${item.label} rendered an error page`);
-      return { item: item.label, kind: produced.kind, bytes: 0 };
+      return { item: item.label, kind: produced.kind, bytes: 0, capture: produced.evidence };
     }
 
     // The same session, by cookie, fetching the address the application built.
@@ -204,10 +205,14 @@ async function checkItem(context, masterPage, menu, item, recorder, timeout) {
     }
     const body = await response.body();
     assertIsPdf(item, response.status(), response.headers()['content-type'] || '', body);
-    return { item: item.label, kind: produced.kind, bytes: body.length };
+    return { item: item.label, kind: produced.kind, bytes: body.length, capture: produced.evidence };
+  } catch (error) {
+    primaryFailure = error;
+    throw error;
   } finally {
-    if (produced.page) {
-      await produced.page.close().catch(() => {});
+    try { await produced.dispose(); } catch (cleanup) {
+      if (primaryFailure) throw new AggregateError([primaryFailure, cleanup], 'Label validation and popup cleanup failed');
+      throw cleanup;
     }
   }
 }

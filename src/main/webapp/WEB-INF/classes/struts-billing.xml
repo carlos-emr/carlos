@@ -27,6 +27,15 @@
 -->
 <struts>
     <package name="billing" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <!-- A refused request (SecurityException) renders the shared refusal page with HTTP 403 and an incident id, as in
+             the other modules; without this mapping it fell through to the container's error page as HTTP 500. -->
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
+
         <action name="quickBillingBC" class="io.github.carlos_emr.carlos.billings.ca.bc.quickbilling.QuickBillingBC2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/quickBillingBC.jsp</result>
             <result name="searchdx">/WEB-INF/jsp/billing/CA/BC/billingDigNewSearch.jsp</result>
@@ -89,6 +98,33 @@
             <result name="private">/WEB-INF/jsp/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
         </action>
 
+        <!-- Read-only gates for the BC billing administration pages (#4767). The menu and the pages'
+             own links open the pages through these; the writer actions below are unchanged. -->
+        <action name="billing/CA/BC/ViewBillingCodeAdjust" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingCodeAdjust2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCodeAdjust.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingPrivateCodeAdjust" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingPrivateCodeAdjust2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingPrivateCodeAdjust.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddPrivateCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddPrivateCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddPrivateCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingEditCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingEditCode2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingEditCode.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingManageReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingManageReferralDoc2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingManageReferralDoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewBillingAddReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewBillingAddReferralDoc2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/billingAddReferralDoc.jsp</result>
+        </action>
+        <action name="billing/CA/BC/ViewReconcileReports" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.ViewReconcileReports2Action">
+            <result name="success">/WEB-INF/jsp/billing/CA/BC/viewReconcileReports.jsp</result>
+        </action>
+
         <action name="billing/CA/BC/billingAddCode" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingAddCode2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/billingCodeAdjust.jsp</result>
             <result name="normalCodeError">/WEB-INF/jsp/billing/CA/BC/billingAddCode.jsp</result>
@@ -96,8 +132,12 @@
             <result name="privateCodeError">/WEB-INF/jsp/billing/CA/BC/billingAddPrivateCode.jsp</result>
         </action>
 
+        <!-- After an update, show the receipt the update came from again, with every bill it
+             combines, loaded by the view action (issue #4673: rendering the receipt here read the
+             invoice viewed last in any window). receiptView is built from bill numbers checked as
+             digits before SUCCESS. -->
         <action name="billing/CA/BC/UpdateBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.BillingUpdateBilling2Action">
-            <result name="success">/WEB-INF/jsp/billing/CA/BC/billReceipt.jsp</result>
+            <result name="success" type="redirect">${receiptView}</result>
             <result name="successAndClose">/WEB-INF/jsp/billing/CA/BC/billingSaved.jsp</result>
         </action>
 
@@ -121,6 +161,8 @@
 
         <action name="billing/CA/BC/saveAssocAction" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.SaveAssoc2Action">
             <result name="success">/billing/CA/BC/showServiceCodeAssocs</result>
+            <!-- A refused association: the editor again, with the posted codes and the reasons. -->
+            <result name="input">/WEB-INF/jsp/billing/CA/BC/dxcode_svccode_assoc.jsp</result>
         </action>
 
         <action name="billing/CA/BC/AddReferralDoc" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.AddReferralDoc2Action">
@@ -151,6 +193,9 @@
         <action name="billing/CA/BC/GenerateTeleplanFile" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.GenerateTeleplanFile2Action">
             <result name="success">/WEB-INF/jsp/billing/CA/BC/TeleplanSubmission.jsp</result>
         </action>
+
+        <!-- The Activity List's MSP and HTML file links (#4439 D5). Writes the file itself and returns NONE. -->
+        <action name="billing/CA/BC/DownloadBilling" class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DownloadBilling2Action"/>
 
         <action name="billing/CA/BC/ProcessRemittance" class="io.github.carlos_emr.carlos.billings.ca.bc.MSP.GenTa2Action">
             <result name="C12">/WEB-INF/jsp/billing/CA/BC/billStatus.jsp</result>
@@ -211,7 +256,7 @@
 
         <action name="billing/CA/BC/DeletePrivateCode"
                 class="io.github.carlos_emr.carlos.billings.ca.bc.pageUtil.DeletePrivateCode2Action">
-            <result name="success" type="redirect">/billing/CA/BC/billingAddCode?whereTo=private</result>
+            <result name="success" type="redirect">/billing/CA/BC/ViewBillingPrivateCodeAdjust</result>
         </action>
 
 
@@ -405,6 +450,8 @@
               "operation failed; do not trust the displayed list".
             -->
             <result name="billingDataLoadError">/WEB-INF/jsp/billing/CA/ON/billingFileWriteError.jsp</result>
+            <!-- A refused request renders the shared refusal page (HTTP 403, incident id), as in the other modules. -->
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
         </global-results>
         <global-exception-mappings>
             <exception-mapping result="billingValidationError"
@@ -413,6 +460,7 @@
                 exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingFileWriteException"/>
             <exception-mapping result="billingDataLoadError"
                 exception="io.github.carlos_emr.carlos.billings.ca.on.service.BillingDataLoadException"/>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
         </global-exception-mappings>
 
 
@@ -640,6 +688,7 @@
             <result name="addAnother">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
             <result name="backToEdit" type="chain">billing/CA/ON/billingView</result>
             <result name="failure">/WEB-INF/jsp/billing/CA/ON/billingONSave.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
 
         <action name="billing/CA/ON/BillingShortcutPg2Save"

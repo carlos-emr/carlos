@@ -46,6 +46,7 @@ import java.util.TreeMap;
 import io.github.carlos_emr.carlos.utils.Utility;
 import org.apache.commons.lang3.StringUtils;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import jakarta.persistence.Tuple;
 
@@ -78,6 +79,8 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import io.github.carlos_emr.carlos.dao.AbstractJpaDao;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import io.github.carlos_emr.MyDateFormat;
 import io.github.carlos_emr.CarlosProperties;
@@ -110,6 +113,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     private static final String PARAM_KEYWORD = "keyword";
     private static final String PARAM_ADDRESS = "address";
     private static final String PARAM_CHART_NO = "chartNo";
+    private static final String PARAM_DEMOGRAPHIC_NO = "demographicNo";
 
     /** Parameter keys whose values contain PHI and must not appear in logs. */
     private static final Set<String> PHI_PARAM_KEYS = Set.of(
@@ -559,6 +563,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             queryString += " AND d.id IN (" + PROGRAM_DOMAIN_RESTRICTION + ")";
             parameters.put("providerNo", providerNo);
         }
+        // Exclude inaccessible patients before lookahead/pagination or selecting identifying columns.
+        if (!search.deniedPatients().isEmpty()) {
+            queryString += " AND d.demographicNo NOT IN (:deniedPatients)";
+            parameters.put("deniedPatients", search.deniedPatients());
+        }
         // Preserve database case/accent collation across pages; ID breaks equal-value ties.
         queryString += " ORDER BY " + getOrderField(search.orderBy()) + ", d.demographicNo";
         var query = entityManager().createQuery(queryString, Demographic.class);
@@ -606,11 +615,19 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
             case "search_demographic_no" -> {
                 try {
-                    parameters.put("demographicNo", Integer.valueOf(keyword));
+                    parameters.put(PARAM_DEMOGRAPHIC_NO, Integer.valueOf(keyword));
                     yield "d.demographicNo=:demographicNo";
                 } catch (NumberFormatException _) {
                     yield null;
                 }
+            }
+            case "search_band_number" -> {
+                // First Nations band (status) number, kept in the statusNum extension: every record that
+                // carries the number matches, as in the other modes (a patient registered twice shows twice).
+                if (keyword.isEmpty()) yield null;
+                parameters.put("bandNumber", keyword);
+                yield "EXISTS (SELECT e.id FROM DemographicExt e WHERE e.demographicNo=d.demographicNo"
+                        + " AND e.key='statusNum' AND e.value=:bandNumber)";
             }
             default -> null;
         };
@@ -1683,7 +1700,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             q.setMaxResults(limit);
 
             if (val != null) {
-                q.setParameter("demographicNo", val);
+                q.setParameter(PARAM_DEMOGRAPHIC_NO, val);
             }
             if (statuses != null) {
                 q.setParameter("statuses", statuses);
@@ -1694,6 +1711,34 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             }
             list = q.getResultList();
         return list;
+    }
+
+    @Override
+    public Demographic findForUpdate(Integer demographicNo) {
+        if (demographicNo == null) {
+            return null;
+        }
+        return entityManager().find(Demographic.class, demographicNo, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    /**
+     * Runs a non-transactional side effect once the surrounding transaction commits, or immediately
+     * when no transaction synchronization is active (callers that save outside a transaction keep
+     * their existing behaviour). The action is dropped if the transaction rolls back.
+     *
+     * @param action {@link Runnable} the side effect to run after commit
+     */
+    static void runAfterCommitOrNow(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
     }
 
     @Override
@@ -1714,9 +1759,15 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            // The A04 file is written to disk and cannot be rolled back, so inside a transaction (the
+            // manager creates the patient, admission and extensions in one) it is written only once that
+            // transaction commits; otherwise a rolled-back create would leave a registration for a
+            // patient that does not exist.
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(demographic)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way
@@ -2300,9 +2351,11 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
 
         if (CarlosProperties.getInstance().isHL7A04GenerationEnabled() && !objExists) {
-            if (!(new HL7A04Generator()).generateHL7A04(client)) {
-                log.warn("HL7 A04 generation did not complete for a saved demographic");
-            }
+            runAfterCommitOrNow(() -> {
+                if (!(new HL7A04Generator()).generateHL7A04(client)) {
+                    log.warn("HL7 A04 generation did not complete for a saved demographic");
+                }
+            });
         }
 
         // the new way
@@ -2611,8 +2664,9 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     }
 
     /** Allowlisted HQL field names for {@link #findByField}. */
-    private static final java.util.Set<String> VALID_FIND_BY_FIELDS = java.util.Set.of(
-        "DemographicNo", "LastName", "FirstName", "ChartNo", "Sex", "YearOfBirth", "PatientStatus"
+    private static final java.util.Map<String, String> FIND_BY_FIELDS = java.util.Map.of(
+        "DemographicNo", PARAM_DEMOGRAPHIC_NO, "LastName", "lastName", "FirstName", "firstName",
+        "ChartNo", PARAM_CHART_NO, "Sex", "sex", "YearOfBirth", "yearOfBirth", "PatientStatus", "patientStatus"
     );
 
     @SuppressWarnings("unchecked")
@@ -2620,28 +2674,21 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     public List<Demographic> findByField(String fieldName, Object fieldValue, String orderBy, int offset) {
         boolean isFieldValueEmpty = fieldValue == null || fieldValue.equals("");
 
-        // Validate fieldName against allowlist to prevent HQL injection
-        if (fieldName != null && !VALID_FIND_BY_FIELDS.contains(fieldName)) {
-            fieldName = "LastName";
+        // The legacy picker sends display names; HQL requires the actual case-sensitive properties.
+        String property = fieldName == null ? "lastName" : FIND_BY_FIELDS.getOrDefault(fieldName, "lastName");
+        boolean byNumber = PARAM_DEMOGRAPHIC_NO.equals(property);
+        String sql = "FROM Demographic d";
+        if (!isFieldValueEmpty) {
+            sql += " WHERE d." + property + (byNumber ? " = :fieldValue" : " LIKE :fieldValue");
         }
-
-        String sql = "FROM Demographic d WHERE d." + fieldName + " LIKE :fieldValue";
-        if (isFieldValueEmpty) {
-            sql = "FROM Demographic d";
-        }
-
         if (orderBy != null && !orderBy.isEmpty()) {
-            // Validate orderBy against allowlist to prevent HQL injection
-            if (!VALID_FIND_BY_FIELDS.contains(orderBy)) {
-                orderBy = "LastName";
-            }
-            sql = sql + " ORDER BY d." + orderBy;
+            sql += " ORDER BY d." + FIND_BY_FIELDS.getOrDefault(orderBy, "lastName");
         }
 
         EntityManager s = entityManager();
         Query q = s.createQuery(sql); // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string, java.lang.security.audit.sqli.jpa-sqli.jpa-sqli -- field/order names are allowlisted above; fieldValue is bound via setParameter below
         if (!isFieldValueEmpty) {
-            q.setParameter("fieldValue", fieldValue);
+            q.setParameter("fieldValue", byNumber ? Integer.valueOf(fieldValue.toString()) : fieldValue);
         }
 
         q.setMaxResults(10);
@@ -3202,6 +3249,14 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
             startIndex,
             numToReturn,
             true);
+    }
+
+    @Override
+    public List<Demographic> findActiveByExactHin(String hin) {
+        if (hin == null || hin.isBlank()) return List.of();
+        return entityManager().createQuery(
+                "FROM Demographic d WHERE d.hin = :hin AND d.patientStatus = 'AC'", Demographic.class)
+                .setParameter("hin", hin).getResultList();
     }
 
     // --- DTO projection methods ---

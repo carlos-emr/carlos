@@ -20,7 +20,7 @@ const LOG_PATH = path.join(__dirname, '..', 'docs', 'ui-tests', 'app-findings-lo
 const LOG = fs.readFileSync(LOG_PATH, 'utf8');
 const BASELINE = JSON.parse(fs.readFileSync(path.join(__dirname, 'lib', 'console-baseline.json'), 'utf8'));
 
-const VALID_STATUSES = ['open', 'issue-filed', 'fixed', 'needs-live-check'];
+const VALID_STATUSES = ['open', 'issue-filed', 'fixed', 'needs-live-check', 'not-reproduced'];
 
 /** Finding rows are table rows whose first cell is a number. */
 function findingRows() {

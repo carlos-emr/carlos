@@ -47,7 +47,8 @@
       submit, so it can never become a filter (issue #3976).
     - Clickable rows (mouse + keyboard) to open consultation detail popup
     - Overdue consultation highlighting based on user preferences
-    - Bulk tickler creation for "Nothing Done" consultations older than one week
+    - Add Tickler link for each patient with a "Nothing Done" consultation older than one week; it
+      opens the standard Add Tickler form for that patient with the follow-up text filled in
     - Multisite support with site-specific background colours
     - Native HTML5 date inputs replacing legacy calendar widget
     - OWASP-encoded URLs for all popup interactions
@@ -266,7 +267,9 @@
         }
 
 
-        List<String> tickerList = new ArrayList<String>();
+        // Patients with a Nothing Done referral older than a week -> the name the row shows. One entry
+        // per patient however many referrals qualify: the Add Tickler form is single-patient.
+        Map<String, String> overdueTicklerPatients = new LinkedHashMap<String, String>();
     %>
 
 
@@ -881,7 +884,7 @@
                                 }
                                 if (EctViewConsultationRequestsUtil.isTicklerDemographic(demo)
                                         && "1".equals(status) && dateGreaterThan(date, Calendar.WEEK_OF_YEAR, -1)) {
-                                    tickerList.add(demo);
+                                    overdueTicklerPatients.putIfAbsent(demo, patient == null ? "" : patient);
                                 }
                                 overdue = false;
 
@@ -1001,27 +1004,23 @@
                         }
                     %>
                 </div>
-                <div>
-                    <% if (tickerList.size() > 0) {
-                        String queryStr = "";
-                        for (int i = 0; i < tickerList.size(); i++) {
-                            String demo = (String) tickerList.get(i);
-                            if (i == 0) {
-                                queryStr += "demo=" + SafeEncode.forUriComponent(demo);
-                            } else {
-                                queryStr += "&demo=" + SafeEncode.forUriComponent(demo);
-                            }
-                        }%>
+                <div class="d-flex flex-wrap justify-content-end gap-1">
+                    <% if (!overdueTicklerPatients.isEmpty()) { %>
                     <fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerConfirm" var="addTicklerConfirmVar"/>
                     <%  String addTicklerConfirmJs = SafeEncode.forJavaScript((String)pageContext.getAttribute("addTicklerConfirmVar"));
-                        String addTicklerUrl = request.getContextPath() + "/tickler/ViewAddTickler?" + queryStr
-                            + "&message=" + java.net.URLEncoder.encode("Patient has Consultation Letter with a status of 'Nothing Done' for over one week", "UTF-8"); %>
+                        for (Map.Entry<String, String> overdueTickler : overdueTicklerPatients.entrySet()) {
+                            String addTicklerUrl = EctViewConsultationRequestsUtil.overdueTicklerPath(
+                                    request.getContextPath(), overdueTickler.getKey()); %>
                     <a class="btn btn-link btn-sm" target="_blank"
                        href="<%= SafeEncode.forHtmlAttribute(addTicklerUrl) %>"
                        onclick="return confirm('<%=addTicklerConfirmJs%>');">
                         <i class="fas fa-bell me-1"></i><fmt:message key="encounter.oscarConsultationRequest.ViewConsultationRequests.msgAddTicklerBtn"/>
+                        <%-- The form is single-patient, so with several overdue patients each link says whose it is. --%>
+                        <% if (overdueTicklerPatients.size() > 1) { %>
+                        <span class="ms-1">(<carlos:encode value='<%= overdueTickler.getValue() %>' context="html"/>)</span>
+                        <% } %>
                     </a>
-                    <%}%>
+                    <% } } %>
                 </div>
             </div>
 

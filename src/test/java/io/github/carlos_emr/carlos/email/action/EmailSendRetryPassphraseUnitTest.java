@@ -228,4 +228,43 @@ class EmailSendRetryPassphraseUnitTest extends CarlosUnitTestBase {
         }
         assertThat(originalPdf).doesNotExist();
     }
+    @Test
+    @DisplayName("storage length rejection retains the draft, trusted patient and owned attachments for a fresh attempt")
+    void shouldPrepareOwnedRetry_whenStorageLengthValidationRefusesTheSend() throws Exception {
+        String subject = "s".repeat(
+                io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator.MAX_SUBJECT_CHARS + 1);
+        request.setParameter("subjectEmail", subject);
+        when(manager.sendEmailWithResult(any(), any())).thenAnswer(call -> {
+            EmailData data = call.getArgument(1);
+            throw new io.github.carlos_emr.carlos.email.core.EmailFieldLengthException(
+                    io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator.validate(data));
+        });
+
+        assertThat(new EmailSend2Action() {
+            @Override protected String encryptedBodyNotice() { return "Encrypted attachment enclosed."; }
+        }.execute()).isEqualTo("success");
+
+        assertThat((List<?>) request.getAttribute("emailLengthViolations")).hasSize(1);
+        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
+        assertThat(request.getAttribute("subjectEmail")).isEqualTo(subject);
+        assertThat(request.getAttribute("message")).isEqualTo("Message to preserve");
+        assertThat(request.getAttribute("demographicId")).isEqualTo("123");
+        assertThat(request.getAttribute("isEmailEncrypted")).isEqualTo(true);
+        assertThat(request.getAttribute("isEmailAutoSend")).isEqualTo(false);
+        assertThat(states.consume(request)).isNull();
+        String nextToken = (String) request.getAttribute(TOKEN);
+        assertThat(nextToken).isNotBlank().isNotEqualTo(originalToken);
+        request.setParameter(TOKEN, nextToken);
+        Path nextPdf;
+        try (var retry = states.consume(request)) {
+            assertThat(retry.context().demographicId()).isEqualTo("123");
+            assertThat(retry.emailPDFPassword()).isEqualTo(RETRY_PASSWORD);
+            nextPdf = Path.of(retry.emailAttachmentList().getFirst().getFilePath());
+            assertThat(Files.readString(nextPdf)).isEqualTo("original attachment bytes");
+            assertThat(nextPdf).isNotEqualTo(originalPdf);
+        }
+        assertThat(originalPdf).doesNotExist();
+        assertThat(nextPdf).doesNotExist();
+    }
+
 }

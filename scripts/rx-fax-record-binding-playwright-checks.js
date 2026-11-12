@@ -76,6 +76,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const { randomInt } = require('crypto');
 const { readFaxSuffix, assertFaxDestination, installFaxRequestGuard } = require('./rx-fax-request-guard');
@@ -85,7 +86,7 @@ const path = require('path');
 const pdf = require('./lib/export-content-helpers');
 const { SkipCheck } = require('./lib/playwright-harness');
 const { createGracefulSignalCancellation, settleOperations } = require('./graceful-signal-cancellation');
-const { browserErrorClass } = require('./browser-error-class');
+const { browserErrorClass, createErrorSourceLocator } = require('./browser-error-class');
 const { createPharmacyFaxFixture, fixtureErrorTag } = require('./rx-fax-pharmacy-fax-fixture');
 const {
   appUrl,
@@ -97,6 +98,8 @@ const {
 } = require('./eform-local-playwright-utils');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
+// Page frames are trusted only on this application (see browser-error-class.js).
+const errorSourceLocation = createErrorSourceLocator(baseUrl);
 const testUser = process.env.TEST_USER || 'carlosdoc';
 const testPassword = process.env.TEST_PASSWORD || 'carlos2026';
 const testPin = process.env.TEST_PIN || '2026';
@@ -342,14 +345,14 @@ async function releaseFixtureLock() {
   try {
     await pharmacyFax.unlock();
   } catch (error) {
-    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}` });
+    findings.push({ label: 'cleanup', type: 'cleanup-error', text: `fixture lock: ${browserErrorClass(error)}${errorSourceLocation(error)}` });
   }
 }
 
 function cleanupFixtures() {
   const attempt = (label, fn) => {
     try { fn(); } catch (error) {
-      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+      findings.push({ label: 'cleanup', type: 'cleanup-error', text: `${label}: ${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}` });
     }
   };
   let ourScriptNos = [];
@@ -385,10 +388,12 @@ function cleanupFixtures() {
 
 function wirePage(page, label) {
   page.on('pageerror', (error) => {
-    // Record the error CLASS only. A page error's message or stack can quote page content -- a
-    // patient name in a DOM path, a demographic number in a URL -- and this goes to stderr and the
-    // artifact file, so it must never carry the text itself.
-    findings.push({ label, type: 'pageerror', text: browserErrorClass(error) });
+    // Record the error CLASS and the script location that threw, never the message. A page error's
+    // message can quote page content -- a patient name in a DOM path, a demographic number in a
+    // URL -- and this goes to stderr and the artifact file. errorSourceLocation() keeps a frame's
+    // function name and script path only (no query string), which is what #4412 lacked to tell
+    // one bare "Error" from another.
+    findings.push({ label, type: 'pageerror', text: `${browserErrorClass(error)}${errorSourceLocation(error)}` });
   });
   page.on('dialog', async (dialog) => {
     // Accept only the custom-drug confirm(), and only while clicking that button. Anything else is a
@@ -810,7 +815,7 @@ async function faxThroughUi(page, modalFrame, scriptId) {
       findings.push({ label: 'ui-fax', type: 'wrong-script', text: 'the Fax button posted a different scriptId than the prescription just written' });
     }
   } catch (error) {
-    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax round trip failed: ${browserErrorClass(error)}` });
+    findings.push({ label: 'ui-fax', type: 'no-request', text: `Fax round trip failed: ${browserErrorClass(error)}${errorSourceLocation(error)}` });
   } finally {
     await page.unroute(/\/rx\/ViewAddRxComment/).catch(() => {});
   }
@@ -1087,7 +1092,7 @@ async function runChecks(context, cancellation) {
     cancellation.throwIfCancelled();
     const host = baseUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
     const isLoopback = ['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host);
-    const context = await browser.newContext({ ignoreHTTPSErrors: isLoopback && baseUrl.protocol === 'https:' });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
     await runChecks(context, cancellation);
     await context.close();
   } catch (error) {
@@ -1095,7 +1100,7 @@ async function runChecks(context, cancellation) {
       exitCode = 2;
       skipped = 'Poppler pdftotext is unavailable';
     } else if (!cancellation.isCancellation(error)) {
-      findings.push({ label: 'run', type: 'exception', text: `${browserErrorClass(error)}${fixtureErrorTag(error)}` });
+      findings.push({ label: 'run', type: 'exception', text: `${browserErrorClass(error)}${fixtureErrorTag(error)}${errorSourceLocation(error)}` });
     }
   } finally {
     if (browser) await browser.close().catch(() => {});
@@ -1109,7 +1114,7 @@ async function runChecks(context, cancellation) {
     fs.writeFileSync(out, JSON.stringify(summary, null, 2));
     console.log(`artifact: ${out}`);
   } catch (error) {
-    console.log(`artifact not written: ${browserErrorClass(error)}`);
+    console.log(`artifact not written: ${browserErrorClass(error)}${errorSourceLocation(error)}`);
   }
   console.log(JSON.stringify({ visited }, null, 2));
   if (skipped) {

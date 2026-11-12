@@ -247,6 +247,21 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
             // Then
             assertThat(found).isNull();
         }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should load and lock the patient row for a read-compare-write (issue #4225)")
+        void shouldLoadThePatientRow_whenLockedForUpdate() {
+            // When
+            Demographic locked = demographicDao.findForUpdate(demo1.getDemographicNo());
+
+            // Then
+            assertThat(locked).isNotNull();
+            assertThat(locked.getDemographicNo()).isEqualTo(demo1.getDemographicNo());
+            assertThat(locked.getLastName()).isEqualTo("Smith");
+            assertThat(demographicDao.findForUpdate(-999)).isNull();
+            assertThat(demographicDao.findForUpdate(null)).isNull();
+        }
     }
 
     /**
@@ -1403,7 +1418,7 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
         @Test
         void shouldBindAllSearchValues_whenInputLooksLikeSql() {
             for (String mode : List.of("search_name", "search_phone", "search_hin", "search_chart_no", "search_address",
-                    "search_dob", "search_demographic_no", "unknown")) {
+                    "search_dob", "search_demographic_no", "search_band_number", "unknown")) {
                 assertThat(search(mode, "' OR 1=1 --", null, false, 0, 10)).as(mode).isEmpty();
             }
         }
@@ -1425,6 +1440,41 @@ public class DemographicDaoIntegrationTest extends CarlosTestBase {
                     .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
             assertThat(search("search_demographic_no", first.getDemographicNo().toString(), null, false, 0, 10))
                     .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+        }
+
+        /**
+         * Issue #4878: the Band Number mode used to search only the newest record that carried the number. A
+         * patient registered twice carries it on both records, and both must be listed.
+         */
+        @Test
+        @DisplayName("should list every record that carries the band number, with the status filter and paging")
+        void shouldListEveryRecord_whenBandNumberShared() {
+            String number = "9" + uniquePrefix.substring(1);
+            for (Demographic row : List.of(first, second, inactive)) {
+                createDemographicExt(row.getDemographicNo(), "statusNum", number);
+            }
+
+            assertThat(search("search_band_number", number, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo(), inactive.getDemographicNo());
+            assertThat(search("search_band_number", " " + number + " ", List.of("AC"), false, 0, 10))
+                    .extracting(Demographic::getDemographicNo)
+                    .containsExactly(first.getDemographicNo(), second.getDemographicNo());
+            assertThat(search("search_band_number", number, List.of("AC"), false, 1, 1))
+                    .extracting(Demographic::getDemographicNo).containsExactly(second.getDemographicNo());
+        }
+
+        @Test
+        @DisplayName("should list no one for an unknown or blank band number, or a number held in another field")
+        void shouldListNoOne_whenBandNumberNotCarried() {
+            String number = "9" + uniquePrefix.substring(1);
+            createDemographicExt(first.getDemographicNo(), "statusNum", number);
+            createDemographicExt(second.getDemographicNo(), "cytolNum", number);
+
+            assertThat(search("search_band_number", number, null, false, 0, 10))
+                    .extracting(Demographic::getDemographicNo).containsExactly(first.getDemographicNo());
+            assertThat(search("search_band_number", "8" + number.substring(1), null, false, 0, 10)).isEmpty();
+            assertThat(search("search_band_number", "  ", null, false, 0, 10)).isEmpty();
         }
     }
 

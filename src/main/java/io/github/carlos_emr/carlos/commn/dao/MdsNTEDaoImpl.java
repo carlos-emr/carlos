@@ -32,6 +32,10 @@
 
 package io.github.carlos_emr.carlos.commn.dao;
 
+import java.util.List;
+
+import jakarta.persistence.Query;
+
 import org.springframework.stereotype.Repository;
 import io.github.carlos_emr.carlos.commn.model.MdsNTE;
 
@@ -40,5 +44,18 @@ public class MdsNTEDaoImpl extends AbstractDaoImpl<MdsNTE> implements MdsNTEDao 
 
     public MdsNTEDaoImpl() {
         super(MdsNTE.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public List<Object[]> findNotesBySegmentId(Integer id) {
+        // Scalar columns, not entities: all notes of a report share the segmentID mapped as @Id.
+        // No ORDER BY, as in the legacy query: the table has no column that orders a note's lines,
+        // and the segmentID index returns them in the order they were stored.
+        String sql = "SELECT nte.sourceOfComment, nte.comment, nte.associatedOBX " +
+                "FROM MdsNTE nte WHERE nte.id = ?1";
+        Query query = entityManager.createQuery(sql);
+        query.setParameter(1, id);
+        return query.getResultList();
     }
 }

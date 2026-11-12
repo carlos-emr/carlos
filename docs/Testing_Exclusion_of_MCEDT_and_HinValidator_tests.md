@@ -14,7 +14,7 @@ The recent update includes the exclusion of test cases from two modules:
 - MCEDT
 
 **Code Changes:**
-The <excludes> tags in the pom.xml have been updated to include the HinValidatorTest and MCEDT tests. The updated configuration is as follows:
+The `<excludes>` tags in the pom.xml have been updated to include the HinValidatorTest and MCEDT tests. The updated configuration is as follows:
 
 ```xml
 <plugin>

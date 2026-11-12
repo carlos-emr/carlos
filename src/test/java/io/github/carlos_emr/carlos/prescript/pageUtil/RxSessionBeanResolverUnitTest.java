@@ -22,23 +22,22 @@
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
-import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpSession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 /**
  * Per-patient Rx session state (issue #3875): two patients in one HTTP session stay isolated,
  * reopening Rx for a patient keeps that patient's drafts, a request naming a patient never falls
- * back to another patient's bean, and requests that name no patient use the active patient.
+ * back to another patient's bean, and requests that name no patient resolve nothing.
  *
  * @since 2026-09-24
  */
@@ -142,107 +141,45 @@ class RxSessionBeanResolverUnitTest {
     }
 
     @Test
-    @DisplayName("should fall back to the active patient for an AJAX request that names no patient")
-    void shouldUseActivePatient_whenRequestNamesNoPatient() {
-        RxSessionBean beanA = RxSessionBeanResolver.activate(request(), PATIENT_A, PROVIDER);
-        RxSessionBean beanB = RxSessionBeanResolver.activate(request(), PATIENT_B, PROVIDER);
-
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanB);
-
+    void shouldResolveNothing_whenRequestNamesNoPatient() {
         RxSessionBeanResolver.activate(request(), PATIENT_A, PROVIDER);
-        assertThat(RxSessionBeanResolver.resolve(request("parameterValue", "iterateStash"))).isSameAs(beanA);
+        RxSessionBeanResolver.activate(request(), PATIENT_B, PROVIDER);
+        assertThat(RxSessionBeanResolver.resolve(request())).isNull();
+        assertThat(RxSessionBeanResolver.resolve(request("parameterValue", "iterateStash"))).isNull();
     }
 
     @Test
-    @DisplayName("an unnamed request keeps its bean and patient when another window becomes active")
-    void shouldPinFallbackPatient_whenActivePatientChangesWithinRequest() {
+    void shouldIgnoreLegacyActivePatient_whenAnOldSessionStillCarriesIt() {
+        RxSessionBeanResolver.activate(request(), PATIENT_A, PROVIDER);
+        session.setAttribute("RxActiveDemographicNo", PATIENT_A);
+        MockHttpServletRequest unnamed = request();
+        assertThat(RxSessionBeanResolver.resolve(unnamed)).isNull();
+        assertThat(RxSessionBeanResolver.resolvePatient(unnamed)).isNull();
+    }
+
+    @Test
+    void shouldKeepNamedPatient_whenAnotherWindowOpensRx() {
         RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
-        MockHttpServletRequest rendering = request();
-        RxPatientData.Patient patientA = mock(RxPatientData.Patient.class);
-        when(patientA.getDemographicNo()).thenReturn(PATIENT_A);
-        rendering.setAttribute(RxSessionBeanResolver.PATIENT_REQUEST_ATTRIBUTE, patientA);
+        MockHttpServletRequest rendering = request("demographicNo", String.valueOf(PATIENT_A));
+        activateCompleted(PATIENT_B, PROVIDER);
         assertThat(RxSessionBeanResolver.resolve(rendering)).isSameAs(beanA);
-        assertThat(RxSessionBeanResolver.resolvePatient(rendering)).isSameAs(patientA);
-
-        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
-
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isSameAs(beanA);
-        assertThat(RxSessionBeanResolver.resolvePatient(rendering)).isSameAs(patientA);
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanB);
-        // Pinning a legacy read never supplies the explicit patient required by writes.
-        assertThat(RxSessionBeanResolver.resolveForWrite(rendering)).isNull();
+        assertThat(RxSessionBeanResolver.resolve(request())).isNull();
     }
 
     @Test
-    @DisplayName("an unnamed request with no active patient stays empty if another window opens Rx")
-    void shouldPinMissingFallback_whenPatientActivatedDuringRequest() {
-        MockHttpServletRequest rendering = request();
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-
-        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
-
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanA);
-    }
-
-    @Test
-    @DisplayName("an active id without a bean stays unresolved if its patient is later reopened")
-    void shouldPinMissingBean_whenPatientReopenedDuringRequest() {
-        session.setAttribute(RxSessionBeanResolver.ACTIVE_DEMOGRAPHIC_ATTRIBUTE, PATIENT_A);
-        MockHttpServletRequest rendering = request();
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-
-        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
-
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanA);
-    }
-
-    @Test
-    @DisplayName("explicit and invalid patient parameters take precedence over a captured fallback")
-    void shouldValidateExplicitPatient_whenFallbackWasAlreadyCaptured() {
-        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
-        MockHttpServletRequest rendering = request();
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isSameAs(beanA);
-        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
-
-        rendering.setParameter("demographicNo", String.valueOf(PATIENT_B));
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isSameAs(beanB);
-        rendering.setParameter("demographicNo", "malformed");
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-        rendering.setParameter("demographicNo", String.valueOf(PATIENT_B));
-        rendering.setParameter("demographic_no", String.valueOf(PATIENT_A));
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-        rendering.removeParameter("demographic_no");
-        rendering.setParameter("demographicNo", "9999");
-        assertThat(RxSessionBeanResolver.resolve(rendering)).isNull();
-    }
-
-    @Test
-    @DisplayName("resolving a request without a session does not create one")
-    void shouldKeepFallbackEmpty_whenSessionCreatedAfterFirstResolution() {
+    void shouldCreateNoSession_whenPatientIsMissing() {
         MockHttpServletRequest noSession = new MockHttpServletRequest();
-
         assertThat(RxSessionBeanResolver.resolve(noSession)).isNull();
-        assertThat(RxSessionBeanResolver.resolveForWrite(noSession)).isNull();
         assertThat(noSession.getSession(false)).isNull();
-
-        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
-        noSession.setSession(session);
-        assertThat(RxSessionBeanResolver.resolve(noSession)).isNull();
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanA);
     }
 
     @Test
-    @DisplayName("should not change the active patient when a bean is only ensured")
-    void shouldKeepActivePatient_whenBeanOnlyEnsured() {
+    void shouldKeepExistingDraft_whenAnotherBeanIsEnsured() {
         RxSessionBean beanA = RxSessionBeanResolver.activate(request(), PATIENT_A, PROVIDER);
         beanA.getStashList().add(draft(11));
-
         RxSessionBean beanB = RxSessionBeanResolver.ensure(request(), PATIENT_B, PROVIDER);
-
         assertThat(beanB.getDemographicNo()).isEqualTo(PATIENT_B);
-        assertThat(RxSessionBeanResolver.resolve(request())).isSameAs(beanA);
+        assertThat(RxSessionBeanResolver.resolve(request("demographicNo", String.valueOf(PATIENT_A)))).isSameAs(beanA);
         assertThat(beanA.getStashSize()).isEqualTo(1);
     }
 
@@ -258,6 +195,62 @@ class RxSessionBeanResolverUnitTest {
         assertThat(RxSessionBeanResolver.requestedDemographicNo(conflicting)).isEqualTo(RxSessionBeanResolver.INVALID);
         assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
         assertThat(RxSessionBeanResolver.resolve(request("demographicNo", "12abc"))).isNull();
+    }
+
+    @Test
+    void shouldResolveOnlyNamedPatient_whenRepeatedAliasesAreNumericallyEquivalent() {
+        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
+        beanA.getStashList().add(draft(11));
+        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
+        beanB.getStashList().add(draft(22));
+        MockHttpServletRequest repeated = request("demographicNo", "1001",
+                "demographicNo", "001001", "demographic_no", "0001001");
+
+        try {
+            assertThat(RxSessionBeanResolver.requestedDemographicNo(repeated)).isEqualTo(PATIENT_A);
+            assertThat(RxSessionBeanResolver.resolve(repeated)).isSameAs(beanA);
+            assertThat(RxSessionBeanResolver.resolveForWrite(repeated)).isSameAs(beanA);
+            assertThat(beanA.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(11L);
+            assertThat(beanB.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                    .containsExactly(22L);
+        } finally {
+            RxSessionBeanResolver.releaseRequestLeases(repeated);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"demographicNo", "demographic_no"})
+    void shouldLeaveBothDraftsUntouched_whenRepeatedPatientValuesConflict(String alias) {
+        RxSessionBean beanA = activateCompleted(PATIENT_A, PROVIDER);
+        beanA.getStashList().add(draft(11));
+        RxSessionBean beanB = activateCompleted(PATIENT_B, PROVIDER);
+        beanB.getStashList().add(draft(22));
+        MockHttpServletRequest conflicting = request(alias, "1001", alias, "2002");
+
+        assertThat(RxSessionBeanResolver.requestedDemographicNo(conflicting))
+                .isEqualTo(RxSessionBeanResolver.INVALID);
+        assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolvePatient(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.find(session, PATIENT_A)).isSameAs(beanA);
+        assertThat(RxSessionBeanResolver.find(session, PATIENT_B)).isSameAs(beanB);
+        assertThat(beanA.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                .containsExactly(11L);
+        assertThat(beanB.getStash()).extracting(RxPrescriptionData.Prescription::getRandomId)
+                .containsExactly(22L);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"demographicNo", "demographic_no"})
+    void shouldRefuseWithoutCreatingSession_whenRepeatedIdentityIsAmbiguous(String alias) {
+        MockHttpServletRequest conflicting = new MockHttpServletRequest();
+        conflicting.setParameter(alias, "1001", "2002");
+
+        assertThat(RxSessionBeanResolver.resolve(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolveForWrite(conflicting)).isNull();
+        assertThat(RxSessionBeanResolver.resolvePatient(conflicting)).isNull();
+        assertThat(conflicting.getSession(false)).isNull();
     }
 
     @Test

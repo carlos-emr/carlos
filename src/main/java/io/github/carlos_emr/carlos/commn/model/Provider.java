@@ -36,6 +36,8 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 /**
  * This is the object class that relates to the provider table. Any customizations belong here.
  */
@@ -69,12 +71,14 @@ public class Provider extends AbstractModel<String> implements Comparable<Provid
     private String providerActivity;
     private String firstName;
     private String rmaNo;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date signedConfidentiality;
     private String practitionerNo;
     private String practitionerNoType;
     private String email;
     private String title;
     private String lastUpdateUser;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate = new Date();
     private String supervisor;
     @jakarta.persistence.Column(name = "practitionerNo", length = 20)

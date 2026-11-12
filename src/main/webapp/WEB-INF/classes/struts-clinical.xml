@@ -38,6 +38,19 @@
             <exception-mapping exception="java.lang.Exception" result="error"/>
         </global-exception-mappings>
 
+        <!-- Pregnancy navigation is read-only; its allowlisted create/complete operations require POST. -->
+        <action name="Pregnancy" class="io.github.carlos_emr.carlos.commn.web.Pregnancy2Action" method="execute">
+            <result name="list">/WEB-INF/jsp/pregnancy/list.jsp</result>
+            <result name="form">/WEB-INF/jsp/pregnancy/form.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
+            <result name="saved" type="redirectAction">
+                <param name="actionName">Pregnancy</param>
+                <param name="demographicNo">${demographicNo}</param>
+                <param name="saved">true</param>
+            </result>
+            <allowed-methods>execute</allowed-methods>
+        </action>
+
         <action name="encounter/decisionSupport/guidelineAction" class="io.github.carlos_emr.carlos.decisionSupport.web.DSGuideline2Action" method="execute">
             <result name="guidelineList">/WEB-INF/jsp/encounter/decisionSupport/guidelineList.jsp</result>
             <result name="guidelineDetail">/WEB-INF/jsp/encounter/decisionSupport/guidelineDetail.jsp</result>
@@ -243,9 +256,6 @@
         </action>
         <action name="encounter/ViewHelp" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/Help.jsp</result>
-        </action>
-        <action name="encounter/ViewIndex2" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/encounter/Index2.jsp</result>
         </action>
         <action name="encounter/ViewInsertTemplate" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
@@ -550,8 +560,19 @@
         <action name="casemgmt/ViewForward" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/forward.jsp</result>
         </action>
-        <action name="casemgmt/ViewGroupNoteSelect" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
+        <action name="casemgmt/ViewGroupNoteSelect" class="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelect.jsp</result>
+        </action>
+        <action name="casemgmt/SaveGroupNoteSelection" class="io.github.carlos_emr.carlos.casemgmt.web.GroupNoteSelect2Action" method="save">
+            <result name="success" type="redirectAction">
+                <param name="actionName">casemgmt/ViewGroupNoteSelectAction</param>
+                <param name="statusCode">303</param>
+                <param name="demographicNo">${demographicNo}</param>
+                <param name="programId">${programId}</param>
+                <param name="chartContext">${chartContext}</param>
+                <param name="suppressEmptyParameters">true</param>
+            </result>
+            <allowed-methods>save</allowed-methods>
         </action>
         <action name="casemgmt/ViewGroupNoteSelectAction" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/groupNoteSelectAction.jsp</result>
@@ -564,9 +585,6 @@
         </action>
         <action name="casemgmt/ViewMessages" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/messages.jsp</result>
-        </action>
-        <action name="casemgmt/ViewNavigation" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/navigation.jsp</result>
         </action>
         <action name="casemgmt/ViewNewCaseManagementView" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/newCaseManagementView.jsp</result>
@@ -593,6 +611,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
@@ -607,6 +626,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
@@ -621,6 +641,7 @@
             <result name="success" type="redirectAction">
                 <param name="actionName">casemgmt/ViewNoteBrowser</param>
                 <param name="demographic_no">${demographicNo}</param>
+                <param name="chartContext">${chartContext}</param>
                 <param name="view">${view}</param>
                 <param name="viewstatus">${viewstatus}</param>
                 <param name="sortorder">${sortorder}</param>
@@ -642,9 +663,6 @@
         </action>
         <action name="casemgmt/ViewRightColumn" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/rightColumn.jsp</result>
-        </action>
-        <action name="casemgmt/ViewSearch" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
-            <result name="success">/WEB-INF/jsp/casemgmt/search.jsp</result>
         </action>
         <action name="casemgmt/ViewShowHistory" class="io.github.carlos_emr.carlos.clinical.gate.ViewClinical2Action">
             <result name="success">/WEB-INF/jsp/casemgmt/showHistory.jsp</result>

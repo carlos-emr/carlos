@@ -39,6 +39,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.service.MeasurementGroupCreationService;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -50,6 +51,11 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 
+/**
+ * Renders the type-selection page of Add Measurement Group for a name the Define step
+ * accepted. Read-only, so it is reached by GET: the Define step's page submits to it, and
+ * {@code HttpMethodGuardFilter} must not classify it as a write (issue #3335).
+ */
 public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
@@ -66,21 +72,21 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
 
             MiscUtils.getLogger().debug("The selected groupName is: {}", groupName);
 
-            EctTypeDisplayNameBeanHandler hd = new EctTypeDisplayNameBeanHandler(groupName, false);
-            Collection existingTypeDisplayName = hd.getTypeDisplayNameVector();
-            hd = new EctTypeDisplayNameBeanHandler();
-            Collection allTypeDisplayName = hd.getTypeDisplayNameVector();
+            // The group does not exist yet (it is created with its first types), so only the
+            // full type list is needed.
+            Collection allTypeDisplayName = new EctTypeDisplayNameBeanHandler().getTypeDisplayNameVector();
 
             HttpSession session = request.getSession();
-            session.setAttribute("existingTypeDisplayNames", existingTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (existing types for group)
             session.setAttribute("allTypeDisplayNames", allTypeDisplayName); // nosemgrep: tainted-session-from-http-request -- DAO result list from EctTypeDisplayNameBeanHandler (all types)
             // nosemgrep: tainted-session-from-http-request -- groupName validated via regex [^\\p{Cntrl}]+, length-capped to 100; admin-only action guarded by _admin/_admin.measurements write privilege
             session.setAttribute("groupName", groupName);
-            
+            // Posted back with the chosen types so the group is created with its style sheet.
+            request.setAttribute("styleSheet", MeasurementGroupCreationService.parseCssId(styleSheet));
+
             return "continue";
 
         } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+            throw new SecurityException("missing required sec object (_admin.measurements)");
         }
     }
 
@@ -93,6 +99,17 @@ public class EctSetupAddMeasurementGroup2Action extends ActionSupport {
 
     public String getGroupName() {
         return groupName;
+    }
+
+    private String styleSheet;
+
+    @StrutsParameter
+    public void setStyleSheet(String styleSheet) {
+        this.styleSheet = styleSheet;
+    }
+
+    public String getStyleSheet() {
+        return styleSheet;
     }
 
     private final Map values = new HashMap();

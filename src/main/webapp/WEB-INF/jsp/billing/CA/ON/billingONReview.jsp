@@ -303,6 +303,8 @@
     <input type="hidden" name="billForm" id="billForm" value="<carlos:encode value='${reviewModel.requestParamEchoes[\"billForm\"]}' context='htmlAttribute'/>"/>
     <input type="hidden" name="payeename" id="payeename" value=""/>
     <input type="hidden" name="billingAction" id="billingAction" value="SAVE"/>
+    <%-- One claim per rendering of this review (issue #4225); FormSubmissionGuard.PARAMETER. --%>
+    <input type="hidden" name="carlosFormSubmission" value="<carlos:encode value='${formSubmissionToken}' context='htmlAttribute'/>"/>
     <table style="width:100%" class="myIvory">
         <tr>
             <td>

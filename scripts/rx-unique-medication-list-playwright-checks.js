@@ -16,12 +16,22 @@
  * Fixtures: the owned FAKE-PW patient with one SQL-seeded prescription row and ten drug rows; cleanup deletes the
  * patient's drugs and prescription rows and asserts them gone. Nothing is saved from the consultation form.
  * Operator prerequisite: CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true in carlos.properties (the packaged default is false;
- * the form's Import button uses another path), then restart. See docs/ui-tests/deb-install-validation.md section 4.
+ * the form's Import button uses another path), then restart. Export the same variable as true to confirm this setup;
+ * without that confirmation the check SKIPs. See docs/ui-tests/deb-install-validation.md section 4.
  */
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 
 const q = h.sqlString;
+
+function preflight(env = process.env) {
+  if (env.CONSULTATION_AUTO_INCLUDE_MEDICATIONS !== 'true') {
+    throw new h.SkipCheck('Requires CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true in the running application '
+      + '(packaged default: false). Enable it in carlos.properties, restart, then export '
+      + 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true to confirm the prerequisite; see '
+      + 'docs/ui-tests/deb-install-validation.md section 4.');
+  }
+}
 
 async function workflow(s) {
   const { sql, patient, provider, marker } = s;
@@ -85,7 +95,8 @@ async function workflow(s) {
       const meds = form.locator('textarea[name="currentMedications"]');
       await meds.waitFor({ state: 'attached', timeout: 30000 });
       const text = await meds.inputValue();
-      h.assert(text.includes(marker), 'Current Medications was not filled from the chart (CONSULTATION_AUTO_INCLUDE_MEDICATIONS off?)');
+      h.assert(text.includes(marker), 'Current Medications was not filled from the chart despite the confirmed '
+        + 'CONSULTATION_AUTO_INCLUDE_MEDICATIONS=true prerequisite; check the running configuration and form');
       assertCounts('The consultation Current Medications', counts(text.split('\n')));
     } finally {
       if (!form.isClosed()) await form.close().catch(() => {});
@@ -110,6 +121,6 @@ async function workflow(s) {
 }
 
 if (require.main === module) {
-  runWorkflow('rx-unique-medication-list', workflow, { openPatient: true });
+  runWorkflow('rx-unique-medication-list', workflow, { openPatient: true, preflightConfig: () => preflight() });
 }
-module.exports = { workflow };
+module.exports = { workflow, preflight };

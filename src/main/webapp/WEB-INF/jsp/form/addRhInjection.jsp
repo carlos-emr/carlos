@@ -206,8 +206,10 @@
 
 
     <script type="text/javascript">
+        // Copies the chosen reason into the posted "reason" field, then lets the save go ahead. It used to
+        // return an undefined name (a capitalised false), so every Save threw a ReferenceError (issue #4992).
         function process(formInject) {
-            for (i = 0; formInject.reason_check.length; i++) {
+            for (var i = 0; i < formInject.reason_check.length; i++) {
                 if (formInject.reason_check[i].checked) {
                     //alert(formInject.reason_check[i].value);
                     if (formInject.reason_check[i].value == '<fmt:message key="form.addRhInjection.reason.other"/>') {
@@ -218,8 +220,7 @@
                     break;
                 }
             }
-            //alert( formInject.reason.value );
-            return False;
+            return true;
         }
     </script>
 

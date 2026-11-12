@@ -42,6 +42,9 @@ public interface CaseManagementNoteExtDAO {
 
     public List<CaseManagementNoteExt> getExtByNote(Long noteId);
 
+    /** Reads current extension rows and holds their locks until the caller's transaction completes. */
+    List<CaseManagementNoteExt> getExtByNoteForUpdate(Long noteId);
+
     public List getExtByKeyVal(String keyVal);
 
     public List getExtByValue(String keyVal, String value);

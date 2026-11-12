@@ -52,6 +52,7 @@
 <%@page import="java.util.*" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBean" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass" %>
 <html>
     <head>
     <link rel="icon" href="${pageContext.request.contextPath}/images/favicon.ico"/>
@@ -84,7 +85,8 @@
             RxSessionBean bean = (RxSessionBean) pageContext.findAttribute("bean");
         %>
         <%-- Tags every Rx request from this page with its patient (per-patient Rx state, #3875). --%>
-        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"></script>
+        <script type="text/javascript" src="<%= request.getContextPath() %>/share/javascript/rx-patient-context.js" data-demographic-no="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"
+                data-chart-context="<carlos:encode value='<%= io.github.carlos_emr.carlos.casemgmt.common.ChartProgramContext.token(request) %>' context="htmlAttribute"/>"></script>
 
         <link rel="stylesheet" type="text/css" href="<%= request.getContextPath() %>/rx/styles.css">
 
@@ -99,13 +101,18 @@
                 return true;
             }
 
-            /** Submits an allergy reaction via the hidden #addReactionForm with a dynamic action URL. */
-            function submitAddReaction(actionUrl, id, type, name) {
+            /**
+             * Submits an allergy reaction via the hidden #addReactionForm with a dynamic action URL.
+             * atc is the ATC class of a class allergen (the shortcuts below, #4576); the search
+             * results do not pass it.
+             */
+            function submitAddReaction(actionUrl, id, type, name, atc) {
                 var form = document.getElementById('addReactionForm');
                 form.action = actionUrl;
                 form.elements['ID'].value = id;
                 form.elements['type'].value = type;
                 form.elements['name'].value = name;
+                form.elements['atc'].value = atc || '';
                 form.submit();
             }
 
@@ -118,12 +125,19 @@
                 }
             }
 
+            <%-- The class shortcuts record an ATC class allergen (#4576): type 8 (ATC Class), no DrugRef
+                 id and the class code. They used to post fixed DrugRef ids, which name other products
+                 in current DrugRef data. --%>
             function addPenicillinAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44452', '10', 'PENICILLINS');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '', '8',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.PENICILLINS.atcClass() %>' context="javaScript"/>');
             }
 
             function addSulfonamideAllergy() {
-                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '44159', '10', 'SULFONAMIDES');
+                submitAddReaction('<%= request.getContextPath() %>/rx/addReaction2', '', '8',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.allergen() %>' context="javaScript"/>',
+                    '<carlos:encode value='<%= AllergyAtcClass.Shortcut.SULFONAMIDES.atcClass() %>' context="javaScript"/>');
             }
 
             function addCustomNKDA() {
@@ -149,6 +163,7 @@
         <input type="hidden" name="ID" value=""/>
         <input type="hidden" name="type" value=""/>
         <input type="hidden" name="name" value=""/>
+        <input type="hidden" name="atc" value=""/>
         <%-- form.submit() skips the submit listener, so the patient is carried explicitly (#3875). --%>
         <input type="hidden" name="demographicNo" value="<%= bean == null ? "" : String.valueOf(bean.getDemographicNo()) %>"/>
     </form>

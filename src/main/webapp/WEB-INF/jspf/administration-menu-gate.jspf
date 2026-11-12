@@ -1,0 +1,54 @@
+<%--
+
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+
+    This software is published under the GPL GNU General Public License.
+    This program is free software; you can redistribute it and/or
+    modify it under the terms of the GNU General Public License
+    as published by the Free Software Foundation; either version 2
+    of the License, or (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+    CARLOS EMR Project
+    https://github.com/carlos-emr/carlos
+
+--%>
+<%--
+    Purpose: decide whether the schedule menus offer Schedule > Administration. Included (static
+    include) by provider/appointmentprovideradminday.jsp and provider/mainMenu.jsp, which wrap the
+    link in <c:if test="${canOpenAdministration}">.
+    Gate: read on ANY of the objects below, each checked by its own oscarSec tag. One tag naming them
+    all keeps ONE privilege per role across the objects (the last row the database returns), so the
+    seeded doctor role's `_admin.reporting` `o` row (migration V1.0.6) could hide the link its
+    `_admin.flowsheet` `r` earns, depending only on row order (issues #4238 and #4623).
+    The objects are the thirteen the menus named before (order only affects how many lookups run);
+    ViewAdministrationIndex2Action admits a subset of them.
+    Requires: the including page's roleName$ ("userrole,user") and its c and security taglibs.
+    Sets: page-scope boolean canOpenAdministration.
+    @since 2026-10-22
+--%>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
+<c:set var="canOpenAdministration" value="${false}" />
+<%-- Stop at the first object that grants the link: an administrator needs one lookup, the seeded doctor two. --%>
+<security:oscarSec roleName="<%=roleName$%>" objectName="_admin" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.flowsheet" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.userAdmin" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.schedule" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.billing" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.resource" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.reporting" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.backup" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.messenger" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.eform" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.encounter" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.misc" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>
+<c:if test="${not canOpenAdministration}"><security:oscarSec roleName="<%=roleName$%>" objectName="_admin.fax" rights="r"><c:set var="canOpenAdministration" value="${true}" /></security:oscarSec></c:if>

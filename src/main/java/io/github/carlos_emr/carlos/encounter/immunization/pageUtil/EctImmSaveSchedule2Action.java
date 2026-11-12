@@ -45,6 +45,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
 import io.github.carlos_emr.carlos.encounter.immunization.data.EctImmImmunizationData;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 import io.github.carlos_emr.carlos.util.UtilMisc;
 import io.github.carlos_emr.carlos.util.UtilXML;
 
@@ -89,6 +90,20 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A schedule version is required. Reload the schedule.");
             return NONE;
         }
+        // The one patient Schedule.jsp names (demographic_no), checked as saveConfig and
+        // deleteSchedule check theirs: the save wrote any patient number posted to it, or none.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", demographicNo)
+                || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, Integer.valueOf(demographicNo))) {
+            throw new SecurityException("missing required sec object (_demographic)");
+        }
 
         try {
             String sDoc = UtilMisc.decode64(request.getParameter("xmlDoc"));
@@ -115,7 +130,10 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
                         cell.setAttribute("givenDate", givenDate);
                         cell.setAttribute("refusedDate", refusedDate);
                         cell.setAttribute("lot", lot);
-                        cell.setAttribute("providers", provider);
+                        // "provider" is the attribute schedules were saved with; a namespace rename wrote
+                        // "providers" for a while, which the readers still accept. Keep one attribute.
+                        cell.setAttribute("provider", provider);
+                        cell.removeAttribute("providers");
                         cell.setAttribute("comments", comments);
                     }
 
@@ -131,9 +149,7 @@ public final class EctImmSaveSchedule2Action extends ActionSupport {
 
             String sXML = UtilXML.toXML(doc);
             EctImmImmunizationData imm = new EctImmImmunizationData();
-            String demographicNo = request.getParameter("demographic_no");
-            String providerNo = (String) request.getSession().getAttribute("user");
-            if (!imm.saveImmunizations(demographicNo, providerNo, sXML, expectedVersion)) {
+            if (!imm.saveImmunizations(demographicNo, loggedInInfo.getLoggedInProviderNo(), sXML, expectedVersion)) {
                 response.sendError(HttpServletResponse.SC_CONFLICT, "The immunization schedule changed. Reload it before saving, deleting, or restoring.");
                 return NONE;
             }

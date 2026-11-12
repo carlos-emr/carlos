@@ -49,6 +49,7 @@ import io.github.carlos_emr.carlos.match.MatchManager;
 import io.github.carlos_emr.carlos.match.MatchManagerException;
 import io.github.carlos_emr.carlos.utility.FileValidationException;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PDFGenerationException;
@@ -56,6 +57,8 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.eform.EFormUtil;
+import io.github.carlos_emr.carlos.eform.EFormOpenerLinks;
+import io.github.carlos_emr.carlos.eform.EFormDataUriCarrier;
 import io.github.carlos_emr.carlos.eform.EFormSubmissionGuard;
 import io.github.carlos_emr.carlos.eform.data.EForm;
 import io.github.carlos_emr.carlos.encounter.data.EctProgram;
@@ -107,8 +110,7 @@ public class AddEForm2Action extends ActionSupport {
      * <p>Demographic number allows {@code -1} for admin-view eform linking
      * (see {@link io.github.carlos_emr.carlos.eform.EFormLoader#getOpenEform}).</p>
      */
-    static final Pattern EFORM_LINK_PATTERN = Pattern.compile(
-            "^[a-zA-Z0-9]{1,6}_(-1|\\d{1,10})_\\d{1,10}_[a-zA-Z0-9_.-]{1,50}$");
+    static final Pattern EFORM_LINK_PATTERN = EFormOpenerLinks.LINK_PATTERN;
 
     /**
      * Validates an eform_link value against the expected key format.
@@ -139,6 +141,30 @@ public class AddEForm2Action extends ActionSupport {
     private DocumentAttachmentManager documentAttachmentManager = SpringUtils.getBean(DocumentAttachmentManager.class);
     private EmailManager emailManager = SpringUtils.getBean(EmailManager.class);
 
+    /**
+     * The workflow step a submission runs once its eForm may be stored, by the name the clinician
+     * is given if it fails there ({@code eform.submitSavedStepIncomplete}, #4424).
+     */
+    enum FollowOnStep {
+        /** Work with no name of its own: commit callbacks, the opener link and patient matching. */
+        FOLLOW_ON("eform.submitStep.followOn"),
+        /** The template write: CPP and encounter notes, ticklers, preventions, messages, consults. */
+        CHART_ENTRIES("eform.submitStep.chartEntries"),
+        ADD_TO_DOCUMENTS("eform.submitStep.addToDocuments"),
+        FAX("eform.submitStep.fax"),
+        DOWNLOAD("eform.submitStep.download"),
+        EMAIL("eform.submitStep.email");
+
+        private final String labelKey;
+
+        FollowOnStep(String labelKey) {
+            this.labelKey = labelKey;
+        }
+    }
+
+    /** The step in progress. Each step sets it and hands back to FOLLOW_ON, so a later failure is not misnamed. */
+    private FollowOnStep followOnStep = FollowOnStep.FOLLOW_ON;
+
     public String execute() {
 
         String method = request.getMethod();
@@ -164,23 +190,54 @@ public class AddEForm2Action extends ActionSupport {
                 return executeSubmission(claim);
             } catch (RuntimeException e) {
                 if (claim.canRetry()) throw e;
-                // A commit acknowledgement or later clinical side effect may have failed. Never
-                // tell the clinician "not saved" or permit re-running the original submission.
-                logger.error("eForm processing did not finish after storage started ({})", e.getClass().getSimpleName());
-                return rejectSubmission(false);
+                // A commit acknowledgement or later clinical side effect failed. The token stays
+                // spent: re-running the submission could store the eForm, and the notes, ticklers
+                // and requests its template writes, a second time. Never tell the clinician "not
+                // saved", and never answer with the replay refusal either (#4424): this was the
+                // first submission, and that text hides that a step did not complete.
+                return reportFailureAfterStorage(claim.storageCommitted(), e);
             }
         }
     }
 
+    private String rejectSubmission(boolean stale) {
+        return answerConflict(getText(stale ? "eform.submitStale" : "eform.submitUnavailable"));
+    }
+
+    /**
+     * Answers a submission that failed after its storage transaction started, without the replay
+     * refusal. A confirmed commit means the eForm is saved and {@link #followOnStep} is what did not
+     * complete, so the message names it. An unconfirmed commit may or may not have saved the form,
+     * so the message says neither and sends the clinician to the patient's eForms.
+     *
+     * <p>The log keeps the step and {@link LogSafe#exceptionTrace} (types and code locations). The
+     * exception's message is never logged, nor the throwable attached: {@code moveDocument}'s
+     * refusal names the provider, and clinical code can carry patient values in messages and
+     * causes. No patient or eForm id is logged either.</p>
+     */
+    private String reportFailureAfterStorage(boolean saved, RuntimeException failure) {
+        logger.error("eForm submission did not finish after storage started (saved={}, step={}):{}",
+                saved ? "yes" : "unconfirmed", followOnStep, LogSafe.exceptionTrace(failure));
+        if (!saved) {
+            return answerConflict(getText("eform.submitOutcomeUnknown"));
+        }
+        return answerConflict(getText("eform.submitSavedStepIncomplete",
+                new String[] {getText(followOnStep.labelKey)}));
+    }
+
+    private String answerConflict(String message) {
+        return answerPlainText(HttpServletResponse.SC_CONFLICT, message);
+    }
+
     // FindSecBugs XSS_SERVLET: only fixed resource-bundle messages, served as non-sniffable plain text.
     @SuppressFBWarnings(value = "XSS_SERVLET", justification = "Only constant-key localized messages; UTF-8 text/plain and nosniff; no request values are written")
-    private String rejectSubmission(boolean stale) {
-        response.setStatus(HttpServletResponse.SC_CONFLICT);
+    private String answerPlainText(int status, String message) {
+        response.setStatus(status);
         response.setContentType("text/plain;charset=UTF-8");
         response.setHeader("Cache-Control", "no-store");
         response.setHeader("X-Content-Type-Options", "nosniff");
         try {
-            response.getWriter().print(getText(stale ? "eform.submitStale" : "eform.submitUnavailable"));
+            response.getWriter().print(message);
         } catch (IOException e) {
             throw new java.io.UncheckedIOException(e);
         }
@@ -241,7 +298,14 @@ public class AddEForm2Action extends ActionSupport {
          * Part 2 of "counter hack for a hack" initialized in Javascript file
          * eform_floating_toolbar.js
          */
-        String[] imagePathPlaceHolders = request.getParameterValues("openosp-image-link");
+        String[] imagePathPlaceHolders = request.getParameterValues("carlos-image-link");
+
+        /*
+         * Signature and drawing data URIs the page moved out of the form's own fields so the WAF can
+         * exclude one known argument instead of the whole save (#3552); restored below.
+         */
+        String[] carriedDataUris = request.getParameterValues(EFormDataUriCarrier.PARAMETER);
+        String carriedDataUriNonce = request.getParameter(EFormDataUriCarrier.NONCE_PARAMETER);
 
         /*
          * An eform developer may add these to the eForm in order to auto
@@ -264,7 +328,9 @@ public class AddEForm2Action extends ActionSupport {
              * Remove these parameters from the request after the imagePathPlaceHolders variable is set.
              * These values do not need to be saved into the eform_values table.
              */
-            if (curField.equalsIgnoreCase("openosp-image-link")) {
+            if (curField.equalsIgnoreCase("carlos-image-link")
+                    || curField.equals(EFormDataUriCarrier.PARAMETER)
+                    || curField.equals(EFormDataUriCarrier.NONCE_PARAMETER)) {
                 continue;
             }
 
@@ -273,6 +339,18 @@ public class AddEForm2Action extends ActionSupport {
                 paramValues.add(request.getParameter(curField));
             }
 
+        }
+
+        // Before anything reads paramValues: the stored values, the rendered form and the template's
+        // chart writes must all see the signature itself, never the reference the page left behind.
+        try {
+            EFormDataUriCarrier.restore(paramValues, carriedDataUris, carriedDataUriNonce);
+        } catch (EFormDataUriCarrier.InvalidCarriedValueException e) {
+            // Nothing is stored yet, so the claim stays retryable. The reason names the failed rule
+            // only; the value is a signature and is never logged. Answered directly, not through the
+            // error result: efmshowform_data.jsp renders a SAVED eForm and fails without an fdid.
+            logger.warn("Rejected eForm submission: {}", e.getMessage());
+            return answerPlainText(HttpServletResponse.SC_BAD_REQUEST, getText("eform.submitDataUriRefused"));
         }
 
         EForm curForm = new EForm(fid, demographic_no, providerNo);
@@ -366,11 +444,11 @@ public class AddEForm2Action extends ActionSupport {
 
         //post fdid to {eform_link} attribute
         if (eform_link != null) {
-            // Validate eform_link against expected prefix to prevent session key injection (CWE-501).
-            // The expected key format is: providerNo_demographicNo_fid_openerName
-            String expectedPrefix = providerNo + "_" + demographic_no + "_" + fid + "_";
-            if (eform_link.startsWith(expectedPrefix) && eform_link.length() <= 100) {
-                se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink()
+            // The link names the opener (providerNo_demographicNo_openerFid_buttonName), not this eForm,
+            // so it is matched against the links this session issued to opener buttons that open this
+            // eForm, for this provider and patient.
+            if (EFormOpenerLinks.wasIssued(se, eform_link, providerNo, demographic_no, fid)) {
+                se.setAttribute(eform_link, fdid); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): fdid is Integer.parseInt-validated queue document ID; key validated by validateEformLink() and EFormOpenerLinks.wasIssued()
             } else {
                 logger.warn("Invalid eform_link rejected");
             }
@@ -402,6 +480,7 @@ public class AddEForm2Action extends ActionSupport {
         // "Submit & PDF" is still a submission and keeps that behaviour; only the "PDF" preview
         // (skipSave=true) skips it, matching what its label promises.
         if (!fax && !isEmailEForm && (!isDownloadEForm || submitAndPdf)) {
+            followOnStep = FollowOnStep.CHART_ENTRIES;
             //write template message to echart
             String program_no = new EctProgram(se).getProgram(providerNo);
             String path = request.getRequestURL().toString();
@@ -410,9 +489,13 @@ public class AddEForm2Action extends ActionSupport {
             path += request.getContextPath();
 
             EFormUtil.writeEformTemplate(LoggedInInfo.getLoggedInInfoFromSession(request), paramNames, paramValues, curForm, fdid, program_no, path);
+            followOnStep = FollowOnStep.FOLLOW_ON;
         }
 
         if (saveAsEdoc) {
+            // A RuntimeException here (moveDocument refuses a user without _edoc x) reaches
+            // execute()'s catch, which reports this step by name rather than as a replay (#4424).
+            followOnStep = FollowOnStep.ADD_TO_DOCUMENTS;
             try {
                 documentAttachmentManager.saveEFormAsEDoc(request, response);
             } catch (EformContentUnavailableException e) {
@@ -427,12 +510,15 @@ public class AddEForm2Action extends ActionSupport {
                 setPdfError(PDF_EDOC_FAILURE_MESSAGE, e);
                 return "error";
             }
+            followOnStep = FollowOnStep.FOLLOW_ON;
         }
 
         if (fax) {
+            followOnStep = FollowOnStep.FAX;
             prepareFaxHandoff(fdid, demographic_no, recipient, recipientFaxNumber, letterheadFax);
             return "faxPreparation";
         } else if (isDownloadEForm) {
+            followOnStep = FollowOnStep.DOWNLOAD;
             /*
              * For now, this download code is added here and will be moved to the appropriate place after refactoring is done.
              */
@@ -471,6 +557,7 @@ public class AddEForm2Action extends ActionSupport {
 
             return "download";
         } else if (isEmailEForm) {
+            followOnStep = FollowOnStep.EMAIL;
             EmailAttachmentSettings settings = EmailAttachmentSettings.of(
                 request,
                 fdid,
@@ -679,8 +766,9 @@ public class AddEForm2Action extends ActionSupport {
                     : PDF_DOWNLOAD_FAILURE_MESSAGE, e);
             return "error";
         }
+        // efmfid: the template this submission was made from (read the same way the save path reads it).
         return EFormSavedRenderResponse.missing(request, approvalService, loggedInInfo, e,
-                requestFdid, demographicNo, operation, null, false,
+                requestFdid, demographicNo, request.getParameter("efmfid"), operation, null, false,
                 message, approvalAction, approvalButtonLabelKey);
     }
 

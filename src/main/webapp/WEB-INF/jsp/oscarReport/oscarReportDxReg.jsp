@@ -170,10 +170,15 @@
                 <div class="row">
                     <input type="hidden" name="action" value="NA"/>
                     <label for="dxQuickListName" class="visually-hidden">Add Dx QuickList</label>
+                    <%-- One-shot Add control: whatever it holds is posted with every Add, a single
+                         code included, so it always renders on the empty placeholder. It reads
+                         dxReportQuickLists, which the action builds for every render; the patient
+                         Disease Registry's session allQuickLists marks a default list and must not
+                         reach this page (#4547). --%>
                     <select name="quickListName" class="sel" id="dxQuickListName">
                         <option value="">Add Dx QuickList</option>
-                        <c:forEach var="quickLists" items="${allQuickLists.dxQuickListBeanVector}">
-                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}" ${quickLists.lastUsed}>
+                        <c:forEach var="quickLists" items="${dxReportQuickLists.dxQuickListBeanVector}">
+                            <option value="${carlos:forHtmlAttribute(quickLists.quickListName)}">
                                 ${carlos:forHtml(quickLists.quickListName)}
                             </option>
                         </c:forEach>

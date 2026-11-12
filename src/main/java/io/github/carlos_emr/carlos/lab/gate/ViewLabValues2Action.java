@@ -13,7 +13,9 @@
 package io.github.carlos_emr.carlos.lab.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -28,6 +30,9 @@ import org.apache.struts2.ServletActionContext;
  * security-hardening migration (2Action gate pattern from #1109, #1629,
  * #1632, #1644, #1662, #1663, #1665, #1666).
  *
+ * <p>Global {@code _lab} read does not override a patient lock ({@code _demographic$N} or
+ * {@code _eChart$N}) on the patient named by {@code demo}; a malformed value is a 400.
+ *
  * @since 2026-04-13
  */
 public final class ViewLabValues2Action extends ActionSupport {
@@ -41,6 +46,14 @@ public final class ViewLabValues2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        // labValues.jsp reads the requested patient's results for one test. Its demographic lookup
+        // enforces only _demographic$N, so refuse an _eChart$N lock too before any value is read.
+        if (!LabPatientAccess.requireRequestedPatient(securityInfoManager, loggedInInfo,
+                request.getParameter("demo"))) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         return SUCCESS;

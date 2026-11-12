@@ -67,6 +67,7 @@ public class ORC extends Node {
     public int ToDatabase(int parent) throws SQLException {
 
         Hl7Orc h = new Hl7Orc();
+        h.setPidId(parent);
         h.setOrderControl(get("order_control", ""));
         h.setPlacerOrderNumber1(get("placer_order_number1", ""));
         h.setFillerOrderNumber(get("filler_order_number", ""));

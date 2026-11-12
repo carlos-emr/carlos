@@ -84,7 +84,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *   <li>Fallback conversion via Flying Saucer {@code ITextRenderer} with OpenPDF backend</li>
  * </ol>
  *
- * <p>Thread safety: The {@code from()} and {@code saveAsTempPDF()} methods hold one private lock
+ * <p>Thread safety: conversion, document parsing and tidying entry points are synchronized
  * to prevent concurrent modification of the shared {@link #realPath} field.
  *
  * @see EDoc
@@ -513,7 +513,7 @@ public final class ConvertToEdoc {
      * @param realPath String the servlet context real path for resolving relative resource paths
      * @return Document the parsed and cleaned Jsoup DOM
      */
-    public static Document getDocument(final String documentString, String realPath) {
+    public static synchronized Document getDocument(final String documentString, String realPath) {
 		ConvertToEdoc.realPath = realPath;
 		return getDocument(documentString);
 	}
@@ -526,7 +526,7 @@ public final class ConvertToEdoc {
      * @param documentString raw HTML string
      * @return org.jsoup.nodes.Document JSoup DOM
      */
-    public static Document getDocument(String documentString) {
+    public static synchronized Document getDocument(String documentString) {
         Document document = parseDocument(documentString);
 
         /*
@@ -1139,7 +1139,7 @@ public final class ConvertToEdoc {
      * Clean up any artifacts or poorly formed XHTML
      * and fetch the HTML template resources.
      */
-    static String tidyDocument(final String documentString) {
+    static synchronized String tidyDocument(final String documentString) {
         Document document = getDocument(documentString);
 
         /*
@@ -1158,7 +1158,7 @@ public final class ConvertToEdoc {
         return documentToString(document);
     }
 
-    static String tidyDocument(final String documentString, String realPath) {
+    static synchronized String tidyDocument(final String documentString, String realPath) {
         ConvertToEdoc.realPath = realPath;
         return tidyDocument(documentString);
     }

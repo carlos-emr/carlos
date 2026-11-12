@@ -68,6 +68,10 @@ public interface OscarLogDao extends AbstractDao<OscarLog> {
     public List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
                                                                  int itemsToReturn);
 
+    /** Request-scoped patient exclusions are applied before the recent-patient page limit. */
+    List<Integer> getRecentDemographicsAccessedByProvider(String providerNo, int startPosition,
+            int itemsToReturn, java.util.Set<Integer> deniedPatients);
+
     public List<Object[]> getRecentDemographicsViewedByProvider(String providerNo, int startPosition,
                                                                 int itemsToReturn);
 

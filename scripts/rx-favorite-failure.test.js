@@ -36,9 +36,13 @@ test('favorite success renders only after the updater installs its returned mark
   const h = harness();
   assert.equal(h.request.options.onSuccess, undefined);
   assert.equal(h.renders, 0);
+  // Set before the request: the card's scripts run while the markup is inserted, before
+  // onComplete, and must not re-parse the favourite's directions (#4996).
+  assert.equal(h.context.skipParseInstr, true);
   h.request.options.onComplete({ status: 200 });
   assert.equal(h.renders, 1);
-  assert.equal(h.context.skipParseInstr, true);
+  // Cleared once the cards are in, so the next staged drug parses its directions.
+  assert.equal(h.context.skipParseInstr, false);
   assert.deepEqual(h.alerts, []);
 });
 

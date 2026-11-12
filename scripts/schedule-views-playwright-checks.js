@@ -9,14 +9,15 @@
  * column "W" (week view, weekView=true) ▸ week column date (back to day) ▸ Month
  * (displaymode=month) ▸ today's cell (back to day) ▸ Flip View radio (schedule/FlipView)
  * ▸ date row (back to day) ▸ provider name (zoom, view=1) ▸ "W+" multiplier button ▸
- * Alt+T (today shortcut).
+ * Alt+T (today shortcut) ▸ the fixed 2W, 4W, 3M and 6M buttons ▸ Alt+T.
  *
  * Asserts: the appointment link (by its appointment_no) renders in the day view with
  * its E link, in the week view under today's column WITHOUT the E link (obs. 13), after
  * the month cell for today links back, in the Flip View row for today as a booking in
  * its time slot, and in the zoom view; every view's URL carries the expected
  * displaymode/dboperation/provider parameters; the multiplier moves a week ahead and
- * Alt+T returns to today. Fixtures: the session's owned patient and one `appointment`
+ * Alt+T returns to today; 2W, 4W, 3M and 6M each move that far ahead (the page's own
+ * week and month arithmetic) whatever the multiplier holds. Fixtures: the session's owned patient and one `appointment`
  * row carrying the run marker at a free slot inside the provider's schedule hours
  * (deleted and asserted gone); the week-view weekend property is snapshotted and
  * enabled only when the run falls on a weekend, then restored.
@@ -185,6 +186,31 @@ async function workflow(s) {
     await schedule.waitForLoadState('networkidle', {timeout: 20000}).catch(() => {});
     await assertDayView('Alt+T');
     h.assert((await schedule.locator('span.dateAppointment').innerText()).includes(today), 'Alt+T did not return the header to today');
+  });
+  await s.step('2W, 4W, 3M and 6M each move that far ahead, whatever the multiplier holds', async () => {
+    // The fixed buttons pass their own count to getLocation(); the multiplier box must not change them.
+    await schedule.locator('#dateMultiplier').fill('3');
+    let from = new Date(year, month - 1, day);
+    for (const [label, kind, count] of [['2W', 'weekForward', 2], ['4W', 'weekForward', 4], ['3M', 'monthForward', 3], ['6M', 'monthForward', 6]]) {
+      // The page's DateAdd(): weeks add 7 days each, months use Date.setMonth (a 31st can roll into the next month).
+      const expected = new Date(from);
+      if (kind === 'weekForward') expected.setDate(expected.getDate() + count * 7);
+      else expected.setMonth(expected.getMonth() + count);
+      await clickAndAwaitReload(schedule, schedule.locator(`input.quick-btn[onclick="getLocation('${kind}', ${count})"]`), {label});
+      const query = params(schedule);
+      const landed = `${query.get('year')}-${query.get('month')}-${query.get('day')}`;
+      h.assert(Number(query.get('year')) === expected.getFullYear() && Number(query.get('month')) === expected.getMonth() + 1
+        && Number(query.get('day')) === expected.getDate() && query.get('displaymode') === 'day',
+      `${label} went to ${landed}, not ${expected.getFullYear()}-${expected.getMonth() + 1}-${expected.getDate()}`);
+      from = expected;
+    }
+    await schedule.locator('#dateMultiplier').fill('1');
+    const navigated = schedule.waitForEvent('framenavigated', {predicate: frame => frame === schedule.mainFrame(), timeout: 20000});
+    navigated.catch(() => {});
+    await pressShortcut(schedule, 'Alt+KeyT');
+    await navigated;
+    await schedule.waitForLoadState('domcontentloaded', {timeout: 20000}).catch(() => {});
+    await assertDayView('Alt+T after the jumps');
   });
 }
 if (require.main === module) runWorkflow('schedule-views', workflow, {openPatient: true, openMaster: false});

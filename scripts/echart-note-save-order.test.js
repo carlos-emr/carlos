@@ -5,7 +5,9 @@ const test = require('node:test');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { chartActionUrlSource } = require('./lib/chart-action-url-source');
 const source = fs.readFileSync(path.join(__dirname, '../src/main/webapp/js/newCaseManagementView.js.jsp'), 'utf8');
+const chartHelper = chartActionUrlSource(source);
 const start = source.indexOf('    var ajaxRequest;');
 const end = source.indexOf('    function submitIssue(', start);
 assert.ok(start > 0 && end > start);
@@ -14,14 +16,14 @@ function harness() {
   const updates = []; const panels = []; const alerts = [];
   const fields = { newIssueId: { value: '42' }, issueAutocomplete: { value: 'fixture' } };
   const context = {
-    caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', savingNoteError: 'save failed',
+    caseNote: 'editor1', demographicNo: '123', ctx: '/carlos', chartContext: '', savingNoteError: 'save failed',
     document: { forms: { caseManagementEntryForm: { method: {}, ajax: {} } } },
     Form: { serialize: () => 'fixture=form' },
     CarlosAjax: { updater: (target, url, options) => { updates.push(options); return {}; } },
     loadDiv: (target, url, limit, complete) => panels.push(complete),
     $: id => fields[id], alert: message => alerts.push(message),
   };
-  vm.createContext(context); vm.runInContext(source.slice(start, end), context);
+  vm.createContext(context); vm.runInContext(chartHelper + source.slice(start, end), context);
   context.updateIssueError = 'issue refresh failed';
   return { context, updates, panels, alerts, fields };
 }
@@ -133,7 +135,11 @@ function switchHarness() {
   h.fields.encTypeSelect01 = { value: 'face-to-face', disabled: true };
   h.fields.autosaveTime = { textContent: 'previous status' };
   const form = h.context.document.forms.caseManagementEntryForm;
-  form.elements = [editor, h.fields.observationDate, h.fields.encTypeSelect01];
+  const durationNames = ['hourOfEncounterTime', 'minuteOfEncounterTime',
+    'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
+  for (const name of durationNames) h.fields[name] = { value: '17', disabled: false };
+  form.elements = [editor, h.fields.observationDate, h.fields.encTypeSelect01,
+    ...durationNames.map(name => h.fields[name])];
   form.setAttribute = (key, value) => { form[key] = value; };
   form.removeAttribute = key => { delete form[key]; };
   Object.assign(h.context, {
@@ -142,7 +148,7 @@ function switchHarness() {
     $F: id => h.fields[id]?.value, validDate: () => true,
     clearAutoSaveTimer: () => effects.push('pause autosave'), setTimer: () => effects.push('resume autosave'),
     finishChangeToView: () => effects.push('teardown'),
-    noteLockLostError: 'lock lost', sessionExpiredError: 'session expired',
+    noteLockLostError: 'lock lost', sessionExpiredError: 'session expired', invalidObservationDateError: 'invalid encounter date; draft retained',
   });
   h.context.CarlosAjax.request = (url, options) => h.updates.push(options);
   for (const [name, next] of [['changeToView', 'finishChangeToView'], ['ajaxSaveNote', 'saveNoteAjax']]) {
@@ -151,7 +157,7 @@ function switchHarness() {
   return { ...h, editor, form, effects };
 }
 
-for (const status of [0, 403, 409, 500, 200]) {
+for (const status of [0, 400, 403, 409, 500, 200]) {
   test(`save-on-switch retains text and controls on ${status === 200 ? 'unacknowledged HTTP 200' : `HTTP ${status}`} and does not navigate`, () => {
     const h = switchHarness(); let navigations = 0;
     assert.equal(h.context.changeToView('editor1', () => navigations++), false);
@@ -170,11 +176,17 @@ for (const status of [0, 403, 409, 500, 200]) {
     assert.equal(h.editor.value, 'typed clinical text');
     assert.equal(h.editor.disabled, false);
     assert.equal(h.fields.encTypeSelect01.disabled, true, 'previously disabled controls remain disabled');
+    for (const name of ['hourOfEncounterTime', 'minuteOfEncounterTime',
+      'hourOfEncTransportationTime', 'minuteOfEncTransportationTime']) {
+      assert.equal(h.fields[name].value, '17', 'failed saves retain each exact duration');
+      assert.equal(h.fields[name].disabled, false, 'failed saves retain editable duration controls');
+    }
     assert.equal(h.fields.autosaveTime.textContent, 'previous status');
     assert.equal(h.form['aria-busy'], undefined);
     assert.ok(!h.effects.includes('teardown'));
     assert.equal(navigations, 0);
     assert.equal(h.alerts.length, 1);
+    if (status === 400) assert.equal(h.alerts[0], 'invalid encounter date; draft retained');
     assert.equal(h.context.noteSwitchSavePending, false);
   });
 }
@@ -200,3 +212,73 @@ test('save-on-switch serializes before disabling controls and tears down only af
   assert.equal(navigations, 1);
   assert.equal(h.editor.disabled, false);
 });
+
+// Execute the actual successful teardown. Optional CAISI time inputs precede
+// noteIssues in the signature, so deleting that issue subtree alone left their
+// names and IDs active in the next note's full-form Save.
+function durationTeardown(values) {
+  const durationNames = ['hourOfEncounterTime', 'minuteOfEncounterTime',
+    'hourOfEncTransportationTime', 'minuteOfEncTransportationTime'];
+  const signatures = [];
+  function signature(id, times) {
+    const node = { id, children: [], querySelectorAll(selector) {
+      return this.children.filter(child => child.tagName === 'INPUT'
+        && selector.includes(`input[name="${child.name}"]`));
+    }, replaceChild(replacement, original) {
+      const index = this.children.indexOf(original);
+      assert.ok(index >= 0, 'replace only a child of the retiring signature');
+      this.children[index] = replacement; replacement.parentNode = this; original.parentNode = null;
+    } };
+    durationNames.forEach((name, index) => node.children.push({ tagName: 'INPUT', id: name,
+      name, value: times[index], disabled: false, parentNode: node }));
+    node.children.push({tagName: 'INPUT', id: `${id}-unrelated`, name: 'unrelated',
+      value: 'keep', parentNode: node});
+    signatures.push(node);
+    return node;
+  }
+  const retiring = signature('sig101', values);
+  const current = signature('sig202', ['3', '21', '4', '32']);
+  const parent = {id: 'n101', insertAdjacentHTML() {}, style: {}};
+  const editor = {id: 'editor101', parentNode: parent};
+  const fields = {editor101: editor, n101: parent, edit101: {insertAdjacentHTML() {}}, editWarn101: {value: 'false'}};
+  const get = id => fields[id] || signatures.find(node => node.id === id)
+    || signatures.flatMap(node => node.children).find(node => node.id === id) || null;
+  const events = [];
+  const context = {
+    document: {getElementById: get, createTextNode: value => ({nodeType: 3, textContent: value})},
+    $: get, $F: id => get(id).value, caseNote: editor.id, ctx: '/carlos', editLabel: 'Edit', largeNote: () => false,
+    noteIssuesChanged: true, autoSaveTimer: 41, clearTimeout: id => events.push(['clear timer', id]),
+    removeLock: id => events.push(['release lock', String(id).match(/\d+/)[0]]), deleteAutoSave: () => events.push(['delete draft']),
+    jQuery: () => ({off() {}}), destroyNoteIssueAutocomplete() {}, monitorCaseNote() {}, getActiveText() {},
+    Element: {remove(id) { delete fields[id]; }, stopObserving() {}},
+  };
+  const from = source.indexOf('    function finishChangeToView(');
+  const to = source.indexOf('    function escapeNoteText(', from);
+  assert.ok(from >= 0 && to > from, 'successful note teardown source exists');
+  vm.createContext(context); vm.runInContext(source.slice(from, to), context);
+  return {context, retiring, current, durationNames, get, events};
+}
+
+for (const values of [['1', '12', '2', '34'], ['', '', '', '']]) {
+  for (const saving of [true, false]) {
+    test(`retiring ${saving ? 'a saved' : 'an unchanged'} note removes optional duration fields before the next note saves ${JSON.stringify(values)}`, () => {
+      const h = durationTeardown(values);
+      const nextControls = [...h.current.children];
+      h.context.finishChangeToView('editor101', saving, 'clinical note');
+      assert.deepEqual(h.retiring.children.slice(0, 4).map(node => node.textContent), values,
+        'the previous note retains its exact displayed duration as text');
+      assert.ok(h.retiring.children.slice(0, 4).every(node => node.nodeType === 3));
+      assert.equal(h.retiring.children[4].name, 'unrelated', 'other signature fields remain untouched');
+      assert.deepEqual(h.current.children, nextControls, 'the next editor retains its exact controls');
+      const serialized = new URLSearchParams(h.retiring.children.concat(h.current.children)
+        .filter(node => node.tagName === 'INPUT' && !node.disabled).map(node => [node.name, node.value]));
+      h.durationNames.forEach((name, index) => {
+        assert.equal(h.get(name), nextControls[index], 'global validation resolves the current editor only');
+        assert.deepEqual(serialized.getAll(name), [nextControls[index].value],
+          'native full-form serialization submits exactly one current duration');
+      });
+      assert.equal(h.context.noteIssuesChanged, false);
+      assert.deepEqual(h.events, [['release lock', '101'], ['clear timer', 41], ['delete draft']]);
+    });
+  }
+}

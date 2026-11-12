@@ -28,6 +28,20 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Purpose:
+        Result page of Add a Login Record (admin/SecurityAddSecurity, POST only).
+
+    Features:
+        Runs SecurityAddSecurityHelper, which validates the form and creates the login with its
+        chosen role in one transaction, then shows the outcome message. On success it names the
+        role assigned (#2689) and links to Assign Role to Provider to review role assignments.
+
+    Parameters:
+        The Add a Login Record form fields; see securityaddarecord.jsp.
+
+    @since 2001 (OSCAR McMaster); assigned-role confirmation added 2026-10-15 (#2689)
+--%>
 
 <%@page import="io.github.carlos_emr.carlos.www.admin.SecurityAddSecurityHelper" %>
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -48,6 +62,7 @@
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 <%@ page import="java.sql.*, java.util.*,java.security.*,io.github.carlos_emr.*,io.github.carlos_emr.carlos.db.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
@@ -79,6 +94,11 @@
         %>
         <h1><fmt:message key="${message}"/></h1>
         <c:if test="${message == 'admin.securityaddsecurity.msgAdditionSuccess'}">
+            <%-- The login was created with the role chosen on the form (issue #2689). --%>
+            <p id="providerRoleAssigned">
+                <fmt:message key="admin.securityaddsecurity.msgRoleAssigned"/>
+                <strong><carlos:encode value="${assignedRole}"/></strong>
+            </p>
             <p id="providerRoleGuidance" role="status">
                 <fmt:message key="admin.securityaddsecurity.msgReviewRoles"/>
             </p>

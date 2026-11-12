@@ -1,0 +1,7 @@
+Symbola 2.60
+Copyright (C) 2007-2015 George Douros
+
+Fonts are free for any use; they may be opened, edited, modified, regenerated, packaged and
+redistributed.
+
+(License text as recorded in the Debian/Ubuntu fonts-symbola 2.60-4 copyright file.)

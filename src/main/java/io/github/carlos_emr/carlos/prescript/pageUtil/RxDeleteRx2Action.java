@@ -425,8 +425,9 @@ public final class RxDeleteRx2Action extends ActionSupport {
             return NONE;
         }
         if (!discontinued) {
-            response.sendError(HttpServletResponse.SC_CONFLICT,
-                    "This prescription has already changed. Reload the medication list.");
+            response.setStatus(HttpServletResponse.SC_CONFLICT);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"STALE_RX_DISCONTINUE\"}");
             return NONE;
         }
 

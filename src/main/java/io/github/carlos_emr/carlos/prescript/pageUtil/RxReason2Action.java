@@ -184,10 +184,12 @@ public final class RxReason2Action extends ActionSupport {
         request.setAttribute(PARAM_DRUG_ID, Integer.parseInt(drugIdStr));
         request.setAttribute(ATTR_DEMO_NO, Integer.parseInt(demographicNo));
 
-        if (code != null && code.trim().equals("")) {
+        // A missing box is "no code", like an empty one, not a NullPointerException in the lookup.
+        if (code == null || code.trim().isEmpty()) {
             request.setAttribute("message", getText("SelectReason.error.codeEmpty"));
             return SUCCESS;
         }
+        code = code.trim();
 
         List<Icd9> list = icd9Dao.getIcd9Code(code);
         if (list.size() == 0) {

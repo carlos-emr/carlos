@@ -62,6 +62,11 @@
 	if(!authed) {
 		return;
 	}
+	// The template to open pre-loaded (/eform/visualEformEditor?fid=<id>, #3166). The gate,
+	// ViewVisualEFormEditor2Action, has already validated the id and confirmed the form exists;
+	// only its parsed integer reaches the page, and 0 opens the editor blank for a new eForm.
+	Object visualEditorInitialFidAttr = request.getAttribute("visualEditorInitialFid");
+	int visualEditorInitialFid = (visualEditorInitialFidAttr instanceof Integer) ? (Integer) visualEditorInitialFidAttr : 0;
 %>
 <!DOCTYPE html>
 <html>
@@ -255,6 +260,9 @@ FOR STAND ALONE USE
 <c:set var="i18n_dialogUpdateEform"><fmt:message key="eform.visual.editor.dialog.updateEform"/></c:set>
 <c:set var="i18n_alertSaveSuccessful"><fmt:message key="eform.visual.editor.alert.saveSuccessful"/></c:set>
 <c:set var="i18n_alertSaveFailure"><fmt:message key="eform.visual.editor.alert.saveFailure"/></c:set>
+<c:set var="i18n_alertLoadFailure"><fmt:message key="eform.visual.editor.alert.loadFailure"/></c:set>
+<c:set var="i18n_alertConvertedForm"><fmt:message key="eform.visual.editor.alert.convertedForm"/></c:set>
+<c:set var="i18n_alertLoadPending"><fmt:message key="eform.visual.editor.alert.loadPending"/></c:set>
 <c:set var="i18n_alertOnlyOneMasterBox"><fmt:message key="eform.visual.editor.alert.onlyOneMasterBox"/></c:set>
 <c:set var="i18n_alertSelectMasterCheckbox"><fmt:message key="eform.visual.editor.alert.selectMasterCheckbox"/></c:set>
 <c:set var="i18n_alertWouldSubmitEform"><fmt:message key="eform.visual.editor.alert.wouldSubmitEform"/></c:set>
@@ -361,6 +369,9 @@ var EFORM_I18N = {
     dialogUpdateEform: '${carlos:forJavaScript(i18n_dialogUpdateEform)}',
     alertSaveSuccessful: '${carlos:forJavaScript(i18n_alertSaveSuccessful)}',
     alertSaveFailure: '${carlos:forJavaScript(i18n_alertSaveFailure)}',
+    alertLoadFailure: '${carlos:forJavaScript(i18n_alertLoadFailure)}',
+    alertConvertedForm: '${carlos:forJavaScript(i18n_alertConvertedForm)}',
+    alertLoadPending: '${carlos:forJavaScript(i18n_alertLoadPending)}',
     alertOnlyOneMasterBox: '${carlos:forJavaScript(i18n_alertOnlyOneMasterBox)}',
     alertSelectMasterCheckbox: '${carlos:forJavaScript(i18n_alertSelectMasterCheckbox)}',
     alertWouldSubmitEform: '${carlos:forJavaScript(i18n_alertWouldSubmitEform)}',
@@ -704,7 +715,7 @@ var EFORM_I18N = {
 
         function myextrastep(vthis) {
             x = vthis
-            y = vthis.childNodes[0]
+            y = vthis.firstElementChild
             x.title = "Click here to set all no"
             if (y.id.indexOf("gen_input") > -1) {
                 y.id = "Gen_ButtonId"
@@ -729,7 +740,7 @@ var EFORM_I18N = {
             $('#inputE').show();
             document.getElementById('inputD').style.backgroundColor = "yellow";
             document.getElementById('inputE').style.backgroundColor = "red";
-            y = vthis.childNodes[0].id
+            y = vthis.firstElementChild.id
             if (y.indexOf("gen_input") > -1) {
                 x = document.getElementById(vthis.id).id
                 document.getElementById(y).style.backgroundColor = "yellow";
@@ -741,6 +752,10 @@ var EFORM_I18N = {
             }
         }
 
+        // The widget handlers below read the widget's input as vthis.firstElementChild, not
+        // childNodes[0]: a form re-opened from its saved source has a whitespace text node first
+        // (the generator puts a newline between every tag), and reading .id or .className off that
+        // threw on every double-click once the library opened saved forms here (#3166).
         function mydclick2(vthis) {
             Rad = []
             if ($('#ui-id-11').css('color') == "rgb(255, 255, 255)") { // on finalization tab
@@ -764,7 +779,7 @@ var EFORM_I18N = {
                 document.getElementById('control_menu_1-placement-tabs-1').append(input3);
             }
 
-            var y = (vthis.childNodes[0])
+            var y = (vthis.firstElementChild)
 
             if (y.className.indexOf("only-one-radio") > -1) { // 2020-May-25
                 RadMain[RadMain.length] = y
@@ -889,7 +904,7 @@ var EFORM_I18N = {
                 document.getElementById('inputC').style.backgroundColor = "lightgreen";
 
                 //*************combination radio box and linkbox*********  2020-May-25
-                var z = (vthis.childNodes[0])
+                var z = (vthis.firstElementChild)
                 //alert(Rad)
                 if (z.getAttribute('onclick') == 'myupdate(this);LinkXBoxfunction(this)' && Rad.length == 0) {
                     //alert("combination box")
@@ -904,7 +919,7 @@ var EFORM_I18N = {
                     return
                 }
                 //********************
-                y = vthis.childNodes[0].id
+                y = vthis.firstElementChild.id
                 vthis.title = y
                 x = document.getElementById(y)
                 if (!Rad.includes(x.id)) { //setup array of dblclicked elements no duplicates
@@ -976,6 +991,27 @@ var EFORM_I18N = {
         .flexH {
             display: flex;
             flex-direction: row;
+        }
+
+        .gen-editingBanner {
+            margin: 0 0 8px 0;
+            padding: 6px 10px;
+            background: #ffffff;
+            border-left: 4px solid #8198c3;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px 16px;
+            align-items: baseline;
+        }
+
+        .gen-editingBanner[hidden], .gen-editingBanner [hidden] {
+            display: none;
+        }
+
+        .gen-editingBanner p {
+            flex-basis: 100%;
+            margin: 0;
+            color: #8a4b00;
         }
 
         #control {
@@ -1513,6 +1549,7 @@ var EFORM_I18N = {
         var OSCAR_PROVIDER_SIGNATURE_IMG_SRC = "../provider/providerSignatureImage";
         var OSCAR_EFORM_ENTITY_URL = "../ws/rs/eform/";
         var OSCAR_EFORM_SEARCH_URL = "../ws/rs/eforms/";
+        var OSCAR_EFORM_HTML_EDITOR_URL = "../eform/efmformmanageredit?fid=";
 
         /** GLOBAL SCOPE VARIABLES */
         var groupTitle
@@ -1543,6 +1580,23 @@ var EFORM_I18N = {
 
         // stores the current eform id. 0 if new eform.
         var eFormFid = 0;
+
+        // The stored template this page was opened for, loaded once init() has built the editor.
+        // 0 when the editor was opened to create a new eForm.
+        var INITIAL_EFORM_FID = <%= visualEditorInitialFid %>;
+
+        // The marker every template saved here carries, so the eForm Library can route its Edit
+        // action to this editor only for forms it wrote and nobody has changed since (#3166). Must
+        // match EFormEditorResolver.VISUAL_EDITOR_MARKER_NAME / VISUAL_EDITOR_MARKER_CONTENT.
+        var VISUAL_EDITOR_MARKER_NAME = "carlos-eform-editor";
+        var VISUAL_EDITOR_MARKER_CONTENT = "visual";
+
+        // Sequence number of the latest stored-form load, so a slower, older response cannot
+        // replace the canvas (or the attached id) of a load the user started after it.
+        var eformLoadSeq = 0;
+        // True while a stored form is being fetched: saving then would POST a new copy, because
+        // the editor is not attached to the stored form until the load completes.
+        var eformLoadPending = false;
 
         // store the list of images on the oscar server so only one load is needed.
         var eFormImageList = [];
@@ -2008,6 +2062,8 @@ var EFORM_I18N = {
             source += "</div></body></html>";
             source = addOscarImagePath(source);
             source = source.replace(/>\s*</g, ">\n<");
+            // Last, over the finished markup: the marker's fingerprint covers every other byte.
+            source = stampVisualEditorMarker(source);
             //now we need to escape the html special chars
             if (escapeHtml) {
                 var htmlChars = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
@@ -2070,6 +2126,11 @@ var EFORM_I18N = {
 
         /** Save the eform html as a new eform */
         function saveToOscarEforms(include_fax) {
+            if (eformLoadPending) {
+                // Not attached to the stored form yet: saving now would create a copy of it.
+                custom_alert(EFORM_I18N.alertLoadPending);
+                return;
+            }
             var eformCode = generate_eform_source_html(false, include_fax);
             var url = OSCAR_EFORM_ENTITY_URL + ((eFormFid > 0) ? eFormFid + "/" : "") + "json";
             var type = (eFormFid > 0) ? "PUT" : "POST";
@@ -2091,6 +2152,8 @@ var EFORM_I18N = {
                     if (status === "SUCCESS") {
                         custom_alert(EFORM_I18N.alertSaveSuccessful);
                         setEformId(data.body.id);
+                        // Saved here, so it now carries the marker: no longer a converted form.
+                        showEditingBanner(data.body.id, false);
                     } else {
                         custom_alert(data.error.message);
                     }
@@ -2624,33 +2687,19 @@ var EFORM_I18N = {
     			return fragment;
     		}
 
+        /**
+         * Replaces the canvas with the given eForm template.
+         *
+         * Returns true once the template is on the canvas, false when it cannot be converted. A
+         * refusal happens before anything on the page changes (name, fax number, tickler option,
+         * canvas), so the editor keeps showing, and saving to, whatever it held before; callers must
+         * attach the editor to the stored form's id only on true, or "Update Eform" would overwrite
+         * that form with the unrelated canvas (#3166).
+         */
         function loadEformData(data) {
-          // clear fax number and tickler settings from the previous eform
-          defaultFaxNo = "";
-          $("#defaultFaxNo").val("");
-          $("#setTickler").prop("checked", false);
-          $("#tickle_dialog").remove();
-          // remove oscar image paths in incoming data
-          data = removeOscarImagePath(data);
-    			// use regex to sanitize foreign imported oscarDb tags
-    			data = cleanOscarTags(data);
-    
-    			// import the default fax number if present
-    			const regex = /name="fax_no"\svalue="([\d-]*)"/
-    			if (regex.test(data)) {
-    				var matches = data.match(regex);
-    				defaultFaxNo = matches[1];
-    				$("#defaultFaxNo").val(defaultFaxNo);
-    			}
-    			const regex2 = /tickler_send_to/
-    			if (regex2.test(data)) {
-    				//$("#setTickler").prop('checked', true);
-    				$("#setTickler").click();
-    			}
-
-            // import the eform name
-            eformName = $($.parseHTML(data)).filter('title').text();
-            $("#eformNameInput").val(eformName);
+            // Inspect the incoming template before replacing the current canvas or its settings.
+            data = cleanOscarTags(removeOscarImagePath(data));
+            var importedName = $($.parseHTML(data)).filter('title').text();
 
             // convert checkboxes to Xbox
             const re = /class=""\stype="checkbox"/g
@@ -2666,16 +2715,43 @@ var EFORM_I18N = {
             var $div = $(data);
             var $importedInputForm = $div.find("#inputForm");
             var ferengi = ($importedInputForm.length === 0);
+            if (!ferengi && $importedInputForm.find(".page_container").length === 0) {
+                // An #inputForm without this editor's pages is not one of its forms; taking its
+                // contents as the canvas would let "Update Eform" overwrite it with whatever they hold.
+                custom_alert("We are currently unable to convert eform "+importedName+" as it lacks a recognisable page structure.");
+                return false;
+            }
             if (ferengi) {
                 if ( typeof($div.find("[id^='BGImage']").html() ) == "undefined" ){
-                    custom_alert("We are currently unable to convert eform "+eformName+" as it lacks any recognisable background images.");
-                    return;
+                    custom_alert("We are currently unable to convert eform "+importedName+" as it lacks any recognisable background images.");
+                    return false;
                 }
                 if ( typeof($div.find("#page1").html() ) == "undefined"){
-                    custom_alert("We are currently unable to convert eform "+eformName+" as it lacks a recognisable page structure.");
-                    return;
+                    custom_alert("We are currently unable to convert eform "+importedName+" as it lacks a recognisable page structure.");
+                    return false;
                 }
             }
+
+            defaultFaxNo = "";
+            $("#defaultFaxNo").val("");
+            $("#setTickler").prop("checked", false);
+            $("#tickle_dialog").remove();
+
+			// import the default fax number if present
+			const regex = /name="fax_no"\svalue="([\d-]*)"/
+			if (regex.test(data)) {
+				var matches = data.match(regex);
+				defaultFaxNo = matches[1];
+				$("#defaultFaxNo").val(defaultFaxNo);
+			}
+			const regex2 = /tickler_send_to/
+			if (regex2.test(data) && !$("#setTickler").is(':checked')) {
+				$("#setTickler").click();
+			}
+
+            // import the eform name
+            eformName = importedName;
+            $("#eformNameInput").val(eformName);
 
             var $inputForm = $("#inputForm");
             if (ferengi) {
@@ -2878,6 +2954,126 @@ var EFORM_I18N = {
             return true;
         }
 
+        /**
+         * 32-bit FNV-1a over the UTF-16 code units of the text, as eight lower-case hex digits.
+         * Must match EFormEditorResolver.fingerprint(...) in Java. It detects change, not tampering.
+         */
+        function eformFingerprint(text) {
+            var hash = 0x811c9dc5;
+            for (var i = 0; i < text.length; i++) {
+                hash ^= text.charCodeAt(i);
+                hash = Math.imul(hash, 0x01000193) >>> 0;
+            }
+            return ("0000000" + (hash >>> 0).toString(16)).slice(-8);
+        }
+
+        function visualEditorMarkerTag(fingerprint) {
+            return "<meta name='" + VISUAL_EDITOR_MARKER_NAME + "' content='" + VISUAL_EDITOR_MARKER_CONTENT
+                + "' data-fingerprint='" + fingerprint + "'>";
+        }
+
+        /**
+         * Stamps the marker into generated source, just before its <title>. The fingerprint is taken
+         * over the source as it is now, so removing the marker again yields exactly what was hashed.
+         */
+        function stampVisualEditorMarker(source) {
+            var tag = visualEditorMarkerTag(eformFingerprint(source));
+            var at = source.indexOf("<title>");
+            return (at < 0) ? tag + source : source.slice(0, at) + tag + source.slice(at);
+        }
+
+        /**
+         * Whether a stored template was saved by this editor and has not been changed anywhere else
+         * since: its marker is present and the fingerprint still matches the rest of the markup.
+         * Mirrors EFormEditorResolver.resolve(...) == VISUAL, which decides where the eForm Library's
+         * Edit action goes; keep the two in step.
+         */
+        function isVisualEditorAuthored(html) {
+            if (!html) {
+                return false;
+            }
+            var match = /<meta name='([a-z-]+)' content='([a-z]+)' data-fingerprint='([0-9a-f]{8})'>/.exec(html);
+            if (!match || match[1] !== VISUAL_EDITOR_MARKER_NAME || match[2] !== VISUAL_EDITOR_MARKER_CONTENT) {
+                return false;
+            }
+            var unmarked = html.slice(0, match.index) + html.slice(match.index + match[0].length);
+            return eformFingerprint(unmarked) === match[3];
+        }
+
+        /**
+         * Loads a stored template onto the canvas and, only if it converted, attaches the editor to
+         * it so "Update Eform" saves back to the same form (PUT .../{fid}/json) instead of creating a
+         * copy. A form this editor did not write is converted: its own scripts are replaced on save,
+         * so the reader is told so, and pointed at the HTML source editor that keeps them.
+         */
+        function loadEformById(id) {
+            var seq = ++eformLoadSeq;
+            eformLoadPending = true;
+            $.ajax({
+                type: "GET",
+                url: OSCAR_EFORM_ENTITY_URL + encodeURIComponent(id),
+                dataType: 'json',
+                async: true,
+                complete: function() {
+                    if (seq === eformLoadSeq) {
+                        eformLoadPending = false;
+                    }
+                },
+                success: function(data) {
+                    if (seq !== eformLoadSeq) {
+                        return; // superseded by a later load
+                    }
+                    if (data.status !== "SUCCESS") {
+                        custom_alert(data.error ? data.error.message : EFORM_I18N.alertLoadFailure);
+                        return;
+                    }
+                    var formHtml = data.body.formHtml;
+                    var authored = isVisualEditorAuthored(formHtml);
+                    var loaded = false;
+                    try {
+                        loaded = (loadEformData(formHtml) === true);
+                    } catch (err) {
+                        // The conversion failed part-way, so the canvas may already be partly
+                        // replaced. Detach rather than leave it attached to the previous form,
+                        // which "Update Eform" would then overwrite with the partial canvas.
+                        console.error("Failed to convert eForm:", err);
+                        setEformId(0);
+                        showEditingBanner(0, false);
+                        custom_alert(EFORM_I18N.alertLoadFailure);
+                    }
+                    if (!loaded) {
+                        return;
+                    }
+                    setEformId(data.body.id);
+                    showEditingBanner(data.body.id, !authored);
+                    if (!authored) {
+                        custom_alert(EFORM_I18N.alertConvertedForm);
+                    }
+                    console.info("EForm Loaded from Server");
+                },
+                error: function(jqXHR, textStatus, errorThrown) {
+                    if (seq !== eformLoadSeq) {
+                        return;
+                    }
+                    console.error("Failed to load eForm:", textStatus, errorThrown);
+                    custom_alert(EFORM_I18N.alertLoadFailure);
+                }
+            });
+        }
+
+        /** Shows which stored form the canvas belongs to, with the way out to its HTML source. */
+        function showEditingBanner(id, converted) {
+            var asInt = parseInt(id, 10);
+            if (!(Number.isInteger(asInt) && asInt > 0)) {
+                $("#gen-editingBanner").prop("hidden", true);
+                return;
+            }
+            $("#gen-editingFid").text(asInt);
+            $("#gen-editHtmlSourceLink").attr("href", OSCAR_EFORM_HTML_EDITOR_URL + asInt);
+            $("#gen-convertedNotice").prop("hidden", !converted);
+            $("#gen-editingBanner").prop("hidden", false);
+        }
+
         function init_form_load($element) {
 
             if (!runStandaloneVersion) {
@@ -2908,28 +3104,7 @@ var EFORM_I18N = {
                                 text: EFORM_I18N.buttonLoadEForm
                             }).button().click(function(event) {
                                 if (selectedId > 0) {
-                                    // load the selected eform from the html by id
-                                    $.ajax({
-                                        type: "GET",
-                                        url: OSCAR_EFORM_ENTITY_URL + selectedId,
-                                        dataType: 'json',
-                                        async: true,
-                                        success: function(data) {
-                                            var status = data.status;
-                                            if (status === "SUCCESS") {
-                                                // setup the generator with the existing eform data
-                                                loadEformData(data.body.formHtml);
-                                                setEformId(data.body.id);
-                                                console.info("EForm Loaded from Server");
-                                            } else {
-                                                custom_alert(data.error.message);
-                                            }
-                                        },
-                                        error: function(jqXHR, textStatus, errorThrown) {
-                                            console.error("Failed to load eForm:", textStatus, errorThrown);
-                                            custom_alert(EFORM_I18N.alertSaveFailure);
-                                        }
-                                    });
+                                    loadEformById(selectedId);
                                 }
                                 event.preventDefault();
                             }).appendTo($root);
@@ -4734,6 +4909,11 @@ var EFORM_I18N = {
                 currentMousePos.x = event.pageX;
                 currentMousePos.y = event.pageY;
             });
+
+            // Opened from the eForm Library's Edit action: pre-load that form (#3166).
+            if (INITIAL_EFORM_FID > 0) {
+                loadEformById(INITIAL_EFORM_FID);
+            }
         }
     </script>
 
@@ -5418,6 +5598,12 @@ var EFORM_I18N = {
             </div>
         </div>
         <div id="control">
+            <%-- Which stored form the canvas is attached to, once one is loaded or saved (#3166). --%>
+            <div id="gen-editingBanner" class="gen-editingBanner DoNotPrint" role="status" hidden>
+                <span><fmt:message key="eform.visual.editor.banner.editing"/> #<span id="gen-editingFid"></span></span>
+                <a id="gen-editHtmlSourceLink" href="#"><fmt:message key="eform.uploadhtml.editHtmlSource"/></a>
+                <p id="gen-convertedNotice" hidden><fmt:message key="eform.visual.editor.banner.converted"/></p>
+            </div>
             <div id="control_menu_1">
                 <h3><fmt:message key="eform.visual.editor.heading.loadExistingEForm"/></h3>
                 <div id="control_menu_1-load" class="flexV">

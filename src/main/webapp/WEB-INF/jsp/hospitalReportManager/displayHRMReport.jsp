@@ -16,6 +16,7 @@
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@page import="org.apache.commons.lang3.StringUtils,io.github.carlos_emr.carlos.log.*" %>
 <%@page import="java.text.SimpleDateFormat" %>
+<%@page import="io.github.carlos_emr.carlos.hospitalReportManager.HRMReportPatientLink" %>
 <%@page import="java.util.Objects" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -103,7 +104,8 @@
             hrmDuplicateNum = document.getNumDuplicatesReceived();
 
             demographicLinkList = hrmDocumentToDemographicDao.findByHrmDocumentId(document.getId());
-            demographicLink = (demographicLinkList.size() > 0 ? demographicLinkList.get(0) : null);
+            // The patient buttons act for the patient whose chart opened the report, when it is linked to them (#5060).
+            demographicLink = HRMReportPatientLink.choose(demographicLinkList, request.getParameter("demographicNo"));
 
             providerLinkList = hrmDocumentToProviderDao.findByHrmDocumentIdNoSystemUser(document.getId());
 
@@ -439,10 +441,12 @@
                onclick="popupPatient(700,960,'<%= request.getContextPath() %>/messenger/SendDemoMessage?demographic_no=','msg', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>/>
         <input type="button" id="mainTickler_<%=hrmReportId%>" value="Tickler"
                onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/tickler/ForwardDemographicTickler?docType=HRM&docId=<%=hrmReportId%>&demographic_no=', 'Tickler','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+        <%-- The handler's URL must stay on one line: a line break inside a JavaScript string stops the
+             whole handler compiling, and the button then does nothing (#3711). --%>
+        <fmt:message key="oscarMDS.segmentDisplay.labResults" var="hrmEchartReason"/>
         <input type="button" id="mainEchart_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnEChart"/> "
-               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter?updateParent=false&reason=
-               <fmt:message key="oscarMDS.segmentDisplay.labResults"/>&curDate=<%=currentDate%>>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
+               onClick="popupPatient(710, 1024,'<%= request.getContextPath() %>/encounter/IncomingEncounter?updateParent=false&reason=${carlos:forUriComponent(hrmEchartReason)}&curDate=<%=currentDate%>&appointmentNo=&appointmentDate=&startTime=&status=&demographicNo=', 'encounter', '<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>
         <input type="button" id="mainMaster_<%=hrmReportId%>"
                value=" <fmt:message key="oscarMDS.segmentDisplay.btnMaster"/>"
                onClick="popupPatient(710,1024,'<%= request.getContextPath() %>/demographic/DemographicEdit?demographic_no=','master','<%=hrmReportId%>','<%=demographicNo %>')" <%=btnDisabled %>>

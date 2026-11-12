@@ -80,6 +80,9 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
         bean.setSubject(subject);
         bean.setMessage("**Owned** body &amp; 😀");
         request.getSession().setAttribute("msgSessionBean", bean);
+        String attachmentKey = MsgAttachmentStaging.newKey();
+        MsgAttachmentStaging.stagePdfs(request.getSession(), attachmentKey, 1001, "owned PDF attachment");
+        MsgAttachmentStaging.stageItems(request.getSession(), attachmentKey, "owned chart attachment");
         String[] recipients = {"999998-0"};
         try (var servlet = mockStatic(ServletActionContext.class);
              var loggedIn = mockStatic(LoggedInInfo.class);
@@ -95,6 +98,7 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
             servlet.when(ServletActionContext::getResponse).thenReturn(response);
             loggedIn.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(login);
             MsgCreateMessage2Action action = new MsgCreateMessage2Action();
+            action.setAttachmentKey(attachmentKey);
             action.setSubject(subject);
             action.setMessage(bean.getMessage());
             action.setProvider(recipients);
@@ -107,11 +111,10 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
                         eq("Owned sender"), eq("Owned recipient"), eq("999998"), any(),
                         eq("owned chart attachment"), eq("owned PDF attachment"), any());
                 verify(demographics).attachDemographicToMessage(login, 123, 1001);
-                assertThat(bean.getAttachment()).isNull();
-                assertThat(bean.getPDFAttachment()).isNull();
-                assertThat(bean.getMessage()).isNull();
-                assertThat(bean.getSubject()).isNull();
-                assertThat(bean.getTotalAttachmentCount()).isZero();
+                assertThat(MsgAttachmentStaging.peek(request.getSession(), attachmentKey)).isNull();
+                // A send must not mutate the obsolete shared bean's other window state.
+                assertThat(bean.getAttachment()).isEqualTo("owned chart attachment");
+                assertThat(bean.getPDFAttachment()).isEqualTo("owned PDF attachment");
             } else {
                 assertThat(result).isEqualTo(readOnly ? "none" : "error");
                 if (!readOnly) {
@@ -125,6 +128,8 @@ class MsgCreateMessageTextUnitTest extends CarlosUnitTestBase {
                 assertThat(bean.getMessage()).isEqualTo("**Owned** body &amp; 😀");
                 assertThat(bean.getSubject()).isEqualTo(subject);
                 assertThat(bean.getTotalAttachmentCount()).isEqualTo(2);
+                assertThat(MsgAttachmentStaging.peek(request.getSession(), attachmentKey).itemAttachment())
+                        .isEqualTo("owned chart attachment");
                 verifyNoInteractions(demographics);
                 if (readOnly) {
                     assertThat(response.getStatus()).isEqualTo(405);

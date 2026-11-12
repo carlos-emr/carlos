@@ -115,8 +115,15 @@ class ProviderLookupContractUnitTest extends CarlosUnitTestBase {
     @DisplayName("should read active providers when get_providers maps to the REST provider route")
     void shouldReadProviders_whenUsingRestProviderService() {
         io.github.carlos_emr.carlos.webserv.rest.ProviderService restService =
-                new io.github.carlos_emr.carlos.webserv.rest.ProviderService();
+                new io.github.carlos_emr.carlos.webserv.rest.ProviderService() {
+                    @Override
+                    protected LoggedInInfo getLoggedInInfo() {
+                        return loggedInInfo;
+                    }
+                };
         injectDependency(restService, "providerDao", providerDao);
+        injectDependency(restService, "securityInfoManager", org.mockito.Mockito.mock(
+                io.github.carlos_emr.carlos.managers.SecurityInfoManager.class));
         when(providerDao.getActiveProviders()).thenReturn(Collections.emptyList());
 
         OscarSearchResponse<ProviderTransfer> response = restService.getProviders();

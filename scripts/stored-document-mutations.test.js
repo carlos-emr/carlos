@@ -161,7 +161,7 @@ test('split fixture expects the active forwarding closure without losing source 
   assert.deepEqual(expectedSplitRecipients(sql, '42', '999998'),
     ['999995', '999996', '999997', '999998']);
 });
-function ownedFixture({references = [], discriminator = true} = {}) {
+function ownedFixture({references = [], discriminator = true, nextDocumentId = '42', referenceMaximum = '0'} = {}) {
   const store = fs.mkdtempSync(path.join(os.tmpdir(), 'stored-document-cleanup-test-'));
   const saved = {DOCUMENT_DIR: process.env.DOCUMENT_DIR, RX_FAX_DOCUMENT_DIR: process.env.RX_FAX_DOCUMENT_DIR,
     DOCUMENT_CACHE_DIR: process.env.DOCUMENT_CACHE_DIR};
@@ -171,7 +171,7 @@ function ownedFixture({references = [], discriminator = true} = {}) {
   const data = {document: [['42', hash]], ctl_document: [['123', 'demographic', '42', hash]],
     patientLabRouting: [['11', hash]], providerLabRouting: [['12', hash]], queue_document_link: [['13', hash]]};
   let foreign = false, rollback = false;
-  const residue = []; // the statements lib/document-residue.js executes after each document's atomic cleanup
+  const residue = [], inserts = []; // the statements lib/document-residue.js executes after each document's atomic cleanup
   const sql = {
     rows(query) {
       if (query.startsWith('SELECT note_id FROM casemgmt_note_link')) return [];
@@ -189,9 +189,18 @@ function ownedFixture({references = [], discriminator = true} = {}) {
       throw new Error('Unexpected rows query');
     },
     value(query) {
+      if (query.startsWith('SELECT AUTO_INCREMENT')) return nextDocumentId;
+      if (query.startsWith('SELECT COALESCE(MAX(')) return referenceMaximum;
+      if (query.includes('NOT REGEXP')) return '0';
       if (query.includes('MAX(id)')) return '0'; // the residue mark's floors
       if (query.includes('DATE_FORMAT(NOW()')) return '2026-10-09 10:00:00';
-      if (query.startsWith('INSERT INTO document')) {assert.equal(callbacks.length, 1); return '42';}
+      if (query.startsWith('INSERT INTO document')) {
+        assert.equal(callbacks.length, 1); inserts.push(query);
+        const explicit = /INSERT INTO document \(document_no,[\s\S]*?VALUES \((\d+),/.exec(query)?.[1];
+        const number = explicit || nextDocumentId;
+        data.document[0][0] = number; data.ctl_document[0][2] = number;
+        return number;
+      }
       if (query.includes('START TRANSACTION')) {
         transactions.push(query);
         if (rollback) return '0';
@@ -220,12 +229,23 @@ function ownedFixture({references = [], discriminator = true} = {}) {
   const session = {sql, marker: 'FAKE-PW1234567890abcdef', patient: '123', provider: '999998',
     cleanup(callback) {callbacks.push(callback);}};
   const fixture = createStoredDocumentFixture(session, '10');
-  return {fixture, session, data, transactions, residue, cleanup: callbacks[0], setForeign() {foreign = true;}, rollback() {rollback = true;},
+  return {fixture, session, data, transactions, residue, inserts, cleanup: callbacks[0], setForeign() {foreign = true;}, rollback() {rollback = true;},
     dispose() {
       for (const [key, value] of Object.entries(saved)) {if (value === undefined) delete process.env[key]; else process.env[key] = value;}
       fs.rmSync(store, {recursive: true, force: true}); fs.rmSync(path.dirname(fixture.journal), {recursive: true, force: true});
     }};
 }
+
+test('stored fixture avoids dangling seeded document references instead of claiming their numeric identity', async () => {
+  const env = ownedFixture({nextDocumentId: '22', referenceMaximum: '4955'});
+  try {
+    assert.equal(env.fixture.sourceId, '4956', 'next auto ID22 already belongs to preexisting foreign attachment references');
+    assert.match(env.inserts[0], /INSERT INTO document \(document_no,/);
+    assert.match(env.inserts[0], /VALUES \(4956,/);
+    env.fixture.closeAfterDrain(); await env.cleanup();
+    assert.equal(env.fixture.isCleaned(), true);
+  } finally {env.dispose();}
+});
 
 test('successful cleanup retains its evidence journal and uses one guarded rollback-capable transaction', async () => {
   const env = ownedFixture();

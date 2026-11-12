@@ -109,7 +109,8 @@ public class WCB {
     private //   | varchar(25)      ||
     String w_rphysician;
     private //   | char(1)          ||
-    int w_duration;
+    // Nullable column (tinyint): an Integer, so a NULL row loads instead of failing the whole query (#4864).
+    Integer w_duration;
     private //  | int(1)           || 
     String w_problem;
     @Temporal(value = jakarta.persistence.TemporalType.TIMESTAMP)
@@ -167,7 +168,8 @@ public class WCB {
     private // | varchar(5)       ||
     String w_servicelocation;
     private //| char(1)          ||
-    int formNeeded;
+    // Nullable column (int(1)): an Integer, so a NULL row loads instead of failing the whole query (#4864).
+    Integer formNeeded;
 
     public int getId() {
         return id;
@@ -377,8 +379,9 @@ public class WCB {
         this.w_rphysician = w_rphysician;
     }
 
+    /** @return the duration code, or 0 when the column is NULL (not chosen) */
     public int getW_duration() {
-        return w_duration;
+        return w_duration == null ? 0 : w_duration;
     }
 
     public void setW_duration(int w_duration) {
@@ -593,8 +596,9 @@ public class WCB {
         this.w_servicelocation = w_servicelocation;
     }
 
+    /** @return 1 when a WCB form is needed, 0 otherwise (including a NULL column) */
     public int getFormNeeded() {
-        return formNeeded;
+        return formNeeded == null ? 0 : formNeeded;
     }
 
     public void setFormNeeded(int formNeeded) {

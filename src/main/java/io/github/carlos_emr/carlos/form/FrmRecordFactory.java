@@ -55,6 +55,7 @@ public class FrmRecordFactory {
         Set<String> allowed = new HashSet<>();
         allowed.add("2MinWalk");
         allowed.add("AdfV2");
+        allowed.add("Alpha");
         allowed.add("Annual");
         allowed.add("AnnualV2");
         allowed.add("BCAR");

@@ -146,9 +146,9 @@
                 <td><a href="#"
                        ONCLICK="openEform('<%= request.getContextPath() %>/eform/efmshowform_data?fdid=<%=curform.get("fdid")%>', '<%="FormP" + i%>'); return false;"
                        TITLE="<fmt:message key="eform.showmyform.msgViewFrm"/>"
-                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%=curform.get("formName")%>
+                       onmouseover="window.status='<fmt:message key="eform.showmyform.msgViewFrm"/>'; return true"><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formName")) %>
                 </a></td>
-                <td><%=curform.get("formSubject")%>
+                <td><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent((String) curform.get("formSubject")) %>
                 </td>
                 <td align='center'><%=providerDao.getProviderNameLastFirst((String) curform.get("providerNo"))%>
                 </td>

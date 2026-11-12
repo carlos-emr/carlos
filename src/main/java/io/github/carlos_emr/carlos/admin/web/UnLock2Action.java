@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.login.LoginCheckLogin;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -46,7 +47,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * {@code _admin.unlockAccount r} privilege. On POST with a {@code submit} parameter,
  * unlocks the specified username via {@link LoginCheckLogin} and adds an audit log entry.
  * When site-access privacy is enabled, both listing and unlocking are restricted
- * to accounts sharing a site with the administrator. Loads the permitted lock
+ * to accounts sharing a site with the administrator, but only in username lock mode
+ * ({@code login_lock=true}). In the default IP-based mode the lock list is keyed by client
+ * address, which no site owns, so filtering by username would hide every entry and refuse
+ * every unlock; there the full list is shown. Loads the permitted lock
  * list into the {@code lockList} request attribute.</p>
  *
  * @since 2026-04-05
@@ -70,7 +74,10 @@ public class UnLock2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin, _admin.userAdmin, or _admin.unlockAccount)");
         }
 
-        boolean isSiteAccessPrivacy = securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
+        // Site scoping is meaningful only when lock keys are usernames (login_lock=true); with it
+        // unset the keys are client addresses, which have no site (see LoginCheckLogin.isBlock).
+        boolean isSiteAccessPrivacy = "true".equals(CarlosProperties.getInstance().getProperty("login_lock", "").trim())
+                && securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null);
         Set<String> permittedUsers = new HashSet<>();
         if (isSiteAccessPrivacy) {
             for (Security account : securityDao.findByProviderSite(loggedInInfo.getLoggedInProviderNo())) {

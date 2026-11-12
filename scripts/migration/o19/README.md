@@ -7,7 +7,9 @@ The importer itself is part of the `carlos-ctl` package, its own repository
 since the split ([carlos-emr/carlos-ctl](https://github.com/carlos-emr/carlos-ctl),
 `carlos_ctl/o19*.py`); this directory holds what stays beside the schema —
 the manifest generator, its curation overlays, the shipped manifests' tests
-(`tests/`) and rehearsal fixtures. The generated manifests themselves are
+(`tests/`) and rehearsal fixtures. For a verified extracted source archive, supply `--oscar-commit` with its
+full pinned SHA instead of relying on git metadata; keep the archive provenance.
+The generated manifests themselves are
 `debian/assets/o19-manifest/*.json`, installed by `carlos-emr` under
 `/usr/share/carlos-emr/o19-manifest/` and loaded by the CLI at run time.
 

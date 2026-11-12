@@ -49,6 +49,9 @@ public interface CaseManagementNoteLinkDAO {
 
     public List<CaseManagementNoteLink> getLinkByNote(Long noteId);
 
+    /** Reads current link rows and holds their locks until the caller's transaction completes. */
+    List<CaseManagementNoteLink> getLinkByNoteForUpdate(Long noteId);
+
     public CaseManagementNoteLink getLastLinkByTableId(Integer tableName, Long tableId, String otherId);
 
     public CaseManagementNoteLink getLastLinkByTableId(Integer tableName, Long tableId);

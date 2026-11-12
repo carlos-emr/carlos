@@ -170,7 +170,9 @@ public class SaveEFormAsEDoc2Action extends ActionSupport {
             return "close";
         } catch (EformContentUnavailableException e) {
             return EFormSavedRenderResponse.missing(request, renderApprovalService, loggedInInfo,
-                    e, fdidValue, storedDemographicNo, EFormRenderApprovalService.Operation.EDOC,
+                    e, fdidValue, storedDemographicNo,
+                    eformData.getFormId() == null ? null : String.valueOf(eformData.getFormId()),
+                    EFormRenderApprovalService.Operation.EDOC,
                     approval, true);
         } catch (PDFGenerationException e) {
             if (e.isRetryable()) {

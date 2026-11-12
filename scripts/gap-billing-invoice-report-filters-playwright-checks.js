@@ -28,13 +28,39 @@ const fs = require('node:fs');
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture, openAdministration, openAdminFrame } = require('./billing-on-ohip-simulation-report-playwright-checks');
-const { billDate, money } = require('./billing-on-invoice-third-party-playwright-checks');
+const { billDate, money, captureNativeInvoiceContext } = require('./billing-on-invoice-third-party-playwright-checks');
+const { selectBillingReportContext } = require('./lib/billing-report-context');
 
 const q = h.sqlString;
 
 async function workflow(s) {
   const { sql, patient, marker, context } = s;
-  const owned = createBillingFixture(s);
+  const fixtureBrowser = context.browser();
+  h.assert(fixtureBrowser && typeof fixtureBrowser.isConnected === 'function', 'Owned invoice-report browser identity is required');
+  // The shared fixture registers its provider first, then claim cleanup. Keep
+  // that parent until every claim/RA child is confirmed removed, even though
+  // workflow-session continues other cleanup callbacks after one fails.
+  const cleanupProof = { registered: 0, children: 0, completed: 0, failed: false };
+  const fixtureSession = Object.create(s);
+  fixtureSession.cleanup = callback => {
+    const parent = cleanupProof.registered++ === 0;
+    if (!parent) cleanupProof.children++;
+    s.cleanup(async () => {
+      h.assert(fixtureBrowser.isConnected() === false,
+        'Owned invoice-report fixture retained: workflow browser close is unconfirmed');
+      if (parent) h.assert(!cleanupProof.failed && cleanupProof.completed === cleanupProof.children,
+        'Owned invoice-report provider retained: child cleanup is unconfirmed');
+      try {
+        await callback();
+        if (!parent) cleanupProof.completed++;
+      } catch (error) {
+        if (!parent) cleanupProof.failed = true;
+        throw error;
+      }
+    });
+  };
+  const owned = createBillingFixture(fixtureSession);
+  const billingContext = await captureNativeInvoiceContext(s, owned);
   const date = billDate();
   const feeOf = code => {
     const value = sql.value(`SELECT value FROM billingservice WHERE service_code=${q(code)} AND billingservice_date<=${q(date)}
@@ -48,9 +74,9 @@ async function workflow(s) {
   const location = sql.value('SELECT clinic_location_no FROM clinic_location ORDER BY id LIMIT 1');
   if (!/^\d{4}$/.test(location)) throw new h.SkipCheck('no 4-digit visit location is configured');
 
-  const one = owned.addClaim({ tag: 'ONE', date, status: 'B', items: [{ code: 'A007A', fee: feeA }] });
-  const two = owned.addClaim({ tag: 'TWO', date, status: 'B', items: [{ code: 'A001A', fee: feeB }] });
-  const three = owned.addClaim({ tag: 'THREE', date, status: 'B', items: [{ code: 'K030A', fee: feeK }] });
+  const one = owned.addClaim({ tag: 'ONE', date, status: 'B', items: [{ code: 'A007A', fee: feeA }], billingContext });
+  const two = owned.addClaim({ tag: 'TWO', date, status: 'B', items: [{ code: 'A001A', fee: feeB }], billingContext });
+  const three = owned.addClaim({ tag: 'THREE', date, status: 'B', items: [{ code: 'K030A', fee: feeK }], billingContext });
   // Differentiate the owned claims: dx, visit type, visit location, pay program.
   sql.execute(`UPDATE billing_on_item SET dx='401' WHERE ch1_id=${two.id};
     UPDATE billing_on_item SET dx='493' WHERE ch1_id=${three.id};
@@ -63,7 +89,7 @@ async function workflow(s) {
   // Scope both the delete and its verification to this fixture's RA header: a generated claim number could
   // collide with an unowned remittance row, which must never be removed.
   const ownedRa = `SELECT raheader_no FROM raheader WHERE payable=${q(marker)}`;
-  s.cleanup(() => {
+  fixtureSession.cleanup(() => {
     sql.execute(`DELETE FROM radetail WHERE raheader_no IN (${ownedRa});
       DELETE FROM raheader WHERE payable=${q(marker)}`);
     h.assert(sql.value(`SELECT (SELECT COUNT(*) FROM radetail WHERE raheader_no IN (${ownedRa}))
@@ -86,16 +112,13 @@ async function workflow(s) {
 
   /** Fill the filters and press Create Report; returns the invoice numbers of the owned rows listed. */
   async function report({ billTypes = null, dx = '', serviceCode = null, raCode = '', claimNo = '', visitType = '-', visit = null } = {}) {
+    await selectBillingReportContext(frame, billingContext);
     await frame.locator(`${form} input[name="demographicNo"]`).fill(String(patient));
     for (const [selector, value] of [['#xml_vdate', date], ['#xml_appointment_date', date]]) {
       await frame.locator(selector).fill(value);
       await frame.locator('body').click({ position: { x: 4, y: 4 } });
     }
     await frame.locator('#statusTypeSubmittedOHIP').check();
-    const providers = frame.locator('select[name="providerview"]').last();
-    const offered = await providers.locator('option').evaluateAll(options => options.map(option => option.value));
-    h.assert(offered.includes(owned.providerNo), 'Invoice Reports does not offer the owned billing provider');
-    await providers.selectOption(owned.providerNo);
     // ALL ticks or unticks every bill type: clear them all, then tick ALL again or only the wanted types.
     const all = frame.locator('#ALL');
     if (await all.isChecked()) await all.click();
@@ -225,5 +248,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('gap-billing-invoice-report-filters', workflow, { openPatient: true, openMaster: false });
+if (require.main === module) runWorkflow('gap-billing-invoice-report-filters', workflow, { openPatient: true });
 module.exports = { workflow };

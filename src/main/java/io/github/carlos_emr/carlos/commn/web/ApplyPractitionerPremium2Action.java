@@ -35,6 +35,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.commn.dao.BillingONPremiumDao;
 import io.github.carlos_emr.carlos.commn.model.BillingONPremium;
 import io.github.carlos_emr.carlos.commn.model.Provider;
@@ -61,16 +62,24 @@ public class ApplyPractitionerPremium2Action extends ActionSupport {
     }
 
     public String applyPremium() {
+        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing)");
+        }
+
+        // Reject before reading or changing premiums; the chained report is too late.
         if (!"POST".equals(request.getMethod())) {
             response.setHeader("Allow", "POST");
             response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
             return NONE;
         }
-        String raHeaderNoStr = request.getParameter("rano");
-        Integer raHeaderNo = Integer.parseInt(raHeaderNoStr);
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_billing", "w", null)) {
-            throw new SecurityException("missing required sec object (_billing)");
+        // rano is the page's own hidden field; a missing or altered value is a bad request, not a 500.
+        Integer raHeaderNo;
+        try {
+            raHeaderNo = Integer.valueOf(StringUtils.trimToEmpty(request.getParameter("rano")));
+        } catch (NumberFormatException invalid) {
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         List<BillingONPremium> bPremiumList = bPremiumDao.getRAPremiumsByRaHeaderNo(raHeaderNo);

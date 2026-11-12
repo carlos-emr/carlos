@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.web;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -345,32 +346,32 @@ class JspEncodingRegressionTest {
         String echartHistoryPrintJsp = readJsp("encounter/echarthistoryprint.jsp");
 
         assertThat(encounterPrintJsp)
-                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo, \"\") %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientLastName"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientFirstName"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientSex"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientAge"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("providerBean.getProperty(bean.familyDoctorNo == null ? \"\" : bean.familyDoctorNo, \"\")"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.socialHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.familyHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.medicalHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.ongoingConcerns"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.reminders"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.encounter"), "html"))
                 .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
 
         assertThat(echartHistoryPrintJsp)
                 .contains("<%@ taglib uri=\"carlos\" prefix=\"carlos\" %>")
-                .contains("<carlos:encode value='<%= bean.patientLastName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientFirstName %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientSex %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.patientAge %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= providerBean.getProperty(bean.familyDoctorNo) %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.socialHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.familyHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.medicalHistory %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.ongoingConcerns %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.reminders %>' context=\"html\"/>")
-                .contains("<carlos:encode value='<%= bean.encounter %>' context=\"html\"/>")
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientLastName"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientFirstName"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientSex"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.patientAge"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("providerBean.getProperty(bean.familyDoctorNo == null ? \"\" : bean.familyDoctorNo, \"\")"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.socialHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.familyHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.medicalHistory"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.ongoingConcerns"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.reminders"), "html"))
+                .containsPattern(carlosEncodePattern(Pattern.quote("bean.encounter"), "html"))
                 .doesNotContainPattern("<pre[^>]*>\\s*<%=\\s*bean\\.(socialHistory|familyHistory|medicalHistory|ongoingConcerns|reminders|encounter)\\s*%>");
     }
 
@@ -442,8 +443,8 @@ class JspEncodingRegressionTest {
                 .contains("${carlos:forHtmlContent(param.sex)}")
                 .contains("${carlos:forHtmlContent(param.age)}")
                 .contains("${carlos:forHtmlContent(param.phone)}")
-                // The popup URL is a JavaScript string literal inside an onClick attribute.
-                .contains("'${carlos:forJavaScriptAttribute(url)}'")
+                // The URL is HTML-attribute encoded, then passed by this.href without interpolation.
+                .contains("href=\"${carlos:forHtmlAttribute(url)}\" onclick=\"popupPage(700,1000,this.href); return false;\"")
                 .doesNotContain("id=\"${ not empty param.tableId ? param.tableId : 'topLink' }\"")
                 .doesNotContain("demographic_no=${ param.demographicNo }")
                 .doesNotContain("<core:out value=\"${ param.title }\"/>")
@@ -681,8 +682,8 @@ class JspEncodingRegressionTest {
                 .containsPattern(carlosEncodePattern("spec\\[i\\]", "html"))
                 .containsPattern(carlosEncodePattern("freq\\[i\\]\\.getFreqCode\\(\\)", "htmlAttribute"))
                 .containsPattern(carlosEncodePattern("freq\\[i\\]\\.getFreqCode\\(\\)", "html"))
-                .containsPattern(carlosEncodePattern("allerg\\[allergIndex\\]\\.getDescription\\(\\)", "html"))
-                .containsPattern(carlosEncodePattern("allerg\\[allergIndex\\]\\.getReaction\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("allerg\\.getDescription\\(\\)", "html"))
+                .containsPattern(carlosEncodePattern("allerg\\.getReaction\\(\\)", "html"))
                 .containsPattern(carlosEncodePattern("regionalIdentifier", "uriComponent"))
                 // The negative lookbehind is what keeps these assertions from contradicting the
                 // positive ones above: the same scriptlet nested inside a
@@ -888,20 +889,15 @@ class JspEncodingRegressionTest {
     }
 
     private static String carlosEncodePattern(String scriptletExpressionPattern, String context) {
-        String scriptletValue = "value\\s*=\\s*'\\s*<%=\\s*"
-                + scriptletExpressionPattern
-                + "\\s*%>\\s*'";
+        String expression = "\\s*<%=\\s*" + scriptletExpressionPattern + "\\s*%>\\s*";
+        String scriptletValue = "value\\s*=\\s*(?:'" + expression + "'|\"" + expression + "\")";
         String contextAttribute = "context\\s*=\\s*(?:'" + context + "'|\"" + context + "\")";
-
-        return "(?:<carlos:encode\\s+(?:(?:"
-                + scriptletValue
-                + "\\s+"
-                + contextAttribute
-                + ")|(?:"
-                + contextAttribute
-                + "\\s+"
-                + scriptletValue
-                + "))\\s*/>)";
+        String explicit = "(?:<carlos:encode\\s+(?:(?:" + scriptletValue + "\\s+" + contextAttribute
+                + ")|(?:" + contextAttribute + "\\s+" + scriptletValue + "))\\s*/>)";
+        // CarlosEncodeTag defaults to HTML content encoding when context is absent.
+        return "html".equals(context)
+                ? "(?:" + explicit + "|<carlos:encode\\s+" + scriptletValue + "\\s*/>)"
+                : explicit;
     }
 
     private static Path resolveProjectPath(Path relativePath) {

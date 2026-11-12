@@ -195,7 +195,7 @@
                     }).then(function() {
                         <c:set var="__enc_1"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(regionalIdentifier) %>' context="uriComponent"/></c:set>
                         <c:set var="__enc_2"><carlos:encode value='<%= io.github.carlos_emr.carlos.util.StringUtils.noNull(cn) %>' context="uriComponent"/></c:set>
-                        window.location.href = "${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo;
+                        window.location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}" + "/rx/ViewStaticScript2?regionalIdentifier=" + '<carlos:encode value='${__enc_1}' context="javaScriptBlock"/>' + "&cn=" + '<carlos:encode value='${__enc_2}' context="javaScriptBlock"/>' + "&demographicNo=" + staticScriptDemographicNo);
                     }).catch(function() {
                         alert('${carlos:forJavaScript(staticScriptRequestError)}');
                     });
@@ -247,7 +247,7 @@
                     // The stage was accepted (2xx); a truncated body changes nothing.
                 }
                 // Open the prescribing pad so the staged card and safety warnings are visible.
-                location.href = "${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo;
+                location.href = RxPatientContext.withPatient("${carlos:forJavaScript(ctx)}" + "/rx/choosePatient?demographicNo=" + staticScriptDemographicNo);
             }
 
         </script>
@@ -349,7 +349,7 @@
                                         %><br/><fmt:message
                                             key="WriteScript.msgPickUpDate"/>&nbsp;<carlos:encode value='<%= drug.pickupDate %>' context="html"/>&nbsp;
                                         <%
-                                            if (!((drug.pickupTime).equals("")) && !((drug.pickupTime).equals("12:00 AM"))) {
+                                            if (!((drug.pickupTime).equals(""))) {
                                         %> &nbsp;<carlos:encode value='<%= drug.pickupTime %>' context="html"/>&nbsp;
                                         <% }
                                         } %>
@@ -425,7 +425,7 @@
             <td><br/>
                 <br/>
                 <input type="button" value="Back To Search Drug" class="ControlPushButton"
-                       onclick="javascript:window.location.href='<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>';"/></td>
+                       onclick="javascript:window.location.href=RxPatientContext.withPatient('<%= request.getContextPath() %>/rx/searchDrug?demographicNo=<carlos:encode value='<%= String.valueOf(currentDemographicNo) %>' context="javaScriptAttribute"/>');"/></td>
         </tr>
         <!----End new rows here-->
         <tr height="100%">

@@ -54,9 +54,8 @@ public interface FaxProviderClient {
      * Sends an outbound fax.
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
-     * @param faxJob FaxJob logical fax job with destination and metadata. Note: implementations may null-out
-     *        the document field after transmission to free memory. Callers must not rely on the document
-     *        field after calling sendFax
+     * @param faxJob FaxJob logical fax job with destination and metadata. The legacy base64 backup
+     *        field is cleared after transmission; new payloads stream from filePath
      * @param filePath Path resolved path to document payload on local filesystem
      * @return FaxJob new fax job containing provider response fields (jobId, status, statusString)
      * @throws FaxProviderException when send operation fails
@@ -79,7 +78,7 @@ public interface FaxProviderClient {
      *
      * @param faxConfig FaxConfig provider configuration containing credentials and endpoint
      * @param fax FaxJob fax metadata identifying which document to download
-     * @return FaxJob fax job with downloaded document content populated
+     * @return FaxJob fax job with a private temporary documentPath populated; the caller must move or delete it
      * @throws FaxProviderException when download operation fails
      * @since 2026-02-11
      */

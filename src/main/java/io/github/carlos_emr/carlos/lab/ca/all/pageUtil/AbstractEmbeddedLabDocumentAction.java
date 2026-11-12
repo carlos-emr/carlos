@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.lab.ca.all.parsers.PATHL7Handler;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
@@ -260,6 +261,7 @@ public abstract class AbstractEmbeddedLabDocumentAction extends ActionSupport {
             if (demographicNo == null || demographicNo <= 0) {
                 continue;
             }
+            LabPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNo);
             String demographic = String.valueOf(demographicNo);
             if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", demographic)) {
                 throw new SecurityException("missing required sec object (_lab)");

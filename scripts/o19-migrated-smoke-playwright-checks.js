@@ -20,7 +20,7 @@
  * recent appointment, prescription and lab. A clinic with no labs (or no
  * prescriptions) skips that check and says so, instead of failing.
  *
- * WHAT IT WRITES. This script drives the forced password reset the import sets
+ * WHAT IT WRITES IN DEFAULT COMPATIBILITY MODE. This script drives the forced password reset the import sets
  * on every migrated account, so it necessarily changes passwords. It snapshots
  * `password`, `forcePasswordReset` and `passwordUpdateDate` for the two
  * accounts it touches and restores them in a finally block, exactly as
@@ -41,12 +41,23 @@
  * or driven end to end, including building and starting Tomcat, by
  *   scripts/migration/o19/rehearsal/ui-smoke.sh
  *
+ * On a deployment that never ran an import (no break-glass credentials file at
+ * O19_ADMIN_CREDENTIALS) it prints SKIP with the reason and exits 2, so a suite
+ * run on a fresh package install reports a missing fixture, not a failure.
+ *
  * Optional environment:
  *   BASE_URL=http://127.0.0.1:8080/carlos
  *   CHROME_PATH=/path/to/chrome-or-chromium
  *   O19_STATE_DIR=/var/lib/carlos-emr/o19-import
  *   O19_ADMIN_CREDENTIALS=$O19_STATE_DIR/admin-credentials.txt
  *   O19_SMOKE_SCREENSHOT_DIR=  (unset: no screenshots)
+ *   O19_NATIVE_CLINICIAN_CREDENTIALS=/private/clinician.json
+ *     Optional current-owner0600JSON {user,password,pin} for the discovered
+ *     imported clinician. This mode proves the actual legacy credential,
+ *     native forced reset, new-password login and old-password refusal. It
+ *     performs no direct credential SQL and leaves both genuine resets intact
+ *     on the disposable imported target, including failure/signal cleanup.
+ *   O19_REQUIRE_NATIVE_AUTH=true (fail closed if that native input is absent)
  *   MYSQL_DATABASE=carlos  MYSQL_USER=root  MYSQL_HOST=  MYSQL_SOCKET=
  *   O19_ARCHIVE_SCHEMA=o19_archive
  *   MYSQL_PASSWORD=       (omit for socket/root auth)
@@ -54,10 +65,14 @@
  */
 
 const { chromium } = require('playwright');
+const { readNativeClinicianCredentials, validateNativeImportedCredentials, proveNativeClinicianLogin, redactNativeAuthError } = require('./lib/o19-native-auth');
+const { submitLoginDocument, waitForProviderSchedule, isProviderScheduleUrl } = require('./lib/deb-login-navigation');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { EXIT_SKIP } = require('./lib/playwright-harness');
 
 const baseUrl = validateBaseUrl(process.env.BASE_URL || 'http://127.0.0.1:8080/carlos');
 const chromePath = process.env.CHROME_PATH || '';
@@ -70,6 +85,15 @@ const mysqlHost = process.env.MYSQL_HOST || '';
 const mysqlSocket = process.env.MYSQL_SOCKET || '';
 const mysqlPassword = process.env.MYSQL_PASSWORD || '';
 const archiveSchema = process.env.O19_ARCHIVE_SCHEMA || 'o19_archive';
+const nativeCredentialsFile = process.env.O19_NATIVE_CLINICIAN_CREDENTIALS || '';
+const requireNativeAuth = process.env.O19_REQUIRE_NATIVE_AUTH === 'true';
+const pageErrors = [];
+const nativeSecrets = [];
+function reportError(error, stack = false) {
+  return nativeCredentialsFile || requireNativeAuth
+    ? redactNativeAuthError(error, nativeSecrets, stack)
+    : String(stack ? (error.stack || error.message || error) : (error.message || error));
+}
 // A scratch Tomcat on localhost serves a self-signed certificate and
 // there is nothing to validate against; anywhere else, skipping
 // validation would mean typing migrated passwords into whatever answered.
@@ -116,7 +140,7 @@ async function record(name, fn) {
     console.log(`PASS ${name}`);
   } catch (error) {
     failures.push({ name, error });
-    console.log(`FAIL ${name}: ${error.message}`);
+    console.log(`FAIL ${name}: ${reportError(error)}`);
   }
 }
 
@@ -322,6 +346,16 @@ function sqlInt(value) {
 
 // --- fixture discovery -----------------------------------------------------
 
+/** True only when nothing exists at `file`; any other stat failure is not "absent". */
+function credentialsAbsent(file) {
+  try {
+    fs.statSync(file);
+    return false;
+  } catch (error) {
+    return error.code === 'ENOENT';
+  }
+}
+
 function readAdminCredentials() {
   assert(fs.existsSync(credentialsPath),
     `No break-glass credentials at ${credentialsPath}: this script only runs against a database `
@@ -515,7 +549,7 @@ function installSignalHandlers() {
       try {
         restoreSecurityRows();
       } catch (error) {
-        console.error(`Restore failed: ${error.stack || error}`);
+        console.error(`Restore failed: ${reportError(error, true)}`);
       } finally {
         cleanupMysqlDefaultsFile();
       }
@@ -527,6 +561,10 @@ function installSignalHandlers() {
 }
 
 function restoreSecurityRows() {
+  if (nativeCredentialsFile || requireNativeAuth) {
+    console.log('Native authentication mode: genuine password resets remain intact; no credential SQL cleanup');
+    return;
+  }
   for (const point of restorePoints) {
     const passwordUpdateDate = point.passwordUpdateDate === 'NULL'
       ? 'NULL'
@@ -564,6 +602,7 @@ function wirePage(page, label) {
     }
   });
   page.on('pageerror', () => {
+    if (nativeCredentialsFile || requireNativeAuth) pageErrors.push(label);
     // Page-level JavaScript errors are noisy on legacy CARLOS pages and are not
     // what this smoke is asserting; HTTP status and body content are.
   });
@@ -605,10 +644,14 @@ async function submitLogin(page, user, password, pin) {
   await page.locator('#username').fill(user);
   await page.locator('#password').fill(password);
   await page.locator('#pin').fill(pin);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
-  ]);
+  if (nativeCredentialsFile) {
+    await submitLoginDocument(page, page.locator('input[type="submit"], button[type="submit"]').first(), { label: 'Native imported login' });
+  } else {
+    await Promise.all([
+      page.waitForLoadState('domcontentloaded').catch(() => {}),
+      page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    ]);
+  }
 }
 
 async function completeForcedReset(page, oldPassword, newPassword) {
@@ -620,18 +663,26 @@ async function completeForcedReset(page, oldPassword, newPassword) {
   await page.locator('input[name="oldPassword"]').fill(oldPassword);
   await page.locator('input[name="newPassword"]').fill(newPassword);
   await page.locator('input[name="confirmPassword"]').fill(newPassword);
-  await Promise.all([
-    page.waitForLoadState('domcontentloaded').catch(() => {}),
-    page.locator('input[type="submit"]').first().click(),
-  ]);
+  if (nativeCredentialsFile) {
+    await submitLoginDocument(page, page.locator('input[type="submit"]').first(), { label: 'Native imported password reset' });
+  } else {
+    await Promise.all([
+      page.waitForLoadState('domcontentloaded').catch(() => {}),
+      page.locator('input[type="submit"]').first().click(),
+    ]);
+  }
 }
 
 async function expectSchedulePage(page, label) {
   // domcontentloaded, not the default 'load': the schedule pulls the
   // inbox and messenger counts and a slow one of those leaves the load
   // event pending long after the page is there and usable.
-  await page.waitForURL(/provider\/(providercontrol|ViewAppointmentAdminDay)/,
-    { timeout: 30000, waitUntil: 'domcontentloaded' });
+  if (nativeCredentialsFile) {
+    await waitForProviderSchedule(page, baseUrl);
+  } else {
+    await page.waitForURL(/provider\/(providercontrol|ViewAppointmentAdminDay)/,
+      { timeout: 30000, waitUntil: 'domcontentloaded' });
+  }
   const body = await scanBody(page, label);
   assert(body.includes('/csrfguard'), `${label} did not include the csrfguard script`);
   const text = await bodyText(page);
@@ -653,11 +704,37 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 // --- checks ----------------------------------------------------------------
 
 (async () => {
+  // No break-glass credentials file means this deployment never ran
+  // `carlos-ctl import-o19`: a fresh package install or the devcontainer.
+  // There is nothing migrated to smoke, so report SKIP (exit 2, #3313) and
+  // name the missing fixture instead of failing the suite (#4412). Checked
+  // before anything is written -- no MySQL defaults file, no browser, no
+  // restore points. Only ENOENT counts as absent: a file this run cannot
+  // reach (EACCES on a 0700 state directory) or one that is incomplete still
+  // fails in readAdminCredentials(), because an import did happen.
+  if (credentialsAbsent(credentialsPath)) {
+    assert(!requireNativeAuth && !nativeCredentialsFile, 'Native migration authentication requires actual import administrator credentials');
+    console.log(`SKIP o19-migrated-smoke -- no break-glass credentials at ${credentialsPath}: `
+      + 'this check needs a database produced by carlos-ctl import-o19 (see '
+      + 'docs/ui-tests/deb-install-validation.md, "Checks that need their own fixture"). '
+      + 'Set O19_STATE_DIR or O19_ADMIN_CREDENTIALS to point at an import.');
+    process.exitCode = EXIT_SKIP;
+    return;
+  }
   assertLocalDatabaseTarget();
   mysqlDefaults = createMysqlDefaultsFile();
   const credentials = readAdminCredentials();
+  if (nativeCredentialsFile || requireNativeAuth) nativeSecrets.push(credentials.password, credentials.pin, smokePassword, smokePasswordSecond);
   assertMigratedTarget(credentials.user);
   const fixtures = discoverFixtures(credentials.user);
+  assert(!requireNativeAuth || nativeCredentialsFile, 'Native migration authentication requires the explicit private clinician file');
+  let nativeState = null;
+  if (nativeCredentialsFile) {
+    const nativeCredentials = readNativeClinicianCredentials(nativeCredentialsFile, fixtures.clinician);
+    nativeSecrets.push(nativeCredentials.password, nativeCredentials.pin);
+    nativeState = { credentials: nativeCredentials, initialRow: securityRow(nativeCredentials.user), adminRow: securityRow(credentials.user) };
+    validateNativeImportedCredentials(nativeState.credentials, nativeState.initialRow, nativeState.adminRow);
+  }
 
   // `demographic_no` is a PHI-CORRELATING operational identifier, not
   // clinical content: it is here because a failed smoke is unreproducible
@@ -670,9 +747,11 @@ async function loginThroughForcedReset(context, user, password, pin, label,
   // Installed BEFORE the first row is remembered, so there is no window in
   // which a rewrite has happened and an interrupt would not undo it.
   installSignalHandlers();
-  rememberForRestore(credentials.user);
-  if (fixtures.clinician) {
-    rememberForRestore(fixtures.clinician.userName);
+  if (!nativeCredentialsFile) {
+    rememberForRestore(credentials.user);
+    if (fixtures.clinician) {
+      rememberForRestore(fixtures.clinician.userName);
+    }
   }
 
   const launchOptions = { headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] };
@@ -684,7 +763,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
 
   try {
     await record('the break-glass administrator can log in through the forced password reset', async () => {
-      const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert, viewport: { width: 1440, height: 1100 } });
+      const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl), viewport: { width: 1440, height: 1100 } });
       adminPage = await loginThroughForcedReset(
         context, credentials.user, credentials.password, credentials.pin, 'admin schedule');
       const row = securityRow(credentials.user);
@@ -698,6 +777,39 @@ async function loginThroughForcedReset(context, user, password, pin, label,
         'no migrated account has both a login and an unexpired, active provider');
     } else {
       await record('a migrated clinician can log in through the forced password reset', async () => {
+        if (nativeState) {
+          await proveNativeClinicianLogin({
+            ...nativeState,
+            newPassword: smokePasswordSecond,
+            reset: async (actual, replacement) => {
+              const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
+              try { await loginThroughForcedReset(context, actual.user, actual.password, actual.pin, 'native clinician schedule', replacement); }
+              finally { await context.close(); }
+            },
+            signIn: async (actual, replacement) => {
+              const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
+              try {
+                const page = await context.newPage(); wirePage(page, 'native clinician new-password login');
+                await submitLogin(page, actual.user, replacement, actual.pin);
+                await expectSchedulePage(page, 'native clinician new-password schedule');
+              } finally { await context.close(); }
+            },
+            rejectOld: async (actual) => {
+              const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
+              try {
+                const page = await context.newPage(); wirePage(page, 'native clinician old-password refusal');
+                await submitLogin(page, actual.user, actual.password, actual.pin);
+                await page.locator('#username').waitFor({ timeout: 20000 });
+                assert(!isProviderScheduleUrl(page.url(), baseUrl) && !page.url().includes('forcepasswordreset'),
+                  'The original imported clinician credential still signs in after its native reset');
+                await scanBody(page, 'native clinician old-password refusal');
+              } finally { await context.close(); }
+            },
+            readRow: () => securityRow(nativeState.credentials.user),
+          });
+          console.log('  Native imported legacy credential, real reset, fresh new-password login and old-password refusal passed');
+          return;
+        }
         // See the header: BCrypt hashes carry their own salt, so re-using the
         // administrator's freshly reset hash gives the clinician a password this
         // script knows without needing the clinic's original one.
@@ -711,7 +823,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
           `UPDATE security SET password = ${sqlString(adminRow.password)}, forcePasswordReset = 1`
           + ` WHERE user_name = ${sqlString(fixtures.clinician.userName)}`);
 
-        const context = await browser.newContext({ ignoreHTTPSErrors: allowSelfSignedCert });
+        const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl) });
         const page = await loginThroughForcedReset(
           context, fixtures.clinician.userName, smokePassword, fixtures.clinician.pin,
           'clinician schedule', smokePasswordSecond);
@@ -773,11 +885,11 @@ async function loginThroughForcedReset(context, user, password, pin, label,
       const text = await bodyText(page);
       assert(text.includes(excerpt),
         'the e-chart did not render the newest migrated note (text withheld: PHI)');
+      await screenshot(page, 'o19-smoke-echart');
       if (fixtures.provider && fixtures.provider.lastName) {
         assert(text.toUpperCase().includes(fixtures.provider.lastName.toUpperCase()),
           "the e-chart did not name the note's signing provider (name withheld)");
       }
-      await screenshot(page, 'o19-smoke-echart');
       await page.close();
     });
 
@@ -940,6 +1052,7 @@ async function loginThroughForcedReset(context, user, password, pin, label,
     });
 
     await record('no visited page returned an error status or rendered a stack trace', async () => {
+      assert(pageErrors.length === 0, `Native migration pages raised ${pageErrors.length} uncaught browser error(s)`);
       assert(errorPages.length === 0,
         `pages rendered failure content: ${JSON.stringify(errorPages.slice(0, 5))}`);
       assert(badResponses.length === 0,
@@ -958,17 +1071,17 @@ async function loginThroughForcedReset(context, user, password, pin, label,
     }
     if (failures.length) {
       for (const failure of failures) {
-        console.log(`FAILED ${failure.name}: ${failure.error.stack || failure.error.message}`);
+        console.log(`FAILED ${failure.name}: ${reportError(failure.error, true)}`);
       }
       process.exitCode = 1;
     }
   }
 })().catch((error) => {
-  console.error(error && error.stack ? error.stack : error);
+  console.error(reportError(error, true));
   try {
     restoreSecurityRows();
   } catch (restoreError) {
-    console.error(`Restore failed: ${restoreError.stack || restoreError}`);
+    console.error(`Restore failed: ${reportError(restoreError, true)}`);
   } finally {
     cleanupMysqlDefaultsFile();
   }

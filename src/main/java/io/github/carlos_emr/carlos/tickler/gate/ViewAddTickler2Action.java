@@ -12,7 +12,9 @@
  */
 package io.github.carlos_emr.carlos.tickler.gate;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -61,6 +63,17 @@ public final class ViewAddTickler2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_tickler)");
         }
 
+        final int patient;
+        try {
+            patient = PatientReadAccess.requestedPatient(request, false);
+        } catch (IllegalArgumentException invalid) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        if (patient > 0) {
+            PatientReadAccess.requirePatient(securityInfoManager, loggedInInfo, patient, "_tickler", SecurityInfoManager.WRITE);
+            request.setAttribute(PatientReadAccess.AUTHORIZED_PATIENT_ATTRIBUTE, Integer.toString(patient));
+        }
         return SUCCESS;
     }
 }

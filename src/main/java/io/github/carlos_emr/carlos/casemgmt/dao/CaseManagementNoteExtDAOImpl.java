@@ -57,6 +57,16 @@ public class CaseManagementNoteExtDAOImpl extends AbstractJpaDao implements Case
     }
 
     @Override
+    public List<CaseManagementNoteExt> getExtByNoteForUpdate(Long noteId) {
+        return entityManager().createQuery(
+                "from CaseManagementNoteExt e where e.noteId = :noteId order by e.id desc",
+                CaseManagementNoteExt.class)
+                .setParameter("noteId", noteId)
+                .setLockMode(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                .getResultList();
+    }
+
+    @Override
     public List getExtByKeyVal(String keyVal) {
         if (keyVal == null) return Collections.emptyList();
         String hql = "from CaseManagementNoteExt cExt where cExt.keyVal = ?1";

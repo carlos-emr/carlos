@@ -106,6 +106,25 @@ public class BillingOnDiskLoader {
     }
 
     /**
+     * Whether an existing disk already holds this OHIP claim file name (an
+     * earlier year's disk of the same month letter, for example).
+     *
+     * @param ohipFilename the complete claim file name, for example {@code HJ123456.001}
+     * @return {@code true} when the name is taken
+     */
+    public boolean isOhipFilenameInUse(String ohipFilename) {
+        return diskNameDao.existsByOhipFilename(ohipFilename);
+    }
+
+    /**
+     * Whether a filename row already holds this HTML companion name; see
+     * {@link BillingONFilenameDao#existsByHtmlFilename(String)}.
+     */
+    public boolean isHtmlFilenameInUse(String htmlFilename) {
+        return filenameDao.existsByHtmlFilename(htmlFilename);
+    }
+
+    /**
 
      * Returns prev disk create date.
 

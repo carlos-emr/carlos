@@ -242,6 +242,9 @@ public class AttachmentOwnershipService {
      * number happens to equal one of the patient's HL7 lab numbers would pass the check and print
      * that other, unattached HL7 lab. Dropping non-HL7 entries by their listed type prevents it.</p>
      *
+     * <p>The entries dropped here are still attached: {@link #labsNotRenderable} returns them so the
+     * consultation packet can name them instead of leaving them out without a word (issue #4693).</p>
+     *
      * @param labs labs as listed for a consultation; {@code null} yields an empty list
      * @return the HL7 labs, in their original order; never {@code null}
      */
@@ -255,6 +258,34 @@ public class AttachmentOwnershipService {
             }
         }
         return renderable;
+    }
+
+    /**
+     * The labs {@link #renderableLabsOnly} keeps out of the consultation PDF: listed CML, MDS and
+     * PathNet (BCP) labs, and the placeholders {@code CommonLabResultData} lists for attachments it
+     * could not match to a lab. They stay attached, and the consultation packet names them on a
+     * page after the letter (issue #4693). They must never be passed to a lab renderer, for the
+     * reason given at {@link #renderableLabsOnly}.
+     *
+     * <p>Each lab is returned once, by its listed type and number: with both {@code CML_LABS} and
+     * {@code Epsilon_LABS} on, the listing names the same CML lab twice. Labs of different sources
+     * that share a number are different labs and are both kept.</p>
+     *
+     * @param labs labs as listed for a consultation; {@code null} yields an empty list
+     * @return the labs the PDF cannot draw, in their original order; never {@code null}
+     */
+    public static List<LabResultData> labsNotRenderable(List<LabResultData> labs) {
+        List<LabResultData> notRenderable = new ArrayList<>();
+        if (labs != null) {
+            Set<String> listed = new HashSet<>();
+            for (LabResultData lab : labs) {
+                if (lab != null && !lab.isHL7TEXT()
+                        && listed.add(LabResultData.labKey(lab.getLabType(), lab.getSegmentID()))) {
+                    notRenderable.add(lab);
+                }
+            }
+        }
+        return notRenderable;
     }
 
     /**

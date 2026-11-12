@@ -759,11 +759,13 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
     }
 
     @Override
-    public List<Integer> findByCreateDate(Date from, Date to) {
+    public List<Integer> findByCreateDate(Date from, Date toExclusive) {
+        // Half-open [from, toExclusive): createDate is a timestamp, so an inclusive "<= end-date midnight"
+        // bound dropped every measurement entered during the report's end date (#4549).
         Query query = createQuery("SELECT DISTINCT m.demographicId", "m",
-                "m.createDate >= ?1 AND m.createDate <= ?2");
+                "m.createDate >= ?1 AND m.createDate < ?2");
         query.setParameter(1, from);
-        query.setParameter(2, to);
+        query.setParameter(2, toExclusive);
         return query.getResultList();
     }
 

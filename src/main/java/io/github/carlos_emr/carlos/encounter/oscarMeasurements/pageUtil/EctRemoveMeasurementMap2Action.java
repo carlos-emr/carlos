@@ -74,43 +74,64 @@ public class EctRemoveMeasurementMap2Action extends ActionSupport {
     }
 
     public String execute() throws ServletException, IOException {
+        String id = request.getParameter("id");
 
-        if (securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null) || securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin.measurements", "w", null)) {
-
-            String id = request.getParameter("id");
-            String identifier = request.getParameter("identifier");
-            String name = request.getParameter("name");
-            String type = request.getParameter("type");
-            String loinc_code = request.getParameter("loinc_code");
-            String outcome = "continue";
-
-            if (id != null) {
-
-                MeasurementMapConfig mmc = new MeasurementMapConfig();
-
-                // these values will be set if the measurement is to be remapped instead of deleted
-                // therefore it is first mapped then deleted
-                if (identifier != null && name != null && type != null && loinc_code != null) {
-                    if (!mmc.checkLoincMapping(loinc_code, type)) {
-                        mmc.mapMeasurement(identifier, loinc_code, name, type);
-                        mmc.removeMapping(id, request.getParameter("provider_no"));
-                        outcome = "success";
-                    } else {
-                        outcome = "failedcheck";
-                    }
-                } else {
-                    mmc.removeMapping(id, request.getParameter("provider_no"));
-                    outcome = "success";
-                }
-
-            }
-
-            return outcome;
-
-        } else {
-            throw new SecurityException("Access Denied!"); //missing required sec object (_admin)
+        // Dual-purpose route. Customize Measurements ▸ Remove/Remap Measurement Mapping and the
+        // page's Search open it by GET with no mapping row named, and it renders the table; a
+        // request naming a row (id) removes or remaps it, so that must be the form's POST, never
+        // a link or image tag (issue #3335). HttpMethodGuardFilter leaves this name to the action
+        // for that reason; RemapMeasurementMap, POST-only, is also refused there.
+        if (id != null && !"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "w", null)
+                && !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.measurements", "w", null)) {
+            throw new SecurityException("missing required sec object (_admin.measurements)");
+        }
+
+        if (id == null) {
+            return "continue";
+        }
+        if (!id.matches("\\d{1,9}")) {
+            // No mapping row was chosen (or the id is not one): nothing to remove.
+            return "failure";
+        }
+        // The recycle-bin entry is attributed to the signed-in provider, not to whatever
+        // provider number the form carries.
+        return removeOrRemap(id, loggedInInfo.getLoggedInProviderNo());
+    }
+
+    /**
+     * Removes mapping row {@code id}. When the request also names an identifier, name, lab type
+     * and code (the Remap form), that mapping is written first and the old row removed after,
+     * unless the code is already mapped for that type or no code was chosen.
+     *
+     * @return the Struts result: {@code success}, {@code failedcheck} or {@code failure}
+     */
+    private String removeOrRemap(String id, String providerNo) {
+        String identifier = request.getParameter("identifier");
+        String name = request.getParameter("name");
+        String type = request.getParameter("type");
+        String loincCode = request.getParameter("loinc_code");
+        MeasurementMapConfig mmc = new MeasurementMapConfig();
+
+        if (identifier != null && name != null && type != null && loincCode != null) {
+            if (loincCode.isBlank() || "0".equals(loincCode)) {
+                // "None Selected" (the Remap list's default): there is no code to remap to, and
+                // going on would store code 0 and then remove the mapping being replaced.
+                return "failure";
+            }
+            if (mmc.checkLoincMapping(loincCode, type)) {
+                return "failedcheck";
+            }
+            mmc.mapMeasurement(identifier, loincCode, name, type);
+        }
+        mmc.removeMapping(id, providerNo);
+        return "success";
     }
 
 }

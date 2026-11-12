@@ -34,6 +34,7 @@ import jakarta.xml.bind.annotation.XmlAccessType;
 import jakarta.xml.bind.annotation.XmlAccessorType;
 import jakarta.xml.bind.annotation.XmlElement;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -167,17 +168,42 @@ public class DatabaseAP {
     }
 
     public static String parserReplace(String name, String var, String str) {
-        //replaces <$name$> with var in str
-        StringBuilder strb = new StringBuilder(str);
-        int tagstart = -2;
-        int tagend;
-        while ((tagstart = strb.indexOf("${", tagstart + 2)) >= 0) {
-            tagend = strb.indexOf("}", tagstart);
-            if (strb.substring(tagstart + 2, tagend).equals(name)) {
-                strb.replace(tagstart, tagend + 1, var == null ? "" : var);
+        // Substituted data is literal, even when it contains this same marker.
+        return name == null ? str : str.replace("${" + name + "}", var == null ? "" : var);
+    }
+
+    /** Renders only markers from the original template; inserted clinical data is never reparsed. */
+    public static String renderOutput(String template, Map<String, String> values) {
+        StringBuilder output = new StringBuilder(template.length());
+        int cursor = 0;
+        int start;
+        while ((start = template.indexOf("${", cursor)) >= 0) {
+            output.append(template, cursor, start);
+            int end = template.indexOf('}', start + 2);
+            if (end < 0) {
+                output.append(template, start, template.length());
+                return output.toString();
             }
+            String name = template.substring(start + 2, end);
+            if (values.containsKey(name)) {
+                String value = values.get(name);
+                if (value != null) output.append(value);
+            } else {
+                output.append(template, start, end + 1);
+            }
+            cursor = end + 1;
         }
-        return strb.toString();
+        return output.append(template, cursor, template.length()).toString();
+    }
+
+    /** Column names may repeat in the authored output; bind them before rendering it once. */
+    public static String renderOutput(String template, List<String> names, List<String> values) {
+        if (names.size() != values.size()) throw new IllegalArgumentException("AP output names and values differ in size");
+        Map<String, String> bindings = new LinkedHashMap<>();
+        for (int i = 0; i < names.size(); i++) {
+            if (!bindings.containsKey(names.get(i))) bindings.put(names.get(i), values.get(i));
+        }
+        return renderOutput(template, bindings);
     }
 
     public static String parserReplace(String name, String var, DatabaseAP dbap, boolean inSql) {

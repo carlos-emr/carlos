@@ -23,6 +23,10 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.persistence.LockTimeoutException;
+import jakarta.persistence.OptimisticLockException;
+import jakarta.persistence.PessimisticLockException;
+import org.springframework.dao.ConcurrencyFailureException;
 
 import io.github.carlos_emr.carlos.billings.ca.on.service.ServiceCodePersister;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnEditPrivateCodeViewModel;
@@ -76,7 +80,14 @@ public class ViewBillingOnEditPrivateCode2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
                 return NONE;
             }
-            mutationResult = serviceCodePersister.saveOrDeletePrivateCode(privateCodeMutationRequestFrom(request));
+            try {
+                mutationResult = serviceCodePersister.saveOrDeletePrivateCode(privateCodeMutationRequestFrom(request));
+            } catch (ConcurrencyFailureException | OptimisticLockException | PessimisticLockException
+                     | LockTimeoutException conflict) {
+                // The transactional service has rolled back; a new search can show the committed code.
+                response.sendError(HttpServletResponse.SC_CONFLICT, "Please search the service code first.");
+                return NONE;
+            }
         }
 
         BillingOnEditPrivateCodeViewModel model = billingONEditPrivateCodeAssembler

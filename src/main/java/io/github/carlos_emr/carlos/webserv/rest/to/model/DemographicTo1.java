@@ -34,6 +34,8 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.xml.bind.annotation.XmlRootElement;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.github.carlos_emr.carlos.webserv.rest.util.DateOnlySerializer;
@@ -88,6 +90,7 @@ public class DemographicTo1 implements Serializable {
     private String displayName;
     private ProviderTo1 provider;
     private String lastUpdateUser;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date lastUpdateDate;
     private String title;
     private String officialLanguage;
@@ -100,6 +103,7 @@ public class DemographicTo1 implements Serializable {
     private String notes;
     private Integer waitingListID;
     private String waitingListNote;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date onWaitingListSinceDate;
     private AgeTo1 age;
     private Integer admissionProgramId;

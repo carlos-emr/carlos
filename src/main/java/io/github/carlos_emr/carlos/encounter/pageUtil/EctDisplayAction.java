@@ -37,10 +37,13 @@ import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.RequestNegotiation;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
+import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
+import io.github.carlos_emr.carlos.commn.model.Appointment;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -92,6 +95,8 @@ public class EctDisplayAction extends ActionSupport {
      */
     private static final Set<String> RELOAD_URL_SUPPRESSED_PARAMS =
             Set.of("reloadURL", "cmd", "numToDisplay", "CSRF-TOKEN");
+    private static final Set<String> RELOAD_CONTEXT_PARAMS =
+            Set.of("demographicNo", "demographic_no", "appointmentNo", "curProviderNo", "providerNo");
 
     private boolean enabled;
 
@@ -144,7 +149,6 @@ public class EctDisplayAction extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
     public String execute() throws IOException, ServletException {
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
         String cmd = getCmd();
         String navName = buildNavName(cmd);
         request.setAttribute("navbarName", navName);
@@ -152,7 +156,13 @@ public class EctDisplayAction extends ActionSupport {
         boolean isJsonRequest = isJsonRequest();
         request.setAttribute("isJsonRequest", isJsonRequest);
 
-        bean = prepareEncounterSessionBean(bean);
+        EctSessionBean bean;
+        try {
+            bean = prepareEncounterSessionBean();
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
+        }
 
         String params = resolveCommandParams();
         String forward = handleDisplayCommand(bean, cmd, params, isJsonRequest);
@@ -179,32 +189,15 @@ public class EctDisplayAction extends ActionSupport {
                 && ((value.charAt(3) | 0x20) == 'e');
     }
 
-    private EctSessionBean prepareEncounterSessionBean(EctSessionBean bean) {
-        boolean rebuildBean = bean == null || request.getParameter("demographicNo") != null;
-        String demographicNo = resolveDemographicNo(bean, rebuildBean);
+    private EctSessionBean prepareEncounterSessionBean() {
+        String demographicNo = EncounterPatientContext.requireDemographicNo(request);
         ensureChartReadPrivilege(demographicNo);
-        return rebuildBean ? rebuildEncounterSessionBean(demographicNo) : bean;
-    }
-
-    private String resolveDemographicNo(EctSessionBean bean, boolean rebuildBean) {
-        if (!rebuildBean) {
-            return bean.demographicNo;
-        }
-
-        String demographicNo = request.getParameter("demographicNo");
-        if (demographicNo == null || demographicNo.isEmpty()) {
-            throw new SecurityException("Missing required demographicNo");
-        }
-        if (!demographicNo.matches("\\d+")) {
-            throw new SecurityException("Invalid non-numeric demographicNo");
-        }
-        return demographicNo;
+        return rebuildEncounterSessionBean(demographicNo);
     }
 
     private void ensureChartReadPrivilege(String demographicNo) {
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_eChart", "r", demographicNo)) {
-            throw new SecurityException("missing required sec object (_eChart)");
-        }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_eChart", "r");
     }
 
     private EctSessionBean rebuildEncounterSessionBean(String demographicNo) {
@@ -212,11 +205,20 @@ public class EctDisplayAction extends ActionSupport {
         bean.currentDate = resolveCurrentDate();
         bean.providerNo = resolveProviderNo();
         bean.demographicNo = demographicNo;
-        bean.appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
-        bean.curProviderNo = resolveCurrentProviderNo();
+        String appointmentNo = resolveNumericParameter("appointmentNo", "Invalid non-numeric appointmentNo");
+        Appointment appointment = findOwnedAppointment(demographicNo, appointmentNo);
+        if (appointment == null && appointmentNo != null && !"0".equals(appointmentNo)) {
+            // A chart window keeps the appointment it was opened with, but the visit can be deleted
+            // or moved by cut and paste while the chart is open, and a request can name another
+            // patient's visit. Continue as a chart without an appointment rather than failing every
+            // module, and never borrow that appointment's provider or link new work to it.
+            logger.debug("Navbar appointment context is not an appointment of the requested patient; continuing without it");
+            appointmentNo = "0";
+        }
+        bean.appointmentNo = appointmentNo;
+        bean.curProviderNo = resolveCurrentProviderNo(demographicNo, appointmentNo, appointment);
         populateEncounterRequestFields(bean);
-        bean.setUpEncounterPage(LoggedInInfo.getLoggedInInfoFromSession(request));
-        storeEncounterSessionBean(bean);
+        exposeEncounterRequestBean(bean);
         return bean;
     }
 
@@ -237,13 +239,39 @@ public class EctDisplayAction extends ActionSupport {
         return providerNo;
     }
 
-    private String resolveCurrentProviderNo() {
+    /**
+     * The requested appointment when it still exists and belongs to the requested patient, else null.
+     * This is the only appointment lookup a navbar request needs; do not initialize the full chart.
+     *
+     * @throws IllegalArgumentException (as NumberFormatException) for a blank or out-of-range number
+     */
+    private Appointment findOwnedAppointment(String demographicNo, String appointmentNo) {
+        if (appointmentNo == null || "0".equals(appointmentNo)) {
+            return null;
+        }
+        Appointment appointment = SpringUtils.getBean(OscarAppointmentDao.class).find(Integer.valueOf(appointmentNo));
+        return appointment != null && demographicNo.equals(String.valueOf(appointment.getDemographicNo()))
+                ? appointment : null;
+    }
+
+    private String resolveCurrentProviderNo(String demographicNo, String appointmentNo, Appointment ownedAppointment) {
+        // Only an appointment the requested patient owns may supply the provider; an entry snapshot
+        // or explicit provider must not legitimize a foreign appointment (it was dropped above).
+        if (ownedAppointment != null && ownedAppointment.getProviderNo() != null
+                && ownedAppointment.getProviderNo().matches("[a-zA-Z0-9]{1,6}")) {
+            return ownedAppointment.getProviderNo();
+        }
         String currentProviderNo = request.getParameter("curProviderNo");
         if (currentProviderNo != null && !currentProviderNo.isEmpty() && !currentProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
             logger.warn("Invalid curProviderNo rejected, falling back to logged-in provider: {}", LogSafe.sanitize(currentProviderNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
             currentProviderNo = null;
         }
         if (currentProviderNo == null || currentProviderNo.trim().isEmpty()) {
+            EctSessionBean saved = EncounterPatientContext.findEncounter(request, demographicNo);
+            if (saved != null && java.util.Objects.equals(appointmentNo, saved.appointmentNo)
+                    && saved.curProviderNo != null && saved.curProviderNo.matches("[a-zA-Z0-9]{1,6}")) {
+                return saved.curProviderNo;
+            }
             currentProviderNo = LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProvider().getProviderNo();
         }
         return currentProviderNo;
@@ -345,14 +373,9 @@ public class EctDisplayAction extends ActionSupport {
         return value;
     }
 
-    private void storeEncounterSessionBean(EctSessionBean bean) {
-        // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- demographicNo/appointmentNo validated numeric;
-        // status validated [a-zA-Z]{1,2}; dates validated YYYY-MM-DD; time validated HH:MM; encType validated alphanumeric;
-        // reason/userName sanitized for control chars and length-capped; eChartId is server-generated;
-        // providerNo validated via [a-zA-Z0-9]{1,6} pattern before session fallback; used only as DAO lookup key;
-        // authz enforced at the chart privilege gate before session mutation
-        request.getSession().setAttribute("EctSessionBean", bean);
-        request.getSession().setAttribute("eChartID", bean.eChartId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- server-generated ID from EctSessionBean.setUpEncounterPage()
+    private void exposeEncounterRequestBean(EctSessionBean bean) {
+        // Navbar requests run concurrently for multiple chart windows. Never publish their
+        // patient or appointment into the login's shared encounter state.
         request.setAttribute("EctSessionBean", bean);
     }
 
@@ -425,7 +448,8 @@ public class EctDisplayAction extends ActionSupport {
      * </ul>
      *
      * <p>Every other parameter is preserved (notably {@code hC}, the module's heading
-     * colour), so a refreshed box renders exactly like the first load.</p>
+     * colour). Identical context values merged from the URL and POST body appear only once,
+     * so repeated refreshes retain a stable URL without growing patient/appointment copies.</p>
      *
      * @param requestUri   the already-encoded request URI of the display action, including
      *                     the context path (e.g. {@code /carlos/encounter/displayTickler})
@@ -454,7 +478,8 @@ public class EctDisplayAction extends ActionSupport {
 
     /**
      * Appends one request parameter to the query string, repeating the key once per value so a
-     * multi-valued parameter survives the round trip.
+     * multi-valued parameter survives the round trip. Identical patient/provider/appointment
+     * context values are emitted once because the caller also posts its window's context.
      *
      * <p>A null or empty {@code values} array is emitted as a bare key. That is defensive rather
      * than a shape the container produces: a servlet parameter map surfaces even {@code ?flag}
@@ -467,7 +492,9 @@ public class EctDisplayAction extends ActionSupport {
             joiner.add(encodedKey);
             return;
         }
+        Set<String> emittedContext = RELOAD_CONTEXT_PARAMS.contains(name) ? new java.util.HashSet<>() : null;
         for (String value : values) {
+            if (emittedContext != null && !emittedContext.add(value == null ? "" : value)) continue;
             String encodedValue = value == null ? "" : URLEncoder.encode(value, StandardCharsets.UTF_8);
             joiner.add(encodedKey + "=" + encodedValue);
         }

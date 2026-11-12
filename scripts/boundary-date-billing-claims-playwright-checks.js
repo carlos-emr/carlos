@@ -19,7 +19,7 @@ const ui = require('./lib/playwright-ui');
 const { revealAuditLink } = require('./lib/playwright-link-audit');
 const { runWorkflow } = require('./lib/workflow-session');
 const { createBillingFixture, openAdministration } = require('./billing-on-ohip-simulation-report-playwright-checks');
-const { runInvoiceReport } = require('./billing-on-invoice-third-party-playwright-checks');
+const { runInvoiceReport, captureNativeInvoiceContext } = require('./billing-on-invoice-third-party-playwright-checks');
 const { scheduleFee } = require('./lib/gap-billing-support');
 
 const DAYS = { feb28: '2004-02-28', leap: '2004-02-29', mar01: '2004-03-01', before: '2004-03-07', start: '2004-03-08', end: '2004-03-12', after: '2004-03-13' };
@@ -48,10 +48,11 @@ async function openAdminFrame(admin, route, ready) {
 async function workflow(s) {
   const { sql } = s;
   const owned = createBillingFixture(s);
+  const billingContext = await captureNativeInvoiceContext(s, owned);
   const fee = Number(scheduleFee(sql, 'A007A')).toFixed(2);
   const claim = {};
   for (const [name, date] of Object.entries(DAYS)) {
-    claim[name] = owned.addClaim({ tag: name.toUpperCase(), date, status: 'O', items: [{ code: 'A007A', fee }] });
+    claim[name] = owned.addClaim({ tag: name.toUpperCase(), date, status: 'O', items: [{ code: 'A007A', fee }], billingContext });
   }
   const link = (scope, id) => scope.locator(`a[onclick*="BillingONCorrection?billing_no=${id}'"], a[onclick*="BillingONCorrection?billing_no=${id}\\""]`);
   const listed = async (scope) => {
@@ -62,7 +63,7 @@ async function workflow(s) {
   const admin = await openAdministration(s);
 
   async function invoiceWindow(frame, start, end) {
-    await runInvoiceReport(admin, frame, { date: start, endDate: end, statusId: 'statusTypeAll', billingProvider: owned.providerNo, demographic: s.patient });
+    await runInvoiceReport(admin, frame, { date: start, endDate: end, statusId: 'statusTypeAll', billingProvider: owned.providerNo, billingContext, demographic: s.patient });
     await h.assertNotErrorPage(frame, 'invoice report');
     return listed(frame);
   }
@@ -111,5 +112,5 @@ async function workflow(s) {
   });
 }
 
-if (require.main === module) runWorkflow('boundary-date-billing-claims', workflow, { openPatient: true, openMaster: false });
+if (require.main === module) runWorkflow('boundary-date-billing-claims', workflow, { openPatient: true });
 module.exports = { workflow };

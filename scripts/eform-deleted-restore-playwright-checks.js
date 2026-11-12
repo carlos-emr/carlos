@@ -89,6 +89,28 @@ async function workflow(s) {
 
   const list = await s.popup(chart, chart.locator('a[onclick*="/eform/efmpatientformlist?"]').first(), 'eform-patient-list');
   const rowFor = (page, text) => page.locator('#efmTable tbody tr').filter({hasText: text});
+  await s.step('patient eForm list Delete dismissed at its confirmation sends nothing and keeps the instance', async () => {
+    const row = rowFor(list, subject);
+    h.assert(await row.count() === 1, 'The patient eForm list does not show the saved instance');
+    const before = status(fdid);
+    let posts = 0;
+    const count = request => { if (new URL(request.url()).pathname.endsWith('/eform/removeEForm')) posts++; };
+    s.context.on('request', count);
+    try {
+      const dialogs = await h.withExpectedDialogs(list, async () => {
+        await row.locator('form[action$="/eform/removeEForm"] a').click();
+        // Long enough for the delete form's post to start, had the page sent it.
+        await list.waitForTimeout(1500);
+      }, {accept: false});
+      h.assert(dialogs.length === 1 && dialogs[0].type === 'confirm', 'Delete did not ask for confirmation');
+    } finally {
+      s.context.off('request', count);
+    }
+    h.assert(posts === 0, `A dismissed Delete still posted ${posts} time(s) to removeEForm`);
+    h.assert(status(fdid) === before, 'A dismissed Delete changed the instance');
+    h.assert(await rowFor(list, subject).count() === 1, 'A dismissed Delete dropped the instance from the list');
+  });
+
   await s.step('patient eForm list Delete marks the instance deleted and drops it from the list', async () => {
     const row = rowFor(list, subject);
     h.assert(await row.count() === 1, 'The patient eForm list does not show the saved instance');

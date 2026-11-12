@@ -15,6 +15,8 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const h = require('./lib/playwright-harness');
 
 function requireEnv(name) {
   const value = process.env[name];
@@ -32,6 +34,7 @@ const testPin = requireEnv('TEST_PIN');
 
 const findings = [];
 const visited = [];
+const recorder = h.createRecorder();
 
 const authenticatedRoutes = [
   { label: 'schedule', path: '/provider/providercontrol', requiredText: /Search|Schedule|Preference/i },
@@ -104,6 +107,7 @@ function isSevereConsoleMessage(message) {
 }
 
 function wirePage(page, label) {
+  h.wireStrictPage(page, label, recorder, { baseline: [] });
   page.on('response', (response) => {
     const responseUrl = response.url();
     const status = response.status();
@@ -118,10 +122,6 @@ function wirePage(page, label) {
   });
   page.on('pageerror', (error) => {
     findings.push({ label, type: 'pageerror', text: error.stack || error.message });
-  });
-  page.on('dialog', async (dialog) => {
-    findings.push({ label, type: 'dialog', text: dialog.message() });
-    await dialog.accept();
   });
 }
 
@@ -184,7 +184,8 @@ async function checkAuthenticatedRoute(context, route) {
 }
 
 async function checkProtectedRedirect(browser, appPath) {
-  const context = await browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname) });
+  const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
+  context.on('page', page => h.wireStrictPage(page, 'application-health-page', recorder, { baseline: [] }));
   const page = await context.newPage();
   const label = `unauthenticated:${appPath}`;
   wirePage(page, label);
@@ -224,7 +225,8 @@ async function checkProtectedRedirect(browser, appPath) {
       await checkProtectedRedirect(browser, appPath);
     }
 
-    const context = await browser.newContext({ ignoreHTTPSErrors: ['localhost', '127.0.0.1', '[::1]'].includes(baseUrl.hostname), viewport: { width: 1440, height: 1000 } });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1000 } });
+    context.on('page', page => h.wireStrictPage(page, 'application-health-page', recorder, { baseline: [] }));
     const schedulePage = await login(context);
     if (!findings.some((finding) => finding.label === 'post-login' && finding.type === 'login-failed')) {
       for (const route of authenticatedRoutes) {
@@ -238,6 +240,7 @@ async function checkProtectedRedirect(browser, appPath) {
     if (blockingFindings.length) {
       throw new Error(`application health Playwright check found ${blockingFindings.length} issue(s)`);
     }
+    h.assertStrictPage(recorder);
 
     console.log('PASS application health routes rendered without HTTP, auth, or browser failures');
   } finally {
@@ -246,5 +249,6 @@ async function checkProtectedRedirect(browser, appPath) {
 })().catch((error) => {
   console.error('FAIL application health Playwright check');
   console.error(error.stack || error.message);
+  console.error(JSON.stringify(h.buildFailureDetails(recorder), null, 2));
   process.exit(1);
 });

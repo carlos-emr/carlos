@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.managers.ConsultationManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import java.util.ArrayList;
@@ -61,6 +62,32 @@ public class EctViewConsultationRequestsUtil {
     */
    public static boolean isTicklerDemographic(String demographicNo) {
       return demographicNo != null && demographicNo.matches("[1-9][0-9]*");
+   }
+
+   /** The follow-up text the overdue-consultation link suggests for the new task. */
+   public static final String OVERDUE_TICKLER_MESSAGE =
+         "Patient has Consultation Letter with a status of 'Nothing Done' for over one week";
+
+   /**
+    * Builds the link from the Consultations list to the standard Add Tickler form for one patient
+    * whose referral is overdue. The form is a single-patient page that reads {@code demographic_no}
+    * and starts its Reminder Message box from {@code ticklerMessage}; the list used to send the
+    * retired bulk action's {@code demo} and {@code message}, which the form ignores, so staff got a
+    * blank task (issue #4999). Keep these names in step with {@code ticklerAdd.jsp}.
+    *
+    * @param contextPath the web application's context path ({@code request.getContextPath()})
+    * @param demographicNo the patient, which must satisfy {@link #isTicklerDemographic(String)}
+    * @return a root-relative URL, percent-encoded for a query string; callers still HTML-encode it
+    *         when writing it into an attribute
+    * @throws IllegalArgumentException if the patient identifier cannot receive a tickler
+    */
+   public static String overdueTicklerPath(String contextPath, String demographicNo) {
+      if (!isTicklerDemographic(demographicNo)) {
+         throw new IllegalArgumentException("A positive numeric patient identifier is required");
+      }
+      return (contextPath == null ? "" : contextPath)
+            + "/tickler/ViewAddTickler?demographic_no=" + SafeEncode.forUriComponent(demographicNo)
+            + "&ticklerMessage=" + SafeEncode.forUriComponent(OVERDUE_TICKLER_MESSAGE);
    }
    public List<String> ids;
    public List<String> status;

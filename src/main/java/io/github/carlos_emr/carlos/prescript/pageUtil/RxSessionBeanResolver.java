@@ -53,13 +53,9 @@ import org.springframework.web.util.WebUtils;
  *   <li>A request that names a patient ({@code demographicNo} or {@code demographic_no}) gets that
  *       patient's bean, or {@code null} when Rx was never opened for that patient in this session.
  *       There is deliberately no fallback to another patient's bean.</li>
- *   <li>A request that names no patient (legacy AJAX and popups that predate this model) gets the
- *       bean of the patient whose Rx page was opened most recently ({@link #ACTIVE_DEMOGRAPHIC_ATTRIBUTE}).
- *       That fallback selection is captured once per request, so later fragments cannot switch
- *       patients when another window opens Rx during the render.
- *       The Rx pages load {@code share/javascript/rx-patient-context.js}, which adds the page's
- *       demographic to every Rx request, so the fallback is a compatibility path, not the norm.</li>
- *   <li>Writes that persist or archive medications must not rely on the fallback: they call
+ *   <li>A request that names no patient resolves nothing. Every patient-specific Rx read
+ *       and write must name its patient; opening a different window can never supply one.</li>
+ *   <li>Writes that persist or archive medications also verify the explicit target: they call
  *       {@link #isRequestForBeanPatient} and refuse when the request does not name the bean's
  *       patient.</li>
  *   <li>Opening Rx for a patient ({@link #activate}) reuses that patient's bean, so staged drafts
@@ -75,9 +71,6 @@ public final class RxSessionBeanResolver {
 
     /** Session attribute holding the per-patient beans, keyed by demographic number. */
     public static final String BEANS_ATTRIBUTE = "RxSessionBeans";
-
-    /** Session attribute holding the demographic number whose Rx page was opened most recently. */
-    public static final String ACTIVE_DEMOGRAPHIC_ATTRIBUTE = "RxActiveDemographicNo";
 
     /** Request attribute caching the patient loaded for this request. */
     static final String PATIENT_REQUEST_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".patient";
@@ -95,9 +88,6 @@ public final class RxSessionBeanResolver {
     /** Returned by {@link #requestedDemographicNo} when the named patient is malformed or ambiguous. */
     public static final int INVALID = -1;
 
-    /** Patient selected by the first unnamed resolution, including NOT_REQUESTED when none was active. */
-    private static final String FALLBACK_DEMOGRAPHIC_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".fallbackDemographic";
-
     private static final String LEASES_ATTRIBUTE = RxSessionBeanResolver.class.getName() + ".leases";
 
     private static final String[] DEMOGRAPHIC_PARAMETERS = {"demographicNo", "demographic_no"};
@@ -106,8 +96,7 @@ public final class RxSessionBeanResolver {
     }
 
     /**
-     * Opens Rx for a patient: returns that patient's existing bean, or creates one, and makes the
-     * patient the session's active Rx patient. Items already saved are dropped from a reused stash
+     * Opens Rx for a patient: returns that patient's existing bean, or creates one. Items already saved are dropped from a reused stash
      * so a completed prescription does not reappear; unsaved drafts are kept.
      *
      * @param request       the current request (a session is created if needed)
@@ -136,18 +125,15 @@ public final class RxSessionBeanResolver {
             if (providerNo != null) {
                 bean.setProviderNo(providerNo);
             }
-            session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
             lease(request, session, beans, bean);
         }
         return bean;
     }
 
     /**
-     * Makes sure a bean exists for a patient without opening Rx for them: the patient's staged
-     * drafts are left alone, and so is the active patient, except that a session with no active
-     * patient yet takes this patient as its active one (so a later request that names no patient
-     * falls back to it). For pages outside the Rx window (the eChart, the messenger PDF preview)
-     * that render Rx fragments for a named patient.
+     * Makes sure a bean exists for a named patient without clearing their staged drafts.
+     * Used by pages outside the Rx window (the eChart and messenger PDF preview) that
+     * render Rx fragments. Every later request must still explicitly name its patient.
      *
      * @param request       the current request (a session is created if needed)
      * @param demographicNo the patient, must be positive
@@ -170,16 +156,13 @@ public final class RxSessionBeanResolver {
                 beans.put(demographicNo, bean);
                 RxReprintWorkspace.pruneInactive(session);
             }
-            if (session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE) == null) {
-                session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
-            }
             lease(request, session, beans, bean);
             return bean;
         }
     }
 
     /**
-     * Stores an already-built bean as its patient's bean and makes that patient active. For
+     * Stores an already-built bean as its patient's bean. For
      * callers that assemble a bean themselves (and for tests); the bean's demographic must be set.
      *
      * @param session the session to store into
@@ -192,13 +175,12 @@ public final class RxSessionBeanResolver {
         synchronized (lockFor(session)) {
             beans(session, true).put(bean.getDemographicNo(), bean);
             RxReprintWorkspace.pruneInactive(session);
-            session.setAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE, bean.getDemographicNo());
         }
     }
 
     /**
-     * The bean for this request: the named patient's bean when the request names one, otherwise
-     * the active patient captured on the first unnamed resolution in this request.
+     * The explicitly named patient's bean. Missing, malformed and ambiguous patient parameters
+     * always resolve to null, even when another Rx window is open.
      *
      * @param request the current request
      * @return the bean, or {@code null} when there is no session, the named patient is malformed,
@@ -206,36 +188,13 @@ public final class RxSessionBeanResolver {
      */
     public static RxSessionBean resolve(HttpServletRequest request) {
         int requested = requestedDemographicNo(request);
-        if (requested == INVALID) {
-            return null;
-        }
+        if (requested <= 0) return null;
         HttpSession session = request.getSession(false);
-        if (session == null) {
-            if (requested == NOT_REQUESTED) {
-                request.setAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE, NOT_REQUESTED);
-            }
-            return null;
-        }
+        if (session == null) return null;
         synchronized (lockFor(session)) {
             PatientBeans beans = beans(session, false);
-            int demographicNo = requested;
-            if (demographicNo == NOT_REQUESTED) {
-                Object captured = request.getAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE);
-                if (captured instanceof Integer capturedDemographicNo) {
-                    demographicNo = capturedDemographicNo;
-                } else {
-                    Object active = session.getAttribute(ACTIVE_DEMOGRAPHIC_ATTRIBUTE);
-                    // An active id without a bean is also an unresolved fallback. Otherwise a
-                    // later activation could supply a patient after the read gate checked none.
-                    demographicNo = active instanceof Integer activeDemographicNo
-                            && beans.peek(activeDemographicNo) != null ? activeDemographicNo : NOT_REQUESTED;
-                    request.setAttribute(FALLBACK_DEMOGRAPHIC_ATTRIBUTE, demographicNo);
-                }
-            }
-            RxSessionBean bean = beans.peek(demographicNo);
-            if (bean != null) {
-                lease(request, session, beans, bean);
-            }
+            RxSessionBean bean = beans.peek(requested);
+            if (bean != null) lease(request, session, beans, bean);
             return bean;
         }
     }

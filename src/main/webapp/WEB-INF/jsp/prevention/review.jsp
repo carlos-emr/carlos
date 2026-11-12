@@ -190,7 +190,7 @@
         validationErrors.add("Submitter OneID is not set. Please make sure you're logged into OneID SSO");
     }
     if (submitterPhone == null) {
-        validationErrors.add("Submitter phone is missing. Please set your work phone # in providers record");
+        validationErrors.add("Submitter phone is missing. Please set your work phone # in provider record");
     }
 
     if (StringUtils.isEmpty(sender)) {

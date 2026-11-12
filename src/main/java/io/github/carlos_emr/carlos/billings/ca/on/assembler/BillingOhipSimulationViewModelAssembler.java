@@ -34,6 +34,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.BillingMoney;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.BillingBatchHeaderDto;
 import io.github.carlos_emr.carlos.billings.ca.on.dto.ProviderDropdownEntry;
 import io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants;
+import io.github.carlos_emr.carlos.billings.ca.on.support.OhipProviderFields;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOhipSimulationViewModel;
 import io.github.carlos_emr.carlos.billings.ca.on.service.OhipClaimFileService;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnLookupService;
@@ -68,8 +69,6 @@ import org.springframework.beans.factory.ObjectFactory;
 @org.springframework.stereotype.Service
 public class BillingOhipSimulationViewModelAssembler {
 
-    private static final int PROVIDER_BILLINGNO_LENGTH = 6;
-    private static final int PROVIDER_SPECIALTYCODE_LENGTH = 2;
     private static final int PROVIDER_GROUPNO_LENGTH = 4;
 
     private final BillingReviewLoader reviewPrep;
@@ -177,18 +176,19 @@ public class BillingOhipSimulationViewModelAssembler {
         DateRange dateRange = resolveDateRange(request);
 
         var proObj = lookupService.getProviderObj(pro);
-        if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
-            errorMessages.add("The providers's billing code is not correct!");
+        // Same rule generation enforces before allocating a disk (OhipProviderFields).
+        if (!OhipProviderFields.isWellFormedBillingNumber(proObj.getOhipNo())) {
+            errorMessages.add("The provider's billing code is not correct!");
         }
         String proOHIP = proObj.getOhipNo();
         String groupNo = proObj.getBillingGroupNo();
         String specialty = proObj.getSpecialtyCode();
-        if (specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
-            errorMessages.add("The providers's specialty code is not correct!");
+        if (!OhipProviderFields.isWellFormedSpecialtyCode(specialty)) {
+            errorMessages.add("The provider's specialty code is not correct!");
             specialty = "00";
         }
         if (groupNo.length() != PROVIDER_GROUPNO_LENGTH) {
-            errorMessages.add("The providers's group no is not correct!");
+            errorMessages.add("The provider's group no is not correct!");
             groupNo = "0000";
         }
 
@@ -235,7 +235,8 @@ public class BillingOhipSimulationViewModelAssembler {
         for (String provider : providerList) {
             StringBuilder errorMsg = new StringBuilder();
             var proObj = lookupService.getProviderObj(provider);
-            if (proObj.getOhipNo().length() != PROVIDER_BILLINGNO_LENGTH) {
+            // Same rule generation enforces before allocating a disk (OhipProviderFields).
+            if (!OhipProviderFields.isWellFormedBillingNumber(proObj.getOhipNo())) {
                 errorMsg.append(formatErrorLine("The billing code (" + proObj.getOhipNo()
                         + ") for providers (" + provider + ") is not correct!"));
             }
@@ -244,7 +245,7 @@ public class BillingOhipSimulationViewModelAssembler {
             String specialty = proObj.getSpecialtyCode();
             DateRange dateRange = resolveDateRange(request);
 
-            if (specialty.length() != PROVIDER_SPECIALTYCODE_LENGTH) {
+            if (!OhipProviderFields.isWellFormedSpecialtyCode(specialty)) {
                 errorMsg.append(formatErrorLine("The specialty code (" + specialty
                         + ") for providers (" + provider + ") is not correct!"));
                 specialty = "00";

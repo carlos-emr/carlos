@@ -52,6 +52,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -263,7 +264,7 @@ async function submitInvalid(page, field) {
     highWaterId = sql(`SELECT COALESCE(MAX(id), 0) FROM measurements`);
 
     browser = await chromium.launch(getLaunchOptions(config.chromePath));
-    context = await browser.newContext({ ignoreHTTPSErrors: true });
+    context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors() });
 
     await login(context, config, recorder);
 

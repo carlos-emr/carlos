@@ -114,6 +114,9 @@
 <%@ page import="io.github.carlos_emr.carlos.lab.LabRequestReportLink" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.AcknowledgementData" %>
+<%@ page import="io.github.carlos_emr.carlos.managers.ProviderManager2" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.PropertyDao" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Property" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.Hl7textResultsData" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.parsers.*" %>
 <%@ page import="io.github.carlos_emr.carlos.lab.ca.all.util.LabVersionComparator"%>
@@ -122,6 +125,7 @@
 <%@ page import="io.github.carlos_emr.carlos.log.LogAction" %>
 <%@ page import="io.github.carlos_emr.carlos.log.LogConst" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.SecurityInfoManager" %>
+<%@ page import="io.github.carlos_emr.carlos.lab.service.LabPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.mds.data.ReportStatus" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -274,6 +278,8 @@
     }
 
 
+    SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+    PatientLabRoutingDao accessRoutings = SpringUtils.getBean(PatientLabRoutingDao.class);
     List<MessageHandler> handlers = new ArrayList<MessageHandler>();
     String[] segmentIDs = null;
     Boolean showAll = showAllstr != null && !"null".equalsIgnoreCase(showAllstr);
@@ -286,9 +292,14 @@
 
 
 
+        // Other native actions can forward directly here. Resolve the real patient ownership
+        // before any HL7 parser, read audit or rendering, including all selected/comparison labs.
+        LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo,
+                new String[] {segmentID}, "HL7");
         if (showAll) {
             multiLabId = request.getParameter("multiID");
             segmentIDs = multiLabId.split(",");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
             for (int i = 0; i < segmentIDs.length; ++i) {
                 handlers.add(Factory.getHandler(segmentIDs[i]));
             }
@@ -297,6 +308,7 @@
         } else {
             multiLabId = Hl7textResultsData.getMatchingLabs(segmentID);
             segmentIDs = multiLabId.split(",");
+            LabPatientAccess.requireLabs(securityInfoManager, accessRoutings, loggedInInfo, segmentIDs, "HL7");
 
 		int totalMatchingLabs = segmentIDs.length;
 		if (showLatest != null && "true".equals(showLatest) && totalMatchingLabs > 1) {
@@ -387,7 +399,7 @@ LocalDate nearFuture = LocalDate.now().plusWeeks(6);
 DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 String strDate = nearFuture.format(formatter);
 
-SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
+
 TicklerManager ticklerManager= SpringUtils.getBean(TicklerManager.class);
 
 if (securityInfoManager.hasPrivilege(loggedInInfo, "_tickler", "r", demoI) && isLinkedToDemographic ) {
@@ -696,10 +708,10 @@ input[id^='acklabel_']{
             return el.value;
         }
 
-        function handleLab(formid, labid, action) {
+        function handleLab(formid, labid, action, beforeAcknowledge) {
             var url = '<%= request.getContextPath() %>/documentManager/inboxManage';
             var data = 'method=isLabLinkedToDemographic&labid=' + labid + '&CSRF-TOKEN=' + encodeURIComponent(getCsrfToken());
-            fetch(url, {
+            return fetch(url, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: data
@@ -718,8 +730,10 @@ input[id^='acklabel_']{
                             console.log("Acknowledging lab results");
                             if (confirmAck()) {
                                 console.log("Acknowledge confirmed. Labid: " + labid);
-                                document.getElementById("labStatus_" + labid).value = "A";
-                                updateStatus(formid, labid);
+                                return Promise.resolve(beforeAcknowledge ? beforeAcknowledge() : undefined).then(function () {
+                                    document.getElementById("labStatus_" + labid).value = "A";
+                                    return updateStatus(formid, Boolean(beforeAcknowledge));
+                                });
                             }
                         } else if (action === 'msgLab') {
                             console.log("Sending message about lab. Demoid: " + demoid);
@@ -750,8 +764,10 @@ input[id^='acklabel_']{
 
                         if (action === 'ackLab') {
                             if (confirmAckUnmatched()) {
-                                document.getElementById("labStatus_" + labid).value = "A";
-                                updateStatus(formid, labid);
+                                return Promise.resolve(beforeAcknowledge ? beforeAcknowledge() : undefined).then(function () {
+                                    document.getElementById("labStatus_" + labid).value = "A";
+                                    return updateStatus(formid, Boolean(beforeAcknowledge));
+                                });
                             } else {
                                 matchMe();
                             }
@@ -764,6 +780,7 @@ input[id^='acklabel_']{
                 }
             })
             .catch(function(error) {
+                if (beforeAcknowledge) throw error;
                 console.error('Failed to process lab action:', error);
                 alert('An error occurred while processing this lab. Please refresh the page and try again.');
             });
@@ -1027,6 +1044,7 @@ input[id^='acklabel_']{
       
     </script>
 
+    <script src="${pageContext.request.contextPath}/share/javascript/labFiling.js"></script>
 </head>
 
 <body onLoad="javascript:matchMe(); loadHL7hx();">
@@ -1036,8 +1054,8 @@ input[id^='acklabel_']{
     for (int idx = 0; idx < segmentIDs.length; ++idx) {
 
         if (remoteFacilityIdString == null) {
-            ackList = AcknowledgementData.getAcknowledgements(segmentID);
             segmentID = segmentIDs[idx];
+            ackList = AcknowledgementData.getAcknowledgements(segmentID);
             handler = handlers.get(idx);
         }
 
@@ -1063,8 +1081,15 @@ input[id^='acklabel_']{
         String label = "";
         if (hl7Lab != null && hl7Lab.getLabel() != null) label = hl7Lab.getLabel();
 
+        boolean offerFiling = remoteFacilityIdString == null
+                && SpringUtils.getBean(ProviderManager2.class).isHl7OfferFileForOthers(
+                        loggedInInfo, loggedInInfo.getLoggedInProviderNo());
+        java.util.Set<String> filingProviders = new java.util.HashSet<>();
+        PropertyDao filingProperties = SpringUtils.getBean(PropertyDao.class);
         String ackLabFunc;
-        if (skipComment) {
+        if (offerFiling) {
+            ackLabFunc = "openLabFilingDialog('" + SafeEncode.forJavaScriptAttribute(segmentID) + "',true);";
+        } else if (skipComment) {
             ackLabFunc = "handleLab('acknowledgeForm_" + SafeEncode.forJavaScriptAttribute(segmentID) + "','" + SafeEncode.forJavaScriptAttribute(segmentID) + "','ackLab');";
         } else {
             ackLabFunc = "getComment('ackLab', " + SafeEncode.forJavaScriptAttribute(segmentID) + ");";
@@ -1406,6 +1431,43 @@ input[id^='acklabel_']{
         <input type="hidden" id="label_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" name="label" value="<carlos:encode value='<%= label %>' context="htmlAttribute"/>">
     </form>
 
+    <% if (offerFiling) { %>
+    <dialog id="labFiling_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
+            data-lab-filing="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
+            data-reviewer-provider="<carlos:encode value='<%= loggedInInfo.getLoggedInProviderNo() %>' context="htmlAttribute"/>"
+            data-endpoint="${pageContext.request.contextPath}/oscarMDS/FileLabsOnBehalf"
+            data-error-message="<fmt:message key="lab.filing.error"/>"
+            data-select-message="<fmt:message key="lab.filing.select"/>">
+        <form method="post" action="${pageContext.request.contextPath}/oscarMDS/FileLabsOnBehalf">
+            <h2><fmt:message key="lab.filing.title"/></h2>
+            <label data-filing-comment><fmt:message key="oscarMDS.segmentDisplay.btnComment"/>
+                <textarea name="comment" maxlength="2000" class="form-control"></textarea>
+            </label>
+            <details>
+                <summary><fmt:message key="lab.filing.fileFor"/></summary>
+                <p><fmt:message key="lab.filing.olderVersions"/></p>
+                <% for (ReportStatus candidate : ackList) {
+                    String target = candidate.getOscarProviderNo();
+                    if (!"N".equals(candidate.getStatus()) || target == null || "0".equals(target)
+                            || loggedInInfo.getLoggedInProviderNo().equals(target) || !filingProviders.add(target)) continue;
+                    boolean allowed = filingProperties.isActiveBooleanProperty(
+                            Property.PROPERTY_KEY.hl7_allow_others_file_for_you, target);
+                %>
+                <label class="d-block">
+                    <input type="checkbox" name="providerNo"
+                           value="<carlos:encode value='<%= target %>' context="htmlAttribute"/>" <%= allowed ? "" : "disabled" %>>
+                    <carlos:encode value='<%= candidate.getProviderName() %>'/>
+                    <% if (!allowed) { %> (<fmt:message key="lab.filing.optedOut"/>) <% } %>
+                </label>
+                <% } %>
+            </details>
+            <p data-filing-error role="alert" class="text-danger"></p>
+            <button type="submit" class="btn btn-primary"><fmt:message key="global.btnSubmit"/></button>
+            <button type="button" data-filing-cancel class="btn btn-secondary"><fmt:message key="global.btnCancel"/></button>
+        </form>
+    </dialog>
+    <% } %>
+
     <form name="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
           id="acknowledgeForm_<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>" method="post" onsubmit="javascript:void(0);"
           action="javascript:void(0);">
@@ -1469,6 +1531,10 @@ input[id^='acklabel_']{
                                 <input type="button" class="btn btn-sm btn-outline-primary"
                                        value="<fmt:message key="oscarMDS.segmentDisplay.btnAcknowledge"/>"
                                        onclick="<carlos:encode value='<%= ackLabFunc %>' context="htmlAttribute"/>">
+                                <% } %>
+                                <% if (offerFiling) { %>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-file-for="<carlos:encode value='<%= segmentID %>' context="htmlAttribute"/>"
+                                        onclick="openLabFilingDialog('<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>',false);"><fmt:message key="lab.filing.fileFor"/></button>
                                 <% } %>
                                 <input type="button" class="btn btn-sm btn-outline-secondary" value="<fmt:message key="oscarMDS.segmentDisplay.btnComment"/>"
                                        onclick="return getComment('addComment',<carlos:encode value='<%= segmentID %>' context="javaScriptAttribute"/>);">

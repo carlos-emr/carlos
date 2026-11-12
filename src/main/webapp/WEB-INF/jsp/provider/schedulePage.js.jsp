@@ -70,6 +70,12 @@ fetch(url, {
         'CSRF-TOKEN': csrfToken
     },
     body: 'appointment_no=' + encodeURIComponent(apptNo)
+}).then(function (response) {
+    // Read the (empty) answer: a response nobody reads is abandoned by the browser and reported as
+    // a failed request.
+    return response.text();
+}).catch(function () {
+    // Best effort, as before: without it the patient's chart just names no current visit.
 });
 }
 
@@ -794,6 +800,11 @@ setTimeout("refreshTabAlerts('"+id+"')", 10);
 }
 
 function refreshTabAlerts(id) {
+<%-- Only tabs the day view rendered for this role are refreshed; the server refuses a hidden
+     tab's count (#2689), so polling one is a wasted 403. --%>
+if (!document.getElementById(id)) {
+return;
+}
 var url = "<%= request.getContextPath() %>/provider/ViewTabAlertsRefresh";
 var pars = "id=" + id;
 jQuery.ajax({

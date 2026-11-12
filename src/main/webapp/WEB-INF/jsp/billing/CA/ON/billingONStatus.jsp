@@ -311,7 +311,7 @@
                                         if (sel.value != "none") {
                                             var placeholder = document.createElement("option");
                                             placeholder.value = "none";
-                                            placeholder.textContent = "---select providers---";
+                                            placeholder.textContent = "---select provider---";
                                             providerSelect.appendChild(placeholder);
                                             (_providers[sel.value] || []).forEach(function (provider) {
                                                 var option = document.createElement("option");

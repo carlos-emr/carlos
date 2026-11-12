@@ -36,12 +36,16 @@ import java.sql.SQLTimeoutException;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Properties;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.report.data.QueryByExampleAccessDeniedException;
+import io.github.carlos_emr.carlos.report.data.ReportingAccountUnavailableException;
+import io.github.carlos_emr.carlos.report.data.ReportingConnectionService;
 import io.github.carlos_emr.carlos.report.data.RptByExampleData;
 import io.github.carlos_emr.carlos.report.data.QueryByExampleValidationException;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -62,6 +66,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 /**
  * Struts2 action for the Query-by-Example report tool. Allows authorized report users
  * to execute custom read-only SQL queries, persist successful searches, and display results.
+ *
+ * <p>Queries run as the read-only reporting database account, never the application account
+ * (issue #3372). When that account is not provisioned the page says so as soon as it opens, and a
+ * submitted query is not run.</p>
  *
  * @since 2003-07-22
  */
@@ -106,11 +114,15 @@ public class RptByExample2Action extends ActionSupport {
         sql = sql == null ? "" : sql;
         request.setAttribute("submittedSql", sql);
 
+        Properties properties = CarlosProperties.getInstance();
         if (!"POST".equals(request.getMethod())) {
+            // Settings only, no database call: tell the user up front rather than after they type.
+            if (isEnabled(properties) && !ReportingConnectionService.isConfigured(properties)) {
+                request.setAttribute("queryReportingUnavailable", true);
+            }
             return SUCCESS;
         }
 
-        Properties properties = CarlosProperties.getInstance();
         if (!isEnabled(properties)) {
             request.setAttribute("queryDisabled", true);
             RptByExampleData.audit(providerNo, sql, 0, 0, "disabled");
@@ -123,20 +135,11 @@ public class RptByExample2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        RptByExampleData.QueryResult result;
-        try {
-            result = new RptByExampleData().execute(sql, properties, providerNo);
-        } catch (QueryByExampleValidationException e) {
-            request.setAttribute("queryValidationError", true);
-            return SUCCESS;
-        } catch (SQLTimeoutException e) {
-            request.setAttribute("queryTimeout", true);
-            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
-            return SUCCESS;
-        } catch (SQLException | RuntimeException e) {
-            request.setAttribute("queryExecutionError", true);
+        Optional<RptByExampleData.QueryResult> ran = runQuery(providerNo, properties);
+        if (ran.isEmpty()) {
             return SUCCESS;
         }
+        RptByExampleData.QueryResult result = ran.get();
 
         request.setAttribute("results", result.html());
         request.setAttribute("resultRowCount", result.rowCount());
@@ -146,12 +149,35 @@ public class RptByExample2Action extends ActionSupport {
         request.setAttribute("resultCharacterLimit", RptByExampleData.MAX_OUTPUT_CHARACTERS);
         try {
             write2Database(sql, providerNo);
-        } catch (RuntimeException e) {
+        } catch (RuntimeException _) {
             request.setAttribute("queryHistoryError", true);
             RptByExampleData.audit(providerNo, sql, result.durationMillis(), result.rowCount(), "history_failed");
         }
 
         return SUCCESS;
+    }
+
+    /**
+     * Runs the submitted query. When it produces no result, sets the request attribute that tells
+     * the page why (rejected, no reporting account, refused by the database, timed out, failed)
+     * and returns empty; each of those outcomes is already audited by {@link RptByExampleData}.
+     */
+    private Optional<RptByExampleData.QueryResult> runQuery(String providerNo, Properties properties) {
+        try {
+            return Optional.of(new RptByExampleData().execute(sql, properties, providerNo));
+        } catch (QueryByExampleValidationException _) {
+            request.setAttribute("queryValidationError", true);
+        } catch (ReportingAccountUnavailableException _) {
+            request.setAttribute("queryReportingUnavailable", true);
+        } catch (QueryByExampleAccessDeniedException _) {
+            request.setAttribute("queryAccessDenied", true);
+        } catch (SQLTimeoutException _) {
+            request.setAttribute("queryTimeout", true);
+            request.setAttribute("queryTimeoutSeconds", RptByExampleData.QUERY_TIMEOUT_SECONDS);
+        } catch (SQLException | RuntimeException _) {
+            request.setAttribute("queryExecutionError", true);
+        }
+        return Optional.empty();
     }
 
     @SuppressFBWarnings(

@@ -42,6 +42,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.Predicate;
 
+import io.github.carlos_emr.carlos.demographic.PatientReadAccess;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -104,6 +105,21 @@ public class TicklerList2Action extends ActionSupport {
             return null;
         }
 
+        final int requestedPatient;
+        final java.util.Set<Integer> deniedPatients;
+        try {
+            requestedPatient = PatientReadAccess.requestedListPatient(request);
+            if (requestedPatient > 0) PatientReadAccess.requirePatient(securityInfoManager, loggedInInfo,
+                    requestedPatient, "_tickler", SecurityInfoManager.READ);
+            deniedPatients = PatientReadAccess.deniedPatients(securityInfoManager, loggedInInfo, "_tickler", SecurityInfoManager.READ);
+        } catch (IllegalArgumentException invalid) {
+            writeJsonError(response, HttpServletResponse.SC_BAD_REQUEST, "Invalid patient identity");
+            return null;
+        } catch (SecurityException denied) {
+            writeJsonError(response, HttpServletResponse.SC_FORBIDDEN, "Access denied");
+            return null;
+        }
+
         try {
             int draw = parseIntParam(request, "draw", 1);
             int start = parseIntParam(request, "start", 0);
@@ -117,6 +133,8 @@ public class TicklerList2Action extends ActionSupport {
             }
 
             CustomFilter filter = buildFilterFromRequest(request);
+            if (requestedPatient > 0) filter.setDemographicNo(Integer.toString(requestedPatient));
+            filter.setExcludedDemographicNos(deniedPatients);
 
             // recordsTotal uses a filter without search so the total count reflects form filters only
             String originalSearchTerm = filter.getSearchTerm();
@@ -153,6 +171,7 @@ public class TicklerList2Action extends ActionSupport {
             Map<String, Boolean> ownedByItemAndPatient = new HashMap<>();
 
             for (TicklerListDTO dto : ticklerDTOs) {
+                if (dto.getDemographicNo() != null && deniedPatients.contains(dto.getDemographicNo())) continue;
                 dto.setLinks(ownedLinks(ticklerAttachmentService, loggedInInfo, dto, ownedByItemAndPatient));
                 rows.add(buildTicklerRow(dto, ticklerWarnDays, dateFormat, locale,
                         formNamesFor(loggedInInfo, dto, formNamesByDemographic),

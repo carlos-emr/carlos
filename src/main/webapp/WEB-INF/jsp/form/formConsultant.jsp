@@ -265,15 +265,18 @@
                 document.forms[0].t_fax.value = "<carlos:encode value='<%= props.getProperty("t_fax", "") %>' context="javaScript"/>";
             </script>
             <div id="textareaDiv" style="position: relative;">
+    <%-- A newline straight after the opening tag is dropped by the browser, so one is always emitted: a saved value
+         that itself starts with a line break then survives. The value must sit flush against the closing tag; any
+         newline or indentation before it is saved with the letter and lengthens it on every redisplay + Save
+         (finding 233, #4592). --%>
     <textarea id="comments" name="comments" class="ta1" rows="60">
-<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/>
-    </textarea>
+<carlos:encode value='<%= props.getProperty("comments", "") %>' context="html"/></textarea>
             </div>
             <div id="buttons">
                 <input id="savebut" type="submit" value="<fmt:message key="global.save"/>" onclick="javascript: return onSave();"/>
                 <input id="saveexitbut" type="submit" value="<fmt:message key="global.saveExit"/>" onclick="javascript: return onSaveExit();"/>
                 <input id="exitbut" type="submit" value="<fmt:message key="global.btnExit"/>" onclick="javascript: return onExit();"/>
-                <input id="printbut" type="submit" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
+                <input id="printbut" type="button" value="<fmt:message key="global.btnPrint"/>" onclick="javascript: return onPrint();"/>
             </div>
         </body>
         <style type="text/css">
@@ -320,8 +323,10 @@
 
 
         <script type="text/javascript">
+            // Print never saves: it shows the print view, prints, then asks whether to go back to editing. OK used to
+            // submit the form with submit=save as well, so "make changes?" saved the letter unasked (issue #4370);
+            // only Save and Save & Exit save now. Returning false keeps the Print submit button from posting.
             function onPrint() {
-                document.forms[0].submit.value = "save";
                 setVisibility('buttons', 'hidden');
                 setVisibility('textareaDiv', 'hidden');
                 setVisibility('textDiv', 'visible');
@@ -356,7 +361,7 @@
                 } else {
                     setVisibility('buttons', 'visible');
                 }
-                return (ret);
+                return false;
             }
 
             function onSave() {

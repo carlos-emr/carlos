@@ -238,21 +238,20 @@
                             MiscUtils.getLogger().debug("result.isAbnormal()=" + result.isAbnormal());
                             doclabid_seq.add(segmentID);
                             request.setAttribute("segmentID", segmentID);
-                            String demoName = SafeEncode.forJavaScript(result.getPatientName());
 
                             if (!isListView) {
                                 try {
                                     if (result.isDocument()) { %>
                     <!-- segment ID <%= segmentID %>  -->
-                    <!-- demographic name <carlos:encode value='<%= result.getPatientName() %>' context="javaScript"/>  -->
+                    <!-- demographic name <carlos:encode value='<%= result.getPatientName() %>' context="html"/>  -->
                     <form id="frmDocumentDisplay_<%=segmentID%>">
                         <input type="hidden" name="segmentID" value="<%=segmentID%>"/>
-                        <input type="hidden" name="demoName" value="<%=demoName%>"/>
+                        <input type="hidden" name="demoName" value="<carlos:encode value='<%= result.getPatientName() %>' context="htmlAttribute"/>"/>
                     </form>
                     <div id="document_<%=segmentID%>">
                         <jsp:include page="/documentManager/ViewShowDocument" flush="true">
                             <jsp:param name="segmentID" value="<%=segmentID%>"/>
-                            <jsp:param name="demoName" value="<%=demoName%>"/>
+                            <jsp:param name="demoName" value="<%=result.getPatientName()%>"/>
                             <jsp:param name="providerNo" value="<%=providerNo%>"/>
                             <jsp:param name="searchProviderNo" value="<%=searchProviderNo%>"/>
                             <jsp:param name="status" value="<%=status%>"/>
@@ -293,7 +292,7 @@
 
                     <jsp:include page="/lab/CA/ALL/ViewLabDisplayAjax" flush="true">
                         <jsp:param name="segmentID" value="<%=segmentID%>"/>
-                        <jsp:param name="demoName" value="<%=demoName%>"/>
+                        <jsp:param name="demoName" value="<%=result.getPatientName()%>"/>
                         <jsp:param name="providerNo" value="<%=providerNo%>"/>
                         <jsp:param name="searchProviderNo" value="<%=searchProviderNo%>"/>
                         <jsp:param name="status" value="<%=status%>"/>
@@ -381,12 +380,12 @@
                             <a href="<%=request.getContextPath()%>/hospitalReportManager/Display?id=<%=SafeEncode.forUriComponent(segmentID)%>&amp;segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>&amp;demoName=<%=SafeEncode.forUriComponent(result.getPatientName())%>&amp;duplicateLabIds=<%=duplicateLabIds.toString()%>&amp;isListView=<%=isListView%>&amp;inWindow=true" onclick="reportWindow(this.href,850,1020); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% } else {%>
-                            <a href="<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="javaScriptAttribute"/>
+                            <a href="<%=request.getContextPath()%>/lab/CA/BC/ViewLabDisplay?segmentID=<%=SafeEncode.forUriComponent(segmentID)%>&amp;providerNo=<%=SafeEncode.forUriComponent(providerNo)%>&amp;searchProviderNo=<%=SafeEncode.forUriComponent(searchProviderNo)%>&amp;status=<%=SafeEncode.forUriComponent(status)%>" onclick="parent.reportWindow(this.href); return false;"><%=labRead%><carlos:encode value='<%= result.getPatientName() %>' context="html"/>
                             </a>
                             <% }%>
                         </td>
                         <td>
-                            <%=result.getSex() %>
+                            <carlos:encode value='<%= result.getSex() %>' context="html"/>
                         </td>
                         <td>
                             <%= (result.isAbnormal() ? "Abnormal" : "") %>
@@ -395,7 +394,7 @@
                             <carlos:encode value='<%= result.getLabel() %>' context="html"/>
                         </td>
                         <td>
-                            <%=result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : "")%>
+                            <carlos:encode value='<%= result.getDateTime() + (result.isDocument() ? " / " + result.lastUpdateDate : "") %>' context="html"/>
                         </td>
                         <%--                                <td>--%>
                         <%--                                    <%=result.getPriority()%>--%>

@@ -48,6 +48,18 @@ public class CaseManagementTmpSaveDaoImpl extends AbstractDaoImpl<CaseManagement
     }
 
     @Override
+    public int removeCaptured(Integer id) {
+        if (id == null || id <= 0) return 0;
+        // The request may still hold this row in its first-level cache after another
+        // transaction replaced it. Detach only this identity before the bulk delete,
+        // so a missing row is a normal zero count rather than a stale entity failure.
+        CaseManagementTmpSave captured = entityManager.getReference(CaseManagementTmpSave.class, id);
+        entityManager.detach(captured);
+        return entityManager.createQuery("DELETE FROM CaseManagementTmpSave draft WHERE draft.id = :id")
+                .setParameter("id", id).executeUpdate();
+    }
+
+    @Override
     public void remove(String providerNo, Integer demographicNo, Integer programId) {
         Query query = entityManager.createQuery("SELECT x FROM CaseManagementTmpSave x WHERE x.providerNo = ?1 and x.demographicNo=?2 and x.programId = ?3");
         query.setParameter(1, providerNo);

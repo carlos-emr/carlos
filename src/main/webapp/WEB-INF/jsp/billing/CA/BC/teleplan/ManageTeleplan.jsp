@@ -140,12 +140,15 @@
             <input class="btn btn-secondary" type="submit" value="save"/>
         </form>
 
-        <h4>Set Teleplan Password</h4>
-        <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
-            <input type="hidden" name="method" value="setPass"/>
-            New Password: <input type="password" name="newpass"/>
-            <input class="btn btn-secondary" type="submit" value="save"/>
-        </form>
+        <%-- Overwrites the stored Teleplan password, so only for the billing superuser, as the action requires. --%>
+        <oscar:oscarPropertiesCheck property="BILLING_SUPERUSER" value="<%=superUser%>">
+            <h4>Set Teleplan Password</h4>
+            <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">
+                <input type="hidden" name="method" value="setPass"/>
+                New Password: <input type="password" name="newpass"/>
+                <input class="btn btn-secondary" type="submit" value="save"/>
+            </form>
+        </oscar:oscarPropertiesCheck>
 
         <h4>Get Remittance</h4>
         <form action="${pageContext.request.contextPath}/billing/CA/BC/ManageTeleplan" method="post">

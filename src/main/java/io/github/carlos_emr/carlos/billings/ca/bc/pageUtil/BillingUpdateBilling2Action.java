@@ -37,6 +37,7 @@
 package io.github.carlos_emr.carlos.billings.ca.bc.pageUtil;
 
 import java.io.IOException;
+import java.util.LinkedHashSet;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -58,6 +59,7 @@ import org.apache.struts2.ServletActionContext;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import org.apache.commons.lang3.StringUtils;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -84,6 +86,26 @@ public final class BillingUpdateBilling2Action
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        // The bill's number comes from the receipt's hidden field; without it there is nothing to
+        // update, so refuse the request plainly instead of failing on the number (issue #4717).
+        // The same shape the receipt view takes, so an accepted update never ends on a refused view.
+        if (this.getBillingNo() == null || !this.getBillingNo().matches("\\d{1,9}")) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        // The receipt this update came from, shown again afterwards: the updated bill first, then
+        // the receipt's other bills (a private bill is one row per service line). Anything but a
+        // bill number is refused before any write.
+        LinkedHashSet<String> receiptBills = new LinkedHashSet<>();
+        receiptBills.add(this.getBillingNo());
+        for (String receiptBillingNo : this.receiptBillingNo) {
+            if (receiptBillingNo == null || !receiptBillingNo.matches("\\d{1,9}")) {
+                response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+                return NONE;
+            }
+            receiptBills.add(receiptBillingNo);
+        }
+
         String creator = (String) request.getSession().getAttribute("user");
 
         BillRecipient recip = new BillRecipient();
@@ -95,7 +117,12 @@ public final class BillingUpdateBilling2Action
         recip.setBillingNoString(this.getBillingNo());
         MSPReconcile msprec = new MSPReconcile();
         BillingViewBean bean = new BillingViewBean();
-        bean.updateBill(this.getBillingNo(), request.getParameter("billingProvider"));
+        // The receipt posts no provider. Change the payee only when one is sent, so updating an
+        // invoice's recipient or note never blanks it (issue #4717).
+        String payee = request.getParameter("billingProvider");
+        if (StringUtils.isNotBlank(payee)) {
+            bean.updateBill(this.getBillingNo(), payee);
+        }
 
         msprec.saveOrUpdateBillRecipient(recip);
         BillingNote n = new BillingNote();
@@ -108,7 +135,31 @@ public final class BillingUpdateBilling2Action
                     e);
         }
 
+        // Shown by the view action, which loads the receipt again from the database: rendering it
+        // here read the invoice viewed last in any window (issue #4673).
+        this.receiptView = "/billing/CA/BC/billingView?billing_no=" + String.join("&billing_no=", receiptBills)
+                + "&receipt=yes";
         return SUCCESS;
+    }
+
+    /**
+     * The receipt to show after the update: the view of the updated bill and of every other bill
+     * its receipt combined, as an application-relative path built from validated bill numbers.
+     *
+     * @return the redirect target, or null before a successful update
+     */
+    public String getReceiptView() {
+        return receiptView;
+    }
+
+    /**
+     * The bill numbers of the receipt the update was posted from.
+     *
+     * @param receiptBillingNo every bill the receipt combines
+     */
+    @StrutsParameter
+    public void setReceiptBillingNo(String[] receiptBillingNo) {
+        this.receiptBillingNo = receiptBillingNo == null ? new String[0] : receiptBillingNo.clone();
     }
 
     /**
@@ -116,6 +167,8 @@ public final class BillingUpdateBilling2Action
      */
     public BillingUpdateBilling2Action() {
     }
+    private String[] receiptBillingNo = new String[0];
+    private String receiptView;
     private String amountReceived;
     private String messageNotes;
     private String recipientAddress;

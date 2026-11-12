@@ -71,6 +71,8 @@ import javax.crypto.spec.SecretKeySpec;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardOpenOption;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -122,6 +124,7 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
         // references it, and each sender retry writes a new copy.
         File saved = null;
         boolean savedHandedOff = false;
+        File staged = null;
         try {
             // Validate the uploaded file to prevent path traversal attacks
             if (importFile == null) {
@@ -146,23 +149,39 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             }
 
             String fileName = importFile.getName();
-            String filePath;
-            try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile);
-                    InputStream decrypted = decryptMessage(encrypted, key, clientKey)) {
+            // Authenticate a request-owned temporary copy before writing into DOCUMENT_DIR.
+            // createSecureTempFile is owner-only on POSIX; its non-POSIX fallback uses the
+            // filesystem defaults. Writing in place below retains the POSIX permissions.
+            staged = PathValidationUtils.createSecureTempFile("LabUploadVerify", ".tmp");
+            if (staged.getCanonicalFile().toPath().startsWith(
+                    PathValidationUtils.getRequiredDocumentDirectory().getCanonicalFile().toPath())) {
+                throw new IOException("Lab verification temporary file must be outside DOCUMENT_DIR");
+            }
+            try (InputStream encrypted = PathValidationUtils.openValidatedUploadInputStream(importFile)) {
+                InputStream decrypted = decryptMessage(encrypted, key, clientKey);
                 if (decrypted == null) throw new IOException("Lab decryption failed");
-                filePath = type.equals("PDFDOC")
-                        ? Utilities.savePdfFile(decrypted, fileName) : Utilities.saveFile(decrypted, fileName);
-            }
-            if (filePath == null) {
-                // Reach the shared epilogue so use_http_response_code also reports the failure.
-                throw new IOException("Lab file save returned no path");
+                stageDecrypted(decrypted, staged);
             }
 
-            File file = PathValidationUtils.validateExistingDocumentPath(filePath);
-            saved = file;
-            filePath = file.getPath();
+            boolean signatureValid = validateSignature(clientKey, signature, staged);
+            if (signatureValid) {
+                String savedPath;
+                try (InputStream verified = new BufferedInputStream(Files.newInputStream(staged.toPath()))) {
+                    savedPath = type.equals("PDFDOC")
+                            ? Utilities.savePdfFile(verified, fileName) : Utilities.saveFile(verified, fileName);
+                }
+                if (savedPath == null) {
+                    throw new IOException("Lab file save returned no path");
+                }
+                saved = PathValidationUtils.validateExistingDocumentPath(savedPath);
+                // Keep verification of the actual saved bytes and its existing failure mapping.
+                // Changing a saved-copy/signature-read fault from 406 to 500 is separate work.
+                signatureValid = validateSignature(clientKey, signature, saved);
+            }
 
-            if (validateSignature(clientKey, signature, file)) {
+            if (signatureValid) {
+                File file = saved;
+                String filePath = file.getPath();
                 logger.debug("Validated Successfully");
                 MessageHandler msgHandler = HandlerClassFactory.getHandler(type);
 
@@ -219,6 +238,9 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
             MiscUtils.getLogger().error("Error", e);
             outcome = OUTCOME_EXCEPTION;
             httpCode = HttpServletResponse.SC_INTERNAL_SERVER_ERROR;
+        } finally {
+            // This never owns the saved document. The current store/rollback logic does.
+            deleteStaged(staged);
         }
         if (saved != null && !savedHandedOff) {
             discardSaved(saved);
@@ -245,6 +267,26 @@ public class LabUpload2Action extends ActionSupport implements UploadedFilesAwar
     }
 
     public LabUpload2Action() {
+    }
+
+    /** Writes into the already-created temporary file without recreating its permissions. */
+    static void stageDecrypted(InputStream decrypted, File staged) throws IOException {
+        try (InputStream in = decrypted;
+                OutputStream out = Files.newOutputStream(staged.toPath(),
+                        StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING)) {
+            in.transferTo(out);
+        }
+    }
+
+    // A cleanup failure must not replace the existing response or delete a stored document.
+    private static void deleteStaged(File staged) {
+        if (staged == null) return;
+        try {
+            Files.deleteIfExists(staged.toPath());
+        } catch (IOException | RuntimeException e) {
+            logger.error("Could not remove the staged lab upload {}; remove this temporary copy: {}",
+                    LogSafe.sanitize(staged.getAbsolutePath()), LogSafe.exceptionTrace(e));
+        }
     }
 
     // Best effort: the outcome is already decided and a failed delete is logged by the helper.

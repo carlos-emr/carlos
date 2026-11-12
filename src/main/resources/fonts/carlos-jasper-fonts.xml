@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+
+  CARLOS JasperReports font families (issue #5046), registered by
+  jasperreports_extension.properties.
+
+  The Java logical font names resolve to a host-dependent physical face, so a template
+  naming one of them measured and printed text differently on every server and could
+  print nothing at all in a box shorter than the host face's line height. Declaring
+  families with the same names makes Jasper use these bundled, embedded faces instead.
+  Only Jasper sees these families; the rest of the JVM still resolves the logical names
+  normally.
+
+  Sans and serif map to the DejaVu faces that the jasperreports-fonts jar ships (the
+  same resources the DejaVu Sans family uses). Monospaced maps to the bundled
+  Liberation Mono faces, as PdfFonts does for Courier, because DejaVu Sans Mono lacks
+  Vietnamese compound accents (fonts/liberation/NOTICE.txt).
+  See docs/pdf-font-policy.md.
+-->
+<fontFamilies>
+	<fontFamily name="SansSerif">
+		<normal>net/sf/jasperreports/fonts/dejavu/DejaVuSans.ttf</normal>
+		<bold>net/sf/jasperreports/fonts/dejavu/DejaVuSans-Bold.ttf</bold>
+		<italic>net/sf/jasperreports/fonts/dejavu/DejaVuSans-Oblique.ttf</italic>
+		<boldItalic>net/sf/jasperreports/fonts/dejavu/DejaVuSans-BoldOblique.ttf</boldItalic>
+		<pdfEncoding>Identity-H</pdfEncoding>
+		<pdfEmbedded>true</pdfEmbedded>
+	</fontFamily>
+	<fontFamily name="Dialog">
+		<normal>net/sf/jasperreports/fonts/dejavu/DejaVuSans.ttf</normal>
+		<bold>net/sf/jasperreports/fonts/dejavu/DejaVuSans-Bold.ttf</bold>
+		<italic>net/sf/jasperreports/fonts/dejavu/DejaVuSans-Oblique.ttf</italic>
+		<boldItalic>net/sf/jasperreports/fonts/dejavu/DejaVuSans-BoldOblique.ttf</boldItalic>
+		<pdfEncoding>Identity-H</pdfEncoding>
+		<pdfEmbedded>true</pdfEmbedded>
+	</fontFamily>
+	<fontFamily name="Serif">
+		<normal>net/sf/jasperreports/fonts/dejavu/DejaVuSerif.ttf</normal>
+		<bold>net/sf/jasperreports/fonts/dejavu/DejaVuSerif-Bold.ttf</bold>
+		<italic>net/sf/jasperreports/fonts/dejavu/DejaVuSerif-Italic.ttf</italic>
+		<boldItalic>net/sf/jasperreports/fonts/dejavu/DejaVuSerif-BoldItalic.ttf</boldItalic>
+		<pdfEncoding>Identity-H</pdfEncoding>
+		<pdfEmbedded>true</pdfEmbedded>
+	</fontFamily>
+	<fontFamily name="Monospaced">
+		<normal>fonts/liberation/LiberationMono-Regular.ttf</normal>
+		<bold>fonts/liberation/LiberationMono-Bold.ttf</bold>
+		<italic>fonts/liberation/LiberationMono-Italic.ttf</italic>
+		<boldItalic>fonts/liberation/LiberationMono-BoldItalic.ttf</boldItalic>
+		<pdfEncoding>Identity-H</pdfEncoding>
+		<pdfEmbedded>true</pdfEmbedded>
+	</fontFamily>
+	<fontFamily name="DialogInput">
+		<normal>fonts/liberation/LiberationMono-Regular.ttf</normal>
+		<bold>fonts/liberation/LiberationMono-Bold.ttf</bold>
+		<italic>fonts/liberation/LiberationMono-Italic.ttf</italic>
+		<boldItalic>fonts/liberation/LiberationMono-BoldItalic.ttf</boldItalic>
+		<pdfEncoding>Identity-H</pdfEncoding>
+		<pdfEmbedded>true</pdfEmbedded>
+	</fontFamily>
+</fontFamilies>

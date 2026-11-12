@@ -38,6 +38,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Temporal;
 import jakarta.persistence.TemporalType;
 
+/**
+ * Archived copy of a {@link Security} record, written by
+ * {@code SecurityManager.updateSecurityRecord} before each change so an audit can see the
+ * record's earlier password hash, PIN, expiry, lock, forced-reset and MFA settings.
+ *
+ * <p>The MFA secret is never archived; only the MFA on/off setting is.</p>
+ */
 @Entity
 public class SecurityArchive extends AbstractModel<Integer> {
 
@@ -59,6 +66,8 @@ public class SecurityArchive extends AbstractModel<Integer> {
         setPinUpdateDate(s.getPinUpdateDate());
         setLastUpdateUser(s.getLastUpdateUser());
         setLastUpdateDate(s.getLastUpdateDate());
+        // Only the on/off flag: the MFA secret must never be copied into the archive.
+        setUsingMfa(s.isUsingMfa());
     }
 
     @Id
@@ -106,6 +115,13 @@ public class SecurityArchive extends AbstractModel<Integer> {
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date lastUpdateDate;
+
+    /**
+     * The archived record's MFA on/off setting. {@code null} on rows archived before
+     * the column existed (V1.0.59), whose MFA setting was not recorded.
+     */
+    @Column(name = "usingMfa")
+    private Boolean usingMfa;
 
     public Integer getId() {
         return id;
@@ -246,6 +262,18 @@ public class SecurityArchive extends AbstractModel<Integer> {
 
     public void setLastUpdateDate(Date lastUpdateDate) {
         this.lastUpdateDate = lastUpdateDate;
+    }
+
+    /**
+     * @return the archived MFA on/off setting, or {@code null} when the row predates
+     *         the column and the setting was not recorded
+     */
+    public Boolean getUsingMfa() {
+        return usingMfa;
+    }
+
+    public void setUsingMfa(Boolean usingMfa) {
+        this.usingMfa = usingMfa;
     }
 
 

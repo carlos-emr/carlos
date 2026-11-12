@@ -39,10 +39,14 @@ class FrmFormDefinitionUnitTest extends CarlosUnitTestBase {
             }
         };
         MockHttpServletRequest request = new MockHttpServletRequest(context);
+        request.setMethod("POST");
+        request.setParameter("demographic_no", "770001");
         LoggedInInfo user = new LoggedInInfo();
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), user);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
-        when(security.hasPrivilege(user, "_form", "w", null)).thenReturn(true);
+        when(security.hasPrivilege(user, "_form", "w", "770001")).thenReturn(true);
+        when(security.hasPrivilege(user, "_demographic", "w", "770001")).thenReturn(true);
+        when(security.isAllowedAccessToPatientRecord(user, 770001)).thenReturn(true);
         registerMock(SecurityInfoManager.class, security);
         registerMock(MeasurementTypeDao.class, mock(MeasurementTypeDao.class));
         return request;

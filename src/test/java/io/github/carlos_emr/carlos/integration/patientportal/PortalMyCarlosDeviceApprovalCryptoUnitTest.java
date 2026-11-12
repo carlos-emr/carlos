@@ -13,9 +13,11 @@ import static io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarl
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.Flow;
@@ -23,11 +25,19 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDevic
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalTypes.TrustedKeys;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
+import java.security.MessageDigest;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.PKCS8EncodedKeySpec;
+import java.security.Signature;
+import java.security.interfaces.EdECPrivateKey;
+import java.security.interfaces.XECPrivateKey;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters;
+import org.bouncycastle.crypto.params.X25519PrivateKeyParameters;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -142,10 +152,10 @@ class PortalMyCarlosDeviceApprovalCryptoUnitTest {
                 JsonNode keys = fixture.get("keys");
                 String signerName = kind == Kind.INTENT ? (first ? "first" : "candidate")
                         : kind == Kind.APPROVAL ? "predecessor" : "clinic";
+                // Derived at run time from the key's seed text; the fixture holds no private key.
                 String field = kind.deviceSignature ? "FAKE_ed25519_private_pkcs8_b64url" : "FAKE_private_pkcs8_b64url";
-                PrivateKey privateKey = KeyFactory.getInstance(kind.deviceSignature ? "Ed25519" : "EC").generatePrivate(
-                        new PKCS8EncodedKeySpec(PortalMyCarlosDeviceApprovalCodec.base64(
-                                keys.get(signerName).get(field).textValue(), 512)));
+                PrivateKey privateKey = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(
+                        keys.get(signerName), field, kind.deviceSignature ? "Ed25519" : "EC");
                 String signed = PortalMyCarlosDeviceApprovalCrypto.sign(
                         kind, claims(entry.getValue().get("claims")), scope(fixture), privateKey);
                 var verified = PortalMyCarlosDeviceApprovalCrypto.verify(kind, signed, context);
@@ -159,6 +169,55 @@ class PortalMyCarlosDeviceApprovalCryptoUnitTest {
             }
         }
         assertEquals(7, count);
+    }
+
+    @Test
+    void shouldHoldNoPrivateKey_andRebuildEveryPublicKeyFromItsSeedText() throws Exception {
+        String raw;
+        try (var input = getClass().getResourceAsStream("/patientportal/device-approval-contract-v1.json")) {
+            raw = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        // Seed texts and public values only: no private key field and no PKCS#8 key header.
+        assertFalse(raw.toLowerCase(Locale.ROOT).contains("private"));
+        assertFalse(raw.contains("MC4CAQAw") || raw.contains("MIGHAgEA"));
+        int rebuilt = 0;
+        var keys = fixture().get("keys").fields();
+        while (keys.hasNext()) {
+            var entry = keys.next();
+            JsonNode key = entry.getValue();
+            if (entry.getKey().equals("clinic")) {
+                byte[] spki = Base64.getUrlDecoder().decode(key.get("spki").textValue());
+                assertEquals(key.get("kid").textValue(),
+                        PortalMyCarlosDeviceApprovalCodec.base64(MessageDigest.getInstance("SHA-256").digest(spki)));
+                // The derived P-256 key is the private half of the fixture's public key.
+                PrivateKey clinic = PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(key, "FAKE_private_pkcs8_b64url", "EC");
+                byte[] message = "FAKE clinic key pair check".getBytes(StandardCharsets.US_ASCII);
+                Signature signer = Signature.getInstance("SHA256withECDSA");
+                signer.initSign(clinic);
+                signer.update(message);
+                Signature verifier = Signature.getInstance("SHA256withECDSA");
+                verifier.initVerify(KeyFactory.getInstance("EC").generatePublic(new X509EncodedKeySpec(spki)));
+                verifier.update(message);
+                assertTrue(verifier.verify(signer.sign()), "clinic");
+            } else {
+                byte[] edSeed = PortalMyCarlosDeviceApprovalStateTestSupport.seedBytes(key.get("ed25519_seed_text").textValue());
+                byte[] xSeed = PortalMyCarlosDeviceApprovalStateTestSupport.seedBytes(key.get("x25519_seed_text").textValue());
+                byte[] ed = new Ed25519PrivateKeyParameters(edSeed, 0).generatePublicKey().getEncoded();
+                byte[] x = new X25519PrivateKeyParameters(xSeed, 0).generatePublicKey().getEncoded();
+                assertEquals(key.get("ed25519_public_key").textValue(), PortalMyCarlosDeviceApprovalCodec.base64(ed), entry.getKey());
+                assertEquals(key.get("x25519_public_key").textValue(), PortalMyCarlosDeviceApprovalCodec.base64(x), entry.getKey());
+                assertEquals(key.get("device_key_id").textValue(), PortalMyCarlosDeviceApprovalCrypto.deviceKeyId(x, ed), entry.getKey());
+                // The JCA keys the tests sign with hold exactly those bytes.
+                var jcaEd = (EdECPrivateKey) PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(key,
+                        "FAKE_ed25519_private_pkcs8_b64url", "Ed25519");
+                var jcaX = (XECPrivateKey) PortalMyCarlosDeviceApprovalStateTestSupport.privateKey(key,
+                        "FAKE_x25519_private_pkcs8_b64url", "X25519");
+                assertArrayEquals(edSeed, jcaEd.getBytes().orElseThrow(), entry.getKey());
+                assertArrayEquals(xSeed, jcaX.getScalar().orElseThrow(), entry.getKey());
+            }
+            rebuilt++;
+        }
+        assertEquals(5, rebuilt);
     }
 
     @Test

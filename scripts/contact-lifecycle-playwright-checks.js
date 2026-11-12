@@ -5,6 +5,7 @@
 const { assert, sqlString } = require('./lib/playwright-harness');
 const { clickAndAwaitReload } = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient, marker } = s;
@@ -18,7 +19,7 @@ async function workflow(s) {
   assert(/^[1-9]\d*$/.test(contact), 'Contact directory fixture was not created');
   let editor;
   const open = async () => {
-    editor = await s.popup(s.master, s.master.locator('[onclick*="Contact?method=manage"]').first(), 'contacts');
+    editor = await s.popup(s.master, masterRecordLink(s.master, 'Contact?method=manage').first(), 'contacts');
   };
   const field = name => editor.locator(`[name="contact_1.${name}"]`);
   const row = () => `SELECT CONCAT(role,'|',sdm,'|',ec,'|',consentToContact,'|',active,'|',note)
@@ -141,8 +142,9 @@ async function workflow(s) {
     const patientSearch = await s.popup(editor, editor.locator('a[onclick*="doPersonalSearch"]').first(), 'patient-contact-search');
     await patientSearch.locator('input[name="keyword"][type="text"]').fill(relatedName);
     await clickAndAwaitReload(patientSearch, patientSearch.locator('input[type="submit"]').first());
+    // Each result row's pick button is name="pick_demographic" since #3985; older pages named it demographic_no.
     await patientSearch.locator('tr[onclick]').filter({
-      has: patientSearch.locator(`input[name="demographic_no"][value="${related}"]`),
+      has: patientSearch.locator(`input[name="pick_demographic"][value="${related}"], input[name="demographic_no"][value="${related}"]`),
     }).locator('td.lastName').click();
     assert(await field('contactId').inputValue() === related, 'Internal search selected the wrong patient');
     assert(await field('contactName').inputValue() === `${relatedName},Related`, 'Internal search corrupted the patient display name');

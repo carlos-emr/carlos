@@ -17,6 +17,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const { MODES, rapid, settledCount, watchPosts, verdicts, armSlowServer } = require('./lib/double-submit-helpers');
+const { masterRecordLink } = require('./lib/master-record-link');
 
 async function workflow(s) {
   const { sql, patient, marker, provider } = s;
@@ -36,7 +37,7 @@ async function workflow(s) {
       AND message LIKE ${h.sqlString(`${marker}-%`)}`) === '0', 'Tickler cleanup left rows behind');
   });
 
-  const list = await s.popup(s.master, s.master.locator('a[onclick*="/tickler/ViewTicklerMain"]').first(), 'tickler-list');
+  const list = await s.popup(s.master, masterRecordLink(s.master, '/tickler/ViewTicklerMain').first(), 'tickler-list');
   await list.waitForLoadState('domcontentloaded', { timeout: 20000 });
   await h.assertNotErrorPage(list, 'the patient tickler list');
   const v = verdicts('tickler-add');

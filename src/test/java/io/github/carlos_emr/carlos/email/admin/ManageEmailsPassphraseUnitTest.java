@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.struts2.ServletActionContext;
 import org.junit.jupiter.api.AfterEach;
@@ -30,6 +31,7 @@ import io.github.carlos_emr.carlos.documentManager.PdfPreviewCapabilityService;
 import io.github.carlos_emr.carlos.email.action.EmailCompose2Action;
 import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailPdfPasswordService;
+import io.github.carlos_emr.carlos.email.core.EmailFailureMessage;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
@@ -81,6 +83,7 @@ class ManageEmailsPassphraseUnitTest extends CarlosUnitTestBase {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/manage");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.setParameter("logId", "42");
+        request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         EmailLog emailLog = new EmailLog();
         Demographic patient = new Demographic();
@@ -102,11 +105,13 @@ class ManageEmailsPassphraseUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEqualTo("compose");
         assertThat(request.getAttribute("isEmailError")).isEqualTo(true);
-        assertThat((String) request.getAttribute("emailErrorMessage"))
-                .isEqualTo("This previously sent email cannot be re-opened for editing/resending. "
-                        + "Please generate a new email instead.")
-                .doesNotContain("Patient Jane")
-                .doesNotContain("render failed");
+        String message = (String) request.getAttribute("emailErrorMessage");
+        assertThat(message).startsWith("Ce courriel déjà envoyé ne peut pas être rouvert")
+                .doesNotContain("Patient Jane", "render failed");
+        String reference = message.substring(message.lastIndexOf(' ') + 1);
+        assertThat(reference).matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+        assertThat(message).isEqualTo(EmailFailureMessage.format(
+                Locale.FRENCH, EmailFailureMessage.RESEND_ATTACHMENTS_KEY, reference));
         assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM)).isNull();
         verify(emailPdfPasswordService, never()).generatePassphrase();
     }

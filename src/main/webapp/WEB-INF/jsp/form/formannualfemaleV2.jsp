@@ -392,7 +392,7 @@
                                 </tr>
                                 <tr>
                                     <td>&nbsp;</td>
-                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnNo'/></td>
+                                    <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.formNo'/></td>
                                     <td class="Headings"><fmt:message key='encounter.formFemaleAnnual.btnYes'/></td>
                                     <td>&nbsp;</td>
                                 </tr>

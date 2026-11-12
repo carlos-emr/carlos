@@ -328,7 +328,7 @@ objects with no seeded grant.
 |---|---|
 | Antenatal forms `formAR`, `formONAR`, `formONAREnhancedRecord(+Ext1/2)` | **archive** — patient data; see `docs/migration-deprecated-form-tables.md`; export CSV + `o19_archive` |
 | Generic intake (`intake*`, `formIntakeHx`), OCAN (`Ocan*`), eyeform (`eyeform*`, `Eyeform*`, `specshis`, `procedurebook`…) | **archive** if row counts > 0 |
-| HSFO study (`hsfo_*`, `form_hsfo_visit`), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
+| HSFO study (`hsfo_*`, `form_hsfo_visit`; the HSFO/HSFO2 submission menu, `hsfo.*` settings and `hsfo_job_run_as_provider` are retired in CARLOS, so the tables are data-retention only), CAISI beds/rooms (`bed*`, `room_*`, `vacancy`, `complaint`, `incident`) | **archive** if used (CHC-style sites), else drop |
 | OLIS (`OLIS*`) | **archive** query prefs/log; OLIS module does not exist in CARLOS — flag to clinic |
 | Integrator/sharing/PHR/Indivo/BORN (`Integrator*`, `sharing_*`, `phr_*`, `indivoDocs`, `BORN*`), cookie-revolver `cr_*`, report-runner `report_*`, MDS raw (`mdsZCL`, `mdsZCT`), `RedirectLink*`, temp/backup tables | **drop** — no live CARLOS table, but the rows are preserved in `o19_archive` and as an `import_archived_` twin, and named in the report |
 

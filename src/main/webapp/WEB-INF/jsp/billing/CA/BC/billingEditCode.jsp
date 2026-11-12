@@ -51,6 +51,7 @@
 
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.billings.ca.bc.data.BillingCodeData,io.github.carlos_emr.carlos.billing.ca.bc.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
 
 <html>
 
@@ -121,6 +122,9 @@
                         int i = 0;
                         for (BillingService bs : bills) {
                             i++;
+                            // A missing date (a code added before Add stored an end date) shows, and posts back, as empty.
+                            String serviceDate = ConversionUtils.toDateString(bs.getBillingserviceDate());
+                            String terminationDate = ConversionUtils.toDateString(bs.getTerminationDate());
                     %>
                     <tr>
 
@@ -132,18 +136,18 @@
                             <input type="text" name="value" id="ival<%=i%>" value="<carlos:encode value='<%= bs.getValue() %>' context="htmlAttribute"/>"
                                    style="display:none;"/>
                         </td>
-                        <td><span id="billservice<%=i%>"><carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="html"/></span>
+                        <td><span id="billservice<%=i%>"><carlos:encode value='<%= serviceDate %>' context="html"/></span>
                             <input type="text" name="billservice" id="ibillservice<%=i%>"
-                                   value="<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="htmlAttribute"/>" style="display:none;"/>
+                                   value="<carlos:encode value='<%= serviceDate %>' context="htmlAttribute"/>" style="display:none;"/>
                         </td>
-                        <td><span id="termdate<%=i%>"><carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="html"/></span>
-                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="htmlAttribute"/>"
+                        <td><span id="termdate<%=i%>"><carlos:encode value='<%= terminationDate %>' context="html"/></span>
+                            <input type="text" name="termdate" id="itermdate<%=i%>" value="<carlos:encode value='<%= terminationDate %>' context="htmlAttribute"/>"
                                    style="display:none;"/>
                         </td>
                         <td><a id="edit<%=i%>" href="javascript: void(0);"
-                               onclick="editCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="javaScriptAttribute"/>');">edit</a>
+                               onclick="editCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= serviceDate %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= terminationDate %>' context="javaScriptAttribute"/>');">edit</a>
                             <a id="save<%=i%>" style="display:none;" href="javascript: void(0);"
-                               onclick="saveCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceDate()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= String.valueOf(bs.getTerminationDate()) %>' context="javaScriptAttribute"/>');">save</a>
+                               onclick="saveCode('<%=i%>','<carlos:encode value='<%= String.valueOf(bs.getBillingserviceNo()) %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= bs.getValue() %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= serviceDate %>' context="javaScriptAttribute"/>','<carlos:encode value='<%= terminationDate %>' context="javaScriptAttribute"/>');">save</a>
                             <span id="working<%=i%>" style="display:none;">...</span>
                         </td>
                     </tr>
@@ -172,6 +176,23 @@
                     }
 
 
+                    // The save answers each date as the epoch milliseconds of its midnight on the server, or null for a
+                    // code with no end date. Read it in UTC: in the browser's own zone, a browser west of a UTC server
+                    // would show the day before (right for any server at or west of UTC, which covers Canada).
+                    function shownDate(value) {
+                        if (value === null || value === undefined || value === '') {
+                            return '';
+                        }
+                        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                            return value;
+                        }
+                        var d = new Date(typeof value === 'object' ? value.time : value);
+                        if (isNaN(d.getTime())) {
+                            return '';
+                        }
+                        return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0');
+                    }
+
                     function saveCode(id, billingserviceNo, Value, BillingserviceDate, TerminationDate) {
                         var url = ('billingEditCode?method=ajaxCodeUpdate');
                         document.getElementById('save' + id).style.display = 'none';
@@ -184,12 +205,8 @@
                                 var data = JSON.parse(transport.responseText);
                                 var id = data.id;
                                 document.getElementById('val' + id).textContent = data.value;
-                                var d = new Date(data.billingserviceDate.time);
-                                document.getElementById('billservice' + id).textContent =
-                                    d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-                                var t = new Date(data.terminationDate.time);
-                                document.getElementById('termdate' + id).textContent =
-                                    t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+                                document.getElementById('billservice' + id).textContent = shownDate(data.billingserviceDate);
+                                document.getElementById('termdate' + id).textContent = shownDate(data.terminationDate);
                                 document.getElementById('val' + id).style.display = '';
                                 document.getElementById('ival' + id).style.display = 'none';
                                 document.getElementById('billservice' + id).style.display = '';

@@ -13,8 +13,12 @@
 package io.github.carlos_emr.carlos.mds.gate;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
+import io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao;
+import io.github.carlos_emr.carlos.lab.service.LabPatientAccess;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.mds.data.MDSResultsData;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
@@ -28,7 +32,10 @@ import org.apache.struts2.ServletActionContext;
  * vendor lab inbox) security-hardening migration (2Action gate pattern
  * from #1109, #1629, #1632, #1644, #1662, #1663, #1665, #1666, #1667, #1668).
  *
- * <p>HTTP method is not enforced; only {@code _lab} read privilege is required.
+ * <p>HTTP method is not enforced. Global {@code _lab} read does not override a patient lock
+ * ({@code _demographic$N} or {@code _eChart$N}): the report's actual MDS routing owner, and the
+ * owner of every version the JSP reads beside it, must be open to the caller. A non-numeric
+ * {@code segmentID} is a 400.
  *
  * @since 2026-04-14
  */
@@ -43,6 +50,23 @@ public final class ViewSegmentDisplay2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", "r", null)) {
             throw new SecurityException("missing required sec object (_lab)");
+        }
+
+        String segment = request.getParameter("segmentID");
+        Integer labNo = LabPatientAccess.positiveIdentity(segment);
+        if (labNo == null) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        PatientLabRoutingDao routings = SpringUtils.getBean(PatientLabRoutingDao.class);
+        LabPatientAccess.requireLab(securityInfoManager, routings, loggedInInfo, labNo, "MDS");
+        // SegmentDisplay.jsp loads every matching version and renders the acknowledgement comments
+        // of the selected and older ones. Authorize the same server-resolved chain it uses
+        // (CommonLabResultData.getMatchingLabs(segmentID, "MDS")) before forwarding.
+        String versions = new MDSResultsData().getMatchingLabs(segment);
+        if (!LabPatientAccess.requireOtherVersions(securityInfoManager, routings, loggedInInfo, labNo, versions, "MDS")) {
+            ServletActionContext.getResponse().setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
         }
 
         return SUCCESS;

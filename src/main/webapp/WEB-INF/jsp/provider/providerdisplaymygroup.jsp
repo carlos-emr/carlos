@@ -69,9 +69,11 @@
             </h4>
         </div>
 
-    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/providercontrol">
-        <input type="hidden" name="submit_form" value="">
-        <input type="hidden" name="displaymode" value="newgroup">
+    <%-- Delete posts straight to provider/DeleteMyGroupMembers, which redirects back to this list.
+         It used to post to provider/providercontrol (displaymode=newgroup), whose server-side
+         include swallowed the redirect and left a blank page (#4515). Each checkbox is named
+         <mygroup_no><provider_no> with the value <mygroup_no>; see MyGroupMembershipService. --%>
+    <form name="UPDATEPRE" method="post" action="<%= request.getContextPath() %>/provider/DeleteMyGroupMembers">
         <input type="hidden" name="<csrf:tokenname/>" value="<csrf:tokenvalue/>">
 
         <table class="table table-sm table-bordered mb-0">
@@ -117,10 +119,10 @@
             <fmt:message key="global.btnBack" var="btnBackLabel"/>
             <input type="submit" class="btn btn-danger btn-sm"
                    value="${carlos:forHtmlAttribute(btnDeleteLabel)}"
-                   onclick="if(!confirm('${carlos:forJavaScript(confirmDeleteMsg)}')){return false;} document.forms['UPDATEPRE'].submit_form.value='Delete';">
-            <input type="submit" class="btn btn-primary btn-sm ms-2"
-                   value="${carlos:forHtmlAttribute(btnNewLabel)}"
-                   onclick="document.forms['UPDATEPRE'].submit_form.value='New Group/Add a Member';">
+                   onclick="return confirm('${carlos:forJavaScript(confirmDeleteMsg)}');">
+            <%-- Opening the new-group form changes nothing, so it is a plain link. --%>
+            <a class="btn btn-primary btn-sm ms-2"
+               href="<%= request.getContextPath() %>/provider/ViewProviderNewGroup"><carlos:encode value="${btnNewLabel}"/></a>
             <input type="button" class="btn btn-secondary btn-sm ms-2"
                    value="${carlos:forHtmlAttribute(btnBackLabel)}"
                    onClick="if (window.opener) { window.close(); } else { window.history.back(); }">

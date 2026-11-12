@@ -38,8 +38,6 @@ import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
 import io.github.carlos_emr.carlos.commn.model.Validations;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.util.ConversionUtils;
-
 public class EctValidationsBeanHandler {
 
     Vector validationsVector = new Vector();
@@ -68,16 +66,7 @@ public class EctValidationsBeanHandler {
     }
 
     public int findValidation(EctValidationsBean validation) {
-        String regularExp = validation.getRegularExp() != null ? validation.getRegularExp() : null;
-        Double minValue = validation.getMinValue() != null ? ConversionUtils.fromDoubleString(validation.getMinValue()) : null;
-        Double maxValue = validation.getMaxValue() != null ? ConversionUtils.fromDoubleString(validation.getMaxValue()) : null;
-        Integer minLength = validation.getMinLength() != null ? ConversionUtils.fromIntString(validation.getMinLength()) : null;
-        Integer maxLength = validation.getMaxLength() != null ? ConversionUtils.fromIntString(validation.getMaxLength()) : null;
-        Boolean isNumeric = validation.getIsNumeric() != null ? ConversionUtils.fromBoolString(validation.getIsNumeric()) : null;
-        Boolean isDate = validation.getIsDate() != null ? ConversionUtils.fromBoolString(validation.getIsDate()) : null;
-
-        ValidationsDao dao = SpringUtils.getBean(ValidationsDao.class);
-        List<Validations> vs = dao.findByAll(regularExp, minValue, maxValue, minLength, maxLength, isNumeric, isDate);
+        List<Validations> vs = dao.findByDefinition(definitionFor(validation));
         if (vs.isEmpty()) {
             return -1;
         }
@@ -85,8 +74,13 @@ public class EctValidationsBeanHandler {
     }
 
     public int addValidation(EctValidationsBean validation) {
-        int validationId = -1;
+        Validations definition = definitionFor(validation);
+        dao.persist(definition);
+        return definition.getId();
+    }
 
+    /** Lookup and creation agree on absent fields and the model's maxLength=0 default. */
+    private static Validations definitionFor(EctValidationsBean validation) {
         Validations v = new Validations();
         if (validation.getName() != null && !validation.getName().isEmpty()) {
             v.setName(validation.getName());
@@ -107,17 +101,13 @@ public class EctValidationsBeanHandler {
             v.setMaxLength(Integer.parseInt(validation.getMaxLength()));
         }
         if (validation.isNumeric != null) {
-            v.setNumeric(validation.isNumeric.equals("1") ? true : false);
+            v.setNumeric("1".equals(validation.isNumeric) || Boolean.parseBoolean(validation.isNumeric));
         }
         if (validation.isDate != null) {
-            v.setDate(validation.isDate.equals("1") ? true : false);
+            v.setDate("1".equals(validation.isDate) || Boolean.parseBoolean(validation.isDate));
         }
 
-        dao.persist(v);
-
-        validationId = v.getId();
-
-        return validationId;
+        return v;
     }
 
     public EctValidationsBean getValidation(String val) {

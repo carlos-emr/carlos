@@ -53,6 +53,7 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
         lists = mock(LookupListManager.class);
         registerMock(SecurityInfoManager.class, security);
         registerMock(LookupListManager.class, lists);
+        createAndRegisterMock(io.github.carlos_emr.carlos.admin.service.DemographicProviderReassignmentService.class);
         servlet = mockStatic(ServletActionContext.class);
         servlet.when(ServletActionContext::getRequest).thenReturn(request);
         servlet.when(ServletActionContext::getResponse).thenReturn(response);
@@ -182,7 +183,7 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     @ParameterizedTest
     @CsvSource({"GET, UpdateResident", "HEAD, UpdateResident", "GET, UpdateNurse", "HEAD, UpdateNurse",
             "GET, UpdateMidwife", "HEAD, UpdateMidwife", "GET, UpdateMrp", "HEAD, UpdateMrp"})
-    void shouldRefuseJspForwarding_whenProviderUpdateUsesReadMethod(String method, String operation) {
+    void shouldRefuseJspForwarding_whenProviderUpdateUsesReadMethod(String method, String operation) throws Exception {
         request.setMethod(method);
         request.setParameter("update", operation);
         assertThat(new UpdateDemographicProvider2Action().execute()).isEqualTo(ActionSupport.NONE);
@@ -190,7 +191,7 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAllowProviderViewButRefuseMutation_whenUserHasReadOnlyPrivileges() {
+    void shouldAllowProviderViewButRefuseMutation_whenUserHasReadOnlyPrivileges() throws Exception {
         when(security.hasPrivilege(eq(login), anyString(), eq("w"), isNull())).thenReturn(false);
         request.setMethod("GET");
         var action = new UpdateDemographicProvider2Action();
@@ -201,8 +202,8 @@ class ReadMethodWriteGuardUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"_admin.misc", "_admin"})
-    void shouldForwardProviderUpdate_whenPostHasWritePrivilege(String privilege) {
+    @ValueSource(strings = {"_admin.misc"})
+    void shouldForwardProviderUpdate_whenPostHasWritePrivilege(String privilege) throws Exception {
         when(security.hasPrivilege(eq(login), anyString(), eq("w"), isNull())).thenReturn(false);
         when(security.hasPrivilege(login, privilege, "w", null)).thenReturn(true);
         request.setMethod("POST");

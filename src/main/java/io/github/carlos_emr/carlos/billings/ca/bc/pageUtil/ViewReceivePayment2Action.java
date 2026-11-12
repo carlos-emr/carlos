@@ -57,20 +57,26 @@ public class ViewReceivePayment2Action
             throw new SecurityException("missing required sec object (_billing)");
         }
 
-        BillingViewBean bean = new BillingViewBean();
-        String billingMasterNo = request.getParameter("lineNo");
-        String billNo = request.getParameter("billNo");
-        List paymentTypes = bean.getPaymentTypes();
-        for (int i = 0; i < paymentTypes.size(); i++) {
-            PaymentType tp = (PaymentType) paymentTypes.get(i);
-            if ("ELECTRONIC".equals(tp.getPaymentType())) {
-                paymentTypes.remove(i);
-            }
-        }
-        this.setPaymentMethodList(paymentTypes);
-        this.setBillingmasterNo(billingMasterNo);
-        this.setBillNo(billNo);
+        this.setPaymentMethodList(manualPaymentTypes());
+        this.setBillingmasterNo(request.getParameter("lineNo"));
+        this.setBillNo(request.getParameter("billNo"));
+        // receivePayment.jsp reads this action through the "receivePaymentActionForm" request
+        // attribute, a name left over from the Struts 1 ActionForm; nothing else publishes it.
+        request.setAttribute(ReceivePayment2Action.FORM_ATTRIBUTE, this);
         return SUCCESS;
+    }
+
+    /**
+     * The payment methods a front-desk user can record by hand. ELECTRONIC is an MSP remittance
+     * type that only the reconciliation import writes, so it is never offered here.
+     *
+     * @return a new list of payment types without ELECTRONIC
+     */
+    static List<PaymentType> manualPaymentTypes() {
+        List<PaymentType> paymentTypes = new BillingViewBean().getPaymentTypes();
+        // Removing by index while counting up skipped the entry after each removal.
+        paymentTypes.removeIf(tp -> "ELECTRONIC".equals(tp.getPaymentType()));
+        return paymentTypes;
     }
 
     private String amountReceived;

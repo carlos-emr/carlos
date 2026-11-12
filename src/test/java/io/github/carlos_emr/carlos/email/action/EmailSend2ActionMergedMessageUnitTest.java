@@ -46,6 +46,7 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailConsentStatus;
 import io.github.carlos_emr.carlos.commn.model.EmailLog.EmailStatus;
 import io.github.carlos_emr.carlos.commn.model.enumerator.DocumentType;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailComposeSubmissionStateService;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.email.core.EmailSessionKeys;
 import io.github.carlos_emr.carlos.managers.EformDataManager;
@@ -614,24 +615,37 @@ class EmailSend2ActionMergedMessageUnitTest extends EmailWorkflowUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject messages over the server-side size limit")
-    void shouldRejectMessage_whenMessageExceedsSizeLimit() throws Exception {
+    @DisplayName("should preserve a rejected message when its UTF-8 bytes exceed the storage limit")
+    void shouldRetainMessageAndFreshToken_whenMessageExceedsStorageBytes() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/email/send");
         request.setParameter("method", "sendDirectEmail");
-        request.setParameter("message", "x".repeat(10_001));
+        request.setParameter("transactionType", "DIRECT");
+        request.setParameter("demographicId", "42");
+        String message = "é".repeat(32_768); // 65,536 UTF-8 bytes, below that many characters.
+        request.setParameter("message", message);
         request.setParameter("isEmailEncrypted", "false");
+        request.setParameter("isEmailAttachmentEncrypted", "false");
         LoggedInInfo.setLoggedInInfoIntoSession(request.getSession(), new LoggedInInfo());
         when(securityInfoManager.hasPrivilege(any(), any(), any(), any())).thenReturn(true);
+        String originalToken = prepareSubmission(request);
+        when(emailManager.sendEmailWithResult(any(), any())).thenAnswer(call -> {
+            EmailData data = call.getArgument(1);
+            throw new io.github.carlos_emr.carlos.email.core.EmailFieldLengthException(
+                    io.github.carlos_emr.carlos.email.core.EmailFieldLengthValidator.validate(data));
+        });
 
         EmailSend2Action action = new EmailSend2Action();
         action.request = request;
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        action.response = response;
+        action.response = new MockHttpServletResponse();
 
-        assertThat(action.execute()).isEqualTo(ActionSupport.NONE);
-        assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
-        assertThat(response.getContentAsString()).contains("must not exceed 10000 characters");
-        verifyNoInteractions(emailManager);
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        assertThat((List<?>) request.getAttribute("emailLengthViolations"))
+                .extracting("messageKey").containsExactly("email.compose.msg.bodyTooLong");
+        assertThat(request.getAttribute("message")).isEqualTo(message);
+        assertThat(request.getAttribute("isEmailSuccessful")).isNull();
+        assertThat(request.getAttribute(EmailComposeSubmissionStateService.EMAIL_PDF_PASSWORD_TOKEN_PARAM))
+                .isNotNull().isNotEqualTo(originalToken);
+        assertThat(submissionStates.consume(request)).isNull();
     }
 
     @Test

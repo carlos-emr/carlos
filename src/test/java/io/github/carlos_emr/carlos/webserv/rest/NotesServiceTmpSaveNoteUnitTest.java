@@ -33,7 +33,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNote;
 import io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager;
-import io.github.carlos_emr.carlos.commn.exception.AccessDeniedException;
+import jakarta.ws.rs.WebApplicationException;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -93,6 +93,8 @@ class NotesServiceTmpSaveNoteUnitTest extends CarlosUnitTestBase {
 
         lenient().when(securityInfoManager.hasPrivilege(any(), eq("_eChart"), eq("w"), any()))
                 .thenReturn(true);
+        lenient().when(securityInfoManager.hasPrivilege(any(), eq("_casemgmt.notes"), eq("w"), any()))
+                .thenReturn(true);
         lenient().when(caseManagementMgr.isClientInProgramDomain(any(List.class), any(List.class)))
                 .thenReturn(true);
         lenient().when(securityInfoManager.isAllowedAccessToPatientRecord(any(), any()))
@@ -114,7 +116,8 @@ class NotesServiceTmpSaveNoteUnitTest extends CarlosUnitTestBase {
         NoteTo1 note = draft(0);
 
         assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 
     @Test
@@ -127,7 +130,8 @@ class NotesServiceTmpSaveNoteUnitTest extends CarlosUnitTestBase {
         NoteTo1 note = draft(0);
 
         assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
     }
 
     @Test
@@ -144,7 +148,8 @@ class NotesServiceTmpSaveNoteUnitTest extends CarlosUnitTestBase {
         NoteTo1 note = draft(4242);
 
         assertThatThrownBy(() -> service.tmpSaveNote(DEMOGRAPHIC_NO, note))
-                .isInstanceOf(AccessDeniedException.class);
+                .isInstanceOfSatisfying(WebApplicationException.class, error ->
+                        org.assertj.core.api.Assertions.assertThat(error.getResponse().getStatus()).isEqualTo(403));
 
         // Nothing was written: the previous draft must not be deleted on a rejected call.
         verify(caseManagementMgr, never()).deleteTmpSave(any(), any(), any());

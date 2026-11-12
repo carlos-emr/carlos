@@ -47,9 +47,7 @@ import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.UserDSMessagePrefsDao;
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.Allergy;
-import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.commn.model.UserDSMessagePrefs;
-import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -58,6 +56,7 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.RxDsMessageTo1;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
+import io.github.carlos_emr.carlos.prescript.util.RxInteractionWarningLevelResolver;
 
 public class DrugrefUtil {
     private static final Logger logger = MiscUtils.getLogger();
@@ -296,33 +295,17 @@ public class DrugrefUtil {
     }
 
 
+    /**
+     * The facility/provider/patient interaction warning level; see
+     * {@link RxInteractionWarningLevelResolver}, which the Rx page's interaction check uses.
+     *
+     * @param loggedInInfo  the prescribing provider's session
+     * @param demographicNo the patient
+     * @return the level, 0 (not specified) to 4 (none)
+     */
     public int getWarningLevel(LoggedInInfo loggedInInfo, Integer demographicNo) {
-        //filter out based on significance by facility, providers, demographic
-        int level = 0;
-        int orgLevel = loggedInInfo.getCurrentFacility().getRxInteractionWarningLevel();
-        level = orgLevel;
-        MiscUtils.getLogger().debug("orgLevel=" + orgLevel);
-
-        UserProperty uprop = propDAO.getProp(loggedInInfo.getLoggedInProviderNo(), "rxInteractionWarningLevel");
-        if (uprop != null) {
-            if (uprop.getValue() != null && uprop.getValue().length() > 0) {
-                int providerLevel = Integer.parseInt(uprop.getValue());
-                MiscUtils.getLogger().debug("providerLevel=" + providerLevel);
-                if (providerLevel > 0)
-                    level = providerLevel;
-            }
-        }
-
-        DemographicExt demoWarn = demographicExtDao.getLatestDemographicExt(demographicNo, "rxInteractionWarningLevel");
-        if (demoWarn != null) {
-            if (demoWarn.getValue() != null && demoWarn.getValue().length() > 0) {
-                int demoLevel = Integer.valueOf(demoWarn.getValue());
-                MiscUtils.getLogger().debug("demoLevel=" + demoLevel);
-                if (demoLevel > 0)
-                    level = demoLevel;
-            }
-        }
-        return level;
+        return new RxInteractionWarningLevelResolver(propDAO, demographicExtDao)
+                .resolve(loggedInInfo, demographicNo == null ? 0 : demographicNo);
     }
 
 

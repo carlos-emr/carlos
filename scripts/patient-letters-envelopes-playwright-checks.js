@@ -56,6 +56,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -589,7 +590,7 @@ async function cleanup(demographicNo) {
   let context;
   await withPreservedCleanup(async () => {
     context = await browser.newContext({
-      ignoreHTTPSErrors: isLocalHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1280, height: 900 },
     });
     await login(context);

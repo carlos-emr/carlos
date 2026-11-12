@@ -30,12 +30,15 @@
 
 package io.github.carlos_emr.carlos.login;
 
-import io.github.carlos_emr.CarlosProperties;
+import org.apache.struts2.ActionSupport;
+import org.apache.logging.log4j.Logger;
+import org.apache.struts2.ServletActionContext;
+import org.apache.struts2.action.UploadedFilesAware;
+import org.apache.struts2.dispatcher.multipart.UploadedFile;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.commn.service.AcceptableUseAgreementManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
@@ -43,156 +46,144 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import org.apache.logging.log4j.Logger;
-import org.apache.struts2.ActionSupport;
-import org.apache.struts2.ServletActionContext;
-import org.apache.struts2.action.UploadedFilesAware;
-import org.apache.struts2.dispatcher.multipart.UploadedFile;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.Reader;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.ResolverStyle;
 
 public class UploadLoginText2Action extends ActionSupport implements UploadedFilesAware {
-    private static final String LOGIN_TEXT_FILE_NAME = "OSCARloginText.txt";
 
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static Logger _logger = MiscUtils.getLogger();
-    private final transient SecurityInfoManager securityInfoManager;
-
-    public UploadLoginText2Action(SecurityInfoManager securityInfoManager) {
-        this.securityInfoManager = securityInfoManager;
-    }
+    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     @Override
-    public String execute() throws Exception {
-        requireAdminWrite();
+    public String execute() {
 
-        // Dual-purpose route (struts admin/uploadEntryText -> uploadEntryText.jsp): the admin menu
-        // and the administration left-nav both open this URL with a GET to render the upload form,
-        // and the form POSTs multipart back to the same route. CSRFGuard does not validate GET, so
-        // neither side effect below -- the AUA property persist and the OSCARloginText.txt rewrite --
-        // may run on GET/HEAD. A GET/HEAD carrying any AUA mutation parameter is a CSRF-via-GET save
-        // attempt and is rejected before any side effect; a bare GET/HEAD renders the form. Any other
-        // method is unsupported. See CONDITIONAL_MUTATORS in
-        // MutatorActionGetRejectionContractUnitTest for where this contract is pinned.
-        String method = request.getMethod();
-        if (!"POST".equals(method)) {
-            boolean readView = "GET".equals(method) || "HEAD".equals(method);
-            if (!readView || hasAcceptableUseAgreementMutationIntent()) {
-                response.setHeader("Allow", readView ? "POST" : "GET, HEAD, POST");
-                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
-                return NONE;
-            }
-            // Render the form. The "error" request attribute is deliberately left unset: the JSP
-            // only renders the upload-failure banner when the attribute is present.
-            return SUCCESS;
-        }
-
-        updateAcceptableUseAgreementDuration();
-
-        boolean error = uploadLoginText();
-        request.setAttribute("error", error);
-        return SUCCESS;
-    }
-
-    private void requireAdminWrite() {
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_admin", "w", null)) {
             throw new SecurityException("missing required sec object (_admin)");
         }
-    }
 
-    /**
-     * True when the request carries any parameter the acceptable-use-agreement persist reads.
-     * A multipart upload cannot reach a GET, so these four parameters are the only way a
-     * GET/HEAD could otherwise drive a write.
-     */
-    private boolean hasAcceptableUseAgreementMutationIntent() {
-        return request.getParameter("validForever") != null
-                || request.getParameter("foreverFrom") != null
-                || request.getParameter("validDurationNumber") != null
-                || request.getParameter("validDurationPeriod") != null;
-    }
-
-    private void updateAcceptableUseAgreementDuration() {
-        Property prop = buildAcceptableUseAgreementProperty();
-        if (prop == null) {
-            return;
-        }
-
-        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
-        Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-        if (latestProperty == null || !prop.getValue().equals(latestProperty.getValue())) {
-            propertyDao.persist(prop);
-        } else {
-            _logger.debug("No need to update. Same AcceptableUse Property as it was before");
-        }
-    }
-
-    private Property buildAcceptableUseAgreementProperty() {
-        String validDurationNumber = request.getParameter("validDurationNumber"); // verify it's a number
-        String validDurationPeriod = request.getParameter("validDurationPeriod"); //verify it's one of these year month weeks days
+        String validDurationNumber = request.getParameter("validDurationNumber");
+        String validDurationPeriod = request.getParameter("validDurationPeriod");
         String validForever = request.getParameter("validForever");
         String foreverFrom = request.getParameter("foreverFrom");
-
-        _logger.debug("validDurationNumber={} validDurationPeriod={} validForever={} foreverFrom={}", LogSafe.sanitize(validDurationNumber), LogSafe.sanitize(validDurationPeriod), LogSafe.sanitize(validForever), LogSafe.sanitize(foreverFrom));
-
-        if (validForever != null && validForever.equals("forever")) {
-            Property prop = new Property();
-            prop.setName("aua_valid_from");
-            prop.setValue(foreverFrom);
-            return prop;
+        boolean mutation = importFile != null || validDurationNumber != null
+                || validDurationPeriod != null || validForever != null || foreverFrom != null;
+        if (!"POST".equals(request.getMethod())) {
+            if ("GET".equals(request.getMethod()) && !mutation) {
+                return SUCCESS;
+            }
+            response.setHeader("Allow", "POST");
+            response.setStatus(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
+        Property prop = new Property();
         try {
-            Integer.parseInt(validDurationNumber);
-        } catch (NumberFormatException e) {
-            _logger.error("Not an Int:{}", LogSafe.sanitize(validDurationNumber), e);
-            return null;
+            if ("forever".equals(validForever)) {
+                if (foreverFrom == null) throw new IllegalArgumentException("Missing agreement date");
+                LocalDateTime.parse(foreverFrom, DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss")
+                        .withResolverStyle(ResolverStyle.STRICT));
+                prop.setName("aua_valid_from");
+                prop.setValue(foreverFrom);
+            } else {
+                int duration = Integer.parseInt(validDurationNumber);
+                if (validForever != null || duration < 1 || duration > 18
+                        || validDurationPeriod == null
+                        || !List.of("year", "month", "weeks", "days").contains(validDurationPeriod)) {
+                    throw new IllegalArgumentException("Invalid agreement duration");
+                }
+                prop.setName("aua_valid_duration");
+                prop.setValue(duration + " " + validDurationPeriod);
+            }
+        } catch (IllegalArgumentException | java.time.DateTimeException _) {
+            addActionError("Choose a valid agreement duration or a date in yyyy-MM-dd HH:mm:ss format.");
+            request.setAttribute("error", true);
+            return SUCCESS;
         }
 
-        if (validDurationPeriod != null && ("year".equals(validDurationPeriod) || "month".equals(validDurationPeriod) || "weeks".equals(validDurationPeriod) || "days".equals(validDurationPeriod))) {
-            Property prop = new Property();
-            prop.setName("aua_valid_duration");
-            prop.setValue(validDurationNumber + " " + validDurationPeriod);
-            return prop;
-        }
-
-        _logger.error("Not a valid Period :{}", LogSafe.sanitize(validDurationPeriod)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
-        return null;
+        AcceptableUseAgreementManager.updateAgreement(() -> publishLoginText(prop));
+        return SUCCESS;
     }
 
-    private boolean uploadLoginText() {
+    private void publishLoginText(Property prop) {
         boolean error = false;
+        PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
+        PublishedLoginText published = null;
+        boolean restored = false;
         try {
             if (importFile == null) {
                 _logger.warn("No file uploaded; skipping login text write");
             } else if (!importFile.getName().isEmpty()) {
-                writeLoginTextFile();
-                error = false;
+                published = writeLoginTextFile();
+            }
+            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+            if (latestProperty == null || !prop.getName().equals(latestProperty.getName())
+                    || !prop.getValue().equals(latestProperty.getValue())) {
+                propertyDao.persist(prop);
+                AcceptableUseAgreementManager.invalidateCache();
             }
         } catch (Exception e) {
+            restored = restoreAfterFailure(published, e);
             MiscUtils.getLogger().error("Error", e);
             error = true;
+        } finally {
+            // A failed update that could not be undone keeps its backup for manual recovery.
+            if (!error || restored) {
+                discardBackup(published);
+            }
         }
-        return error;
+        request.setAttribute("error", error);
     }
 
-    private void writeLoginTextFile() throws IOException {
-        File documentDir = PathValidationUtils.validateConfiguredDirectory(
-                CarlosProperties.getInstance().getProperty("DOCUMENT_DIR"), "DOCUMENT_DIR");
-        File saveFile = PathValidationUtils.validateGeneratedChildPath(LOGIN_TEXT_FILE_NAME, documentDir);
-        Path tempFile = Files.createTempFile(documentDir.toPath(), "OSCARloginText-", ".tmp");
-        boolean moved = false;
+    private boolean restoreAfterFailure(PublishedLoginText published, Exception failure) {
+        if (published == null) {
+            return false;
+        }
+        try {
+            restoreLoginTextFile(published);
+            return true;
+        } catch (IOException restoreError) {
+            failure.addSuppressed(restoreError);
+            return false;
+        }
+    }
+
+    private void discardBackup(PublishedLoginText published) {
+        if (published == null || published.backup() == null) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(published.backup());
+        } catch (IOException cleanupError) {
+            _logger.warn("Could not remove agreement backup after update", cleanupError);
+        }
+    }
+
+    private record PublishedLoginText(Path destination, Path backup) { }
+
+    private PublishedLoginText writeLoginTextFile() throws IOException {
+        File saveFile = AcceptableUseAgreementManager.getAgreementFile();
+        Path directory = saveFile.getParentFile().toPath();
+        Files.createDirectories(directory);
+        Path tempFile = Files.createTempFile(directory, "agreement-upload-", ".tmp");
+        Path backup = null;
+        boolean published = false;
         try {
             try (InputStream fis = Files.newInputStream(importFile.toPath());
                  OutputStream fos = Files.newOutputStream(tempFile)) {
@@ -202,13 +193,42 @@ public class UploadLoginText2Action extends ActionSupport implements UploadedFil
                     fos.write(buf, 0, i);
                 }
             }
+            validateUtf8(tempFile);
+            if (Files.exists(saveFile.toPath())) {
+                backup = Files.createTempFile(directory, "agreement-backup-", ".tmp");
+                Files.copy(saveFile.toPath(), backup,
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.COPY_ATTRIBUTES);
+            }
             moveLoginTextFile(tempFile, saveFile.toPath());
-            moved = true;
+            published = true;
+            AcceptableUseAgreementManager.invalidateCache();
+            return new PublishedLoginText(saveFile.toPath(), backup);
         } finally {
-            if (!moved) {
+            if (!published) {
                 Files.deleteIfExists(tempFile);
+                if (backup != null) Files.deleteIfExists(backup);
             }
         }
+    }
+
+    private void validateUtf8(Path file) throws IOException {
+        try (Reader reader = new InputStreamReader(Files.newInputStream(file), StandardCharsets.UTF_8
+                .newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                .onUnmappableCharacter(CodingErrorAction.REPORT))) {
+            char[] chars = new char[8192];
+            while (reader.read(chars) != -1) {
+                // Validate the entire staged file before publishing any of it.
+            }
+        }
+    }
+
+    private void restoreLoginTextFile(PublishedLoginText published) throws IOException {
+        if (published.backup() == null) {
+            Files.deleteIfExists(published.destination());
+        } else {
+            moveLoginTextFile(published.backup(), published.destination());
+        }
+        AcceptableUseAgreementManager.invalidateCache();
     }
 
     private void moveLoginTextFile(Path tempFile, Path saveFile) throws IOException {

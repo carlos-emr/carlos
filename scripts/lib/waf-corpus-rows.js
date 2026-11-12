@@ -13,9 +13,10 @@
  *   outcome   what the corpus step proves (see OUTCOMES): 'stored' (default) the text lands byte for byte in a database row;
  *             'accepted' the route took the request and nothing is stored for it (a session stash, a search, a display page);
  *             'echoed' the route's ANSWER carries the text back exactly
- *   response  true for a row that measures a response-body rule (CRS outbound), for which the package has no exclusion
+ *   response  true for a row that measures a response-body rule (CRS outbound)
  *   rules     ids in REQUEST-900-EXCLUSION-RULES-BEFORE-CRS.conf that are meant to let `args` through `route`
  *   afterCrs  the config-time pattern in RESPONSE-999-EXCLUSION-RULES-AFTER-CRS.conf a row without a numbered rule relies on
+ *   afterCrsTags optional tag families for a pattern with a narrower exclusion than the six prose families
  *   args      the prose arguments the row fills, as the exclusion names them (comments-<n> stands for the row-indexed names)
  *
  * One defect, one row. A route that is reached through two different arguments or answers gets a row for each, because
@@ -24,6 +25,7 @@
  * name is the rename key-up (rx-custom-drug-name) and the Save Only box (rx-custom-drug-save).
  *
  * Exclusions this check does not drive, and why:
+ *   1098                pregnancy notes: pregnancy-lifecycle verifies literal markup through native create/complete
  *   1100 and 1131       the consultation request and the master record's Alert/Notes: clinical-freetext
  *   1400, 1401, 1402    report authoring: report-query-by-example-front-door and report-by-template-editor-front-door
  *   1137                BC billing reprocess notes: no British Columbia work is in scope (issue #4439)
@@ -31,11 +33,11 @@
  *                       save-on-switch (noteTxt) name arguments no row here posts
  *   1020, 1050, 1060, 1070, 1080  signature and eForm-editor routes whose arguments are data URIs and HTML documents, not prose
  *   1046-1049, 1088-1090  label layouts and the Host header rule: not prose
- *   1101-1103, 1106, 1110-1112, 1114, 1115, 1119, 1121, 1122, 1124, 1127-1133, 1138-1140, 1142
+ *   1101-1103, 1106, 1110-1112, 1114, 1115, 1119, 1121, 1122, 1124, 1127-1133, 1138-1139, 1142
  *                       prose routes outside this plan's route list, still open for a later row
  */
 
-/** @type {Record<string, {title: string, corpusStep: string, outcome?: 'stored'|'accepted'|'echoed', response?: boolean, rules: string[], afterCrs?: string[], route: string, method: string, args: string[]}>} */
+/** @type {Record<string, {title: string, corpusStep: string, outcome?: 'stored'|'accepted'|'echoed', response?: boolean, responseRules?: string[], rules: string[], afterCrs?: string[], afterCrsTags?: string[], route: string, method: string, args: string[]}>} */
 const FACTS = {
   'tickler-add': {
     title: 'tickler add',
@@ -55,11 +57,11 @@ const FACTS = {
     outcome: 'accepted',
     rules: ['1141'], route: 'tickler/ListTicklers', method: 'GET', args: ['search[value]'],
   },
-  // No exclusion reaches the other direction: CRS 953120 reads the JSON answer, which carries each tickler's message.
+  // CRS 953120 reads the JSON answer, which carries each tickler's message.
   'tickler-list-response': {
     title: 'tickler list (the saved message comes back)',
     corpusStep: 'tickler list (the saved message comes back): the clinical corpus comes back through /tickler/ListTicklers exactly',
-    outcome: 'echoed', response: true,
+    outcome: 'echoed', response: true, responseRules: ['1073'],
     rules: [], route: 'tickler/ListTicklers', method: 'GET', args: ['message'],
   },
   'rx-special-instruction': {
@@ -68,24 +70,40 @@ const FACTS = {
     rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['specialInstruction'],
   },
   // The rename key-up posts customName to rx/WriteScript?parameterValue=saveCustomName (the staged copy only, nothing is
-  // stored yet). 1107 exempts customName on rx/writeScript, lower case; the page posts to rx/WriteScript, where 1108
-  // exempts `name` (the box the drug search stages the card with) but not customName (finding 210).
+  // stored yet). Rule 1108 covers both the staging `name` and the uppercase route's `customName` key-up.
   'rx-custom-drug-name': {
     title: 'Rx custom drug name (renamed in its own box)',
     corpusStep: 'Rx custom drug name (renamed in its own box): the clinical corpus is accepted by /rx/WriteScript',
     outcome: 'accepted',
-    rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['name'],
+    rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['name', 'customName'],
   },
-  // Save Only posts the card's drugName_<n> box, which the action stores as drugs.customName; no rule names it (finding 211).
+  // Save Only posts drugName_<n>, stored as drugs.customName; its numeric exclusion complements the staging rule.
   'rx-custom-drug-save': {
     title: 'Rx custom drug name (staged from the search box, then Save Only)',
     corpusStep: 'Rx custom drug name (staged from the search box, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
-    rules: ['1108'], route: 'rx/WriteScript', method: 'POST', args: ['name'],
+    rules: ['1108'], afterCrs: ['!ARGS:/^(?-i:drugName_[0-9]+)\\z/'],
+    afterCrsTags: ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php'],
+    route: 'rx/WriteScript', method: 'POST', args: ['name'],
   },
   'rx-update-script': {
     title: 'Rx sig (parsed on blur, then Save Only)',
     corpusStep: 'Rx sig (parsed on blur, then Save Only): the clinical corpus saves through /rx/UpdateScript and lands exactly',
-    rules: ['1109'], route: 'rx/UpdateScript', method: 'POST', args: ['instruction'],
+    rules: ['1109'], afterCrs: ['!ARGS:/^(?-i:instructions_[0-9]+)\\z/'],
+    afterCrsTags: ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php'],
+    route: 'rx/UpdateScript', method: 'POST', args: ['instruction'],
+  },
+  'rx-comment-save': {
+    title: 'Rx comment (More, then Save Only)',
+    corpusStep: 'Rx comment (More, then Save Only): the clinical corpus saves through /rx/WriteScript and lands exactly',
+    rules: [], afterCrs: ['!ARGS:/^(?-i:rxComment_[0-9]+)\\z/'],
+    afterCrsTags: ['attack-lfi', 'attack-rfi', 'attack-rce', 'attack-injection-php'],
+    route: 'rx/WriteScript', method: 'POST', args: ['rxComment_<n>'],
+  },
+  'incoming-encounter-reason': {
+    title: 'encounter entry (reason in the query string)',
+    corpusStep: 'encounter entry (reason in the query string): the clinical corpus is accepted by /encounter/IncomingEncounter',
+    outcome: 'accepted',
+    rules: ['1140'], route: 'encounter/IncomingEncounter', method: 'GET', args: ['reason'],
   },
   'allergy-add': {
     title: 'allergy add',
@@ -100,7 +118,7 @@ const FACTS = {
   'measurement-comment': {
     title: 'measurement comment (Vitals)',
     corpusStep: 'measurement comment (Vitals): the clinical corpus saves through /encounter/Measurements and lands exactly',
-    rules: [], afterCrs: ['!ARGS:/^comments-[0-9]+$/'], route: 'encounter/Measurements', method: 'POST', args: ['comments-<n>'],
+    rules: [], responseRules: ['1072'], afterCrs: ['!ARGS:/^comments-[0-9]+$/'], route: 'encounter/Measurements', method: 'POST', args: ['comments-<n>'],
   },
   'prevention-add': {
     title: 'prevention add',
@@ -163,7 +181,7 @@ const FACTS = {
 /** The order the rows run in and report in: the plan's route list. */
 const ROW_ORDER = [
   'tickler-add', 'tickler-edit', 'tickler-list', 'tickler-list-response', 'rx-special-instruction', 'rx-custom-drug-name',
-  'rx-custom-drug-save', 'rx-update-script', 'allergy-add',
+  'rx-custom-drug-save', 'rx-update-script', 'rx-comment-save', 'incoming-encounter-reason', 'allergy-add',
   'measurement-data', 'measurement-comment', 'prevention-add', 'manage-document', 'lab-status', 'messenger-send',
   'appointment-add', 'appointment-update', 'chart-note', 'eform-letter', 'billing-on-save', 'billing-on-correction',
   'billing-on-display',

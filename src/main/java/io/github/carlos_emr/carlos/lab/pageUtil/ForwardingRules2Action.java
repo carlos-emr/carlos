@@ -41,7 +41,6 @@ package io.github.carlos_emr.carlos.lab.pageUtil;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -94,7 +93,7 @@ public class ForwardingRules2Action extends ActionSupport {
             operation = "";
         }
 
-        logger.info("ForwardingRules2Action performing: {} for providers: {}", LogSafe.sanitize(operation), LogSafe.sanitize(providerNo)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+        logger.info("Forwarding rule operation: {}", LogSafe.sanitize(operationForLog(operation)));
         if (operation.equals("update")) {
             String[] providerNums = request.getParameterValues("providerNums");
             if (providerNums == null) {
@@ -102,14 +101,14 @@ public class ForwardingRules2Action extends ActionSupport {
             }
             String status = request.getParameter("status");
 
-            logger.info("Updating Rules for providers {}; Status is {}", LogSafe.sanitize(Arrays.toString(providerNums)), LogSafe.sanitize(status)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+            logger.info("Updating forwarding rules: recipientCount={}, status={}", LogSafe.sanitizeObject(providerNums.length), LogSafe.sanitize(statusForLog(status)));
             try {
                 // insert forwarding rules
                 if (providerNums != null && providerNums.length > 0) {
                     for (IncomingLabRules result : dao.findCurrentByProviderNoAndFrwdProvider(providerNo, "0")) {
                         result.setArchive("1");
                         dao.merge(result);
-                        logger.info("Archived rule: " + result);
+                        logger.info("Archived forwarding rule id={}", LogSafe.sanitizeObject(result.getId()));
                     }
 
                     for (int i = 0; i < providerNums.length; i++) {
@@ -118,13 +117,13 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo(providerNums[i]);
                         dao.persist(r);
 
-                        logger.info("Added rule: {}", LogSafe.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        logger.info("Added forwarding rule id={}", LogSafe.sanitizeObject(r.getId()));
                     }
                 }
 
                 ForwardingRules fr = new ForwardingRules();
                 ArrayList<ArrayList<String>> temp = fr.getProviders(providerNo);
-                logger.info("Found providers for frwd rules: " + temp);
+                logger.info("Found {} forwarding recipients", LogSafe.sanitizeObject(temp == null ? 0 : temp.size()));
 
                 // check if there rules are set to forward the labs
                 if (temp == null || temp.size() <= 0) {
@@ -136,7 +135,7 @@ public class ForwardingRules2Action extends ActionSupport {
                         r.setFrwdProviderNo("0");
                         dao.persist(r);
 
-                        logger.info("Inserted a new rule: {}", LogSafe.sanitizeObject(r)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        logger.info("Inserted forwarding rule id={}", LogSafe.sanitizeObject(r.getId()));
 
                         // clear the rules if there is no forwarding and the user sets the
                         // status to New... since this is the default
@@ -151,11 +150,11 @@ public class ForwardingRules2Action extends ActionSupport {
                         result.setStatus(status);
                         dao.merge(result);
 
-                        logger.info("Set status to {} for {}", LogSafe.sanitize(status), LogSafe.sanitizeObject(result)); // NOSONAR javasecurity:S5145 — sanitized with LogSafe
+                        logger.info("Updated forwarding rule id={}, status={}", LogSafe.sanitizeObject(result.getId()), LogSafe.sanitize(statusForLog(status)));
                     }
                 }
             } catch (Exception e) {
-                logger.error("Could not update forwarding rules", e);
+                logger.error("Could not update forwarding rules{}", LogSafe.exceptionTrace(e));
                 return "failure";
             }
 
@@ -169,6 +168,22 @@ public class ForwardingRules2Action extends ActionSupport {
         }
 
         return SUCCESS;
+    }
+
+    /** Log labels are constants; unknown request prose never becomes an operator diagnostic. */
+    private static String operationForLog(String operation) {
+        return switch (operation) {
+            case "update" -> "update";
+            case "clear" -> "clear";
+            case "remove" -> "remove";
+            default -> "unrecognized";
+        };
+    }
+
+    private static String statusForLog(String status) {
+        if ("F".equals(status)) return "final";
+        if ("N".equals(status)) return "new";
+        return "unrecognized";
     }
 
     private boolean clearRules(String providerNo) {
@@ -206,7 +221,7 @@ public class ForwardingRules2Action extends ActionSupport {
                 }
             }
         } catch (Exception e) {
-            logger.error("Could not remove providers '" + remProviderNum + "' from the forwarding rules", e);
+            logger.error("Could not remove a provider from forwarding rules{}", LogSafe.exceptionTrace(e));
             return false;
         }
         return true;

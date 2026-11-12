@@ -188,10 +188,11 @@ async function rowLinkTarget(page, identity) {
  * turns out not to be acknowledgeable is CLOSED before the next row is tried:
  * otherwise window.open re-uses it and no page event ever arrives.
  */
-async function openAcknowledgeableTarget(context, inbox, rows, recorder, timeout, limit = 8) {
+async function openAcknowledgeableTarget(context, inbox, rows, recorder, timeout, limit = 8, ownedLabs) {
   let examined = 0;
   for (let index = 1; index < rows.length - 1 && examined < limit; index += 1) {
     if (!rows[index].startsWith('HL7:')) { continue; }
+    if (ownedLabs && !ownedLabs.includes(rows[index])) { continue; }
     examined += 1;
     const { page: popup, isPopup } = await clickOpensPopupOrNavigates(inbox, rowLink(inbox, rows[index]), {
       context, label: 'lab', recorder, timeout,
@@ -208,19 +209,22 @@ async function openAcknowledgeableTarget(context, inbox, rows, recorder, timeout
   return null;
 }
 
-async function main({throwIfCancelled = () => {}} = {}) {
-  const config = readConfig();
+async function main({throwIfCancelled = () => {}, session, dataset} = {}) {
+  const config = session?.config || readConfig();
   const timeout = Number(process.env.INBOX_TIMEOUT_MS || '60000');
 
-  const recorder = createRecorder();
-  const browser = await launchBrowser(config);
+  const recorder = session?.recorder || createRecorder();
+  const browser = session ? null : await launchBrowser(config);
   const routingFixture = createInboxAcknowledgementFixture(config);
+  if (session) session.cleanup(() => routingFixture.cleanup());
   try {
-    const context = await newContext(browser, config);
-    const schedulePage = await login(context, config, recorder);
+    const context = session?.context || await newContext(browser, config);
+    const schedulePage = session?.schedule || await login(context, config, recorder);
     const inbox = await openInbox(context, schedulePage, recorder, timeout);
+    if (dataset) await require('./lib/inbox-owned-dataset').narrowToOwnedPatient(inbox, dataset, timeout, settle);
 
     let rowCount = await enterListMode(inbox, timeout);
+    if (dataset) assert(rowCount >= dataset.new.length, 'Owned Inbox rapid-review results are missing');
     if (rowCount < 3) {
       // Empty for THIS provider is the common case on a demo or imported
       // database, not an empty inbox. Ask the question a clinician would.
@@ -238,7 +242,9 @@ async function main({throwIfCancelled = () => {}} = {}) {
       'the list reported it had finished loading but hasMoreData is still true, so the in-place path under test would not be taken');
 
     const before = await rowsInDisplayOrder(inbox);
-    const target = await openAcknowledgeableTarget(context, inbox, before, recorder, timeout);
+    if (dataset) require('./lib/inbox-owned-dataset').assertOwnedRows(before, dataset.new, 'Rapid-review baseline');
+    const target = await openAcknowledgeableTarget(context, inbox, before, recorder, timeout, 8, dataset?.labs);
+    if (dataset) assert(target, 'No owned interior lab can be acknowledged in rapid-review mode');
     if (!target) {
       throw new SkipCheck('no lab row between the first and last offers an Acknowledge control; every candidate is already acknowledged');
     }
@@ -246,6 +252,7 @@ async function main({throwIfCancelled = () => {}} = {}) {
     // files. The row Rapid Review must open is the first row below the target that is NOT one
     // of them -- an older version sitting directly below would leave with the acknowledgement.
     throwIfCancelled();
+    if (dataset) await require('./lib/inbox-owned-dataset').assertOwnedAcknowledgementChain(target.popup, target.identity, dataset.labs);
     await routingFixture.prepare(target.popup, target.identity);
     const filed = await filedVersionsOf(target.popup, target.identity);
     const expectedNext = before.slice(target.index + 1).find((identity) => !filed.includes(identity));
@@ -337,13 +344,16 @@ async function main({throwIfCancelled = () => {}} = {}) {
       + `${before.length} row(s) -> ${after.length}`);
     return { acknowledged: target.identity, opened: expectedNext, firstRow: before[0], rows: before.length, filed: filed.length };
   } finally {
-    try { await browser.close(); }
-    finally { routingFixture.cleanup(); }
+    if (browser) {
+      try { await browser.close(); }
+      finally { routingFixture.cleanup(); }
+    } else await session.context.close(); // routing cleanup runs after the workflow confirms full browser drain
   }
 }
 
 if (require.main === module) {
-  runCheck({ name: 'inbox-rapid-review-advance', run: main });
+  if (process.env.INBOX_OWNED_FIXTURE === 'true') require('./lib/inbox-owned-dataset').runOwnedInboxCheck('inbox-rapid-review-advance', 'acknowledgement', main);
+  else runCheck({ name: 'inbox-rapid-review-advance', run: main });
 }
 
 module.exports = { enterListMode, filedVersionsOf, main, openAcknowledgeableTarget, resultIdentityOf, rowLinkTarget, rowsInDisplayOrder };

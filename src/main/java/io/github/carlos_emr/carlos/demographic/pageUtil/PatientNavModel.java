@@ -43,7 +43,7 @@ import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.integration.patientportal.PatientPortalSettings;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import io.github.carlos_emr.carlos.waitinglist.WaitingList;
+import io.github.carlos_emr.carlos.waitinglist.WaitingListAvailabilityService;
 
 /**
  * The patient's navigation down the left of the master record, for any page that shows it
@@ -81,9 +81,15 @@ public final class PatientNavModel {
     }
 
     private final Inputs in;
+    private final String hospitalBillingView;
 
     PatientNavModel(Inputs inputs) {
+        this(inputs, inputs.defaultBillingView());
+    }
+
+    private PatientNavModel(Inputs inputs, String hospitalBillingView) {
         this.in = inputs;
+        this.hospitalBillingView = hospitalBillingView;
     }
 
     /**
@@ -96,14 +102,14 @@ public final class PatientNavModel {
      */
     public static PatientNavModel forRequest(HttpServletRequest request, Demographic demographic, Page page) {
         return build(request, demographic, page, CarlosProperties.getInstance(),
-                SpringUtils.getBean(UserPropertyDAO.class), () -> WaitingList.getInstance().getFound(),
+                SpringUtils.getBean(UserPropertyDAO.class), () -> SpringUtils.getBean(WaitingListAvailabilityService.class).hasCurrentLists(),
                 PatientPortalSettings.isConfigured());
     }
 
     /**
      * Builds the navigation from its sources, the same rules the record has always applied: the
      * eChart link carries no note reason while {@code disableTelProgressNoteTitleInEncouterNotes=yes};
-     * the waiting list shows unless {@code DEMOGRAPHIC_WAITING_LIST=true} and only when a list exists;
+     * the waiting list shows when {@code DEMOGRAPHIC_WAITING_LIST=true} and a current list exists;
      * the user's own settings decide the document browser link and whether popups open in tabs.
      */
     // FindSecBugs IMPROPER_UNICODE: two case folds, neither an access decision. The server's billregion setting
@@ -134,12 +140,14 @@ public final class PatientNavModel {
                         ? "" : telephoneNoteReason(request),
                 request.getParameter("apptProvider"),
                 request.getParameter("appointment"),
-                !"true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST")) && waitingListFound.getAsBoolean(),
+                "true".equals(properties.getProperty("DEMOGRAPHIC_WAITING_LIST"))
+                        && (request.getAttribute("waitingListLinkVisible") instanceof Boolean visible
+                                ? visible : waitingListFound.getAsBoolean()),
                 portalSwitchedOn,
                 properties.getProperty("clinic_no", "").startsWith("1022"),
                 "yes".equals(propertyValue(userProperties, currentProviderNo, UserProperty.EDOC_BROWSER_IN_MASTER_FILE)),
                 "yes".equalsIgnoreCase(propertyValue(userProperties, currentProviderNo, UserProperty.ENCOUNTER_OPEN_IN_TAB)),
-                page));
+                page), properties.getProperty("hospital_view", properties.getProperty("default_view")));
     }
 
     private static String telephoneNoteReason(HttpServletRequest request) {
@@ -236,8 +244,16 @@ public final class PatientNavModel {
     }
 
     public String getCreateInvoiceUrl() {
-        return in.contextPath() + "/billing?billRegion=" + enc(in.billingRegion())
-                + "&billForm=" + enc(in.defaultBillingView()) + "&hotclick=&appointment_no=0"
+        return billingUrl("/billing", in.defaultBillingView());
+    }
+
+    public String getHospitalBillingUrl() {
+        return billingUrl("/billing/CA/ON/billingShortcutPg1View", hospitalBillingView);
+    }
+
+    private String billingUrl(String route, String form) {
+        return in.contextPath() + route + "?billRegion=" + enc(in.billingRegion())
+                + "&billForm=" + enc(form) + "&hotclick=&appointment_no=0"
                 + "&demographic_name=" + enc(in.lastName()) + "%2C" + enc(in.firstName())
                 + "&demographic_no=" + no() + "&providerview=" + enc(in.patientProviderNo())
                 + "&user_no=" + enc(in.currentProviderNo()) + "&apptProvider_no=none"

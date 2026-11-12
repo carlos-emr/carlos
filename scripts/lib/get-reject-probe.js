@@ -57,10 +57,21 @@ function multipartFields(buffer, contentType) {
  * (body = the urlencoded or multipart text fields), the request `headers` (lower-case names, so
  * whether the page sent the CSRF-TOKEN as a header is known), its `contentType` and its raw
  * `postData` (a JSON body, which has no fields).
+ *
+ * `frameUrl` is the address of the page that sent the request, read as it was sent. A check that
+ * must reload that page uses it, never the Referer header: the packaged front door answers every
+ * page with Referrer-Policy: no-referrer, so a browser behind it sends no Referer at all.
  */
 async function captureRequest(page, match, act, { timeout = 20000, method = 'POST' } = {}) {
   // method: null captures whatever verb the page used (to prove a page that WRITES by GET).
-  const requested = page.waitForRequest(r => (!method || r.method() === method) && match(new URL(r.url())), { timeout });
+  let frameUrl = '';
+  const requested = page.waitForRequest((r) => {
+    if (!((!method || r.method() === method) && match(new URL(r.url())))) return false;
+    // Read now: once a form post's response commits, the frame shows the action's URL, and a popup
+    // that closes itself after saving has no frame left to ask.
+    try { frameUrl = r.frame().url(); } catch { frameUrl = ''; }
+    return true;
+  }, { timeout });
   requested.catch(() => {});
   await act();
   const request = await requested;
@@ -79,6 +90,7 @@ async function captureRequest(page, match, act, { timeout = 20000, method = 'POS
   return {
     path: url.pathname, params, method: request.method(), status: response ? response.status() : 0,
     query: new URLSearchParams(url.search), body, headers, contentType: type, postData: request.postData() || '',
+    frameUrl,
   };
 }
 
@@ -115,7 +127,7 @@ function createLedger(name) {
   const entries = [];
   return {
     entries,
-    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true }) {
+    async probe(s, { label, path, params, snapshot, methods = ['GET', 'HEAD'], requireStatus = true, expect405 = false }) {
       const url = new URL(`${path}?${params.toString()}`, s.config.baseUrl.origin).toString();
       const entry = { label, path: path.replace(/^\/[^/]+/, ''), answers: [], changed: false, changedBy: [],
         blocked: false, errored: false, unverified: false };
@@ -136,7 +148,9 @@ function createLedger(name) {
         const fromApplication = Object.prototype.hasOwnProperty.call(response.headers(), APPLICATION_HEADER);
         const unverified403 = status === 403 && !waf && !fromApplication;
         const unverified405 = status === 405 && !fromApplication && !(body && h.isApplicationErrorPage(body));
-        const refused = (status === 405 && !unverified405) || (status === 403 && !waf && fromApplication);
+        // expect405: the route's GET guard answers 405 (HttpMethodGuardFilter or the action's own requirePost), so a
+        // 403 there is a privilege refusal that would hide a missing method guard.
+        const refused = (status === 405 && !unverified405) || (!expect405 && status === 403 && !waf && fromApplication);
         entry.answers.push(`${method} ${status}${waf ? ' (WAF page)' : ''}${unverified403 || unverified405 ? ' (unverified origin)' : ''}`);
         if (before !== after) { entry.changed = true; entry.changedBy.push(method); }
         // Whatever the include rules allow, a WAF block or a 5xx means the application never

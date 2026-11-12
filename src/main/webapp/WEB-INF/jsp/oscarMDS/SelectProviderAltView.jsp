@@ -56,7 +56,7 @@
         var docId = '<carlos:encode value='<%= docId %>' context="javaScriptBlock"/>';
         var allSelected = "";
         if (document.providerSelectForm.selectedProviders.selectedIndex == -1) {
-            alert("Please select at least one providers");
+            alert("Please select at least one provider");
         } else {
             for (i = 0; i < document.providerSelectForm.selectedProviders.options.length; i++) {
                 if (document.providerSelectForm.selectedProviders.options[i].selected) {

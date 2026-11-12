@@ -37,6 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import java.util.List;
 
@@ -144,6 +146,35 @@ class BillingOnHistoryViewModelAssemblerUnitTest {
 
         assertThat(vm.isPatientNameUnavailable()).isFalse();
         assertThat(vm.getPatientDisplayName()).isEqualTo("Doe, Jane");
+    }
+
+    /**
+     * The Unbill link is the courtesy half of the rule {@code BillingDeleteNoAppt2Action} enforces
+     * from the stored status (issue #4538): billed and settled claims get no link.
+     */
+    @ParameterizedTest
+    @CsvSource({"B,false", "S,false", "O,true", "W,true", "P,true", "N,true", "I,true", "D,true"})
+    void shouldOfferUnbill_onlyForClaimsThatAreNeitherBilledNorSettled(String status, boolean linkShown) {
+        BillingClaimHeaderDto header = mock(BillingClaimHeaderDto.class);
+        when(header.getId()).thenReturn("42");
+        when(header.payProgram()).thenReturn("HCP");
+        when(header.getStatus()).thenReturn(status);
+        when(header.billingDate()).thenReturn("2026-04-25");
+        when(header.lastName()).thenReturn("Doe");
+        when(header.firstName()).thenReturn("Jane");
+        when(header.getTotal()).thenReturn("100.00");
+
+        BillingClaimItemDto item = mock(BillingClaimItemDto.class);
+        when(item.serviceCode()).thenReturn("A007");
+        when(item.getDx()).thenReturn("250");
+
+        when(claimLoader.getBillingHist(anyString(), anyInt(), anyInt(), any()))
+                .thenReturn(List.of(header, item));
+
+        BillingOnHistoryViewModel vm = newAssembler().assemble(loggedInInfo, "1");
+
+        assertThat(vm.getRows()).hasSize(1);
+        assertThat(vm.getRows().get(0).unbillLinkShown()).isEqualTo(linkShown);
     }
 
     @Test

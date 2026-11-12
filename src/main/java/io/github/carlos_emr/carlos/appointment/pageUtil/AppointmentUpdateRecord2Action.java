@@ -96,10 +96,6 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
 
         boolean statusOnly = "Cancel Appt".equals(request.getParameter("buttoncancel"))
                 || "No Show".equals(request.getParameter("buttoncancel"));
-        AppointmentTextInput text = AppointmentTextInput.from(request, request.getParameter("keyword"));
-        if (!statusOnly && text.rejectIfTooLong(request, response)) {
-            return INPUT;
-        }
 
         final int appointmentNo;
         try {
@@ -131,6 +127,11 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                 if (!currentVersion.equals(originalVersion)) {
                     return new UpdateResult(HttpServletResponse.SC_CONFLICT, null, null);
                 }
+                AppointmentTextBounds.Values text = AppointmentTextBounds.submitted(request, request.getParameter("keyword"), appt);
+                if (!statusOnly) {
+                    AppointmentTextBounds.Violation violation = AppointmentTextBounds.validate(text, appt);
+                    if (violation != null) return new UpdateResult(HttpServletResponse.SC_BAD_REQUEST, null, null, violation);
+                }
                 appointmentArchiveDao.archiveAppointment(appt);
                 saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr);
                 return saved[0];
@@ -142,6 +143,9 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             MiscUtils.getLogger().error("Unable to confirm appointment update", e);
             return retainDraft(request, response, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     "appointment.edit.msgUpdateUnconfirmed");
+        }
+        if (result.violation() != null) {
+            return AppointmentTextBounds.refuse(request, response, result.violation());
         }
         if (result.status() == HttpServletResponse.SC_NOT_FOUND) {
             return retainDraft(request, response, result.status(),
@@ -176,7 +180,7 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
     }
 
     private UpdateResult updateLockedAppointment(HttpServletRequest request, Appointment appt,
-            AppointmentTextInput text, boolean statusOnly, String updateuser, String apptNoStr) {
+            AppointmentTextBounds.Values text, boolean statusOnly, String updateuser, String apptNoStr) {
         String changedStatus = null;
 
         if (statusOnly) {
@@ -194,8 +198,10 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
             appt.setEndTime(ConversionUtils.fromTimeString(
                     MyDateFormat.getTimeXX_XX_XX(request.getParameter("end_time"))));
             appt.setName(text.name());
-            appt.setNotes(text.notes());
-            appt.setReason(text.reason());
+            // Hibernate loads legacy CR/CRLF directly into fields. Leave logically unchanged
+            // text there: the setters normalize new writes and would rewrite those stored bytes.
+            if (!StringUtils.equals(appt.getNotes(), text.notes())) appt.setNotes(text.notes());
+            if (!StringUtils.equals(appt.getReason(), text.reason())) appt.setReason(text.reason());
             appt.setLocation(request.getParameter("location"));
             appt.setResources(text.resources());
             appt.setType(request.getParameter("type"));
@@ -219,6 +225,10 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
         return new UpdateResult(HttpServletResponse.SC_OK, appt.getProviderNo(), changedStatus);
     }
 
-    private record UpdateResult(int status, String providerNo, String changedStatus) { }
+    private record UpdateResult(int status, String providerNo, String changedStatus, AppointmentTextBounds.Violation violation) {
+        UpdateResult(int status, String providerNo, String changedStatus) {
+            this(status, providerNo, changedStatus, null);
+        }
+    }
 
 }

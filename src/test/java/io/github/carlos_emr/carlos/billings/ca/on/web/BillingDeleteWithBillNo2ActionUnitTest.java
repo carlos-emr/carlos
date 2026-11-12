@@ -146,4 +146,58 @@ class BillingDeleteWithBillNo2ActionUnitTest {
         assertThat(action.execute()).isEqualTo("cannotDelete");
         verify(mockBillingDao, never()).merge(any());
     }
+
+    @Test
+    @DisplayName("a new bill's empty old-bill fields leave nothing to replace, not a refusal")
+    void shouldReturnSuccess_whenNoBillIsIdentifiedAndStatusIsEmpty() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        // What billingON.jsp posts for a bill with no predecessor: both hidden fields present and empty.
+        mockRequest.setParameter("billNo_old", "");
+        mockRequest.setParameter("billStatus_old", "");
+
+        BillingDeleteWithBillNo2Action action = new BillingDeleteWithBillNo2Action(
+                mockSecurityInfoManager, mockBillingDao, mockCorrectionPrep);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockBillingDao, never()).merge(any());
+        verify(mockCorrectionPrep, never()).deleteBilling(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("an appointment with no earlier bill and an empty status also has nothing to replace")
+    void shouldReturnSuccess_whenAppointmentHasNoBillAndStatusIsEmpty() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        when(mockBillingDao.findByAppointmentNo(880)).thenReturn(java.util.Collections.emptyList());
+        mockRequest.setParameter("appointment_no", "880");
+        mockRequest.setParameter("billNo_old", "");
+        mockRequest.setParameter("billStatus_old", "");
+
+        BillingDeleteWithBillNo2Action action = new BillingDeleteWithBillNo2Action(
+                mockSecurityInfoManager, mockBillingDao, mockCorrectionPrep);
+
+        assertThat(action.execute()).isEqualTo(ActionSupport.SUCCESS);
+        verify(mockBillingDao, never()).merge(any());
+    }
+
+    @Test
+    @DisplayName("an earlier bill that has already been billed still blocks the replacement")
+    void shouldReturnCannotDelete_whenAppointmentBillIsAlreadyBilled() {
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_billing"), eq("w"), isNull()))
+                .thenReturn(true);
+        io.github.carlos_emr.carlos.commn.model.Billing billed = org.mockito.Mockito.mock(io.github.carlos_emr.carlos.commn.model.Billing.class);
+        when(billed.getId()).thenReturn(42);
+        when(billed.getStatus()).thenReturn("B");
+        when(mockBillingDao.findByAppointmentNo(880)).thenReturn(java.util.List.of(billed));
+        mockRequest.setParameter("appointment_no", "880");
+        mockRequest.setParameter("billNo_old", "");
+        mockRequest.setParameter("billStatus_old", "");
+
+        BillingDeleteWithBillNo2Action action = new BillingDeleteWithBillNo2Action(
+                mockSecurityInfoManager, mockBillingDao, mockCorrectionPrep);
+
+        assertThat(action.execute()).isEqualTo("cannotDelete");
+        verify(mockBillingDao, never()).merge(any());
+    }
 }

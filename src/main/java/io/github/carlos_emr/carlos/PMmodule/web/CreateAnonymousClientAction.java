@@ -66,8 +66,9 @@ public class CreateAnonymousClientAction {
         try {
             admissionManager.processAdmission(d.getDemographicNo(), creatorProviderNo, externalProgram, "anonymous discharge", "anonymous admission");
         } catch (Exception e) {
-            logger.error("Error", e);
-            return d;
+            // A caller must never link a client whose admission failed. The group
+            // save transaction also rolls back the newly created demographic.
+            throw new IllegalStateException("Anonymous group client admission failed", e);
         }
 
         return d;

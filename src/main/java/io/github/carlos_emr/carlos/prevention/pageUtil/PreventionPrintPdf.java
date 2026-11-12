@@ -46,20 +46,16 @@ import org.openpdf.text.pdf.PdfContentByte;
 import org.openpdf.text.pdf.PdfWriter;
 
 import io.github.carlos_emr.carlos.commn.model.Demographic;
-import io.github.carlos_emr.carlos.managers.DemographicManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.clinic.ClinicData;
-import io.github.carlos_emr.carlos.prevention.PreventionDisplayConfig;
 
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.HashMap;
 import java.util.List;
-import java.util.*;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Map;
+
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Generates a multi-page PDF document containing a patient's prevention and immunization records.
@@ -70,12 +66,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * and dose information.</p>
  *
  * <p>Uses OpenPDF ({@code org.openpdf.*}) for PDF generation with {@link HeaderPageEvent}
- * for repeating page headers. Prevention categories are configured via
- * {@link PreventionDisplayConfig} and status codes are mapped to human-readable labels.</p>
+ * for repeating page headers. It draws a {@link PreventionPrintLoader.Printout}, which holds
+ * values read from the chart: the browser only chooses which prevention types to print. Status
+ * codes are mapped to human-readable labels.</p>
  *
  * @see PreventionPrint2Action
+ * @see PreventionPrintLoader
  * @see HeaderPageEvent
- * @see PreventionDisplayConfig
  * @since 2007-03-14
  */
 public class PreventionPrintPdf {
@@ -90,6 +87,10 @@ public class PreventionPrintPdf {
     private final int LINESPACING = 1;
     private final float LEADING = 12;
     private final float HEADER_LEADING = 1;
+    /** Top margin around the page header, before its text lines. */
+    private static final float HEADER_BASE_MARGIN = 32;
+    /** Top margin per header text line (ColumnText's default leading). */
+    private static final float HEADER_LINE_HEIGHT = 16;
 
     private final Map<String, String> readableStatuses = new HashMap<String, String>();
     private final Map<String, String> readableStatusesForHistoryTypeLayout = new HashMap<String, String>();
@@ -108,110 +109,71 @@ public class PreventionPrintPdf {
     }
 
     /**
-     * Generates a prevention PDF and writes it directly to the HTTP response.
+     * Draws the printout as a two-column, paginated PDF.
      *
-     * <p>Sets the response content type to {@code application/pdf} with a download
-     * attachment filename of {@code Prevention.pdf}.</p>
+     * <p>Every value comes from {@code printout}, which {@link PreventionPrintLoader} read from the
+     * chart; nothing is taken from the request. Immunization sections print first, under an
+     * "Immunizations:" heading, and the screening sections follow on a new page under
+     * "Screenings:" (a full printout says which part has no entries). A section that does not fit
+     * continues in the next column or on the next page under a "(cont'd)" title. The header on
+     * every page names the patient, and the MRP when {@link PreventionPrintLoader.Printout#mrpName()}
+     * is set; the top margin grows by a line so that line is not cut off.
      *
-     * @param request HttpServletRequest containing prevention data parameters
-     * @param response HttpServletResponse to write the PDF output to
-     * @throws IOException if an I/O error occurs writing to the response
-     * @throws DocumentException if a PDF generation error occurs
+     * @param printout the patient and the selected sections
+     * @param outputStream the stream to write the PDF to; the caller buffers it
+     * @throws IOException if a font cannot be created or the stream fails
+     * @throws DocumentException if the printout has no sections or the PDF cannot be laid out
      */
-    public void printPdf(HttpServletRequest request, HttpServletResponse response) throws IOException, DocumentException {
-        response.setContentType("application/pdf");  //octet-stream
-        response.setHeader("Content-Disposition", "attachment; filename=\"Prevention.pdf\"");
-        String[] headerIds = request.getParameterValues("printHP");
-        printPdf(headerIds, request, response.getOutputStream());
-    }
+    public void printPdf(PreventionPrintLoader.Printout printout, OutputStream outputStream) throws IOException, DocumentException {
 
-    /**
-     * Generates the full prevention PDF document to the given output stream.
-     *
-     * <p>Separates prevention entries into immunizations and screenings, builds a two-column
-     * layout with automatic pagination, and includes clinic address, patient demographics,
-     * and page numbering. Each prevention entry includes status, dates, vaccine details,
-     * and optional comments.</p>
-     *
-     * @param headerIds1 String[] array of prevention header IDs to include in the PDF
-     * @param request HttpServletRequest containing all prevention procedure parameters
-     * @param outputStream OutputStream to write the generated PDF to
-     * @throws IOException if an I/O error occurs
-     * @throws DocumentException if the PDF document is empty or generation fails
-     */
-    public void printPdf(String[] headerIds1, HttpServletRequest request, OutputStream outputStream) throws IOException, DocumentException {
-
-        //make sure we have data to print      
-        if (headerIds1 == null) {
-            throw new DocumentException();
+        List<PreventionPrintLoader.Section> sections = printout.sections();
+        if (sections.isEmpty()) {
+            throw new DocumentException("No preventions were selected for printing");
         }
-
-        String[] headerIds = null;
-        List<String> validImmunizationsIds = new ArrayList<String>();
-        List<String> validScreeningsIds = new ArrayList<String>();
-        // Separate preventions into immunizations vs screenings based on their
-        // headingName from PreventionDisplayConfig — they render in separate sections.
-        PreventionDisplayConfig pdc = PreventionDisplayConfig.getInstance();
-        for (int x = 0; x < headerIds1.length; x++) {
-            String pHeader = request.getParameter("preventionHeader" + headerIds1[x]);
-            HashMap<String, String> prev = pdc.getPrevention(pHeader);
-            if (prev != null && prev.get("headingName") != null && "Screenings".equals(prev.get("headingName"))) {
-                validScreeningsIds.add(headerIds1[x]);
-            } else {
-                validImmunizationsIds.add(headerIds1[x]);
-            }
-        }
-        if ("false".equals(request.getParameter("immunizationOnly"))) {
-            validImmunizationsIds.addAll(validScreeningsIds);
-        }
-        headerIds = validImmunizationsIds.toArray(new String[validImmunizationsIds.size()]);
-
-        if (headerIds1 == null)
-            throw new DocumentException();
-
-
-        String demoNo = request.getParameter("demographicNo");
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-        Demographic demo = demographicManager.getDemographic(LoggedInInfo.getLoggedInInfoFromSession(request), demoNo);
-
-        if (demo == null)
-            throw new DocumentException();
+        boolean immunizationsOnly = printout.immunizationsOnly();
+        Demographic demo = printout.patient();
 
         //Create the document we are going to write to
         document = new Document();
         PdfWriter writer = PdfWriter.getInstance(document, outputStream);
         document.setPageSize(PageSize.LETTER);
-        document.setMargins(36, 36, 80, 36);
+        // HeaderPageEvent draws the header inside the top margin and silently drops a line that
+        // does not fit, which is how the MRP line used to disappear: size the margin to the lines.
+        int headerLines = printout.mrpName() == null ? 3 : 4;
+        document.setMargins(36, 36, HEADER_BASE_MARGIN + HEADER_LINE_HEIGHT * headerLines, 36);
 
         //Create the font we are going to print to       
         Font font = PdfFonts.getFont(FontFactory.HELVETICA, 9, Font.NORMAL, Color.BLACK);
 
-        StringBuilder demoInfo = new StringBuilder(demo.getSexDesc())
+        StringBuilder demoInfo = new StringBuilder(StringUtils.defaultString(demo.getSexDesc()))
                 .append(" Age: ")
                 .append(demo.getAge())
                 .append(" (")
                 .append(demo.getBirthDayAsString())
                 .append(")")
                 .append(" HIN: (")
-                .append(demo.getHcType())
-                .append(") ")
-                .append(demo.getHin())
-                .append(" ")
-                .append(demo.getVer());
+                .append(StringUtils.defaultString(demo.getHcType()))
+                .append(")");
+        // A patient without a health card number or version used to print "null null".
+        for (String part : new String[]{demo.getHin(), demo.getVer()}) {
+            if (StringUtils.isNotBlank(part)) {
+                demoInfo.append(' ').append(part.trim());
+            }
+        }
 
         //Header will be printed at top of every page beginning with p2
-        String heading = ("true".equals(request.getParameter("immunizationOnly"))) ? "Immunizations" : "Immunizations and Screenings";
+        String heading = immunizationsOnly ? "Immunizations" : "Immunizations and Screenings";
         Phrase titlePhrase = new Phrase(HEADER_LEADING, heading, PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 20, Font.BOLD, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demo.getFormattedName(), PdfFonts.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK)));
+        // Chart values go through PdfFonts.addText, which draws Chinese, Japanese, Korean and emoji
+        // characters in bundled fallback faces; DejaVu alone silently dropped them.
+        PdfFonts.addText(titlePhrase, demo.getFormattedName(), PdfFonts.getFont(FontFactory.HELVETICA, 14, Font.NORMAL, Color.BLACK));
         titlePhrase.add(Chunk.NEWLINE);
-        titlePhrase.add(new Chunk(demoInfo.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(titlePhrase, demoInfo.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.NORMAL, Color.BLACK));
 
-        String mrp = request.getParameter("mrp");
-        if (mrp != null && CarlosProperties.getInstance().getBooleanProperty("mrp_model", "yes")) {
-            Properties prop = (Properties) request.getSession().getAttribute("providerBean"); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep -- FP (CWE-501): read of own-session provider bean (set post-auth)
+        if (printout.mrpName() != null) {
             titlePhrase.add(Chunk.NEWLINE);
-            titlePhrase.add(new Chunk("MRP: " + prop.getProperty(mrp, "unknown"), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK)));
+            PdfFonts.addText(titlePhrase, "MRP: " + printout.mrpName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
         }
 
         // Store header phrase, border flag, header padding, and border spacing for the header
@@ -229,33 +191,31 @@ public class PreventionPrintPdf {
         ClinicData clinicData = new ClinicData();
         clinicData.refreshClinicData();
 
-        StringBuilder clinicAddrCont = new StringBuilder(clinicData.getClinicCity()).append(", ").append(clinicData.getClinicProvince()).append(" ").append(clinicData.getClinicPostal());
+        StringBuilder clinicAddrCont = new StringBuilder(StringUtils.defaultString(clinicData.getClinicCity())).append(", ")
+                .append(StringUtils.defaultString(clinicData.getClinicProvince())).append(" ")
+                .append(StringUtils.defaultString(clinicData.getClinicPostal()));
 
-        Paragraph clinicParagraph = new Paragraph(LEADING, clinicData.getClinicName(), PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK));
+        Font clinicNameFont = PdfFonts.getFont(FontFactory.HELVETICA, 12, Font.BOLD, Color.BLACK);
+        Font clinicFont = PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK);
+        Paragraph clinicParagraph = new Paragraph(LEADING, "", clinicNameFont);
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicName(), clinicNameFont);
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicData.getClinicAddress(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicAddress(), clinicFont);
         clinicParagraph.add(Chunk.NEWLINE);
-        clinicParagraph.add(new Chunk(clinicAddrCont.toString(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicAddrCont.toString(), clinicFont);
         clinicParagraph.add(Chunk.NEWLINE);
         clinicParagraph.add(new Chunk("Ph.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicPhone(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicPhone(), clinicFont);
         clinicParagraph.add(new Chunk(" Fax.", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.BOLD, Color.BLACK)));
-        clinicParagraph.add(new Chunk(clinicData.getClinicFax(), PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK)));
+        PdfFonts.addText(clinicParagraph, clinicData.getClinicFax(), clinicFont);
         clinicParagraph.setAlignment(Paragraph.ALIGN_CENTER);
         document.add(clinicParagraph);
 
         //get top y-coord for starting to print columns
         upperYcoord = document.top() - getHeaderHeight() - (clinicParagraph.getLeading() * 4f) - font.getCalculatedLeading(LINESPACING);
 
-        int subIdx;
-        String preventionHeader, procedureAge, procedureDate, procedureStatus, procedureResult, procedureReason, procedureComments, procedureLocationOfShot,
-                procedureManufacturer, procedureNameOfVaccine, procedureLotID, procedureDoseAdministered;
-
         //boolean values for headers of Immunizations and Screenings
         boolean isImmunizationHeaderAdded = false, isScreeningsHeaderAdded = false;
-
-        //1 - obtain number of lines of incoming prevention data
-        boolean showComments = CarlosProperties.getInstance().getBooleanProperty("prevention_show_comments", "true");
 
         //3 - Start the column
         ct = new ColumnText(cb);
@@ -266,14 +226,12 @@ public class PreventionPrintPdf {
         boolean onColumnLeft = true;
 
         //now we can start to print the prevention data
-        for (int idx = 0; idx < headerIds.length; ++idx) {
+        for (int idx = 0; idx < sections.size(); ++idx) {
 
-            preventionHeader = request.getParameter("preventionHeader" + headerIds[idx]);
-            //check if this is an immunization!
-            HashMap<String, String> prev = pdc.getPrevention(preventionHeader);
+            PreventionPrintLoader.Section section = sections.get(idx);
+            String preventionHeader = section.preventionType();
 
-            if (prev != null && ((prev.get("headingName") != null && !"Screenings".equals(prev.get("headingName")) || prev.get("headingName") == null))
-                    && !isImmunizationHeaderAdded && "false".equals(request.getParameter("immunizationOnly"))) {
+            if (!section.screening() && !isImmunizationHeaderAdded && !immunizationsOnly) {
                 //adding immunizations header before start adding immunizations into the pdf
                 Paragraph iParagraph = addParagraph("\nImmunizations: \n", 12, Font.BOLD);
                 document.add(iParagraph);
@@ -285,8 +243,7 @@ public class PreventionPrintPdf {
 
                 //immunizations header is added
                 isImmunizationHeaderAdded = true;
-            } else if (prev != null && prev.get("headingName") != null && "Screenings".equals(prev.get("headingName"))
-                    && !isScreeningsHeaderAdded && "false".equals(request.getParameter("immunizationOnly"))) {
+            } else if (section.screening() && !isScreeningsHeaderAdded && !immunizationsOnly) {
                 //checking immunizations header added or not. if not which means there no data of immunizations
                 if (!isImmunizationHeaderAdded) {
                     Paragraph iParagraph = addParagraph("\nImmunizations: \n", 12, Font.BOLD);
@@ -312,7 +269,9 @@ public class PreventionPrintPdf {
                 isScreeningsHeaderAdded = true;
             }
 
-            Phrase procHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + "\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK));
+            Font procHeaderFont = PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.BOLD, Color.BLACK);
+            Phrase procHeader = new Phrase(HEADER_LEADING, "", procHeaderFont);
+            PdfFonts.addText(procHeader, "Prevention " + preventionHeader + "\n", procHeaderFont);
             ct.addText(procHeader);
             ct.setAlignment(Element.ALIGN_LEFT);
             ct.setIndent(0);
@@ -326,49 +285,47 @@ public class PreventionPrintPdf {
                 writeTitleOk = false;
             }
 
-            subIdx = 0;
-
-            while ((procedureAge = request.getParameter("preventProcedureAge" + headerIds[idx] + "-" + subIdx)) != null) {
-                procedureStatus = request.getParameter("preventProcedureStatus" + headerIds[idx] + "-" + subIdx);
-                if (prev != null && prev.get("layout") != null && "history".equals(prev.get("layout"))) {
-                    procedureStatus = readableStatusesForHistoryTypeLayout.get(procedureStatus);
-                } else {
-                    procedureStatus = readableStatuses.get(procedureStatus);
-                }
+            List<PreventionPrintLoader.Entry> entries = section.entries();
+            for (int subIdx = 0; subIdx < entries.size(); ++subIdx) {
+                PreventionPrintLoader.Entry entry = entries.get(subIdx);
+                String procedureStatus = section.historyLayout()
+                        ? readableStatusesForHistoryTypeLayout.get(entry.status())
+                        : readableStatuses.get(entry.status());
 
                 if (procedureStatus == null) {
                     procedureStatus = "N/A";
                 }
 
                 Phrase procedure = new Phrase(LEADING, "Date: ", PdfFonts.getFont(FontFactory.HELVETICA, 10, Font.NORMAL, Color.BLACK));
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDate", "Date: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureAge", "Age: ", headerIds, idx, subIdx, font);
+                // The "Date: " label opens the phrase, so the date itself goes in unlabelled.
+                addLabelAndValue(procedure, null, entry.date(), font);
+                addLabelAndValue(procedure, "Age: ", entry.age(), font);
 
-                //We are not adding status using "addLabelsAndValuesToProcedure" function because here "procedureStatus" is itself labelValue 
+                //Status is always printed: "N/A" stands in for an unknown code
                 procedure.add("Status: ");
                 procedure.add(new Chunk(procedureStatus, font));
                 procedure.add(Chunk.NEWLINE);
 
-                procedureResult = request.getParameter("preventProcedureResult" + headerIds[idx] + "-" + subIdx);
+                String procedureResult = entry.result();
                 if (procedureResult != null && !procedureResult.isEmpty()) {
                     procedure.add("Result: ");
-                    procedure.add(new Chunk(procedureResult, font));
-                    procedureReason = request.getParameter("preventProcedureReason" + headerIds[idx] + "-" + subIdx);
+                    PdfFonts.addText(procedure, procedureResult, font);
+                    String procedureReason = entry.reason();
                     if (procedureReason != null && !procedureReason.isEmpty()) {
-                        procedure.add(new Chunk(" (" + procedureReason + ")", font));
+                        PdfFonts.addText(procedure, " (" + procedureReason + ")", font);
                     } else if (procedureResult.equals("other")) {
                         procedure.add(new Chunk(" (no reason submitted)", font));
                     }
                     procedure.add(Chunk.NEWLINE);
                 }
 
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureComments", "Comments: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureLocationOfShot", "Location of shot: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureManufacture", "Manufacturer: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureNameOfVaccine", "Name of Vaccine: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureLotID", "Lot#: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureDoseAdministered", "Dose Administered: ", headerIds, idx, subIdx, font);
-                addLabelsAndValuesToProcedure(request, procedure, "preventProcedureProvider", "Provider: ", headerIds, idx, subIdx, font);
+                addLabelAndValue(procedure, "Location of shot: ", entry.location(), font);
+                addLabelAndValue(procedure, "Manufacturer: ", entry.manufacturer(), font);
+                addLabelAndValue(procedure, "Name of Vaccine: ", entry.vaccineName(), font);
+                addLabelAndValue(procedure, "Lot#: ", entry.lot(), font);
+                addLabelAndValue(procedure, "Dose Administered: ", entry.dose(), font);
+                String provider = entry.provider();
+                addLabelAndValue(procedure, "Provider: ", provider == null || provider.isEmpty() ? "Unknown" : provider, font);
 
                 //Check if immunizations or preventions related labels can fit
                 ct.addText(procedure);
@@ -383,11 +340,13 @@ public class PreventionPrintPdf {
                     writeDetailOk = false;
                 }
 
-                //Comments
+                // Comments print once, in their own block under the details. The loader leaves them
+                // out when prevention_show_comments is off; they used to print under a "Comments:"
+                // label whatever the setting said, and a second time here when it was on.
                 Phrase commentsPhrase = new Phrase(LEADING, "", font);
-                procedureComments = request.getParameter("preventProcedureComments" + headerIds[idx] + "-" + subIdx);
-                if (showComments && procedureComments != null && !procedureComments.isEmpty()) {
-                    commentsPhrase.add(procedureComments);
+                String procedureComments = entry.comments();
+                if (procedureComments != null && !procedureComments.isEmpty()) {
+                    PdfFonts.addText(commentsPhrase, procedureComments, font);
                     commentsPhrase.add(Chunk.NEWLINE);
                 }
 
@@ -462,7 +421,9 @@ public class PreventionPrintPdf {
                     //Title (if we are starting to print a new prevention, use the Prevention name as title, otherwise if we 
                     //are in the middle of printing a prevention that has multiple items, identify this as a continued prevention
                     if (subIdx != 0) {
-                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "Prevention " + preventionHeader + " (cont'd)\n", PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK));
+                        Font contdFont = PdfFonts.getFont(FontFactory.HELVETICA_BOLD, 12, Font.ITALIC, Color.BLACK);
+                        Phrase contdProcHeader = new Phrase(HEADER_LEADING, "", contdFont);
+                        PdfFonts.addText(contdProcHeader, "Prevention " + preventionHeader + " (cont'd)\n", contdFont);
                         ct.setText(contdProcHeader);
                     } else {
                         ct.setText(procHeader);
@@ -489,13 +450,10 @@ public class PreventionPrintPdf {
                     ct.go();
 
                 }
-
-                ++subIdx;
             }
 
             // after adding immunizations data checking if there is screening data if not avalible add screening header with no data
-            if (idx == headerIds.length - 1 && !isScreeningsHeaderAdded
-                    && "false".equals(request.getParameter("immunizationOnly"))) {
+            if (idx == sections.size() - 1 && !isScreeningsHeaderAdded && !immunizationsOnly) {
                 upperYcoord = goToNewPage(headerPhrase, font);
 
                 Paragraph sParagraph = addParagraph("\nScreenings: \n", 12, Font.BOLD);
@@ -564,36 +522,22 @@ public class PreventionPrintPdf {
     }
 
     /**
-     * Adds a label-value pair to a prevention procedure entry. Omits the label text
-     * for date fields (preventProcedureDate); defaults provider to "Unknown" when missing.
+     * Appends one labelled line to a procedure entry; a missing or empty value adds nothing.
      *
-     * @param request HttpServletRequest containing the form parameter values
-     * @param procedure Phrase the procedure phrase to append content to
-     * @param labelParameter String the request parameter name prefix
-     * @param label String the display label text
-     * @param headerIds String[] the prevention header IDs array
-     * @param idx int the current prevention index
-     * @param subIdx int the sub-procedure index
-     * @param font Font the font for the value text
+     * @param procedure the entry's phrase
+     * @param label the label, or {@code null} when the phrase already ends with it
+     * @param value the value
+     * @param font the font for the value text
      */
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
-    private void addLabelsAndValuesToProcedure(HttpServletRequest request, Phrase procedure, String labelParameter, String label, String[] headerIds,
-                                               int idx, int subIdx, Font font) throws DocumentException, IOException {
-        String labelValue = request.getParameter(labelParameter + headerIds[idx] + "-" + subIdx);
-        if (labelValue != null && !labelValue.isEmpty()) {
-            if (!labelParameter.equals("preventProcedureDate")) {
-                procedure.add(label);
-            }
-            procedure.add(new Chunk(labelValue, font));
-            procedure.add(Chunk.NEWLINE);
-        } else {
-            if (labelParameter.equalsIgnoreCase("preventProcedureProvider")) {
-                procedure.add(label);
-                procedure.add(new Chunk("Unknown", font));
-                procedure.add(Chunk.NEWLINE);
-            }
+    private static void addLabelAndValue(Phrase procedure, String label, String value, Font font) {
+        if (value == null || value.isEmpty()) {
+            return;
         }
+        if (label != null) {
+            procedure.add(label);
+        }
+        PdfFonts.addText(procedure, value, font);
+        procedure.add(Chunk.NEWLINE);
     }
 
     private void addPromoText() throws DocumentException, IOException {

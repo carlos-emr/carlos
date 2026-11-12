@@ -207,7 +207,7 @@
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p3_hc9mLabel" class="measurement-button" onclick="displayDemographicMeasurements('p3_hc9m', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p3_ht12m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
@@ -222,7 +222,7 @@
                 <fmt:message key="encounter.formRourke2006_3.formWt12m"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p3_hc12mLabel" class="measurement-button" onclick="displayDemographicMeasurements('p3_hc12m', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
         <td>
             <a href="javascript:void(0)"
                onclick="displayDemographicMeasurements('p3_ht15m', 'HT', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>',
@@ -237,26 +237,26 @@
                 <fmt:message key="encounter.formRourke1.formWt"/>
             </a>
         </td>
-        <td><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></td>
+        <td><button type="button" id="p3_hc15mLabel" class="measurement-button" onclick="displayDemographicMeasurements('p3_hc15m', 'HEAD', '<carlos:encode value='<%= String.valueOf(demographic.getDemographicNo()) %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= demographic.getFormattedDob() %>' context="javaScriptAttribute"/>', '<carlos:encode value='<%= appointmentNo %>' context="javaScriptAttribute"/>');"><fmt:message key="encounter.formRourke2006_3.formHdCirc"/></button></td>
     </tr>
     <tr id="growthBp3" align="center">
         <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_ht9m" id="p3_ht9m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_ht9m", "") %>"></td>
         <td><input type="text" class="wide" ondblclick="wtEnglish2Metric(this);" name="p3_wt9m" id="p3_wt9m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_wt9m", "") %>"></td>
-        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc9m" size="4" maxlength="5"
+        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc9m" id="p3_hc9m" aria-labelledby="p3_hc9mLabel" size="4" maxlength="5"
                    value="<%= props.getProperty("p3_hc9m", "") %>"></td>
         <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_ht12m" id="p3_ht12m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_ht12m", "") %>"></td>
         <td><input type="text" class="wide" ondblclick="wtEnglish2Metric(this);" name="p3_wt12m" id="p3_wt12m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_wt12m", "") %>"></td>
-        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc12m" size="4" maxlength="5"
+        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc12m" id="p3_hc12m" aria-labelledby="p3_hc12mLabel" size="4" maxlength="5"
                    value="<%= props.getProperty("p3_hc12m", "") %>"></td>
         <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_ht15m" id="p3_ht15m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_ht15m", "") %>"></td>
         <td><input type="text" class="wide" ondblclick="wtEnglish2Metric(this);" name="p3_wt15m" id="p3_wt15m" size="4"
                    maxlength="5" value="<%= props.getProperty("p3_wt15m", "") %>"></td>
-        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc15m" size="4" maxlength="5"
+        <td><input type="text" class="wide" ondblclick="htEnglish2Metric(this);" name="p3_hc15m" id="p3_hc15m" aria-labelledby="p3_hc15mLabel" size="4" maxlength="5"
                    value="<%= props.getProperty("p3_hc15m", "") %>"></td>
     </tr>
     <tr align="center">
@@ -1437,7 +1437,7 @@
 </tr>
 <tr>
     <td colspan="9" style="vertical-align:bottom;">
-        <textarea id="p3_immunization" name="p3_immunization" rows="5" cols="25" class="wide"></textarea>
+        <textarea id="p3_immunization" name="p3_immunization" rows="5" cols="25" class="wide"><carlos:encode value='<%= props.getProperty("p3_immunization", "") %>' context="html"/></textarea>
     </td>
 </tr>
 </table>

@@ -19,7 +19,8 @@ jobs:
   script-regressions:
     name: Node Script Regressions
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
+    # Include browser dependency installation on slower Ubuntu mirrors.
+    timeout-minutes: 20
     env:
       CARLOS_CTL_SRC: ${{ github.workspace }}/.carlos-ctl
     steps:
@@ -32,6 +33,8 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Install supported npm
+        run: npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies without lifecycle scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       # Several script tests read carlos-ctl, which is its own repository
@@ -63,6 +66,28 @@ jobs:
               exit 1
             fi
           fi
+      # Keep the full signed dependency install; avoid the repeatedly stalling Azure mirror.
+      - name: Use the official Ubuntu HTTPS archive for runner packages
+        run: |
+          set -euo pipefail
+          sudo python3 - <<'PYAPT'
+          from pathlib import Path
+          import re
+          sources = [Path('/etc/apt/sources.list'), Path('/etc/apt/apt-mirrors.txt')]
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.list'))
+          sources += list(Path('/etc/apt/sources.list.d').glob('*.sources'))
+          changed = 0
+          for source in sources:
+              if not source.is_file():
+                  continue
+              data = source.read_bytes()
+              updated = re.sub(rb'https?://azure\.archive\.ubuntu\.com/ubuntu(?=/|\s|$)',
+                               b'https://archive.ubuntu.com/ubuntu', data)
+              if updated != data:
+                  source.write_bytes(updated)
+                  changed += 1
+          print(f'Ubuntu archive source files redirected to official HTTPS archive: {changed}')
+          PYAPT
       - name: Install Poppler for PDF text regressions
         run: |
           if ! command -v pdftotext >/dev/null; then
@@ -78,9 +103,15 @@ jobs:
         run: bash scripts/validate_struts_actions.sh
       - name: Install Chromium for the isolated RTL fixture
         run: npx --no-install playwright install --with-deps chromium
+      - name: Check measurement calculation DOM events in Chromium
+        run: node scripts/measurement-whtr-browser-check.js
       - name: Check RTL measurement loading in Chromium
         run: node scripts/rtl-measurement-browser-check.js
       - name: Check eForm toolbar and fax compatibility in Chromium
         run: node scripts/eform-toolbar-browser-check.js
       - name: Check calendar initialization in eForms
         run: node scripts/calendar-eform-browser-check.js
+      - name: Check prevention print popup navigation in Chromium
+        run: node scripts/prevention-print-popup-browser-check.js
+      - name: Check signed-note lifecycle locators in Chromium
+        run: node scripts/echart-note-lifecycle-browser-check.js

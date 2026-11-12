@@ -522,6 +522,38 @@ public class MeasurementDaoIntegrationTest extends CarlosTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("findByCreateDate(from, toExclusive)")
+    @Tag("read")
+    class FindDistinctDemographicsByCreateDateWindow {
+
+        @Test
+        void shouldIncludeMeasurementEnteredDuringEndDay_whenUpperBoundIsDayAfter() {
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "120/80", today,
+                    java.sql.Timestamp.valueOf("2026-03-04 14:30:12"));
+
+            List<Integer> ids = measurementDao.findByCreateDate(
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"),
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+
+            assertThat(ids).containsExactly(DEMO_NO);
+        }
+
+        @Test
+        void shouldExcludeMeasurementCreatedAtTheExclusiveBound_andIncludeTheLowerBound() {
+            createAndPersistWithCreateDate(DEMO_NO, "BP", "120/80", today,
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+            createAndPersistWithCreateDate(DEMO_NO_2, "BP", "118/76", today,
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"));
+
+            List<Integer> ids = measurementDao.findByCreateDate(
+                    java.sql.Timestamp.valueOf("2026-03-01 00:00:00"),
+                    java.sql.Timestamp.valueOf("2026-03-05 00:00:00"));
+
+            assertThat(ids).containsExactly(DEMO_NO_2);
+        }
+    }
+
     // ========================================================================
     // findByIdTypeAndInstruction
     // ========================================================================

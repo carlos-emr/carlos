@@ -34,6 +34,15 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class MessageEncounterService {
+    /** A linked message disappeared before the handoff could read it. */
+    public static final class MissingMessageException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+
+        public MissingMessageException() {
+            super("Message no longer exists");
+        }
+    }
+
     private final MessageTblDao messages;
     private final MsgDemoMapDao links;
     private final SecurityInfoManager security;
@@ -50,7 +59,8 @@ public class MessageEncounterService {
     }
 
     /**
-     * Returns plain message text after checking message/chart access and the patient link.
+     * Returns plain message text after checking global and patient-specific message
+     * access, chart access and the patient link.
      * Callers must encode it for the rendering context; this method never saves a note.
      *
      * @param loggedInInfo authenticated caller
@@ -61,11 +71,15 @@ public class MessageEncounterService {
      * @throws IllegalArgumentException if the message no longer exists
      */
     public String load(LoggedInInfo loggedInInfo, int messageId, int demographicNo) {
-        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)) {
+        if (!security.hasPrivilege(loggedInInfo, "_msg", "r", null)
+                || !security.hasPrivilege(loggedInInfo, "_msg", "r", Integer.toString(demographicNo))) {
             throw new SecurityException("missing required sec object (_msg)");
         }
         if (!security.hasPrivilege(loggedInInfo, "_eChart", "r", Integer.toString(demographicNo))) {
             throw new SecurityException("missing required sec object (_eChart)");
+        }
+        if (!security.isAllowedAccessToPatientRecord(loggedInInfo, demographicNo)) {
+            throw new SecurityException("Patient record access denied");
         }
         if (links.findByMessageId(messageId).stream()
                 .noneMatch(link -> Integer.valueOf(demographicNo).equals(link.getDemographic_no()))) {
@@ -73,7 +87,7 @@ public class MessageEncounterService {
         }
         var message = messages.find(messageId);
         if (message == null) {
-            throw new IllegalArgumentException("Message no longer exists");
+            throw new MissingMessageException();
         }
         return "From: " + message.getSentBy() + "\nTo: " + message.getSentTo()
                 + "\nDate: " + ConversionUtils.toDateString(message.getDate()) + " "

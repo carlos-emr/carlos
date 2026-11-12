@@ -186,6 +186,7 @@ import io.github.carlos_emr.carlos.report.data.DemographicSets;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQueryBuilder;
 import io.github.carlos_emr.carlos.report.data.RptDemographicQueryLoader;
 import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
+import io.github.carlos_emr.carlos.prescript.data.AllergyAtcClass;
 import io.github.carlos_emr.carlos.prescript.data.RxPatientData;
 import io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
@@ -1535,7 +1536,11 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         aSummary = Util.addSummary(aSummary, "Adverse Reaction Severity", alr.getSeverity().toString());
                                 }
 
-                                if (!StringUtils.isNullOrEmpty(allergy.getDrugrefId())) {
+                                // An ATC class allergen (the Penicillin and Sulfa shortcuts, #4576) has no
+                                // DrugRef id; it is still a drug allergy, as it was exported while the
+                                // shortcut stored one.
+                                if (!StringUtils.isNullOrEmpty(allergy.getDrugrefId())
+                                        || !StringUtils.isNullOrEmpty(AllergyAtcClass.classCodeOf(allergy))) {
                                     alr.setReactionType(AdverseReactionType.AR);
                                 } else {
                                     alr.setReactionType(AdverseReactionType.AL);

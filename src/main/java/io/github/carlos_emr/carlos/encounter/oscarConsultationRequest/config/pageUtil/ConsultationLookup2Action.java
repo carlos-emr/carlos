@@ -34,7 +34,10 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * This action replaces the legacy JavaScript generation approach where JavaScript code
  * was dynamically generated and stored in the specialistsJavascript database table.
  * Instead, this action provides real-time data access to consultation services and
- * their associated specialists via AJAX calls.
+ * their associated specialists via AJAX calls. The generator and its writes from the
+ * consultation configuration actions were removed (issue #4617). The table stays in the
+ * schema, where the OSCAR 19 import manifests still classify it, but nothing reads or
+ * writes it.
  *
  * Endpoints:
  * - ConsultationLookup2Action?method=getServices - Returns all active consultation services

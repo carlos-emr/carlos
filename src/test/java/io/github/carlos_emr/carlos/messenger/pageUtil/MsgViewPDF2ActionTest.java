@@ -33,6 +33,10 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -47,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.ErrorPageMessage;
 /**
  * Tests for {@link MsgViewPDF2Action}'s direct-response contract (#2667).
  *
- * <p>The action streams one PDF out of the attachment XML held in the session.
+ * <p>The action streams one PDF out of the attachment XML held by the authorized message.
  * Every path owns the response and ends with {@code NONE}, so Struts never renders
  * a page over the PDF or over an error status, and a request with nothing to show
  * gets a 4xx instead of a blank page.
@@ -63,20 +67,36 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
     private static final byte[] SECOND_PDF = "%PDF-1.4 second attachment".getBytes(StandardCharsets.US_ASCII);
 
     private MsgViewPDF2Action action;
+    private MessageTbl message;
+    private MockedStatic<MsgAttachmentAccess> attachmentAccess;
 
     @BeforeEach
     void setUp() {
         // The base class has already bound the action context and the security mock
+        message = new MessageTbl();
+        attachmentAccess = Mockito.mockStatic(MsgAttachmentAccess.class);
+        attachmentAccess.when(() -> MsgAttachmentAccess.find(Mockito.any(), Mockito.eq(100), Mockito.nullable(String.class)))
+                .thenReturn(message);
         action = new MsgViewPDF2Action();
+        action.setAttId("100");
     }
 
-    /** Holds the two PDFs in the session as attachment XML written by {@link MsgSessionBean}. */
+    @AfterEach
+    void closeAttachmentAccess() {
+        attachmentAccess.close();
+    }
+
+    private void holdAttachment(String xml) {
+        message.setPdfAttachment(xml == null ? null : xml.getBytes(StandardCharsets.UTF_8));
+    }
+
+    /** Holds two PDFs on the authorized message as XML written by {@link MsgSessionBean}. */
     private void holdTwoAttachments() {
         MsgSessionBean bean = new MsgSessionBean();
         bean.setAppendPDFAttachment(encode(FIRST_PDF), "first");
         bean.setCurrentAttachmentCount(1);
         bean.setAppendPDFAttachment(encode(SECOND_PDF), "second");
-        setSessionAttribute("PDFAttachment", bean.getPDFAttachment());
+        holdAttachment(bean.getPDFAttachment());
     }
 
     private static String encode(byte[] bytes) {
@@ -148,7 +168,7 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
     @DisplayName("should answer attachment XML it cannot read with 500 and return NONE")
     void shouldReturn500_whenAttachmentXmlIsMalformed() throws Exception {
         allowPrivilege("_msg", "r");
-        setSessionAttribute("PDFAttachment", "<PDF><CONTENT>" + encode(FIRST_PDF));
+        holdAttachment("<PDF><CONTENT>" + encode(FIRST_PDF));
         action.setFile_id("0");
 
         String result = executeAction(action);
@@ -166,7 +186,7 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
         MsgSessionBean bean = new MsgSessionBean();
         // A render failure is stored with status BAD and the content "null"
         bean.setAppendPDFAttachment(null, "failed");
-        setSessionAttribute("PDFAttachment", bean.getPDFAttachment());
+        holdAttachment(bean.getPDFAttachment());
         action.setFile_id("0");
 
         String result = executeAction(action);
@@ -179,10 +199,10 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
     }
 
     @Test
-    @DisplayName("should check file_id before reading the session, answering 400 even when the attachment XML is unreadable")
+    @DisplayName("should check file_id before reading the message, answering 400 even when the attachment XML is unreadable")
     void shouldReturn400BeforeReadingAttachmentXml_whenFileIdIsNotANumber() throws Exception {
         allowPrivilege("_msg", "r");
-        setSessionAttribute("PDFAttachment", "<PDF><CONTENT>" + encode(FIRST_PDF));
+        holdAttachment("<PDF><CONTENT>" + encode(FIRST_PDF));
         action.setFile_id("abc");
 
         String result = executeAction(action);
@@ -194,10 +214,10 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
 
     @ParameterizedTest(name = "PDFAttachment={0}, file_id={1}")
     @CsvSource(value = {"NULL, 0", "NULL, 99", "'', 0", "'', 99"}, nullValues = "NULL")
-    @DisplayName("should answer a session with no attachment with 404 and return NONE, not a blank page")
+    @DisplayName("should answer a message with no attachment with 404 and return NONE, not a blank page")
     void shouldReturn404_whenSessionHoldsNoAttachment(String pdfAttachment, String fileId) throws Exception {
         allowPrivilege("_msg", "r");
-        setSessionAttribute("PDFAttachment", pdfAttachment);
+        holdAttachment(pdfAttachment);
         action.setFile_id(fileId);
 
         String result = executeAction(action);
@@ -211,7 +231,7 @@ class MsgViewPDF2ActionTest extends CarlosWebTestBase {
     @ParameterizedTest(name = "file_id={0}")
     @NullSource
     @ValueSource(strings = {"", "abc"})
-    @DisplayName("should still answer a missing or non-numeric file_id with 400 when the session holds no attachment")
+    @DisplayName("should still answer a missing or non-numeric file_id with 400 when the message holds no attachment")
     void shouldReturn400_whenFileIdIsNotANumberAndSessionHoldsNoAttachment(String fileId) throws Exception {
         allowPrivilege("_msg", "r");
         action.setFile_id(fileId);

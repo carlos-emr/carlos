@@ -32,7 +32,7 @@ import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnClaimLoader;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHistoryBalanceCalculator;
 import io.github.carlos_emr.carlos.billings.ca.on.service.BillingOnHistoryBalanceService;
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
-import io.github.carlos_emr.carlos.commn.model.BillingONCHeader1;
+import io.github.carlos_emr.carlos.commn.model.BillingStatus;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -168,8 +168,9 @@ public class BillingOnHistoryViewModelAssembler {
                 }
 
                 String status = nullToEmpty(obj.getStatus());
-                // Legacy logic: hide unbill on already-billed/settled status.
-                boolean unbillLinkShown = !(BillingONCHeader1.BILLED.equals(status) || BillingONCHeader1.SETTLED.equals(status));
+                // Hide unbill on already-billed/settled status. BillingDeleteNoAppt2Action refuses
+                // the same claims from their stored status, so this is only the courtesy half.
+                boolean unbillLinkShown = !BillingStatus.isSubmittedOrSettled(status);
 
                 rows.add(new BillingOnHistoryViewModel.HistoryRow(
                         nullToEmpty(obj.getId()),

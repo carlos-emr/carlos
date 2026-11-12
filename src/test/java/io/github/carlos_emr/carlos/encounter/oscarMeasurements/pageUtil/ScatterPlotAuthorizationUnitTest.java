@@ -62,7 +62,7 @@ class ScatterPlotAuthorizationUnitTest extends CarlosUnitTestBase {
     @ValueSource(strings = {"invalid", "2147483648", "0", "-123"})
     void shouldRejectInvalidPatientBeforeClinicalLookup(String patient) throws Exception {
         MockHttpServletResponse response = service(patient, "WT");
-        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getStatus()).isEqualTo(400);
         verifyNoInteractions(security, measurements, types, validations);
     }
 

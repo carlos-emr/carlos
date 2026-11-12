@@ -73,7 +73,7 @@
 </table>
 
 <br/>
-<form action="${pageContext.request.contextPath}/FacilityMessage" method="post">
+<form name="facilityMessageForm" action="${pageContext.request.contextPath}/FacilityMessage" method="post">
     <input type="hidden" name="method" value="save"/>
     <input type="hidden" name="id" id="id"/>
     <table width="60%" border="0" cellpadding="0" cellspacing="1"

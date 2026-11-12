@@ -46,7 +46,10 @@ test('shouldTypeEveryRourkeFieldOnce_withAMarkerWhereTheVisitPrints', () => {
   const fields = check.rourkeFields(MARKER, DOB);
   const names = fields.map(field => field.name);
   assert.equal(new Set(names).size, names.length, 'a field is typed twice');
-  for (const field of fields.filter(item => item.kind === 'text' && item.value.includes(MARKER))) assert.ok(field.value.length <= 40, `${field.name} is longer than the text boxes accept`);
+  for (const field of fields.filter(item => item.kind === 'text' && item.value.includes(MARKER))) {
+    const limit = check.ROURKE_NOTES.includes(field.name) ? 123 : 40;
+    assert.ok(field.value.length <= limit, `${field.name} is longer than the text boxes accept`);
+  }
   assert.ok(fields.every(field => field.kind === 'radio' || typeof field.value === 'string' || field.kind === 'measure'), 'a value is missing');
 });
 
@@ -58,6 +61,31 @@ test('shouldGiveEveryMeasurementADateAfterBirth_andExactlyOneTheDefault', () => 
     assert.ok(check.iso(field.observed) >= dobKey, `${field.name} is observed before the birth`);
     assert.ok(['WT', 'HT'].includes(field.type), `${field.name} has a type the dialog does not know`);
   }
+});
+
+test('shouldNameEveryHeadInputWithItsNativeMeasurementButton', () => {
+  const pages = [
+    ['c_headCirc', 'p1_hc1w', 'p1_hc2w', 'p1_hc1m'],
+    ['p2_hc2m', 'p2_hc4m', 'p2_hc6m'],
+    ['p3_hc9m', 'p3_hc12m', 'p3_hc15m'],
+    ['p4_hc18m', 'p4_hc24m'],
+  ];
+  pages.forEach((names, index) => {
+    const jsp = read(`src/main/webapp/WEB-INF/jsp/form/formRourke2020p${index + 1}.jsp`);
+    const buttons = [...jsp.matchAll(/<button\b[\s\S]*?<\/button>/g)].map(match => match[0]);
+    const inputs = [...jsp.matchAll(/<input\b[^>]*>/g)].map(match => match[0]);
+    for (const name of names) {
+      const matching = buttons.filter(button => button.includes(`id="${name}Label"`));
+      assert.equal(matching.length, 1, `${name} needs exactly one associated button`);
+      assert.match(matching[0], /type="button"/, `${name} must not submit the form`);
+      assert.ok(matching[0].includes(`displayDemographicMeasurements('${name}', 'HEAD',`), `${name} must import HEAD`);
+      assert.match(matching[0], /<fmt:message key="[^"]+"\/>/, `${name} needs visible translated text`);
+      assert.doesNotMatch(matching[0], /<label\b/, 'interactive buttons cannot contain input labels');
+      const matchingInputs = inputs.filter(input => input.includes(`name="${name}"`));
+      assert.equal(matchingInputs.length, 1, `${name} needs exactly one input`);
+      assert.ok(matchingInputs[0].includes(`aria-labelledby="${name}Label"`), `${name} needs an explicit accessible name`);
+    }
+  });
 });
 
 test('shouldTypeADateForEveryVisitThatHasAMeasurement_soSaveAcceptsTheForm', () => {
@@ -143,8 +171,8 @@ test('shouldHaveAStepLabelForEveryConcern_andPinTheTitlesOnTheirOwnPairs', () =>
   for (const form of check.claimForms) {
     for (const concern of form.concerns) assert.match(check.generatedLabel(form.key, concern), /^[A-Z][^:]*: \S/, `${form.key}.${concern} has no label`);
   }
-  assert.equal(check.stepLabel('rourke2020', 'graphtitle'), check.PINNED['rourke2020.graphtitle']);
-  assert.equal(check.stepLabel('growth036', 'title'), check.PINNED['growth036.title']);
+  assert.equal(check.stepLabel('rourke2020', 'graphtitle'), check.generatedLabel('rourke2020', 'graphtitle'));
+  assert.equal(check.stepLabel('growth036', 'title'), check.generatedLabel('growth036', 'title'));
   assert.ok(check.claimForms.find(form => form.key === 'rourke2020').concerns.includes('graphtitle'));
   assert.ok(check.claimForms.find(form => form.key === 'growth036').concerns.includes('title'));
 });
@@ -197,15 +225,46 @@ test('shouldTreatARefusalBeforeTheEndpointAsAPrecondition_andAnErrorPageAsTheDef
   for (const status of [200, 204, 400, 404, 405, 500, 502, 503]) assert.equal(check.refusedBeforeTheEndpoint(status), false, `HTTP ${status}`);
 });
 
-test('shouldDeclareHowEveryPinnedPairTreatsBrowserProblems_andPinEachOnItsAssertion', () => {
-  // Every pin of this check is on an assertion: a browser problem that ends the concern must never read as the pinned defect.
-  for (const claim of Object.keys(check.PINNED)) {
-    const [key, concern] = claim.split('.');
-    assert.equal(check.knownProblem(key, concern), claims.ASSERTION_ONLY, `${claim} declares nothing about browser problems`);
+test('shouldTreatAllRourkeConcernsAsRegressions_afterTheMilestoneFixes', () => {
+  assert.deepEqual(check.PINNED, {});
+  assert.equal(check.knownProblem('growthchart', 'printbmi'), undefined);
+  const label = check.stepLabel('growthchart', 'printbmi');
+  const outcome = claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []);
+  assert.equal(claims.claimFailure(outcome, label).label, label);
+});
+
+test('shouldRequireUnicodeNotesToSurvivePrint_withoutAcceptingDroppedGlyphs', () => {
+  const fields = check.rourkeFields(MARKER, DOB);
+  const notes = fields.filter(field => check.ROURKE_NOTES.includes(field.name));
+  assert.ok(notes.some(field => field.value.includes(check.UNICODE_NOTE)), 'the save/reopen/print fixture must exercise Unicode');
+  const printed = notes.map(field => field.value).join('\n');
+  assert.deepEqual(check.missingNoteText(printed.normalize('NFD'), fields), [], 'equivalent Unicode normalization is acceptable');
+  assert.deepEqual(check.missingNoteText(printed.replace(check.UNICODE_NOTE, 'odz'), fields), ['p2_development2m']);
+  for (const symbol of ['≥', '≤']) {
+    assert.ok(printed.includes(symbol), `the clinical symbol ${symbol} must be exercised`);
+    assert.deepEqual(check.missingNoteText(printed.replace(symbol, ''), fields), ['p2_development2m']);
   }
-  const problems = claims.outcomeOf(null, ['console error: Failed to load resource: the server responded with a status of 404']);
-  const pinned = check.PINNED['growthchart.printbmi'];
-  assert.equal(claims.claimFailure(problems, pinned, check.knownProblem('growthchart', 'printbmi')).label, `${pinned} (other browser problems)`);
-  assert.equal(claims.claimFailure(claims.outcomeOf(new Error('Print BMI answered 500 text/html, not a PDF'), []), pinned, check.knownProblem('growthchart', 'printbmi')).label, pinned,
-    'the assertion itself still holds the pin');
+});
+
+test('shouldDetectMissingMiddleAndFinalLines_whenNotesSpanContinuationPages', () => {
+  const value = check.overflowNote(MARKER);
+  const lines = value.split('\n');
+  assert.equal(lines.length, 90);
+  assert.equal(new Set(lines).size, lines.length, 'repeated text would hide lost middle lines');
+  assert.ok(Buffer.byteLength(value, 'utf8') < 65535, 'the fixture must fit the existing TEXT column');
+  const fields = [{ name: 'p2_physical2m', value }];
+  const printed = lines.map((line, index) => `${index % 30 === 0 ? '\fPage II notes\n' : ''}${line}`).join('\n');
+  assert.deepEqual(check.missingNoteText(printed, fields), []);
+  for (const index of [0, 45, 89]) {
+    assert.deepEqual(check.missingNoteText(printed.replace(lines[index], ''), fields), ['p2_physical2m'], `lost line ${index + 1} was missed`);
+  }
+});
+
+test('shouldRejectAttachmentDownloadsAndMissingPrintProgress', () => {
+  const pending = { url: 'about:blank', text: 'Preparing Rourke PDF...' };
+  check.judgePrintPending('inline; filename="Rourke2020_17.pdf"', pending);
+  assert.throws(() => check.judgePrintPending('attachment; filename="Rourke2020_17.pdf"', pending), /inline PDF/);
+  for (const invalid of [null, { ...pending, text: '' }, { ...pending, text: '???form.rourke2020.preparingPrint???' }, { ...pending, url: 'https://example.invalid/error' }]) {
+    assert.throws(() => check.judgePrintPending('inline', invalid), /progress message/);
+  }
 });

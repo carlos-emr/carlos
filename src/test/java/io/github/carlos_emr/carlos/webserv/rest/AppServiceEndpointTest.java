@@ -22,6 +22,9 @@ package io.github.carlos_emr.carlos.webserv.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.Collections;
@@ -43,6 +46,10 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.AppDefinitionTo1;
 /**
  * CXF local-transport endpoint tests for {@link AppService} using CXF local transport.
  *
+ * <p>The default fixture grants only {@code _appDefinition} read, the right {@code getApps}
+ * requires (#2798); {@link #grantAppDefinitionRead} lets a test withdraw it to exercise the
+ * 403 path.</p>
+ *
  * @since 2026-03-31
  * @see CarlosRestTestBase
  */
@@ -58,11 +65,16 @@ class AppServiceEndpointTest extends CarlosRestTestBase {
     @Mock
     private SecurityInfoManager mockSecurityInfoManager;
 
+    private boolean grantAppDefinitionRead = true;
+
     @Override
     protected Object getServiceBean() {
         AppService service = new AppService();
         injectDependency(service, "appManager", mockAppManager);
         injectDependency(service, "securityInfoManager", mockSecurityInfoManager);
+        // Exactly the right getApps checks; every other object/operation keeps Mockito's default denial.
+        when(mockSecurityInfoManager.hasPrivilege(any(LoggedInInfo.class), eq("_appDefinition"), eq("r"),
+                isNull(String.class))).thenAnswer(_ -> grantAppDefinitionRead);
         return service;
     }
 
@@ -95,5 +107,16 @@ class AppServiceEndpointTest extends CarlosRestTestBase {
         var wireJson = responseJson(response);
         assertThat(wireJson.isArray()).isTrue();
         assertThat(wireJson).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should return 403 without querying the app registry when _appDefinition read is denied")
+    void shouldReturn403_whenAppDefinitionReadDenied() {
+        grantAppDefinitionRead = false;
+
+        Response response = request().path("/app/getApps/").get();
+
+        assertThat(response.getStatus()).isEqualTo(403);
+        verifyNoInteractions(mockAppManager);
     }
 }

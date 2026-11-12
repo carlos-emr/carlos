@@ -30,6 +30,8 @@ package io.github.carlos_emr.carlos.webserv.rest.to.model;
 
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 
 public class AppointmentSearchTo1 {
 
@@ -37,7 +39,9 @@ public class AppointmentSearchTo1 {
     private String providerNo;
     private String searchType;
     private String searchName;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date createDate;
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date updateDate;
     private boolean active;
 

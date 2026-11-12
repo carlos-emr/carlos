@@ -40,12 +40,18 @@ import org.apache.struts2.ServletActionContext;
  * privilege-checked URL from other pages (inbox "Compose" button, reply
  * shortcuts, admin popup) without making the JSP publicly reachable.
  * <p>
- * The HTTP method is not enforced here because the gate performs no state
- * mutation; only {@code _msg} read is required.
+ * The HTTP method is not enforced here: the gate writes nothing to the
+ * database. A message view's Compose link names its message
+ * ({@code forwardMessage}), and the gate then stages, in the session, a copy of
+ * the chart items saved for that message under the new window's own key
+ * ({@link MsgAttachmentStaging#composeKey}). Only {@code _msg} read is required.
  *
  * @since 2026-04-13
  */
 public final class MsgViewCreateMessage2Action extends ActionSupport {
+
+    /** The message a view's Compose link opens a new message from. */
+    static final String FORWARD_MESSAGE_PARAMETER = "forwardMessage";
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -69,6 +75,22 @@ public final class MsgViewCreateMessage2Action extends ActionSupport {
             logger.warn("MsgViewCreateMessage2Action denied: provider={} lacks _msg read",
                     loggedInInfo == null ? "anon" : loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_msg)");
+        }
+
+        // A message view's Compose link names its message: this compose window gets a key of its
+        // own that starts with the items saved for that message. The document-transfer step
+        // redirects here with the new key it staged its items under. Either way this window sends
+        // those items and nothing another window attached (issue #4673). Any other visit starts
+        // a new message.
+        String forwardMessage = request.getParameter(FORWARD_MESSAGE_PARAMETER);
+        String attachmentKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+        if (MsgAttachmentStaging.isKey(attachmentKey)) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE, attachmentKey);
+        } else if (forwardMessage != null && forwardMessage.matches("[1-9][0-9]*")
+                && io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(forwardMessage) > 0) {
+            request.setAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE,
+                    MsgAttachmentStaging.composeKey(request.getSession(),
+                            io.github.carlos_emr.carlos.util.ConversionUtils.fromIntString(forwardMessage)));
         }
 
         return SUCCESS;

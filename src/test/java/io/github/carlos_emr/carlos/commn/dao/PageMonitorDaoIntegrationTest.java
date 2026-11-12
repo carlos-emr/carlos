@@ -58,6 +58,45 @@ public class PageMonitorDaoIntegrationTest extends CarlosTestBase {
     private final DateFormat dfm = new SimpleDateFormat("yyyyMMdd");
 
     @Test
+    void shouldExpireAbandonedAppointmentLocks_whenAnotherOverlappingSlotRefreshes() {
+        PageMonitor expired = monitor("addappointment", "999998|2026-10-19|10:00|10:15", -120_000);
+        PageMonitor active = monitor("addappointment", "999998|2026-10-19|10:02|10:17", 60_000);
+        PageMonitor unrelated = monitor("other-page", "999998|2026-10-19|10:00|10:15", -120_000);
+        dao.persist(expired);
+        dao.persist(active);
+        dao.persist(unrelated);
+
+        dao.updatePage("addappointment", "999998|2026-10-19|10:05|10:20");
+
+        assertThat(dao.findByPageName("addappointment")).containsExactly(active);
+        assertThat(dao.findByPageName("other-page")).containsExactly(unrelated);
+    }
+
+    @Test
+    void shouldExpireOnlyRequestedPageId_whenPageDoesNotUseAppointmentOverlapLocks() {
+        PageMonitor expired = monitor("other-page", "first", -120_000);
+        PageMonitor otherId = monitor("other-page", "second", -120_000);
+        dao.persist(expired);
+        dao.persist(otherId);
+
+        dao.updatePage("other-page", "first");
+
+        assertThat(dao.findByPageName("other-page")).containsExactly(otherId);
+    }
+
+    private static PageMonitor monitor(String pageName, String pageId, long updatedOffset) {
+        PageMonitor monitor = new PageMonitor();
+        monitor.setPageName(pageName);
+        monitor.setPageId(pageId);
+        monitor.setProviderNo("999998");
+        monitor.setSession("FAKE-session");
+        monitor.setLocked(true);
+        monitor.setTimeout(60);
+        monitor.setUpdateDate(new Date(System.currentTimeMillis() + updatedOffset));
+        return monitor;
+    }
+
+    @Test
     @Tag("read")
     @DisplayName("should return matching monitors ordered by date when filtered by page name and ID")
     void shouldReturnMatchingMonitors_whenFilteredByPageNameAndId() throws Exception {

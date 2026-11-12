@@ -69,6 +69,8 @@ class ProviderProperty2ActionSaveTest extends CarlosWebTestBase {
         String loggedInInfoKey = LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY";
         setSessionAttribute(loggedInInfoKey, mockLoggedInInfo);
         setSessionAttribute("user", TEST_PROVIDER);
+        // The stale-date form posts; save() refuses any other method.
+        mockRequest.setMethod("POST");
 
         action = new ProviderProperty2Action();
 

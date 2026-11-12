@@ -27,6 +27,14 @@
 -->
 <struts>
     <package name="messenger" namespace="/" extends="carlos-default" strict-method-invocation="true">
+        <!-- A refused request (SecurityException) renders the shared refusal page with HTTP 403 and an incident id, as in
+             the other modules; without this mapping it fell through to the container's error page as HTTP 500. -->
+        <global-results>
+            <result name="securityError">/WEB-INF/jsp/error/securityError.jsp</result>
+        </global-results>
+        <global-exception-mappings>
+            <exception-mapping exception="java.lang.SecurityException" result="securityError"/>
+        </global-exception-mappings>
 
         <action name="messenger/ImportDemographic" class="io.github.carlos_emr.carlos.messenger.pageUtil.ImportDemographic2Action">
             <result name="success">/messenger/ViewMessage</result>
@@ -60,7 +68,13 @@
         </action>
         <!-- DEPRECATED: This action is used by the legacy encounter page (encounter/Index.jsp) -->
         <action name="messenger/ViewMessageByPosition" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewMessageByPosition2Action">
-            <result name="success">/messenger/ViewMessage</result>
+            <result name="success" type="redirectAction">
+                <param name="actionName">messenger/ViewMessage</param>
+                <param name="messageID">${messageID}</param>
+                <param name="from">encounter</param>
+                <param name="demographic_no">${demographic_no}</param>
+                <param name="messagePosition">${messagePosition}</param>
+            </result>
         </action>
         <!-- POST demographic_no + item keys; the action renders each item server-side (no
              client-posted HTML) and either streams a preview PDF (NONE) or stores the PDFs on
@@ -104,9 +118,8 @@
         <action name="messenger/ViewPDFAttach" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDFAttachment2Action">
             <result name="success">/WEB-INF/jsp/messenger/ViewPDFAttachment.jsp</result>
         </action>
-        <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action">
-            <result name="success">/WEB-INF/jsp/messenger/ViewPDFFile.jsp</result>
-        </action>
+        <!-- Streams the PDF itself and always returns NONE: no page may follow the bytes. -->
+        <action name="messenger/ViewPDFFile" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgViewPDF2Action"/>
 
         <action name="messenger/ClearMessage" class="io.github.carlos_emr.carlos.messenger.pageUtil.MsgClearMessage2Action">
             <result name="success">/WEB-INF/jsp/messenger/CreateMessage.jsp</result>

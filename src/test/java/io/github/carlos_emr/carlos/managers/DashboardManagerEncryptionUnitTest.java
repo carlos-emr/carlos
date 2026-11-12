@@ -46,6 +46,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.encrypt.BytesEncryptor;
 import org.springframework.security.crypto.encrypt.Encryptors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
@@ -147,6 +150,32 @@ class DashboardManagerEncryptionUnitTest {
         assertThat(url).startsWith("https://test.dashboard.example.com");
         assertThat(url).contains("encodedParams=");
         assertThat(url).contains("version=1.1");
+    }
+
+    @Test
+    @DisplayName("Preserve the external provider role in the encrypted dashboard launch payload")
+    void shouldPreserveProviderRole_inDashboardLaunchPayload() throws Exception {
+        mockedProperties = mockStatic(CarlosProperties.class);
+        CarlosProperties properties = mock(CarlosProperties.class);
+        mockedProperties.when(CarlosProperties::getInstance).thenReturn(properties);
+        when(properties.getProperty("shared_outcomes_dashboard_url"))
+                .thenReturn("https://test.dashboard.example.com");
+        when(properties.getProperty("shared_outcomes_dashboard_key")).thenReturn("test-password");
+        when(properties.getProperty("shared_outcomes_dashboard_salt"))
+                .thenReturn("8f3c21ab56789def1234567890abcdef");
+        when(properties.getProperty("shared_outcomes_dashboard_clinic_id")).thenReturn("TEST_CLINIC");
+        when(clinicDAO.getClinic()).thenReturn(testClinic);
+
+        String url = dashboardManager.getSharedOutcomesDashboardLaunchURL(loggedInInfo);
+        assertThat(url).isNotNull();
+        String encodedParams = url.substring(url.indexOf("encodedParams=") + 14, url.indexOf("&version"));
+        BytesEncryptor encryptor = Encryptors.stronger("test-password", "8f3c21ab56789def1234567890abcdef");
+        JsonNode payload = new ObjectMapper().readTree(encryptor.decrypt(Base64.getDecoder().decode(encodedParams)));
+
+        assertThat(payload.path("user").path("role").asText()).isEqualTo("provider");
+        assertThat(payload.path("user").path("username").asText()).isEqualTo("999998");
+        assertThat(payload.path("clinic").path("application").asText()).isEqualTo("oscar");
+        assertThat(payload.path("clinic").path("identifier").asText()).isEqualTo("TEST_CLINIC");
     }
 
     @Test

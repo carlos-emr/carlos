@@ -49,12 +49,17 @@ function ownedFixture() {
             throw new Error('Unexpected metadata fixture rows query');
         },
         value(query) {
+            if (query.startsWith('SELECT AUTO_INCREMENT')) return '42';
+            if (query.startsWith('SELECT COALESCE(MAX(')) return '5';
+            if (query.includes('NOT REGEXP')) return '0';
             if (query.includes('MAX(id)')) return '0'; // the residue mark's floors
             if (query.includes('DATE_FORMAT(NOW()')) return '2026-10-09 10:00:00';
             if (query.startsWith('INSERT INTO document')) {
                 assert.equal(callbacks.length, 1, 'Cleanup registered before insertion');
                 assert.match(query, /restrictToProgram,observationdate/);
                 assert.match(query, /DATE\(NOW\(\)\)/, 'Valid observation date is included before the initial snapshot');
+                assert.match(query, /INSERT INTO document \(document_no,/);
+                assert.match(query, /VALUES \(42,/);
                 return '42';
             }
             if (query.includes('START TRANSACTION')) {

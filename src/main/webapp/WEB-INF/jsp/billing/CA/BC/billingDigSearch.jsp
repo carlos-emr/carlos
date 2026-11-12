@@ -287,7 +287,7 @@
         <%if (intCount == 1) {%>
         <script LANGUAGE="JavaScript">
             <!--
-            CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptAttribute(DcodeDesc)%>');
+            CodeAttach('<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(Dcode)%>|<%=io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScript(DcodeDesc)%>');
             -->
 
         </script>

@@ -24,6 +24,19 @@ package io.github.carlos_emr.carlos.casemgmt.web;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.apache.struts2.ActionContext;
+import org.apache.struts2.ActionInvocation;
+import org.apache.struts2.ActionProxy;
+import org.apache.struts2.config.entities.ActionConfig;
+import org.apache.struts2.config.entities.ResultConfig;
+import org.apache.struts2.dispatcher.Dispatcher;
+import org.apache.struts2.inject.Container;
+import org.apache.struts2.ognl.ThreadAllowlist;
+import org.apache.struts2.result.ServletActionRedirectResult;
+import org.apache.struts2.util.ValueStack;
+import org.apache.struts2.util.ValueStackFactory;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -35,8 +48,12 @@ import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("noteBrowser document mutation Struts config")
 @Tag("unit")
@@ -63,11 +80,61 @@ class NoteBrowserDocumentMutationStrutsConfigUnitTest {
             assertThat(success.getAttribute("type")).isEqualTo("redirectAction");
             assertThat(param(success, "actionName")).isEqualTo("casemgmt/ViewNoteBrowser");
             assertThat(param(success, "demographic_no")).isEqualTo("${demographicNo}");
+            assertThat(param(success, "chartContext")).isEqualTo("${chartContext}");
             assertThat(param(success, "view")).isEqualTo("${view}");
             assertThat(param(success, "viewstatus")).isEqualTo("${viewstatus}");
             assertThat(param(success, "sortorder")).isEqualTo("${sortorder}");
             assertThat(param(success, "errorMessage")).isEqualTo("${mutationErrorMessage}");
             assertThat(param(success, "suppressEmptyParameters")).isEqualTo("true");
+        }
+    }
+
+    /** Executes the production XML result using Struts' real OGNL stack and redirect renderer. */
+    static void executeRedirect(String operation, AbstractNoteBrowserDocumentMutation2Action action,
+                                MockHttpServletRequest request, MockHttpServletResponse response) throws Exception {
+        NoteBrowserDocumentMutationStrutsConfigUnitTest config = new NoteBrowserDocumentMutationStrutsConfigUnitTest();
+        String actionName = "casemgmt/NoteBrowserDocument" + operation;
+        Element success = config.result(config.findAction(config.parseClinicalConfig(), actionName), "success");
+        Map<String, String> params = new LinkedHashMap<>();
+        NodeList entries = success.getElementsByTagName("param");
+        for (int i = 0; i < entries.getLength(); i++) {
+            Element entry = (Element) entries.item(i);
+            params.put(entry.getAttribute("name"), entry.getTextContent().trim());
+        }
+        ActionContext previous = ActionContext.getContext();
+        Dispatcher previousDispatcher = Dispatcher.getInstance();
+        Dispatcher dispatcher = new Dispatcher(request.getServletContext(), Map.of("config", "struts-default.xml"));
+        dispatcher.init();
+        try {
+            Container container = dispatcher.getContainer();
+            // The normal action invocation registers this hierarchy before evaluating its result.
+            container.getInstance(ThreadAllowlist.class).allowClassHierarchy(action.getClass());
+            ValueStack stack = container.getInstance(ValueStackFactory.class).createValueStack();
+            stack.push(action);
+            ActionContext context = stack.getActionContext().withContainer(container).withValueStack(stack)
+                    .withServletRequest(request).withServletResponse(response).bind();
+            ResultConfig resultConfig = new ResultConfig.Builder("success", ServletActionRedirectResult.class.getName())
+                    .addParams(params).build();
+            ActionConfig actionConfig = new ActionConfig.Builder("clinical", actionName, action.getClass().getName())
+                    .addResultConfig(resultConfig).build();
+            ActionProxy proxy = mock(ActionProxy.class);
+            when(proxy.getConfig()).thenReturn(actionConfig);
+            ActionInvocation invocation = mock(ActionInvocation.class);
+            when(invocation.getProxy()).thenReturn(proxy);
+            when(invocation.getInvocationContext()).thenReturn(context);
+            when(invocation.getStack()).thenReturn(stack);
+            when(invocation.getResultCode()).thenReturn("success");
+            ServletActionRedirectResult redirect = new ServletActionRedirectResult("/", params.get("actionName"), null);
+            container.inject(redirect);
+            redirect.setSuppressEmptyParameters(Boolean.parseBoolean(params.get("suppressEmptyParameters")));
+            redirect.execute(invocation);
+        } finally {
+            dispatcher.getContainer().getInstance(ThreadAllowlist.class).clearAllowlist();
+            dispatcher.cleanup();
+            if (previousDispatcher == null) Dispatcher.clearInstance();
+            else Dispatcher.setInstance(previousDispatcher);
+            if (previous == null) ActionContext.clear();
+            else previous.bind();
         }
     }
 

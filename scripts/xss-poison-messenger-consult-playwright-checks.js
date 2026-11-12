@@ -15,7 +15,7 @@
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');
 const ui = require('./lib/playwright-ui');
-const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks, trackServiceScript, clickAdminItem, fieldIds } = require('./lib/xss-poison-helpers');
+const { payload, inspect, Findings, Seeder, openMasterByChartNo, walkLinks, clickAdminItem, fieldIds } = require('./lib/xss-poison-helpers');
 const { seedPatient } = require('./lib/xss-poison-patient');
 const { releaseChartLocks } = require('./lib/chart-lock-cleanup');
 
@@ -41,7 +41,6 @@ async function workflow(s) {
     seed.insert('messagelisttbl', { message: Number(msg), provider_no: me, status: 'new', remoteLocation: 145, destinationFacilityId: 0, sourceFacilityId: 0 }, { key: 'id' });
     seed.insert('msgDemoMap', { messageID: Number(msg), demographic_no: d }, { key: 'id' });
     const service = seed.insert('consultationServices', { serviceDesc: P('consultation service'), active: '1' }, { key: 'serviceId' });
-    trackServiceScript(seed, service);
     spec = seed.insert('professionalSpecialists', { fName: P('specialist first name', 32), lName: P('specialist last name', 32), proLetters: P('specialist letters', 20), address: P('specialist address'),
       phone: '555', fax: '555', website: P('specialist website', 128), email: P('specialist email', 128), specType: P('specialist type', 128), lastUpdated: { raw: 'NOW()' }, annotation: P('specialist annotation'),
       salutation: '', institutionId: 0, departmentId: 0, hideFromView: 0, deleted: 0 }, { key: 'specId' });

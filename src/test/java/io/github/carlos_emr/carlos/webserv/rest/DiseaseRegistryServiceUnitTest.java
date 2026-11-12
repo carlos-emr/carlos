@@ -32,6 +32,7 @@ import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DiagnosisTo1;
+import io.github.carlos_emr.carlos.webserv.rest.to.model.DxQuickList;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.IssueTo1;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.Response;
@@ -137,6 +138,28 @@ class DiseaseRegistryServiceUnitTest extends CarlosUnitTestBase {
 
         assertThat(result).isEmpty();
         verify(mockQuickListDao).findAll();
+    }
+
+    @Test
+    @DisplayName("should describe a quick-list code stored under the older name ichppc as an ichppccode code (#4989)")
+    @Tag("read")
+    void shouldDescribeIchppcRowsAsIchppccode_whenListingQuickLists() {
+        when(mockSecurityInfoManager.hasPrivilege(any(), eq(DX_REGISTRY), eq("r"), any())).thenReturn(true);
+        QuickList seeded = new QuickList();
+        seeded.setQuickListName("List1");
+        seeded.setDxResearchCode("Z901");
+        seeded.setCodingSystem("ichppc");
+        when(mockQuickListDao.findAll()).thenReturn(List.of(seeded));
+        when(mockDxresearchDao.getDescription("ichppccode", "Z901")).thenReturn("FAKE seeded diagnosis");
+
+        List<DxQuickList> result = service.getQuickLists();
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).getDxList()).singleElement().satisfies(dx -> {
+            assertThat(dx.getCode()).isEqualTo("Z901");
+            assertThat(dx.getCodingSystem()).isEqualTo("ichppccode");
+            assertThat(dx.getDescription()).isEqualTo("FAKE seeded diagnosis");
+        });
     }
 
     @Test

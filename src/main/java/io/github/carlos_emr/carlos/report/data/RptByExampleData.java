@@ -41,21 +41,40 @@ import org.apache.commons.codec.digest.DigestUtils;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.github.carlos_emr.carlos.db.LegacyJdbcQuery;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 
 /**
  * Validates and executes Query-by-Example SQL for authorized report users.
  * Queries run read-only with row and timeout limits, and every outcome is audited
  * without recording the submitted SQL text.
+ *
+ * <p>Two independent boundaries decide what a query may read. The application validator
+ * ({@link QueryByExampleSqlValidator}) rejects anything but one safe {@code SELECT} and names the
+ * restricted tables. The database then runs the query as the read-only reporting account from
+ * {@link ReportingConnectionService}, which MariaDB grants {@code SELECT} only on reportable tables
+ * (issue #3372). A query that the validator lets through but the database refuses ends as
+ * {@link QueryByExampleAccessDeniedException}; there is no fallback to the application account.</p>
  */
 public class RptByExampleData {
     public static final int MAX_ROWS = 1_000;
     public static final int MAX_OUTPUT_CHARACTERS = 1_000_000;
     public static final int QUERY_TIMEOUT_SECONDS = 15;
 
+    /** Supplies the connection a validated query runs on: the reporting account in production. */
     @FunctionalInterface
     interface ConnectionProvider {
-        Connection getConnection() throws SQLException;
+        Connection getConnection(Properties properties) throws SQLException;
+    }
+
+    /**
+     * Turns submitted SQL into {@link LegacyJdbcQuery.TrustedSql}. Production uses
+     * {@link QueryByExampleSqlValidator#validate}; the integration tests substitute a validator
+     * without the restricted-table list to show the database boundary holds on its own.
+     */
+    @FunctionalInterface
+    interface QueryValidator {
+        LegacyJdbcQuery.TrustedSql validate(String sql, Properties properties) throws SQLException;
     }
 
     public record QueryResult(String html, int rowCount, boolean truncated, boolean rowLimitReached,
@@ -75,13 +94,20 @@ public class RptByExampleData {
     }
 
     private final ConnectionProvider connectionProvider;
+    private final QueryValidator queryValidator;
 
+    /** Runs queries as the reporting account configured in carlos.properties. */
     public RptByExampleData() {
-        this(LegacyJdbcQuery::getConnection);
+        this(new ReportingConnectionService()::openConnection);
     }
 
     RptByExampleData(ConnectionProvider connectionProvider) {
+        this(connectionProvider, QueryByExampleSqlValidator::validate);
+    }
+
+    RptByExampleData(ConnectionProvider connectionProvider, QueryValidator queryValidator) {
         this.connectionProvider = connectionProvider;
+        this.queryValidator = queryValidator;
     }
 
     /**
@@ -91,9 +117,14 @@ public class RptByExampleData {
      *
      * @param sql request-submitted SQL; only one validated {@code SELECT} is permitted
      * @param properties application properties used to resolve the allowed database schema
+     *        and the reporting account
      * @param providerNo requesting provider identifier used for audit metadata
      * @return the encoded, size-bounded query result
      * @throws QueryByExampleValidationException if the SQL fails structural validation
+     * @throws ReportingAccountUnavailableException if the reporting account is not provisioned,
+     *         is refused, or holds more than reportable {@code SELECT}; the query is not run
+     * @throws QueryByExampleAccessDeniedException if the database refuses the query because it
+     *         reads a table or column the reporting account is not granted
      * @throws SQLTimeoutException if execution exceeds {@link #QUERY_TIMEOUT_SECONDS}
      * @throws SQLException if the query or JDBC resource handling fails
      * @throws RuntimeException if an unexpected validation, execution, or rendering failure occurs
@@ -106,18 +137,29 @@ public class RptByExampleData {
         String outcome = "failed";
         ExecutionProgress progress = new ExecutionProgress();
         try {
-            LegacyJdbcQuery.TrustedSql trustedSql = QueryByExampleSqlValidator.validate(sql, properties);
-            RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, progress);
+            LegacyJdbcQuery.TrustedSql trustedSql = queryValidator.validate(sql, properties);
+            RptResultStruct.StructuredResult structured = executeWithConnection(trustedSql, properties, progress);
             outcome = "success";
             return new QueryResult(structured.html(), structured.rowCount(), structured.truncated(),
                     structured.rowLimitReached(), elapsedMillis(startedAt));
         } catch (QueryByExampleValidationException e) {
             outcome = "rejected";
             throw e;
+        } catch (ReportingAccountUnavailableException e) {
+            outcome = "unavailable";
+            logUnavailable(providerNo, e.getMessage());
+            throw e;
         } catch (SQLTimeoutException e) {
             outcome = "timeout";
             throw e;
         } catch (SQLException e) {
+            if (QueryByExampleAccessDeniedException.isAccessDenied(e)) {
+                // The database boundary refused what the application validator allowed: a restricted
+                // table or column, or a table nobody has classified yet. Worth a warning, not a stack.
+                outcome = "denied";
+                logDenied(providerNo, sql, e.getErrorCode());
+                throw new QueryByExampleAccessDeniedException(e);
+            }
             logFailure(providerNo, sql, e.getSQLState(), e.getClass().getSimpleName());
             throw e;
         } catch (RuntimeException e) {
@@ -139,9 +181,9 @@ public class RptByExampleData {
     }
 
     private RptResultStruct.StructuredResult executeWithConnection(LegacyJdbcQuery.TrustedSql trustedSql,
-            ExecutionProgress progress)
+            Properties properties, ExecutionProgress progress)
             throws SQLException {
-        try (Connection connection = connectionProvider.getConnection()) {
+        try (Connection connection = connectionProvider.getConnection(properties)) {
             return executeValidatedQuery(connection, trustedSql, progress);
         }
     }
@@ -214,6 +256,23 @@ public class RptByExampleData {
             MiscUtils.getLogger().warn(
                     "Query-by-Example failure provider={} queryHash={} sqlState={} exceptionType={}",
                     providerNo, queryHash(sql), sqlState, exceptionType);
+        }
+    }
+
+    // The reason names a setting or a kind of grant, never a credential (see ReportingConnectionService).
+    private static void logUnavailable(String providerNo, String reason) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example unavailable provider={} reason={}; see docs/query-by-example-least-privilege.md",
+                    LogSafe.sanitize(providerNo), LogSafe.sanitize(reason));
+        }
+    }
+
+    private static void logDenied(String providerNo, String sql, int errorCode) {
+        if (MiscUtils.getLogger().isWarnEnabled()) {
+            MiscUtils.getLogger().warn(
+                    "Query-by-Example refused by reporting account privileges provider={} queryHash={} errorCode={}",
+                    LogSafe.sanitize(providerNo), queryHash(sql), errorCode);
         }
     }
 

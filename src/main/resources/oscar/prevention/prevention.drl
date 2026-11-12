@@ -269,6 +269,8 @@ rule "Rota 1"
         prev.addWarning("Rota", "Needs First Rota vaccine");
 end
 
+// Rota 2 times the second dose, and reads "never remind" and the next date, from the dose under any of the three
+// names. It still needs a next date on that dose; whether it should is a separate clinical question.
 rule "Rota 2"
     when
         prev : Prevention()
@@ -278,9 +280,11 @@ rule "Rota 2"
             + prev.getNumberOfPreventionType("Rota-1")
             + prev.getNumberOfPreventionType("Rota-5")
             == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota") >= 1 )
-        eval( !prev.isPreventionNever("Rota") )
-        eval( prev.isNextDateSet("Rota") )
+        eval( prev.getHowManyMonthsSinceLast("Rota") == -1 || prev.getHowManyMonthsSinceLast("Rota") >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("Rota-1") == -1 || prev.getHowManyMonthsSinceLast("Rota-1") >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("Rota-5") == -1 || prev.getHowManyMonthsSinceLast("Rota-5") >= 1 )
+        eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
+        eval( prev.isNextDateSet("Rota") || prev.isNextDateSet("Rota-1") || prev.isNextDateSet("Rota-5") )
     then
         System.out.println("Rota 2");
         prev.addWarning("Rota", "Needs Second Rota vaccine");
@@ -392,6 +396,8 @@ rule "Pneu-C 1"
         prev.addWarning("Pneu-C", "Needs First Pneu-C");
 end
 
+// Pneu-C 2, 3, 4 and 6 time the next dose from the most recent dose under any name the count covers (a name the
+// patient has no record under, -1 months, does not count as recent); Pneu-C-20 is an adult product and stays out.
 rule "Pneu-C 2"
     when
         prev : Prevention()
@@ -403,7 +409,11 @@ rule "Pneu-C 2"
             + prev.getNumberOfPreventionType("Pneu-C-13")
             + prev.getNumberOfPreventionType("Pneu-C-15")
             == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-7") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-7") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-10") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-10") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-13") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-13") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-15") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-15") >= 2 )
     then
         prev.log("Pneu-C 2");
         prev.addWarning("Pneu-C", "Needs Second Pneu-C");
@@ -420,7 +430,11 @@ rule "Pneu-C 3"
             + prev.getNumberOfPreventionType("Pneu-C-13")
             + prev.getNumberOfPreventionType("Pneu-C-15")
             == 2 )
-        eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-7") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-7") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-10") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-10") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-13") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-13") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-15") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-15") >= 2 )
     then
         prev.log("Pneu-C 3");
         prev.addWarning("Pneu-C", "Needs Third Pneu-C");
@@ -437,7 +451,11 @@ rule "Pneu-C 4"
             + prev.getNumberOfPreventionType("Pneu-C-13")
             + prev.getNumberOfPreventionType("Pneu-C-15")
             == 3 )
-        eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 6 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C") >= 6 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-7") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-7") >= 6 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-10") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-10") >= 6 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-13") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-13") >= 6 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-15") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-15") >= 6 )
     then
         prev.log("Pneu-C 4");
         prev.addWarning("Pneu-C", "Needs Fourth Pneu-C");
@@ -470,7 +488,11 @@ rule "Pneu-C 6"
             + prev.getNumberOfPreventionType("Pneu-C-13")
             + prev.getNumberOfPreventionType("Pneu-C-15")
             == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-7") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-7") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-10") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-10") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-13") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-13") >= 2 )
+        eval( prev.getHowManyMonthsSinceLast("Pneu-C-15") == -1 || prev.getHowManyMonthsSinceLast("Pneu-C-15") >= 2 )
     then
         prev.log("Pneu-C 6");
         prev.addWarning("Pneu-C", "Needs Second Pneu-C");
@@ -709,15 +731,17 @@ rule "Td 1"
         prev.addWarning("Td", "Needs Td");
 end
 
+// The most recent tetanus vaccine is ten or more years old: a vaccine the patient never had (-1 months) does not
+// count as a recent one.
 rule "Td 2"
     when
         prev : Prevention()
         eval( prev.getNumberOfPreventionType("Td") >= 1 )
         eval( prev.getHowManyMonthsSinceLast("Td") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap") == -1 || prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
     then
         prev.log("Td 2");
         prev.addWarning("Td", "Needs repeat Td");
@@ -745,12 +769,17 @@ rule "Inf 1"
         prev.addWarning("Inf", "Needs Flu Shot ");
 end
 
+// The most recent flu shot, recorded as "Inf" or under the older name "Flu", is a year or more old: a name the patient
+// has no record under (-1 months) does not count as a recent shot. "Inf 3" covers a patient with neither. As for PAP 2
+// and MAM 2, a next date set on the last Inf takes precedence: "Inf Set Date" reminds once that date has passed.
 rule "Inf 2"
     when
         prev : Prevention()
         eval( prev.getAgeInYears() >=65 )
-        eval( prev.getHowManyMonthsSinceLast("Inf") >= 12 )
-        eval( prev.getHowManyMonthsSinceLast("Flu") >= 12 )
+        eval( prev.getNumberOfPreventionType("Inf") + prev.getNumberOfPreventionType("Flu") >= 1 )
+        eval( prev.getHowManyMonthsSinceLast("Inf") == -1 || prev.getHowManyMonthsSinceLast("Inf") >= 12 )
+        eval( prev.getHowManyMonthsSinceLast("Flu") == -1 || prev.getHowManyMonthsSinceLast("Flu") >= 12 )
+        eval( !prev.isNextDateSet("Inf") )
     then
         prev.log("Inf 2");
         prev.addWarning("Inf", "Needs Flu Shot ");

@@ -102,9 +102,9 @@ RUN /usr/local/bin/apt-install \
 # always present, so the gz tarball removes a dependency rather than adding one to apt.
 # The archive is selected from the Docker build target architecture so native ARM64 builds
 # (e.g. Apple Silicon) get arm64 binaries instead of failing on x64 executables.
-ENV NODE_VERSION=22.11.0
-ENV NODE_SHA256_X64=4f862bab52039835efbe613b532238b6e4dde98d139a34e6923193e073438b13
-ENV NODE_SHA256_ARM64=27453f7a0dd6b9e6738f1f6ea6a09b102ec7aa484de1e39d6a1c3608ad47aa6a
+ENV NODE_VERSION=22.22.1
+ENV NODE_SHA256_X64=07c8aafa60644fb81adefa1ee7da860eb1920851ffdc9a37020ab0be47fbc10e
+ENV NODE_SHA256_ARM64=1d1690e9aba47e887a275abc6d8f7317e571a0700deaef493f768377e99155f5
 RUN arch="$(dpkg --print-architecture)" \
     && case "$arch" in \
          amd64) node_arch=x64; node_sha256="${NODE_SHA256_X64}" ;; \
@@ -120,6 +120,11 @@ RUN arch="$(dpkg --print-architecture)" \
          v${NODE_VERSION}) : ;; \
          *) echo "ERROR: expected Node v${NODE_VERSION}, got $(node --version)." >&2; exit 1 ;; \
        esac
+
+# npm 10 resolves the pinned aliases and local argparse compatibility override.
+# Keep this aligned with package.json and the script-regressions workflow.
+RUN npm install --global npm@10.9.9 --ignore-scripts --no-audit --no-fund \
+    && test "$(npm --version)" = 10.9.9
 
 # Install GitHub CLI
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \

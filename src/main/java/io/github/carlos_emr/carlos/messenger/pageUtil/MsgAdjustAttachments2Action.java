@@ -45,8 +45,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * <p>
  * Parses {@code item*} checkbox parameters, decodes the {@code xmlDoc}
  * Base64-encoded XML, filters the attachment list to the user's selection,
- * writes the result onto {@link MsgSessionBean}, and redirects to the
- * demographic search page where the user picks recipients.
+ * stages it for forwarding and redirects to the demographic search page.
+ * <p>
+ * The selection is saved under the forwarding key of the message the attachment
+ * window was opened from ({@code attachmentKey}, see
+ * {@link MsgAttachmentStaging#forwardKey}); each compose page that the message
+ * view's Compose link, Reply, Reply All or Forward opens starts with a copy of the
+ * items ({@link MsgAttachmentStaging#composeKey}) and sends them. It used
+ * to be kept on the login-wide
+ * {@link MsgSessionBean}, so the next message sent from any compose window, for
+ * any patient, carried them (issue #4673).
  * <p>
  * POST-only: the action mutates session state, so GET requests are rejected
  * with 405 to prevent CSRF via link/redirect.
@@ -60,10 +68,10 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     /**
-     * Parses checkbox selections and the Base64-encoded {@code xmlDoc},
-     * writes the resulting attachment XML onto the messenger session bean,
-     * and redirects to the demographic-search gate so the user picks
-     * recipients.
+     * Parses checkbox selections and the Base64-encoded {@code xmlDoc}, stages
+     * the selection under the posted message-view key and redirects to the
+     * demographic-search gate. A malformed document, or a missing or malformed
+     * key, is a 400 and stages nothing.
      *
      * @return {@link #NONE} — the action always redirects or sends an HTTP status code
      * @throws Exception if {@code MsgCommxml} / {@code MsgSendDocument} parsing
@@ -105,6 +113,16 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             return NONE;
         }
 
+        // The message view this selection is forwarded from. Without its key the selection could
+        // only be staged where every compose window would find it, so it is refused instead.
+        String forwardKey = request.getParameter(MsgAttachmentStaging.KEY_PARAMETER);
+        if (!MsgAttachmentStaging.isKey(forwardKey)) {
+            logger.warn("MsgAdjustAttachments2Action: missing or malformed attachmentKey for provider={}",
+                    providerNoOf(loggedInInfo));
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, "No message view to forward from");
+            return NONE;
+        }
+
         String xmlDocRaw = request.getParameter("xmlDoc");
         if (xmlDocRaw == null || xmlDocRaw.isEmpty()) {
             logger.warn("MsgAdjustAttachments2Action: missing xmlDoc param for provider={}",
@@ -127,11 +145,6 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
                 }
             }
         }
-
-        // Normalize the id parameter to digits-only or null; rejects any
-        // non-numeric input before it is persisted on the session bean.
-        String idRaw = request.getParameter("id");
-        String messageId = isDigits(idRaw) ? idRaw : null;
 
         // Decode + parse inside a single try so malformed Base64 or malformed
         // XML returns a clean 400 instead of falling through to a 500 via
@@ -156,8 +169,7 @@ public final class MsgAdjustAttachments2Action extends ActionSupport {
             return NONE;
         }
 
-        bean.setAttachment(sXML);
-        bean.setMessageId(messageId);
+        MsgAttachmentStaging.stageItems(session, forwardKey, sXML);
 
         // DemographicLinkMsg forwards to the relocated msgSearchDemo view;
         // the previous redirect to Transfer/DemographicSearch.jsp 404s because

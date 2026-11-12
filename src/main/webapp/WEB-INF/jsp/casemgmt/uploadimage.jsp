@@ -31,6 +31,14 @@
     Client Image Manager - Upload patient photo.
     Allows uploading GIF/JPG images for patient identification.
 
+    Parameters:
+      demographicNo - the patient whose photo this popup manages (the chart's photo opens it
+                      through casemgmt/ViewUploadimage). Both forms post it back to ClientImage,
+                      which acts on that patient only. It is not stored in the session: a
+                      session-wide value belongs to whichever popup was opened last, so two
+                      patients' popups would share one target (issue #4546). The "input" result
+                      re-renders this page from the rejected POST, which carries it again.
+
     @since 2005 (original), modernized 2026-02-22
 --%>
 
@@ -53,6 +61,15 @@
 <%@ page import="io.github.carlos_emr.carlos.casemgmt.web.formbeans.*" %>
 
 <%@ taglib prefix="s" uri="/struts-tags" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
+<%
+    // The same shape ClientImage2Action accepts: one positive patient number, no leading zero.
+    String photoDemographicNo = request.getParameter("demographicNo");
+    if (photoDemographicNo == null || !photoDemographicNo.matches("[1-9]\\d{0,9}")) {
+        photoDemographicNo = null;
+    }
+    pageContext.setAttribute("photoDemographicNo", photoDemographicNo);
+%>
 <%
     if (application.getAttribute("jakarta.servlet.context.tempdir") == null) {
         String tmpDir = System.getProperty("java.io.tmpdir");
@@ -110,15 +127,19 @@
 </div>
 
 <div class="container-fluid mt-3">
+    <c:choose>
+    <c:when test="${empty photoDemographicNo}">
+    <div class="alert alert-warning" role="alert">
+        No patient was selected. Close this window and open the photo manager from the patient's chart.
+    </div>
+    <button type="button" class="btn btn-secondary btn-sm" onclick="self.close();">Cancel</button>
+    </c:when>
+    <c:otherwise>
     <form action="${pageContext.request.contextPath}/ClientImage" enctype="multipart/form-data"
           method="post" onsubmit="return onPicUpload();">
         <input type="hidden" name="method" value="saveImage"/>
-        <%
-            String demoNo = request.getParameter("demographicNo");
-            if (demoNo != null && demoNo.matches("\\d+")) {
-                request.getSession().setAttribute("clientId", demoNo);
-            }
-        %>
+        <%-- Ahead of the file part, so the patient is read before the image bytes. --%>
+        <input type="hidden" name="demographicNo" value="<carlos:encode value="${photoDemographicNo}" context="htmlAttribute"/>"/>
         <div class="row align-items-center mb-3">
             <div class="col-auto">
                 <input type="file" name="clientImage" id="clientImage" class="form-control form-control-sm"
@@ -138,10 +159,13 @@
         <form action="${pageContext.request.contextPath}/ClientImage" method="post"
               onsubmit="return confirm('Are you sure you want to remove the client photo?');">
             <input type="hidden" name="method" value="deleteImage"/>
+            <input type="hidden" name="demographicNo" value="<carlos:encode value="${photoDemographicNo}" context="htmlAttribute"/>"/>
             <button type="submit" class="btn btn-danger btn-sm">Clear Photo</button>
         </form>
         <button type="button" class="btn btn-secondary btn-sm" onclick="self.close();">Cancel</button>
     </div>
+    </c:otherwise>
+    </c:choose>
 </div>
 
 </body>

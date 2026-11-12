@@ -28,9 +28,12 @@
  * Toolbar-specific styles for the eForm floating toolbar (#toolbarWrapper / #eform_floating_toolbar).
  * These rules were previously bundled inside eform_floating_toolbar_bootstrap_custom.min.css
  * (a scoped Bootstrap 3 build). On migration to Bootstrap 5.3.3, plain bootstrap.min.css was
- * substituted — which lacks the toolbar positioning and scoping rules below.
+ * substituted — which lacks the toolbar positioning and scoping rules below, and whose reboot
+ * restyled the eForm under the toolbar (#3944).
  *
- * Included in the eForm page head alongside bootstrap.min.css.
+ * Included in the eForm page head alongside bootstrap-eform-scoped.min.css, the Bootstrap copy
+ * confined to .carlos-eform-ui (the toolbar wrapper carries that class). Never add the plain
+ * bootstrap.min.css to an eForm page; see docs/eform-chrome-bootstrap-scope.md.
  *
  * @since 2026-03-14
  */
@@ -89,6 +92,13 @@ input[name="pdfButton"], input[name="pdfSaveButton"],
 @media print {
     #toolbarWrapper { display: none !important; }
 }
+/*
+ * Where the toolbar's jQuery UI dialogs are mounted (eformDialogHost() in eform_floating_toolbar.js):
+ * the Bootstrap scope above the dialog without a box of its own, so the dialog is positioned against
+ * the page as before, and the host does not count as page content when the toolbar measures where
+ * the form ends.
+ */
+.carlos-eform-dialog-host { display: contents; }
 
 /*
  * Ensure box-sizing is set consistently for all toolbar children.

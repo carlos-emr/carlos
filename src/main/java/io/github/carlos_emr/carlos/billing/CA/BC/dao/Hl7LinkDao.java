@@ -74,7 +74,11 @@ public class Hl7LinkDao extends AbstractDaoImpl<Hl7Link> {
     }
 
     public List<Object[]> findLabs() {
-        String sql = "SELECT pid, link, obr, demo FROM Hl7Pid pid, Hl7Link link, Hl7Obr obr, Demographic demo WHERE link.demographicNo = demo.id AND pid.id = obr.pidId AND ( link.status = 'P' OR link.status IS NULL ) AND link.id = pid.id";
+        String sql = "SELECT pid, link, obr, demo FROM Hl7Pid pid "
+                + "LEFT JOIN Hl7Link link ON link.id = pid.id "
+                + "LEFT JOIN Hl7Obr obr ON obr.pidId = pid.id "
+                + "LEFT JOIN Demographic demo ON demo.demographicNo = link.demographicNo "
+                + "WHERE link.status = 'P' OR link.status IS NULL";
 
         Query q = entityManager.createQuery(sql);
         return q.getResultList();

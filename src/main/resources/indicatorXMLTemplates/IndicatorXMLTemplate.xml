@@ -20,9 +20,9 @@
 					"all" ie: value="all" including null.
 					"loggedInProvider" ie:
 				Default is "loggedInProvider"
-				Use this parameter in the query as ${providers}
+				Use this parameter in the query as ${provider}
 				This parameter should be used for fetching patient's assigned to a MRP.
-				ie: WHERE demographic.provider_no = ${providers}
+				ie: WHERE demographic.provider_no = ${provider}
 			-->
 			<parameter id="provider" name="provider_no" value="loggedInProvider" />
 			<parameter id="" name="" value="" />		

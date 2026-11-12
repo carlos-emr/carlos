@@ -34,13 +34,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
-import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.PatientRecordAccess;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 
-import io.github.carlos_emr.carlos.encounter.pageUtil.EctSessionBean;
+import io.github.carlos_emr.carlos.encounter.pageUtil.EncounterPatientContext;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -51,28 +50,24 @@ public final class EctSetupHistoryIndex2Action extends ActionSupport {
 
     private EctMeasurementsDataBeanHandler measurementsData;
 
-    private Logger logger = MiscUtils.getLogger();
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
     public String execute() throws Exception {
 
-        if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_measurement", "r", null)) {
-            throw new SecurityException("missing required sec object (_measurement)");
+        String demographicNo;
+        try {
+            demographicNo = EncounterPatientContext.requireDemographicNo(request);
+        } catch (IllegalArgumentException invalidPatient) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, invalidPatient.getMessage());
+            return NONE;
         }
+        PatientRecordAccess.require(securityInfoManager, LoggedInInfo.getLoggedInInfoFromSession(request),
+                demographicNo, "_measurement", "r");
 
-        EctSessionBean bean = (EctSessionBean) request.getSession().getAttribute("EctSessionBean");
-
-        if (bean != null) {
-            Integer demo = Integer.valueOf(bean.getDemographicNo());
-
-            measurementsData = new EctMeasurementsDataBeanHandler(demo);
-
-            return "continue";
-
-        } else {
-            logger.debug("cannot get the EctSessionBean");
-        }
-        return "newcontinue";
+        Integer demo = Integer.valueOf(demographicNo);
+        request.setAttribute("demographicNo", demo);
+        measurementsData = new EctMeasurementsDataBeanHandler(demo);
+        return "continue";
     }
 
     public EctMeasurementsDataBeanHandler getMeasurementsData() {

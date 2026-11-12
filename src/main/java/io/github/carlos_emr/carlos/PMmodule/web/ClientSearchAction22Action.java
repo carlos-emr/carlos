@@ -117,28 +117,7 @@ public class ClientSearchAction22Action extends ActionSupport {
                 if (notes != null && notes.size() > 0) noteId = notes.get(notes.size() - 1).getId() + "";
             }
         }
-        if (noteId == null || noteId.trim().length() == 0) {
-            //don't do anything?
-        } else {
-            // Parse and validate noteId before storing in session (CWE-501: Trust Boundary Violation).
-            // Reject non-numeric values and confirm the note record exists in the database.
-            LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-            String providerNo = (loggedInInfo != null) ? loggedInInfo.getLoggedInProviderNo() : "unknown";
-            try {
-                long parsedNoteId = Long.parseLong(noteId.trim());
-                CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
-                if (note != null) {
-                    String validatedNoteId = String.valueOf(parsedNoteId);
-                    request.getSession().setAttribute("noteId", validatedNoteId); // nosemgrep: tainted-session-from-http-request, tainted-session-from-http-request-deepsemgrep
-                    request.setAttribute("noteId", validatedNoteId);
-                } else {
-                    logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);
-                }
-            } catch (NumberFormatException e) {
-                // noteId is not a valid Long — do not store in session
-                logger.warn("Rejected non-numeric noteId parameter from session storage (trust boundary enforcement) - provider: {}", providerNo);
-            }
-        }
+        publishAttachNote(noteId);
 
 
         request.setAttribute("genders", lookupManager.LoadCodeList("GEN", true, null, null));
@@ -166,7 +145,8 @@ public class ClientSearchAction22Action extends ActionSupport {
     }
 
     public String attachSearch() {
-
+        // The note this popup attaches, posted back by its own search form.
+        publishAttachNote(request.getParameter("noteId"));
 
         ClientSearchFormBean formBean = this.getCriteria();
 
@@ -184,6 +164,40 @@ public class ClientSearchAction22Action extends ActionSupport {
         return "attachSearch";
     }
 
+
+    /**
+     * Hands the attach page the note it attaches, when {@code noteId} names an existing note:
+     * the page's search form posts it back and its client links carry it to the attach step.
+     *
+     * <p>It used to be kept in the session as well, and the page read it from there, so with two
+     * charts' attach popups open the first popup's search linked to the note of the second, which
+     * the attach step then saved into the chosen client's chart (issue #4673).</p>
+     */
+    private void publishAttachNote(String noteId) {
+        if (noteId == null || noteId.trim().length() == 0) {
+            return;
+        }
+        // Parse and validate noteId before the page uses it (CWE-501: Trust Boundary Violation).
+        // Reject non-numeric values and confirm the note record exists in the database.
+        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
+        String providerNo = (loggedInInfo != null) ? loggedInInfo.getLoggedInProviderNo() : "unknown";
+        try {
+            long parsedNoteId = Long.parseLong(noteId.trim());
+            CaseManagementNote note = caseManagementNoteDao.getNote(parsedNoteId);
+            if (note != null) {
+                String sourceContext = io.github.carlos_emr.carlos.casemgmt.common.NoteAttachContext.sourceToken(
+                        request, note.getDemographic_no());
+                if (sourceContext != null) {
+                    request.setAttribute("sourceChartContext", sourceContext);
+                }
+                request.setAttribute("noteId", String.valueOf(parsedNoteId));
+            } else {
+                logger.warn("Rejected noteId that does not exist in database (trust boundary enforcement) - provider: {}", providerNo);
+            }
+        } catch (NumberFormatException e) {
+            logger.warn("Rejected non-numeric noteId parameter (trust boundary enforcement) - provider: {}", providerNo);
+        }
+    }
 
     public void setLookupManager(LookupManager lookupManager) {
         this.lookupManager = lookupManager;

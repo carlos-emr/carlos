@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC "-//Apache Software Foundation//DTD Struts Configuration 6.5//EN" "https://struts.apache.org/dtds/struts-6.5.dtd">
+<!-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. -->
+<struts>
+    <package name="chart-duration-binding-test" namespace="/" extends="struts-default">
+        <action name="chart-duration-binding-test"
+                class="io.github.carlos_emr.carlos.casemgmt.web.CaseManagementEntry2Action"/>
+    </package>
+</struts>

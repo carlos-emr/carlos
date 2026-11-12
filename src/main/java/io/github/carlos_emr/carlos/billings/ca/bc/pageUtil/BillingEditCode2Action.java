@@ -63,7 +63,7 @@ public final class BillingEditCode2Action extends ActionSupport {
     HttpServletResponse response = ServletActionContext.getResponse();
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static BillingServiceDao billingServiceDao = (BillingServiceDao) SpringUtils.getBean(BillingServiceDao.class);
+    private final BillingServiceDao billingServiceDao = SpringUtils.getBean(BillingServiceDao.class);
 
     public String ajaxCodeUpdate() throws IOException {
         String id = request.getParameter("id");
@@ -89,7 +89,7 @@ public final class BillingEditCode2Action extends ActionSupport {
         MiscUtils.getLogger().debug(jsonObject.toString());
         response.setContentType("application/json;charset=UTF-8");
         response.getOutputStream().write(jsonObject.toString().getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- JSON API response with application/json content-type
-        return null;
+        return NONE;
     }
 
     public String returnToSearch() {
@@ -104,25 +104,33 @@ public final class BillingEditCode2Action extends ActionSupport {
     }
 
 
-    public String execute() throws IOException, ServletException {        String method = request.getParameter("method");
-        if ("ajaxCodeUpdate".equals(method)) {
-            return ajaxCodeUpdate();
-        } else if ("returnToSearch".equals(method)) {
-            return returnToSearch();
+    public String execute() throws IOException, ServletException {
+        // Every form and request on the code edit page posts.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         if (request.getSession().getAttribute("user") == null) {
             return "Logout";
         }
 
-
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
             throw new SecurityException("missing required sec object (_billing)");
         }
 
+        // Each branch runs only after the checks above.
+        String method = request.getParameter("method");
+        if ("ajaxCodeUpdate".equals(method)) {
+            return ajaxCodeUpdate();
+        } else if ("returnToSearch".equals(method)) {
+            return returnToSearch();
+        }
+
         MiscUtils.getLogger().debug(submitButton);
-        if (submitButton.equals("Edit")) {
+        if ("Edit".equals(submitButton)) {
             MiscUtils.getLogger().debug("here with codeid " + codeId);
             BillingCodeData bcd = new BillingCodeData();
             bcd.editBillingCode(code, desc, value, codeId);
