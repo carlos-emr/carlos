@@ -18,12 +18,15 @@ class InstalledO19ManifestTest(unittest.TestCase):
                                 capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout), {'ready': True, 'problems': [], 'formats': {
-            'o19map_schema.json': 2, 'o19map_props.json': 1, 'o19_preflight.json': 1}})
+            'o19map_schema.json': 3, 'o19map_props.json': 1, 'o19_preflight.json': 1,
+            'stock-eform-assets.json': 1}})
 
     def test_missing_corrupt_or_legacy_headers_cannot_qualify(self):
-        invalid = [('o19map_schema.json', 'format', value) for value in [1, True, '2', 2.0, None]]
+        # Format 2 is the superseded schema envelope: a package still carrying it is legacy.
+        invalid = [('o19map_schema.json', 'format', value) for value in [1, 2, True, '3', 3.0, None]]
         invalid += [('o19map_props.json', 'format', True), ('o19map_props.json', 'format', 2),
-                    ('o19_preflight.json', 'kind', 'o19map-schema')]
+                    ('o19_preflight.json', 'kind', 'o19map-schema'),
+                    ('stock-eform-assets.json', 'format', 2), ('stock-eform-assets.json', 'kind', 'o19map-props')]
         for name, key, value in invalid:
             with self.subTest(name=name, key=key, value=value), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
@@ -33,7 +36,7 @@ class InstalledO19ManifestTest(unittest.TestCase):
                 result = manifests.verify(root)
                 self.assertFalse(result['ready'])
                 self.assertEqual([row['file'] for row in result['problems']], [name])
-        for content in ['{', '[]', '{"kind":"o19map-schema","format":1,"format":2}']:
+        for content in ['{', '[]', '{"kind":"o19map-schema","format":2,"format":3}']:
             with self.subTest(content=content), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
                 for source in ASSETS.glob('*.json'): shutil.copy2(source, root / source.name)

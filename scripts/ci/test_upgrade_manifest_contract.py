@@ -22,7 +22,7 @@ class UpgradeManifestContractTest(unittest.TestCase):
 
     def test_current_shipped_manifests_match_the_installed_cli_contract(self):
         paths = {path.stem: path for path in (ROOT / 'debian/assets/o19-manifest').glob('*.json')}
-        self.assertEqual(set(paths), {'o19map_schema', 'o19map_props', 'o19_preflight'})
+        self.assertEqual(set(paths), {'o19map_schema', 'o19map_props', 'o19_preflight', 'stock-eform-assets'})
         for path in paths.values():
             with self.subTest(manifest=path.name):
                 self.check(json.loads(path.read_text()), path.stem, 0)
@@ -36,20 +36,21 @@ class UpgradeManifestContractTest(unittest.TestCase):
                 self.check({'kind': kind, 'format': 2}, name, 1)
 
     def test_boolean_string_float_and_missing_formats_cannot_qualify(self):
-        for value in [True, False, '1', '2', 1.0, 2.0, None]:
+        for value in [True, False, '1', '2', '3', 1.0, 2.0, 3.0, None]:
             for name, kind in [('o19map_schema', 'o19map-schema'), ('o19map_props', 'o19map-props')]:
                 with self.subTest(value=value, manifest=name):
                     self.check({'kind': kind, 'format': value}, name, 1)
 
     def test_unknown_formats_cannot_qualify(self):
-        for value in [-1, 0, 3]:
+        # 2 is the superseded schema envelope; 4 is not defined.
+        for value in [-1, 0, 2, 4]:
             with self.subTest(value=value):
                 self.check({'kind': 'o19map-schema', 'format': value}, 'o19map_schema', 1)
 
     def test_wrong_or_missing_kind_cannot_substitute_another_manifest(self):
         for kind in ['o19map-props', 'o19-preflight', '', None]:
             with self.subTest(kind=kind):
-                self.check({'kind': kind, 'format': 2}, 'o19map_schema', 1)
+                self.check({'kind': kind, 'format': 3}, 'o19map_schema', 1)
 
     def test_nonobject_malformed_and_missing_files_cannot_qualify(self):
         for value in [[], None, 2, 'manifest']:
