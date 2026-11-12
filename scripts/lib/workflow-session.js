@@ -139,8 +139,17 @@ async function cleanupOwnedWorkflow({ browser, sql, patient, marker, cleanups, p
       try {
         if (patientFixture) await patientFixture.cleanup({browserClosed});
         else {
+          // An older upgrade baseline (deb-docker-validation.sh upgrade <tag>) has no rx_submission_receipt
+          // table yet; it is the only table that may be absent (see presentTables in owned-patient.js). A
+          // catalogue that cannot be read decides nothing, and the database then answers for the table.
+          const lacksReceipts = () => {
+            try {
+              return sql.value('SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() '
+                + "AND table_name='rx_submission_receipt'") === '0';
+            } catch (unreadable) { return false; }
+          };
           const supportRows = [
-            ['rx_submission_receipt', 'demographic_no'],
+            ...(lacksReceipts() ? [] : [['rx_submission_receipt', 'demographic_no']]),
             ['casemgmt_note_lock', 'demographic_no'], ['casemgmt_tmpsave', 'demographic_no'],
             ['measurementsDeleted', 'demographicNo'], ['demographicExt', 'demographic_no'],
             ['demographicArchive', 'demographic_no'],
