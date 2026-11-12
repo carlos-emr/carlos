@@ -59,7 +59,7 @@ class RxSaveReceiptCommitIntegrationTest extends CarlosUnitTestBase {
 
     @BeforeEach void prepare() throws Exception {
         String sql = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "database/mysql/migration/common/V1.0.59.36__rx_submission_receipts.sql"));
+                "database/mysql/migration/common/V1.0.59.38__rx_submission_receipts.sql"));
         try (var connection = source.getConnection()) {
             if (connection.getMetaData().getDatabaseProductName().contains("H2")) {
                 sql = sql.replace(" CHARACTER SET ascii COLLATE ascii_bin", "")

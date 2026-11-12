@@ -130,10 +130,11 @@ class TestSecretsAreNotBackedUp(unittest.TestCase):
 
 class TestTheCarlosCtlPin(unittest.TestCase):
 
-    """debian/carlos-ctl.pin is read by three hands: the release build
-    (fetch-carlos-ctl.sh, the tag only), and the two CI jobs that check
-    out the pinned CLI and, until that tag is published, its fallback
-    commit. Its shape is a contract between them."""
+    """The release build reads the tag; CI reads the tag or exact fallback.
+
+    The installed CDS resource gate always requires the fallback commit, so
+    it remains mandatory even after the tag is published.
+    """
 
     PIN = ROOT / "debian" / "carlos-ctl.pin"
     WORKFLOWS = (ROOT / ".github" / "workflows" / "debian-python-tests.yml",
@@ -151,11 +152,11 @@ class TestTheCarlosCtlPin(unittest.TestCase):
         tag = self._fields().get("tag")
         self.assertRegex(tag or "", r"^\d+\.\d+\.\d+(-[A-Za-z0-9.]+)?$")
 
-    def test_a_fallback_names_one_full_commit(self):
+    def test_fallback_names_one_full_commit(self):
+        """Require the immutable CLI source commit used by installed CI."""
         # a branch name would move under the job; a short id is ambiguous
         fallback = self._fields().get("fallback")
-        if fallback is not None:
-            self.assertRegex(fallback, r"^[0-9a-f]{40}$")
+        self.assertRegex(fallback or "", r"^[0-9a-f]{40}$")
         self.assertEqual(set(self._fields()) - {"tag", "fallback"}, set(),
                          "unknown key in debian/carlos-ctl.pin")
 

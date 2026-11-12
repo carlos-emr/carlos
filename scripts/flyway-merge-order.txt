@@ -92,7 +92,9 @@ common/V1.0.59.30__one_live_consent_per_type.sql
 bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql
 common/V1.0.59.32__preserve_native_archive_capacity.sql
 common/V1.0.59.33__audit_imported_billing_filenames.sql
-bc/V1.0.59.34__preserve_bc_history_amount.sql
-common/V1.0.59.35__rx_favorite_groups.sql
-common/V1.0.59.36__rx_submission_receipts.sql
-common/V1.0.59.37__rx_original_versions.sql
+common/V1.0.59.34__preserve_unassigned_digital_signatures.sql
+common/V1.0.59.35__freeze_imported_signature_ownership.sql
+bc/V1.0.59.36__preserve_bc_history_amount.sql
+common/V1.0.59.37__rx_favorite_groups.sql
+common/V1.0.59.38__rx_submission_receipts.sql
+common/V1.0.59.39__rx_original_versions.sql
