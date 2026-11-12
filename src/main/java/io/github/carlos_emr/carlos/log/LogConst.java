@@ -63,6 +63,9 @@ public class LogConst {
 
     public static final String CON_LOGIN_AGREEMENT = "login agreement";
     public static final String CON_OHIP = "ohip file";
+    // An invoice (contentId = the invoice number) and a patient's billing history page (contentId = the patient).
+    public static final String CON_BILLING = "billing";
+    public static final String CON_BILLING_HISTORY = "billing_history";
     public static final String CON_LOGIN = "login";
     public static final String CON_APPT = "appointment";
     public static final String CON_ECHART = "eChart";
