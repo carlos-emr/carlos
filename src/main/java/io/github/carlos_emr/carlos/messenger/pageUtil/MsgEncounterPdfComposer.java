@@ -51,7 +51,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * {@code eChart} on every save. The modern chart stopped that mirror, so the old item froze at the
  * cutover; this item restores what it gave from the current chart.</p>
  *
- * <p><b>What it prints is decided here only.</b> Provisionally (#5856): the CPP and every current
+ * <p><b>What it prints is decided here only.</b> As decided in #5856: the CPP and every current
  * note, as the chart print's "All notes" gives them ({@link #ALL_NOTES}, {@link #CPP}), with no
  * prescriptions, labs, preventions or allergies (prescriptions are their own chooser item), no date
  * range and no selection. Because the attachment goes to someone else, locked notes are left out. The
@@ -69,9 +69,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  */
 public class MsgEncounterPdfComposer {
 
-    /** Provisional (#5856): every current note, not a selection or a date range. */
+    /** Decided in #5856: every current note, not a selection or a date range. */
     static final boolean ALL_NOTES = true;
-    /** Provisional (#5856): with the CPP (social, family and medical history, concerns, ...). */
+    /** Decided in #5856: with the CPP (social, family and medical history, concerns, ...). */
     static final boolean CPP = true;
 
     /** What the print shows, for the imported-record check: the notes and every CPP section. */

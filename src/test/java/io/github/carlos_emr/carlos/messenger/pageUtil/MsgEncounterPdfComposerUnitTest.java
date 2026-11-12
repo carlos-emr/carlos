@@ -83,7 +83,7 @@ class MsgEncounterPdfComposerUnitTest {
 
         assertThat(pdf).isEqualTo(PDF);
         assertThat(prints).hasSize(1);
-        // Provisional choice: all notes, with the CPP.
+        // The choice decided in #5856: all notes, with the CPP.
         assertThat(prints.get(0)).containsExactly(user, PATIENT, true, true, request);
     }
 
