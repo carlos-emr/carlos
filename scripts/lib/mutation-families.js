@@ -770,7 +770,9 @@ function messengerSend(s) {
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
       return captured;
     },
-    aim: (captured, tag) => ({ overrides: { subject: prefix + tag } }),
+    // The compose form carries a one-send token (FormSubmissionGuard); the UI's own send spent it, so a replay carrying it
+    // would be answered from that first send and write nothing. Replays drop it and take the unguarded path.
+    aim: (captured, tag) => ({ overrides: { subject: prefix + tag, carlosFormSubmission: null } }),
   };
 }
 

@@ -96,7 +96,9 @@ public final class FormSubmissionGuard {
         CONSULTATION_SERVICE_ADD,
         /** {@code Pregnancy} from the patient-bound Add pregnancy form. */
         RX_FAVORITE_GROUP,
-        PREGNANCY_CREATE
+        PREGNANCY_CREATE,
+        /** {@code messenger/CreateMessage} from the Messenger compose page (new, reply, reply all, forward). */
+        MESSENGER_SEND
     }
 
     private enum State { ISSUED, SAVING, SAVED }

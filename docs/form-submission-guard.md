@@ -42,6 +42,19 @@ lock also prevents two different forms from creating concurrent current episodes
 still needed after completion: replaying an old create must not start another episode. Opening
 Add again issues a fresh token for an intentional later pregnancy.
 
+The Messenger compose page uses `MESSENGER_SEND` for every way a message is written: new,
+reply, reply all, forward, and a refused send shown again. `CreateMessage.jsp` issues the token
+itself, so each rendering has its own. `MsgCreateMessage2Action` claims it before it validates
+anything or takes the compose window's attachments, and stores the message and its delivery rows
+in the one observed transaction. What it records for a repeat is the message id, who the message
+was sent to, and a SHA-256 of what was submitted (recipients, subject, body, linked patient).
+A repeat with the same digest is answered with the "message sent" page of the first send. A
+submission of the same rendering with a different digest is not a repeat: the user went back to
+the page that had sent, changed the message and sent again. Answering it with the first send's
+confirmation would report a message as sent that never was, so the compose page is shown again
+with HTTP 409, what was submitted and `messenger.CreateMessage.msgChangedAfterSend`; that
+rendering has a new token, and sending from it delivers the changed message once.
+
 ### When a token is freed for a retry
 
 The claim frees the token only when the attempt provably wrote nothing:

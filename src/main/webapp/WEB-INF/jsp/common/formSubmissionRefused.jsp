@@ -4,8 +4,8 @@
 
     Shared "submissionRefused" result for create forms guarded by
     io.github.carlos_emr.carlos.utility.FormSubmissionGuard (issue #4225):
-    Add Appointment, the Ontario bill review Save, Add Demographic and
-    Consultation configuration > Add Service.
+    Add Appointment, the Ontario bill review Save, Add Demographic,
+    Consultation configuration > Add Service and the Messenger compose page.
 
     A repeated submission of one rendered form (double click, double Enter, a
     re-click while a slow save is out, or a reload of the result page) is
