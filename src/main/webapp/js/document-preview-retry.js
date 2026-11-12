@@ -86,7 +86,7 @@
                             // Restart unapproved, allowing the normal exact-omission prompt to run.
                             job.parameters = replaceApproval(job.parameters, data.renderApproval);
                             const delay = seconds * 1000 + Math.floor(random() * 500);
-                            if (handlers.waiting) handlers.waiting();
+                            if (handlers.waiting) handlers.waiting(data.errorMessage);
                             if (current(job)) job.timer = schedule(attempt, delay);
                             return;
                         }

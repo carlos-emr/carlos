@@ -431,10 +431,14 @@
             }
 
             attachmentPreviewController.start(parameters, {
-                waiting: function () {
+                waiting: function (message) {
                     // Release the blocking spinner so waiting remains cancellable. The next
                     // admitted request keeps this notice visible until its PDF actually arrives.
                     HideSpin();
+                    // The server's busy message is already in the viewer's language; set as text only.
+                    if (typeof message === 'string' && message.trim() !== '') {
+                        document.getElementById('preview-waiting-text').textContent = message;
+                    }
                     document.getElementById('preview-waiting').classList.remove('d-none');
                 },
                 success: function (data, currentParameters) {
@@ -796,11 +800,16 @@
                  be told. Severe page-script errors are blocking and reach this preview only after
                  an exact approval. --%>
             <div id="preview-advisory" class="preview-advisory d-none" role="status"></div>
+            <%-- Busy notice: the bundle line shows first; the server's own translated busy message
+                 (eform.preview.msgRenderBusy in its JSON answer) replaces it, as text, when one arrives. --%>
+            <fmt:message key="eform.preview.msgRenderBusy" var="previewBusyText"/>
+            <fmt:message key="document.preview.btnCancel" var="previewCancelText"/>
+            <fmt:message key="document.preview.frameTitle" var="previewFrameTitle"/>
             <div id="preview-waiting" class="preview-advisory d-none" role="status">
-                The eForm renderer is busy. Waiting for your preview.
-                <button type="button" onclick="cancelAttachmentPreview()">Cancel preview</button>
+                <span id="preview-waiting-text"><carlos:encode value="${previewBusyText}"/></span>
+                <button type="button" onclick="cancelAttachmentPreview()"><carlos:encode value="${previewCancelText}"/></button>
             </div>
-            <iframe id="pdfObject" class="d-none" title="Attachment preview"></iframe>
+            <iframe id="pdfObject" class="d-none" title="${carlos:forHtmlAttribute(previewFrameTitle)}"></iframe>
             <div id="preview-filler" class="preview-filler">
                 <fmt:message key="encounter.oscarConsultationRequest.AttachDocPopup.clickAnyItemToPreview"/>
             </div>

@@ -40,7 +40,8 @@ class EFormRenderMessageUnitTest {
     private static final Path JAVA = Path.of("src", "main", "java", "io", "github", "carlos_emr", "carlos");
     /** Keys only the JSPs use; the rest are the enum's. */
     private static final List<String> JSP_KEYS = List.of("eform.renderIssue.yes", "eform.renderIssue.no",
-            "eform.preview.confirmApprove", "eform.preview.advisoryScriptErrors", "document.preview.msgFailed");
+            "eform.preview.confirmApprove", "eform.preview.advisoryScriptErrors", "document.preview.msgFailed",
+            "document.preview.btnCancel", "document.preview.frameTitle");
     /** Yes/no flags of the completeness report, shown on all three surfaces. */
     private static final List<String> FLAGS = List.of("signatureMissing", "providerStampMissing",
             "timerCompatibilityFailure", "stabilizationCapped", "labDecisionSupportStubbed");
@@ -185,6 +186,25 @@ class EFormRenderMessageUnitTest {
                 .doesNotContain("PDF preview could not be generated")
                 .doesNotContain("Failed to render eForm PDF")
                 .doesNotContain("renderer is busy")
-                .doesNotContain("approval is invalid or expired");
+                .doesNotContain("approval is invalid or expired")
+                .doesNotContain("could not be prepared for faxing");
+    }
+
+    @Test
+    @DisplayName("should show the document preview's busy notice, cancel button and frame title from bundle text, encoded")
+    void shouldTranslateTheBusyNotice_inTheAttachmentPage() throws IOException {
+        String jsp = Files.readString(JSP.resolve("documentManager/attachDocument.jsp"), StandardCharsets.UTF_8);
+        assertThat(jsp)
+                .contains("<fmt:message key=\"eform.preview.msgRenderBusy\" var=\"previewBusyText\"/>")
+                .contains("<fmt:message key=\"document.preview.btnCancel\" var=\"previewCancelText\"/>")
+                .contains("<fmt:message key=\"document.preview.frameTitle\" var=\"previewFrameTitle\"/>")
+                .contains("<span id=\"preview-waiting-text\"><carlos:encode value=\"${previewBusyText}\"/></span>")
+                .contains("<carlos:encode value=\"${previewCancelText}\"/></button>")
+                .contains("title=\"${carlos:forHtmlAttribute(previewFrameTitle)}\"")
+                // The server's busy message replaces the line as text, never as markup.
+                .contains("document.getElementById('preview-waiting-text').textContent = message;")
+                .doesNotContain("Waiting for your preview")
+                .doesNotContain(">Cancel preview<")
+                .doesNotContain("title=\"Attachment preview\"");
     }
 }

@@ -51,7 +51,11 @@ public enum EFormRenderMessage {
     PREVIEW_RENDER_BUSY("eform.preview.msgRenderBusy", "The eForm renderer is busy. Waiting for a preview slot."),
     /** Document preview: the approval token was invalid or expired. */
     PREVIEW_APPROVAL_INVALID("eform.preview.msgApprovalInvalid",
-            "The incomplete-render approval is invalid or expired. Render the preview again.");
+            "The incomplete-render approval is invalid or expired. Render the preview again."),
+    /** eForm fax: the PDF could not be prepared (for example, the render browser could not be reached); no fax was queued. */
+    FAX_NOT_PREPARED("fax.eformRender.msgNotPrepared",
+            "This eForm and its attachments could not be prepared for faxing. No fax was queued."
+                    + " Please retry or contact your administrator.");
 
     private final String key;
     private final String english;
