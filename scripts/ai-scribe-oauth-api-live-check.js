@@ -446,9 +446,8 @@ async function main(state = {}) {
     'Paginated demographic list did not return a result page');
   recordEndpoint('GET', '/ws/services/demographics/', allDemographicsResponse,
     'paginated patient-list response returned');
-
   const searchOffset = Number(sql.value(`SELECT COUNT(*) FROM demographic
-    WHERE demographic_no < ${patientNo} AND patient_status <> 'DE'`));
+    WHERE demographic_no < ${patientNo} AND patient_status = 'AC'`));
   const patientPageResponse = await signedRequest(
     'GET', `/ws/services/demographics/?offset=${searchOffset}&limit=1`, fullToken,
   );

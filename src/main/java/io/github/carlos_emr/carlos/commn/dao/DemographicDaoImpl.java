@@ -187,7 +187,7 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
     @Override
     @SuppressWarnings("unchecked")
     public List<Demographic> getActiveDemographics(final int offset, final int limit) {
-        Query query = entityManager().createQuery("FROM Demographic d WHERE d.patientStatus = 'AC'");
+        Query query = entityManager().createQuery("FROM Demographic d WHERE d.patientStatus = 'AC' ORDER BY d.demographicNo");
         if (offset > 0) {
             query.setFirstResult(offset);
         }
