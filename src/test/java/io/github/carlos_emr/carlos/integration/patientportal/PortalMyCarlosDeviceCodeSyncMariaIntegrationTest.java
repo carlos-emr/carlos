@@ -230,8 +230,17 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         boolean failing;
         /** Why the patient can't be emailed, when not reachable. */
         String reason = PortalMyCarlosStaffApprovalService.NO_USABLE_EMAIL;
+        /** Thrown once by the next reach, as an unexpected failure in one request would be. */
+        RuntimeException unexpected;
+        /** Run after a code email went out. */
+        Runnable afterSend;
         public PortalMyCarlosStaffApprovalService.CodeReach reach(int patient) {
             reached++;
+            if (unexpected != null) {
+                var failure = unexpected;
+                unexpected = null;
+                throw failure;
+            }
             return reachable && patient == 1 ? PortalMyCarlosStaffApprovalService.CodeReach.to("fake.patient@example.com")
                     : PortalMyCarlosStaffApprovalService.CodeReach.staff(reason);
         }
@@ -240,13 +249,30 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
             tries++;
             if (failing) return false;
             sent.add(displayCode);
+            if (afterSend != null) afterSend.run();
             return true;
         }
     }
 
+    /** The real transaction owner, which fails the next approval-state transaction once when armed. */
+    static final class FailOnce extends PortalMyCarlosDeviceApprovalTransactions {
+        final java.util.concurrent.atomic.AtomicBoolean armed = new java.util.concurrent.atomic.AtomicBoolean();
+        FailOnce() {
+            super(context.getBean(PortalMyCarlosInventoryTransactions.class), context.getBean(PortalMyCarlosKeyInventoryWorker.class));
+        }
+        @Override
+        <T> T withApprovalState(java.util.function.Supplier<T> operation) {
+            if (armed.compareAndSet(true, false)) throw new IllegalStateException("FAKE lost database connection");
+            return super.withApprovalState(operation);
+        }
+    }
+
     private PortalMyCarlosStaffApprovalService service(FakePortal portal) {
+        return service(portal, context.getBean(PortalMyCarlosDeviceApprovalTransactions.class));
+    }
+
+    private PortalMyCarlosStaffApprovalService service(FakePortal portal, PortalMyCarlosDeviceApprovalTransactions transactions) {
         var factory = context.getBean(EntityManagerFactory.class);
-        var transactions = context.getBean(PortalMyCarlosDeviceApprovalTransactions.class);
         var settings = PatientPortalSettings.fromProperties(Map.of(
                 PatientPortalSettings.BASE_URL_KEY, "https://localhost:8455",
                 PatientPortalSettings.CLINIC_ID_KEY, scope.clinicId(),
@@ -552,6 +578,50 @@ class PortalMyCarlosDeviceCodeSyncMariaIntegrationTest {
         assertEquals(Long.toString(1 + 20L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
         assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
         assertEquals(Long.toString(1 + 40L * pages), sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
+    }
+
+    @Test
+    void shouldPassOverOneRequest_whenItFailsUnexpectedly() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        mail.unexpected = new IllegalStateException("FAKE unexpected failure");
+        var job = service(portal);
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+            assertEquals(List.of("myCarlos device code job: one request could not be handled and was passed over; "
+                    + "failure=IllegalStateException"), log.messages());
+        }
+        // The cursor is past it, as for a refusal: the next run neither tries it again nor logs again.
+        assertEquals("1", sql("SELECT value FROM property WHERE name LIKE 'mycarlos.approval.code.requests.%'"));
+        int reached = mail.reached;
+        try (var log = io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(PortalMyCarlosStaffApprovalService.class)) {
+            assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+            assertTrue(log.messages().isEmpty());
+        }
+        assertEquals(reached, mail.reached);
+        assertEquals("0", sql("SELECT COUNT(*) FROM mycarlos_device_approval_code"));
+    }
+
+    @Test
+    void shouldMarkTheSentCodeInsteadOfSendingAnother_whenTheMarkFails() throws Exception {
+        var portal = portal();
+        var mail = new FakeMail();
+        var transactions = new FailOnce();
+        // The email goes out, then the "emailed" mark's transaction fails once.
+        mail.afterSend = () -> transactions.armed.set(true);
+        var job = service(portal, transactions);
+        assertDoesNotThrow(() -> job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail));
+        mail.afterSend = null;
+        // The follow-up pass marked the code that went out instead of sending a second one, and asked the
+        // device for it.
+        assertEquals(1, mail.sent.size());
+        assertEquals(1, mail.tries);
+        assertEquals("1", sql("SELECT COUNT(*) FROM mycarlos_device_approval_code WHERE emailed_at IS NOT NULL"));
+        assertTrue(portal.calls.stream().anyMatch(call -> call.endsWith("/challenge")));
+        // The code the patient received still works.
+        portal.send(request(), challengeId(), mail.sent.getFirst().replace(" ", "").substring(0, 6));
+        assertEquals(1, job.syncCodes(portalService(), PortalMyCarlosApprovalPolicy.CODE, mail).accepted());
+        assertEquals(1, mail.sent.size());
     }
 
     @Test

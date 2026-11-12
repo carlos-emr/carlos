@@ -305,6 +305,15 @@ public final class PortalMyCarlosStaffApprovalService {
     static final int MAX_SENDS = 3;
     /** Failed sends per code request and when to try again: 30 s, then doubling, at most 5 minutes. */
     private final java.util.Map<Bytes, EmailRetry> emailRetries = new java.util.concurrent.ConcurrentHashMap<>();
+    /**
+     * Codes whose email went out but whose "emailed" mark then failed, by challenge, with the code's MAC:
+     * the next pass marks them instead of making and sending a second code.
+     */
+    private final java.util.Map<Bytes, Bytes> sentNotMarked = new java.util.concurrent.ConcurrentHashMap<>();
+    /** Follow-up items already logged as passed over, so a failing one is logged once, not every run. */
+    private final java.util.Set<Bytes> passedOverLogged = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** Items one run may pass over before it stops, as it would for a failure that is not one item's. */
+    static final int MAX_PASSED_OVER = 3;
     private record EmailRetry(int failures, Instant notBefore) {}
 
     /** What the device-code job needs from CARLOS email. Neither method may log a code. */
@@ -365,11 +374,12 @@ public final class PortalMyCarlosStaffApprovalService {
         fence.run();
         var client = client(portal);
         int[] counts = new int[7];
+        int[] passed = new int[1];
         // A portal call that fails stops only its own pass: a listing the portal can't serve right
         // now must not hold back codes already on their way (the follow-up pass).
-        portalPass("readCodes", () -> readCodes(binding, fence, client, counts));
-        portalPass("readRequests", () -> readRequests(binding, fence, client, policy, mail, counts));
-        followUp(binding, fence, client, policy, mail, counts);
+        portalPass("readCodes", () -> readCodes(binding, fence, client, counts, passed));
+        portalPass("readRequests", () -> readRequests(binding, fence, client, policy, mail, counts, passed));
+        followUp(binding, fence, client, policy, mail, counts, passed);
         return new CodeSyncResult(counts[0], counts[1], counts[2], counts[3], counts[4], counts[5], counts[6]);
     }
 
@@ -379,6 +389,45 @@ public final class PortalMyCarlosStaffApprovalService {
         } catch (PatientPortalException failure) {
             logPortalFailure(call, failure);
         }
+    }
+
+    /**
+     * Passes over one request, code or follow-up item that failed in a way that is neither the portal's
+     * nor a refusal (a lock timeout or an unexpected state, say). Otherwise the job would stop on it every
+     * run and hold back every item after it.
+     *
+     * <p>What still stops the run, as before:
+     * <ul>
+     *   <li>approval switched off ({@code approval_unavailable});</li>
+     *   <li>a changed configuration, which the fence reports;</li>
+     *   <li>more than {@value #MAX_PASSED_OVER} items in one run, as when the failure is not one item's.</li>
+     * </ul>
+     * The line has fixed text and the failure's class only: no patient, request, address or code.
+     *
+     * @param key the item's challenge id, so a follow-up item that fails every run is logged once; null
+     *     when the item's cursor moves past it, so it never comes back
+     */
+    static void passOver(String item, RuntimeException failure, Runnable fence, int[] passed,
+            java.util.Set<Bytes> logged, Bytes key) {
+        if (failure instanceof PortalMyCarlosDeviceApprovalService.Refusal refusal
+                && "approval_unavailable".equals(refusal.code)) {
+            throw failure;
+        }
+        fence.run();
+        if (++passed[0] > MAX_PASSED_OVER) throw failure;
+        if (key == null || logged.add(key)) {
+            LOGGER.warn("myCarlos device code job: one {} could not be handled and was passed over; failure={}",
+                    item, failure.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * @return whether this code's email already went out in an earlier pass whose "emailed" mark then
+     *     failed: same code (MAC), still open and not yet marked
+     */
+    static boolean sentButNotMarked(PortalMyCarlosDeviceApprovalCode found, Bytes sentMac) {
+        return found != null && sentMac != null && found.emailedAt() == null && found.open()
+                && sentMac.equals(found.mac());
     }
 
     /**
@@ -403,7 +452,7 @@ public final class PortalMyCarlosStaffApprovalService {
     }
 
     private void readCodes(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
-            PortalMyCarlosApprovalClient client, int[] counts) {
+            PortalMyCarlosApprovalClient client, int[] counts, int[] passed) {
         long after = cursor(CODE_CURSOR, binding);
         for (int pageNo = 0; pageNo < PAGES_PER_RUN; pageNo++) {
             fence.run();
@@ -417,7 +466,22 @@ public final class PortalMyCarlosStaffApprovalService {
             }
             fence.run();
             for (var sent : page.records()) {
-                var challenge = settleCode(binding, sent, after, counts);
+                long previous = after;
+                PortalMyCarlosDeviceApprovalChallenge challenge;
+                try {
+                    challenge = settleCode(binding, sent, previous, counts);
+                } catch (PatientPortalException failure) {
+                    throw failure;
+                } catch (RuntimeException failure) {
+                    passOver("code", failure, fence, passed, passedOverLogged, null);
+                    // Not counted; the cursor moves past it so the codes after it are still read.
+                    transactions.withApprovalState(() -> {
+                        writeCursor(CODE_CURSOR, binding, previous, sent.sequence());
+                        return null;
+                    });
+                    after = sent.sequence();
+                    continue;
+                }
                 after = sent.sequence();
                 try {
                     client.consumed(sent.requestId(), sent.attempt());
@@ -429,7 +493,16 @@ public final class PortalMyCarlosStaffApprovalService {
                     logPortalFailure("consumed", PatientPortalException.ofMalformedResponse(200,
                             "/internal/carlos/mycarlos/device-approval-requests/{request_id}/codes/{attempt}/consumed", failure));
                 }
-                if (challenge != null) finishCode(challenge, fence, client, counts);
+                if (challenge != null) {
+                    try {
+                        finishCode(challenge, fence, client, counts);
+                    } catch (PatientPortalException failure) {
+                        throw failure;
+                    } catch (RuntimeException failure) {
+                        // The follow-up pass tries it again.
+                        passOver("code", failure, fence, passed, passedOverLogged, challenge.challengeId());
+                    }
+                }
             }
             if (page.nextCursor() == null) return;
         }
@@ -523,7 +596,8 @@ public final class PortalMyCarlosStaffApprovalService {
     }
 
     private void readRequests(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
-            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
+            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts,
+            int[] passed) {
         long after = cursor(REQUEST_CURSOR, binding);
         for (int pageNo = 0; pageNo < PAGES_PER_RUN; pageNo++) {
             fence.run();
@@ -547,6 +621,10 @@ public final class PortalMyCarlosStaffApprovalService {
                     // One request that can no longer go ahead (its patient was linked another way, say)
                     // must not stop the others; staff see it on the patient's page.
                     if ("approval_unavailable".equals(refusal.code)) throw refusal;
+                } catch (RuntimeException failure) {
+                    // Passed over like a refusal: the cursor moves on, and staff see the request on the
+                    // patient's page.
+                    passOver("request", failure, fence, passed, passedOverLogged, null);
                 }
                 // Looked at once: what it still needs is the follow-up pass's.
                 long previous = after;
@@ -608,30 +686,41 @@ public final class PortalMyCarlosStaffApprovalService {
      * publish an emailed request's challenge, then finish what its code decided.
      */
     private void followUp(PortalMyCarlosDeviceApprovalService.Current binding, Runnable fence,
-            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts) {
+            PortalMyCarlosApprovalClient client, PortalMyCarlosApprovalPolicy policy, CodeMail mail, int[] counts,
+            int[] passed) {
         var codes = new PortalMyCarlosDeviceApprovalCodeDao(factory);
         var challenges = new PortalMyCarlosDeviceApprovalChallengeDao(factory);
         Instant now = codeClock.instant().truncatedTo(ChronoUnit.SECONDS);
         // Kept only while a request still waits for its code to go out.
         emailRetries.keySet().removeIf(id -> transactions.withApprovalState(() -> codes.findByChallengeForUpdate(id)
                 .map(code -> !code.open() || code.emailedAt() != null || !now.isBefore(code.expiresAt())).orElse(true)));
+        sentNotMarked.keySet().removeIf(id -> transactions.withApprovalState(() -> codes.findByChallengeForUpdate(id)
+                .map(code -> !code.open() || code.emailedAt() != null || !now.isBefore(code.expiresAt())).orElse(true)));
         var ids = transactions.withApprovalState(() -> codes.recentChallengeIds(binding.clinic, now.minus(FOLLOW_UP_WINDOW), FOLLOW_UP_LIMIT));
+        passedOverLogged.retainAll(new java.util.HashSet<>(ids));
         for (var id : ids) {
             fence.run();
-            var challenge = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(id).orElse(null));
-            if (challenge == null) continue;
             try {
-                if (challenge.pending()) {
-                    var code = emailCode(challenge, fence, policy, mail, counts);
-                    if (code != null && code.emailedAt() != null) publish(challenge, "challenge", client);
+                var challenge = transactions.withApprovalState(() -> challenges.findByChallengeForUpdate(id).orElse(null));
+                if (challenge == null) continue;
+                try {
+                    if (challenge.pending()) {
+                        var code = emailCode(challenge, fence, policy, mail, counts);
+                        if (code != null && code.emailedAt() != null) publish(challenge, "challenge", client);
+                    }
+                } catch (PublicationPending failure) {
+                    // Tried again once its retry time comes.
+                } catch (PatientPortalException failure) {
+                    // Tried again by a later run.
+                    logPortalFailure("publish", failure);
                 }
-            } catch (PublicationPending failure) {
-                // Tried again once its retry time comes.
+                finishCode(challenge, fence, client, counts);
             } catch (PatientPortalException failure) {
-                // Tried again by a later run.
-                logPortalFailure("publish", failure);
+                throw failure;
+            } catch (RuntimeException failure) {
+                // Tried again by a later run, and logged once.
+                passOver("follow-up item", failure, fence, passed, passedOverLogged, id);
             }
-            finishCode(challenge, fence, client, counts);
         }
     }
 
@@ -660,6 +749,13 @@ public final class PortalMyCarlosStaffApprovalService {
             var found = codes.findByChallengeForUpdate(challenge.challengeId());
             if (found.isPresent() && found.get().emailedAt() != null) return found.get();
             if (!locked.pending() || !now.isBefore(locked.expiresAt())) return found.orElse(null);
+            if (sentButNotMarked(found.orElse(null), sentNotMarked.get(challenge.challengeId()))) {
+                // Its email went out, but the "emailed" mark after it failed: mark it now, rather than make
+                // and send a second code that would leave the first one dead.
+                var marked = found.get().emailed(now);
+                codes.update(found.get(), marked);
+                return marked;
+            }
             var retry = emailRetries.get(challenge.challengeId());
             if (retry != null && (retry.failures() >= MAX_SENDS || now.isBefore(retry.notBefore()))) return found.orElse(null);
             // A request made while codes were on, now under staff_only: no new code is made for it.
@@ -676,6 +772,7 @@ public final class PortalMyCarlosStaffApprovalService {
             codes.insert(created);
             return created;
         });
+        if (row != null && row.emailedAt() != null) sentNotMarked.remove(challenge.challengeId());
         if (row == null || row.emailedAt() != null || codeR[0] == null) return row;
         var reach = mail.reach(challenge.demographicNo());
         boolean sent = false;
@@ -702,13 +799,18 @@ public final class PortalMyCarlosStaffApprovalService {
         emailRetries.remove(challenge.challengeId());
         counts[1]++;
         auditCode("code.emailed", challenge);
-        return transactions.withApprovalState(() -> {
+        // Remembered until the mark below is written: if it fails, the next pass marks this code instead
+        // of sending a second one.
+        sentNotMarked.put(challenge.challengeId(), row.mac());
+        var marked = transactions.withApprovalState(() -> {
             var latest = codes.findByChallengeForUpdate(challenge.challengeId()).orElseThrow();
             if (latest.emailedAt() != null || !latest.mac().equals(row.mac())) return latest;
             var next = latest.emailed(codeClock.instant().truncatedTo(ChronoUnit.SECONDS));
             codes.update(latest, next);
             return next;
         });
+        sentNotMarked.remove(challenge.challengeId());
+        return marked;
     }
 
     /**
