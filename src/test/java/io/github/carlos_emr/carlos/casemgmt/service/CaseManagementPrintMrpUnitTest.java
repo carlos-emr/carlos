@@ -125,6 +125,16 @@ class CaseManagementPrintMrpUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("Dr. Alma Printed");
     }
 
+    /** #6173: a provider record missing a name part printed "Dr. Alma null". */
+    @Test
+    @DisplayName("should leave out a missing part of the MRP's name rather than print null")
+    void shouldLeaveOutMissingNamePart_whenMrpRecordLacksIt() throws Exception {
+        when(manager.getDemoProviderNo(String.valueOf(PRINTED))).thenReturn(PRINTED_MRP);
+
+        assertThat(printedMrp(Map.of(PRINTED_MRP, provider(PRINTED_MRP, "Dr. Alma", null)))).isEqualTo("Dr. Alma");
+        assertThat(printedMrp(Map.of(PRINTED_MRP, provider(PRINTED_MRP, null, "Printed")))).isEqualTo("Printed");
+    }
+
     /** Runs the chart-print entry point and returns the MRP it hands the PDF header. */
     private String printedMrp(Map<String, EctProviderData.Provider> providers) throws Exception {
         CarlosProperties properties = mock(CarlosProperties.class);
