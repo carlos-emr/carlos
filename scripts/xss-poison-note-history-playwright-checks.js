@@ -9,7 +9,7 @@
 // note whose text carries it too, INSERTed (bypassing the WAF, like imported data). Cleanup removes exactly
 // these rows by key and asserts they are gone.
 // Asserted: the patient's name is shown, as text; no `[data-xp]` element in the popup; no script error.
-// Expected to FAIL while app-findings-log.md finding 148 stands (showHistory.jsp prints ${demoName} raw).
+// Finding 148 (showHistory.jsp printed ${demoName} raw) is fixed; this is its regression.
 // Implements: wave-6 xss-poison (stored markup / output-encoding walk), for a surface #4307 made reachable.
 const h = require('./lib/playwright-harness');
 const { runWorkflow } = require('./lib/workflow-session');

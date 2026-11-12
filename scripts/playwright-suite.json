@@ -4858,7 +4858,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates a throwaway login (security/provider/secUserRole copied from the test login), changes its password, deletes every owned row including SecurityArchive, provider_facility and audit rows.",
-      "notes": "Fails at its last step on 2026.08: the change-password page has no server-side password policy."
+      "notes": "The change-password page and the Preferences page apply the configured password policy on the server: a weak password or a too-short PIN is refused and nothing is stored. Failed at its last step until that was added in 2026.08."
     },
     {
       "name": "account-lockout-unlock",
@@ -6331,7 +6331,7 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
+      "notes": "HRM list, display, print and download refuse a patient the login is locked out of (HRMReportAccess). Failed at its last step until that patient-level check was added in 2026.08.",
       "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
     },
     {
@@ -9039,7 +9039,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Marker-subject messages to the test login (already a messenger contact); cleanup deletes messagelisttbl/msgDemoMap/messagetbl rows with the run marker and asserts them gone. Changes no group membership.",
-      "notes": "Fails at its final assertion on 2026.08: Send Message double Enter, a re-click during a slow response and a POST replay (reload of the result page) each deliver two messages (CreateMessage.jsp:485-486,585 no guard; MsgCreateMessage2Action.java:175 sendMessage2 is not idempotent; SentMessage.jsp is rendered directly, no redirect-after-POST)."
+      "notes": "Send Message delivers one message per rendered compose page: a double Enter, a re-click during a slow response and a POST replay (reload of the result page) are answered from the first send (FormSubmissionGuard scope MESSENGER_SEND in MsgCreateMessage2Action). Failed at its final assertion until that guard was added in 2026.08."
     },
     {
       "name": "classic-note-editor-billing-link",
@@ -11118,7 +11118,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own provider number and user name; cleanup deletes every audit row carrying them and asserts the rows are gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the session audit trail held' (One sign-in wrote 2 log in rows) until Login2Action writes one log in row per sign-in (:1115 and the facilityId row at :1220/:1231 both write one)."
+      "notes": "One sign-in writes one 'log in' row, naming the facility the session was bound to (Login2Action). Failed at its last step until the duplicate row was removed in 2026.08."
     },
     {
       "name": "audit-log-chart-read",
@@ -11175,7 +11175,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient and its note; cleanup deletes the note, lock and tmpsave rows and the audit rows scoped to the patient or note id and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the note write path held': the add/update CME note rows carry the whole note text in log.data (CaseManagementNote.getAuditString) and opening the chart writes an edit/CME note row with contentId 'null'."
+      "notes": "The CME note audit rows describe the revision (thread uuid, signed, issue count) and never carry note text; opening the chart on a new, unsaved note writes no row. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-demographic-edit",
@@ -11213,7 +11213,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one appointment booked on a random day 500-900 days ahead with the run marker in its reason; cleanup deletes the appointment, appointmentArchive, other_id and audit rows scoped to the appointment id and patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the appointment audit trail held': Add (AppointmentAddRecord2Action:141), Edit (AppointmentUpdateRecord2Action:110/138), the status letter and Cancel write no audit row; the Delete row (Appointment.delete, :101) carries no demographic_no or client address."
+      "notes": "Add, Edit, the status letter, Cancel and Delete each write an audit row naming the appointment, its patient, the user and the client address (the popup actions, AppointmentStatusTransitionService and ScheduleManager.updateAppointment). Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-chart-modules",
@@ -11232,7 +11232,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; allergy, prevention, drug, prescription and signature rows created through the UI and removed by patient id with the audit rows scoped to the patient; cleanup asserts nothing remains. Needs no DrugRef data (custom drug).",
-      "notes": "Expected to FAIL at the last step 'every expectation of the chart-module audit trail held': prevention add/delete (AddPrevention2Action) write no audit row; the allergy, prescription and discontinue rows carry the clinical text in log.data and the discontinue row carries a Drug object dump (RxDeleteRx2Action:441)."
+      "notes": "Prevention add, edit and delete are audited; the allergy, prescription and discontinue rows identify the records by id and carry no clinical text. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-document-read",
@@ -11252,7 +11252,7 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "Owned synthetic patient and one uploaded PDF; cleanup deletes the document and ctl_document rows, the stored file (inside DOCUMENT_DIR only), the audit rows scoped to the patient or document id, and the chart note (\"Document ... created\"), note link and routing lock the upload wrote (lib/document-residue.js), and asserts them gone. SKIPs when DOCUMENT_DIR is not readable.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the document audit trail held': the upload row has no demographic_no (AddEditDocument2Action:257) and one document view writes two read rows spelled document/Document, the second without demographic_no (ManageDocument2Action:1204-1206 and :1252)."
+      "notes": "An upload filed onto a chart is audited under the patient, and one document view writes one read/document row. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-vitals",
@@ -11271,7 +11271,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one BP reading carrying the run marker; cleanup deletes the readings, archived readings, encounter notes and audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the vitals audit trail held': entering and deleting a vitals reading (E-Chart Measurements, EctMeasurements2Action) write no audit row."
+      "notes": "Entering and deleting a vitals reading (E-Chart Measurements) each write an audit row under the patient, by reading id, without the value. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-billing-on",
@@ -11290,7 +11290,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "createBillingFixture (owned billing provider and HIN on the owned patient); cleanup removes the claim rows the browser wrote and every fixture and the audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the Ontario billing audit trail held': Saving an Ontario OHIP claim (BillingOnSave2Action) and opening the Billing History write no audit row."
+      "notes": "Saving an Ontario OHIP claim and opening the Billing History each write an audit row under the patient. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-locked-patient",
@@ -11309,11 +11309,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one throwaway doctor login with two lock rows (_demographic$N, _eChart$N) via lib/authz-read-fixture.js; cleanup removes the login, locks, audit rows and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'the refused attempt is itself in the audit log': the locked doctor's refused Master Record open is thrown as a SecurityException before any audit write.",
-      "expectedFailure": {
-        "finding": 344,
-        "step": "the refused attempt is itself in the audit log, naming the patient and the refused login"
-      }
+      "notes": "Finding 344 is fixed: the locked doctor's refused Master Record open now writes a 'no right' audit row naming the patient, the refused login and the client address before the SecurityException is thrown. The check stays as the regression for it."
     },
     {
       "name": "audit-log-report-tools",
@@ -11332,7 +11328,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; nothing is saved (Run Query only); cleanup deletes the audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'the report run is in the audit log': the Demographic Report Tool (RptDemographicReport2Action) writes no audit row, unlike Patient List by Appointment Time (PatientListByAppt export row)."
+      "notes": "Each run of the Demographic Report Tool writes one audit row (user, client address, columns, Demographic IDs criterion, row count). Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-demographic-import",
@@ -11654,7 +11650,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Three owned appointments (marker reason, test provider, 401 days ahead) seeded by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and other_id(appt_mc_number) rows and asserts them gone. Two sessions of the shared test login.",
-      "notes": "Controls pass (stale day-sheet status click refused with 409 + alert; stale update of a deleted appointment refused and resurrects nothing). Fails at the last step: session A's stale Update Appt un-cancels the appointment session B cancelled (AppointmentUpdateRecord2Action.java:95-135 has no findForUpdate / updatedatetime comparison, unlike AppointmentStatusTransitionService)."
+      "notes": "Controls: a stale day-sheet status click is refused with 409 + alert; a stale update of a deleted appointment is refused and resurrects nothing. Last step: session A's stale Update Appt is refused with 409 and the conflict page, and the appointment session B cancelled stays cancelled (AppointmentEditConflict; ScheduleManager.updateAppointment compares the rendered version under the row lock). Failed at that step until 2026.08."
     },
     {
       "name": "concurrency-tickler-edit",
@@ -11669,7 +11665,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes the tickler with its comments and history rows and asserts it gone. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: session A's stale Edit Tickler save puts the tickler session B completed back to Active (EditTickler2Action.java:165-240 applies every posted field with no comparison against the rendered state)."
+      "notes": "Session A's stale Edit Tickler save is refused with 409 and its message, and the tickler session B completed stays completed (TicklerEditVersion; the row is locked before it is compared). Failed at its last step until 2026.08."
     },
     {
       "name": "concurrency-tickler-list-status",
@@ -11684,7 +11680,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes it with its history and asserts it gone. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: a stale tickler list's Complete turns a tickler session B deleted into Completed (DbTicklerMain2Action.java:137 -> TicklerManagerImpl.java:502-509 updateStatus applies any status that differs from the current one)."
+      "notes": "A stale tickler list's Complete leaves a tickler session B deleted as deleted and names the refused task (TicklerManager.updateStatusIfCurrent). Failed at its last step until 2026.08."
     },
     {
       "name": "concurrency-allergy-amend",
@@ -11920,11 +11916,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with poisoned text columns and one signed note whose text and history are poisoned, seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone.",
-      "notes": "Expected to FAIL at the last step while app-findings-log.md finding 148 stands: since #4307 the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) prints the patient's name raw (casemgmt/showHistory.jsp ${demoName}). Failed as described on 2026.08.0~alpha19 BC.",
-      "expectedFailure": {
-        "finding": 148,
-        "step": "the popup found no output-encoding defect"
-      }
+      "notes": "Finding 148 is fixed: the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) encodes the heading and the patient's name (casemgmt/showHistory.jsp). The check stays as the regression for it and for the popup's other sinks."
     },
     {
       "name": "xss-poison-eform",
