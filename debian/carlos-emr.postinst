@@ -1156,9 +1156,9 @@ OAUTH_ACCESS_DEFAULTS
         # as "A": answers the lab did not give, in the flowsheets, the
         # Measurements module and decision support. The stock line now accepts a
         # word or a date only as the whole result (^(word)$, ^date$), and its
-        # number alternative skips a result that starts with a date with a
-        # four-digit year and goes on ("2026-10-09 repeat"); other numbers are
-        # unchanged. Same discipline as the #4613 block above, which runs first:
+        # number alternative skips a result that starts with a date in 19xx or
+        # 20xx and goes on ("2026-10-09 repeat"); other numbers are unchanged.
+        # Same discipline as the #4613 block above, which runs first:
         # under the provisioning lock, ONLY the exact #4613 stock line, ONLY when
         # the key is defined once, ONLY once (the sentinel is written on fresh
         # installs too). An install still on the pre-#4613 line was moved
