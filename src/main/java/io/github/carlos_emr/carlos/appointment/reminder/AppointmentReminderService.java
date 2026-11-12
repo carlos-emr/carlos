@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentReminderDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -413,19 +414,26 @@ public class AppointmentReminderService {
                     AppointmentReminder other = sibling.reminder();
                     // What the other booking's reminder did for this start; null when it has not been tried for it.
                     AppointmentReminderStatus done = start.equals(toLocal(other.getSentFor())) ? other.getLastStatus() : null;
-                    // Sent, or may have been: it covers the visit whatever staff did to its booking after (unticked,
-                    // cancelled, moved). A DUPLICATE never covers in return: it may be covered by this one.
+                    Appointment booking = sibling.appointment();
+                    // Still in this visit: ticked, not cancelled or a no-show, and at this start.
+                    boolean live = other.isRequested() && booking != null && !isCancelledOrNoShow(booking.getStatus())
+                            && start.equals(toLocal(booking.getStartTimeAsFullDate()));
+                    // Sent, or may have been. A DUPLICATE never covers in return: it may be covered by this one.
                     if (done == AppointmentReminderStatus.SENT || done == AppointmentReminderStatus.UNCONFIRMED) {
-                        return SameVisit.COVERED;
+                        // A booking still here covers the visit. One that left this start since (unticked, cancelled,
+                        // moved) covers only a booking that was already here when its reminder went: a booking moved
+                        // or booked into this start later is reminded for it.
+                        if (live || hereWhenHandedOver(appointment, start, other)) {
+                            return SameVisit.COVERED;
+                        }
+                        continue;
                     }
                     if (done == AppointmentReminderStatus.SENDING) {
                         visit = SameVisit.WAIT;
                         continue;
                     }
-                    // Otherwise it counts only while it is still part of this visit: ticked, live, at this start.
-                    Appointment booking = sibling.appointment();
-                    if (!other.isRequested() || booking == null || isCancelledOrNoShow(booking.getStatus())
-                            || !start.equals(toLocal(booking.getStartTimeAsFullDate()))) {
+                    // Otherwise it counts only while it is still part of this visit.
+                    if (!live) {
                         continue;
                     }
                     boolean endedUnsent = done != null && done != AppointmentReminderStatus.DUPLICATE
@@ -443,6 +451,46 @@ public class AppointmentReminderService {
                     reminderId, e.getClass().getName());
             return SameVisit.UNCHECKED;
         }
+    }
+
+    /**
+     * Whether {@code appointment} was already at {@code start} when {@code other}'s reminder was handed over, so that
+     * reminder told the patient of this booking too. Since when it has been at this start comes from its archived
+     * versions ({@link #atStartSince}), not its last update, which saving any change (even ticking the box) moves.
+     * When that cannot be told, it counts as here: one reminder rather than two.
+     */
+    private boolean hereWhenHandedOver(Appointment appointment, LocalDateTime start, AppointmentReminder other) {
+        LocalDateTime handedOver = toLocal(other.getLastAttemptAt());
+        LocalDateTime since = atStartSince(appointment, start);
+        return handedOver == null || since == null || !since.isAfter(handedOver);
+    }
+
+    /**
+     * Since when {@code appointment} has been at {@code start}: the update that brought it there, read from its
+     * archived versions (each change to an appointment archives the version it replaces), or its creation when it
+     * was always there. Null when the history does not say.
+     */
+    LocalDateTime atStartSince(Appointment appointment, LocalDateTime start) {
+        LocalDateTime since = toLocal(appointment.getUpdateDateTime());
+        for (AppointmentArchive version : reminders.findArchivedVersions(appointment.getId(),
+                appointment.getDemographicNo())) {
+            if (!start.equals(startOf(version))) {
+                // The version before it moved here: the move came with the version after it.
+                return since;
+            }
+            since = toLocal(version.getUpdateDateTime());
+        }
+        LocalDateTime created = toLocal(appointment.getCreateDateTime());
+        return created != null ? created : since;
+    }
+
+    private static LocalDateTime startOf(AppointmentArchive version) {
+        if (version.getAppointmentDate() == null || version.getStartTime() == null) {
+            return null;
+        }
+        // As Appointment.getStartTimeAsFullDate composes it: the date and the time to the minute.
+        return new java.sql.Date(version.getAppointmentDate().getTime()).toLocalDate()
+                .atTime(new java.sql.Time(version.getStartTime().getTime()).toLocalTime().withSecond(0).withNano(0));
     }
 
     /**

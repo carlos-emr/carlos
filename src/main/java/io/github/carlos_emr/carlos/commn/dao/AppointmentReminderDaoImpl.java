@@ -140,6 +140,21 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
         return new ArrayList<>(found.values());
     }
 
+    @Override
+    public List<io.github.carlos_emr.carlos.commn.model.AppointmentArchive> findArchivedVersions(int appointmentNo,
+                                                                                                int demographicNo) {
+        if (appointmentNo <= 0 || demographicNo <= 0) {
+            return List.of();
+        }
+        return entityManager.createQuery(
+                        "SELECT v FROM AppointmentArchive v WHERE v.demographicNo = :demographicNo "
+                                + "AND v.appointmentNo = :appointmentNo ORDER BY v.id DESC",
+                        io.github.carlos_emr.carlos.commn.model.AppointmentArchive.class)
+                .setParameter("demographicNo", demographicNo)
+                .setParameter("appointmentNo", appointmentNo)
+                .getResultList();
+    }
+
     private static void addCandidates(java.util.Map<Long, ReminderCandidate> found, List<Object[]> rows) {
         for (Object[] row : rows) {
             AppointmentReminder reminder = (AppointmentReminder) row[0];

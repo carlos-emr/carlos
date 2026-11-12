@@ -118,6 +118,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         appointment.setStartTime(at(start));
         appointment.setDemographicNo(patient);
         appointment.setStatus(status);
+        // Booked days ago and not changed since, unless a test says otherwise.
+        appointment.setCreateDateTime(at(NOW.minusDays(3)));
+        appointment.setUpdateDateTime(at(NOW.minusDays(3)));
         return appointment;
     }
 
@@ -376,6 +379,76 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             service.processDue(10);
 
             assertThat(handed).hasSize(1);
+        }
+
+        /** A version of this booking as the archive keeps it: at {@code when}, saved at {@code saved}. */
+        private io.github.carlos_emr.carlos.commn.model.AppointmentArchive version(LocalDateTime when, LocalDateTime saved) {
+            io.github.carlos_emr.carlos.commn.model.AppointmentArchive version = new io.github.carlos_emr.carlos.commn.model.AppointmentArchive();
+            version.setAppointmentDate(java.sql.Date.valueOf(when.toLocalDate()));
+            version.setStartTime(java.sql.Time.valueOf(when.toLocalTime()));
+            version.setUpdateDateTime(at(saved));
+            return version;
+        }
+
+        /**
+         * #5887 (review): a booking moved into this start after another booking's reminder went for it is reminded
+         * for it, once that booking has left (here, moved away). The earlier reminder was about the other booking.
+         */
+        @Test
+        void shouldSend_whenThisBookingMovedIntoTheStartAfterTheOtherWasReminded() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(30)));
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            // Booked at another time three days ago; moved here 30 minutes ago, after the other went an hour ago.
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT))
+                    .thenReturn(List.of(version(start.plusHours(5), NOW.minusDays(3))));
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "moved"));
+
+            service.processDue(10);
+
+            assertThat(handed).hasSize(1);
+        }
+
+        /**
+         * A booking that was already at this start when the other's reminder went is covered by it even after the
+         * other is cancelled, and even though ticking its own box has saved it since.
+         */
+        @Test
+        void shouldRecordTheReminderAsCovered_whenThisBookingWasHereBeforeTheOtherWasRemindedAndCancelled() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(10)));
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            // Saved again 10 minutes ago (its box ticked), at the same start as when booked.
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT))
+                    .thenReturn(List.of(version(start, NOW.minusDays(3))));
+            siblings(changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "cancelled"));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        @Test
+        void shouldReadSinceWhenTheBookingIsAtItsStart_fromItsArchivedVersions() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(5)));
+            assertThat(service.atStartSince(appointment, start)).as("never changed: booked here")
+                    .isEqualTo(NOW.minusDays(3));
+
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT)).thenReturn(List.of(
+                    version(start, NOW.minusHours(2)), version(start.minusDays(1), NOW.minusDays(2)),
+                    version(start, NOW.minusDays(3))));
+            assertThat(service.atStartSince(appointment, start))
+                    .as("moved here by the version saved 2 hours ago, then saved again 5 minutes ago")
+                    .isEqualTo(NOW.minusHours(2));
+
+            appointment.setCreateDateTime(null);
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT)).thenReturn(List.of());
+            assertThat(service.atStartSince(appointment, start)).as("no creation time: its last update")
+                    .isEqualTo(NOW.minusMinutes(5));
         }
 
         @Test

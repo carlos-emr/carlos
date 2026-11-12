@@ -318,6 +318,25 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
                 .extracting(found -> found.reminder().getId()).containsExactly(sent.getId());
     }
 
+    /** The versions an appointment's changes archived, newest first, for its patient only. */
+    @Test
+    void shouldReadAnAppointmentsArchivedVersions_newestFirst() {
+        Appointment appointment = appointment(DAY, LocalTime.of(9, 0));
+        io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao archives =
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao.class);
+        var first = archives.archiveAppointment(appointment);
+        appointment.setStartTime(java.sql.Time.valueOf(LocalTime.of(10, 0)));
+        var second = archives.archiveAppointment(appointment);
+        Appointment other = appointment(DAY, LocalTime.of(9, 0));
+        archives.archiveAppointment(other);
+        entityManager.flush();
+
+        assertThat(reminders.findArchivedVersions(appointment.getId(), 42))
+                .extracting(version -> version.getId()).containsExactly(second.getId(), first.getId());
+        assertThat(reminders.findArchivedVersions(appointment.getId(), 43)).as("another patient's").isEmpty();
+        assertThat(reminders.findArchivedVersions(0, 42)).isEmpty();
+    }
+
     @Test
     void shouldNotClaimAWithdrawnReminder() {
         AppointmentReminder withdrawn = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
