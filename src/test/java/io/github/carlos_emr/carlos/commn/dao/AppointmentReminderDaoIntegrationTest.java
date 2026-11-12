@@ -115,6 +115,10 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         assertThat(reminders.findByAppointment(appointment.getId(), ReminderChannel.EMAIL)).contains(email);
         assertThat(reminders.findByAppointment(appointment.getId(), ReminderChannel.SMS)).isEmpty();
         assertThat(reminders.findByAppointment(appointment.getId() + 1000, ReminderChannel.EMAIL)).isEmpty();
+        // The SMS channel's column (#884) exists under the migration's name and stays empty for email.
+        assertThat(entityManager.createNativeQuery("SELECT last_sms_transaction_id FROM appointment_reminder WHERE id = ?1")
+                .setParameter(1, email.getId()).getSingleResult()).isNull();
+        assertThat(email.getLastSmsTransactionId()).isNull();
     }
 
     @Test

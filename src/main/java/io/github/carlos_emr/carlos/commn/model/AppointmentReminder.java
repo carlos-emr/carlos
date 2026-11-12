@@ -106,6 +106,10 @@ public class AppointmentReminder extends AbstractModel<Long> {
     @Column(name = "last_email_log_id")
     private Integer lastEmailLogId;
 
+    /** The {@code sms_transaction} row an SMS reminder last produced (#884); always null for email. */
+    @Column(name = "last_sms_transaction_id")
+    private Long lastSmsTransactionId;
+
     @Column(name = "claim_token", length = 64)
     private String claimToken;
 
@@ -252,6 +256,10 @@ public class AppointmentReminder extends AbstractModel<Long> {
 
     public Integer getLastEmailLogId() {
         return lastEmailLogId;
+    }
+
+    public Long getLastSmsTransactionId() {
+        return lastSmsTransactionId;
     }
 
     public String getClaimToken() {
