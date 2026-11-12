@@ -533,7 +533,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         @CsvSource(delimiter = '|', value = {
                 "Pending                   | F | Pending",
                 "Not detected              | C | Not detected",
-                "Resistant                 | ' F ' | Resistant",
+                "Resistant                 | F | Resistant",
                 // Labs send the code in lower case, and many handlers report a word (#6122 review).
                 "Pending                   | f | Pending",
                 "Not detected              | c | Not detected",
@@ -552,8 +552,11 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
             assertThat(filedExtensions()).filteredOn(Hl7textResultsDataUnitTest::isTextMarker).hasSize(1);
         }
 
+        // A status padded with spaces is not final: only the exact token counts, as in CML's handler
+        // and the CDS import (ObxResultStatusUnitTest), so its result stays unfiled as before #6122.
         @ParameterizedTest(name = "status [{0}] leaves Pending unfiled")
-        @ValueSource(strings = {"P", "I", "X", "D", "U", "Preliminary", "Pending", "Partial", "Changed to Final", ""})
+        @ValueSource(strings = {"P", "I", "X", "D", "U", "Preliminary", "Pending", "Partial", "Changed to Final", "",
+                " F ", "F ", " c", "Final "})
         void shouldLeaveTheResultUnfiled_whenItIsNotFinal(String status) throws IOException {
             assertThat(fileResult("Pending", shippedFilter(), OBSERVED, ENTERED, status)).isNull();
             verify(measurementDao, never()).persist(any(Measurement.class));
