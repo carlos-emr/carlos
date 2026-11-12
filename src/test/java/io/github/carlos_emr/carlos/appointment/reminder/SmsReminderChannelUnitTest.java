@@ -109,8 +109,8 @@ class SmsReminderChannelUnitTest {
         clinic.setClinicName("FAKE Maple Clinic");
         clinic.setClinicPhone("(613) 555-0100");
         when(clinics.getClinic()).thenReturn(clinic);
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
-                eq(PATIENT))).thenReturn(true);
+        when(security.hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(String.valueOf(PATIENT)))).thenReturn(true);
         channel = channelAt(HANDOVER);
     }
 
@@ -300,8 +300,8 @@ class SmsReminderChannelUnitTest {
     void shouldRecordNoAccess_whenTheManagerRefusesThePatient() {
         // As DemographicManagerImpl.getDemographic does: the same privilege question, refused with a plain
         // RuntimeException, which on its own would read as a failure and be retried.
-        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
-                eq(PATIENT))).thenReturn(false);
+        when(security.hasPrivilegeReadOnly(any(LoggedInInfo.class), eq("_demographic"), eq(SecurityInfoManager.READ),
+                eq(String.valueOf(PATIENT)))).thenReturn(false);
         when(demographics.getDemographic(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
                 .thenThrow(new RuntimeException("missing required sec object (_demographic)"));
 
