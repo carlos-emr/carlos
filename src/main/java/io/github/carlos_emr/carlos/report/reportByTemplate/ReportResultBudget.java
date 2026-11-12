@@ -337,7 +337,7 @@ final class ReportResultBudget {
                 }
                 // Each query's export form posts only its own CSV, so the limit applies to each query. The shared
                 // HTML budget still bounds memory: a query's CSV is no larger than its HTML, except for characters
-                // the HTML encoder replaces with a space, which can make it up to three times larger.
+                // the HTML encoder replaces with a space, which can make it up to four times larger.
                 if (length > limits.maxCsvBytes() - written) {
                     // Hold back this query's CSV, free what was kept, and keep showing the report (D260).
                     withheld = true;

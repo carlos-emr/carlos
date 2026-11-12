@@ -33,7 +33,7 @@ removes its earlier output attributes, including held-back notes, and does not
 execute later queries. A sequence shares the row, HTML and time limits, so that
 splitting a large result into subqueries cannot multiply request memory use; a
 query's CSV is no larger than its HTML, except for characters the HTML encoder
-replaces with a space (up to three times larger).
+replaces with a space (Unicode noncharacters; up to four times larger).
 
 `LegacyJdbcQuery.getBoundedReportResultSet` validates the SELECT and binds its
 parameters before execution. It sets a JDBC row ceiling with one overflow row,
@@ -64,8 +64,11 @@ The renderer bounds its own allocations. Connector/J can still retain the curren
 row or field internally; these limits do not change the database's packet limits
 or promise a fixed total application heap size. Raising `max_html_mb` raises the
 heap a running report may use: the HTML buffer grows to the next power of two and
-is copied once more into a string, so plan on roughly three times the setting per
-report running at once (about 160 MiB at the 50 MiB maximum). The packaged nginx
+is copied once more into a string, and a sequence keeps each query's CSV as well
+(about as much again with ordinary text), so plan on three to four times the
+setting per report running at once (about 150–200 MiB at the 50 MiB maximum).
+The result page of a sequence carries every query's CSV in hidden fields, so the
+page itself can reach about twice the HTML limit. The packaged nginx
 proxy also stops waiting after 300 seconds (`proxy_read_timeout`), so at the
 300-second maximum the browser may see a gateway timeout instead of the time
 message; keep `timeout_seconds` a little lower, or raise the proxy timeout too.
