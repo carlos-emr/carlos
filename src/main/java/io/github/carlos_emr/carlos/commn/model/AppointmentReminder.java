@@ -47,8 +47,8 @@ import java.util.Objects;
  * {@code appointmentArchive}, and several paths insert appointments with raw SQL. {@code sentFor} is the
  * appointment start a reminder last went (or was attempted) for, so a start is reminded once and a moved
  * appointment is due again. Rows are claimed with {@code claimToken} before sending, so two servers or two
- * runs never send the same reminder. The table is created by Ben's migration (draft
- * {@code appointment_reminder}); tests build it from this mapping.
+ * runs never send the same reminder. The table {@code appointment_reminder} is created by its own migration
+ * (#5887); tests build it from this mapping.
  *
  * @since 2026-11-12
  */

@@ -38,8 +38,7 @@ import java.util.concurrent.TimeUnit;
  * {@code SmsQueueScheduler} runs the SMS queue. Off unless the clinic turns appointment reminders on. Each
  * server may run it: the service claims every reminder for one run only.
  *
- * <p>The switch is {@code emailApptReminder}, the property that already shows the box, as recommended to Ben
- * (question 4 of the design); its name may change with his answer.
+ * <p>The switch is {@code emailApptReminder}, the property that already shows the box (#5887).
  *
  * @since 2026-11-12
  */

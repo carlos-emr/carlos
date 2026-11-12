@@ -486,7 +486,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** Provisional, as recommended to Ben (question 8): one retry, for a definite transport failure only. */
+    /** One retry (#5887), for a definite transport failure only. */
     @Nested
     @DisplayName("One retry after a definite failure")
     class Retry {

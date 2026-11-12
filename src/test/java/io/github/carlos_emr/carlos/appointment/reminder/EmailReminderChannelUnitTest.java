@@ -66,7 +66,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * #5887: the email reminder goes through EmailManager as the system provider, in Ben's wording and the patient's
+ * #5887: the email reminder goes through EmailManager as the system provider, in the fixed wording and the patient's
  * language, and a refusal sends nothing. FAKE patient, clinic and addresses only.
  */
 @Tag("unit")
@@ -149,7 +149,7 @@ class EmailReminderChannelUnitTest {
         assertThat(email.getProviderNo()).isEqualTo(Provider.SYSTEM_PROVIDER_NO);
     }
 
-    /** Ben's wording (D275), with only the clinic, the date and time, and the clinic phone filled in. */
+    /** The fixed wording (#5887), with only the clinic, the date and time, and the clinic phone filled in. */
     @Test
     void shouldWriteBensWording_withOnlyTheClinicDateTimeAndPhone() {
         when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
@@ -241,7 +241,7 @@ class EmailReminderChannelUnitTest {
         verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
     }
 
-    /** Ben: explicit email opt-in only. The check runs before anything is logged or sent. */
+    /** Explicit email opt-in only (#5887). The check runs before anything is logged or sent. */
     @Test
     void shouldRefuseWithoutSending_whenThePatientHasNotOptedIn() {
         when(emails.consentBlockMessage(any(LoggedInInfo.class), any(EmailData.class))).thenReturn("FAKE not opted in");

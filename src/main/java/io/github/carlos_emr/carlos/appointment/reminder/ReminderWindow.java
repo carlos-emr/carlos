@@ -38,7 +38,7 @@ import java.util.Objects;
  */
 public final class ReminderWindow {
 
-    /** The clinic setting for how many hours before the start a reminder goes (Ben, 12 Nov: a clinic setting). */
+    /** The clinic setting for how many hours before the start a reminder goes (#5887). */
     public static final String HOURS_BEFORE_PROPERTY = "appointment_reminder.email.hours_before";
     public static final int DEFAULT_HOURS_BEFORE = 24;
     /** More than the cutoff, so every reminder has an hour to go out in. */

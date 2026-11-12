@@ -55,11 +55,11 @@ import java.util.function.Supplier;
 
 /**
  * Emails an appointment reminder to the patient (#5887), through {@link EmailManager} like every patient email,
- * as the system provider {@code -1} (Ben, D274). Each send is therefore archived to the chart, checked against
- * the patient's email consent (explicit opt-in only, Ben's answer), logged in Manage Emails as an
+ * as the system provider {@code -1} (#5887). Each send is therefore archived to the chart, checked against
+ * the patient's email consent (explicit opt-in only), logged in Manage Emails as an
  * {@link EmailLog.TransactionType#APPOINTMENT_REMINDER}, and written without a chart note.
  *
- * <p>The message is Ben's wording (D275): the clinic's name, the date and time, and the clinic's phone number,
+ * <p>The message has fixed wording (#5887): the clinic's name, the date and time, and the clinic's phone number,
  * in the patient's language. It never carries the provider, the reason, notes or any clinical detail: the
  * channel does not read them. A refusal (no sender, no footer, no address, no consent, no access) is
  * returned without sending and without an email log row.
@@ -74,7 +74,7 @@ import java.util.function.Supplier;
 @Service
 public class EmailReminderChannel implements AppointmentReminderChannel {
 
-    /** Provisional, as recommended to Ben (question 4): the active sender address reminders go from. */
+    /** The active sender address reminders go from (#5887). */
     static final String SENDER_PROPERTY = "appointment_reminder.email.sender";
 
     static final String SUBJECT_KEY = "appointment.reminder.email.subject";

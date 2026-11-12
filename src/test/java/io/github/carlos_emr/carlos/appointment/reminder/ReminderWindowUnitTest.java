@@ -100,7 +100,7 @@ class ReminderWindowUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
-    /** Ben, 12 Nov: the lead is a clinic setting, kept within sane bounds. */
+    /** The lead is a clinic setting (#5887), kept within sane bounds. */
     @ParameterizedTest(name = "[{0}] gives {1} hours")
     @CsvSource(value = {
             "NULL, 24",
