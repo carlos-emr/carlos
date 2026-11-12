@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.DoubleSupplier;
 
 import javassist.Modifier;
 
@@ -54,6 +55,20 @@ public class EntityDataGenerator {
     private static final AtomicInteger uniqueCounter = new AtomicInteger(0);
 
     public static Object generateTestDataForModelClass(Object model) throws Exception {
+        return generateTestDataForModelClass(model, Math::random);
+    }
+
+    /**
+     * Fills the model's fields with test data, taking every random draw from {@code random}.
+     *
+     * <p>Tests pass a fixed supplier to check the worst-case draws (issue #6168).</p>
+     *
+     * @param model the entity to fill
+     * @param random source of draws in [0, 1), like {@link Math#random()}
+     * @return the same model
+     * @throws Exception if a field cannot be set
+     */
+    static Object generateTestDataForModelClass(Object model, DoubleSupplier random) throws Exception {
 
         // Some entities use property-access JPA annotations (on getters, not fields).
         // Pre-scan getter methods to detect @Id/@GeneratedValue/@EmbeddedId on them.
@@ -144,17 +159,17 @@ public class EntityDataGenerator {
                 if ("sex".equalsIgnoreCase(fieldName)) {
                     // Valid values: M, F, X (Intersex), U (Undisclosed)
                     String[] validSexValues = {"M", "F", "X", "U"};
-                    value = validSexValues[(int) (Math.random() * validSexValues.length)];
+                    value = validSexValues[(int) (random.getAsDouble() * validSexValues.length)];
                 } else if ("ver".equalsIgnoreCase(fieldName)) {
                     value = "ON"; // Ontario version code
                 } else if ("hc_type".equalsIgnoreCase(fieldName) || "hcType".equalsIgnoreCase(fieldName)) {
                     value = "ON"; // Ontario health card type
                 } else if ("dateOfBirth".equalsIgnoreCase(fieldName) || "date_of_birth".equalsIgnoreCase(fieldName)) {
-                    value = String.format("%02d", (int) (Math.random() * 28) + 1); // "01"-"28"
+                    value = String.format("%02d", (int) (random.getAsDouble() * 28) + 1); // "01"-"28"
                 } else if ("monthOfBirth".equalsIgnoreCase(fieldName) || "month_of_birth".equalsIgnoreCase(fieldName)) {
-                    value = String.format("%02d", (int) (Math.random() * 12) + 1); // "01"-"12"
+                    value = String.format("%02d", (int) (random.getAsDouble() * 12) + 1); // "01"-"12"
                 } else if ("yearOfBirth".equalsIgnoreCase(fieldName) || "year_of_birth".equalsIgnoreCase(fieldName)) {
-                    value = String.valueOf(1950 + (int) (Math.random() * 70)); // "1950"-"2019"
+                    value = String.valueOf(1950 + (int) (random.getAsDouble() * 70)); // "1950"-"2019"
                 } else if ("rosterTerminationReason".equalsIgnoreCase(fieldName) || "roster_termination_reason".equalsIgnoreCase(fieldName)) {
                     value = "NR"; // Not Rostered
                 } else if ("postal".equalsIgnoreCase(fieldName) || "residentialPostal".equalsIgnoreCase(fieldName)) {
@@ -195,13 +210,15 @@ public class EntityDataGenerator {
                 }
                 f[i].set(model, value);
             } else if (f[i].getType() == int.class || f[i].getType() == Integer.class) {
-                f[i].set(model, (int) (Math.random() * 10000));
+                double draw = random.getAsDouble();
+                f[i].set(model, isId ? manualIdFrom(draw) : (int) (draw * 10000));
             } else if (f[i].getType() == long.class || f[i].getType() == Long.class) {
-                f[i].set(model, (long) (Math.random() * 10000));
+                double draw = random.getAsDouble();
+                f[i].set(model, isId ? (long) manualIdFrom(draw) : (long) (draw * 10000));
             } else if (f[i].getType() == float.class || f[i].getType() == Float.class) {
-                f[i].set(model, (float) (Math.random() * 100));
+                f[i].set(model, (float) (random.getAsDouble() * 100));
             } else if (f[i].getType() == double.class || f[i].getType() == Double.class) {
-                f[i].set(model, Math.random() * 100);
+                f[i].set(model, random.getAsDouble() * 100);
             } else if (f[i].getType() == Date.class) {
                 f[i].set(model, new Date());
             } else if (f[i].getType() == Timestamp.class) {
@@ -219,7 +236,7 @@ public class EntityDataGenerator {
             } else if (f[i].getType() == Provider.class || f[i].getType() == DemographicExt[].class) {
                 //ignore
             } else if (f[i].getType() == char.class || f[i].getType() == BigDecimal.class) {
-                BigDecimal bd = new BigDecimal(Math.random() * 5000);
+                BigDecimal bd = new BigDecimal(random.getAsDouble() * 5000);
                 f[i].set(model, bd);
             } else {
                 MiscUtils.getLogger().warn("Can't generate test data for class type:" + f[i].getType());
@@ -228,5 +245,19 @@ public class EntityDataGenerator {
         }
 
         return model;
+    }
+
+    /**
+     * Turns a draw in [0, 1) into a hand-set id from 1 to 9999.
+     *
+     * <p>An {@code @Id} without {@code @GeneratedValue} keeps the value the generator sets, and
+     * DAO tests check that the saved id is positive. The plain number draw, 0 to 9999, gave id 0
+     * about once in 10,000 runs (issue #6168).</p>
+     *
+     * @param draw a value in [0, 1)
+     * @return an id from 1 to 9999
+     */
+    static int manualIdFrom(double draw) {
+        return 1 + (int) (draw * 9999);
     }
 }
