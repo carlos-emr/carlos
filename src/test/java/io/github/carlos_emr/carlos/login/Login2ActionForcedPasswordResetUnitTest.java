@@ -1089,6 +1089,30 @@ class Login2ActionForcedPasswordResetUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should report the original failure when the audit of the accepted sign-in fails too")
+    void shouldKeepTheOriginalFailure_whenAuditingTheAcceptedSignInAlsoFails() throws Exception {
+        Security security = forcedResetSecurity();
+        security.setForcePasswordReset(Boolean.FALSE);
+        stagePendingMfa(security);
+        stubSuccessfulProviderLogin();
+        when(providerDao.getFacilityIds("999998")).thenThrow(new IllegalStateException("FAKE facility lookup failure"));
+        when(mfaManager.getMfaSecret(security)).thenReturn("JBSWY3DPEHPK3PXP");
+        IllegalStateException auditFailure = new IllegalStateException("FAKE audit failure");
+        logActionMock.when(() -> LogAction.addLog("999998", "log in", "login", "", request.getRemoteAddr()))
+                .thenThrow(auditFailure);
+
+        try (MockedConstruction<TotpGenerator> ignored = mockTotpReturning("123456")) {
+            Login2Action action = newAction(null, null, null);
+            action.setCode("123456");
+
+            // The caller must see why the sign-in failed, not why its audit row could not be written.
+            org.assertj.core.api.Assertions.assertThatThrownBy(action::execute)
+                    .isInstanceOf(IllegalStateException.class).hasMessage("FAKE facility lookup failure")
+                    .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(auditFailure));
+        }
+    }
+
+    @Test
     @DisplayName("should write one sign-in audit row when the sign-in completes")
     void shouldWriteOneSignInRow_whenTheSignInCompletes() throws Exception {
         Security security = forcedResetSecurity();
