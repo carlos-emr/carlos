@@ -273,8 +273,8 @@ heuristic.
   a graph that finds its own browser busy waits for it rather than taking a shared one. At most 3
   renders hold a browser at once. A render whose browser start times out (30s) frees its slot
   straight away, but the late browser can live up to 90s longer while it is reaped, so repeated
-  start timeouts can briefly run more than 3 browsers; the `carlos-emr-render-browser` unit's
-  memory ceiling still bounds them all (see the `KNOWN OVERSHOOT` note in
+  start timeouts can briefly run more than 3 browsers; on the `.deb`, the `carlos-emr-render-browser`
+  unit's memory ceiling still bounds them all (see the `KNOWN OVERSHOOT` note in
   `startSessionWithinBudget`). Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
