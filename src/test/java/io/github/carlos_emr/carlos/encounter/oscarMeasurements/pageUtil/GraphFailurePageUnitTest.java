@@ -112,7 +112,7 @@ class GraphFailurePageUnitTest {
     }
 
     @Test
-    @DisplayName("should keep a data problem's status on the page, without Retry-After")
+    @DisplayName("should say a data problem is in the stored values, with its status and no Retry")
     void shouldKeepTheStatus_forADataProblem() throws Exception {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -120,7 +120,26 @@ class GraphFailurePageUnitTest {
 
         assertThat(response.getStatus()).isEqualTo(422);
         assertThat(response.getHeader("Retry-After")).isNull();
-        assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\"");
+        assertThat(response.getContentAsString())
+                .contains("<p role=\"alert\" id=\"graphUnavailable\">This graph cannot be drawn from the stored values."
+                        + " Contact your administrator.</p>")
+                .doesNotContain("<button")
+                .doesNotContain("Retry");
+    }
+
+    @Test
+    @DisplayName("should say a data problem in the viewer's language too")
+    void shouldWriteTheDataProblem_inTheViewersLanguage() throws Exception {
+        MockHttpServletRequest request = request("document", null);
+        request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
+        request.addPreferredLocale(java.util.Locale.CANADA_FRENCH);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        GraphFailurePage.send(request, response, 422, "ignored");
+
+        assertThat(response.getContentAsString())
+                .contains("Ce graphique ne peut pas être tracé à partir des valeurs enregistrées.")
+                .doesNotContain("<button");
     }
 
     @Test

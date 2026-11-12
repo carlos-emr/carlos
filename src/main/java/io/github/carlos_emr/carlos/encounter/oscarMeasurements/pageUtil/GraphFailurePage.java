@@ -42,13 +42,18 @@ import io.github.carlos_emr.carlos.utility.SafeEncode;
  * itself in a window (measurement history, the Health Tracker's full graph, a flowsheet plot); there
  * the container's error page showed only "CARLOS Error: 503". For such a page load this writes a short
  * page of its own: the same status (with {@code Retry-After} on 503), the existing "Graph unavailable"
- * message and a Retry button, in the viewer's language. It shows nothing about the patient.</p>
+ * message and a Retry button, in the viewer's language. A graph whose stored values cannot be drawn (422)
+ * says so instead, with no Retry button, since retrying cannot help. It shows nothing about the patient.</p>
  *
  * @since 2026-11-12
  */
 public final class GraphFailurePage {
 
     static final String MESSAGE_KEY = "clinical.graph.unavailable";
+    /** The message for stored values the graph cannot be drawn from (422): no retry can help. */
+    static final String INVALID_DATA_KEY = "clinical.graph.invalidData";
+    /** The status a graph of invalid stored data answers with. */
+    static final int INVALID_DATA = 422;
     static final String RETRY_KEY = "clinical.graph.retry";
     static final String TITLE_KEY = "clinical.graph.alt";
 
@@ -98,11 +103,17 @@ public final class GraphFailurePage {
         page.write("\">\n<head><meta charset=\"UTF-8\"><title>");
         page.write(SafeEncode.forHtmlContent(label(labels, TITLE_KEY, "Clinical graph")));
         page.write("</title></head>\n<body>\n<p role=\"alert\" id=\"graphUnavailable\">");
-        page.write(SafeEncode.forHtmlContent(label(labels, MESSAGE_KEY,
-                "Graph unavailable. Retry or contact your administrator.")));
-        page.write("</p>\n<button type=\"button\" onclick=\"window.location.reload()\">");
-        page.write(SafeEncode.forHtmlContent(label(labels, RETRY_KEY, "Retry")));
-        page.write("</button>\n</body>\n</html>\n");
+        boolean invalidData = status == INVALID_DATA;
+        page.write(SafeEncode.forHtmlContent(invalidData
+                ? label(labels, INVALID_DATA_KEY, "This graph cannot be drawn from the stored values. Contact your administrator.")
+                : label(labels, MESSAGE_KEY, "Graph unavailable. Retry or contact your administrator.")));
+        page.write("</p>\n");
+        if (!invalidData) {
+            page.write("<button type=\"button\" onclick=\"window.location.reload()\">");
+            page.write(SafeEncode.forHtmlContent(label(labels, RETRY_KEY, "Retry")));
+            page.write("</button>\n");
+        }
+        page.write("</body>\n</html>\n");
         page.flush();
     }
 

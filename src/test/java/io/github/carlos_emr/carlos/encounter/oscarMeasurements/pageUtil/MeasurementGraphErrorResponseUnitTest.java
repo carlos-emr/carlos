@@ -178,7 +178,8 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
 
             assertThat(response.getStatus()).isEqualTo(422);
             assertThat(response.getHeader("Retry-After")).isNull();
-            assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\"");
+            assertThat(response.getContentAsString()).contains("id=\"graphUnavailable\"")
+                    .contains("cannot be drawn from the stored values").doesNotContain("<button");
         }
     }
 
