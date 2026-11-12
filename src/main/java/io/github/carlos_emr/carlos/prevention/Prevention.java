@@ -33,6 +33,10 @@ package io.github.carlos_emr.carlos.prevention;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -424,6 +428,27 @@ public class Prevention {
 
     public int getHowManyDaysSinceLast(String preventionType) {
         return getNumDays(getLastPreventionDate(preventionType), Calendar.getInstance().getTime());
+    }
+
+    /**
+     * Whole calendar days from the date of the last {@code preventionType} record to today, in the server's time
+     * zone. Unlike {@link #getHowManyDaysSinceLast(String)}, which divides elapsed milliseconds by 24 hours, neither
+     * the time of day the record was saved with nor a daylight saving change in between moves it: a dose dated the
+     * 1st is 28 days old from the 29th (#5048).
+     *
+     * @param preventionType String the prevention type key (e.g. "Rota-1")
+     * @return int the day count, negative for a record dated in the future, or {@code -1} when there is no usable
+     *         record; a rule that must tell "none" from "tomorrow" checks {@link #getNumberOfPreventionType(String)}
+     * @since 2026-11-12
+     */
+    public int getCalendarDaysSinceLast(String preventionType) {
+        Date last = getLastPreventionDate(preventionType);
+        if (last == null) {
+            return -1;
+        }
+        ZoneId zone = ZoneId.systemDefault();
+        LocalDate given = Instant.ofEpochMilli(last.getTime()).atZone(zone).toLocalDate();
+        return Math.toIntExact(ChronoUnit.DAYS.between(given, LocalDate.now(zone)));
     }
 
     public int getNumberOfPreventionType(String preventionType) {

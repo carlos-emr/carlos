@@ -36,6 +36,7 @@ import org.kie.api.runtime.KieSession;
 
 import io.github.carlos_emr.carlos.drools.DroolsCompilationException;
 import io.github.carlos_emr.carlos.drools.DroolsHelper;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -46,8 +47,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * raises the reminder just as the plain name does (#5009).
  *
  * <p>#5048, following the Canadian Immunization Guide (Rotavirus vaccine): the second rotavirus dose is due 4 weeks
- * after the first and before 8 months of age, whether or not a next date was set; a next date that was set still
- * decides when the reminder starts ("Rota 2.1").</p>
+ * after the first (28 calendar days, whatever time of day the dose was saved) and before 8 months of age, whether or
+ * not a next date was set; a next date that was set still decides when the reminder starts ("Rota 2.1"). A refused
+ * or "ineligible" record is not a dose.</p>
  *
  * @since 2026-10-18
  */
@@ -116,6 +118,22 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         Prevention prev = new Prevention("F", monthsAgo(ageInMonths));
         Date nextDate = nextDateInDays == null ? null : daysFromToday(nextDateInDays);
         prev.addPreventionItem(new PreventionItem("Rota-1", daysFromToday(-doseDaysAgo), "0", nextDate));
+        return prev;
+    }
+
+    /** A 5-month-old whose one Rota-1 record, dated 60 days ago, is saved the way the prevention page saves it. */
+    private static Prevention infantWithSavedRota1Record(boolean refused, boolean ineligible) {
+        io.github.carlos_emr.carlos.commn.model.Prevention record = new io.github.carlos_emr.carlos.commn.model.Prevention();
+        record.setPreventionType("Rota-1");
+        record.setPreventionDate(daysFromToday(-60));
+        if (refused) {
+            record.setRefused(true);
+        }
+        if (ineligible) {
+            record.setIneligible(true);
+        }
+        Prevention prev = new Prevention("F", monthsAgo(5));
+        prev.addPreventionItem(new PreventionItem(record, PreventionDateDTO.from(record.getPreventionDate(), null)));
         return prev;
     }
 
@@ -232,6 +250,52 @@ class PneuCRotaPreventionRulesDroolsUnitTest {
         @Test
         void shouldNotRemind_whenTheFirstDoseIsThreeWeeksOld() {
             assertThat(reminders(infantWithRota1DoseDaysAgo(3, 21, null), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenTheFirstDoseIsExactlyTwentyEightDaysOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 28, null), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheFirstDoseIsTwentySevenDaysOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(3, 27, null), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenTheFirstDoseWasSavedLateInTheDayTwentyEightDaysAgo() {
+            Calendar late = Calendar.getInstance();
+            late.setTime(daysFromToday(-28));
+            late.set(Calendar.HOUR_OF_DAY, 23);
+            late.set(Calendar.MINUTE, 59);
+            Prevention prev = new Prevention("F", monthsAgo(3));
+            prev.addPreventionItem(new PreventionItem("Rota-1", late.getTime(), "0", null));
+            assertThat(reminders(prev, NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheOnlyRotaRecordIsARefusal() {
+            assertThat(reminders(infantWithSavedRota1Record(true, false), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheOnlyRotaRecordSaysIneligible() {
+            assertThat(reminders(infantWithSavedRota1Record(false, true), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldRemind_whenTheOnlyRotaRecordIsASavedDoseGiven() {
+            assertThat(reminders(infantWithSavedRota1Record(false, false), NEEDS_SECOND_ROTA)).isEqualTo(1);
+        }
+
+        @Test
+        void shouldNotRemind_whenTheNextDateHasPassedButTheInfantIsEightMonthsOld() {
+            assertThat(reminders(infantWithRota1DoseDaysAgo(8, 150, -3), NEEDS_SECOND_ROTA)).isZero();
+        }
+
+        @Test
+        void shouldNotRemind_whenTheDoseWithoutANextDateIsMarkedNeverRemind() {
+            assertThat(reminders(infantWithOneRotaDose("Rota-1", false, true), NEEDS_SECOND_ROTA)).isZero();
         }
 
         @Test

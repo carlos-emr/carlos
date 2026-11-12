@@ -43,10 +43,11 @@ import static org.assertj.core.api.Assertions.assertThat;
  * other tetanus-containing vaccine, is not, and an adult whose only tetanus vaccine is an old Tdap is told "Needs Td"
  * (rule "Td 1") rather than both.
  *
- * <p>#5048, following the Canadian Immunization Guide (Tetanus toxoid): the teen Tdap ("Tdap 1") is due ten years
- * after the 4-6-year booster whichever product it was (DTaP-IPV, Tdap-IPV or DTaP-IPV-Hib), and the first Td
- * ("Td 1") ten years after the most recent tetanus-containing vaccine of any kind. When both apply, as for a teen
- * whose school booster was a Tdap-IPV ten years ago, both reminders show.</p>
+ * <p>#5048, following the Canadian Immunization Guide (Tetanus toxoid): the teen Tdap ("Tdap 1") is due from age 14,
+ * ten years after the 4-6-year booster whichever product it was (DTaP-IPV, Tdap-IPV, or a DTaP-IPV-Hib or TdP-IPV-Hib
+ * given at 4 years or later; infant doses do not count), and the first Td ("Td 1") ten years after the most recent of
+ * the adolescent/adult tetanus products "Td 2" counts. When both apply, as for a teen whose school booster was a
+ * Tdap-IPV ten years ago, both reminders show.</p>
  *
  * @since 2026-10-18
  */
@@ -152,7 +153,28 @@ class TdPreventionRulesDroolsUnitTest {
 
     @Test
     void shouldNotAskForTheTeenTdapYet_whenALaterTdapIpvBoosterIsUnderTenYearsOld() {
-        assertThat(fireRules(personWith(12, "DTaP-IPV", 11, "Tdap-IPV", 7)).getWarnings()).doesNotContain(NEEDS_TDAP);
+        assertThat(fireRules(personWith(16, "DTaP-IPV", 15, "Tdap-IPV", 9)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotAskForTheTeenTdap_beforeAgeFourteen() {
+        assertThat(fireRules(personWith(13, "DTaP-IPV", 10)).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldNotStartTheTeenTdapClock_fromInfantDtapIpvHibDoses() {
+        Prevention teen = personWith(15, "DTaP-IPV-Hib", 15, "DTaP-IPV-Hib", 14, "DTaP-IPV-Hib", 13);
+        assertThat(fireRules(teen).getWarnings()).doesNotContain(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForTheTeenTdap_whenTheSchoolBoosterWasTheOlderTdpIpvHib() {
+        assertThat(fireRules(personWith(15, "TdP-IPV-Hib", 14, "TdP-IPV-Hib", 10)).getWarnings()).contains(NEEDS_TDAP);
+    }
+
+    @Test
+    void shouldAskForATd_whenTheOnlyTetanusVaccineIsATdpIpvHibTwelveYearsOld() {
+        assertThat(fireRules(adultWith("TdP-IPV-Hib", 12)).getWarnings()).contains(NEEDS_TD).doesNotContain(REPEAT_TD);
     }
 
     @Test
