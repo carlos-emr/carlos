@@ -42,6 +42,8 @@
 
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -124,7 +126,17 @@
     </h3>
 
     <c:if test="${not empty errormsg}">
-        <div class="alert alert-warning" role="alert">${carlos:forHtml(errormsg)}</div>
+        <div class="alert alert-warning" role="alert">
+        <%-- A limit refusal names its limit in the user's language (#5849); other errors keep their English text. --%>
+        <c:choose>
+            <c:when test="${not empty errormsgKey}"><fmt:message key="${errormsgKey}"><fmt:param value="${errormsgArg}"/></fmt:message></c:when>
+            <c:otherwise>${carlos:forHtml(errormsg)}</c:otherwise>
+        </c:choose>
+        </div>
+    </c:if>
+    <%-- Shown with the report when its CSV went over the CSV limit and the downloads are held back (#5849, D260). --%>
+    <c:if test="${csvWithheld}">
+        <div class="alert alert-info" role="status"><fmt:message key="report.byTemplate.csvWithheld"><fmt:param value="${csvWithheldMb}"/></fmt:message></div>
     </c:if>
 
     <div class="reportBorderDiv row">
