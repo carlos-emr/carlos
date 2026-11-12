@@ -92,6 +92,62 @@ class RecurringAppointmentServiceStaleFormUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldApplyGroupUpdateAgain_whenTheSameSaveIsRepeated() {
+        // The user's first click stored the form's fields and moved the version from 5000 to 6000;
+        // the second click of the same page still names 5000.
+        anchor.setStatus("t");
+        anchor.setName("FAKE-PATIENT,Check");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+
+        int updated = service.apply(user, values, 0);
+
+        assertThat(updated).isEqualTo(1);
+        assertThat(anchor.getStatus()).isEqualTo("t");
+        verify(appointments).merge(anchor);
+    }
+
+    @Test
+    void shouldRefuseGroupUpdate_whenAnyStoredFieldDiffersFromTheStaleForm() {
+        // Same status as the form, but another user has since changed the reason.
+        anchor.setStatus("t");
+        anchor.setName("FAKE-PATIENT,Check");
+        anchor.setReason("Changed by a colleague");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+
+        assertThatThrownBy(() -> service.apply(user, values, 0))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertThat(anchor.getReason()).isEqualTo("Changed by a colleague");
+        verifyNoInteractions(archives);
+        verify(appointments, never()).merge(any());
+    }
+
+    @Test
+    void shouldApplyGroupCancelAgain_whenTheSeriesIsAlreadyCancelled() {
+        // The first click cancelled the series (the anchor is stored as "C" in setUp).
+        values.put("groupappt", "Group Cancel");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+
+        int cancelled = service.apply(user, values, 0);
+
+        assertThat(cancelled).isEqualTo(1);
+        assertThat(anchor.getStatus()).isEqualTo("C");
+    }
+
+    @Test
+    void shouldRefuseGroupCancel_whenAStaleFormMeetsAnAppointmentThatIsNotCancelled() {
+        anchor.setStatus("B");
+        values.put("groupappt", "Group Cancel");
+        values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "5000");
+
+        assertThatThrownBy(() -> service.apply(user, values, 0))
+                .isInstanceOfSatisfying(AppointmentUpdateException.class, refused ->
+                        assertThat(refused.getReason()).isEqualTo(AppointmentUpdateException.Reason.STALE_VERSION));
+        assertThat(anchor.getStatus()).isEqualTo("B");
+        verify(appointments, never()).merge(any());
+    }
+
+    @Test
     void shouldApplyGroupUpdate_whenTheFormVersionIsCurrent() {
         values.put(RecurringAppointmentService.APPOINTMENT_VERSION, "6000");
 

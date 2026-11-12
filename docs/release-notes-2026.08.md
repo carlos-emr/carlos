@@ -226,7 +226,10 @@ counts the rows that are shown, and a list that cannot be loaded says so
   with HTTP 409, a message that nothing from the form was stored and a link to reopen
   the appointment. Update, Update and Receipt, the status buttons, Cut, Delete, the
   group actions and the repeat-booking anchor are covered. A second click on a form
-  whose first submission was saved ends as saved. A request that carries no
+  whose first submission was saved ends as saved, on the repeat-booking page as well.
+  The one exception is Group Update on the Group Appointment page: its first click
+  replaces the appointments it names, so a second click is refused instead of booking
+  them twice. A request that carries no
   `appointmentVersion` keeps the previous last-writer-wins behavior. Saving, cutting and
   deleting from the popup also apply a patient-specific denial of the appointment's
   patient (an `_appointment$N` restriction or a locked chart), as the REST API does.

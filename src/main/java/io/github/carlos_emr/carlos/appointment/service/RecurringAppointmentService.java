@@ -82,23 +82,24 @@ public class RecurringAppointmentService {
         if ((id != null && !id.isBlank() && anchor == null) || (!adding && anchor == null)) {
             throw new IllegalArgumentException("This appointment no longer exists. Reopen the schedule.");
         }
+        // These fields have no controls in the standard edit form. Absence is
+        // not a request to erase existing scheduling/billing metadata.
+        if (anchor != null) {
+            if (!values.containsKey("style")) template.setStyle(anchor.getStyle());
+            if (!values.containsKey("billing")) template.setBilling(anchor.getBilling());
+        }
         // The repeat page is opened from the Edit Appointment form and carries its fields and the
         // version they were rendered from. A form another user's change has overtaken must not
         // write those stale fields over the series; the anchor row is locked, so the comparison
         // and the writes below see the same appointment.
         String renderedVersion = values.get(APPOINTMENT_VERSION);
         if (anchor != null && renderedVersion != null && !renderedVersion.isBlank()
-                && !renderedVersion.trim().equals(anchor.getEditVersion())) {
+                && !renderedVersion.trim().equals(anchor.getEditVersion())
+                && !alreadyStored(operation, anchor, template)) {
             throw new AppointmentUpdateException(AppointmentUpdateException.Reason.STALE_VERSION);
         }
         if (anchor != null && !Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())) {
             throw new IllegalArgumentException("Save the appointment date before changing its repeats.");
-        }
-        // These fields have no controls in the standard edit form. Absence is
-        // not a request to erase existing scheduling/billing metadata.
-        if (anchor != null) {
-            if (!values.containsKey("style")) template.setStyle(anchor.getStyle());
-            if (!values.containsKey("billing")) template.setBilling(anchor.getBilling());
         }
         if (adding && anchor != null && !sameDetails(anchor, template)) {
             throw new IllegalArgumentException("Save changes to the appointment before creating repeats.");
@@ -247,6 +248,24 @@ public class RecurringAppointmentService {
 
     private static boolean equalText(String first, String second) {
         return Objects.equals(first == null ? "" : first, second == null ? "" : second);
+    }
+
+    /**
+     * Whether the stored appointment already holds everything this action would write to it.
+     *
+     * <p>That is how the same user's second click on the button arrives: the first click saved
+     * and moved the version on, the second still names the version the page was rendered from.
+     * Writing the same values again cannot undo anyone's change, so it is not a conflict, and
+     * answering it as one would tell the user their saved change was refused. Any other
+     * difference between the form and the stored appointment remains a conflict.</p>
+     */
+    private static boolean alreadyStored(String operation, Appointment anchor, Appointment template) {
+        return switch (operation) {
+            case "Group Update" -> Objects.equals(anchor.getAppointmentDate(), template.getAppointmentDate())
+                    && sameDetails(anchor, template);
+            case "Group Cancel" -> "C".equals(anchor.getStatus());
+            default -> false;
+        };
     }
 
     private static boolean sameDetails(Appointment a, Appointment b) {
