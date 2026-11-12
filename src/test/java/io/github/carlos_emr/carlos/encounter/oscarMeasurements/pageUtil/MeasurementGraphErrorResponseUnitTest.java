@@ -347,6 +347,24 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
                         .satisfies(point -> assertThat(point).containsEntry("y", 5.7)));
     }
 
+    /** #6122: the note's text comes from the bundle, by its key, with the count of results left out. */
+    @Test
+    void shouldAskTheBundleForTheNotShownNote_withTheCount() {
+        List<String> asked = new ArrayList<>();
+        try (var servlet = mockStatic(ServletActionContext.class)) {
+            MeasurementGraphAction22Action graphAction = new MeasurementGraphAction22Action() {
+                @Override
+                public String getText(String key, String[] args) {
+                    asked.add(key + " " + String.join(",", args));
+                    return "FAKE-NOTE";
+                }
+            };
+
+            assertThat(graphAction.notShownNote(3)).isEqualTo("FAKE-NOTE");
+        }
+        assertThat(asked).containsExactly("lab.graph.resultsNotShown 3");
+    }
+
     @Test
     void shouldCountOnlyValuesWithoutOneNumber_asNotShown() {
         assertThat(MeasurementGraphAction22Action.unplottedLabValues(List.of(

@@ -55,6 +55,48 @@ class CommonLabTestValuesUnitTest extends CarlosUnitTestBase {
         assertThat(rows.getLast().get("collDateDate")).isInstanceOf(java.util.Date.class);
     }
 
+    /**
+     * One CML accession seen several times: a later collection date replaces the earlier row, an older one
+     * is skipped, and an undated row after a dated one stays visible on its own, ahead of the dated row.
+     */
+    @Test
+    void shouldKeepTheLatestDatedRowAndTheUndatedOne_whenAnAccessionHasSeveralCollectionDates() {
+        var dao = createAndRegisterMock(io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDao.class);
+        var routing = new io.github.carlos_emr.carlos.commn.model.PatientLabRouting(); routing.setLabNo(321);
+        when(dao.findRoutingsAndTests(17, "CML", "CREATININE")).thenReturn(List.of(
+                cmlRow(routing, "70", "01-Jan-26"),
+                cmlRow(routing, "75", "15-Jan-26"),
+                cmlRow(routing, "90", "01-Dec-25"),
+                cmlRow(routing, "60", null)));
+
+        var rows = CommonLabTestValues.findValuesForTest("CML", 17, "CREATININE");
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.getFirst()).containsEntry("result", "60");
+        assertThat(rows.getFirst().get("collDateDate")).isNull();
+        assertThat(rows.getLast()).containsEntry("result", "75").containsEntry("collDate", "15-Jan-26");
+    }
+
+    /** A value history asked for without a patient reads patient 0's records for both lookups. */
+    @Test
+    void shouldLookUpPatientZero_whenTheHl7HistoryIsAskedForWithoutAPatient() {
+        var dao = createAndRegisterMock(MeasurementDao.class);
+
+        assertThat(CommonLabTestValues.findValuesForTest("HL7", null, "FAKE GLUCOSE", "FAKE-3007")).isEmpty();
+
+        verify(dao).findTextResultPositions(0, "FAKE-3007");
+        verify(dao).findLabNumbers(0, "FAKE-3007");
+    }
+
+    private static Object[] cmlRow(io.github.carlos_emr.carlos.commn.model.PatientLabRouting routing,
+                                   String result, String collected) {
+        var test = new io.github.carlos_emr.carlos.commn.model.LabTestResults();
+        test.setTestName("CREATININE"); test.setResult(result);
+        var info = new io.github.carlos_emr.carlos.commn.model.LabPatientPhysicianInfo();
+        info.setAccessionNum("FAKE-accession"); info.setCollectionDate(collected);
+        return new Object[]{routing, test, info};
+    }
+
 
     /** #6122: a final word result is filed as text, and the grid, value history and Row Display label it. */
     @Test

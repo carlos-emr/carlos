@@ -606,6 +606,16 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
+        void shouldLeaveTooLongTextUnfiledWithoutLogging_whenNoPlaceIsGiven() {
+            String tooLong = "FAKE-TEXT-" + "x".repeat(Measurement.DATA_FIELD_MAX_LENGTH);
+
+            try (LogCapture log = LogCapture.forLogger(Hl7textResultsData.class)) {
+                assertThat(Hl7textResultsData.textResultValue(tooLong, "F", null)).isNull();
+                assertThat(log.messages()).isEmpty();
+            }
+        }
+
+        @Test
         void shouldReadTheStatusAndText_whenCalledDirectly() {
             assertThat(Hl7textResultsData.textResultValue("Pending", "F", null)).isEqualTo("Pending");
             assertThat(Hl7textResultsData.textResultValue("Pending", "C", null)).isEqualTo("Pending");
