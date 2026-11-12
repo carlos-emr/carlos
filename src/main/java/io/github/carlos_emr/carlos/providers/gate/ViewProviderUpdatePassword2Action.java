@@ -12,6 +12,7 @@
  */
 package io.github.carlos_emr.carlos.providers.gate;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.function.Supplier;
 
@@ -88,6 +89,8 @@ public final class ViewProviderUpdatePassword2Action extends BaseProviderViewGat
      * form's own check shows for the broken rule. It never echoes the submitted value, and it
      * covers the whole request: a valid PIN sent with a refused password is not stored either.</p>
      */
+    // FindSecBugs UNVALIDATED_REDIRECT: the target is this application's own change-password form (context path plus a constant); only the encoded message varies.
+    @SuppressFBWarnings(value = "UNVALIDATED_REDIRECT", justification = "redirect target is the application's own change-password form (context path plus a constant path); the only variable part is a URI-component-encoded message")
     @Override
     protected String checkRequest(HttpServletRequest request, HttpServletResponse response,
                                   LoggedInInfo loggedInInfo) throws IOException {
@@ -99,7 +102,7 @@ public final class ViewProviderUpdatePassword2Action extends BaseProviderViewGat
         // The symbolic reason only: never the candidate, its length or the groups it used.
         LOGGER.info("Refused a provider password or PIN change that breaks the configured policy: provider={}, reason={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                 LogSafe.sanitize(loggedInInfo == null ? null : loggedInInfo.getLoggedInProviderNo()),
-                refusal.auditReason());
+                LogSafe.sanitize(refusal.auditReason()));
         String message = refusal.message(key -> Login2Action.message(request, key));
         response.sendRedirect(request.getContextPath() + CHANGE_PASSWORD_FORM + "?errormsg="
                 + SafeEncode.forUriComponent(message));
