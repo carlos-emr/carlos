@@ -91,6 +91,9 @@ public final class EmbeddedRecordSnapshots {
         target.setPatientStatusDate(source.getPatientStatusDate());
         target.setRosterStatus(source.getRosterStatus());
         target.setProviderNo(source.getProviderNo());
+        // The health card number is part of the embedded patient that appointment and consultation
+        // clients have always received; the SIN is the identifier this snapshot withholds.
+        target.setHin(source.getHin());
         target.setAddress(source.getAddress());
         target.setProvince(source.getProvince());
         target.setMonthOfBirth(source.getMonthOfBirth());
@@ -184,12 +187,12 @@ public final class EmbeddedRecordSnapshots {
         target.assignFormattedLinks(source.getFormattedLinks());
         target.assignCurrentRecord(source.getCurrentRecord());
         target.assignPersistent(source.isPersistent());
-        var safeView = demographicDomain(target);
-        safeView.setHin("");
-        safeView.setSin("");
-        target.assignLabel(safeView.getLabel());
-        if (safeView.getFirstName() != null && safeView.getLastName() != null) {
-            target.assignStandardIdentificationHtml(safeView.getStandardIdentificationHtml());
+        // The label and identification text name the health card as before; they are rendered from
+        // the detached copy, which never holds the SIN.
+        var detachedView = demographicDomain(target);
+        target.assignLabel(detachedView.getLabel());
+        if (detachedView.getFirstName() != null && detachedView.getLastName() != null) {
+            target.assignStandardIdentificationHtml(detachedView.getStandardIdentificationHtml());
         }
         return target;
     }

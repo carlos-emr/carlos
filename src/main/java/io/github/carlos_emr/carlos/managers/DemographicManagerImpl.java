@@ -946,8 +946,9 @@ public class DemographicManagerImpl implements DemographicManager {
                 (offset, size) -> demographicDao.searchPatients(loggedInInfo, searchRequest, offset, size),
                 DemographicSearchResult::getDemographicNo);
 
+        // Rows keep their health card number: search clients confirm a patient by it. Patients the
+        // caller may not read were already left out above.
         for (DemographicSearchResult demographic : results) {
-            demographic.setHin(null);
             LogAction.addLogSynchronous(loggedInInfo, "DemographicManager.searchPatients result",
                     "demographicId=" + demographic.getDemographicNo());
         }

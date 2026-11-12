@@ -281,7 +281,7 @@ public class DemographicService extends AbstractServiceImpl {
         result.setTotal(demographicManager.getActiveDemographicCount(loggedInInfo).intValue());
 
         for (Demographic demo : demographicManager.getActiveDemographics(loggedInInfo, offset, limit)) {
-            result.getContent().add(demoConverter.getAsListTransferObject(loggedInInfo, demo));
+            result.getContent().add(demoConverter.getAsTransferObject(loggedInInfo, demo));
         }
 
         return result;
