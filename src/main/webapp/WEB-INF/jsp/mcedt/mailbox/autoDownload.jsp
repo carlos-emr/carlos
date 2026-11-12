@@ -32,9 +32,9 @@
 <!DOCTYPE html>
 <%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
+
 <%@ taglib uri="http://www.oscar-emr.com/tags/integration" prefix="i" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -128,7 +128,7 @@
 
         <title>Downloading Claims from MCEDT to CARLOS</title>
 
-        <base href="<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlAttribute(request.getContextPath() + "/") %>">
+        <base href="<%= request.getScheme() + "://" + request.getServerName() + ":" + request.getServerPort() + request.getContextPath() + "/" %>">
 
     </head>
 

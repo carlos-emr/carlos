@@ -41,7 +41,7 @@ import io.github.carlos_emr.carlos.documentManager.dto.DocumentListItemDTO;
 
 import io.github.carlos_emr.carlos.documentManager.EDocUtil.EDocSort;
 
-public interface DocumentDao extends AbstractDao<Document> {
+public interface DocumentDao extends AbstractDao<Document>, CdsExportPatientTableReadDao {
 
     /** Updates only the page count, preserving concurrent classification/metadata edits. */
     void updatePageCount(Integer documentNo, int pageCount);

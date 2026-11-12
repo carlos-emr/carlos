@@ -42,7 +42,7 @@
 --%>
 
 <!DOCTYPE html>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -59,21 +59,21 @@
 %>
 
 <%@ page import="io.github.carlos_emr.carlos.managers.DemographicManager" %>
-<%@ page import="io.github.carlos_emr.carlos.encounter.data.*"%>
-<%@ page import="io.github.carlos_emr.carlos.encounter.pageUtil.*"%>
+
+
 <%@ page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao" %>
+
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormRequestUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 <%
@@ -259,7 +259,7 @@
                     String specialist = (String) theRequests.vSpecialist.get(i);
                     String date     = (String) theRequests.date.get(i);
                     String urgency  = (String) theRequests.urgency.get(i);
-                    Provider cProv  = (Provider) theRequests.consultProvider.get(i);
+                    io.github.carlos_emr.carlos.provider.dto.ProviderSummaryDTO cProv = theRequests.consultProvider.get(i);
 
                     // Determine i18n key for status
                     String statusKey = "";
@@ -301,7 +301,7 @@
                     </a>
                 </td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><carlos:encode value='<%= provider %>' context="html"/></td>
-                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtml(cProv.getFormattedName()) : "" %></td>
+                <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>"><%= (cProv != null) ? SafeEncode.forHtmlContent(cProv.getLastName() + ", " + cProv.getFirstName()) : "" %></td>
                 <td class="stat<carlos:encode value='<%= status %>' context="htmlAttribute"/>">
                     <a href="javascript:popupConsultation(700,960,'<carlos:encode value='<%= viewRequestUrl %>' context="javaScriptAttribute"/>')">
                         <carlos:encode value='<%= StringUtils.trimToEmpty(service) %>' context="html"/>

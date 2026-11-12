@@ -91,12 +91,11 @@ class PreventionServiceEndpointTest extends CarlosRestTestBase {
         expected.setId(41);
         expected.setPreventionType("Td");
         expected.setPreventionDate(java.sql.Date.valueOf("2019-01-01"));
-        // Expected legacy fields/anchor follow the converter at merge-base aaaf4444.
+        expected.setDeleted(false);
+        // Retain the legacy clinical anchor while correcting flags and original timestamps.
         var actual = (com.fasterxml.jackson.databind.node.ObjectNode) responseJson(response).at("/preventions/0");
         var golden = (com.fasterxml.jackson.databind.node.ObjectNode) createTestObjectMapper().valueToTree(expected);
-        // Both versions create this transfer timestamp at construction, independently of the clinical date.
-        actual.remove("creationDate");
-        golden.remove("creationDate");
+        golden.put("creationDate", record.getCreationDate().getTime());
         assertThat(actual).isEqualTo(golden);
     }
 

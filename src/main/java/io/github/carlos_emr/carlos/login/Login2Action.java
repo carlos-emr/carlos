@@ -25,6 +25,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 package io.github.carlos_emr.carlos.login;
@@ -38,7 +39,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.logging.log4j.Logger;
 import org.apache.struts2.ServletActionContext;
-import com.eatthepath.otp.TimeBasedOneTimePasswordGenerator;
 import org.apache.commons.codec.binary.Base32;
 import javax.crypto.spec.SecretKeySpec;
 import org.apache.struts2.interceptor.parameter.StrutsParameter;
@@ -549,8 +549,8 @@ public final class Login2Action extends ActionSupport {
         try {
             strAuth = cl.auth(userName, password, pin, ip);
         } catch (Exception e) {
-            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), ajaxResponse, e);
+            logger.error("Authentication provider failed during login: user={}, remote={}, ajax={}, failure={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    LogSafe.sanitize(userName), LogSafe.sanitize(ip), LogSafe.sanitizeObject(ajaxResponse), LogSafe.exceptionTrace(e));
             recordAuthenticationExceptionFailure(cl, ip, userName);
             String unableToProcessMessage = message("login.errorUnableToProcess");
             String newURL = loginFailedRedirectUrl(unableToProcessMessage);
@@ -912,7 +912,7 @@ public final class Login2Action extends ActionSupport {
      *         create a valid TOTP key
      */
     private boolean isValidTotpCode(String mfaSecret, String submittedCode) throws InvalidKeyException {
-        TimeBasedOneTimePasswordGenerator totpGenerator = new TimeBasedOneTimePasswordGenerator();
+        TotpGenerator totpGenerator = new TotpGenerator();
         SecretKeySpec key;
         try {
             byte[] decodedKey = new Base32().decode(mfaSecret);
@@ -1272,7 +1272,8 @@ public final class Login2Action extends ActionSupport {
             logger.debug("rendering ajax response");
             ObjectNode json = objectMapper.createObjectNode();
             json.put("success", true);
-            json.put("providerName", SafeEncode.forJavaScript(provider.getFormattedName()));
+            // Jackson owns JSON escaping; the AJAX page renders this value with textContent.
+            json.put("providerName", provider.getFormattedName());
             json.put("providerNo", provider.getProviderNo());
             response.setContentType("application/json");
             response.getWriter().write(json.toString());

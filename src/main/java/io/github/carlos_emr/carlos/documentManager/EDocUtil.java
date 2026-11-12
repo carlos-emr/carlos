@@ -29,6 +29,8 @@
 
 package io.github.carlos_emr.carlos.documentManager;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -52,7 +54,6 @@ import java.util.ResourceBundle;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import org.owasp.encoder.Encode;
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.logging.log4j.Logger;
 import org.apache.pdfbox.Loader;
@@ -1120,20 +1121,20 @@ public final class EDocUtil {
             fis.read(fdata);
 
         } catch (NullPointerException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (FileNotFoundException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (IOException ex) {
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } catch (SecurityException ex) {
             // PathValidationUtils rejecting a malformed document path leaves fdata null, matching the
             // existing return-null contract instead of throwing an unchecked exception at the caller.
-            logger.error("Error", ex);
+            logger.error("Error: {}", LogSafe.exceptionTrace(ex));
         } finally {
             try {
                 if (fis != null) fis.close();
             } catch (IOException e) {
-                logger.error("error", e);
+                logger.error("error: {}", LogSafe.exceptionTrace(e));
             }
         }
 
@@ -1303,7 +1304,7 @@ public final class EDocUtil {
         InputStream is = null;
         try {
             is = new BufferedInputStream(new FileInputStream(validateResolvedDocumentOrTempFile(fileName)));
-            return IOUtils.toByteArray(is);
+            return is.readAllBytes();
         } catch (SecurityException e) {
             // Honour the declared throws IOException: a rejected document path surfaces as a checked
             // IOException rather than an unchecked SecurityException callers are not expecting. Throwing
@@ -1313,7 +1314,7 @@ public final class EDocUtil {
             try {
                 if (is != null) is.close();
             } catch (IOException e) {
-                logger.error("Unable to close output stream", e);
+                logger.error("Unable to close output stream: {}", LogSafe.exceptionTrace(e));
             }
         }
     }
@@ -1392,7 +1393,7 @@ public final class EDocUtil {
                 throw new SecurityException("Access denied: File is outside the allowed directories");
             }
         } catch (IOException e) {
-            logger.error("Error resolving file path: {}", fileName, e);
+            logger.error("Error resolving file path: {}", LogSafe.exceptionTrace(e));
             throw new SecurityException("Unable to resolve file path securely", e);
         }
     }
@@ -1443,7 +1444,7 @@ public final class EDocUtil {
                 try {
                     os.close();
                 } catch (IOException e) {
-                    logger.error("Unable to close output stream", e);
+                    logger.error("Unable to close output stream: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -1475,7 +1476,7 @@ public final class EDocUtil {
             // This handles stale data from different environments gracefully
             Path inputPath = Paths.get(fileName);
             if (inputPath.isAbsolute() && !Files.exists(inputPath)) {
-                logger.debug("File not found (may be from different environment): {}", fileName);
+                logger.debug("File not found (may be from different environment)");
                 return 0;
             }
             // resolvePath validates the path is within allowed directories, including temp directories.
@@ -1486,16 +1487,16 @@ public final class EDocUtil {
                 try (PDDocument pdf = Loader.loadPDF(path.toFile())) {
                     pagecount = pdf.getNumberOfPages();
                 } catch (IOException e) {
-                    logger.error("Could not read PDF file: {}", fileName, e);
+                    logger.error("Could not read PDF file: {}", LogSafe.exceptionTrace(e));
                 }
             } else {
-                logger.warn("File {} not found for page count.", fileName);
+                logger.warn("File not found for page count");
             }
         } catch (SecurityException e) {
-            logger.error("Security violation: Attempted to access file outside allowed directory: {}", fileName, e);
+            logger.error("Security violation: Attempted to access file outside allowed directory: {}", LogSafe.exceptionTrace(e));
             // Return 0 to indicate error without exposing security details
         } catch (IllegalArgumentException e) {
-            logger.error("Invalid file name provided: {}", fileName, e);
+            logger.error("Invalid file name provided: {}", LogSafe.exceptionTrace(e));
             // Return 0 to indicate error
         }
 

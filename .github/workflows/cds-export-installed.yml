@@ -1,0 +1,90 @@
+# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later.
+name: CDS installed export browser and CLI
+
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/**'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds-export-installed*'
+      - 'scripts/ci/CdsExportInstalledFixture.java'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'debian/carlos-ctl.pin'
+      - 'pom.xml'
+      - '.github/workflows/cds-export-installed.yml'
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cds-export-installed-${{ github.event.pull_request.number || github.run_id }}
+  # Only the current PR candidate can qualify its exact source/WAR. Supersede
+  # obsolete PR work; independently dispatched runs keep their unique run IDs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  installed-export:
+    name: Installed CDS export browser and CLI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Free unused SDK space on this ephemeral runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
+          df -h "$GITHUB_WORKSPACE"
+      - name: Resolve exact paired CLI source
+        id: cli
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          rows = dict(line.split('=',1) for line in pathlib.Path('debian/carlos-ctl.pin').read_text().splitlines()
+                      if line and not line.startswith('#'))
+          ref = rows.get('fallback','')
+          if not re.fullmatch(r'[0-9a-f]{40}',ref):
+              raise SystemExit('An exact paired companion source commit is required')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('ref='+ref+'\n')
+          PY
+      - name: Checkout paired CLI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          ref: ${{ steps.cli.outputs.ref }}
+          path: target/cds-ctl-source
+          persist-credentials: false
+      - name: Install pinned browser automation on the isolated runner
+        run: |
+          npm install --prefix target/cds-browser-tools --no-audit --no-fund --ignore-scripts playwright@1.56.1
+          target/cds-browser-tools/node_modules/.bin/playwright install --with-deps chromium
+      - name: Verify harness syntax and bounded WAR evidence tools
+        run: |
+          python3 -m py_compile scripts/ci/run-cds-export-installed-ci.py scripts/ci/setup-cds-export-installed-tomcat.py scripts/ci/run-cds-export-installed-oracle.py scripts/ci/collect-cds-export-installed-diagnostics.py
+          node --check scripts/ci/run-cds-export-installed-browser.js
+          python3 scripts/ci/test_cds_war_manifest.py
+      - name: Start Java25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Qualify actual installed CLI and authenticated asynchronous browser
+        run: >-
+          python3 scripts/ci/run-cds-export-installed-ci.py
+          --cli-source target/cds-ctl-source
+          --playwright-module target/cds-browser-tools/node_modules/playwright
+      - name: Preserve bounded evidence without keys, credentials or clinical bytes
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-export-installed-evidence
+          path: target/cds-export-installed-*/public/*
+          if-no-files-found: error
+          retention-days: 14

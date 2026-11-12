@@ -312,11 +312,12 @@ public class ChildImmunizationReport implements PreventionReport {
     String LETTER2 = "L2";
     String PHONE1 = "P1";
 
+    /** Chooses the next immunization recall contact using existing follow-up values and dates, without lab provenance. */
     private String letterProcessing(PreventionReportDisplay prd, String measurementType, Date asofDate) {
         if (prd != null) {
             if (prd.state.equals("No Info") || prd.state.equals("due") || prd.state.equals("Overdue")) {
                 // Get LAST contact method
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 log.debug("getting followup data for " + prd.demographicNo);
 
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
@@ -412,7 +413,7 @@ public class ChildImmunizationReport implements PreventionReport {
             } else if (prd.state.equals("Refused")) {  //Not sure what to do about refused
                 //prd.lastDate = "-----";
 
-                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType);
+                EctMeasurementsDataBeanHandler measurementDataHandler = new EctMeasurementsDataBeanHandler(prd.demographicNo, measurementType, false);
                 log.debug("2getting followup data for " + prd.demographicNo);
                 Collection followupData = measurementDataHandler.getMeasurementsDataVector();
 

@@ -31,6 +31,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -38,6 +39,7 @@ import java.util.Set;
 import io.github.carlos_emr.carlos.PMmodule.web.formbean.ClientSearchFormBean;
 import io.github.carlos_emr.carlos.commn.Gender;
 import io.github.carlos_emr.carlos.commn.dao.projection.FluReportDemographicRow;
+import io.github.carlos_emr.carlos.commn.dao.projection.DemographicName;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.DemographicExt;
 import io.github.carlos_emr.carlos.demographic.data.DemographicMergeSearch;
@@ -54,6 +56,26 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 public interface DemographicDao {
 
+    record LabPatientChoice(String id, String firstName, String lastName, String rosterStatus,
+            String patientStatus, String sex, String chartNo, String year, String month, String day, String providerNo) { }
+
+    List<LabPatientChoice> findLabPatientChoices(String mode, String keyword, String sort, int offset, int limit);
+    /** Read-only export projection; caller owns a bounded consistent transaction and current access checks. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportRosterAfter(
+            List<String> physicianNos, Integer afterDemographicNo, int limit);
+
+    /** Exact selected-patient projection; missing IDs remain visible as a short result, never a substitute patient. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> findCdsExportSelectedPatients(
+            List<Integer> demographicNos);
+
+    /** Raw scalar row, without model/UI defaults. Caller supplies current authorization and the patient read snapshot. */
+    io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto findCdsExportRawDemographic(int demographicNo);
+
+    /** Exact source metadata under the same read-only patient transaction, pinned until its completion. */
+    /** Ordered actual JDBC column recipe for reproducing an existing native receipt; empty means unavailable. */
+    default java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() { return java.util.List.of(); }
+    io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportDemographicSchema();
+
     /** Maximum number of patient search results returned in one request. */
     int MAX_SEARCH_RESULT_SIZE = 500;
 
@@ -69,7 +91,15 @@ public interface DemographicDao {
 
     public List<Demographic> getActiveDemographics(final int offset, final int limit);
 
+    /** Bounded identifier-only scan used to count authorized active patients. */
+    default List<Integer> getActiveDemographicIds(int offset, int limit) {
+        return getActiveDemographics(offset, limit).stream().map(Demographic::getDemographicNo).toList();
+    }
+
     public Demographic getDemographicById(Integer demographic_id);
+
+    /** Reads only ID and name columns, in batches of at most 500 distinct IDs. */
+    List<DemographicName> getDemographicNames(Collection<Integer> demographicIds);
 
     public List<Demographic> getDemographicByProvider(String providerNo);
 
@@ -383,6 +413,28 @@ public interface DemographicDao {
      * @since 2026-10-15
      */
     public Demographic findForUpdate(Integer demographicNo);
+
+    /**
+     * Fresh current row under a write lock, including when this context already cached it.
+     * Existing extension DAOs remain binary compatible and refuse an unsupported safety guarantee.
+     */
+    default Demographic findFreshForUpdate(Integer demographicNo) {
+        throw new UnsupportedOperationException("Fresh locked patient reads are not supported by this DAO");
+    }
+
+
+    /**
+     * Locks an existing participant row for a merge inside the caller's transaction.
+     * The core implementation uses a scalar primary-key query to avoid eager relationship
+     * locks. The compatibility default may also lock eager relationships; extension DAOs
+     * should override it with a scalar lock when using concurrent merge operations.
+     *
+     * @param demographicNo patient number
+     * @return whether the patient exists and is locked
+     */
+    default boolean lockForMerge(Integer demographicNo) {
+        return findForUpdate(demographicNo) != null;
+    }
 
     public String getOrderField(String orderBy, boolean nativeQuery);
 

@@ -100,7 +100,7 @@
 <%@ page import="java.util.*,java.text.*, io.github.carlos_emr.*" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -111,7 +111,7 @@
 <%@ page import="io.github.carlos_emr.carlos.demographic.PatientReadAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Tickler" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerComment" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.TicklerUpdate" %>
+
 <%@ page import="io.github.carlos_emr.carlos.managers.TicklerManager" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.TicklerAttachmentService" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.TicklerAttachmentData" %>
@@ -147,7 +147,7 @@
 %>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -256,6 +256,23 @@
             //-->
         </script>
         <script>
+            <fmt:message key="tickler.ticklerDemoMain.msgConfirmDelete" var="msgConfirmDelete"/>
+            var i18nConfirmDelete = '<carlos:encode value='<%= (String) pageContext.getAttribute("msgConfirmDelete") %>' context="javaScriptBlock"/>';
+
+            /**
+             * Asks before Delete changes the status of the ticked tasks (#5683). Returns false when the
+             * clinician dismisses the prompt, so the caller must not submit. With nothing ticked the
+             * server only redirects back (DbTicklerDemoMain2Action), so there is nothing to confirm.
+             */
+            function confirmDeleteSelected() {
+                var ml = document.ticklerform;
+                var len = ml.elements.length;
+                for (var i = 0; i < len; i++) {
+                    var e = ml.elements[i];
+                    if (e.name == "checkbox" && e.checked) return confirm(i18nConfirmDelete);
+                }
+                return true;
+            }
 
             function Check(e) {
                 e.checked = true;
@@ -431,6 +448,8 @@
                 font-family: tahoma, sans-serif;
                 font-size: 11px;
             }
+
+            .tickler-date-picker { background: none; border: 0; padding: 0; font: 11px tahoma, sans-serif; color: #0000ee; text-decoration: underline; cursor: pointer; }
 
             TD.black {
                 font-weight: bold;
@@ -802,15 +821,13 @@
                 <td width="30%">
                     <div align="center"><input type="text" name="xml_vdate"
                                                value="<carlos:encode value='<%= xml_vdate %>' context="htmlAttribute"/>"> <font size="1"
-                                                                             face="Arial, Helvetica, sans-serif"> <a
-                            href="#"
-                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</a></font></div>
+                                                                             face="Arial, Helvetica, sans-serif"> <button type="button" class="tickler-date-picker"
+                            onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=admission&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnBegin"/>:</button></font></div>
                 </td>
                 <td width="30%"><input type="text" name="xml_appointment_date"
                                        value="<carlos:encode value='<%= xml_appointment_date %>' context="htmlAttribute"/>"> <font size="1"
-                                                                                face="Arial, Helvetica, sans-serif"><a
-                        href="#"
-                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</a></font></td>
+                                                                                face="Arial, Helvetica, sans-serif"><button type="button" class="tickler-date-picker"
+                        onClick="openBrWindow('<%= request.getContextPath() %>/billing/CA/ON/ViewBillingCalendarPopup?type=end&amp;year=<%=curYear%>&amp;month=<%=curMonth%>','','width=300,height=300')"><fmt:message key="tickler.ticklerDemoMain.btnEnd"/>:</button></font></td>
                 <td width="20%">
                     <div align="right"><input type="hidden" name="demoview"
                                               value="<carlos:encode value='<%= demoview %>' context="htmlAttribute"/>"> <input type="hidden" name="Submit"
@@ -1116,7 +1133,7 @@
                                 <input type="button"
                                        value="<fmt:message key="tickler.ticklerDemoMain.btnDelete"/>"
                                        class="sbttn"
-                                       onclick="document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
+                                       onclick="if (!confirmDeleteSelected()) return false; document.forms['ticklerform'].submit_form.value='Delete'; document.forms['ticklerform'].submit();">
                                 <%}%> <input type="button" name="button"
                                              value="<fmt:message key="global.btnCancel"/>"
                                              onClick="window.close()" class="sbttn"></td>

@@ -23,7 +23,6 @@ package io.github.carlos_emr.carlos.managers;
 
 import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
-import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -51,7 +49,7 @@ import static org.mockito.Mockito.when;
  */
 @Tag("unit")
 @Tag("manager")
-@DisplayName("DigitalSignatureManagerImpl signature reads and writes")
+@DisplayName("DigitalSignatureManagerImpl.getDigitalSignature decrypt-failure fallback")
 class DigitalSignatureManagerImplUnitTest {
 
     private static final int SIGNATURE_ID = 42;
@@ -59,32 +57,6 @@ class DigitalSignatureManagerImplUnitTest {
     // Minimal valid PNG magic prefix (89 50 4E 47) padded past the 4-byte sniff window.
     private static final byte[] PNG_MAGIC =
             {(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
-
-    @Test
-    @DisplayName("metadata reads require the source-verified owner for imported signatures")
-    void shouldUseReadableMetadata_forLegacyCallers() {
-        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
-        DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
-        DigitalSignature resolved = new DigitalSignature();
-        resolved.setDemographicId(7);
-        when(dao.findReadableMetadataById(SIGNATURE_ID)).thenReturn(resolved);
-
-        assertThat(manager.getDigitalSignatureMetadata(SIGNATURE_ID)).isSameAs(resolved);
-        verify(dao, never()).findMetadataById(SIGNATURE_ID);
-    }
-
-    @Test
-    @DisplayName("new signatures still require a real patient after the -1 import migration")
-    void shouldRejectNewSignature_whenPatientIsUnassigned() {
-        DigitalSignatureDao dao = mock(DigitalSignatureDao.class);
-        DigitalSignatureManagerImpl manager = new DigitalSignatureManagerImpl(dao);
-        for (Integer patient : new Integer[] {null, -1, 0}) {
-            assertThatThrownBy(() -> manager.saveDigitalSignature(
-                    1, "999998", patient, PNG_MAGIC, ModuleType.CONSULTATION))
-                    .isInstanceOf(IllegalArgumentException.class);
-        }
-        verify(dao, never()).persist(any());
-    }
 
     @Test
     @DisplayName("should keep stored bytes and never persist when decrypt fails but bytes are image magic")

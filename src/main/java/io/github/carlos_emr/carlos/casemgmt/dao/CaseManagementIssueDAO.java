@@ -39,12 +39,25 @@ import io.github.carlos_emr.carlos.casemgmt.dto.CaseManagementIssueListDTO;
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementIssue;
 import io.github.carlos_emr.carlos.casemgmt.model.Issue;
 
-public interface CaseManagementIssueDAO {
+public interface CaseManagementIssueDAO extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public List<CaseManagementIssue> getIssuesByDemographic(String demographic_no);
 
     public List<CaseManagementIssue> getIssuesByDemographicOrderActive(Integer demographic_no, Boolean resolved);
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved);
 
     public Issue getIssueByCmnId(Integer cmnIssueId);

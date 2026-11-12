@@ -26,6 +26,7 @@
     Now maintained by the CARLOS EMR Project (2026+).
     https://github.com/carlos-emr/carlos
     CARLOS has no affiliation with OSCAR or McMaster University.
+    Modifications by CARLOS Contributors, 2026.
 
 --%>
 <%--
@@ -68,7 +69,7 @@
 <%@page import="java.util.Locale" %>
 <%@page import="java.text.DateFormat" %>
 <%@page import="java.text.SimpleDateFormat" %>
-<%@page import="org.owasp.encoder.Encode" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.TicklerTextSuggestDao" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LocaleUtils" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
@@ -93,7 +94,7 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib prefix="e" uri="owasp.encoder.jakarta.advanced" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
@@ -278,6 +279,7 @@
             java.util.ResourceBundle oscarBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
         %>
         <script src="${pageContext.request.contextPath}/share/javascript/tickler-validation.js"></script>
+        <script src="${pageContext.request.contextPath}/share/javascript/tickler-calendar.js"></script>
         <script type="application/javascript">
             //open a new popup window
             function popupPage(vheight, vwidth, varpage) {
@@ -306,6 +308,9 @@
                 for (let i = 0; i < 40; i++) {
                     const linkButton = document.createElement('a');
                     linkButton.href = '#';
+                    linkButton.addEventListener('click', function (event) {
+                        event.preventDefault();
+                    });
                     switch (Math.floor(i / 10)) {
                         case 0:
                             linkButton.innerText = (i % 10) + 1 + "d";
@@ -339,7 +344,7 @@
             function addTime(num, type) {
                 let currentDate = new Date();
                 if (type === "months") {
-                    currentDate.setMonth(currentDate.getMonth() + num);
+                    currentDate = CarlosTicklerCalendar.offset(currentDate, num, 0);
                 } else {
                     currentDate.setDate(currentDate.getDate() + num);
                 }
@@ -413,6 +418,18 @@
                             // SecurityError: cross-origin redirect — almost certainly a session timeout
                             console.error('[ticklerEdit] iframe cross-origin access blocked — possible session expiry:', e);
                             alert('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerAdd.errorSessionExpired") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        if (iframe.contentDocument && iframe.contentDocument.getElementById('carlos-permission-denied')) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.permission.denied") %>' context="javaScriptBlock"/>');
+                            enableSubmitButtons();
+                            return;
+                        }
+                        var attachmentsRefused = iframe.contentDocument &&
+                            iframe.contentDocument.getElementById('tickler-edit-attachments-refused');
+                        if (attachmentsRefused) {
+                            CarlosTicklerValidation.show('<carlos:encode value='<%= oscarBundle.getString("tickler.ticklerEdit.attachments.error") %>' context="javaScriptBlock"/>');
                             enableSubmitButtons();
                             return;
                         }

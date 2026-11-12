@@ -210,6 +210,10 @@ public class DmsInboxManage2Action extends ActionSupport {
         return "doclabPreview";
     }
 
+    /**
+     * Builds scoped inbox counts and patient summaries for an authenticated index request.
+     * @return the index view, the existing error view for invalid dates/query failures, or NONE after logout
+     */
     public String prepareForIndexPage() {
         HttpSession session = request.getSession();
         if (redirectUnauthenticated(session)) {
@@ -292,11 +296,15 @@ public class DmsInboxManage2Action extends ActionSupport {
             request.setAttribute("categoryData", cData);
 
             return "dms_index";
-        } catch (SQLException e) {
+        } catch (SQLException | java.time.format.DateTimeParseException e) {
             return "error";
         }
     }
 
+    /**
+     * Loads inbox report rows using strict calendar bounds and preserves each selected HL7 review identity.
+     * @return the content view, the error view for an invalid date, or NONE after logout
+     */
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision.")
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -348,23 +356,15 @@ public class DmsInboxManage2Action extends ActionSupport {
 
         Date startDate = null;
         Date endDate = null;
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-
-        //Tries to convert the start date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
         try {
-            startDate = sdf.parse(startDateStr);
-        } catch (Exception e) {
-            startDate = null;
-        }
-        //Tries to convert the end date to a Date object, if it fails then sets the date to null so it doesn't pass other checks
-        try {
-            endDate = sdf.parse(endDateStr);
+            var start = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(startDateStr);
+            var end = io.github.carlos_emr.carlos.commn.dao.InboxCategoryDao.parseDateBound(endDateStr);
             // A local calendar day can span 23 or 25 hours at daylight-saving transitions.
             ZoneId clinicZone = ZoneId.systemDefault();
-            endDate = Date.from(endDate.toInstant().atZone(clinicZone).toLocalDate()
-                    .plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
-        } catch (Exception e) {
-            endDate = null;
+            startDate = start == null ? null : Date.from(start.atStartOfDay(clinicZone).toInstant());
+            endDate = end == null ? null : Date.from(end.plusDays(1).atStartOfDay(clinicZone).toInstant().minusMillis(1));
+        } catch (java.time.format.DateTimeParseException e) {
+            return "error";
         }
 
         logger.debug("Got dates: {}-{} out of {}-{}", LogSafe.sanitizeObject(startDate), LogSafe.sanitizeObject(endDate),
@@ -471,68 +471,7 @@ public class DmsInboxManage2Action extends ActionSupport {
         }
         Collections.sort(labdocs);
 
-        HashMap<String, LabResultData> labMap = new HashMap<String, LabResultData>();
-        LinkedHashMap<String, ArrayList<String>> accessionMap = new LinkedHashMap<String, ArrayList<String>>();
-
-        int accessionNumCount = 0;
-        for (LabResultData result : labdocs) {
-            String segmentId = result.getSegmentID();
-            if (result.isDocument())
-                segmentId += "d";
-            else if (result.isHRM())
-                segmentId += "h";
-
-            labMap.put(segmentId, result);
-            ArrayList<String> labNums = new ArrayList<String>();
-
-            if (result.accessionNumber == null || result.accessionNumber.equals("null") || result.accessionNumber.isEmpty()) {
-                labNums.add(segmentId);
-                accessionNumCount++;
-                accessionMap.put("noAccessionNum" + accessionNumCount + result.labType, labNums);
-            } else if (!accessionMap.containsKey(result.accessionNumber + result.labType)) {
-                labNums.add(segmentId);
-                accessionMap.put(result.accessionNumber + result.labType, labNums);
-
-                // Different MDS Labs may have the same accession Number if they are seperated
-                // by two years. So accession numbers are limited to matching only if their
-                // labs are within one year of eachother
-            } else {
-                labNums = accessionMap.get(result.accessionNumber + result.labType);
-                boolean matchFlag = false;
-                for (int j = 0; j < labNums.size(); j++) {
-                    LabResultData matchingResult = labMap.get(labNums.get(j));
-
-                    Date dateA = result.getDateObj();
-                    Date dateB = matchingResult.getDateObj();
-                    int monthsBetween = 0;
-                    if (dateA == null || dateB == null) {
-                        monthsBetween = 5;
-                    } else if (dateA.before(dateB)) {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateA, dateB);
-                    } else {
-                        monthsBetween = UtilDateUtilities.getNumMonths(dateB, dateA);
-                    }
-
-                    if (monthsBetween < 4) {
-                        matchFlag = true;
-                        break;
-                    }
-                }
-                if (!matchFlag) {
-                    labNums.add(segmentId);
-                    accessionMap.put(result.accessionNumber + result.labType, labNums);
-                }
-            }
-        }
-
-        labdocs.clear();
-
-        for (ArrayList<String> labNums : accessionMap.values()) {
-            // must sort through in reverse to keep the labs in the correct order
-            for (int j = labNums.size() - 1; j >= 0; j--) {
-                labdocs.add(labMap.get(labNums.get(j)));
-            }
-        }
+        labdocs = preserveSelectedReports(labdocs);
         // An int count cannot carry CR/LF; the taint rule cannot model that.
         logger.debug("labdocs.size()={}", labdocs.size()); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
 
@@ -668,7 +607,7 @@ public class DmsInboxManage2Action extends ActionSupport {
      *
      * <p>Order matters: the HTTP method is rejected first (405, {@code Allow: POST}) so no privilege lookup or
      * write happens for GET/HEAD, then {@code _edoc} write is required, then the name is validated (400 when
-     * missing or blank). The security object is only created when the queue insert succeeded.
+     * missing or blank). The queue and its security object are committed in the same transaction.
      *
      * @return {@link #NONE}; the JSON body {@code {"addNewQueue":true|false}} is written directly. A missing
      *         write privilege throws {@link SecurityException}
@@ -683,17 +622,24 @@ public class DmsInboxManage2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_edoc)");
         }
         String qn = request.getParameter("newQueueName");
-        qn = qn == null ? "" : qn.trim();
-        if (qn.isEmpty()) {
+        String queueName = qn == null ? "" : qn.trim();
+        if (queueName.isEmpty()) {
             return writeAddNewQueueResult(HttpServletResponse.SC_BAD_REQUEST, false);
         }
         boolean success = false;
         try {
             QueueDao queueDao = (QueueDao) SpringUtils.getBean(QueueDao.class);
-            success = queueDao.addNewQueue(qn);
-            if (success) {
-                addQueueSecObjectName(qn, queueDao.getLastId());
-            }
+            var transaction = new org.springframework.transaction.support.TransactionTemplate(
+                    SpringUtils.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+            success = Boolean.TRUE.equals(transaction.execute(status -> {
+                Integer queueId = queueDao.addNewQueueAndGetId(queueName);
+                if (queueId == null) {
+                    status.setRollbackOnly();
+                    return false;
+                }
+                addQueueSecObjectName(queueName, queueId.toString());
+                return true;
+            }));
         } catch (Exception e) {
             logger.error("Error", e);
         }
@@ -996,5 +942,43 @@ public class DmsInboxManage2Action extends ActionSupport {
         request.setAttribute("searchProviderNo", searchProviderNo);
         return "document_in_queues";
 
+    }
+    private record ReportIdentity(String source, String id) { }
+    private record AccessionIdentity(String source, String accession) { }
+
+    /** Keeps HL7 review identities separate and preserves the other legacy source grouping. */
+    static ArrayList<LabResultData> preserveSelectedReports(List<LabResultData> selected) {
+        Map<ReportIdentity, LabResultData> reports = new LinkedHashMap<>();
+        for (LabResultData result : selected) {
+            reports.put(new ReportIdentity(result.labType, result.getSegmentID()), result);
+        }
+        Map<Object, List<LabResultData>> groups = new LinkedHashMap<>();
+        for (var entry : reports.entrySet()) {
+            LabResultData result = entry.getValue();
+            String accession = result.accessionNumber;
+            // An HL7 version is an independently reviewed report. Missing accessions
+            // also carry no evidence of a shared family, whatever their source.
+            Object key = "HL7".equals(result.labType) || accession == null
+                    || accession.isEmpty() || "null".equals(accession)
+                    ? entry.getKey() : new AccessionIdentity(result.labType, accession);
+            List<LabResultData> group = groups.computeIfAbsent(key, ignored -> new ArrayList<>());
+            if (group.stream().noneMatch(previous -> sameLegacyReportPeriod(previous, result))) {
+                group.add(result);
+            }
+        }
+        ArrayList<LabResultData> retained = new ArrayList<>();
+        for (List<LabResultData> group : groups.values()) {
+            retained.addAll(group.reversed());
+        }
+        return retained;
+    }
+
+    /** Legacy non-HL7 sources group a shared accession only within four calendar months; unknown dates stay separate. */
+    private static boolean sameLegacyReportPeriod(LabResultData first, LabResultData second) {
+        Date firstDate = first.getDateObj();
+        Date secondDate = second.getDateObj();
+        if (firstDate == null || secondDate == null) return false;
+        return (firstDate.before(secondDate) ? UtilDateUtilities.getNumMonths(firstDate, secondDate)
+                : UtilDateUtilities.getNumMonths(secondDate, firstDate)) < 4;
     }
 }

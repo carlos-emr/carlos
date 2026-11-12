@@ -141,6 +141,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     private CdsImportReviewService reviews;
     private Audit audit;
     private CommitAcknowledgementFault commits;
+    private final java.util.Set<String> ownedRuns = new java.util.HashSet<>();
     private final CdsImportJobService jobs = mock(CdsImportJobService.class);
     private final CdsImportAccessService access = mock(CdsImportAccessService.class);
     private final LoggedInInfo viewer = mock(LoggedInInfo.class);
@@ -155,8 +156,8 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
         assertThat(jdbc.getProperty("ownedDisposableDatabase")).isEqualTo("true");
         assertThat(jdbc.getProperty("jdbcUrl", "")).matches("jdbc:(mysql|mariadb)://[^/]+/carlos_cds_test(?:\\?.*)?");
         dataSource = new OscarTrackingBasicDataSource();
-        dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
-        dataSource.setUrl(jdbc.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:"));
+        dataSource.setDriverClassName("org.mariadb.jdbc.Driver");
+        dataSource.setUrl(jdbc.getProperty("jdbcUrl"));
         dataSource.setUsername(jdbc.getProperty("jdbcUser"));
         dataSource.setPassword(jdbc.getProperty("jdbcPassword"));
         dataSource.setDefaultAutoCommit(true);
@@ -203,8 +204,23 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        if (context != null) context.close();
-        if (dataSource != null) dataSource.close();
+        try {
+            if (sql != null) for (String run : ownedRuns) {
+                // This class creates only unwritten metadata. Never touch another fixture
+                // or remove a clinical/unit row to make the queue assertion pass.
+                assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_unit WHERE run_id=?", Long.class, run)).isZero();
+                assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_patient WHERE run_id=?", Long.class, run)).isZero();
+                assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_file_reference r JOIN cds_import_file f ON f.id=r.file_id WHERE f.run_id=?", Long.class, run)).isZero();
+                sql.update("DELETE FROM cds_import_review WHERE run_id=?", run);
+                sql.update("DELETE FROM cds_import_diagnostic WHERE run_id=?", run);
+                sql.update("DELETE FROM cds_import_event WHERE run_id=?", run);
+                sql.update("DELETE FROM cds_import_file WHERE run_id=?", run);
+                sql.update("DELETE FROM cds_import_run WHERE id=?", run);
+            }
+        } finally {
+            try { if (context != null) context.close(); }
+            finally { if (dataSource != null) dataSource.close(); }
+        }
     }
 
     @ParameterizedTest
@@ -220,7 +236,9 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
         assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_event WHERE run_id=? AND event_type='REVIEW_REQUESTED'", Long.class, fixture.run())).isEqualTo(1L);
         assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_unit WHERE run_id=?", Long.class, fixture.run())).isZero();
         assertThat(sql.queryForObject("SELECT COUNT(*) FROM cds_import_patient WHERE run_id=? AND (held=TRUE OR target_demographic_no IS NOT NULL)", Long.class, fixture.run())).isZero();
-        assertThat(reviews.pending(50)).contains(reviewId);
+        // The global worker page correctly returns the oldest 50 pending reviews.
+        // Acceptance is pending for this run even when older fixtures fill that page.
+        assertThat(reviews.hasPending(fixture.run())).isTrue();
     }
 
     @Test
@@ -323,6 +341,7 @@ class CdsReviewAcceptanceMariaDbIntegrationTest {
     private Fixture stopped() throws Exception {
         String submission = UUID.randomUUID().toString();
         String run = ledger.accept(new CdsImportJobCommand(submission, actor.operator(), actor.providerNo(), "fixture", "omd-5.2", A, A, A, "/opaque/review")).id();
+        ownedRuns.add(run);
         var command = new CdsImportCommand(directory.resolve("source.xml"), submission, actor.providerNo(), null, null,
                 "fixture", "omd-5.2", false, false, true, 0, null, false);
         when(jobs.root(run)).thenReturn(directory);

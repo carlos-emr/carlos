@@ -36,15 +36,15 @@
 --%>
 <%@ page
         import="io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.clinic.ClinicData, java.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxSessionBeanResolver" %><%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
+<%@ page import="io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxReprintWorkspace" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.pageUtil.RxPreviewSnapshot" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.DigitalSignatureUtils" %>
@@ -450,25 +450,41 @@
             }
             bindFaxModalCancellation();
 
+            function printHalfLetter(method, scriptId) {
+                if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']
+                        || signatureAssociationPending || signatureAssociationFailed) return;
+                onPrint2(method, scriptId, null, false, null, null, 'PageSize.HALFLETTER');
+            }
+
             function onPrint2(method, scriptId, faxDocumentId, pasteAfterSuccess, capturedPasteText,
-                              previousUnloadHandler) {
+                              previousUnloadHandler, pageSizeOverride) {
                 if (method === 'oscarRxFax' && (faxQueued || faxSubmissionUncertain || faxPreviewReloading
                         || signatureAssociationPending || signatureAssociationFailed)) return false;
                 var useSC = false;
                 var scAddress = "";
-                var rxPageSize = document.getElementById('printPageSize').value;
+                var rxPageSize = pageSizeOverride || document.getElementById('printPageSize').value;
                 console.log("rxPagesize  " + rxPageSize);
 
                 <% if(vecAddressName != null) { %>
-                useSC = true;
                 <%for(int i=0; i<vecAddressName.size(); i++) {%>
                 if (document.getElementById("addressSel").value == "<%=i%>") {
+                    useSC = true;
                     scAddress = "<carlos:encode value='<%= (String)vecAddress.get(i) %>' context="uriComponent"/>";
                 }
                 <%}
             }%>
                 let action = "<%= request.getContextPath() %>/form/createcustomedpdf?__title=Rx&__method=" + method + "&useSC=" + useSC + "&scAddress=" + scAddress + "&rxPageSize=" + rxPageSize + "&scriptId=" + scriptId;
-                var previewForm = document.getElementById("preview").contentWindow.document.getElementById("preview2Form");
+                var previewForm;
+                try {
+                    var frame = document.getElementById("preview");
+                    previewForm = frame && frame.contentWindow.document.getElementById("preview2Form");
+                } catch (previewAccessError) { previewForm = null; }
+                if (!previewForm) {
+                    if (method === 'oscarRxFax') resetFailedFaxSubmission(previousUnloadHandler);
+                    var notice = document.getElementById('rxPreviewLoading');
+                    if (notice) notice.hidden = false;
+                    return false;
+                }
                 if (method === "oscarRxFax") {
                     if (!matchesFaxPreview(previewForm)) {
                         hasPreview = false;
@@ -638,7 +654,8 @@
                 }
                 var url = '${carlos:forJavaScript(ctx)}/rx/ViewAddRxComment';
                 var ran_number = Math.round(Math.random() * 1000000);
-                var comment = encodeURIComponent(document.getElementById('additionalNotes').value);
+                var rawComment = document.getElementById('additionalNotes').value;
+                var comment = encodeURIComponent(rawComment);
                 var params = "scriptNo=" + encodeURIComponent(faxScriptNo) + "&comment=" + comment + "&rand=" + ran_number;  //]
                 var saveWarning = document.getElementById('additionalNotesSaveError');
                 if (saveWarning) saveWarning.hidden = true;
@@ -661,11 +678,15 @@
                         method: 'POST',
                         headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': getCsrfToken()},
                         credentials: 'same-origin',
-                        body: params
+                        body: params + '&originalCommentHash=' + encodeURIComponent(savedAdditionalNotesHash)
                     }).then(function (response) {
-                        if (!response.ok) {
+                        if (response.status === 409) notesConflict = true;
+                        if (!response.ok || response.redirected || (!response.headers || response.headers.get('X-Carlos-Rx-Comment') !== 'written'
+                                || !/^[a-f0-9]{64}$/.test(response.headers.get('X-Carlos-Rx-Comment-Hash')))) {
                             throw new Error('ViewAddRxComment returned HTTP ' + response.status);
                         }
+                        savedAdditionalNotesHash = response.headers.get('X-Carlos-Rx-Comment-Hash');
+                        notesConflict = false;
                     });
                 });
                 // Observe rejection immediately: a blur save can fail before the later Fax
@@ -675,7 +696,7 @@
                 currentNotesSave.then(function () {
                     if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = true;
                 }, function () {
-                    if (pendingNotesSave === currentNotesSave && saveWarning) saveWarning.hidden = false;
+                    if (pendingNotesSave === currentNotesSave) { notesConflict = true; if (saveWarning) saveWarning.hidden = false; }
                 });
                 // The persisted save is independent of an omitted, loading or inaccessible
                 // preview. Updating the preview is best effort; fax submission still awaits
@@ -701,10 +722,22 @@
 
 
             function printIframe() {
+                if (notesConflict) { document.getElementById('additionalNotesSaveError').hidden = false; return false; }
                 // Empty/new prescriptions have no preview. Programmatic callers must
                 // obey the same boundary as the disabled ordinary Print control.
                 if (typeof hasPreview === 'undefined' || !hasPreview || !frames['preview']) return;
                 var previewFrame = frames['preview'];
+                try {
+                    if (!previewFrame.document || !previewFrame.document.getElementById('preview2Form')) {
+                        var notice = document.getElementById('rxPreviewLoading');
+                        if (notice) notice.hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    var inaccessibleNotice = document.getElementById('rxPreviewLoading');
+                    if (inaccessibleNotice) inaccessibleNotice.hidden = false;
+                    return false;
+                }
                 var browserName = navigator.appName;
                 if (browserName == "Microsoft Internet Explorer") {
                     alert('${carlos:forJavaScript(msg_msieNotPermitted)}')
@@ -727,8 +760,20 @@
             }
 
             function printPaste2Parent(print, fax, pasteRx, capturedPasteText, useCapturedPasteTextAsIs) {
+                if (notesConflict) { document.getElementById('additionalNotesSaveError').hidden = false; return Promise.resolve(false); }
                 //console.log("in printPaste2Parent");
                 if (faxSubmissionUncertain || faxPreviewReloading || ((isReprint || !hasPreview || faxQueued || faxSubmissionPending) && !fax)) return Promise.resolve(false);
+                try {
+                    if (!fax && (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('preview2Form'))) {
+                        var loadingNotice = document.getElementById('rxPreviewLoading');
+                        if (loadingNotice) loadingNotice.hidden = false;
+                        return Promise.resolve(false);
+                    }
+                } catch (previewAccessError) {
+                    document.getElementById('rxPreviewLoading').hidden = false;
+                    return Promise.resolve(false);
+                }
                 // A retry is safe only until an insertion or request may have written text.
                 // Network failures and editor callbacks can fail AFTER their side effect.
                 faxPasteCanRetry = true;
@@ -771,7 +816,10 @@
                             }
 
                             if (typeof capturedPasteText !== 'string' && document.getElementById('additionalNotes') !== null) {
-                                text += document.getElementById('additionalNotes').value + "\n";
+                                var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                                if (additionalNotes) {
+                                    text += additionalNotes + "\n";
+                                }
                             }
                         }
                         <% if (props.isPropertyActive("rx_paste_asterisk")) {
@@ -1044,6 +1092,8 @@
             var POLL_TIME = 1500;
             var counter = 0;
             var isRxFaxEnabled = "<%=CarlosProperties.getInstance().isRxFaxEnabled()%>";
+            var savedAdditionalNotesHash = '<%= io.github.carlos_emr.carlos.managers.RxSourceVersionValidator.commentDigest(comment) %>';
+            var notesConflict = false;
             var faxScriptNo = "<carlos:encode value='<%= scriptIdForFax %>' context="javaScriptBlock"/>";
             // Ordinary Print and Paste also needs these, even when Rx faxing is disabled.
             var hasPreview = <%= previewAvailable ? "true" : "false" %>;
@@ -1256,6 +1306,18 @@
                 if (!faxNumber || faxNumber.selectedIndex < 0) {
                     return false;
                 }
+                // First load and error pages may not contain the preview inputs yet.
+                // Leave submission state untouched until the actual form is usable.
+                try {
+                    if (!frames['preview'] || !frames['preview'].document
+                            || !frames['preview'].document.getElementById('finalFax')) {
+                        document.getElementById('rxPreviewLoading').hidden = false;
+                        return false;
+                    }
+                } catch (previewAccessError) {
+                    document.getElementById('rxPreviewLoading').hidden = false;
+                    return false;
+                }
                 var previousUnloadHandler = window.onbeforeunload;
                 window.onbeforeunload = null;
                 frames['preview'].document.getElementById('finalFax').value = faxNumber.options[faxNumber.selectedIndex].value;
@@ -1272,7 +1334,10 @@
                     capturedPasteText = previewForm.elements['rx_no_newlines'].value +
                             (document.all ? '' : '\n');
                     if (document.getElementById('additionalNotes') !== null) {
-                        capturedPasteText += document.getElementById('additionalNotes').value + '\n';
+                        var additionalNotes = document.getElementById('additionalNotes').value.trim();
+                        if (additionalNotes) {
+                            capturedPasteText += additionalNotes + '\n';
+                        }
                     }
                 }
                 lastFaxPasteText = null;
@@ -1342,9 +1407,28 @@
 function updateSignatureAssociationControls() {
     const warning = document.getElementById('signatureAssociationError');
     if (warning) warning.hidden = !signatureAssociationFailed;
+    updateHalfLetterPrintControls();
     if (typeof canFaxScript !== 'undefined') {
         setFaxControlsDisabled(shouldDisableFaxControls());
     }
+}
+
+function updateHalfLetterPrintControls() {
+    let button;
+    try {
+        const previewFrame = frames['preview'];
+        button = previewFrame && previewFrame.document
+                ? previewFrame.document.getElementById('halfLetterPrint') : null;
+    } catch (unavailablePreview) {
+        // Navigation can temporarily hide the preview document. Its load handler resynchronizes
+        // the button, and the click guard still prevents printing during the signature save.
+        return;
+    }
+    if (!button) return;
+    const blocked = signatureAssociationPending || signatureAssociationFailed;
+    button.disabled = blocked;
+    button.style.opacity = blocked ? '0.5' : '';
+    button.style.cursor = signatureAssociationPending ? 'wait' : (signatureAssociationFailed ? 'not-allowed' : 'pointer');
 }
 
 function associateSavedSignature(event, scriptId) {
@@ -1463,9 +1547,14 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
 				<td>
                                     <div class="DivContentPadding">
 					<% if (bean.getStashSize() > 0) { %>
-                                        <iframe id='preview' name='preview' width=420px height=890px onload="setComment()"
+                                        <iframe id='preview' name='preview' width=420px height=890px title="<fmt:message key="RxPreview.title"/>"
 							src="<%= request.getContextPath() %>/rx/ViewPreview2?scriptId=<%= scriptIdForFax %>&demographicNo=<%= viewScriptDemographicNo %>&rePrint=<%=reprint%>&pharmacyId=<carlos:encode value='<%= StringUtils.noNull(request.getParameter("pharmacyId")) %>' context="uriComponent"/><%= viewScriptChartContext.isEmpty() ? "" : "&amp;chartContext=" + SafeEncode.forHtmlAttribute(SafeEncode.forUriComponent(viewScriptChartContext)) %>"
-							align=center border=0 frameborder=0></iframe></div>
+							align=center border=0 frameborder=0></iframe>
+                                        <script type="text/javascript">
+                                            document.getElementById('preview').addEventListener('load', function () {
+                                                setComment(); updateHalfLetterPrintControls(); var notice = document.getElementById('rxPreviewLoading'); if (notice) notice.hidden = true;
+                                            });
+                                        </script></div>
 					<% } %>
                                     <p id="selectedPharmacy" role="status" hidden><fmt:message key="oscarRx.printPharmacyInfo.paperSizeWarning"/></p>
                                 </td>
@@ -1692,6 +1781,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           aria-label="<fmt:message key="ViewScript.msgFaxRecoveryText"/>"></textarea>
                                             </td>
                                         </tr>
+                                        <tr id="rxPreviewLoading" hidden><td colspan="4"><p role="status"><fmt:message key="oscarRx.previewLoading"/></p></td></tr>
                                         <tr id="faxPreviewChanged" hidden>
                                             <td><p role="alert"><fmt:message key="ViewScript.msgFaxPreviewChanged"/></p></td>
                                         </tr>
@@ -1735,7 +1825,7 @@ function setDigitalSignatureToRx(digitalSignatureId, scriptId) {
                                                           onchange="javascript:addNotes();"><carlos:encode value='<%= comment %>'/></textarea>
                                                 <input type="button" id="saveAdditionalNotes" value="<fmt:message key="ViewScript.msgAdditionalRxNotes"/>"
                                                        class="btn btn-outline-secondary" onclick="javascript:addNotes();"/>
-                                                <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="tickler.ticklerMain.errorNoteSaveFailed"/></p>
+                                                <p id="additionalNotesSaveError" class="alert alert-danger" role="alert" hidden><fmt:message key="oscarRx.notesUnconfirmed"/> <button type="button" onclick="location.reload()"><fmt:message key="oscarRx.reloadCurrentForm"/></button></p>
                                             </td>
                                         </tr>
 

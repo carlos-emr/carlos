@@ -1,0 +1,90 @@
+{
+  "status": "IN_PROGRESS_CLINICAL_REVIEW",
+  "scope": "OntarioMD CDS 5.2 import/export coordinated on release/2026.08 with foreground/detached CLI and authenticated asynchronous browser jobs",
+  "verifiedBaseline": {
+    "javaChecks": 2747,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "packagedWarSha256": "85fec8a489862069a16a44b77d0dade801d87d8419f25049a66d5bddacf3cec7",
+    "actualRichImportReconciliationChecks": 27,
+    "clinicalPublication": false,
+    "scope": "Historical early implementation checkpoint; not release-base qualification"
+  },
+  "implemented": [
+    "Shared pinned wire contract, clinical scalar handling, strict MariaDB binary reads and immutable preparation/native witnesses",
+    "Independent import/export authorization, admission, durable jobs, maintenance fencing and audit",
+    "Canonical clinical export engine with explicit native/source reconciliation and review for unqualified facts",
+    "Typed domain assembly, schema/ZIP/ZIP64/supporting-file checks, recipient encryption, authorized downloads and retention",
+    "Foreground/detached CLI plus authenticated asynchronous browser acceptance, recovery, status and control",
+    "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
+  ],
+  "integration": {
+    "coreBase": "38cfc10c0ae72c66ebe501703de462f59249da1f",
+    "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
+    "releaseSqlUnchangedSinceUpgradeBaseline": true,
+    "cliHead": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
+    "cliVersion": "1.3.4",
+    "coreIntendedTarget": "release/2026.08",
+    "cliIntendedTarget": "release/2026.08",
+    "cliReleaseBase": "84adfc5c237d4a536300a9d7e74e19599df23dcc",
+    "cliImportProtocol": "schema manifest format 2 / ETL contract 4; newer main format 3 / ETL contract 6 is excluded from this release pair",
+    "modernImporterPresentInRelease": true,
+    "releaseSqlUnchanged": 87,
+    "newMigrations": [
+      "1.0.59.38",
+      "1.0.59.39",
+      "1.0.59.40",
+      "1.0.59.41"
+    ],
+    "localProofs": {
+      "freshOnAndBc": true,
+      "retainedDataUpgrades": true,
+      "appliedHistoryUnchanged": true,
+      "physicalSchemasAndSeedsMatchFresh": true,
+      "cliMigrateAndValidate": true,
+      "bootValidate": true,
+      "manifestChecks": 298,
+      "ciHelperChecks": 401,
+      "javascriptContractChecks": 340,
+      "strictCustomSemgrepFindings": 0,
+      "strictCustomSemgrepExecutionErrors": 0,
+      "mappedSourceDescriptorsMatchRelease": true,
+      "allExternalQualificationHelpersCompile": 11,
+      "historicalReceiptRestamping": false
+    },
+    "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706",
+    "candidateCliPackage": {
+      "sha256": "918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170",
+      "bytes": 358440,
+      "sourceCommit": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
+      "workflowRun": 42759435594,
+      "artifact": 13740162733,
+      "publication": false
+    }
+  },
+  "evidenceLimits": "Export admission remains disabled by default. Unsupported, changed or ambiguous clinical facts require explicit review. Recorded checkpoints are historical; only evidence bound to the exact current source/WAR qualifies it. No OntarioMD certification or PCON qualification is claimed.",
+  "implementedProfiles": [
+    "ONTARIO_MD_5_2"
+  ],
+  "qualificationAuthority": "Required current-head GitHub CI and exact WAR clinical/browser/CLI/resource artifacts; this progress document does not certify an artifact.",
+  "requiredQualification": [
+    "Every required GitHub check passes for the current PR head, including strict scanner execution evidence",
+    "All reviewed importer/exporter/shared database suites execute without failures, errors, reruns or skips",
+    "Retained-data release upgrades, case-folded schemas and actual installed CLI/browser/resource proofs match their source and WAR identities"
+  ],
+  "completionBlockers": [
+    "Native case-management history/notes with every revision and clinical association",
+    "Native measurements, laboratory results and reports without import ownership",
+    "Selected-patient source catalogue scope and ordinary native prescription mappings",
+    "Remaining performance, permission seed and route proof findings",
+    "Required exact-head native, installed/browser/CLI, resource and scanner CI after the final changes"
+  ],
+  "latestFocusedReview": {
+    "cases": 656,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "scope": "Focused local verification; fresh MariaDB and final exact-head CI remain required"
+  }
+}

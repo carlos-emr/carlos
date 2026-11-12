@@ -29,7 +29,6 @@
 
 package io.github.carlos_emr.carlos.webserv;
 
-import java.lang.management.ManagementFactory;
 import java.util.Date;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -54,7 +53,7 @@ public final class WsUtils {
      * @param securityToken can be the SecurityId's password, or a valid securityToken.
      */
     public static boolean checkAuthenticationAndSetLoggedInInfo(HttpServletRequest request, Security security, String securityToken) {
-        if (security != null) {
+        if (security != null && securityToken != null) {
             if (security.getDateExpiredate() != null && security.getDateExpiredate().before(new Date())) {
                 logger.debug("sec record expired :" + security.getId());
                 return (false);
@@ -101,36 +100,11 @@ public final class WsUtils {
 	}
 
     private static boolean checkToken(Security security, String securityToken) {
-        return (securityToken.equals(generateSecurityToken(security)));
+        return SoapTokenService.looksLikeToken(securityToken)
+                && SpringUtils.getBean(SoapTokenService.class).validate(security, securityToken);
     }
 
     public static String generateSecurityToken(Security security) {
-        // we'll add a randomish seed to a deterministic value unique to the user.
-        // the randomish seed can be the jvm start time
-        // the deterministic value unique to the user is a mostly unique rendition of their
-        // password.
-
-        long jvmStartTime = ManagementFactory.getRuntimeMXBean().getStartTime();
-        long mangling = getStringAsLongRendition(security.getPassword());
-        return (String.valueOf(jvmStartTime + mangling));
-    }
-
-    /**
-     * The purpose of this method is to generate a long from the given string.
-     * It doesn't have to be anything in particular other than being deterministic
-     * and relatively unique (no uniqueness guarantees required).
-     */
-    private static long getStringAsLongRendition(String s) {
-        long result = 0;
-        int modMax = 6;
-        int mod = 0;
-
-        for (char c : s.toCharArray()) {
-            result = result + c * (long) Math.pow(100, mod);
-
-            mod = (mod + 1) % modMax;
-        }
-
-        return (result);
+        return SpringUtils.getBean(SoapTokenService.class).issue(security);
     }
 }

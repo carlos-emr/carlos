@@ -1,0 +1,49 @@
+{
+  "table": "HRMDocumentToDemographic",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "cds_patient_key",
+      "type": "decimal(20,0)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": "cast(nullif(regexp_substr(`demographicNo`,'^[[:space:]]*[+]?[0-9]+'),'') as decimal(20,0))"
+    },
+    {
+      "name": "demographicNo",
+      "type": "varchar(20)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "hrmDocumentId",
+      "type": "varchar(20)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "timeAssigned",
+      "type": "datetime",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

@@ -50,9 +50,8 @@
  *
  * ONE ENTRY PER DEFECT. A script stops at its first failing step, so one run cannot pin four defects. The
  * LAB_FLOWSHEET_PIN variable picks the entry (the manifest runs the script once per value):
- *   unset     The path above, then LAST and PINNED to finding 258: the flowsheet's A1C row links to the lab it
- *             came from. measurementsExt.lab_no is stored but no flowsheet, tracker or A1C history page reads it;
- *             the row only opens the Add Measurement form for the value.
+ *   unset     The path above, then the flowsheet, A1C history and tracker links open the source lab reports
+ *             (finding 258, #4615). The original measurement controls remain available.
  *   value     Finding 256, FIXED (#4613), LAST (after step 9): a creatinine of 112.5 umol/L is filed as the SCR
  *             measurement with the value the lab sent, and so is every other result of five characters or more on
  *             the same lab. The shipped HL7_LAB_MEASUREMENT_FILTER had the alternative ^([+-\\?]{1,4}), and in a
@@ -84,7 +83,7 @@
  * every remaining measurement and measurementsExt row, dxresearch row and flowsheet_customization row of the
  * patient, and asserts each by key. No clinic-wide state changes.
  *
- * Expected: every step passes except the pinned one of each entry (see the manifest).
+ * Expected: every step passes; the manifest records the remaining expected failures, if any.
  */
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -93,6 +92,7 @@ const path = require('node:path');
 const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
+const { createNativeQuickListPreferenceFixture } = require('./lib/quick-list-preference-fixture');
 const { submitCreateLab } = require('./lab-manual-entry-cumulative-playwright-checks');
 const { removeOwnedHl7Labs, removeArchiveFiles, archivesNamed, uploadFromInbox } = require('./lab-forwarding-rules-playwright-checks');
 
@@ -204,6 +204,8 @@ function cmlUploadHl7({ accession, last, test, observed }) {
 async function workflow(s) {
   validatePin();
   const { sql, patient, provider, context } = s;
+  // Diagnostic Registry code search records the provider's last-used quick list, even on a read.
+  createNativeQuickListPreferenceFixture(s);
   const needsFraction = PIN === 'fraction';
   const labs = {}; // key -> { accession, labNo, date, tests }
   const claimed = [];
@@ -459,13 +461,14 @@ async function workflow(s) {
   }
 
   // ---- 9. The Health Tracker ----------------------------------------------------------------------------------------
+  let tracker;
   await s.step('the Health Tracker lists the A1C results under their dates and nothing for the unmapped test', async () => {
     // The tracker ships empty; this patient's tracker tracks A1C (the row health-tracker seeds, here for A1C).
     const item = '<item measurement_type="A1C" display_name="A1C" guideline="" graphable="yes" value_name="A1C" />';
     sql.execute(`INSERT INTO flowsheet_customization
       (flowsheet, action, measurement, payload, provider_no, demographic_no, create_date, archived)
       VALUES ('tracker','add',NULL,${h.sqlString(item)},${h.sqlString(provider)},${h.sqlString(String(patient))},NOW(),0)`);
-    const tracker = await s.popup(chart, chart.locator('#measurementslist a[onclick*="ViewHealthTracker"]').first(), 'lab-flowsheet-tracker');
+    tracker = await s.popup(chart, chart.locator('#measurementslist a[onclick*="ViewHealthTracker"]').first(), 'lab-flowsheet-tracker');
     await tracker.waitForLoadState('networkidle').catch(() => {});
     h.assert(await tracker.locator('#wrap-A1C').count() === 1, 'The Health Tracker has no card for the A1C item');
     for (const lab of [labs.within, labs.above]) {
@@ -476,7 +479,6 @@ async function workflow(s) {
     }
     h.assert(await tracker.locator('.measurement-card').count() === 1, 'The Health Tracker shows a card besides the A1C one');
     h.assert(!/HEMOGLOBIN|\b137\b/i.test(await tracker.locator('#trackerForm').innerText()), 'The Health Tracker shows the unmapped hemoglobin');
-    await tracker.close();
   });
 
   // ---- Finding 256, fixed (a lab of its own, after every step that counts labs and rows) --------------------------
@@ -547,16 +549,67 @@ async function workflow(s) {
     });
   }
 
-  // ---- Pin: finding 258 -------------------------------------------------------------------------------------------
+  // ---- Source report navigation: finding 258 ---------------------------------------------------------------------
   if (PIN === '') {
-    // The controls are step 7 (the row exists under its date, with the value) and step 3 (the measurement carries lab_no).
+    async function openSourceLab(page, link, lab, label) {
+      h.assert(await link.count() === 1, `${label} must have one source lab link`);
+      const report = await s.popup(page, link, label);
+      await report.waitForLoadState('networkidle');
+      h.assert(new URL(report.url()).searchParams.get('segmentID') === String(lab.labNo),
+        `${label} opened the wrong report: ${report.url()}`);
+      const text = await report.locator('body').innerText();
+      h.assert(text.includes(lab.accession) && text.includes(A1C.name), `${label} did not display the source report`);
+      if (lab.key === 'above') {
+        const otherResult = report.getByRole('link', { name: UNMAPPED.name, exact: true });
+        h.assert(await otherResult.count() === 1, `${label} omitted the other result on the source report`);
+        h.assert((await otherResult.locator('xpath=ancestor::tr[1]').innerText()).includes(UNMAPPED.value),
+          `${label} did not show the other result's value`);
+      }
+      await report.close();
+    }
+
     await s.step(STEP.link, async () => {
-      const labNo = labs.above.labNo;
-      const html = rowHtml.above;
-      h.assert(linksToLab(html, labNo), `The A1C row of lab ${labNo} carries no link to the lab: it opens only ${
-        JSON.stringify((/fsPopup\(\d+,\d+,'([^'?]*)/.exec(html) || [])[1] || html.slice(0, 120))}`);
+      for (const lab of [labs.within, labs.above]) {
+        h.assert(linksToLab(rowHtml[lab.key], lab.labNo), `The A1C row of lab ${lab.labNo} carries no link to its report`);
+        await openSourceLab(flowsheet, a1cRow(lab).locator('a.source-lab'), lab, `flowsheet-source-${lab.key}`);
+        // Clicking the report must not also open the reading's add/edit form.
+        h.assert(!s.context.pages().some((page) => page.url().includes('/ViewAddMeasurementData')),
+          'The source link also opened the measurement form');
+      }
+      await h.screenshot(flowsheet, s.config.screenshotDir, 'lab-source-flowsheet');
+    });
+    await s.step('the A1C history links each lab-derived reading to its source report', async () => {
+      const history = await s.popup(chart, chart.locator('#measurementslist a[onclick*="SetupDisplayHistory?type=A1C"]').first(), 'lab-measurement-history');
+      for (const lab of [labs.within, labs.above]) {
+        const row = history.locator('#tblDiscs tbody tr').filter({ hasText: lab.date });
+        await openSourceLab(history, row.locator('a.source-lab'), lab, `history-source-${lab.key}`);
+      }
+      await h.screenshot(history, s.config.screenshotDir, 'lab-source-history');
+      await history.close();
+    });
+    await s.step('the Health Tracker source links open lab reports without opening the delete dialog', async () => {
+      for (const lab of [labs.within, labs.above]) {
+        const entry = tracker.locator('#wrap-A1C .history-entry').filter({
+          has: tracker.locator(`.history-value[data-observed="${lab.date}"]`),
+        });
+        const link = entry.locator('a.source-lab');
+        // Native Enter activation proves the report remains keyboard reachable beside the measurement button.
+        await link.focus();
+        const reportPromise = s.context.waitForEvent('page', { timeout: TIMEOUT });
+        await link.press('Enter');
+        const report = await reportPromise;
+        h.wireStrictPage(report, `tracker-source-${lab.key}`, s.recorder);
+        await report.waitForURL((url) => url.href !== 'about:blank', { timeout: TIMEOUT, waitUntil: 'domcontentloaded' });
+        await report.waitForLoadState('networkidle');
+        h.assert(new URL(report.url()).searchParams.get('segmentID') === String(lab.labNo), 'Tracker keyboard link opened the wrong lab');
+        h.assert((await report.locator('body').innerText()).includes(lab.accession), 'Tracker keyboard link did not render the source report');
+        await report.close();
+        h.assert(!await tracker.locator('#deleteModal').isVisible(), 'The source link also opened the delete dialog');
+      }
+      await h.screenshot(tracker, s.config.screenshotDir, 'lab-source-tracker');
     });
   }
+  await tracker.close();
 }
 
 if (require.main === module) runWorkflow('lab-to-flowsheet', workflow, { contextOptions: { locale: 'en-US' } });

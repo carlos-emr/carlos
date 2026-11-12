@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.integration.hl7.handlers.upload;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
@@ -63,7 +65,7 @@ public class PhsStarHandler implements MessageHandler {
             
             // Ensure the file exists and is a regular file
             if (!file.exists() || !file.isFile()) {
-                logger.error("File does not exist or is not a regular file: " + fileName);
+                logger.error("File does not exist or is not a regular file");
                 MessageUploader.clean(fileId);
                 throw new IOException("Invalid file: " + fileName);
             }
@@ -76,7 +78,7 @@ public class PhsStarHandler implements MessageHandler {
                 try {
                     file = PathValidationUtils.validateExistingPath(file, docDir);
                 } catch (SecurityException e) {
-                    logger.error("Attempted to access file outside document directory: " + fileName);
+                    logger.error("Attempted to access file outside document directory");
                     MessageUploader.clean(fileId);
                     throw new SecurityException("Access denied: file outside permitted directory");
                 }
@@ -94,11 +96,11 @@ public class PhsStarHandler implements MessageHandler {
 
             return ("success");
         } catch (SecurityException e) {
-            logger.error("Security violation: " + e.getMessage());
+            logger.error("Security violation: {}", LogSafe.exceptionTrace(e));
             MessageUploader.clean(fileId);
             throw e;
         } catch (Exception e) {
-            logger.error("Unexpected error.", e);
+            logger.error("Unexpected error.: {}", LogSafe.exceptionTrace(e));
             MessageUploader.clean(fileId);
             throw (new RuntimeException(e));
         } finally {
@@ -106,7 +108,7 @@ public class PhsStarHandler implements MessageHandler {
                 try {
                     in.close();
                 } catch (IOException e) {
-                    logger.warn("Failed to close BufferedReader", e);
+                    logger.warn("Failed to close BufferedReader: {}", LogSafe.exceptionTrace(e));
                 }
             }
         }

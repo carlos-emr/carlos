@@ -196,6 +196,13 @@ class RestPrivilegeGuardContractUnitTest {
         assertThat(guardedMethods(StatusService.class)).doesNotContain("checkIfAuthed");
     }
 
+    @Test
+    void shouldFollowTheSharedPatientGate_withoutExemptingItsCallers() throws IOException {
+        assertThat(guardedMethods(io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.class)).contains("require");
+        assertThat(guardedMethods(DiseaseRegistryService.class)).contains("addToDiseaseRegistry","getDiseaseRegistry");
+        assertThat(guardedMethods(RecordUxService.class)).contains("getRecordMenu","getSummary");
+    }
+
     /** Names of the public methods carrying a JAX-RS request-method designator such as {@code @GET}. */
     private static Set<String> resourceMethodNames(Class<?> service) {
         Set<String> names = new TreeSet<>();
@@ -218,6 +225,8 @@ class RestPrivilegeGuardContractUnitTest {
      */
     private static Set<String> guardedMethods(Class<?> service) throws IOException {
         Map<String, List<String>> bodies = methodBodies(service);
+        Class<?> shared = io.github.carlos_emr.carlos.webserv.rest.util.PatientApiAccess.class;
+        boolean sharedPatientGate = service != shared && guardedMethods(shared).contains("require");
         Map<String, boolean[]> guardedBodies = new HashMap<>();
         bodies.forEach((name, overloads) -> guardedBodies.put(name, new boolean[overloads.size()]));
         Set<String> guarded = new HashSet<>();
@@ -236,7 +245,8 @@ class RestPrivilegeGuardContractUnitTest {
                     for (int j = 0; j < state.length; j++) {
                         siblingGuarded |= j != i && state[j];
                     }
-                    if (body.contains("hasPrivilege(") || callsAny(body, guarded)
+                    if (body.contains("hasPrivilege(") || body.contains("hasPrivilegeReadOnly(")
+                            || sharedPatientGate && body.matches("(?s).*\\bPatientApiAccess\\.require\\s*\\(.*") || callsAny(body, guarded)
                             || (siblingGuarded && callsAny(body, Set.of(name)))) {
                         state[i] = true;
                         changed = true;
@@ -267,7 +277,7 @@ class RestPrivilegeGuardContractUnitTest {
     /** Method name to the bodies (one per overload) declared in the service's source file. */
     private static Map<String, List<String>> methodBodies(Class<?> service) throws IOException {
         String source = stripCommentsAndLiterals(
-                Files.readString(SOURCE_ROOT.resolve(service.getSimpleName() + ".java"), StandardCharsets.UTF_8));
+                Files.readString(SOURCE_ROOT.resolve(service.getName().substring("io.github.carlos_emr.carlos.webserv.rest.".length()).replace('.', '/') + ".java"), StandardCharsets.UTF_8));
         Map<String, List<String>> bodies = new HashMap<>();
         Matcher declaration = METHOD_DECLARATION.matcher(source);
         int searchFrom = 0;

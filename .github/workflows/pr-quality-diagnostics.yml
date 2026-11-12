@@ -1,0 +1,42 @@
+# Retain full external annotations; this read-only job never changes quality gates.
+# Licensed under the repository's LICENSE.
+name: PR quality diagnostics
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: pr-quality-diagnostics-${{ github.event.pull_request.number }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  codefactor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify complete annotation pagination
+        run: python3 -m unittest discover -s scripts/ci -p test_report_codefactor_findings.py -v
+      - name: Collect CodeFactor findings or explicit unavailability
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          REPORT_REPOSITORY: ${{ github.repository }}
+          REPORT_COMMIT: ${{ github.event.pull_request.head.sha }}
+          REPORT_PATH: ${{ runner.temp }}/codefactor-findings.json
+        run: python3 scripts/ci/report-codefactor-findings.py
+      - name: Preserve bounded diagnostics and completeness marker
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: codefactor-findings
+          path: ${{ runner.temp }}/codefactor-findings.json
+          if-no-files-found: error
+          retention-days: 7

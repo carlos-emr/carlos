@@ -43,10 +43,16 @@
 
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
+<fmt:message key="admin.jobTypes.save" var="jobTypesSaveLabel"/>
+<fmt:message key="admin.jobTypes.cancel" var="jobTypesCancelLabel"/>
+<fmt:message key="admin.jobTypes.saveError" var="jobTypesSaveErrorLabel"/>
+<fmt:message key="admin.jobTypes.saveUnconfirmed" var="jobTypesSaveUnconfirmedLabel"/>
+<fmt:message key="admin.jobTypes.loadError" var="jobTypesLoadErrorLabel"/>
 
 
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
 
@@ -76,12 +82,43 @@
 
 
         <script>
-            const jobTypesSaveLabel = "<fmt:message key='admin.jobTypes.save'/>";
-            const jobTypesCancelLabel = "<fmt:message key='admin.jobTypes.cancel'/>";
+            const jobTypesSaveLabel = "${carlos:forJavaScript(jobTypesSaveLabel)}";
+            const jobTypesCancelLabel = "${carlos:forJavaScript(jobTypesCancelLabel)}";
+            const jobTypesSaveErrorLabel = "${carlos:forJavaScript(jobTypesSaveErrorLabel)}";
+            const jobTypesSaveUnconfirmedLabel = "${carlos:forJavaScript(jobTypesSaveUnconfirmedLabel)}";
+            const jobTypesLoadErrorLabel = "${carlos:forJavaScript(jobTypesLoadErrorLabel)}";
+            let jobTypeTable;
+            let jobTypeRefreshGeneration = 0;
+            let jobTypeSavePending = false;
+            let jobTypeSaveEditorGeneration = 0;
+            let jobTypeCreateUnconfirmed = false;
+            let jobTypeEditorLoading = false;
+            let jobTypeEditorLoadFailed = false;
+            let jobTypeEditorGeneration = 0;
+
+            function updateJobTypeEditorState() {
+                // A save from a previous dialog must not lock a newly opened editor.
+                var formBlocked = jobTypeEditorLoading || (jobTypeSavePending
+                    && jobTypeSaveEditorGeneration === jobTypeEditorGeneration);
+                $('#jobTypeForm :input').prop('disabled', formBlocked);
+                var blocked = jobTypeSavePending || jobTypeEditorLoading
+                    || jobTypeEditorLoadFailed
+                    || (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0');
+                $('#new-jobtype').dialog('widget').find('.job-types-save').button(blocked ? 'disable' : 'enable');
+            }
 
             function editJobType(jobTypeId) {
+                clearJobTypeEditor();
+                jobTypeEditorLoading = true;
+                jobTypeEditorLoadFailed = false;
+                $('#new-jobtype').dialog('open');
+                var editorGeneration = jobTypeEditorGeneration;
+                updateJobTypeEditorState();
                 jQuery.getJSON("<%= request.getContextPath() %>/ws/rs/jobs/jobType/" + jobTypeId, {},
                     function (xml) {
+                        if (editorGeneration !== jobTypeEditorGeneration || !$('#new-jobtype').dialog('isOpen')) {
+                            return;
+                        }
                         if (xml.types) {
                             var job;
                             if (xml.types instanceof Array) {
@@ -95,22 +132,33 @@
                             $('#jobTypeClassName').val(job.className);
                             $('#jobTypeEnabled').prop('checked', job.enabled);
                             $('#jobTypeId').val(job.id);
+                            jobTypeEditorLoading = false;
+                            updateJobTypeEditorState();
+                        }
+                    }).fail(function () {
+                        if (editorGeneration === jobTypeEditorGeneration && $('#new-jobtype').dialog('isOpen')) {
+                            jobTypeEditorLoading = false;
+                            jobTypeEditorLoadFailed = true;
+                            updateJobTypeEditorState();
+                            window.alert(jobTypesLoadErrorLabel);
                         }
                     });
-                $('#new-jobtype').dialog('open');
             }
 
-            function addNewJobType() {
+            function clearJobTypeEditor() {
                 $('#jobTypeId').val('0');
                 $('#jobTypeName').val('');
                 $('#jobTypeDescription').val('');
                 $('#jobTypeClassName').val('');
-                $('#jobTypeEnabled').prop('checked', true);
-                $('#new-jobtype').dialog('open');
+                $('#jobTypeEnabled').prop('checked', false);
             }
 
-            function clearJobs() {
-                $("#jobTypeTable tbody tr").remove();
+            function addNewJobType() {
+                jobTypeEditorLoading = false;
+                jobTypeEditorLoadFailed = false;
+                clearJobTypeEditor();
+                $('#jobTypeEnabled').prop('checked', true);
+                $('#new-jobtype').dialog('open');
             }
 
             function listJobs() {
@@ -118,43 +166,57 @@
             }
 
             function getJobTypes() {
-                jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/jobs/types/all", {async: false},
+                // A delayed earlier refresh must not replace rows from a later save.
+                var refreshGeneration = ++jobTypeRefreshGeneration;
+                return jQuery.getJSON("${pageContext.request.contextPath}/ws/rs/jobs/types/all", {async: false},
                     function (xml) {
+                        if (refreshGeneration !== jobTypeRefreshGeneration) {
+                            return;
+                        }
+                        var arr = [];
                         if (xml.types) {
-                            var arr = new Array();
                             if (xml.types instanceof Array) {
                                 arr = xml.types;
                             } else {
                                 arr[0] = xml.types;
                             }
-
-                            for (var i = 0; i < arr.length; i++) {
-                                var job = arr[i];
-                                var $row = $('<tr>');
-                                var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
-                                    .text(job.name)
-                                    .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
-                                $row.append($('<td>').append($('<u>').append($nameLink)));
-                                $row.append($('<td>').text(job.description));
-                                $row.append($('<td>').text(job.className));
-                                $row.append($('<td>').text(job.currentlyValid));
-                                $row.append($('<td>').text(job.enabled));
-                                $row.append($('<td>').text(new Date(job.updated)));
-
-                                $('#jobTypeTable tbody').append($row);
-
-                            }
-                            initiate();
                         }
 
+                        var rows = [];
+                        for (var i = 0; i < arr.length; i++) {
+                            var job = arr[i];
+                            var $row = $('<tr>');
+                            var $nameLink = $('<a>').attr('href', 'javascript:void(0);')
+                                .text(job.name)
+                                .on('click', (function(id) { return function() { editJobType(id); }; })(job.id));
+                            $row.append($('<td>').append($('<u>').append($nameLink)));
+                            $row.append($('<td>').text(job.description));
+                            $row.append($('<td>').text(job.className));
+                            $row.append($('<td>').text(job.currentlyValid));
+                            $row.append($('<td>').text(job.enabled));
+                            $row.append($('<td>').text(new Date(job.updated)));
+
+                            rows.push($row[0]);
+                        }
+
+                        var table = initiate();
+                        table.clear();
+                        table.rows.add(rows);
+                        table.draw(false);
+                        var pageInfo = table.page.info();
+                        if (pageInfo.page > 0 && pageInfo.page >= pageInfo.pages) {
+                            table.page(Math.max(0, pageInfo.pages - 1)).draw(false);
+                        }
                     });
             }
 
             function initiate() {
-                $('#jobTypeTable').DataTable({
-                    "order": []
-                });
-                return;
+                if (!jobTypeTable) {
+                    jobTypeTable = $('#jobTypeTable').DataTable({
+                        "order": []
+                    });
+                }
+                return jobTypeTable;
             }
 
             $(document).ready(function () {
@@ -166,15 +228,58 @@
                     height: 525,
                     width: 620,
                     modal: true,
+                    open: function () {
+                        jobTypeEditorGeneration++;
+                        updateJobTypeEditorState();
+                    },
                     buttons: {
                         saveJobType: {
-                            class: "btn btn-primary", text: jobTypesSaveLabel, click: function () {
-                                $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', $('#jobTypeForm').serialize(), function (data) {
-                                    clearJobs();
-                                    listJobs();
-                                });
-                                $(this).dialog("close");
-
+                            class: "btn btn-primary job-types-save", text: jobTypesSaveLabel, click: function () {
+                                if (jobTypeSavePending || jobTypeEditorLoading || jobTypeEditorLoadFailed) {
+                                    return;
+                                }
+                                if (jobTypeCreateUnconfirmed && $('#jobTypeId').val() === '0') {
+                                    window.alert(jobTypesSaveUnconfirmedLabel);
+                                    return;
+                                }
+                                var $dialog = $(this);
+                                var editorGeneration = jobTypeEditorGeneration;
+                                var creating = $('#jobTypeId').val() === '0';
+                                var formData = $('#jobTypeForm').serialize();
+                                function restoreSaveButton() {
+                                    jobTypeSavePending = false;
+                                    updateJobTypeEditorState();
+                                }
+                                jobTypeSaveEditorGeneration = editorGeneration;
+                                jobTypeSavePending = true;
+                                updateJobTypeEditorState();
+                                var saveRequest;
+                                try {
+                                    saveRequest = $.post('${pageContext.request.contextPath}/ws/rs/jobs/saveJobType', formData);
+                                } catch (error) {
+                                    restoreSaveButton();
+                                    window.alert(jobTypesSaveErrorLabel);
+                                    return;
+                                }
+                                saveRequest.always(restoreSaveButton)
+                                    .done(function () {
+                                        listJobs();
+                                        if (editorGeneration === jobTypeEditorGeneration) {
+                                            $dialog.dialog("close");
+                                        }
+                                    })
+                                    .fail(function () {
+                                        if (creating) {
+                                            // A failed response cannot prove the insert rolled back.
+                                            // Never infer ownership from a matching name or retry id=0 here.
+                                            jobTypeCreateUnconfirmed = true;
+                                            updateJobTypeEditorState();
+                                            listJobs();
+                                            window.alert(jobTypesSaveUnconfirmedLabel);
+                                        } else {
+                                            window.alert(jobTypesSaveErrorLabel);
+                                        }
+                                    });
                             }
                         },
                         cancel: {

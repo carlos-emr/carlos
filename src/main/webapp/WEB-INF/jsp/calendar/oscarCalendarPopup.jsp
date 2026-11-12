@@ -34,9 +34,9 @@
     //
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*,java.net.*" %>
+        import="java.util.*, io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     //to prepare calendar display

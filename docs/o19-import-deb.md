@@ -45,10 +45,7 @@ package's.
 
 The importer snapshots the complete input set privately and binds its ordered
 hashes, the ETL rules and the target physical schema to the run. Keep sufficient
-disk for those snapshots. When assessment and the real run use the same verified
-input bytes, the real run hard-links the private snapshots instead of making a
-second full copy; it rechecks their digests before using them. Cleanup removes
-the extracted inputs and immutable source snapshots after verified
+disk for those snapshots. Cleanup removes the extracted inputs and immutable source snapshots after verified
 preservation; backup excludes both sets of raw inputs while retaining the ledgers,
 reports and preserved archive export. Package purge also removes nested source
 properties copies under the existing credential-removal policy.
@@ -64,43 +61,6 @@ before checkpoints; keyless tables are checked by content and multiplicity.
 Final verification checks the physical schema and declared foreign keys, then
 refreshes optimizer statistics. See [the collation and index policy](database-collation-policy.md)
 for the reviewed column exceptions and the forward migrations for existing hosts.
-
-### Beta8 package pair and a beta7 import already in progress
-
-CARLOS `2026.08.0-beta8` pairs with `carlos-ctl` 1.3.3 and schema manifest
-`o19map-8`. OSCAR 19's `DigitalSignature.demographicId=-1` is retained exactly;
-an invisible generated column maps only that sentinel to SQL NULL for the
-patient foreign key. New signatures still require a real patient. Preflight
-blocks other invalid patient references and unknown signature module values;
-P7 checks the original signature values independently of the ETL mapping.
-P4 freezes a uniquely inferred patient and module from the staged OSCAR
-references in an app-owned receipt, and P7 checks that receipt against staging.
-For eForms, only saved source `signatureValue` and Rich Text `Letter` fields
-can supply that reference; conflicting patients or modules leave the signature
-unreadable.
-Read access to an unassigned signature uses only that frozen decision; later
-eForm submissions cannot assign its patient. A row without a unique source
-owner remains preserved but unreadable until separately reconciled.
-
-This pair changes both the manifest and the ETL contract. A beta7 import that
-has already copied rows **cannot** resume after installation. Keep CARLOS
-stopped, retain the tester's reports for diagnosis, restore the pre-import
-database, documents and import-state snapshot (or reset the disposable
-rehearsal host), install both beta8 packages, and run a new assessment and
-full import against the frozen OSCAR export. Remove the rehearsal's manually
-inserted placeholder files and target eForm edits before starting. Do not use
-`--cleanup` to convert a partially copied import into a new one.
-
-The document phase recognizes only three known stock eForm collisions:
-`blank.rtl` and `editor_help.html` are seeded and yield to the OSCAR source;
-the package-managed `editControl2.js` stays at the packaged version and the
-source copy is kept in the private collision archive. Other collisions stop
-with a named refusal. An exact `${oscar_image_path}/` marker is normalized
-to `${oscar_image_path}` after copying the eForms. Static asset checks ignore
-HTML comments and script bodies, but still check real references. A target
-placeholder cannot satisfy a document row or clinic eForm asset that has no
-file in the source tar. P7 repeats source membership and service-account
-readability checks after a resumed run.
 
 ## 1. Assess the clinic first (before any backup is shipped)
 
@@ -999,18 +959,12 @@ the additive billing audit migration does not permit a partial-copy bypass.
   basename only and refuses dot-leading names), an eForm references an
   image asset that is not there, or an HRM report is missing; the names
   are in `documents-details.txt` (root-only), the console and the report
-  carry counts. If a source file was present and its target copy is missing,
-  restore that exact file under `/var/lib/carlos-emr/CarlosDocument/carlos/`
-  and use `--resume`. If the source tar never contained a referenced
-  document or clinic eForm asset, a target-side placeholder cannot clear
-  the refusal: recover the genuine source file, restore the pre-import
-  snapshot, rebuild the tar and start a new import. The phase records the
-  tar it restored and refuses a different one on resume.
+  carry counts. Fix the tree **in place** under
+  `/var/lib/carlos-emr/CarlosDocument/carlos/` and `--resume`; the import
+  never goes live with unreadable documents. Restoring a *different* tar
+  is not a recovery path — the phase records the tar it restored and
+  refuses another one; that needs the pre-import snapshot first.
   An eForm image reference that escapes `eform/images` is blocking too.
-  Correct that eForm in the source, re-export the complete source set,
-  restore the pre-import snapshot, and start a fresh import. Editing the
-  target `form_html` and resuming cannot pass the P7 source-integrity check;
-  disabling the form does not bypass reconciliation.
   Separately reported, not blocking: references CARLOS cannot route to
   because the form names a subdirectory or carries a query suffix while
   the asset itself is present. No tar can fix those — each needs

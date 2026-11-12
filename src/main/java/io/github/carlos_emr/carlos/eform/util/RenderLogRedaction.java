@@ -24,11 +24,12 @@ package io.github.carlos_emr.carlos.eform.util;
 /**
  * PHI-safe redaction for the eForm browser-render diagnostics.
  *
- * <p>The render surfaces (the loopback render-page servlet and the Selenium/CDP renderer) log
- * third-party error text — WebDriver/chromedriver messages, settle-script errors, container
+ * <p>The render surfaces (the loopback render-page servlet and the WebDriver/CDP renderer) log
+ * third-party error text — chromedriver messages, settle-script errors, container
  * exceptions — that can embed the tokenized render URL (which carries the {@code fdid} and the live
- * render token) or a bare filesystem path. All four render surfaces — the Selenium/CDP renderer
- * ({@link EFormBrowserPdfService}), the render-page servlet ({@link EFormBrowserRenderPageServlet}),
+ * render token) or a bare filesystem path. All four render surfaces — the WebDriver/CDP renderer
+ * ({@link EFormBrowserPdfService}, over {@link RenderBrowser}'s JDK HTTP transport), the render-page
+ * servlet ({@link EFormBrowserRenderPageServlet}),
  * and the asset-image and signature servlets that stream render assets — route that text through here
  * before it reaches the logs, so every render-surface catch block shares one redaction contract and
  * cannot drift.</p>
@@ -98,9 +99,10 @@ final class RenderLogRedaction {
 
     /**
      * Redacted {@code caused-by} chain: for each nested cause, its type and URL/path-redacted message.
-     * {@link #stackSummary} only reports the top throwable's frames, so the root cause that Selenium
-     * and WebDriver routinely wrap (e.g. {@code WebDriverException} around a {@code TimeoutException} /
-     * {@code ConnectException}) was otherwise unrecoverable at any log level. Cause types and redacted
+     * {@link #stackSummary} only reports the top throwable's frames, so the root cause the render
+     * transport wraps (e.g. {@link RenderBrowser}'s {@code IllegalStateException} around an
+     * {@code HttpTimeoutException} / {@code ConnectException}) was otherwise unrecoverable at any log
+     * level. Cause types and redacted
      * messages are as safe to log as the top-level one. Returns {@code ""} when there is no cause.
      */
     static String causeChain(Throwable throwable) {

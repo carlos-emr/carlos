@@ -52,11 +52,11 @@ const pathIs = (route) => (url) => route.test(url.pathname);
 const assertId = (id, what) => h.assert(/^[1-9]\d*$/.test(String(id)), `${what} is not an owned numeric id`);
 
 /** Insert an owned appointment for the patient (reason/notes carry the text); returns its number. */
-function ownedAppointment(s, { date, start, text }) {
+function ownedAppointment(s, { date, start, text, location = '' }) {
   const no = s.sql.value(`INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
     program_id, notes, reason, location, resources, type, style, billing, status, createdatetime, updatedatetime, creator, remarks, urgency)
     VALUES (${q(s.provider)}, ${q(date)}, ${q(start)}, ADDTIME(${q(start)}, '00:14:00'), ${q(`${s.marker},Workflow`)}, ${s.patient}, 0,
-    ${q(text)}, ${q(text)}, '', '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
+    ${q(text)}, ${q(text)}, ${q(location)}, '', '', '', '', 't', NOW(), NOW(), ${q(s.provider)}, '', ''); SELECT LAST_INSERT_ID()`);
   assertId(no, 'The appointment fixture');
   return no;
 }
@@ -310,7 +310,7 @@ function demographicUpdate(s) {
 // ---------------------------------------------------------------------------------------------
 // Ontario bill save (both)
 
-function billingOnSave(s) {
+function billingOnSave(s, {configureForm, appointmentLocation = ''} = {}) {
   const prefix = `${s.marker}-BS-`;
   const date = process.env.BILLING_SUBMIT_DATE || '2024-05-06';
   const code = process.env.BILLING_OHIP_CODE || 'A007A';
@@ -319,7 +319,7 @@ function billingOnSave(s) {
   let hour = 8;
   const target = (tag) => {
     if (!targets[tag]) {
-      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag });
+      targets[tag] = ownedAppointment(s, { date, start: `${String(hour).padStart(2, '0')}:30:00`, text: prefix + tag, location: appointmentLocation });
       hour += 1;
     }
     return targets[tag];
@@ -366,6 +366,7 @@ function billingOnSave(s) {
       await page.locator(`input[name="xml_${code}"]:visible`).first().check();
       await page.locator('input[name="dxCode"]').fill(process.env.BILLING_DX_CODE || '250');
       await page.locator('input[name="dxCode"]').dispatchEvent('change');
+      if (configureForm) await configureForm(page);
       await Promise.all([page.waitForURL(/ViewBillingONReview/, { timeout: TIMEOUT }),
         page.locator('#titlesearch input[type="submit"][name="submit"]').click()]);
       await page.waitForLoadState('networkidle', { timeout: TIMEOUT }).catch(() => {});
@@ -446,14 +447,20 @@ function chartNoteSave(s) {
       s.sql.execute(`DELETE FROM casemgmt_tmpsave WHERE demographic_no=${s.patient}; DELETE FROM casemgmt_note_lock WHERE demographic_no=${s.patient}`);
       h.assert(noteIds().length === 0, 'Owned chart notes were not removed');
     },
-    async perform(tag) {
+    async perform(tag, {text = `${prefix}${tag} note text`} = {}) {
       const chart = await s.chart();
       const note = chart.locator('textarea[name="caseNote_note"]').first();
       await note.waitFor({ state: 'visible', timeout: TIMEOUT });
       await note.click();
-      await note.fill(`${prefix}${tag} note text`);
+      await note.fill(text);
       return captureInContext(s.context,
-        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click());
+        (url) => this.route.test(url.pathname), () => chart.locator('#saveImg').first().click(), {
+          acceptRequest:request=>{
+            const form=new URLSearchParams(request.postData()||'');
+            return ['save','ajaxsave'].includes(form.get('method'))
+              && (form.get('caseNote_note')||form.get('noteTxt')||'').replace(/\r\n?/g,'\n')===text.replace(/\r\n?/g,'\n');
+          },
+        });
     },
     aim(captured, tag) {
       const field = ['caseNote_note', 'noteTxt', 'value'].find(name => captured.body.has(name));
@@ -513,6 +520,7 @@ function rxSave(s) {
       if (notes.length) {
         s.sql.execute(`DELETE FROM casemgmt_note_link WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_issue_notes WHERE note_id IN (${notes.join(',')});
+          DELETE FROM casemgmt_note_ext WHERE note_id IN (${notes.join(',')});
           DELETE FROM casemgmt_note WHERE demographic_no=${s.patient} AND note_id IN (${notes.join(',')})`);
       }
       s.sql.execute(`DELETE FROM drugReason WHERE demographicNo=${s.patient};
@@ -603,7 +611,7 @@ function allergyAdd(s) {
  * Provider update (admin/ProviderUpdate) of a provider the check owns: the target is a second
  * throwaway login of the authz fixture (`target` = {providerNo}), so no real provider is edited.
  */
-function providerUpdate(s, { target }) {
+function providerUpdate(s, { target, configureForm }) {
   // provider.team is varchar(20): the run marker's last eight hex digits keep the tag unique.
   const prefix = `PW${s.marker.slice(-8)}`;
   const no = () => q(target.providerNo);
@@ -641,6 +649,7 @@ function providerUpdate(s, { target }) {
       const form = frame.locator('form[name="updatearecord"]');
       h.assert(await form.locator('input[name="provider_no"]').inputValue() === target.providerNo, 'The edit form holds another provider');
       await form.locator('input[name="team"]').fill(prefix + tag);
+      if(configureForm)await configureForm(form);
       const captured = await captureInContext(s.context, pathIs(this.route), () => navigate(form.locator('input[name="subbutton"]')));
       if (admin !== s.schedule && !admin.isClosed()) await admin.close().catch(() => {});
       else await h.gotoApp(s.schedule, s.config.baseUrl, '/provider/providercontrol?displaymode=day&dboperation=searchappointmentday&viewall=1');
@@ -873,7 +882,7 @@ function measurementSave(s) {
   };
 }
 
-module.exports = {
+module.exports = { openDaySheet,
   allergyAdd, appointmentAdd, appointmentDelete, appointmentUpdate, billingOnSave, captureInContext, chartNoteSave,
   consultationRequest, demographicAdd, demographicUpdate, eformAdd, futureDate, measurementSave, messengerSend,
   ownedAppointment, preventionAdd, providerUpdate, removeAppointments, rxSave, ticklerAdd,

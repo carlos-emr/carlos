@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.commn.model.Allergy;
 import io.github.carlos_emr.carlos.prescript.util.RxDrugRef;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 
 import java.util.ArrayList;
 import java.util.Hashtable;
@@ -235,7 +234,7 @@ public class RxDrugData {
 
             @Override
             public String toString() {
-                return ToStringBuilder.reflectionToString(this);
+                return getClass().getSimpleName() + "[protected]";
             }
 
         }
@@ -326,7 +325,7 @@ public class RxDrugData {
 
         @Override
         public String toString() {
-            return ToStringBuilder.reflectionToString(this);
+            return getClass().getSimpleName() + "[protected]";
         }
 
     }
@@ -375,7 +374,7 @@ public class RxDrugData {
 
         @Override
         public String toString() {
-            return ToStringBuilder.reflectionToString(this);
+            return getClass().getSimpleName() + "[protected]";
         }
     }
 
@@ -451,7 +450,7 @@ public class RxDrugData {
 
         @Override
         public String toString() {
-            return ToStringBuilder.reflectionToString(this);
+            return getClass().getSimpleName() + "[protected]";
         }
     }
 
@@ -543,7 +542,7 @@ public class RxDrugData {
 
         @Override
         public String toString() {
-            return ToStringBuilder.reflectionToString(this);
+            return getClass().getSimpleName() + "[protected]";
         }
 
     }

@@ -46,8 +46,8 @@ public class CdsMedicationPersister {
     private final PartialDateDao dates;
     private final CdsClinicalNormalizationService normalization;
 
-    public CdsMedicationPersister(DrugDao drugs, PartialDateDao dates,
-            CdsClinicalNormalizationService normalization) {
+    public CdsMedicationPersister(
+            DrugDao drugs, PartialDateDao dates, CdsClinicalNormalizationService normalization) {
         this.drugs = drugs;
         this.dates = dates;
         this.normalization = normalization;
@@ -56,20 +56,39 @@ public class CdsMedicationPersister {
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
     public Map<String, String> write(int demographicNo, String auditProviderNo, CdsRecordDto record)
             throws IOException {
-        return write(demographicNo, auditProviderNo, normalization.medication(record));
+        return write(
+                demographicNo,
+                auditProviderNo,
+                normalization.medication(record),
+                null,
+                normalization.medicationArchived(record));
     }
 
     /** Normalize before entering the unit when the caller already has a validated candidate. */
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
-    public Map<String, String> write(int demographicNo, String auditProviderNo, CdsMedicationDto source) {
+    public Map<String, String> write(
+            int demographicNo, String auditProviderNo, CdsMedicationDto source) {
         return write(demographicNo, auditProviderNo, source, null);
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
-    public Map<String, String> write(int demographicNo, String auditProviderNo, CdsMedicationDto source,
+    public Map<String, String> write(
+            int demographicNo,
+            String auditProviderNo,
+            CdsMedicationDto source,
             CdsProviderMatchDto sourceProvider) {
+        return write(demographicNo, auditProviderNo, source, sourceProvider, false);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)
+    public Map<String, String> write(
+            int demographicNo,
+            String auditProviderNo,
+            CdsMedicationDto source,
+            CdsProviderMatchDto sourceProvider,
+            boolean archived) {
         CdsClinicalTransactions.requireUnit();
-        Drug drug = candidate(demographicNo, source, sourceProvider);
+        Drug drug = candidate(demographicNo, source, sourceProvider, archived);
         // persist(), unlike legacy addNewDrug(), propagates failure to the transaction owner.
         drugs.persist(drug);
         drugs.flush();
@@ -83,12 +102,22 @@ public class CdsMedicationPersister {
     }
 
     Drug candidate(int demographicNo, CdsMedicationDto source, CdsProviderMatchDto sourceProvider) {
+        return candidate(demographicNo, source, sourceProvider, false);
+    }
+
+    Drug candidate(
+            int demographicNo,
+            CdsMedicationDto source,
+            CdsProviderMatchDto sourceProvider,
+            boolean archived) {
         if (demographicNo < 1) throw new IllegalArgumentException("Invalid target patient");
         Drug drug = new Drug();
         drug.setDemographicId(demographicNo);
         // The importing actor is audited by the unit; it is not evidence of original authorship.
-        drug.setImportedPrescriberNo(sourceProvider != null && sourceProvider.matched()
-                ? sourceProvider.localProviderNo() : null);
+        drug.setImportedPrescriberNo(
+                sourceProvider != null && sourceProvider.matched()
+                        ? sourceProvider.localProviderNo()
+                        : null);
         drug.setOutsideProviderName(source.prescriberName());
         drug.setOutsideProviderOhip(source.prescriberOhip());
         if (source.din() == null) drug.setCustomName(source.name());
@@ -102,7 +131,8 @@ public class CdsMedicationPersister {
         drug.setDurUnit(source.durationDays() == null ? null : "D");
         drug.setQuantity(source.quantity());
         drug.setRepeat(source.repeats());
-        if (source.refillDurationDays() != null) drug.setRefillDuration(source.refillDurationDays());
+        if (source.refillDurationDays() != null)
+            drug.setRefillDuration(source.refillDurationDays());
         if (source.refillQuantity() != null) drug.setRefillQuantity(source.refillQuantity());
         drug.setFreqCode(source.frequency());
         drug.setRoute(source.route());
@@ -110,28 +140,43 @@ public class CdsMedicationPersister {
         drug.setUnit(source.doseUnit());
         drug.setUnitName(source.doseUnit());
         drug.setCdsDoseText(source.dose());
-        CdsMedicationDose.parse(source.dose()).ifPresent(dose -> {
-            drug.setTakeMin(dose.minimum());
-            drug.setTakeMax(dose.maximum());
-        });
+        CdsMedicationDose.parse(source.dose())
+                .ifPresent(
+                        dose -> {
+                            drug.setTakeMin(dose.minimum());
+                            drug.setTakeMax(dose.maximum());
+                        });
         drug.setDosage(strength(source));
         drug.setLongTerm(source.longTerm());
         drug.setPastMed(source.past());
         drug.setPatientCompliance(source.compliance());
-        drug.setShortTerm(source.treatmentType() == null ? null
-                : (source.treatmentType().equals("ACU") || source.treatmentType().equals("ONET")
-                    || source.treatmentType().equals("PRN Short-term")));
+        drug.setShortTerm(
+                source.treatmentType() == null
+                        ? null
+                        : (source.treatmentType().equals("ACU")
+                                || source.treatmentType().equals("ONET")
+                                || source.treatmentType().equals("PRN Short-term")));
         drug.setNoSubs(source.substitutionNotAllowed());
         drug.setNonAuthoritative(source.nonAuthoritative());
         drug.setETreatmentType(source.treatmentType());
         drug.setRxStatus(source.prescriptionStatus());
         drug.setCdsCurrentness(source.currentness().name());
         drug.setCdsProjectionIncomplete(source.sourceRequiresReconciliation());
-        drug.setPrn(source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
-                || "PRN".equals(source.frequency()));
-        drug.setArchived(source.currentness() == Currentness.HISTORICAL);
-        drug.setArchivedReason(source.currentness() == Currentness.HISTORICAL
-                ? "cds:" + (source.prescriptionStatus() == null ? "PastMedications" : source.prescriptionStatus()) : null);
+        drug.setPrn(
+                source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
+                        || "PRN".equals(source.frequency()));
+        drug.setArchived(archived || source.currentness() == Currentness.HISTORICAL);
+        drug.setArchivedReason(
+                source.currentness() == Currentness.HISTORICAL
+                        ? "cds:"
+                                + (source.prescriptionStatus() == null
+                                        ? "PastMedications"
+                                        : source.prescriptionStatus())
+                        : archived
+                                ? "cds:"
+                                        + io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsNativeExtensionContract.MEDICATION_ARCHIVED
+                                : null);
         drug.setArchivedDate(null);
         drug.setDispenseInterval(source.dispenseInterval());
         drug.setProtocol(source.protocol());
@@ -141,7 +186,8 @@ public class CdsMedicationPersister {
         drug.setSpecialInstruction(source.pharmacyInstructions());
         drug.setCustomInstructions(true);
         drug.setCustomNote(false);
-        drug.setScriptNo(null); // A source prescription identifier is not a local executable script.
+        drug.setScriptNo(
+                null); // A source prescription identifier is not a local executable script.
         drug.setPosition(0);
         drug.setCreateDate(new Date());
         return drug;
@@ -149,20 +195,27 @@ public class CdsMedicationPersister {
 
     private void partial(int id, int field, CdsTemporalDto value) {
         if (value.legacyPartialFormat() != null) {
-            dates.persist(new PartialDate(PartialDate.DRUGS, id, field, value.legacyPartialFormat()));
+            dates.persist(
+                    new PartialDate(PartialDate.DRUGS, id, field, value.legacyPartialFormat()));
         }
     }
 
     private static String strength(CdsMedicationDto source) {
-        if (source.strengthSourceOnly()) return "[Source strength: see imported medication details]";
+        if (source.strengthSourceOnly())
+            return "[Source strength: see imported medication details]";
         if (source.strengthAmount() == null) return null;
-        return source.strengthAmount() + (source.strengthUnit() == null ? "" : " " + source.strengthUnit());
+        return source.strengthAmount()
+                + (source.strengthUnit() == null ? "" : " " + source.strengthUnit());
     }
 
     /** Preserves fractional/range dose literally instead of extracting a leading number. */
     private static String instructions(CdsMedicationDto source) {
         StringBuilder display = new StringBuilder();
-        append(display, source.name() == null || source.name().isBlank() ? "Source DIN " + source.din() : source.name());
+        append(
+                display,
+                source.name() == null || source.name().isBlank()
+                        ? "Source DIN " + source.din()
+                        : source.name());
         append(display, strength(source));
         display.append('\n');
         append(display, source.dose());

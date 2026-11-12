@@ -46,17 +46,25 @@ public class CdsImportMaintenanceService {
     private final OscarTrackingBasicDataSource dataSource;
     private final CdsImportConfigurationService configuration;
 
-    public CdsImportMaintenanceService(@Qualifier("dataSource") OscarTrackingBasicDataSource dataSource,
+    public CdsImportMaintenanceService(
+            @Qualifier("dataSource") OscarTrackingBasicDataSource dataSource,
             CdsImportConfigurationService configuration) {
         this.dataSource = dataSource;
         this.configuration = configuration;
     }
 
     @FunctionalInterface
-    public interface IoRead<T> { T get() throws java.io.IOException; }
+    public interface IoRead<T> {
+        T get() throws java.io.IOException;
+    }
 
     /** Explicit operational retry result; this never changes a completed clinical run. */
-    public enum ReleaseStatus { RELEASED, GLOBAL_HOLDS_REMAIN, OWNER_BUSY, REQUIRES_RECONCILIATION }
+    public enum ReleaseStatus {
+        RELEASED,
+        GLOBAL_HOLDS_REMAIN,
+        OWNER_BUSY,
+        REQUIRES_RECONCILIATION
+    }
 
     /**
      * Retries only the operational release boundary. A fresh physical owner and verified target
@@ -70,15 +78,21 @@ public class CdsImportMaintenanceService {
             safety.verify(owner);
             owner.allowReopen();
             owner.close();
-            return owner.releaseVerified ? ReleaseStatus.RELEASED : ReleaseStatus.GLOBAL_HOLDS_REMAIN;
+            return owner.releaseVerified
+                    ? ReleaseStatus.RELEASED
+                    : ReleaseStatus.GLOBAL_HOLDS_REMAIN;
         } catch (CdsImportException failed) {
             return "MAINTENANCE_OWNER_BUSY".equals(failed.getCode())
-                    || "LOCAL_MAINTENANCE_OWNER_BUSY".equals(failed.getCode())
-                    ? ReleaseStatus.OWNER_BUSY : ReleaseStatus.REQUIRES_RECONCILIATION;
+                            || "LOCAL_MAINTENANCE_OWNER_BUSY".equals(failed.getCode())
+                    ? ReleaseStatus.OWNER_BUSY
+                    : ReleaseStatus.REQUIRES_RECONCILIATION;
         } finally {
             if (owner != null && !owner.closed) {
-                try { owner.close(); }
-                catch (CdsImportException retained) { /* The durable active flag remains fail closed. */ }
+                try {
+                    owner.close();
+                } catch (CdsImportException retained) {
+                    /* The durable active flag remains fail closed. */
+                }
             }
         }
     }
@@ -98,8 +112,8 @@ public class CdsImportMaintenanceService {
         boolean locked = false;
         try {
             connection = dataSource.openUnpooledCdsMaintenanceConnection();
-            io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts
-                    .retainOwnerForDuration(connection, configuration.limits().maxDurationMillis());
+            io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.retainOwnerForDuration(
+                    connection, configuration.limits().maxDurationMillis());
             // Keep transaction-duration DDL pins without a run-long consistent data read view.
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             if (scalar(connection, "SELECT GET_LOCK(?, 0)", state.lockName()) != 1) {
@@ -109,23 +123,32 @@ public class CdsImportMaintenanceService {
             long id = scalar(connection, "SELECT CONNECTION_ID()", null);
             connection.setAutoCommit(false);
             long generation;
-            try (PreparedStatement gate = connection.prepareStatement(
-                    "SELECT maintenance_generation FROM cds_import_admission WHERE id=? FOR UPDATE")) {
-                gate.setQueryTimeout(Math.toIntExact(configuration.number("cds.import.drainTimeoutSeconds", 30)));
+            try (PreparedStatement gate =
+                    connection.prepareStatement(
+                            "SELECT maintenance_generation FROM cds_import_admission WHERE id=? FOR UPDATE")) {
+                gate.setQueryTimeout(
+                        Math.toIntExact(
+                                configuration.number("cds.import.drainTimeoutSeconds", 30)));
                 gate.setString(1, CdsJdbcAdmissionState.ROW);
                 try (ResultSet rows = gate.executeQuery()) {
-                    if (!rows.next()) throw new SQLException("Maintenance admission row is missing", "45000");
+                    if (!rows.next())
+                        throw new SQLException("Maintenance admission row is missing", "45000");
                     generation = Math.addExact(rows.getLong(1), 1);
                 }
             }
             String token = UUID.randomUUID().toString();
-            try (PreparedStatement activate = connection.prepareStatement("""
+            try (PreparedStatement activate =
+                    connection.prepareStatement(
+                            """
                     UPDATE cds_import_admission SET maintenance_active=TRUE, maintenance_generation=?,
                     maintenance_owner_token=?, maintenance_connection_id=? WHERE id=?
                     """)) {
-                activate.setLong(1, generation); activate.setString(2, token); activate.setLong(3, id);
+                activate.setLong(1, generation);
+                activate.setString(2, token);
+                activate.setLong(3, id);
                 activate.setString(4, CdsJdbcAdmissionState.ROW);
-                if (activate.executeUpdate() != 1) throw new SQLException("Maintenance admission activation failed", "45000");
+                if (activate.executeUpdate() != 1)
+                    throw new SQLException("Maintenance admission activation failed", "45000");
             }
             connection.commit();
             connection.setAutoCommit(true);
@@ -134,12 +157,23 @@ public class CdsImportMaintenanceService {
             return new Owner(connection, state, lease);
         } catch (SQLException | RuntimeException failure) {
             if (connection != null) {
-                try { connection.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
-                if (locked) {
-                    try { scalar(connection, "SELECT RELEASE_LOCK(?)", state.lockName()); }
-                    catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
+                try {
+                    connection.rollback();
+                } catch (SQLException cleanup) {
+                    failure.addSuppressed(cleanup);
                 }
-                try { connection.close(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
+                if (locked) {
+                    try {
+                        scalar(connection, "SELECT RELEASE_LOCK(?)", state.lockName());
+                    } catch (SQLException cleanup) {
+                        failure.addSuppressed(cleanup);
+                    }
+                }
+                try {
+                    connection.close();
+                } catch (SQLException cleanup) {
+                    failure.addSuppressed(cleanup);
+                }
             }
             if (failure instanceof CdsImportException domain) throw domain;
             throw new CdsImportException("MAINTENANCE_ACQUISITION_FAILED", false, failure);
@@ -150,26 +184,34 @@ public class CdsImportMaintenanceService {
     public boolean isClinicalAccessBlocked() {
         if (dataSource.getCdsAdmissionState() == null) return false;
         try (Connection connection = dataSource.getConnection();
-                PreparedStatement query = connection.prepareStatement("""
+                PreparedStatement query =
+                        connection.prepareStatement(
+                                """
                     SELECT maintenance_active OR EXISTS (SELECT 1 FROM cds_import_patient WHERE held=TRUE)
                         OR IS_USED_LOCK(?) IS NOT NULL
                     FROM cds_import_admission WHERE id=?
                     """)) {
             query.setString(1, dataSource.getCdsAdmissionState().lockName());
-            query.setString(2, CdsJdbcAdmissionState.ROW); query.setQueryTimeout(3);
+            query.setString(2, CdsJdbcAdmissionState.ROW);
+            query.setQueryTimeout(3);
             try (ResultSet rows = query.executeQuery()) {
-                if (!rows.next()) throw new SQLException("Maintenance admission row is missing", "45000");
+                if (!rows.next())
+                    throw new SQLException("Maintenance admission row is missing", "45000");
                 return rows.getBoolean(1);
             }
-        } catch (SQLException failure) { throw new CdsImportException("MAINTENANCE_STATUS_UNAVAILABLE", false, failure); }
+        } catch (SQLException failure) {
+            throw new CdsImportException("MAINTENANCE_STATUS_UNAVAILABLE", false, failure);
+        }
     }
 
-    private static long scalar(Connection connection, String sql, String value) throws SQLException {
+    private static long scalar(Connection connection, String sql, String value)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setQueryTimeout(3);
             if (value != null) statement.setString(1, value);
             try (ResultSet rows = statement.executeQuery()) {
-                if (!rows.next()) throw new SQLException("Maintenance lock result is missing", "45000");
+                if (!rows.next())
+                    throw new SQLException("Maintenance lock result is missing", "45000");
                 long result = rows.getLong(1);
                 return rows.wasNull() ? -1 : result;
             }
@@ -184,58 +226,85 @@ public class CdsImportMaintenanceService {
         private boolean closed;
         private boolean reopenRequested;
         private boolean releaseVerified;
+
         private Owner(Connection connection, CdsJdbcAdmissionState state, Lease lease) {
-            this.connection = connection; this.state = state; this.lease = lease;
+            this.connection = connection;
+            this.state = state;
+            this.lease = lease;
         }
+
         /** Dedicated metadata pins share this owner's lifetime, without exposing a raw connection. */
         synchronized void verifyTargets(CdsImportTargetSafetyService verifier) {
             if (closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
             try {
-                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())!=lease.connectionId()) {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())
+                        != lease.connectionId()) {
                     throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
                 }
-            } catch (SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED"); }
+            } catch (SQLException unavailable) {
+                throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
+            }
             state.clearCatalogueVerification(lease);
             verifier.verifyAndPin(connection);
             state.catalogueVerified(lease);
         }
 
-        public long generation() { return lease.generation(); }
+        public long generation() {
+            return lease.generation();
+        }
+
         /** Operational connection identifier, also used for controlled lost-owner fault injection. */
-        public long connectionId() { return lease.connectionId(); }
+        public long connectionId() {
+            return lease.connectionId();
+        }
+
         /** Exercise the physical lease at the same bounded cadence as durable coordinator polling. */
         public synchronized void heartbeat() {
             if (closed) throw new CdsImportException("MAINTENANCE_OWNER_CLOSED");
             try {
-                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName()) != lease.connectionId())
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())
+                        != lease.connectionId())
                     throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
             } catch (SQLException unavailable) {
                 throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable);
             }
         }
+
         /** True only after this owner closed and proved committed reopening under its advisory lock. */
-        public synchronized boolean releaseVerified() { return closed && releaseVerified; }
+        public synchronized boolean releaseVerified() {
+            return closed && releaseVerified;
+        }
 
         /** Short current-read proof for a run-locked recovery claim; the catalogue remains pinned by this owner. */
         synchronized void requireVerifiedRecoveryOwner() {
-            if (closed || !state.hasVerifiedCatalogue(lease)) throw new CdsImportException("MAINTENANCE_RECOVERY_OWNER_REQUIRED");
+            if (closed || !state.hasVerifiedCatalogue(lease))
+                throw new CdsImportException("MAINTENANCE_RECOVERY_OWNER_REQUIRED");
             try {
-                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())!=lease.connectionId()) {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())
+                        != lease.connectionId()) {
                     throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
                 }
-                try (PreparedStatement query=connection.prepareStatement("""
+                try (PreparedStatement query =
+                        connection.prepareStatement(
+                                """
                         SELECT maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id
                         FROM cds_import_admission WHERE id=? LOCK IN SHARE MODE
                         """)) {
-                    query.setQueryTimeout(3); query.setString(1, CdsJdbcAdmissionState.ROW);
-                    try (ResultSet rows=query.executeQuery()) {
-                        if (!rows.next() || !rows.getBoolean(1) || rows.getLong(2)!=lease.generation()
-                                || !lease.token().equals(rows.getString(3)) || rows.getLong(4)!=lease.connectionId()) {
+                    query.setQueryTimeout(3);
+                    query.setString(1, CdsJdbcAdmissionState.ROW);
+                    try (ResultSet rows = query.executeQuery()) {
+                        if (!rows.next()
+                                || !rows.getBoolean(1)
+                                || rows.getLong(2) != lease.generation()
+                                || !lease.token().equals(rows.getString(3))
+                                || rows.getLong(4) != lease.connectionId()) {
                             throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
                         }
                     }
                 }
-            } catch (SQLException unavailable) { throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable); }
+            } catch (SQLException unavailable) {
+                throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable);
+            }
         }
 
         /** Bounded coordinator read capability; SQL writes still require the active clinical-unit marker. */
@@ -247,11 +316,17 @@ public class CdsImportMaintenanceService {
         /** Checked-I/O coordinator work receives the same read-only capability, with no added DB transaction. */
         public synchronized <T> T readIo(IoRead<T> work) throws java.io.IOException {
             try {
-                return read(()-> {
-                    try { return work.get(); }
-                    catch (java.io.IOException failed) { throw new java.io.UncheckedIOException(failed); }
-                });
-            } catch (java.io.UncheckedIOException failed) { throw failed.getCause(); }
+                return read(
+                        () -> {
+                            try {
+                                return work.get();
+                            } catch (java.io.IOException failed) {
+                                throw new java.io.UncheckedIOException(failed);
+                            }
+                        });
+            } catch (java.io.UncheckedIOException failed) {
+                throw failed.getCause();
+            }
         }
 
         /** Explicit successful clinical reconciliation/backlog-policy boundary; errors never imply reopening. */
@@ -261,19 +336,25 @@ public class CdsImportMaintenanceService {
         }
 
         /** Held/incomplete charts keep the durable window closed for recovery after this owner exits. */
-        @Override public synchronized void close() {
+        @Override
+        public synchronized void close() {
             if (closed) return;
             closed = true;
-            state.release(lease); // Stop admitting new units while previously admitted transactions drain.
+            state.release(
+                    lease); // Stop admitting new units while previously admitted transactions
+                            // drain.
             SQLException failure = null;
             try {
-                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName()) != lease.connectionId()) {
+                if (scalar(connection, "SELECT IS_USED_LOCK(?)", state.lockName())
+                        != lease.connectionId()) {
                     throw new SQLException("Maintenance advisory ownership was lost", "45000");
                 }
                 connection.setAutoCommit(false);
-                try (PreparedStatement lock = connection.prepareStatement(
-                        "SELECT maintenance_owner_token FROM cds_import_admission WHERE id=? FOR UPDATE")) {
-                    lock.setQueryTimeout(30); lock.setString(1, CdsJdbcAdmissionState.ROW);
+                try (PreparedStatement lock =
+                        connection.prepareStatement(
+                                "SELECT maintenance_owner_token FROM cds_import_admission WHERE id=? FOR UPDATE")) {
+                    lock.setQueryTimeout(30);
+                    lock.setString(1, CdsJdbcAdmissionState.ROW);
                     try (ResultSet rows = lock.executeQuery()) {
                         if (!rows.next() || !lease.token().equals(rows.getString(1))) {
                             throw new SQLException("Maintenance owner was fenced", "45000");
@@ -281,18 +362,25 @@ public class CdsImportMaintenanceService {
                     }
                 }
                 boolean held;
-                try (PreparedStatement query = connection.prepareStatement(
-                        "SELECT id FROM cds_import_patient WHERE held=TRUE LIMIT 1 LOCK IN SHARE MODE")) {
-                    // Current locking read: the metadata-pin transaction can predate imported holds.
+                try (PreparedStatement query =
+                        connection.prepareStatement(
+                                "SELECT id FROM cds_import_patient WHERE held=TRUE LIMIT 1 LOCK IN SHARE MODE")) {
+                    // Current locking read: the metadata-pin transaction can predate imported
+                    // holds.
                     query.setQueryTimeout(30);
-                    try (ResultSet rows = query.executeQuery()) { held = rows.next(); }
+                    try (ResultSet rows = query.executeQuery()) {
+                        held = rows.next();
+                    }
                 }
                 if (reopenRequested && !held) {
-                    try (PreparedStatement reopen = connection.prepareStatement("""
+                    try (PreparedStatement reopen =
+                            connection.prepareStatement(
+                                    """
                             UPDATE cds_import_admission SET maintenance_active=FALSE,
                             maintenance_owner_token=NULL, maintenance_connection_id=NULL WHERE id=?
                             """)) {
-                        reopen.setString(1, CdsJdbcAdmissionState.ROW); reopen.executeUpdate();
+                        reopen.setString(1, CdsJdbcAdmissionState.ROW);
+                        reopen.executeUpdate();
                     }
                 }
                 connection.commit();
@@ -300,41 +388,66 @@ public class CdsImportMaintenanceService {
                     // The advisory lock is still ours. A different node cannot acquire a new
                     // maintenance generation between this commit and its proof readback.
                     connection.setAutoCommit(true);
-                    try (PreparedStatement proof = connection.prepareStatement("""
+                    try (PreparedStatement proof =
+                            connection.prepareStatement(
+                                    """
                             SELECT maintenance_active,maintenance_generation,maintenance_owner_token,
                                 maintenance_connection_id,EXISTS(SELECT 1 FROM cds_import_patient WHERE held=TRUE)
                             FROM cds_import_admission WHERE id=?
                             """)) {
-                        proof.setQueryTimeout(3); proof.setString(1, CdsJdbcAdmissionState.ROW);
-                        try (ResultSet rows=proof.executeQuery()) {
-                            if (!rows.next() || rows.getBoolean(1) || rows.getLong(2)!=lease.generation()
-                                    || rows.getString(3)!=null || rows.getObject(4)!=null || rows.getBoolean(5)) {
-                                throw new SQLException("Maintenance release readback did not prove reopening", "45000");
+                        proof.setQueryTimeout(3);
+                        proof.setString(1, CdsJdbcAdmissionState.ROW);
+                        try (ResultSet rows = proof.executeQuery()) {
+                            if (!rows.next()
+                                    || rows.getBoolean(1)
+                                    || rows.getLong(2) != lease.generation()
+                                    || rows.getString(3) != null
+                                    || rows.getObject(4) != null
+                                    || rows.getBoolean(5)) {
+                                throw new SQLException(
+                                        "Maintenance release readback did not prove reopening",
+                                        "45000");
                             }
                         }
                     }
-                    releaseVerified=true;
+                    releaseVerified = true;
                 }
             } catch (SQLException problem) {
                 failure = problem;
-                try { connection.rollback(); } catch (SQLException cleanup) { failure.addSuppressed(cleanup); }
+                try {
+                    connection.rollback();
+                } catch (SQLException cleanup) {
+                    failure.addSuppressed(cleanup);
+                }
             } finally {
                 state.release(lease);
-                try { requireAdvisoryRelease(connection, state.lockName()); }
-                catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
-                try { connection.close(); }
-                catch (SQLException cleanup) { if (failure == null) failure = cleanup; else failure.addSuppressed(cleanup); }
+                try {
+                    requireAdvisoryRelease(connection, state.lockName());
+                } catch (SQLException cleanup) {
+                    if (failure == null) failure = cleanup;
+                    else failure.addSuppressed(cleanup);
+                }
+                try {
+                    connection.close();
+                } catch (SQLException cleanup) {
+                    if (failure == null) failure = cleanup;
+                    else failure.addSuppressed(cleanup);
+                }
             }
             if (failure != null) {
-                releaseVerified=false; // A retained/uncertain advisory connection can still deny ordinary access.
-                throw new CdsImportException("MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", false, failure);
+                releaseVerified =
+                        false; // A retained/uncertain advisory connection can still deny ordinary
+                               // access.
+                throw new CdsImportException(
+                        "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION", false, failure);
             }
         }
     }
-    private static void requireAdvisoryRelease(Connection connection, String lockName) throws SQLException {
+
+    private static void requireAdvisoryRelease(Connection connection, String lockName)
+            throws SQLException {
         if (scalar(connection, "SELECT RELEASE_LOCK(?)", lockName) != 1) {
             throw new SQLException("Maintenance advisory release was not acknowledged", "45000");
         }
     }
-
 }

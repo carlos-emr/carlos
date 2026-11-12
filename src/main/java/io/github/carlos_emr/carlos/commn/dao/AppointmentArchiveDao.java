@@ -38,9 +38,14 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
-public interface AppointmentArchiveDao extends AbstractDao<AppointmentArchive> {
+public interface AppointmentArchiveDao extends AbstractDao<AppointmentArchive>, CdsExportPatientTableReadDao {
 
     public AppointmentArchive archiveAppointment(Appointment appointment);
 
     public List<AppointmentArchive> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);
+    /** Strict timestamp/ID continuation; old extension implementations refuse unsupported paging explicitly. */
+    default List<AppointmentArchive> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset paging is not supported by this DAO");
+    }
+
 }

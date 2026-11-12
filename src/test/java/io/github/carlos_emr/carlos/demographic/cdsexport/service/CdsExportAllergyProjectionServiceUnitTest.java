@@ -1,0 +1,264 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTableDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeCaptureDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+
+/** Joins/bounds/orphan tests; real authenticated row transport is covered by capture/native suites. */
+@Tag("unit")
+@Tag("cds-export")
+class CdsExportAllergyProjectionServiceUnitTest {
+    private static final Set<String> TABLES = Set.of("allergies", "partial_date");
+    private final CdsExportLeaseDto lease = mock(CdsExportLeaseDto.class);
+    private final CdsExportCohortService.Patient patient =
+            mock(CdsExportCohortService.Patient.class);
+    private final CdsExportRunControl control = mock(CdsExportRunControl.class);
+    private final CdsExportStagedFileDto manifest = mock(CdsExportStagedFileDto.class);
+
+    @Test
+    void shouldJoinOnlyTheCapturedParent_andReportAllNativeFieldDecisions() throws Exception {
+        var reader =
+                fixture(
+                        List.of(date(11, 51), date(12, 52)),
+                        List.of(allergy(51), allergy(52)),
+                        false);
+        var mappings =
+                new ArrayList<
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportAllergyMappingDto>();
+        var result =
+                new CdsExportAllergyProjectionService(reader)
+                        .project(
+                                lease,
+                                patient,
+                                TABLES,
+                                manifest,
+                                1000,
+                                1L << 20,
+                                10,
+                                control,
+                                mappings::add);
+        assertThat(result.rows()).isEqualTo(2);
+        assertThat(result.blockedRows()).isZero();
+        assertThat(result.assessedFields()).isEqualTo(58);
+        assertThat(mappings).hasSize(2);
+        assertThat(mappings.getFirst().value().start().precision())
+                .isEqualTo(CdsExportDateDto.Precision.YEAR);
+        assertThat(mappings.get(1).value().description()).isEqualTo("Synthetic agent 52");
+    }
+
+    @Test
+    void shouldRefuseAnOrphanPrecisionRow_insteadOfIgnoringItAndClaimingACompleteJoin()
+            throws Exception {
+        var reader = fixture(List.of(date(11, 52)), List.of(allergy(51)), false);
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportAllergyProjectionService(reader)
+                                        .project(
+                                                lease,
+                                                patient,
+                                                TABLES,
+                                                manifest,
+                                                1000,
+                                                1L << 20,
+                                                10,
+                                                control,
+                                                ignored -> {}))
+                .hasMessage("CDS_EXPORT_ALLERGY_CAPTURE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldBoundThePrecisionIndex_withoutReturningPartialSuccess() throws Exception {
+        var reader = fixture(List.of(date(11, 51), date(12, 51)), List.of(allergy(51)), false);
+        var mappings = new java.util.concurrent.atomic.AtomicInteger();
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportAllergyProjectionService(reader)
+                                        .project(
+                                                lease,
+                                                patient,
+                                                TABLES,
+                                                manifest,
+                                                1000,
+                                                1L << 20,
+                                                1,
+                                                control,
+                                                ignored -> mappings.incrementAndGet()))
+                .hasMessage("CDS_EXPORT_PRECISION_RESOURCE_LIMIT");
+        assertThat(mappings).hasValue(0);
+    }
+
+    @Test
+    void shouldRefuseDifferentCapturedGenerations_evenIfBothIndividualReadsComplete()
+            throws Exception {
+        var reader = fixture(List.of(date(11, 51)), List.of(allergy(51)), true);
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportAllergyProjectionService(reader)
+                                        .project(
+                                                lease,
+                                                patient,
+                                                TABLES,
+                                                manifest,
+                                                1000,
+                                                1L << 20,
+                                                10,
+                                                control,
+                                                ignored -> {}))
+                .hasMessage("CDS_EXPORT_ALLERGY_CAPTURE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRequireAnIndependentlyCapturedPrecisionTable_beforeInterpretingDatesAsFull() {
+        var reader = mock(CdsExportCapturedTextRowsReader.class);
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportAllergyProjectionService(reader)
+                                        .project(
+                                                lease,
+                                                patient,
+                                                Set.of("allergies"),
+                                                manifest,
+                                                1000,
+                                                1L << 20,
+                                                10,
+                                                control,
+                                                ignored -> {}))
+                .hasMessage("CDS_EXPORT_ALLERGY_INPUTS_REQUIRED");
+        verifyNoInteractions(reader);
+    }
+
+    private CdsExportCapturedTextRowsReader fixture(
+            List<CdsExportCapturedTextRowDto> dates,
+            List<CdsExportCapturedTextRowDto> allergies,
+            boolean changed)
+            throws Exception {
+        when(patient.patient()).thenReturn(27);
+        when(manifest.plaintextSha256()).thenReturn("a".repeat(64));
+        var reader = mock(CdsExportCapturedTextRowsReader.class);
+        var capture = mock(CdsExportNativeCaptureDto.class);
+        var other = mock(CdsExportNativeCaptureDto.class);
+        var tables =
+                Map.of(
+                        "allergies",
+                        new CdsExportCapturedTableDto(
+                                Set.copyOf(
+                                        CdsExportPatientTableReadSupport.Plan.ALLERGIES.columns()),
+                                allergies.size(),
+                                "b".repeat(64)),
+                        "partial_date",
+                        new CdsExportCapturedTableDto(
+                                Set.copyOf(
+                                        CdsExportPatientTableReadSupport.Plan.PARTIAL_DATE_ALLERGIES
+                                                .columns()),
+                                dates.size(),
+                                "c".repeat(64)));
+        when(capture.tables()).thenReturn(tables);
+        when(other.tables()).thenReturn(tables);
+        when(reader.forEach(
+                        any(),
+                        any(),
+                        any(),
+                        anyString(),
+                        any(),
+                        anyLong(),
+                        anyLong(),
+                        anyInt(),
+                        any(),
+                        any()))
+                .thenAnswer(
+                        call -> {
+                            String table = call.getArgument(3);
+                            CdsExportCapturedTextRowsReader.Rows output = call.getArgument(9);
+                            for (var row : table.equals("partial_date") ? dates : allergies)
+                                output.accept(row);
+                            return changed && table.equals("allergies") ? other : capture;
+                        });
+        return reader;
+    }
+
+    private static CdsExportCapturedTextRowDto allergy(int id) {
+        var values = new LinkedHashMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.ALLERGIES
+                .columns()
+                .forEach(column -> values.put(column, null));
+        values.putAll(
+                Map.of(
+                        "allergyid",
+                        Integer.toString(id),
+                        "demographic_no",
+                        "27",
+                        "DESCRIPTION",
+                        "Synthetic agent " + id,
+                        "archived",
+                        "0",
+                        "TYPECODE",
+                        "0",
+                        "position",
+                        "0",
+                        "start_date",
+                        "1965-01-01"));
+        return new CdsExportCapturedTextRowDto(
+                "allergies", CdsExportPatientTableSourceReader.key(id), values);
+    }
+
+    private static CdsExportCapturedTextRowDto date(int id, int parent) {
+        return new CdsExportCapturedTextRowDto(
+                "partial_date",
+                CdsExportPatientTableSourceReader.key(id),
+                Map.of(
+                        "id",
+                        Integer.toString(id),
+                        "table_name",
+                        "1",
+                        "table_id",
+                        Integer.toString(parent),
+                        "field_name",
+                        "1",
+                        "format",
+                        "YYYY"));
+    }
+}

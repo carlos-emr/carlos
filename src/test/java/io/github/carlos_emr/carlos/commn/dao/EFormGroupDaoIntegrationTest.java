@@ -54,6 +54,56 @@ public class EFormGroupDaoIntegrationTest extends CarlosTestBase {
     @Autowired
     private EFormGroupDao eFormGroupDao;
 
+    @Autowired private EFormDao forms;
+    @Autowired private EFormDataDao patientForms;
+
+    @Test
+    void shouldPreserveGroupSentinelsAndPatientIsolation_whenTypedListingsFilterDeletedForms() throws Exception {
+        String group = "issue5547_" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        var active = new io.github.carlos_emr.carlos.commn.model.EForm();
+        EntityDataGenerator.generateTestDataForModelClass(active);
+        active.setCurrent(true);
+        active.setFormName("  FAKE active  ");
+        forms.persist(active);
+        var deleted = new io.github.carlos_emr.carlos.commn.model.EForm();
+        EntityDataGenerator.generateTestDataForModelClass(deleted);
+        deleted.setCurrent(false);
+        forms.persist(deleted);
+        createEFormGroup(group, 0);
+        createEFormGroup(group, active.getId());
+        createEFormGroup(group, deleted.getId());
+        for (int patient : new int[]{5547101, 5547102}) {
+            var data = new io.github.carlos_emr.carlos.commn.model.EFormData();
+            EntityDataGenerator.generateTestDataForModelClass(data);
+            data.setFormId(active.getId());
+            data.setDemographicId(patient);
+            data.setCurrent(true);
+            data.setPatientIndependent(false);
+            patientForms.persist(data);
+        }
+        assertThat(eFormGroupDao.findActiveGroupCounts(null)).filteredOn(row -> group.equals(row.name()))
+                .extracting(EFormGroupDao.GroupCount::count).containsExactly(1L);
+        assertThat(eFormGroupDao.findActiveGroupCounts(5547101)).filteredOn(row -> group.equals(row.name()))
+                .extracting(EFormGroupDao.GroupCount::count).containsExactly(1L);
+        assertThat(forms.findLibraryInGroup(true, group, "form_name"))
+                .extracting(EFormListingRow::name).containsExactly("FAKE active");
+        assertThat(forms.findLibraryInGroup(null, group, "form_name")).hasSize(2);
+        assertThat(patientForms.findLegacyPatientFormsInGroup(true, 5547101, group, "form_name")).hasSize(1);
+        String hostileGroup = "' OR 1=1 --";
+        assertThat(forms.findLibraryInGroup(null, hostileGroup, "form_name")).isEmpty();
+        assertThat(patientForms.findLegacyPatientFormsInGroup(null, 5547101, hostileGroup, "form_name")).isEmpty();
+        for (String invalidSort : List.of("form_name; DELETE FROM eform", "form_name --", "form_name DESC")) {
+            assertThatThrownBy(() -> forms.findLibraryInGroup(true, group, invalidSort))
+                    .isInstanceOf(IllegalArgumentException.class);
+            assertThatThrownBy(() -> patientForms.findLegacyPatientFormsInGroup(true, 5547101, group, invalidSort))
+                    .isInstanceOf(IllegalArgumentException.class);
+        }
+        assertThat(forms.findLibraryInGroup(true, group, "form_name")).hasSize(1);
+        eFormGroupDao.addActiveFormIfMissing(group, active.getId());
+        assertThat(eFormGroupDao.getByGroupName(group)).hasSize(3);
+        assertThat(eFormGroupDao.containsActiveForm(group, deleted.getId())).isFalse();
+    }
+
     /**
      * Helper to create and persist an EFormGroup with specific group name and form ID.
      */

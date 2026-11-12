@@ -36,7 +36,7 @@
     String curUser_no = (String) session.getAttribute("user");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,java.io.*"
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*, java.io.*"
         errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <jsp:useBean id="riskDataBean" class="java.util.Properties" scope="page"/>
 <jsp:useBean id="risks"
@@ -48,9 +48,9 @@
 <%@ page import="io.github.carlos_emr.carlos.decision.AntenatalConfigLocation" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Desaprisk" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DesapriskDao" %>
-<%@ page import="io.github.carlos_emr.carlos.db.LegacyJdbcQuery" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.dao.AntenatalReportDao" %>
 <%@ page import="io.github.carlos_emr.SxmlMisc" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     DesapriskDao desapriskDao = SpringUtils.getBean(DesapriskDao.class);
@@ -75,22 +75,14 @@
     int formId = 0;
     try { formId = Integer.parseInt(form_no); } catch (NumberFormatException ignored) { }
     if (formId > 0) {
-        try (ResultSet rsdemo = LegacyJdbcQuery.queryResults("select * from formAR where ID = ?", formId)) {
-            ResultSetMetaData resultsetmetadata = rsdemo.getMetaData();
-            while (rsdemo.next()) {
-                finalEDB = rsdemo.getString("c_finalEDB");
-                patientName = rsdemo.getString("c_pName");
-                wt = rsdemo.getString("pg1_wt");
-                ht = rsdemo.getString("pg1_ht");
-                for (int k = 1; k <= resultsetmetadata.getColumnCount(); k++) {
-                    //String name = resultsetmetadata.getColumnName(k);
-                    //String value = null;
-                    if (resultsetmetadata.getColumnTypeName(k).equalsIgnoreCase("TINY")) {
-                        if (rsdemo.getInt(k) == 1)
-                            riskDataBean.setProperty(resultsetmetadata.getColumnName(k), "checked"); //"55", "risk_cinca"
-                    }
-                }
-            }
+        AntenatalReportDao.PlannerRow planner = SpringUtils.getBean(AntenatalReportDao.class)
+                .findPlanner(formId, Integer.parseInt(demographic_no));
+        if (planner != null) {
+            finalEDB = planner.edb();
+            patientName = planner.patientName();
+            wt = planner.weight();
+            ht = planner.height();
+            for (String flag : planner.checked()) riskDataBean.setProperty(flag, "checked");
         }
     }
 

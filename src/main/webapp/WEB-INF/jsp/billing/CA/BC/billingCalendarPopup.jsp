@@ -33,7 +33,7 @@ Use returnForm and returnItem request params and this page will fill in that inp
 -->
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 
 
@@ -42,7 +42,7 @@ Use returnForm and returnItem request params and this page will fill in that inp
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
 %>
 <%@ page
-        import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*" %>
+        import="java.util.*, io.github.carlos_emr.*, java.lang.*" %>
 <%@ page import="io.github.carlos_emr.DateInMonthTable" %>
 <%
     //to prepare calendar display

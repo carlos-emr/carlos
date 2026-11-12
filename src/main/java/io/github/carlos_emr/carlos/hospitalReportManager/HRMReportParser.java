@@ -106,7 +106,7 @@ public class HRMReportParser {
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, String hrmReportFileLocation, List<Throwable> errors) {
         OmdCds root = null;
 
-        logger.info("Parsing the Report in the location:" + hrmReportFileLocation);
+        logger.info("Parsing the Report in the location");
 
         String fileData = null;
         if (hrmReportFileLocation != null) {
@@ -134,8 +134,7 @@ public class HRMReportParser {
                 }
 
                 if (!tmpXMLholder.exists()) {
-                    logger.warn("unable to find the HRM report. checked "
-                        + hrmReportFileLocation + ", and in the document_dir");
+                    logger.warn("unable to find the HRM report. checked");
                 }
 
                 // read file into UTF-8 String using NIO
@@ -181,17 +180,17 @@ public class HRMReportParser {
                 String msg = (e.getLinkedException() != null)
                     ? e.getLinkedException().getMessage()
                     : e.getMessage();
-                logger.error("HRM JAXB parse error: " + msg, e);
+                logger.error("HRM JAXB parse error:  {}" + msg, LogSafe.exceptionTrace(e));
                 if (errors != null) errors.add(e);
             } catch (IOException e) {
-                logger.error("ERROR READING report_manager_cds.xsd RESOURCE", e);
+                logger.error("ERROR READING report_manager_cds.xsd RESOURCE: {}", LogSafe.exceptionTrace(e));
                 if (errors != null) errors.add(e);
             } catch (SecurityException e) {
                 // PathValidationUtils rejects a misconfigured DOCUMENT_DIR or a DB-sourced report path
                 // that escapes it (FileValidationException extends SecurityException). Return null instead
                 // of letting the throw abort the whole HRM list render / batch import; list-render callers
                 // skip null reports, and the throw no longer aborts the batch loop.
-                logger.error("Rejected HRM report path; skipping document: {}", LogSafe.sanitize(hrmReportFileLocation));
+                logger.error("Rejected HRM report path; skipping document");
                 if (errors != null) errors.add(e);
             }
 
@@ -213,7 +212,7 @@ public class HRMReportParser {
         }
 
 
-        logger.info("Routing Report To Demographic, for file:" + report.getFileLocation());
+        logger.info("Routing Report To Demographic, for file");
 
         // Search the demographics on the system for a likely match and route it to them automatically
         DemographicDao demographicDao = (DemographicDao) SpringUtils.getBean(DemographicDao.class);
@@ -267,7 +266,7 @@ public class HRMReportParser {
             logger.info("doSimilarReportCheck cannot continue, report parameter is null");
             return;
         }
-        logger.info("Identifying if this is a report that we received before, but was sent to the wrong demographic, for file:" + report.getFileLocation());
+        logger.info("Identifying if this is a report that we received before, but was sent to the wrong demographic, for file");
 
         HRMDocumentDao hrmDocumentDao = (HRMDocumentDao) SpringUtils.getBean(HRMDocumentDao.class);
 
@@ -369,7 +368,7 @@ public class HRMReportParser {
             return;
         }
 
-        logger.info("Routing Report To SubClass, for file:" + report.getFileLocation());
+        logger.info("Routing Report To SubClass, for file");
 
         HRMDocumentSubClassDao hrmDocumentSubClassDao = (HRMDocumentSubClassDao) SpringUtils.getBean(HRMDocumentSubClassDao.class);
 

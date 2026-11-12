@@ -42,6 +42,28 @@ import static org.mockito.Mockito.when;
 @Tag("lab")
 class LabDataControllerUnitTest extends CarlosUnitTestBase {
     @Test
+    void shouldEncodeHrmDuplicateIdsOnce_whenBuildingInboxLink() {
+        createAndRegisterMock(PatientLabRoutingDao.class);
+        createAndRegisterMock(ProviderLabRoutingDao.class);
+        createAndRegisterMock(QueueDocumentLinkDao.class);
+        createAndRegisterMock(SecurityInfoManager.class);
+        LabResultData report = new LabResultData(LabResultData.HRM);
+        report.setSegmentID("42");
+        report.patientName = "Anne Marie & Zoë";
+        report.resultStatus = "F";
+        report.getDuplicateLabIds().addAll(List.of(40, 41));
+        InboxhubQuery query = new InboxhubQuery();
+
+        String link = new LabDataController().getLabLink(new ArrayList<>(List.of(report)),
+                query, "/carlos", "999998").get(0);
+
+        assertThat(link).contains("duplicateLabIds=40%2C41", "&id=42", "inWindow=true");
+        assertThat(java.net.URLDecoder.decode(link, java.nio.charset.StandardCharsets.UTF_8))
+                .contains("duplicateLabIds=40,41", "Anne Marie & Zoë");
+        assertThat(link).doesNotContain("%252C");
+    }
+
+    @Test
     void shouldOpenSelectedReport_whenLinkingHistoricalLabVersion() {
         createAndRegisterMock(PatientLabRoutingDao.class);
         createAndRegisterMock(ProviderLabRoutingDao.class);

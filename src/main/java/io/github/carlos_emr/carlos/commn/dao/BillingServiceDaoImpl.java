@@ -45,6 +45,59 @@ import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 @Repository
 @SuppressWarnings("unchecked")
 public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> implements BillingServiceDao {
+
+    private static String legacyText(Object value) {
+        return org.apache.commons.lang3.StringUtils.trimToEmpty(io.github.carlos_emr.carlos.util.NativeQueryValues.asString(value));
+    }
+
+    @Override
+    public List<TimeRule> findTimeRules() {
+        // TINYINT(1) otherwise becomes Boolean; billing validation requires the legacy "0"/"1" flags.
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT billingservice_no,CAST(timeRange AS SIGNED) FROM billing_msp_servicecode_times", Object[].class).getResultList();
+        return rows.stream().map(row -> new TimeRule(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public List<ConditionRule> findConditionRules(String serviceCode) {
+        return findConditionRules(serviceCode, true);
+    }
+
+    @Override
+    public List<ConditionRule> findAllConditionRules() {
+        return findConditionRules(null, false);
+    }
+
+    private List<ConditionRule> findConditionRules(String serviceCode, boolean filterByCode) {
+        Query query = entityManager.createNativeQuery("SELECT serviceCode,conditionCode FROM billing_service_code_conditions"
+                + (filterByCode ? " WHERE serviceCode=?1" : ""), Object[].class);
+        if (filterByCode) query.setParameter(1, serviceCode);
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = query.getResultList();
+        return rows.stream().map(row -> new ConditionRule(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public List<String> findVisitTypes() {
+        @SuppressWarnings("unchecked")
+        List<?> rows = entityManager.createNativeQuery("SELECT visittype FROM billingvisit").getResultList();
+        return rows.stream().map(BillingServiceDaoImpl::legacyText).toList();
+    }
+
+    @Override
+    public List<CodeDescription> findCodeDescriptions(String descriptionPrefix) {
+        @SuppressWarnings("unchecked")
+        List<Object[]> rows = entityManager.createNativeQuery("SELECT service_code,description FROM billingservice WHERE description LIKE ?1", Object[].class)
+                .setParameter(1, descriptionPrefix + "%").getResultList();
+        return rows.stream().map(row -> new CodeDescription(legacyText(row[0]), legacyText(row[1]))).toList();
+    }
+
+    @Override
+    public String findFirstPrice(String serviceCode) {
+        List<?> rows = entityManager.createNativeQuery("SELECT value FROM billingservice WHERE service_code=?1")
+                .setParameter(1, serviceCode).setMaxResults(1).getResultList();
+        return rows.isEmpty() ? null : legacyText(rows.get(0));
+    }
     static public final String BC = "BC";
 
     public BillingServiceDaoImpl() {
@@ -345,6 +398,22 @@ public class BillingServiceDaoImpl extends AbstractDaoImpl<BillingService> imple
         query.setParameter(1, billingNo);
         return query.getResultList();
 
+    }
+
+    @Override
+    public List<io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb> findOpenWcbFormsByBillingId(Integer billingNo) {
+        // New forms link from the claim. Keep the historic invoice-side link only when
+        // no pending claim specifies a form; a broken explicit link must never be guessed.
+        String sql = "SELECT w FROM Wcb w WHERE w.status IN ('O','W') "
+                + "AND (EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.wcbId=w.id "
+                + "AND bm.billingstatus IN ('O','W')) OR (w.billingNo=?1 "
+                + "AND EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.billingstatus IN ('O','W')) "
+                + "AND NOT EXISTS (SELECT 1 FROM Billingmaster bm WHERE bm.billingNo=?1 AND bm.billingstatus IN ('O','W') "
+                + "AND bm.wcbId IS NOT NULL AND bm.wcbId<>0))) "
+                + "AND EXISTS (SELECT 1 FROM Billing b WHERE b.id=?1 AND b.status IN ('O','W')) "
+                + "AND EXISTS (SELECT 1 FROM BillingService bs WHERE bs.serviceCode=w.feeItem) ORDER BY w.id";
+        return entityManager.createQuery(sql, io.github.carlos_emr.carlos.billing.CA.BC.model.Wcb.class)
+                .setParameter(1, billingNo).getResultList();
     }
 
     public List<BillingService> findGst(String code, Date date) {

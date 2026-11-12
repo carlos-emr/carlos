@@ -35,13 +35,18 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DemographicMerged;
 
-public interface DemographicMergedDao extends AbstractDao<DemographicMerged> {
+public interface DemographicMergedDao extends AbstractDao<DemographicMerged>, CdsExportPatientTableReadDao {
 
     public List<DemographicMerged> findCurrentByMergedTo(int demographicNo);
 
     public List<DemographicMerged> findCurrentByDemographicNo(int demographicNo);
 
     public List<DemographicMerged> findByDemographicNo(int demographicNo);
+
+    /** Current links only; historical lookup remains available to existing consumers. */
+    default List<DemographicMerged> findActiveByParentAndChildIds(Integer parentId, Integer childId) {
+        return findByParentAndChildIds(parentId, childId).stream().filter(link -> link.getDeleted() == 0).toList();
+    }
 
     public List<DemographicMerged> findByParentAndChildIds(Integer parentId, Integer childId);
 }

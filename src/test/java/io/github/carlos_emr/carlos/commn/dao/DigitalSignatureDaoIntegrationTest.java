@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.commn.model.ConsultationRequestArchive;
 import io.github.carlos_emr.carlos.commn.model.ConsultationResponse;
 import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
 import io.github.carlos_emr.carlos.commn.model.EFormValue;
-import io.github.carlos_emr.carlos.commn.model.ImportedSignatureOwner;
 import io.github.carlos_emr.carlos.commn.model.Prescription;
 import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
@@ -37,8 +36,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -245,102 +242,6 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
         @Test
         @Tag("query")
-        @DisplayName("infers legacy eForm metadata from an HTML-escaped URL reference")
-        void shouldInferLegacyEformMetadata_fromEscapedReference() {
-            DigitalSignature saved = persistLegacySignature(789);
-            EFormValue value = new EFormValue();
-            value.setDemographicId(789);
-            value.setVarName("signatureValue");
-            value.setVarValue("/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId="
-                    + saved.getId() + "&amp;r=42");
-            entityManager.persist(value);
-            entityManager.flush();
-
-            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata.getDemographicId()).isEqualTo(789);
-            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("resolves an unassigned eForm signature from an HTML-escaped URL reference")
-        void shouldResolveUnassignedEformSignature_fromEscapedReference() {
-            DigitalSignature saved = persistLegacySignature(-1);
-            EFormValue value = new EFormValue();
-            value.setDemographicId(789);
-            value.setVarName("signatureValue");
-            value.setVarValue("/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId="
-                    + saved.getId());
-            entityManager.persist(value);
-            entityManager.flush();
-
-            assertThat(digitalSignatureDao.findMetadataById(saved.getId()).getDemographicId()).isEqualTo(-1);
-            // A form value created after import cannot grant ownership.
-            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
-            insertImportedOwner(saved, 789, ModuleType.E_FORM);
-            DigitalSignature readable = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(readable.getDemographicId()).isEqualTo(789);
-            assertThat(readable.getModuleType()).isEqualTo(ModuleType.E_FORM);
-        }
-
-        /** Checks that each saved Rich Text Letter URL spelling identifies the same signature. */
-        @ParameterizedTest
-        @Tag("query")
-        @ValueSource(strings = {
-                "<img src=\"/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=%s\">",
-                "<img src='/imageRenderingServlet?source=signature_stored&digitalSignatureId=%s'>",
-                "&lt;img src=&quot;/imageRenderingServlet?source=signature_stored&amp;digitalSignatureId=%s&quot;&gt;"
-        })
-        @DisplayName("infers a legacy eForm signature from saved letter HTML")
-        void shouldInferLegacyEformMetadata_fromLetterContent(String letterHtmlTemplate) {
-            DigitalSignature saved = persistLegacySignature(789);
-            EFormValue letter = new EFormValue();
-            letter.setDemographicId(789);
-            letter.setVarName("Letter");
-            letter.setVarValue(letterHtmlTemplate.formatted(saved.getId()));
-            entityManager.persist(letter);
-            entityManager.flush();
-
-            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata.getDemographicId()).isEqualTo(789);
-            assertThat(metadata.getModuleType()).isEqualTo(ModuleType.E_FORM);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("does not match a legacy letter signature ID by numeric prefix")
-        void shouldNotInferLegacyEformMetadata_fromLongerLetterId() {
-            DigitalSignature saved = persistLegacySignature(789);
-            EFormValue letter = new EFormValue();
-            letter.setDemographicId(789);
-            letter.setVarName("Letter");
-            letter.setVarValue("<img src=\"/imageRenderingServlet?digitalSignatureId="
-                    + saved.getId() + "0\">");
-            entityManager.persist(letter);
-            entityManager.flush();
-
-            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId()).getModuleType())
-                    .isNull();
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("does not treat editable letter text as ownership of an unassigned signature")
-        void shouldNotInferUnassignedSignatureOwner_fromLetterContent() {
-            DigitalSignature saved = persistLegacySignature(-1);
-            EFormValue letter = new EFormValue();
-            letter.setDemographicId(789);
-            letter.setVarName("Letter");
-            letter.setVarValue("&lt;img src=&quot;/imageRenderingServlet?source=signature_stored"
-                    + "&amp;digitalSignatureId=" + saved.getId() + "&quot;&gt;");
-            entityManager.persist(letter);
-            entityManager.flush();
-
-            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
-        }
-
-        @Test
-        @Tag("query")
         @DisplayName("should leave legacy metadata unscoped when no owner reference exists")
         void shouldLeaveLegacyMetadataUnscoped_whenNoOwnerReferenceExists() {
             DigitalSignature saved = persistLegacySignature(123);
@@ -349,80 +250,6 @@ public class DigitalSignatureDaoIntegrationTest extends CarlosTestBase {
 
             assertThat(metadata.getDemographicId()).isEqualTo(123);
             assertThat(metadata.getModuleType()).isNull();
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("resolves an imported -1 signature only for a unique read reference")
-        void shouldResolveUnassignedSignature_onlyForRead() {
-            DigitalSignature saved = persistLegacySignature(-1);
-            ConsultationRequest consult = new ConsultationRequest();
-            consult.setDemographicId(123);
-            consult.setSignatureImg(String.valueOf(saved.getId()));
-            entityManager.persist(consult);
-            entityManager.flush();
-            insertImportedOwner(saved, 123, ModuleType.CONSULTATION);
-
-            DigitalSignature mutatingMetadata = digitalSignatureDao.findMetadataById(saved.getId());
-            DigitalSignature readableMetadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-
-            assertThat(mutatingMetadata.getDemographicId()).isEqualTo(-1);
-            assertThat(readableMetadata.getDemographicId()).isEqualTo(123);
-            assertThat(readableMetadata.getModuleType()).isEqualTo(ModuleType.CONSULTATION);
-            assertThat(readableMetadata.getProviderNo()).isEqualTo("999998");
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("ambiguous references cannot assign a -1 signature to a patient")
-        void shouldRefuseUnassignedSignature_whenReferencesAreAmbiguous() {
-            DigitalSignature saved = persistLegacySignature(-1);
-            for (int patient : new int[] {123, 456}) {
-                ConsultationRequest consult = new ConsultationRequest();
-                consult.setDemographicId(patient);
-                consult.setSignatureImg(String.valueOf(saved.getId()));
-                entityManager.persist(consult);
-            }
-            entityManager.flush();
-
-            DigitalSignature metadata = digitalSignatureDao.findReadableMetadataById(saved.getId());
-            assertThat(metadata).isNull();
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("unreferenced -1 signatures remain unreadable even with a stored module")
-        void shouldRefuseUnassignedSignature_whenUnreferenced() {
-            DigitalSignature saved = legacySignature(-1);
-            saved.setModuleType(ModuleType.CONSULTATION);
-            digitalSignatureDao.persist(saved);
-            digitalSignatureDao.flush();
-
-            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
-            assertThat(digitalSignatureDao.findMetadataById(saved.getId()).getDemographicId()).isEqualTo(-1);
-        }
-
-        @Test
-        @Tag("query")
-        @DisplayName("a stored module cannot override a conflicting -1 signature reference")
-        void shouldRefuseUnassignedSignature_whenModuleMismatches() {
-            DigitalSignature saved = legacySignature(-1);
-            saved.setModuleType(ModuleType.PRESCRIPTION);
-            digitalSignatureDao.persist(saved);
-            digitalSignatureDao.flush();
-            ConsultationRequest consult = new ConsultationRequest();
-            consult.setDemographicId(123);
-            consult.setSignatureImg(String.valueOf(saved.getId()));
-            entityManager.persist(consult);
-            entityManager.flush();
-            insertImportedOwner(saved, 123, ModuleType.CONSULTATION);
-
-            assertThat(digitalSignatureDao.findReadableMetadataById(saved.getId())).isNull();
-        }
-
-        private void insertImportedOwner(DigitalSignature signature, int patient, ModuleType module) {
-            entityManager.persist(new ImportedSignatureOwner(signature.getId(), patient, module));
-            entityManager.flush();
         }
 
         private DigitalSignature persistLegacySignature(Integer demographicId) {

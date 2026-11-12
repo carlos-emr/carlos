@@ -42,6 +42,22 @@ public record CdsRulesetFingerprint(String sha256) {
     private static final String ANCHOR =
             BASE + "demographic/cdsimport/service/CdsImportJobService.class";
     private static final String[] NATIVE = {
+        "commn/dto/CdsExportDemographicRowDto",
+        "commn/dto/CdsExportTableSchemaDto",
+        "commn/dto/CdsExportRawCellDto",
+        "commn/dto/CdsExportRawRowDto",
+        "commn/dao/CdsExportPatientTableReadDao",
+        "commn/dao/CdsExportPreventionDataReadDao",
+        "commn/dao/PreventionDao",
+        "commn/dao/PreventionExtDao",
+        "commn/dao/PartialDateDao",
+        "commn/dao/CdsExportPatientTableReadSupport",
+        "commn/dao/CdsExportNativeMetadataReadSupport",
+        "commn/dao/CdsExportExactNumericReadSupport",
+        "commn/dao/CdsExportProviderReadSupport",
+        "commn/dto/CdsExportProviderRowDto",
+        "commn/dto/CdsExportSelectionRowDto",
+        "commn/dto/CdsExportRunOwnerRowDto",
         "commn/dto/CdsProgramContextDto",
         "commn/dto/CdsProgramMembershipDto",
         "commn/dto/CdsImportControlDto",
@@ -55,6 +71,9 @@ public record CdsRulesetFingerprint(String sha256) {
 
         "utility/CdsImportKeys",
         "utility/CdsJdbcConnectionTimeouts",
+        "utility/MariaDbCompatibilityDriver",
+        "utility/MariaDbJdbcCompatibility",
+        "utility/MariaDbPreferredTlsPlugin",
         "commn/model/Drug",
         "commn/model/Allergy",
         "commn/model/Prevention",
@@ -230,6 +249,7 @@ public record CdsRulesetFingerprint(String sha256) {
             for (String pattern :
                     new String[] {
                         "demographic/cdsimport/**/*.class",
+                        "demographic/cds/**/*.class",
                         "commn/model/Cds*.class",
                         "commn/dao/Cds*.class"
                     }) {
@@ -241,7 +261,7 @@ public record CdsRulesetFingerprint(String sha256) {
                     // provenance.
                     if (!url.startsWith(origin + BASE)) continue;
                     String name = url.substring(origin.length());
-                    try (InputStream input = resource.getInputStream()) {
+                    try (InputStream input = opener.open(resource.getURL())) {
                         add(classes, name, input, buffer);
                     }
                 }
@@ -259,7 +279,7 @@ public record CdsRulesetFingerprint(String sha256) {
                 for (Resource resource : nested) {
                     String url = resource.getURL().toExternalForm();
                     if (!url.startsWith(origin + BASE)) continue;
-                    try (InputStream input = resource.getInputStream()) {
+                    try (InputStream input = opener.open(resource.getURL())) {
                         add(classes, url.substring(origin.length()), input, buffer);
                     }
                 }
@@ -271,6 +291,7 @@ public record CdsRulesetFingerprint(String sha256) {
                         "cds-import/schema/EMR_Data_Migration_Schema_DT.xsd",
                         "spoken_languages_codes.properties",
                         "oscar/prevention/PreventionItems.xml",
+                        "META-INF/services/org.mariadb.jdbc.plugin.TlsSocketPlugin",
                         BASE + "lab/ca/all/parsers/message_config.xml"
                     }) {
                 URL resource = loader.getResource(name);

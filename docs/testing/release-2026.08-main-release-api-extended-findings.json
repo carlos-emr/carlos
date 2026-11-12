@@ -1,0 +1,645 @@
+{
+  "schemaVersion": 1,
+  "qualification": false,
+  "status": "unreviewed",
+  "applicationWarBuildCommit": "bdce201613371b903887b66d813dc45916269efa",
+  "binaryInputs": {
+    "clientCorpusSha256": "cc9fd00063cd6dc6c55e09361a8607285c7fe06aade7733f1d747406c1771170",
+    "mainCommit": "e53e6cb555125a942bbb28e52097972a24c88ad1",
+    "mainPackageSha256": "839c981b7de78460d89eaba0a8c95d992d88f861cc4739bba2b81753373a3af1",
+    "releaseSource": {
+      "clean": true,
+      "commit": "d87ee6e5afb85a18d1d668c5d7ffdfd600e55dc5",
+      "tree": "8dba5a352ca8f0d06ad48ee3d0638289fa4a241f"
+    },
+    "releaseWarSha256": "d0771f15bb774262a38a0ce617e332e351c592f0118b19f725b441843ac3c7df",
+    "schemaVersion": 1,
+    "tomcatCoreSha256": "b71785ff101c0df501064b3e3b8c4a02e4f9cc3047a7fa686c41fc4edc2f0cb4",
+    "tomcatJspApiSha256": "b525b3689de9e55e38baf15a1662a22dc6763cbb868b59078c81ca2fc486c00e"
+  },
+  "apiDifferences": [
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "constant:public static final java.lang.String io.github.carlos_emr.OscarDocumentCreator.CSV:b8aa81e75dde5acdb08e63da32b04cdd6e55d44726ee2ff059137b240952975b",
+        "constant:public static final java.lang.String io.github.carlos_emr.OscarDocumentCreator.EXCEL:bd8d20ea4b2e06c4040a17ccbfbf60109f554804272efe15c78856e0eec2d207",
+        "field:public static final java.lang.String io.github.carlos_emr.OscarDocumentCreator.CSV",
+        "field:public static final java.lang.String io.github.carlos_emr.OscarDocumentCreator.EXCEL"
+      ],
+      "type": "io.github.carlos_emr.OscarDocumentCreator"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.MSP.CheckBillingData.checkC02(java.lang.String,java.sql.ResultSet) throws java.sql.SQLException"
+      ],
+      "type": "io.github.carlos_emr.carlos.billings.MSP.CheckBillingData"
+    },
+    {
+      "addedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.MSP.CheckBillingData.checkC02(java.lang.String,io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows$ExtractClaimRow)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.billings.MSP.CheckBillingData"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.MSP.ExtractBean.getClaimDetailRecord(java.sql.ResultSet,java.lang.String) throws java.sql.SQLException"
+      ],
+      "type": "io.github.carlos_emr.carlos.billings.MSP.ExtractBean"
+    },
+    {
+      "addedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.MSP.ExtractBean.getClaimDetailRecord(io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows$ExtractClaimRow,java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.billings.MSP.ExtractBean"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "base:java.lang.Object",
+        "constructor:public io.github.carlos_emr.carlos.billings.MSP.dbExtract()",
+        "interface:java.lang.AutoCloseable",
+        "method:protected native java.lang.Object java.lang.Object.clone() throws java.lang.CloneNotSupportedException",
+        "method:protected void java.lang.Object.finalize() throws java.lang.Throwable",
+        "method:public boolean java.lang.Object.equals(java.lang.Object)",
+        "method:public final native java.lang.Class<?> java.lang.Object.getClass()",
+        "method:public final native void java.lang.Object.notify()",
+        "method:public final native void java.lang.Object.notifyAll()",
+        "method:public final void java.lang.Object.wait() throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+        "method:public java.lang.String java.lang.Object.toString()",
+        "method:public java.sql.ResultSet io.github.carlos_emr.carlos.billings.MSP.dbExtract.executeQuery(java.lang.String,java.lang.Object...) throws java.sql.SQLException",
+        "method:public java.sql.ResultSet io.github.carlos_emr.carlos.billings.MSP.dbExtract.executeQuery2(java.lang.String,java.lang.Object...) throws java.sql.SQLException",
+        "method:public native int java.lang.Object.hashCode()",
+        "method:public void io.github.carlos_emr.carlos.billings.MSP.dbExtract.close()",
+        "method:public void io.github.carlos_emr.carlos.billings.MSP.dbExtract.closeConnection()",
+        "method:public void io.github.carlos_emr.carlos.billings.MSP.dbExtract.openConnection()",
+        "type:public"
+      ],
+      "type": "io.github.carlos_emr.carlos.billings.MSP.dbExtract"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action.execute()"
+      ],
+      "type": "io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"
+    },
+    {
+      "addedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action.execute() throws java.io.IOException"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.billings.ca.bc.MSP.CreateBillingReport2Action"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.sql.ResultSet io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.getAdjustmentsMSPRemittanceQuery(java.lang.String,java.lang.String)",
+        "method:public java.sql.ResultSet io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.getMSPRemittanceQuery(java.lang.String,java.lang.String)"
+      ],
+      "type": "io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"
+    },
+    {
+      "addedMembers": [
+        "constructor:public io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile(boolean)",
+        "method:public io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile$BillSearch io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.getPayments(java.lang.String,java.lang.String,java.lang.String,java.lang.String,java.lang.String,boolean,boolean,boolean,boolean,java.lang.String)",
+        "method:public java.util.List<io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows$AdjustmentRemittanceRow> io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.getAdjustmentsMSPRemittanceQuery(java.lang.String,java.lang.String)",
+        "method:public java.util.List<io.github.carlos_emr.carlos.billings.ca.bc.data.BcBillingRows$RemittanceRow> io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile.getMSPRemittanceQuery(java.lang.String,java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.billings.ca.bc.MSP.MSPReconcile"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:protected void io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action.addGroupIssues(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.util.ArrayList<io.github.carlos_emr.carlos.casemgmt.web.CheckBoxBean>,int,boolean)"
+      ],
+      "type": "io.github.carlos_emr.carlos.casemgmt.web.CaseManagementView2Action"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow> io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.getConsultationListRows(io.github.carlos_emr.carlos.consultation.dto.ConsultationListFilterDto)",
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.consultation.dto.ConsultationListRow> io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao.getConsultationListRows(java.lang.Integer)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt> io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao.getConsultationRequestExts(java.util.Collection<java.lang.Integer>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDao"
+    },
+    {
+      "addedMembers": [
+        "method:public java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultationRequestExt> io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDaoImpl.getConsultationRequestExts(java.util.Collection<java.lang.Integer>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ConsultationRequestExtDaoImpl"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.dao.projection.DemographicName> io.github.carlos_emr.carlos.commn.dao.DemographicDao.getDemographicNames(java.util.Collection<java.lang.Integer>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.DemographicDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.dao.DemographicExtDao$ReportValue> io.github.carlos_emr.carlos.commn.dao.DemographicExtDao.findReportValues(java.lang.String,java.util.Collection<java.lang.Integer>,boolean)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.DemographicExtDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract io.github.carlos_emr.carlos.commn.model.EmailLog io.github.carlos_emr.carlos.commn.dao.EmailLogDao.findFresh(java.lang.Integer)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.EmailLogDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.consultation.dto.ConsultationFaxRow> io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao.findConsultationFaxRows(int)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.FaxClientLogDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.MeasurementsExt> io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao.findByMeasurementIdsAndKey(java.util.List<java.lang.Integer>,java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.MeasurementsExtDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.consultation.dto.SpecialistListRow> io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao.findListRows()"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ProfessionalSpecialistDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.lang.Integer io.github.carlos_emr.carlos.commn.dao.QueueDao.addNewQueueAndGetId(java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.QueueDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract int io.github.carlos_emr.carlos.commn.dao.ReportConfigDao.nextOrder(int)",
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ReportConfig> io.github.carlos_emr.carlos.commn.dao.ReportConfigDao.findByReportId(int)",
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ReportConfig> io.github.carlos_emr.carlos.commn.dao.ReportConfigDao.findByReportIdAndSave(int,java.lang.String)",
+        "method:public abstract java.util.List<java.lang.String> io.github.carlos_emr.carlos.commn.dao.ReportConfigDao.findFormTableNames(int)",
+        "method:public abstract java.util.List<java.lang.String> io.github.carlos_emr.carlos.commn.dao.ReportConfigDao.findTableNames(int)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ReportConfigDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ReportFilter> io.github.carlos_emr.carlos.commn.dao.ReportFilterDao.findByReportIdAndStatus(java.lang.Integer,int)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ReportFilterDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ReportItem> io.github.carlos_emr.carlos.commn.dao.ReportItemDao.findByStatus(int)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ReportItemDao"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.List<io.github.carlos_emr.carlos.commn.model.ReportTableFieldCaption> io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao.findByTableName(java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.dao.ReportTableFieldCaptionDao"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:protected jakarta.servlet.ServletOutputStream io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action.getServletOstream(jakarta.servlet.http.HttpServletResponse)",
+        "method:public java.lang.String io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action.patientExcelReport()"
+      ],
+      "type": "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action"
+    },
+    {
+      "addedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action.patientExcelReport() throws java.io.IOException"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.commn.web.DxresearchReport2Action"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public abstract void io.github.carlos_emr.carlos.daos.LookupDao.runProcedure(java.lang.String,java.lang.String[]) throws java.sql.SQLException"
+      ],
+      "type": "io.github.carlos_emr.carlos.daos.LookupDao"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public void io.github.carlos_emr.carlos.daos.LookupDaoImpl.runProcedure(java.lang.String,java.lang.String[]) throws java.sql.SQLException"
+      ],
+      "type": "io.github.carlos_emr.carlos.daos.LookupDaoImpl"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "base:java.lang.Object",
+        "method:protected native java.lang.Object java.lang.Object.clone() throws java.lang.CloneNotSupportedException",
+        "method:protected void java.lang.Object.finalize() throws java.lang.Throwable",
+        "method:public boolean java.lang.Object.equals(java.lang.Object)",
+        "method:public final native java.lang.Class<?> java.lang.Object.getClass()",
+        "method:public final native void java.lang.Object.notify()",
+        "method:public final native void java.lang.Object.notifyAll()",
+        "method:public final void java.lang.Object.wait() throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+        "method:public java.lang.String java.lang.Object.toString()",
+        "method:public native int java.lang.Object.hashCode()",
+        "method:public static java.sql.ResultSet io.github.carlos_emr.carlos.db.DBHandler.GetPreSQL(java.lang.String,boolean,java.lang.Object...) throws java.sql.SQLException",
+        "method:public static java.sql.ResultSet io.github.carlos_emr.carlos.db.DBHandler.GetPreSQL(java.lang.String,java.lang.Object...) throws java.sql.SQLException",
+        "method:public static java.sql.ResultSet io.github.carlos_emr.carlos.db.DBHandler.getPreSql(java.lang.String,boolean,java.lang.Object...) throws java.sql.SQLException",
+        "method:public static java.sql.ResultSet io.github.carlos_emr.carlos.db.DBHandler.getPreSql(java.lang.String,java.lang.Object...) throws java.sql.SQLException",
+        "type:public final"
+      ],
+      "type": "io.github.carlos_emr.carlos.db.DBHandler"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "base:java.lang.Object",
+        "constructor:public io.github.carlos_emr.carlos.db.DBPreparedHandler()",
+        "method:protected native java.lang.Object java.lang.Object.clone() throws java.lang.CloneNotSupportedException",
+        "method:protected void java.lang.Object.finalize() throws java.lang.Throwable",
+        "method:public boolean java.lang.Object.equals(java.lang.Object)",
+        "method:public final native java.lang.Class<?> java.lang.Object.getClass()",
+        "method:public final native void java.lang.Object.notify()",
+        "method:public final native void java.lang.Object.notifyAll()",
+        "method:public final void java.lang.Object.wait() throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+        "method:public java.lang.String java.lang.Object.toString()",
+        "method:public native int java.lang.Object.hashCode()",
+        "method:public synchronized io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResultsCaisi(java.lang.String,int) throws java.sql.SQLException",
+        "method:public synchronized io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResultsCaisi(java.lang.String,java.lang.String) throws java.sql.SQLException",
+        "method:public synchronized io.github.carlos_emr.carlos.db.LegacyJdbcQuery$CaisiResult io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResultsCaisi(java.lang.String,java.lang.String[]) throws java.sql.SQLException",
+        "method:public synchronized java.lang.String io.github.carlos_emr.carlos.db.DBPreparedHandler.getNewProviderNo()",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,int) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,int[]) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,io.github.carlos_emr.carlos.db.DBPreparedHandlerParam[]) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,java.lang.String) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,java.lang.String[]) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults(java.lang.String,java.lang.String[],int[]) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults_paged(java.lang.String,io.github.carlos_emr.carlos.db.DBPreparedHandlerParam[],int) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults_paged(java.lang.String,java.lang.String,int) throws java.sql.SQLException",
+        "method:public synchronized java.sql.ResultSet io.github.carlos_emr.carlos.db.DBPreparedHandler.queryResults_paged(java.lang.String,java.lang.String[],int) throws java.sql.SQLException",
+        "method:public synchronized void io.github.carlos_emr.carlos.db.DBPreparedHandler.procExecute(java.lang.String,java.lang.String[]) throws java.sql.SQLException",
+        "type:public final"
+      ],
+      "type": "io.github.carlos_emr.carlos.db.DBPreparedHandler"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "constructor:public io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action()"
+      ],
+      "type": "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action"
+    },
+    {
+      "addedMembers": [
+        "constructor:public io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action(io.github.carlos_emr.carlos.managers.SecurityInfoManager,io.github.carlos_emr.carlos.commn.dao.DemographicDao,org.springframework.transaction.PlatformTransactionManager)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.demographic.pageUtil.DemographicMergeRecord2Action"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action.execute()"
+      ],
+      "type": "io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action"
+    },
+    {
+      "addedMembers": [
+        "method:public java.lang.String io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action.execute() throws java.io.IOException"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.eform.actions.HtmlEdit2Action"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "field:public java.util.List<io.github.carlos_emr.carlos.commn.model.Provider> io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil.consultProvider"
+      ],
+      "type": "io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequestsUtil"
+    },
+    {
+      "addedMembers": [
+        "constructor:public io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler(java.lang.Integer,java.lang.String,boolean)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public void io.github.carlos_emr.carlos.fax.core.FaxImporter.poll()"
+      ],
+      "type": "io.github.carlos_emr.carlos.fax.core.FaxImporter"
+    },
+    {
+      "addedMembers": [
+        "method:public synchronized void io.github.carlos_emr.carlos.fax.core.FaxImporter.poll()"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.fax.core.FaxImporter"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public java.util.Collection<org.apache.cxf.phase.PhaseInterceptor<? extends org.apache.cxf.message.Message>> org.apache.cxf.phase.AbstractPhaseInterceptor.getAdditionalInterceptors()"
+      ],
+      "type": "io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCleanupInterceptor"
+    },
+    {
+      "addedMembers": [
+        "method:public java.util.Collection<org.apache.cxf.phase.PhaseInterceptor<? extends org.apache.cxf.message.Message>> io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCleanupInterceptor.getAdditionalInterceptors()"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.integration.ebs.client.ng.AttachmentCleanupInterceptor"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public void org.apache.cxf.phase.AbstractPhaseInterceptor.handleFault(T)"
+      ],
+      "type": "io.github.carlos_emr.carlos.integration.ebs.client.ng.DynamicWSS4JInInterceptor"
+    },
+    {
+      "addedMembers": [
+        "method:public void io.github.carlos_emr.carlos.integration.ebs.client.ng.DynamicWSS4JInInterceptor.handleFault(org.apache.cxf.message.Message)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.integration.ebs.client.ng.DynamicWSS4JInInterceptor"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public static java.util.ArrayList<java.util.Map<java.lang.String, java.io.Serializable>> io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues.findValuesByLoinc2(java.lang.String,java.lang.String,java.sql.Connection)"
+      ],
+      "type": "io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues"
+    },
+    {
+      "addedMembers": [
+        "method:public static java.util.List<java.util.Map<java.lang.String, java.io.Serializable>> io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues.findValuesByLoinc2(java.lang.String,java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.lab.ca.on.CommonLabTestValues"
+    },
+    {
+      "addedMembers": [
+        "method:public default java.util.ArrayList<java.util.HashMap<java.lang.String, ?>> io.github.carlos_emr.carlos.managers.ConsultationManager.getAttachedHRMDocuments(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.lang.String,java.lang.String,java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultDocs>)",
+        "method:public default java.util.List<io.github.carlos_emr.carlos.encounter.data.EctFormData$PatientForm> io.github.carlos_emr.carlos.managers.ConsultationManager.getAttachedForms(io.github.carlos_emr.carlos.utility.LoggedInInfo,int,int,java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultDocs>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.managers.ConsultationManager"
+    },
+    {
+      "addedMembers": [
+        "method:public java.util.ArrayList<java.util.HashMap<java.lang.String, ?>> io.github.carlos_emr.carlos.managers.ConsultationManagerImpl.getAttachedHRMDocuments(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.lang.String,java.lang.String,java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultDocs>)",
+        "method:public java.util.List<io.github.carlos_emr.carlos.encounter.data.EctFormData$PatientForm> io.github.carlos_emr.carlos.managers.ConsultationManagerImpl.getAttachedForms(io.github.carlos_emr.carlos.utility.LoggedInInfo,int,int,java.util.List<io.github.carlos_emr.carlos.commn.model.ConsultDocs>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.managers.ConsultationManagerImpl"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract java.util.Map<java.lang.Integer, java.lang.String> io.github.carlos_emr.carlos.managers.DemographicManager.getDemographicFormattedNames(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.util.Collection<java.lang.Integer>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.managers.DemographicManager"
+    },
+    {
+      "addedMembers": [
+        "method:public abstract io.github.carlos_emr.carlos.commn.model.Appointment io.github.carlos_emr.carlos.managers.ScheduleManager.updateAppointment(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.lang.Integer,java.lang.String,java.util.function.Consumer<io.github.carlos_emr.carlos.commn.model.Appointment>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.managers.ScheduleManager"
+    },
+    {
+      "addedMembers": [
+        "method:public io.github.carlos_emr.carlos.commn.model.Appointment io.github.carlos_emr.carlos.managers.ScheduleManagerImpl.updateAppointment(io.github.carlos_emr.carlos.utility.LoggedInInfo,java.lang.Integer,java.lang.String,java.util.function.Consumer<io.github.carlos_emr.carlos.commn.model.Appointment>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.managers.ScheduleManagerImpl"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:protected static org.apache.velocity.VelocityContext io.github.carlos_emr.carlos.managers.WaitListManager.getAdmissionVelocityContext(io.github.carlos_emr.carlos.PMmodule.model.Program,java.lang.String,java.util.Date,java.util.Date,java.util.ArrayList<io.github.carlos_emr.carlos.managers.WaitListManager$AdmissionDemographicPair>)",
+        "method:protected static org.apache.velocity.VelocityContext io.github.carlos_emr.carlos.managers.WaitListManager.getVacancyVelocityContext(io.github.carlos_emr.carlos.PMmodule.model.Vacancy,java.lang.String,java.util.Date)"
+      ],
+      "type": "io.github.carlos_emr.carlos.managers.WaitListManager"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public void io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator.evaluate(io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.report.ClinicalReports.Denominator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator[],java.util.List<org.apache.commons.collections4.KeyValue>,boolean)",
+        "method:public void io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator.evaluate(io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.report.ClinicalReports.Denominator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator,java.util.List<org.apache.commons.collections4.KeyValue>)"
+      ],
+      "type": "io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator"
+    },
+    {
+      "addedMembers": [
+        "method:public void io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator.evaluate(io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.report.ClinicalReports.Denominator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator[],java.util.List<java.util.Map$Entry<java.lang.String, java.lang.String>>,boolean)",
+        "method:public void io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator.evaluate(io.github.carlos_emr.carlos.utility.LoggedInInfo,io.github.carlos_emr.carlos.report.ClinicalReports.Denominator,io.github.carlos_emr.carlos.report.ClinicalReports.Numerator,java.util.List<java.util.Map$Entry<java.lang.String, java.lang.String>>)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public static boolean io.github.carlos_emr.carlos.util.StringUtils.isValidDate(java.lang.String,java.lang.String)",
+        "method:public static boolean io.github.carlos_emr.carlos.util.StringUtils.nullSafeEquals(java.lang.String,java.lang.String)",
+        "method:public static boolean io.github.carlos_emr.carlos.util.StringUtils.nullSafeEqualsIgnoreCase(java.lang.String,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.getCSV(java.util.List)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.getStrIn(java.lang.String[])",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.join(java.lang.String[],java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.join(java.util.List,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.preencheBranco(int)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.preenchimento(int,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.preenchimentoEsquerda(int,java.lang.String,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.replaceChar(char,char,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.returnStringToFirst(java.lang.String,java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.transformNullInEmptyString(java.lang.String)",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.util.StringUtils.transformNullInOtherString(java.lang.String,java.lang.String)",
+        "method:public static java.util.ArrayList<java.lang.String> io.github.carlos_emr.carlos.util.StringUtils.split(java.lang.String,java.lang.String)",
+        "method:public static java.util.Vector io.github.carlos_emr.carlos.util.StringUtils.splitString(java.lang.String,java.lang.String)"
+      ],
+      "type": "io.github.carlos_emr.carlos.util.StringUtils"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public static java.sql.Connection io.github.carlos_emr.carlos.utility.DbConnectionFilter.getThreadLocalDbConnection() throws java.sql.SQLException",
+        "method:public static void io.github.carlos_emr.carlos.utility.DbConnectionFilter.releaseAllKnownDbResources()",
+        "method:public static void io.github.carlos_emr.carlos.utility.DbConnectionFilter.releaseThreadLocalDbConnection()"
+      ],
+      "type": "io.github.carlos_emr.carlos.utility.DbConnectionFilter"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public org.apache.commons.collections4.OrderedMap io.github.carlos_emr.carlos.utility.OntarioMD.getDiseaseList()"
+      ],
+      "type": "io.github.carlos_emr.carlos.utility.OntarioMD"
+    },
+    {
+      "addedMembers": [
+        "method:public java.util.Map<java.lang.String, java.lang.String> io.github.carlos_emr.carlos.utility.OntarioMD.getDiseaseList()"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.utility.OntarioMD"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "method:public synchronized void org.apache.commons.dbcp2.BasicDataSource.setDriverClassName(java.lang.String)"
+      ],
+      "type": "io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource"
+    },
+    {
+      "addedMembers": [
+        "method:public synchronized void io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource.setDriverClassName(java.lang.String)"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "base:java.lang.Object",
+        "constructor:public io.github.carlos_emr.carlos.utility.VelocityUtils()",
+        "field:public static final org.apache.velocity.app.VelocityEngine io.github.carlos_emr.carlos.utility.VelocityUtils.velocityEngine",
+        "field:public static final org.apache.velocity.tools.generic.DateTool io.github.carlos_emr.carlos.utility.VelocityUtils.dateTool",
+        "field:public static final org.apache.velocity.tools.generic.EscapeTool io.github.carlos_emr.carlos.utility.VelocityUtils.escapeTool",
+        "field:public static final org.apache.velocity.tools.generic.NumberTool io.github.carlos_emr.carlos.utility.VelocityUtils.numberTool",
+        "method:protected native java.lang.Object java.lang.Object.clone() throws java.lang.CloneNotSupportedException",
+        "method:protected void java.lang.Object.finalize() throws java.lang.Throwable",
+        "method:public boolean java.lang.Object.equals(java.lang.Object)",
+        "method:public final native java.lang.Class<?> java.lang.Object.getClass()",
+        "method:public final native void java.lang.Object.notify()",
+        "method:public final native void java.lang.Object.notifyAll()",
+        "method:public final void java.lang.Object.wait() throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long) throws java.lang.InterruptedException",
+        "method:public final void java.lang.Object.wait(long,int) throws java.lang.InterruptedException",
+        "method:public java.lang.String java.lang.Object.toString()",
+        "method:public native int java.lang.Object.hashCode()",
+        "method:public static java.lang.String io.github.carlos_emr.carlos.utility.VelocityUtils.velocityEvaluate(org.apache.velocity.VelocityContext,java.lang.String) throws org.apache.velocity.exception.ResourceNotFoundException",
+        "method:public static org.apache.velocity.VelocityContext io.github.carlos_emr.carlos.utility.VelocityUtils.createVelocityContextWithTools()",
+        "type:public"
+      ],
+      "type": "io.github.carlos_emr.carlos.utility.VelocityUtils"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "enum-constant:MYSQL_CLEANUP_THREAD",
+        "field:public static final io.github.carlos_emr.carlos.utility.WebappShutdownResources$ShutdownStep io.github.carlos_emr.carlos.utility.WebappShutdownResources$ShutdownStep.MYSQL_CLEANUP_THREAD"
+      ],
+      "type": "io.github.carlos_emr.carlos.utility.WebappShutdownResources$ShutdownStep"
+    },
+    {
+      "addedMembers": [
+        "enum-constant:MARIADB_TIMEOUT_SCHEDULER"
+      ],
+      "case": "changed-public-java-api",
+      "reason": "public-api-addition-needs-client-review",
+      "type": "io.github.carlos_emr.carlos.utility.WebappShutdownResources$ShutdownStep"
+    },
+    {
+      "case": "changed-public-java-api",
+      "reason": "public-api-removed-or-changed",
+      "removedMembers": [
+        "field:public org.apache.commons.collections4.map.MultiValueMap io.github.carlos_emr.carlos.web.Cds4ReportUIBean$SingleMultiAdmissions.multipleAdmissionCohortBuckets",
+        "field:public org.apache.commons.collections4.map.MultiValueMap io.github.carlos_emr.carlos.web.Cds4ReportUIBean$SingleMultiAdmissions.singleAdmissionCohortBuckets"
+      ],
+      "type": "io.github.carlos_emr.carlos.web.Cds4ReportUIBean$SingleMultiAdmissions"
+    }
+  ]
+}

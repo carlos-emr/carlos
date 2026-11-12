@@ -48,6 +48,7 @@ import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,6 +65,16 @@ public class CdsAppointmentPersister {
 
     private final OscarAppointmentDao appointments;
     private final DemographicDao demographics;
+    // Unit hashes can interleave patients. Bound the working set independently
+    // of import size and isolate names by run, owner epoch and local patient.
+    private record PatientNameKey(String run, long epoch, int patient) { }
+    private final Map<PatientNameKey, String> patientNames = Collections.synchronizedMap(
+            new LinkedHashMap<PatientNameKey, String>(256, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<PatientNameKey, String> eldest) {
+                    return size() > 256;
+                }
+            });
 
     public CdsAppointmentPersister(
             CdsFieldParser fields,
@@ -274,7 +285,7 @@ public class CdsAppointmentPersister {
         appointment.setStartTime(Time.valueOf(LocalTime.parse(dto.start())));
         appointment.setEndTime(Time.valueOf(LocalTime.parse(dto.end())));
         appointment.setProviderNo(dto.providerNo() == null ? "" : dto.providerNo());
-        appointment.setName(appointmentName(patient));
+        appointment.setName(appointmentName(run, epoch, patient));
         appointment.setProgramId(command.programId() == null ? 0 : command.programId());
         appointment.setReason(dto.purpose());
         appointment.setNotes(dto.notes());
@@ -294,9 +305,14 @@ public class CdsAppointmentPersister {
      * bookings carry the patient's name in the same "Last,First" form the scheduler writes
      * (AppointmentAddRecord2Action).
      */
-    private String appointmentName(int patient) {
+    private String appointmentName(String run, long epoch, int patient) {
+        PatientNameKey key = new PatientNameKey(run, epoch, patient);
+        String cached = patientNames.get(key);
+        if (cached != null) return cached;
         Demographic demographic = demographics.getDemographicById(patient);
-        return demographic == null ? "" : demographic.getLastName() + "," + demographic.getFirstName();
+        String name = demographic == null ? "" : demographic.getLastName() + "," + demographic.getFirstName();
+        patientNames.put(key, name);
+        return name;
     }
 
     private String bounded(

@@ -60,6 +60,7 @@
  * finds are recorded in docs/ui-tests/app-findings-log.md, not worked around.
  */
 
+const { authenticatedProbe } = require('./lib/authenticated-probe');
 const {
   assert, assertStrictPage, createRecorder, launchBrowser, login, newContext, readConfig, runCheck,
 } = require('./lib/playwright-harness');
@@ -148,7 +149,7 @@ async function main() {
       for (const method of PROBED_METHODS) {
         let status;
         try {
-          const response = await context.request.fetch(url, { method, timeout, maxRedirects: 0 });
+          const response = await authenticatedProbe({context, config}, url, { method, timeout, maxRedirects: 0 });
           status = response.status();
         } catch (error) {
           failures.push(`${entry.route} (${entry.simpleName}): the ${method} itself failed -- ${String(error.message).split('\n')[0]}`);

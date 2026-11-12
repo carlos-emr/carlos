@@ -55,8 +55,7 @@
   @since 2026-06-11
 --%>
 
-<%@ page
-  import="java.sql.*, java.util.*, io.github.carlos_emr.MyDateFormat" %>
+
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 <%@page import="io.github.carlos_emr.carlos.appointment.service.AppointmentStatusTransitionException" %>

@@ -29,13 +29,14 @@
 
 --%>
 
+<%@page contentType="text/html; charset=UTF-8" pageEncoding="UTF-8" %>
 <%@page import="java.time.LocalDate" %>
 <%@page import="java.time.ZoneId" %>
 <%@page import="java.time.temporal.ChronoUnit" %>
 <%@page import="org.hl7.fhir.dstu3.model.Coding" %>
 <%@page import="org.hl7.fhir.dstu3.model.CodeableConcept" %>
 <%@page import="org.hl7.fhir.dstu3.model.Practitioner.PractitionerQualificationComponent" %>
-<%@page import="org.hl7.fhir.dstu3.model.codesystems.PractitionerSpecialty" %>
+
 <%@page import="org.hl7.fhir.dstu3.model.ContactPoint" %>
 <%@page import="org.hl7.fhir.dstu3.model.Identifier" %>
 <%@page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
@@ -50,29 +51,29 @@
 <%@page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
 <%@page import="io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMapping" %>
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.CVCMappingDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.CVCMedicationLotNumber" %>
+
 <%@page import="org.apache.commons.lang3.StringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.CVCImmunization" %>
 <%@page import="io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.providers.data.ProviderData" %>
+
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.DemographicData,java.text.SimpleDateFormat, java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink" %>
-<%@ page import="io.github.carlos_emr.carlos.casemgmt.service.CaseManagementManager" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.util.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.DemographicExtDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.dao.PreventionsLotNrsDao" %>
-<%@page import="io.github.carlos_emr.carlos.commn.model.PreventionsLotNrs" %>
+
+
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 <%
     String roleName$ = (String) session.getAttribute("userrole") + "," + (String) session.getAttribute("user");
@@ -555,17 +556,17 @@
                                 </thead>
                                 <tr>
                                     <td width="15%"><b>Name:</b></td>
-                                    <td><%=submitterName != null ? submitterName : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(submitterName != null ? submitterName : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>OneId username:</b></td>
-                                    <td><%=submitterUsername != null ? submitterUsername : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(submitterUsername != null ? submitterUsername : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Phone:</b></td>
-                                    <td><%=submitterPhone != null ? submitterPhone : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(submitterPhone != null ? submitterPhone : "N/A"))%>
                                     </td>
                                 </tr>
                             </table>
@@ -583,22 +584,22 @@
                                 </thead>
                                 <tr>
                                     <td width="15%"><b>Name:</b></td>
-                                    <td><%=sourceName %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(sourceName))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Software:</b></td>
-                                    <td><%=sourceSoftware %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(sourceSoftware))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Version:</b></td>
-                                    <td><%=sourceVersion != null ? sourceVersion : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(sourceVersion != null ? sourceVersion : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Endpoint:</b></td>
-                                    <td><%=(sourceEndpoint != null) ? sourceEndpoint : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf((sourceEndpoint != null) ? sourceEndpoint : "N/A"))%>
                                     </td>
                                 </tr>
                             </table>
@@ -616,7 +617,7 @@
                                 </thead>
                                 <tr>
                                     <td width="15%"><b>Name:</b></td>
-                                    <td><%=sender != null ? sender : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(sender != null ? sender : "N/A"))%>
                                     </td>
                                 </tr>
                             </table>
@@ -634,12 +635,12 @@
                                 </thead>
                                 <tr>
                                     <td width="15%"><b>Phu Id:</b></td>
-                                    <td><%=phu != null ? phu : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(phu != null ? phu : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>PHU Name:</b></td>
-                                    <td><%=phuName != null ? phuName : "N/A"%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(phuName != null ? phuName : "N/A"))%>
                                     </td>
                                 </tr>
 
@@ -658,40 +659,40 @@
                                 </thead>
                                 <tr>
                                     <td width="15%"><b>Demographic No:</b></td>
-                                    <td><%=patientId %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(patientId))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Name:</b></td>
-                                    <td><%=patientName != null ? patientName : "N/A"%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(patientName != null ? patientName : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>HIN:</b></td>
-                                    <td><%=patientHin != null ? patientHin : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(patientHin != null ? patientHin : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Phone:</b></td>
-                                    <td><%=(patientPhone != null) ? patientPhone : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf((patientPhone != null) ? patientPhone : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Gender:</b></td>
-                                    <td><%=patientGender != null ? patientGender : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(patientGender != null ? patientGender : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>DOB:</b></td>
-                                    <td><%=patientDOB != null ? patientDOB : "N/A"%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(patientDOB != null ? patientDOB : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%" valign="top"><b>Address:</b></td>
-                                    <td><%=StringUtils.trimToEmpty(patientAddress) %>
-                                        <br/><%=StringUtils.trimToEmpty(patientCity) %>
-                                        <br/><%=StringUtils.trimToEmpty(patientState) %>
-                                        <br/><%=StringUtils.trimToEmpty(patientPostal) %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(StringUtils.trimToEmpty(patientAddress)))%>
+                                        <br/><%=SafeEncode.forHtmlContent(String.valueOf(StringUtils.trimToEmpty(patientCity)))%>
+                                        <br/><%=SafeEncode.forHtmlContent(String.valueOf(StringUtils.trimToEmpty(patientState)))%>
+                                        <br/><%=SafeEncode.forHtmlContent(String.valueOf(StringUtils.trimToEmpty(patientPostal)))%>
                                     </td>
                                 </tr>
 
@@ -721,74 +722,74 @@
                                 <!--
 				<tr>
 					<td width="15%"><b>Status:</b></td>
-					<td><%=immunization.getStatus() %></td>
+					<td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getStatus()))%></td>
 				</tr>
 				<tr>
 					<td width="15%"><b>Not Given:</b></td>
-					<td><%=immunization.getNotGiven() %></td>
+					<td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getNotGiven()))%></td>
 				</tr>
 				-->
                                 <tr>
                                     <td width="15%"><b>Vaccine Code:</b></td>
-                                    <td><%=getVaccineCode(immunization, 0)%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getVaccineCode(immunization, 0)))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Vaccine Code Display:</b></td>
-                                    <td><%=getVaccineCodeDisplay(immunization, 0)%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getVaccineCodeDisplay(immunization, 0)))%>
                                     </td>
                                 </tr>
 
                                 <tr>
                                     <td width="15%"><b>Date Given:</b></td>
-                                    <td><%=immunization.getDate() %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getDate()))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Primary Source:</b></td>
-                                    <td><%=immunization.getPrimarySource() %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getPrimarySource()))%>
                                     </td>
                                 </tr>
                                 <%if (!immunization.getPrimarySource()) { %>
                                 <tr>
                                     <td width="15%"><b>Report Origin:</b></td>
-                                    <td><%=getReportOrigin(immunization) %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getReportOrigin(immunization)))%>
                                     </td>
                                 </tr>
                                 <% } %>
                                 <tr>
                                     <td width="15%"><b>Lot #:</b></td>
-                                    <td><%=immunization.getLotNumber() != null ? immunization.getLotNumber() : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getLotNumber() != null ? immunization.getLotNumber() : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Expiration Date:</b></td>
-                                    <td><%=immunization.getExpirationDate() != null ? immunization.getExpirationDate() : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(immunization.getExpirationDate() != null ? immunization.getExpirationDate() : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Site:</b></td>
-                                    <td><%=getSite(immunization) != null ? getSite(immunization) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getSite(immunization) != null ? getSite(immunization) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Route Display:</b></td>
-                                    <td><%=getRoute(immunization) != null ? getRoute(immunization) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getRoute(immunization) != null ? getRoute(immunization) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Dose Qty:</b></td>
-                                    <td><%=getDoseQuantity(immunization) != null ? getDoseQuantity(immunization) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getDoseQuantity(immunization) != null ? getDoseQuantity(immunization) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Dose Unit:</b></td>
-                                    <td><%=getDoseUnit(immunization) != null ? getDoseUnit(immunization) : "N/A"%>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getDoseUnit(immunization) != null ? getDoseUnit(immunization) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Reason:</b></td>
-                                    <td><%=getReason(immunization) != null ? getReason(immunization) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getReason(immunization) != null ? getReason(immunization) : "N/A"))%>
                                     </td>
                                 </tr>
 
@@ -801,27 +802,27 @@
 
                                 <tr>
                                     <td width="15%"><b>Provider No:</b></td>
-                                    <td><%=performer.getId() %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(performer.getId()))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Name:</b></td>
-                                    <td><%=getPractitionerName(performer) != null ? getPractitionerName(performer) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getPractitionerName(performer) != null ? getPractitionerName(performer) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Id Type:</b></td>
-                                    <td><%=getPractitionerCollegeIdType(performer) != null ? getPractitionerCollegeIdType(performer) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getPractitionerCollegeIdType(performer) != null ? getPractitionerCollegeIdType(performer) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Id:</b></td>
-                                    <td><%=getPractitionerCollegeId(performer) != null ? getPractitionerCollegeId(performer) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getPractitionerCollegeId(performer) != null ? getPractitionerCollegeId(performer) : "N/A"))%>
                                     </td>
                                 </tr>
                                 <tr>
                                     <td width="15%"><b>Qualification:</b></td>
-                                    <td><%=getPractitionerQualification(performer) != null ? getPractitionerQualification(performer) : "N/A" %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(getPractitionerQualification(performer) != null ? getPractitionerQualification(performer) : "N/A"))%>
                                     </td>
                                 </tr>
                             </table>
@@ -838,7 +839,7 @@
                                 <!-- enter validation errors here -->
                                 <%for (String error : validationErrors) { %>
                                 <tr>
-                                    <td><%=error %>
+                                    <td><%=SafeEncode.forHtmlContent(String.valueOf(error))%>
                                     </td>
                                 </tr>
                                 <% } %>
@@ -854,7 +855,7 @@
                 <% } %>
 
                 <form action="<%=request.getContextPath()%>/dhir/submit" method="post">
-                    <input type="hidden" name="uuid" value="<%=bundle.getId()%>"/>
+                    <input type="hidden" name="uuid" value="<%=SafeEncode.forHtmlAttribute(String.valueOf(bundle.getId()))%>"/>
 
                     <input type="submit"
                            value="Submit" <%=(!validationErrors.isEmpty()) ? " disabled=\"disabled\" " : "" %>/>

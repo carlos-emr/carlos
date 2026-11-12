@@ -45,7 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -58,7 +58,7 @@
     if (request.getParameter("limit1") != null) strLimit1 = request.getParameter("limit1");
     if (request.getParameter("limit2") != null) strLimit2 = request.getParameter("limit2");
 %>
-<%@ page import="java.util.*, java.sql.*, io.github.carlos_emr.*, java.text.*, java.lang.*,java.net.*,io.github.carlos_emr.carlos.providers.data.*"
+<%@ page import="java.lang.*, io.github.carlos_emr.carlos.providers.data.*"
          errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.EChartDao" %>
@@ -87,6 +87,9 @@
 <body bgproperties="fixed" onLoad="setfocus()" topmargin="0"
       leftmargin="0" rightmargin="0">
 
+<p><strong><fmt:message key="encounter.historicalChart.title"/></strong><br/>
+    <fmt:message key="encounter.historicalChart.notice"/>
+</p>
 <table border="0" cellspacing="0" cellpadding="0" width="100%">
     <tr bgcolor="#CCCCFF">
         <th align=CENTER NOWRAP><font face="Helvetica"><fmt:message key="encounter.echartHistory.title"/></font></th>
@@ -131,8 +134,8 @@
             //bodd = bodd?false:true;
             nItems++;
             bgcolor = nItems % 2 == 0 ? "#EEEEFF" : "white";
-            datetime = eChart.getTimestamp().toString();
-            ectsize = eChart.getEncounter().length() / 1024;
+            datetime = eChart.getTimestamp() == null ? String.valueOf(eChart.getId()) : eChart.getTimestamp().toString();
+            ectsize = eChart.getEncounter() == null ? 0 : eChart.getEncounter().length() / 1024;
 
             if (eChart.getSubject() != null && eChart.getSubject().equals("SPLIT CHART")) {
                 splitectsize = "" + ectsize;

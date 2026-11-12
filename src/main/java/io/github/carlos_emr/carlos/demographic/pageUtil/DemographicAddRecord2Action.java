@@ -86,13 +86,18 @@ public class DemographicAddRecord2Action extends ActionSupport {
     HttpServletRequest request = ServletActionContext.getRequest();
     HttpServletResponse response = ServletActionContext.getResponse();
 
-    private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
-    private DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
-    private DemographicCustDao demographicCustDao = SpringUtils.getBean(DemographicCustDao.class);
-    private DemographicExtDao demographicExtDao = SpringUtils.getBean(DemographicExtDao.class);
-    private DemographicArchiveDao demographicArchiveDao = SpringUtils.getBean(DemographicArchiveDao.class);
-    private DemographicExtArchiveDao demographicExtArchiveDao = SpringUtils.getBean(DemographicExtArchiveDao.class);
-    private WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
+    private final SecurityInfoManager securityInfoManager =
+            SpringUtils.getBean(SecurityInfoManager.class);
+    private final DemographicDao demographicDao = SpringUtils.getBean(DemographicDao.class);
+    private final DemographicCustDao demographicCustDao =
+            SpringUtils.getBean(DemographicCustDao.class);
+    private final DemographicExtDao demographicExtDao =
+            SpringUtils.getBean(DemographicExtDao.class);
+    private final DemographicArchiveDao demographicArchiveDao =
+            SpringUtils.getBean(DemographicArchiveDao.class);
+    private final DemographicExtArchiveDao demographicExtArchiveDao =
+            SpringUtils.getBean(DemographicExtArchiveDao.class);
+    private final WaitingListDao waitingListDao = SpringUtils.getBean(WaitingListDao.class);
 
     /** Set once the patient row has committed, so a later failure can be told apart from one before it. */
     private String registeredDemographicNo;
@@ -117,23 +122,29 @@ public class DemographicAddRecord2Action extends ActionSupport {
             throw new SecurityException("missing required session");
         }
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "w", null)) {
-            logger.warn("DemographicAddRecord2Action: provider {} lacks _demographic write privilege",
+            logger.warn(
+                    "DemographicAddRecord2Action: provider {} lacks _demographic write privilege",
                     loggedInInfo.getLoggedInProviderNo());
             throw new SecurityException("missing required sec object (_demographic)");
         }
 
         // One rendered Add Demographic form registers one patient (issue #4225). The result page is
-        // rendered straight from this POST, so reloading it, like a double click or a re-click while
+        // rendered straight from this POST, so reloading it, like a double click or a re-click
+        // while
         // a slow save is out, sends the same form again; a patient with no HIN has no other
         // duplicate protection. The repeat is answered with the first registration's own result
         // page. Claimed before validation: once the first save has stored the patient, the HIN
         // check would otherwise refuse the repeat as a duplicate of the patient it just created.
         // A post without a token keeps the previous behaviour.
-        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
-                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD,
-                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        FormSubmissionGuard.Attempt attempt =
+                FormSubmissionGuard.attempt(
+                        request.getSession(),
+                        request.getParameter(FormSubmissionGuard.PARAMETER),
+                        FormSubmissionGuard.Scope.DEMOGRAPHIC_ADD,
+                        null,
+                        FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
         switch (attempt.verdict()) {
-            case PROCEED, ABSENT -> { }
+            case PROCEED, ABSENT -> {}
             case ALREADY_SAVED -> {
                 return showAdded(attempt.result(), demographicDao.getDemographic(attempt.result()));
             }
@@ -148,8 +159,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
             // registered patient rather than adding another; record that the rest may be missing.
             // The exception itself is logged with its incident id by the exception interceptor.
             if (registeredDemographicNo != null) {
-                logger.error("DemographicAddRecord2Action: patient {} was registered, but a later registration step failed;"
-                        + " its custom, consent, extension, archive or admission rows may be incomplete",
+                logger.error(
+                        "DemographicAddRecord2Action: patient {} was registered, but a later"
+                            + " registration step failed; its custom, consent, extension, archive"
+                            + " or admission rows may be incomplete",
                         LogSafe.sanitize(registeredDemographicNo));
             }
             throw e;
@@ -170,7 +183,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
         Demographic demographic = new Demographic();
         demographic.setLastName(StringUtils.trimToEmpty(request.getParameter("last_name")));
         demographic.setFirstName(StringUtils.trimToEmpty(request.getParameter("first_name")));
-        demographic.setMiddleNames(normalizeOptionalMiddleNames(request.getParameter("middleNames")));
+        demographic.setMiddleNames(
+                normalizeOptionalMiddleNames(request.getParameter("middleNames")));
         demographic.setAlias(request.getParameter("nameUsed"));
         // Name Used is kept whole in the alias; pref_name holds only what fits its column (#5128).
         demographic.setPrefName(Demographic.prefNameForNameUsed(request.getParameter("nameUsed")));
@@ -195,18 +209,25 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographic.setEmail(request.getParameter("email"));
         demographic.setYearOfBirth(request.getParameter("year_of_birth"));
         String monthOfBirth = request.getParameter("month_of_birth");
-        demographic.setMonthOfBirth(monthOfBirth != null && monthOfBirth.length() == 1 ? "0" + monthOfBirth : monthOfBirth);
+        demographic.setMonthOfBirth(
+                monthOfBirth != null && monthOfBirth.length() == 1
+                        ? "0" + monthOfBirth
+                        : monthOfBirth);
         String dateOfBirth = request.getParameter("date_of_birth");
-        demographic.setDateOfBirth(dateOfBirth != null && dateOfBirth.length() == 1 ? "0" + dateOfBirth : dateOfBirth);
+        demographic.setDateOfBirth(
+                dateOfBirth != null && dateOfBirth.length() == 1 ? "0" + dateOfBirth : dateOfBirth);
         demographic.setHin(request.getParameter("hin"));
         demographic.setVer(request.getParameter("ver"));
         demographic.setRosterStatus(request.getParameter("roster_status"));
         demographic.setRosterEnrolledTo(request.getParameter("roster_enrolled_to"));
         demographic.setPatientStatus(request.getParameter("patient_status"));
-        demographic.setDateJoined(MyDateFormat.getSysDate(
-                request.getParameter("date_joined_year") + "-" +
-                request.getParameter("date_joined_month") + "-" +
-                request.getParameter("date_joined_date")));
+        demographic.setDateJoined(
+                MyDateFormat.getSysDate(
+                        request.getParameter("date_joined_year")
+                                + "-"
+                                + request.getParameter("date_joined_month")
+                                + "-"
+                                + request.getParameter("date_joined_date")));
         demographic.setChartNo(request.getParameter("chart_no"));
         demographic.setProviderNo(request.getParameter("staff"));
         demographic.setSex(request.getParameter("sex"));
@@ -253,11 +274,17 @@ public class DemographicAddRecord2Action extends ActionSupport {
         }
 
         demographic.setFamilyDoctor(
-                "<rdohip>" + request.getParameter("r_doctor_ohip") + "</rdohip>" +
-                "<rd>" + request.getParameter("r_doctor") + "</rd>" +
-                (request.getParameter("family_doc") != null
-                        ? "<family_doc>" + request.getParameter("family_doc") + "</family_doc>"
-                        : ""));
+                "<rdohip>"
+                        + request.getParameter("r_doctor_ohip")
+                        + "</rdohip>"
+                        + "<rd>"
+                        + request.getParameter("r_doctor")
+                        + "</rd>"
+                        + (request.getParameter("family_doc") != null
+                                ? "<family_doc>"
+                                        + request.getParameter("family_doc")
+                                        + "</family_doc>"
+                                : ""));
         demographic.setCountryOfOrigin(request.getParameter("countryOfOrigin"));
         demographic.setNewsletter(request.getParameter("newsletter"));
         demographic.setSin(request.getParameter("sin"));
@@ -270,7 +297,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
         if (request.getParameter("patient_status_date") != null) {
             SimpleDateFormat fmt = new SimpleDateFormat("yyyy-MM-dd");
             try {
-                demographic.setPatientStatusDate(fmt.parse(request.getParameter("patient_status_date")));
+                demographic.setPatientStatusDate(
+                        fmt.parse(request.getParameter("patient_status_date")));
             } catch (Exception e) {
                 demographic.setPatientStatusDate(new Date());
             }
@@ -280,7 +308,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
 
         List<String> fieldLengthValidationErrors = demographic.validateFieldLengths();
         if (!fieldLengthValidationErrors.isEmpty()) {
-            logger.warn("DemographicAddRecord2Action: rejected demographic input due to field length limits: {}",
+            logger.warn(
+                    "DemographicAddRecord2Action: rejected demographic input due to field length"
+                            + " limits: {}",
                     LogSafe.sanitize(String.join("; ", fieldLengthValidationErrors)));
             request.setAttribute("fieldLengthValidationErrors", fieldLengthValidationErrors);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -295,7 +325,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
             hinDupCheckException = true;
         }
 
-        if (request.getParameter("hin") != null && request.getParameter("hin").length() > 5 && !hinDupCheckException) {
+        if (request.getParameter("hin") != null
+                && request.getParameter("hin").length() > 5
+                && !hinDupCheckException) {
             String paramNameHin = request.getParameter("hin").trim();
             List<Demographic> demographics = demographicDao.searchByHealthCard(paramNameHin);
             if (!demographics.isEmpty()) {
@@ -307,12 +339,14 @@ public class DemographicAddRecord2Action extends ActionSupport {
 
         // The patient row commits in a transaction the claim observes: a save that rolled back
         // leaves the form submittable, and one whose commit could not be confirmed never does.
-        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class)).executeWithoutResult(status -> {
-            if (claim != null) {
-                claim.storageStarted();
-            }
-            demographicDao.save(demographic);
-        });
+        new TransactionTemplate(SpringUtils.getBean(PlatformTransactionManager.class))
+                .executeWithoutResult(
+                        status -> {
+                            if (claim != null) {
+                                claim.storageStarted();
+                            }
+                            demographicDao.save(demographic);
+                        });
 
         String dem = demographic.getDemographicNo().toString();
         registeredDemographicNo = dem;
@@ -331,8 +365,10 @@ public class DemographicAddRecord2Action extends ActionSupport {
         demographicCustDao.persist(demographicCust);
 
         // --- Patient consents ---
-        if (CarlosProperties.getInstance().getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
-            PatientConsentManager patientConsentManager = SpringUtils.getBean(PatientConsentManager.class);
+        if (CarlosProperties.getInstance()
+                .getBooleanProperty("USE_NEW_PATIENT_CONSENT_MODULE", "true")) {
+            PatientConsentManager patientConsentManager =
+                    SpringUtils.getBean(PatientConsentManager.class);
             List<ConsentType> consentTypes = patientConsentManager.getActiveConsentTypes();
             boolean explicitConsent = Boolean.TRUE;
             for (ConsentType consentType : consentTypes) {
@@ -343,38 +379,147 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     try {
                         optOut = Integer.parseInt(consentRecord) == 1;
                     } catch (NumberFormatException e) {
-                        logger.warn("DemographicAddRecord2Action: invalid consent value={}, defaulting to false", LogSafe.sanitize(consentRecord));
+                        logger.warn(
+                                "DemographicAddRecord2Action: invalid consent value={}, defaulting"
+                                        + " to false",
+                                LogSafe.sanitize(consentRecord));
                         optOut = false;
                     }
-                    patientConsentManager.addEditConsentRecord(loggedInInfo, demographic.getDemographicNo(),
-                            consentType.getId(), explicitConsent, optOut);
+                    patientConsentManager.addEditConsentRecord(
+                            loggedInInfo,
+                            demographic.getDemographicNo(),
+                            consentType.getId(),
+                            explicitConsent,
+                            optOut);
                 }
             }
         }
 
         // --- DemographicExt keys ---
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "hPhoneExt", request.getParameter("hPhoneExt"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "wPhoneExt", request.getParameter("wPhoneExt"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "demo_cell", request.getParameter("demo_cell"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "aboriginal", request.getParameter("aboriginal"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "cytolNum", request.getParameter("cytolNum"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "ethnicity", request.getParameter("ethnicity"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "area", request.getParameter("area"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "statusNum", request.getParameter("statusNum"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "fNationCom", request.getParameter("fNationCom"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "given_consent", request.getParameter("given_consent"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "rxInteractionWarningLevel", request.getParameter("rxInteractionWarningLevel"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "primaryEMR", request.getParameter("primaryEMR"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "phoneComment", request.getParameter("phoneComment"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "usSigned", request.getParameter("usSigned"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "privacyConsent", request.getParameter("privacyConsent"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "informedConsent", request.getParameter("informedConsent"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "HasPrimaryCarePhysician", request.getParameter("HasPrimaryCarePhysician"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "EmploymentStatus", request.getParameter("EmploymentStatus"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "PHU", request.getParameter("PHU"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "fNationFamilyNumber", request.getParameter("fNationFamilyNumber"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "fNationFamilyPosition", request.getParameter("fNationFamilyPosition"), "");
-        demographicExtDao.addKey(proNo, demographic.getDemographicNo(), "labelfNationCom", request.getParameter("labelfNationCom"), "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "hPhoneExt",
+                request.getParameter("hPhoneExt"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "wPhoneExt",
+                request.getParameter("wPhoneExt"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "demo_cell",
+                request.getParameter("demo_cell"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "aboriginal",
+                request.getParameter("aboriginal"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "cytolNum",
+                request.getParameter("cytolNum"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "ethnicity",
+                request.getParameter("ethnicity"),
+                "");
+        demographicExtDao.addKey(
+                proNo, demographic.getDemographicNo(), "area", request.getParameter("area"), "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "statusNum",
+                request.getParameter("statusNum"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "fNationCom",
+                request.getParameter("fNationCom"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "given_consent",
+                request.getParameter("given_consent"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "rxInteractionWarningLevel",
+                request.getParameter("rxInteractionWarningLevel"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "primaryEMR",
+                request.getParameter("primaryEMR"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "phoneComment",
+                request.getParameter("phoneComment"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "usSigned",
+                request.getParameter("usSigned"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "privacyConsent",
+                request.getParameter("privacyConsent"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "informedConsent",
+                request.getParameter("informedConsent"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "HasPrimaryCarePhysician",
+                request.getParameter("HasPrimaryCarePhysician"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "EmploymentStatus",
+                request.getParameter("EmploymentStatus"),
+                "");
+        demographicExtDao.addKey(
+                proNo, demographic.getDemographicNo(), "PHU", request.getParameter("PHU"), "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "fNationFamilyNumber",
+                request.getParameter("fNationFamilyNumber"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "fNationFamilyPosition",
+                request.getParameter("fNationFamilyPosition"),
+                "");
+        demographicExtDao.addKey(
+                proNo,
+                demographic.getDemographicNo(),
+                "labelfNationCom",
+                request.getParameter("labelfNationCom"),
+                "");
 
         OtherIdManager.saveIdDemographic(dem, "meditech_id", request.getParameter("meditech_id"));
 
@@ -384,7 +529,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
             String[] propDemoExt = oscarVariables.getProperty("demographicExt", "").split("\\|");
             for (String propKey : propDemoExt) {
                 String key = propKey.replace(' ', '_');
-                demographicExtDao.addKey(proNo, demographic.getDemographicNo(), key, request.getParameter(key), "");
+                demographicExtDao.addKey(
+                        proNo, demographic.getDemographicNo(), key, request.getParameter(key), "");
             }
         }
 
@@ -394,7 +540,8 @@ public class DemographicAddRecord2Action extends ActionSupport {
 
         // --- Archive the initial record ---
         Long archiveId = demographicArchiveDao.archiveRecord(demographicDao.getDemographic(dem));
-        List<DemographicExt> extensions = demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
+        List<DemographicExt> extensions =
+                demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
         for (DemographicExt extension : extensions) {
             DemographicExtArchive archive = new DemographicExtArchive(extension);
             archive.setArchiveId(archiveId);
@@ -403,8 +550,11 @@ public class DemographicAddRecord2Action extends ActionSupport {
         }
 
         // --- Waiting list ---
-        io.github.carlos_emr.carlos.waitinglist.WaitingList wL = io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
-        if (wL.getFound() && CarlosProperties.getInstance().getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
+        io.github.carlos_emr.carlos.waitinglist.WaitingList wL =
+                io.github.carlos_emr.carlos.waitinglist.WaitingList.getInstance();
+        if (wL.getFound()
+                && CarlosProperties.getInstance()
+                        .getBooleanProperty("DEMOGRAPHIC_WAITING_LIST", "true")) {
             String listId = request.getParameter("list_id");
             if (listId != null && !listId.isEmpty() && !listId.equals("0")) {
                 try {
@@ -419,7 +569,9 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     waitingList.setDemographicNo(demographic.getDemographicNo());
                     waitingList.setNote(request.getParameter("waiting_list_note"));
                     waitingList.setPosition((long) maxPosition + 1L);
-                    Date referralDate = MyDateFormat.getSysDate(request.getParameter("waiting_list_referral_date"));
+                    Date referralDate =
+                            MyDateFormat.getSysDate(
+                                    request.getParameter("waiting_list_referral_date"));
                     if (referralDate == null) {
                         referralDate = new Date();
                     }
@@ -427,7 +579,11 @@ public class DemographicAddRecord2Action extends ActionSupport {
                     waitingList.setIsHistory("N");
                     waitingListDao.persist(waitingList);
                 } catch (NumberFormatException e) {
-                    logger.warn("DemographicAddRecord2Action: invalid list_id={}, skipping waiting list entry", listId, e);
+                    logger.warn(
+                            "DemographicAddRecord2Action: invalid list_id={}, skipping waiting list"
+                                    + " entry; failure={}",
+                            io.github.carlos_emr.carlos.utility.LogSafe.sanitize(listId),
+                            io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                 }
             }
         }
@@ -486,9 +642,13 @@ public class DemographicAddRecord2Action extends ActionSupport {
             request.setAttribute("bufChart", StringUtils.trimToEmpty(saved.getChartNo()));
             request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(saved.getProviderNo()));
         } else {
-            request.setAttribute("bufName", request.getParameter("last_name") + "," + request.getParameter("first_name"));
-            request.setAttribute("bufChart", StringUtils.trimToEmpty(request.getParameter("chart_no")));
-            request.setAttribute("bufDoctorNo", StringUtils.trimToEmpty(request.getParameter("staff")));
+            request.setAttribute(
+                    "bufName",
+                    request.getParameter("last_name") + "," + request.getParameter("first_name"));
+            request.setAttribute(
+                    "bufChart", StringUtils.trimToEmpty(request.getParameter("chart_no")));
+            request.setAttribute(
+                    "bufDoctorNo", StringUtils.trimToEmpty(request.getParameter("staff")));
         }
         // Pass through remaining appointment params for URL construction in view
         request.setAttribute("creator", request.getParameter("creator"));
@@ -508,8 +668,14 @@ public class DemographicAddRecord2Action extends ActionSupport {
         return SUCCESS;
     }
 
-    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
-    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision")
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value
+    // (status/flag/enum/MIME/code); not a security or authorization decision. See
+    // docs/static-analysis-workflows.md
+    @SuppressFBWarnings(
+            value = "IMPROPER_UNICODE",
+            justification =
+                    "case-insensitive comparison of an internal/domain value"
+                        + " (status/flag/enum/MIME/code); not a security or authorization decision")
     static String normalizeOptionalMiddleNames(String rawMiddleNames) {
         String middleNames = StringUtils.trimToEmpty(rawMiddleNames);
         return "null".equalsIgnoreCase(middleNames) ? "" : middleNames;

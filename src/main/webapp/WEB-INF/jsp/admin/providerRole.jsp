@@ -35,7 +35,6 @@
 <%@ page import="java.text.MessageFormat" %>
 <%@ page import="io.github.carlos_emr.*" %>
 <%@ page import="io.github.carlos_emr.carlos.log.*" %>
-<%@ page import="org.springframework.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.model.Program" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.dao.ProgramDao" %>
@@ -49,7 +48,7 @@
 <%@ page import="io.github.carlos_emr.carlos.commn.model.ProviderData" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.RecycleBinDao" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.ProviderDataDao" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="org.springframework.web.context.WebApplicationContext" %>
 <%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.PMmodule.service.ProgramProviderService" %>
@@ -60,7 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.admin.support.AssignableRoles" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 <%
@@ -541,6 +540,8 @@
         for (int i = 0; i < vec.size(); i++) {
             Properties item = vec.get(i);
             String providerNo = item.getProperty("provider_no", "");
+            String roleId = item.getProperty("role_id");
+            boolean hasRoleId = roleId != null && !roleId.isBlank();
     %>
       <form name="myform" class="myform myform-<carlos:encode value='<%= providerNo %>' context="htmlAttribute"/>" action="${pageContext.request.contextPath}/admin/ProviderRole" method="POST" onSubmit="this.scrollPosition.value=window.scrollY">
         <tr>
@@ -589,9 +590,9 @@
                     <input type="submit" name="submit" class="btn btn-primary"
                            value="<fmt:message key="global.btnAdd"/>" disabled="disabled">
                     <input type="submit" name="buttonUpdate" class="btn btn-info"
-                           value="<fmt:message key="global.update"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.update"/>" <%= hasRoleId ? "" : "disabled"%>>
                     <input type="submit" name="submit" class="btn btn-link" style="color:red;"
-                           value="<fmt:message key="global.btnDelete"/>" <%= StringUtils.hasText(item.getProperty("role_id"))?"":"disabled"%>>
+                           value="<fmt:message key="global.btnDelete"/>" <%= hasRoleId ? "" : "disabled"%>>
                 </div>
             </td>
         </tr>

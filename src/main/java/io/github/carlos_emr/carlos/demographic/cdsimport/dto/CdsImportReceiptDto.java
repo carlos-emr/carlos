@@ -22,7 +22,10 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 /** Immutable protected import data; do not expose source/target details in ordinary logs. */
-public record CdsImportReceiptDto(String targetReferences, String targetDigest, boolean alreadyComplete) {
+public record CdsImportReceiptDto(String targetReferences, String targetDigest, boolean alreadyComplete, String nativeBaseline) {
+    public CdsImportReceiptDto(String targetReferences, String targetDigest, boolean alreadyComplete) {
+        this(targetReferences, targetDigest, alreadyComplete, null);
+    }
     public CdsImportReceiptDto(String targetReferences, String targetDigest) {
         this(targetReferences, targetDigest, false);
     }

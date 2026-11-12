@@ -1,6 +1,6 @@
-<%@page import="io.github.carlos_emr.carlos.web.AppointmentProviderAdminDayUIBean"%>
-<%@page import="java.util.Collection, java.util.Collections, java.util.List, java.util.ArrayList"%>
-<%@page import="io.github.carlos_emr.carlos.commn.model.ProviderPreference"%>
+
+
+
 <%@page import="io.github.carlos_emr.carlos.commn.dao.PregnancyFormsDao" %>
 <%
 //do they have an enhanced form started?

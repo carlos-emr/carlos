@@ -247,11 +247,11 @@ public final class ClinicLogoUtility {
             cell.setFixedHeight(HEADER_HEIGHT);
             pdfPTable.addCell(cell);
         } catch (FileNotFoundException e) {
-            logger.error("Failed to locate file at " + logoFile, e);
+            logger.error("Failed to locate file at: {}", LogSafe.exceptionTrace(e));
         } catch (BadElementException e) {
             logger.error("Unexpected error.", e);
         } catch (MalformedURLException e) {
-            logger.error("This image location is malformed " + logoFile, e);
+            logger.error("This image location is malformed: {}", LogSafe.exceptionTrace(e));
         } catch (IOException e) {
             logger.error("Unexpected error.", e);
         }

@@ -142,6 +142,13 @@ def main():
     serialized = json.dumps(document, indent=1, sort_keys=True, ensure_ascii=True) + "\n"
     if args.check:
         if output.read_text() != serialized:
+            recorded = json.loads(output.read_text())
+            if (recorded.get("schema") == document["schema"]
+                    and recorded.get("format") == document["format"]
+                    and recorded.get("province") == document["province"]):
+                raise SystemExit("physical definitions match; migration_sha256 differs: "
+                                 + document["migration_sha256"]
+                                 + "; regenerate the contract from this fresh Flyway reference DB")
             raise SystemExit("physical schema contract differs: regenerate it from a fresh Flyway reference DB")
     else:
         output.parent.mkdir(parents=True, exist_ok=True)

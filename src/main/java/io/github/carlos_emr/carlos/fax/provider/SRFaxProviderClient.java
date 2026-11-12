@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.fax.provider;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -126,8 +128,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                     return trimmed;
                 }
             } catch (java.net.URISyntaxException e) {
-                logger.warn("Configured srfax.api.url '{}' is not a valid URI: {} - using default",
-                        trimmed, e.getMessage());
+                logger.warn("Configured SRFax API URL is invalid; using default: {}", LogSafe.exceptionTrace(e));
                 return DEFAULT_SRFAX_API_URL;
             }
             logger.warn("Configured srfax.api.url '{}' is not a valid srfax.com HTTPS endpoint - using default", trimmed);
@@ -266,7 +267,7 @@ public class SRFaxProviderClient implements FaxProviderClient {
                         try {
                             faxJob.setJobId(Long.parseLong(faxDetailsId));
                         } catch (NumberFormatException e) {
-                            logger.debug("SRFax FileName pipe segment is non-numeric: {}", faxDetailsId);
+                            logger.debug("SRFax FileName pipe segment is non-numeric");
                         }
                     }
                 }

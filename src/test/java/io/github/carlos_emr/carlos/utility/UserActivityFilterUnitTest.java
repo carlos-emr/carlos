@@ -128,7 +128,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus"})
+    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus", "/form/cdsExportStatus"})
     @DisplayName("should not count an autoRefresh=true request as activity")
     void shouldNotRecordActivity_whenRequestAutoRefreshes(String path) throws Exception {
         MockHttpSession session = authenticatedSession();
@@ -190,7 +190,7 @@ class UserActivityFilterUnitTest extends CarlosUnitTestBase {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus"})
+    @ValueSource(strings = {"/tickler/ticklerMain", "/form/cdsImportStatus", "/form/cdsExportStatus"})
     @DisplayName("should redirect an inactive session to the logout page before the chain runs")
     void shouldRedirectToLogoutPage_whenSessionIsInactive(String path) throws Exception {
         MockHttpSession session = authenticatedSession();

@@ -92,5 +92,12 @@ common/V1.0.59.30__one_live_consent_per_type.sql
 bc/V1.0.59.31__restore_bcar2007_urine_culture_text.sql
 common/V1.0.59.32__preserve_native_archive_capacity.sql
 common/V1.0.59.33__audit_imported_billing_filenames.sql
-common/V1.0.59.34__preserve_unassigned_digital_signatures.sql
-common/V1.0.59.35__freeze_imported_signature_ownership.sql
+bc/V1.0.59.34__preserve_bc_history_amount.sql
+common/V1.0.59.35__rx_favorite_groups.sql
+common/V1.0.59.36__rx_submission_receipts.sql
+common/V1.0.59.37__rx_original_versions.sql
+common/V1.0.59.38__cds_native_field_baselines.sql
+common/V1.0.59.39__cds_export_ledger.sql
+common/V1.0.59.40__cds_export_artifact_attempts.sql
+common/V1.0.59.41__seed_admin_cds_import_permission.sql
+common/V1.0.59.42__index_cds_hrm_patient_scope.sql

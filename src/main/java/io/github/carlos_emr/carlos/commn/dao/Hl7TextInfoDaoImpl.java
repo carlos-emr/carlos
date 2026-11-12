@@ -28,6 +28,7 @@
  * Now maintained by the CARLOS EMR Project (2026+).
  * https://github.com/carlos-emr/carlos
  * CARLOS has no affiliation with OSCAR or McMaster University.
+ * Modifications by CARLOS Contributors, 2026.
  */
 
 
@@ -43,7 +44,7 @@ import java.time.ZoneId;
 
 import jakarta.persistence.Query;
 
-import org.apache.commons.codec.binary.Base64;
+import java.util.Base64;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextInfo;
 import io.github.carlos_emr.carlos.commn.model.Hl7TextMessageInfo;
@@ -57,9 +58,60 @@ import io.github.carlos_emr.CarlosProperties;
 
 @Repository
 public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements Hl7TextInfoDao {
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.LABORATORY_INFORMATION);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_INFORMATION, patient, rowId, column, offset, length);
+    }
+
 
     public Hl7TextInfoDaoImpl() {
         super(Hl7TextInfo.class);
+    }
+
+    @Override
+    public List<LabStatus> findRecentLabStatuses(int limit) {
+        if (limit <= 0) return Collections.emptyList();
+        List<?> rows = entityManager.createQuery(
+                "SELECT x.labNumber, x.resultStatus FROM Hl7TextInfo x ORDER BY x.labNumber DESC")
+                .setMaxResults(limit).getResultList();
+        return rows.stream().map(value -> {
+            Object[] row = (Object[]) value;
+            return new LabStatus(((Number) row[0]).intValue(), row[1] == null ? "" : row[1].toString().trim());
+        }).toList();
+    }
+
+    @Override
+    public void updateResultStatusLowPriority(int labNumber, String status) {
+        entityManager.createNativeQuery("UPDATE LOW_PRIORITY hl7TextInfo SET result_status=?1 WHERE lab_no=?2")
+                .setParameter(1, status).setParameter(2, labNumber).executeUpdate();
     }
 
     @SuppressWarnings("unchecked")
@@ -152,7 +204,7 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         String sql = "SELECT a.lab_no as id, m2.message, a.lab_no AS lab_no_A, b.lab_no AS lab_no_B, a.obr_date as labDate_A, b.obr_date as labDate_B FROM hl7TextInfo a, hl7TextInfo b, hl7TextMessage m2 WHERE m2.lab_id = a.lab_no AND a.accessionNum !='' AND a.accessionNum=b.accessionNum AND b.lab_no IN ( SELECT lab_id FROM hl7TextMessage WHERE message=?1 ) ORDER BY a.obr_date, a.lab_no";
         Query query = entityManager.createNativeQuery(sql, Hl7TextMessageInfo.class);
         try {
-            query.setParameter(1, (new String(Base64.encodeBase64(hl7msg.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING)));
+            query.setParameter(1, (new String(Base64.getEncoder().encode(hl7msg.getBytes(MiscUtils.DEFAULT_UTF8_ENCODING)), MiscUtils.DEFAULT_UTF8_ENCODING)));
         } catch (UnsupportedEncodingException e) {
 
             MiscUtils.getLogger().error("Error setting query parameter hl7msg ", e);
@@ -294,7 +346,10 @@ public class Hl7TextInfoDaoImpl extends AbstractDaoImpl<Hl7TextInfo> implements 
         return findLabAndDocsViaMagic(providerNo, demographicNo, patientFirstName, patientLastName, patientHealthNumber, status, isPaged, page, pageSize, mixLabsAndDocs, isAbnormal, searchProvider, patientSearch, startDate, endDate, null);
     }
 
-    @SuppressWarnings("unchecked")
+    // S3776: this query body is unchanged from release/2026.08 b4c0dfc94e6.
+    // #5483 changes only encoding elsewhere in this file; restructuring this
+    // permission-sensitive SQL builder needs its own behavior-preservation review.
+    @SuppressWarnings({"unchecked", "java:S3776"})
     @NativeSql({"hl7TextInfo", "providerLabRouting", "ctl_document", "demographic"})
     @Override
     public List<Object[]> findLabAndDocsViaMagic(String providerNo, String demographicNo, String patientFirstName, String patientLastName, String patientHealthNumber, String status, boolean isPaged, Integer page, Integer pageSize, boolean mixLabsAndDocs, Boolean isAbnormal, boolean searchProvider, boolean patientSearch, Date startDate, Date endDate, Date acknowledgedSince) {

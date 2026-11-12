@@ -46,7 +46,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.springframework.stereotype.Repository;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
-@Repository
+@Repository("oscarLogDao")
 public class OscarLogDaoImpl extends AbstractDaoImpl<OscarLog> implements OscarLogDao {
 
     private static final Logger logger = MiscUtils.getLogger();

@@ -887,12 +887,11 @@ public class OhipClaimFileService {
             // to prevent. Log at ERROR before rethrow so the cause chain
             // (with the raw malformed value from the entity getter) lands
             // in the application log alongside the operator-facing banner.
-            _logger.error("OHIP claim file aborted ({}): {}",
-                    domain.getClass().getSimpleName(), domain.getMessage(), domain);
+            _logger.error("OHIP claim file aborted: {}", LogSafe.exceptionTrace(domain));
             throw domain;
         } catch (Exception e) {
             // Propagate partial-write failures so Struts renders the file-write error page.
-            _logger.error("OHIP claim file generation failed", e);
+            _logger.error("OHIP claim file generation failed: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "OHIP claim file generation failed", e);
         }
@@ -989,7 +988,7 @@ public class OhipClaimFileService {
             throw domain;
         } catch (Exception e) {
             // Propagate partial-write failures so Struts renders the file-write error page.
-            _logger.error("OHIP site claim file generation failed", e);
+            _logger.error("OHIP site claim file generation failed: {}", LogSafe.exceptionTrace(e));
             throw new BillingFileWriteException(
                     "OHIP site claim file generation failed", e);
         }
@@ -1277,7 +1276,7 @@ public class OhipClaimFileService {
             // Nothing to dedup against: the file was never written (a failed
             // generation) or was removed. The empty set selects no claim, so the
             // regeneration writes the file empty instead of failing.
-            _logger.warn("OHIP file {} is missing; regenerating it empty", LogSafe.sanitize(ohipFilename));
+            _logger.warn("OHIP file is missing; regenerating it empty");
             return;
         }
         // try-with-resources: a mid-read throw must close the file handle.
@@ -1313,8 +1312,7 @@ public class OhipClaimFileService {
             // subsequent createBillingFileStr() would re-emit those records to
             // OHIP — duplicate claim submission. RuntimeException covers the
             // String#substring/Integer.parseInt paths above on a malformed line.
-            _logger.error("Failed to read OHIP file {} (record dedup will be incomplete; aborting to prevent duplicate-claim submission)",
-                    LogSafe.sanitize(ohipFilename), e);
+            _logger.error("Failed to read OHIP file (record dedup will be incomplete; aborting to prevent duplicate-claim submission): {}", LogSafe.exceptionTrace(e));
             throw new IllegalStateException(
                     "Failed to read OHIP file for billing-no dedup; aborting regeneration", e);
         }
@@ -1355,12 +1353,12 @@ public class OhipClaimFileService {
                         java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 rememberRenamedFile(file, file2);
             } catch (java.io.IOException ioe) {
-                _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
+                _logger.error("OHIP file rename failed: {}", LogSafe.exceptionTrace(ioe));
                 throw new BillingFileWriteException(
                         "OHIP file rename failed: " + ohipFilename, ioe);
             }
         } catch (java.io.IOException ioe) {
-            _logger.error("OHIP file rename failed: {} -> {}", ohipFilename, newName, ioe);
+            _logger.error("OHIP file rename failed: {}", LogSafe.exceptionTrace(ioe));
             throw new BillingFileWriteException(
                     "OHIP file rename failed: " + ohipFilename, ioe);
         }
@@ -1501,8 +1499,7 @@ public class OhipClaimFileService {
                     configuredFilename, new File(homeDir));
             java.nio.file.Files.deleteIfExists(safeOut.toPath());
         } catch (IOException | RuntimeException e) {
-            _logger.warn("Failed to delete generated {} file {} during cleanup", outputLabel,
-                    LogSafe.sanitize(configuredFilename), e);
+            _logger.warn("Failed to delete generated file during cleanup: {}", LogSafe.exceptionTrace(e));
         }
     }
 

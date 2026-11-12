@@ -96,6 +96,7 @@ public class ContextStartupListener implements jakarta.servlet.ServletContextLis
             // ordinary clinical initialization pending. Earlier worker execution can
             // mistake an uninitialized privilege lookup for revoked authorization.
             SpringUtils.getBean(CdsImportService.class).start();
+            SpringUtils.getBean(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class).start();
             logger.info("OSCAR web context started. context={} clinicalStartup={}", contextPath, clinicalStartup.state());
         } catch (Exception e) {
             logger.error("Unexpected error.", e);

@@ -33,10 +33,11 @@
 <%@ page import="java.util.*,io.github.carlos_emr.carlos.report.reportByTemplate.*,io.github.carlos_emr.carlos.managers.RBTGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.RBTGroup" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportManager" %>
 <%@ page import="io.github.carlos_emr.carlos.report.reportByTemplate.ReportObject" %>
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
@@ -93,7 +94,7 @@
                             }
                     %>
 
-                    <option value="<%=value%>"><%=templateGroups.get(i)%>
+                    <option value="<%=value%>"><%=SafeEncode.forHtmlContent(templateGroups.get(i))%>
                     </option>
                     <% }%>
                 </select>

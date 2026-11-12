@@ -50,7 +50,7 @@
 
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@page
-        import="java.util.*,io.github.carlos_emr.carlos.demographic.data.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.providers.data.*,io.github.carlos_emr.carlos.util.*,io.github.carlos_emr.carlos.report.data.*,io.github.carlos_emr.carlos.prevention.pageUtil.*,io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
+        import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.carlos.report.data.*, io.github.carlos_emr.carlos.demographic.pageUtil.*" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.Util" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.DemographicExportAction42Action" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.pageUtil.PGPEncrypt" %>
@@ -59,9 +59,9 @@
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
-<%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
+
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
 
@@ -408,6 +408,7 @@
             </div>
         </div>
         <h3><fmt:message key="demographic.demographicexport.title"/> </h3>
+        <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport">Asynchronous CDS Export</a></p>
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>

@@ -28,13 +28,27 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%
+    String[] patientParameters = request.getParameterValues("demographic_no");
+    String demographic_no = patientParameters != null && patientParameters.length == 1 ? patientParameters[0] : null;
+    try {
+        if (demographic_no == null || !demographic_no.matches("[1-9][0-9]{0,9}")
+                || Integer.parseInt(demographic_no) < 1) {
+            response.sendError(400);
+            return;
+        }
+    } catch (NumberFormatException invalidPatient) {
+        response.sendError(400);
+        return;
+    }
+%>
 <!DOCTYPE html>
 <%@page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <% long startTime = System.currentTimeMillis(); %>
 <%@ page
-        import="io.github.carlos_emr.carlos.demographic.data.*,java.util.*,io.github.carlos_emr.carlos.prevention.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.*,io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*,java.net.*" %>
-<%@ page import="org.springframework.web.context.support.WebApplicationContextUtils" %>
-<%@ page import="org.springframework.web.context.WebApplicationContext" %>
+        import="java.util.*, io.github.carlos_emr.carlos.prevention.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.*, io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.*, java.net.*" %>
+
+
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetCustomizationDao,io.github.carlos_emr.carlos.commn.model.FlowSheetCustomization" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.FlowSheetDrugDao,io.github.carlos_emr.carlos.commn.model.FlowSheetDrug" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
@@ -49,16 +63,16 @@
 <%@ page import="io.github.carlos_emr.carlos.prevention.PreventionData" %>
 <%@ page import="io.github.carlos_emr.carlos.prevention.Prevention" %>
 <%@ page import="io.github.carlos_emr.carlos.prescript.data.RxPrescriptionData" %>
-<%@ page import="org.owasp.encoder.Encode" %>
+
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
-<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+
 
 <%@ taglib uri="/WEB-INF/oscar-tag.tld" prefix="oscar" %>
-<%@ taglib uri="/WEB-INF/rewrite-tag.tld" prefix="rewrite" %>
+
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
-<%@ taglib uri="owasp.encoder.jakarta.advanced" prefix="e" %>
+
 <%@ taglib uri="carlos" prefix="carlos" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -84,7 +98,6 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
 
 <%
-    String demographic_no = request.getParameter("demographic_no");
     String providerNo = (String) session.getAttribute("user");
     boolean printView = false;
     String date = UtilDateUtilities.getToday("yyyy-MM-dd");

@@ -49,6 +49,66 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return CdsExportNativeMetadataReadSupport.read(entityManager, CdsExportNativeMetadataReadSupport.Table.DRUGS);
+    }
+
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportExactNumericReadSupport.drugs(entityManager, patient,
+                CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient, afterId, limit));
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DRUGS, patient, rowId, column, offset, length);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
+            readCdsExportDrugReferenceInputs(int patient, int maximum) {
+        if (patient < 1 || maximum < 1 || maximum > 8192)
+            throw new IllegalArgumentException("CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID");
+        @SuppressWarnings("unchecked")
+        java.util.List<Object[]> rows = entityManager.createNativeQuery(
+                "SELECT drugid, GCN_SEQNO, regional_identifier FROM drugs WHERE demographic_no=:patient ORDER BY drugid", Object[].class)
+                .setParameter("patient", patient).setHint("jakarta.persistence.query.timeout", 30_000)
+                .setMaxResults(maximum + 1).getResultList();
+        if (rows.size() > maximum) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.RESOURCE_LIMIT);
+        var result = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>();
+        Long previous = null;
+        for (var row : rows) {
+            if (!(row[0] instanceof Number id) || !(row[1] instanceof Number)
+                    || row[2] != null && !(row[2] instanceof String))
+                throw new IllegalStateException("CDS_EXPORT_DRUG_REFERENCE_INPUT_INVALID");
+            long key = id.longValue();
+            if (previous != null && key <= previous) throw new IllegalStateException("CDS_EXPORT_DRUG_REFERENCE_INPUT_INVALID");
+            previous = key;
+            result.add(new io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto(key,
+                    new java.math.BigDecimal(row[1].toString()).toBigIntegerExact(), (String) row[2]));
+        }
+        return java.util.List.copyOf(result);
+    }
+
     private static final Set<String> FIND_BY_PARAMETER_ALLOWED_COLUMNS =
             Set.of("customName", "regional_identifier", "BN");
 
@@ -60,7 +120,7 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     public int archiveIfActive(int drugId, int demographicNo, String reason, Date archivedDate) {
         // A bulk update bypasses @PreUpdate, so preserve the sync timestamp explicitly.
         return entityManager.createQuery("update Drug d set d.archived = true, d.archivedReason = :reason,"
-                + " d.archivedDate = :date, d.lastUpdateDate = :date"
+                + " d.archivedDate = :date, d.lastUpdateDate = :date, d.rowVersion = d.rowVersion + 1"
                 + " where d.id = :id and d.demographicId = :patient and d.archived = false")
                 .setParameter("reason", reason).setParameter("date", archivedDate)
                 .setParameter("id", drugId).setParameter("patient", demographicNo).executeUpdate();
@@ -97,6 +157,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicId(Integer demographicId, Boolean archived) {
 
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -136,6 +198,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
      */
     @Deprecated
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByDate(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "
@@ -184,6 +248,8 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
     }
 
     @Override
+    // Only fixed HQL fragments and the literal alias x are composed; patient and archived values are bound.
+    @SuppressWarnings("java:S2077")
     public List<Drug> findByDemographicIdOrderByPosition(Integer demographicId, Boolean archived) {
         // build sql string
         String sqlCommand = "select x from Drug x where x.demographicId=?1 "

@@ -1,0 +1,41 @@
+{
+  "table": "cds_import_dependency",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "depends_on_unit_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "run_id",
+      "type": "varchar(36)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    },
+    {
+      "name": "unit_key",
+      "type": "varchar(64)",
+      "nullable": "NO",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_bin",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

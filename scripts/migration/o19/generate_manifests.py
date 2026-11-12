@@ -69,7 +69,7 @@ MANIFEST_DIR = REPO_ROOT / "debian" / "assets" / "o19-manifest"
 #: format it does not know, and the content is versioned separately by
 #: SCHEMA_MAP_VERSION / PROPS_MAP_VERSION.
 MANIFEST_FORMAT = 1
-SCHEMA_MANIFEST_FORMAT = 3
+SCHEMA_MANIFEST_FORMAT = 2
 #: manifest kind -> file name; the kind is written into the file too
 MANIFEST_FILES = {
     "o19map-schema": "o19map_schema.json",
@@ -124,6 +124,12 @@ COLUMN_KEYWORDS = {
     "primary", "unique", "key", "index", "constraint", "foreign",
     "fulltext", "check", "spatial",
 }
+_COLUMN_IDENTIFIER = r"(?:`(?:[^`]|``)+`|\w+)"
+
+
+def unquote_identifier(token: str) -> str:
+    """Decode a quoted MySQL identifier while preserving its actual name."""
+    return token[1:-1].replace("``", "`") if token.startswith("`") else token
 
 
 # --------------------------------------------------------------------------
@@ -387,7 +393,7 @@ def walk_ddl(text: str):
             i = stmt_end + 1
 
 
-_POSITION_RE = re.compile(r"\s+(?:(first)|after\s+`?(\w+)`?)\s*$", re.I)
+_POSITION_RE = re.compile(rf"\s+(?:(first)|after\s+({_COLUMN_IDENTIFIER}))\s*$", re.I)
 
 
 def split_column_position(ctype: str) -> Tuple[str, Optional[str]]:
@@ -402,7 +408,7 @@ def split_column_position(ctype: str) -> Tuple[str, Optional[str]]:
     m = _POSITION_RE.search(ctype)
     if not m:
         return ctype, None
-    return ctype[:m.start()].rstrip(), ("FIRST" if m.group(1) else m.group(2))
+    return ctype[:m.start()].rstrip(), ("FIRST" if m.group(1) else unquote_identifier(m.group(2)))
 
 
 def place_column(cols: Dict[str, str], name: str, ctype: str,
@@ -503,11 +509,11 @@ class Schema:
             part = part.strip()
             if not part:
                 continue
-            m = re.match(r"(?:`((?:[^`]|``)+)`|(\w+))\s*(.*)", part, re.S)
+            m = re.match(rf"({_COLUMN_IDENTIFIER})\s*(.*)", part, re.S)
             if not m:
                 continue
-            quoted = m.group(1) is not None
-            first = m.group(1).replace("``", "`") if quoted else m.group(2)
+            quoted = m.group(1).startswith("`")
+            first = unquote_identifier(m.group(1))
             # A BACKTICKED first token is a column name, never a
             # constraint keyword -- MySQL requires the quoting precisely
             # so a column may be called `key`, `index` or `check`. Without
@@ -525,10 +531,10 @@ class Schema:
                     # PRIMARY KEY. Split the prefix off FIRST: stripping
                     # backticks first leaves the closing one attached to
                     # the name (`col` -> col`(20) -> col`).
-                    pk = [c.strip().split("(")[0].strip().strip("`")
+                    pk = [unquote_identifier(c.strip().split("(")[0].strip())
                           for c in pm.group(1).split(",")]
                 continue
-            ctype = re.sub(r"\s+", " ", m.group(3)).strip().rstrip(",")
+            ctype = re.sub(r"\s+", " ", m.group(2)).strip().rstrip(",")
             inline_pk = re.search(r"\bprimary\s+key\b", ctype, re.I)
             if inline_pk and not pk:
                 pk = [first]
@@ -561,9 +567,9 @@ class Schema:
                          re.I | re.S)
             if m:
                 for part in _split_top_level(m.group(1)):
-                    pm = re.match(r"\s*`?(\w+)`?\s+(.+)", part, re.S)
-                    if pm and pm.group(1).lower() not in COLUMN_KEYWORDS:
-                        cols[pm.group(1)] = re.sub(
+                    pm = re.match(rf"\s*({_COLUMN_IDENTIFIER})\s+(.+)", part, re.S)
+                    if pm and (pm.group(1).startswith("`") or pm.group(1).lower() not in COLUMN_KEYWORDS):
+                        cols[unquote_identifier(pm.group(1))] = re.sub(
                             r"\s+", " ", pm.group(2)).strip()
                 continue
             # `ALTER TABLE x DROP PRIMARY KEY` -- ignored entirely until the
@@ -589,40 +595,41 @@ class Schema:
                           r"key(?:\s+`?\w+`?)?\s*\((.*)\)\s*$",
                           clause, re.I | re.S)
             if pm:
-                added = [c.strip().split("(")[0].strip().strip("`")
+                added = [unquote_identifier(c.strip().split("(")[0].strip())
                          for c in pm.group(1).split(",")]
                 added = resolve_pk_case(added, cols)
                 if added:
                     self.pks[name] = added
                 continue
             m = re.match(r"add\s+(?:column\s+)?(?:if\s+not\s+exists\s+)?"
-                         r"`?(\w+)`?\s+(.+)", clause, re.I | re.S)
-            if m and m.group(1).lower() not in COLUMN_KEYWORDS:
+                         rf"({_COLUMN_IDENTIFIER})\s+(.+)", clause, re.I | re.S)
+            if m and (m.group(1).startswith("`") or m.group(1).lower() not in COLUMN_KEYWORDS):
+                column = unquote_identifier(m.group(1))
                 ctype, position = split_column_position(
                     re.sub(r"\s+", " ", m.group(2)).strip())
-                cols = place_column(cols, m.group(1), ctype, position)
+                cols = place_column(cols, column, ctype, position)
                 self.tables[name] = cols
                 # ...and the other half of the same pair: five of those
                 # seven files drop the key and then add a column that
                 # declares the new one inline
                 if re.search(r"\bprimary\s+key\b", ctype, re.I):
-                    self.pks[name] = [m.group(1)]
+                    self.pks[name] = [column]
                 continue
-            m = re.match(r"drop\s+(?:column\s+)?`?(\w+)`?\s*$", clause, re.I)
-            if m and m.group(1).lower() not in (
-                    "primary", "index", "key", "foreign"):
+            m = re.match(rf"drop\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s*$", clause, re.I)
+            if m and (m.group(1).startswith("`") or m.group(1).lower() not in (
+                    "primary", "index", "key", "foreign")):
                 # a column reference is case-insensitive in MySQL, so
                 # `DROP COLUMN name` drops a column declared `NAME`
                 victim = next((c for c in cols
-                               if c.lower() == m.group(1).lower()), None)
+                               if c.lower() == unquote_identifier(m.group(1)).lower()), None)
                 if victim is not None:
                     del cols[victim]
                 continue
             m = re.match(
-                r"change\s+(?:column\s+)?`?(\w+)`?\s+`?(\w+)`?\s+(.+)",
+                rf"change\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s+({_COLUMN_IDENTIFIER})\s+(.+)",
                 clause, re.I | re.S)
             if m:
-                old, new, ctype = m.group(1), m.group(2), m.group(3)
+                old, new, ctype = unquote_identifier(m.group(1)), unquote_identifier(m.group(2)), m.group(3)
                 # `change name NAME ...` renames the column declared `name`:
                 # the reference is case-insensitive even though the result
                 # is not. Matching case-sensitively left the old spelling
@@ -649,11 +656,12 @@ class Schema:
                 continue
             # Keep the final declaration as well as the names. Ignoring
             # MODIFY hid capacity changes in later OSCAR/CARLOS updates.
-            m = re.match(r"modify\s+(?:column\s+)?`?(\w+)`?\s+(.+)",
+            m = re.match(rf"modify\s+(?:column\s+)?({_COLUMN_IDENTIFIER})\s+(.+)",
                          clause, re.I | re.S)
             if m:
+                identifier = unquote_identifier(m.group(1))
                 column = next((c for c in cols
-                               if c.lower() == m.group(1).lower()), None)
+                               if c.lower() == identifier.lower()), None)
                 if column is not None:
                     ctype, position = split_column_position(
                         re.sub(r"\s+", " ", m.group(2)).strip())
@@ -1088,6 +1096,8 @@ def load_schema(files: List[Path],
         elif f.name == "V1.0.59__archive_security_mfa_setting.sql":
             schema.apply_alter("SecurityArchive", "ADD COLUMN IF NOT EXISTS "
                                "usingMfa TINYINT(1) NULL DEFAULT NULL")
+        elif f.name == "V1.0.59.34__preserve_bc_history_amount.sql":
+            schema.apply_alter("billing_history", "MODIFY COLUMN amount VARCHAR(9) NOT NULL DEFAULT ''")
         elif f.name == "V1.0.57__preserve_rourke2020_immunization_notes.sql":
             for column in ("p3_immunization", "p4_immunization"):
                 schema.apply_alter("formRourke2020", "ADD COLUMN IF NOT EXISTS "
@@ -2587,6 +2597,13 @@ def build_profile(oscar: Path, province: str, ov_schema) -> Dict:
                 "rows in the {} profile (stale entry)".format(
                     t, n, seed_counts.get(t, 0), province))
         seed_counts[t] -= n
+
+    # Curated literal SELECT seeds whose predicates hold on the fresh reference
+    # target. Do not infer arbitrary INSERT ... SELECT cardinality from SQL text.
+    for t, n in sorted(getattr(ov_schema, "SEED_COUNT_ADDITIONS", {}).items()):
+        if t not in seed_counts or type(n) is not int or n < 1:
+            raise SystemExit("SEED_COUNT_ADDITIONS: invalid fresh reference count for " + t)
+        seed_counts[t] += n
 
     tables = build_tables(o19, carlos, ov_schema, province)
     unknown = sorted(t for t, e in tables.items() if e["class"] == "unknown")

@@ -36,7 +36,11 @@ import java.util.List;
 import io.github.carlos_emr.carlos.commn.model.Prevention;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionListItemDTO;
 
-public interface PreventionDao extends AbstractDao<Prevention> {
+public interface PreventionDao extends AbstractDao<Prevention>, CdsExportPatientTableReadDao, CdsExportPreventionDataReadDao {
+    @Override java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns();
+
+    /** Restriction metadata only; no prevention type/date/value is read. */
+    boolean hasCdsExportUnresolvedProgramScope(int patient);
     List<Prevention> findByDemographicId(Integer demographicId);
 
     List<Prevention> findByUpdateDate(Date updatedAfterThisDateExclusive, int itemsToReturn);

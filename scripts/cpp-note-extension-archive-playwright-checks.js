@@ -424,8 +424,9 @@ async function cleanup() {
   }
   // THE SUMMARY THE SAVE APPENDED TO, WHICH IS NOT THE NOTE. copyNote2cpp()/saveCPP() append the
   // note's text to the patient's casemgmt_cpp summary, and saveCPPIntoEchart() mirrors it into the
-  // legacy eChart row when AbandonOldChart is off (it is off by default; this deployment has it
-  // on). Deleting the note alone would leave every run's text in the chart for good -- but so
+  // legacy eChart row on older releases with AbandonOldChart off. Since #4793 the code forces
+  // it on; keep cleanup safe when running this check against an older install. Deleting the
+  // note alone would leave every run's text in the chart for good -- but so
   // would a blunter cleanup take a clinician's row with it, because the eChart write UPDATES the
   // newest row the patient already has rather than adding one.
   if (stamp && demographicNo && chartBefore) {

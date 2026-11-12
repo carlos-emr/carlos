@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.util;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
+
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -101,7 +103,7 @@ public class Doc2PDF {
                 response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "PDF generation failed");
             }
         } catch (IOException ioEx) {
-            logger.error("Could not send error response", ioEx);
+            logger.error("Could not send error response: {}", LogSafe.exceptionTrace(ioEx));
         }
     }
 
@@ -209,7 +211,7 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, documentTxt, getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("Failed to convert JSP to PDF for URI: {}", uri, e);
+            logger.error("Failed to convert JSP to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -239,7 +241,7 @@ public class Doc2PDF {
             PrintPDFFromHTMLString(response, AddAbsoluteTag(request, cleanHtml, ""), getFileBaseUrl(request));
 
         } catch (Exception e) {
-            logger.error("Failed to convert HTML string to PDF", e);
+            logger.error("Failed to convert HTML string to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -271,7 +273,7 @@ public class Doc2PDF {
             return testFile;
 
         } catch (Exception e) {
-            logger.error("Failed to convert HTML string to Base64 PDF binary", e);
+            logger.error("Failed to convert HTML string to Base64 PDF binary: {}", LogSafe.exceptionTrace(e));
             return null;
         }
 
@@ -303,7 +305,7 @@ public class Doc2PDF {
             p.writeBytes(docBin);
             p.flush();
         } catch (IOException ioe) {
-            logger.error("Failed to save PDF to file: {}", fileName, ioe);
+            logger.error("Failed to save PDF to file: {}", LogSafe.exceptionTrace(ioe));
         }
     }
 
@@ -380,7 +382,7 @@ public class Doc2PDF {
             logger.warn("Rejected internal Doc2PDF fetch due to invalid URI syntax");
             return null;
         } catch (Exception e) {
-            logger.error("Failed to open HTTP connection to fetch URI content", e);
+            logger.error("Failed to open HTTP connection to fetch URI content: {}", LogSafe.exceptionTrace(e));
             if (conn != null) {
                 conn.disconnect();
             }
@@ -566,9 +568,9 @@ public class Doc2PDF {
         try {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             renderWithFlyingSaucer(docText, baos, baseUrl);
-            return (new String(Base64.encodeBase64(baos.toByteArray())));
+            return (new String(java.util.Base64.getEncoder().encode(baos.toByteArray())));
         } catch (Exception e) {
-            logger.error("Failed to render HTML to Base64 PDF binary", e);
+            logger.error("Failed to render HTML to Base64 PDF binary: {}", LogSafe.exceptionTrace(e));
         }
         return null;
     }
@@ -589,7 +591,7 @@ public class Doc2PDF {
             return;
 
         } catch (Exception e) {
-            logger.error("Failed to decode and print Base64 PDF", e);
+            logger.error("Failed to decode and print Base64 PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -631,7 +633,7 @@ public class Doc2PDF {
             o.close(); // *important* to ensure no more jsp output
             return;
         } catch (Exception e) {
-            logger.error("Failed to write PDF bytes to HTTP response", e);
+            logger.error("Failed to write PDF bytes to HTTP response: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
 
@@ -650,7 +652,7 @@ public class Doc2PDF {
             renderWithFlyingSaucer(docText, baos, baseUrl);
             PrintPDFFromBytes(response, baos.toByteArray());
         } catch (Exception e) {
-            logger.error("Failed to render HTML string to PDF", e);
+            logger.error("Failed to render HTML string to PDF: {}", LogSafe.exceptionTrace(e));
             sendErrorIfPossible(response);
         }
     }

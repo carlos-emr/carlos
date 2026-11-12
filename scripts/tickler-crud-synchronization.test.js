@@ -34,6 +34,57 @@ function section(start, end) {
 }
 const searchSource = section('async function searchTicklerList(', 'async function openDemoTicklerList(');
 const refreshSource = section('async function waitForTicklerDraw(', 'async function setTicklerListStatus(');
+const statusSource = section('async function waitForTicklerStatus(', 'function getCommentRows(');
+const createSource = section('async function createTickler(', 'async function editTicklerFromList(');
+const editSource = section('async function editTicklerFromList(', 'async function completeTicklerViaEdit(');
+const completeSource = section('async function completeTicklerViaEdit(', 'async function deleteTicklerFromList(');
+
+for (const commitDelay of [0, 1250]) {
+  test(`tickler creation waits for persistence ${commitDelay}ms after iframe acknowledgement`, async () => {
+    let now = 0, acknowledged = false, closedAt = null;
+    const row = { id: '42', status: 'A', priority: 'High', serviceDate: '2026-02-18', assignee: '999998' };
+    const field = {
+      async waitFor() {}, async fill() {}, async selectOption() {},
+      first() { return this; }, async click() {},
+    };
+    const page = {
+      locator: () => field,
+      async waitForFunction() { acknowledged = true; },
+      async waitForTimeout(delay) { now += delay; },
+      async close() {
+        assert(acknowledged);
+        closedAt = now;
+      },
+    };
+    const sandbox = {
+      assert: (condition, message) => assert(condition, message),
+      Date: { now: () => now },
+      setTimeout(resolve, delay) { now += delay; resolve(); },
+      getTicklerRows() {
+        assert(acknowledged, 'Persistence must be checked after the save acknowledgement');
+        return now >= commitDelay ? [row] : [];
+      },
+      wirePage() {}, async gotoApp() {}, async selectTicklerAssignee() {},
+      demographicNo: '1', providerNo: row.assignee, createdMessage: 'owned tickler',
+    };
+    vm.runInNewContext(statusSource + createSource + '\nthis.create = createTickler;', sandbox);
+    assert.equal(await sandbox.create({ newPage: async () => page }), row.id);
+    assert(closedAt !== null && closedAt >= commitDelay, 'Page closed before the created row was committed');
+  });
+}
+
+test('tickler persistence polling rejects a missing, duplicate, or wrong-status row', async () => {
+  for (const rows of [[], [{status: 'C'}], [{status: 'A'}, {status: 'A'}]]) {
+    let now = 0;
+    const sandbox = {
+      Date: { now: () => now },
+      setTimeout(resolve, delay) { now += delay; resolve(); },
+      getTicklerRows: () => rows,
+    };
+    vm.runInNewContext(statusSource + '\nthis.wait = waitForTicklerStatus;', sandbox);
+    await assert.rejects(sandbox.wait('A', 1000), /tickler did not reach status A/);
+  }
+});
 
 function searchFixture(found = true) {
   const events = [], requests = [], scheduled = [];
@@ -45,7 +96,12 @@ function searchFixture(found = true) {
     rows: () => ({data: () => ({toArray: () => rows})}),
   };
   const window = {jQuery: () => ({DataTable: () => table})};
-  const document = {querySelector: () => ({value: input})};
+  const document = {
+    querySelector(selector) {
+      assert.equal(selector, '#ticklerResults_filter input[type="search"]');
+      return {value: input};
+    },
+  };
   const evaluate = (callback, argument) => vm.runInNewContext('(' + callback.toString() + ')(argument)',
     {window, document, argument});
   const page = {
@@ -105,7 +161,7 @@ test('an already settled search does not send another list request', async () =>
 
 function refreshFixture(status = 200, bodyFailure = null) {
   const events = [];
-  let deliver;
+  let deliver, refuse;
   let finished = false;
   const response = {
     request: () => ({method: () => 'GET'}),
@@ -123,7 +179,7 @@ function refreshFixture(status = 200, bodyFailure = null) {
       assert.equal(predicate({...response, request: () => ({method: () => 'POST'})}), false);
       assert.equal(predicate({...response, url: () => 'https://fixture.invalid/carlos/Other'}), false);
       events.push('listener');
-      return new Promise(resolve => { deliver = resolve; });
+      return new Promise((resolve, reject) => { deliver = resolve; refuse = reject; });
     },
     locator() {
       return {async waitFor() { assert(finished, 'List readiness must follow the complete response body'); }};
@@ -150,7 +206,54 @@ function refreshFixture(status = 200, bodyFailure = null) {
   return {
     events, page, refresh: sandbox.refresh,
     async save() { events.push('save'); deliver(response); },
+    failRefresh(message) { refuse(new Error(message)); },
   };
+}
+
+for (const action of ['edit', 'complete']) {
+  test(`the ${action} popup stays alive when its broadcast follows the iframe acknowledgement`, async () => {
+    const fixture = refreshFixture();
+    let acknowledged = false, closed = false;
+    const field = {
+      async waitFor() {}, async fill() {}, async selectOption() {},
+      async click() {
+        // The sentinel can be read before the iframe load handler gets its turn.
+        setImmediate(() => { if (!closed) fixture.save(); });
+      },
+    };
+    const popup = {
+      locator: () => field,
+      async waitForLoadState() {},
+      async waitForURL(predicate) {
+        assert(predicate(new URL('https://fixture.invalid/carlos/tickler/ViewTicklerEdit?tickler_no=42')));
+      },
+      async waitForFunction() { acknowledged = true; },
+      // A delay may expire while the broadcast is still queued; elapsed time is
+      // not evidence that the list received it.
+      async waitForTimeout() {},
+      async close() {
+        assert(acknowledged);
+        closed = true;
+        if (!fixture.events.includes('drawn')) fixture.failRefresh('popup closed before its broadcast refreshed the list');
+        fixture.events.push('closed');
+      },
+    };
+    const listLocator = fixture.page.locator;
+    fixture.page.locator = selector => {
+      if (selector !== '#ticklerResults tbody tr') return listLocator(selector);
+      const row = { filter: () => row, first: () => row, locator: () => ({async click() {}}) };
+      return row;
+    };
+    const sandbox = {
+      assert, URL, wirePage() {}, async findRowInList() {},
+      getTicklerRows: () => [{id: '42', status: 'C', priority: 'Low', serviceDate: '2026-02-19'}],
+      getCommentRows: () => ['edited task'], createdMessage: 'owned task', editedMessage: 'edited task',
+    };
+    vm.runInNewContext(refreshSource + editSource + completeSource
+      + '\nthis.edit = editTicklerFromList; this.complete = completeTicklerViaEdit;', sandbox);
+    await sandbox[action]({waitForEvent: async () => popup}, fixture.page, 42);
+    assert.deepEqual(fixture.events, ['listener', 'save', 'body', 'drawn', 'closed']);
+  });
 }
 
 test('tickler edit observes its own broadcast refresh before saving and waits through its draw', async () => {

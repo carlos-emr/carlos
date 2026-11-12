@@ -54,13 +54,10 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * Use it when access must be checked before retrieving signature bytes.
      * Legacy signatures created before module metadata may return an inferred module when the
      * signature has a stored demographic and an existing owning record references the signature id.
-     * Imported signatures stored with demographic {@code -1} return a source-frozen patient and
-     * module only when that ownership was established during migration.
      *
      * @param id The ID of the digital signature to retrieve metadata for.
      * @return A {@code DigitalSignature} containing demographic and module metadata, or
-     *         {@code null} if no entity exists or an imported unassigned signature has no
-     *         verified source owner.
+     *         {@code null} if no entity exists with the given ID.
      */
     DigitalSignature getDigitalSignatureMetadata(int id);
 

@@ -69,7 +69,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
         try (var input = Files.newInputStream(Path.of(selector))) {
             properties.load(input);
         }
-        String jdbcUrl = properties.getProperty("jdbcUrl").replace("jdbc:mariadb:", "jdbc:mysql:");
+        String jdbcUrl = properties.getProperty("jdbcUrl");
         var dataSource =
                 new DriverManagerDataSource(
                         jdbcUrl,
@@ -85,6 +85,7 @@ class CdsClinicalStorageMariaDbIntegrationTest {
         for (Class<?> model :
                 new Class<?>[] {
                     Drug.class,
+                    Allergy.class,
                     Contact.class,
                     DemographicContact.class,
                     Measurement.class,
@@ -111,6 +112,63 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldKeepTheTransferredAllergyArchiveState_inActualNativeStorage() throws Exception {
+        for (boolean archived : new boolean[] {true, false}) {
+            Map<String, String> source = new LinkedHashMap<>();
+            source.put("OffendingAgentDescription", "Synthetic archive agent");
+            source.put(
+                    "ResidualInfo/DataElement/Name",
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                            .ALLERGY_ARCHIVED);
+            source.put("ResidualInfo/DataElement/DataType", "boolean");
+            source.put("ResidualInfo/DataElement/Content", Boolean.toString(archived));
+            source.put(
+                    "ResidualInfo/DataElement[2]/Name",
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                            .ALLERGY_AGE_OF_ONSET);
+            source.put("ResidualInfo/DataElement[2]/DataType", "string");
+            source.put("ResidualInfo/DataElement[2]/Content", "0012");
+            source.put(
+                    "ResidualInfo/DataElement[3]/Name",
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                            .ALLERGY_ONSET_OF_REACTION);
+            source.put("ResidualInfo/DataElement[3]/DataType", "string");
+            source.put("ResidualInfo/DataElement[3]/Content", "Immediate");
+            var dto =
+                    normalization.allergy(
+                            CdsClinicalFixture.record(
+                                    directory, "AllergiesAndAdverseReactions", source));
+            var row =
+                    new CdsAllergyPersister(
+                                    mock(AllergyDao.class),
+                                    mock(PartialDateDao.class),
+                                    normalization)
+                            .candidate(974233, dto);
+            try (Session session = factory.openSession()) {
+                var transaction = session.beginTransaction();
+                try {
+                    session.persist(row);
+                    session.flush();
+                    Integer id = row.getId();
+                    session.clear();
+                    assertThat(session.find(Allergy.class, id).getArchived()).isEqualTo(archived);
+                    assertThat(session.find(Allergy.class, id).getAgeOfOnset()).isEqualTo("0012");
+                    assertThat(session.find(Allergy.class, id).getOnsetOfReaction()).isEqualTo("1");
+                    assertThat(
+                                    session.createSelectionQuery(
+                                                    "select count(a) from Allergy a where a.id=:id and a.archived=false",
+                                                    Long.class)
+                                            .setParameter("id", id)
+                                            .getSingleResult())
+                            .isEqualTo(archived ? 0L : 1L);
+                } finally {
+                    transaction.rollback();
+                }
+            }
+        }
+    }
+
+    @Test
     void shouldKeepLongMeasurementValues_whenArchivedThroughTheNativeOrm() {
         String value = "x".repeat(300);
         try (Session session = factory.openSession()) {
@@ -125,73 +183,109 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 source.setDataField(value);
                 session.persist(source);
                 session.flush();
-                var archived = new io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted(source);
+                var archived =
+                        new io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted(source);
                 session.persist(archived);
                 session.flush();
                 Integer id = archived.getId();
                 session.clear();
-                assertThat(session.find(io.github.carlos_emr.carlos.commn.model.MeasurementsDeleted.class, id)
-                        .getDataField()).isEqualTo(value);
-            } finally { transaction.rollback(); }
+                assertThat(
+                                session.find(
+                                                io.github.carlos_emr.carlos.commn.model
+                                                        .MeasurementsDeleted.class,
+                                                id)
+                                        .getDataField())
+                        .isEqualTo(value);
+            } finally {
+                transaction.rollback();
+            }
         }
     }
 
     @Test
-    void shouldReplayArchiveCapacityMigration_withoutChangingRowsOrAdoptedMetadata() throws Exception {
+    void shouldReplayArchiveCapacityMigration_withoutChangingRowsOrAdoptedMetadata()
+            throws Exception {
         String migration;
-        try (var input = getClass().getResourceAsStream(
-                "/db/migration/common/V1.0.59.26__cds_measurements_deleted_capacity.sql")) {
+        try (var input =
+                getClass()
+                        .getResourceAsStream(
+                                "/db/migration/common/V1.0.59.26__cds_measurements_deleted_capacity.sql")) {
             assertThat(input).isNotNull();
-            migration = new String(input.readNBytes(16384), java.nio.charset.StandardCharsets.UTF_8);
+            migration =
+                    new String(input.readNBytes(16384), java.nio.charset.StandardCharsets.UTF_8);
             assertThat(input.read()).isEqualTo(-1);
         }
         String fixture = "cds_archive_capacity_fixture";
         String replay = migration.replace("measurementsDeleted", fixture);
         try (Session session = factory.openSession()) {
-            session.doWork(connection -> {
-                try (var query = connection.createStatement()) {
-                    query.execute("CREATE TABLE `cds_archive_capacity_fixture` LIKE `measurementsDeleted`");
-                    try {
-                        String attributes = " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'kept' COMMENT 'archive fixture'";
-                        query.execute("ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` VARCHAR(255)" + attributes);
-                        try (var insert = connection.prepareStatement("INSERT INTO `cds_archive_capacity_fixture`"
-                                + " (demographicNo,dataField,dateEntered,dateDeleted,originalId,type,measuringInstruction) VALUES (?,?,?,?,?,?,?)")) {
-                            insert.setInt(1, 974233);
-                            insert.setString(2, "retained fixture");
-                            insert.setTimestamp(3, java.sql.Timestamp.from(Instant.now()));
-                            insert.setTimestamp(4, java.sql.Timestamp.from(Instant.now()));
-                            insert.setInt(5, 1);
-                            insert.setString(6, "WT");
-                            insert.setString(7, "");
-                            assertThat(insert.executeUpdate()).isEqualTo(1);
+            session.doWork(
+                    connection -> {
+                        try (var query = connection.createStatement()) {
+                            query.execute(
+                                    "CREATE TABLE `cds_archive_capacity_fixture` LIKE `measurementsDeleted`");
+                            try {
+                                String attributes =
+                                        " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'kept' COMMENT 'archive fixture'";
+                                query.execute(
+                                        "ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` VARCHAR(255)"
+                                                + attributes);
+                                try (var insert =
+                                        connection.prepareStatement(
+                                                "INSERT INTO `cds_archive_capacity_fixture`"
+                                                        + " (demographicNo,dataField,dateEntered,dateDeleted,originalId,type,measuringInstruction) VALUES (?,?,?,?,?,?,?)")) {
+                                    insert.setInt(1, 974233);
+                                    insert.setString(2, "retained fixture");
+                                    insert.setTimestamp(3, java.sql.Timestamp.from(Instant.now()));
+                                    insert.setTimestamp(4, java.sql.Timestamp.from(Instant.now()));
+                                    insert.setInt(5, 1);
+                                    insert.setString(6, "WT");
+                                    insert.setString(7, "");
+                                    assertThat(insert.executeUpdate()).isEqualTo(1);
+                                }
+                                replayArchiveMigration(connection, replay);
+                                String widened = archiveTableDefinition(connection);
+                                assertThat(widened)
+                                        .contains(
+                                                "mediumtext",
+                                                "utf8mb4_unicode_ci",
+                                                "DEFAULT 'kept'",
+                                                "archive fixture");
+                                replayArchiveMigration(connection, replay);
+                                assertThat(archiveTableDefinition(connection)).isEqualTo(widened);
+                                try (var rows =
+                                        query.executeQuery(
+                                                "SELECT dataField FROM `cds_archive_capacity_fixture` WHERE originalId=1")) {
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getString(1)).isEqualTo("retained fixture");
+                                }
+                                query.execute(
+                                        "ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` LONGTEXT"
+                                                + attributes);
+                                String adopted = archiveTableDefinition(connection);
+                                replayArchiveMigration(connection, replay);
+                                assertThat(archiveTableDefinition(connection)).isEqualTo(adopted);
+                            } finally {
+                                query.execute("DROP TABLE `cds_archive_capacity_fixture`");
+                            }
                         }
-                        replayArchiveMigration(connection, replay);
-                        String widened = archiveTableDefinition(connection);
-                        assertThat(widened).contains("mediumtext", "utf8mb4_unicode_ci", "DEFAULT 'kept'", "archive fixture");
-                        replayArchiveMigration(connection, replay);
-                        assertThat(archiveTableDefinition(connection)).isEqualTo(widened);
-                        try (var rows = query.executeQuery("SELECT dataField FROM `cds_archive_capacity_fixture` WHERE originalId=1")) {
-                            assertThat(rows.next()).isTrue();
-                            assertThat(rows.getString(1)).isEqualTo("retained fixture");
-                        }
-                        query.execute("ALTER TABLE `cds_archive_capacity_fixture` MODIFY `dataField` LONGTEXT" + attributes);
-                        String adopted = archiveTableDefinition(connection);
-                        replayArchiveMigration(connection, replay);
-                        assertThat(archiveTableDefinition(connection)).isEqualTo(adopted);
-                    } finally { query.execute("DROP TABLE `cds_archive_capacity_fixture`"); }
-                }
-            });
+                    });
         }
     }
 
-    private static void replayArchiveMigration(java.sql.Connection connection, String sql) throws java.sql.SQLException {
+    private static void replayArchiveMigration(java.sql.Connection connection, String sql)
+            throws java.sql.SQLException {
         for (String statement : sql.split(";")) {
-            if (!statement.isBlank()) try (var query = connection.createStatement()) { query.execute(statement); }
+            if (!statement.isBlank())
+                try (var query = connection.createStatement()) {
+                    query.execute(statement);
+                }
         }
     }
 
-    private static String archiveTableDefinition(java.sql.Connection connection) throws java.sql.SQLException {
-        try (var query = connection.createStatement(); var rows = query.executeQuery("SHOW CREATE TABLE `cds_archive_capacity_fixture`")) {
+    private static String archiveTableDefinition(java.sql.Connection connection)
+            throws java.sql.SQLException {
+        try (var query = connection.createStatement();
+                var rows = query.executeQuery("SHOW CREATE TABLE `cds_archive_capacity_fixture`")) {
             assertThat(rows.next()).isTrue();
             return rows.getString(2);
         }
@@ -207,11 +301,20 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 // The test table does not exist; the two real shipped Flyway versions do.
                 // No existing table is renamed or dropped to exercise this recovery contract.
                 for (String version : java.util.List.of("1.0.59.8.1", "1.0.59.10")) {
-                    assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(dao, "representationTableAvailable",
-                            "cds_absent_projection_contract_test", version))
-                            .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsLegacyProjectionException.class);
+                    assertThatThrownBy(
+                                    () ->
+                                            ReflectionTestUtils.invokeMethod(
+                                                    dao,
+                                                    "representationTableAvailable",
+                                                    "cds_absent_projection_contract_test",
+                                                    version))
+                            .isInstanceOf(
+                                    io.github.carlos_emr.carlos.commn.model
+                                            .CdsLegacyProjectionException.class);
                 }
-            } finally { transaction.rollback(); }
+            } finally {
+                transaction.rollback();
+            }
         }
     }
 
@@ -276,7 +379,8 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldPreserveContactNamePhonesAndUnknownConsent_throughNativeOrmRoundTrip() throws Exception {
+    void shouldPreserveContactNamePhonesAndUnknownConsent_throughNativeOrmRoundTrip()
+            throws Exception {
         Map<String, String> source = new LinkedHashMap<>();
         source.put("Name/FirstName", "F".repeat(50));
         source.put("Name/MiddleName", "M".repeat(50));
@@ -398,8 +502,11 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 type.setValidation(validation.getId().toString());
                 session.persist(type);
                 session.flush();
-                MeasurementTypeDaoImpl dao = new MeasurementTypeDaoImpl(
-                        new ConcurrentMapCacheManager(io.github.carlos_emr.carlos.config.CacheConfig.MEASUREMENT_TYPES));
+                MeasurementTypeDaoImpl dao =
+                        new MeasurementTypeDaoImpl(
+                                new ConcurrentMapCacheManager(
+                                        io.github.carlos_emr.carlos.config.CacheConfig
+                                                .MEASUREMENT_TYPES));
                 ReflectionTestUtils.setField(dao, "entityManager", session);
                 assertThat(
                                 dao.hasCdsImportType(
@@ -429,15 +536,15 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 // provider row or schema is changed.
                 session.createNativeMutationQuery(
                                 "CREATE TEMPORARY TABLE provider (provider_no VARCHAR(6) PRIMARY"
-                                    + " KEY, first_name VARCHAR(30) CHARACTER SET latin1 COLLATE"
-                                    + " latin1_swedish_ci NOT NULL, last_name VARCHAR(30) CHARACTER"
-                                    + " SET latin1 COLLATE latin1_swedish_ci NOT NULL, INDEX"
-                                    + " cds_provider_name(first_name,last_name,provider_no))"
-                                    + " ENGINE=InnoDB")
+                                        + " KEY, first_name VARCHAR(30) CHARACTER SET latin1 COLLATE"
+                                        + " latin1_swedish_ci NOT NULL, last_name VARCHAR(30) CHARACTER"
+                                        + " SET latin1 COLLATE latin1_swedish_ci NOT NULL, INDEX"
+                                        + " cds_provider_name(first_name,last_name,provider_no))"
+                                        + " ENGINE=InnoDB")
                         .executeUpdate();
                 session.createNativeMutationQuery(
                                 "INSERT INTO provider(provider_no,first_name,last_name)"
-                                    + " VALUES('T001',:first,:last)")
+                                        + " VALUES('T001',:first,:last)")
                         .setParameter("first", "Élodie")
                         .setParameter("last", "Müller")
                         .executeUpdate();
@@ -453,8 +560,9 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                                 .getDeclaredConstructor(String.class, String.class);
                 cache.setAccessible(true);
                 @SuppressWarnings("unchecked")
-                var reference = (java.util.concurrent.atomic.AtomicReference<Object>)
-                        ReflectionTestUtils.getField(dao, "cdsNameCharsets");
+                var reference =
+                        (java.util.concurrent.atomic.AtomicReference<Object>)
+                                ReflectionTestUtils.getField(dao, "cdsNameCharsets");
                 assertThat(reference).isNotNull();
                 reference.set(cache.newInstance("latin1", "latin1"));
                 assertThat(dao.findCdsProviderNosByExactName("Élodie", "Müller"))
@@ -501,7 +609,8 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                 for (String precision : java.util.List.of("UNKNOWN", "YEAR", "FULL_DATE")) {
                     Map<String, String> source = new LinkedHashMap<>();
                     source.put("ImmunizationName", "Synthetic vaccine");
-                    source.put("RefusedFlag/ynIndicatorsimple", precision.equals("YEAR") ? "Y" : "N");
+                    source.put(
+                            "RefusedFlag/ynIndicatorsimple", precision.equals("YEAR") ? "Y" : "N");
                     if (precision.equals("YEAR")) source.put("Date/YearOnly", "2019");
                     if (precision.equals("FULL_DATE")) source.put("Date/FullDate", "2019-01-01");
                     var normalized =
@@ -548,120 +657,168 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     @ResourceLock("java.util.TimeZone")
     void shouldPreserveEarlyCivilDatesAndRecordedPrecision_throughNativeImmunizationWriter()
             throws Exception {
-        withImmunizationTransaction((session, writer, dates, extensions) -> {
-            for (String[] choice : java.util.List.of(
-                    new String[] {"YearOnly", "0001", "YEAR"},
-                    new String[] {"YearMonth", "1500-02", "MONTH"},
-                    new String[] {"FullDate", "0001-01-01", "FULL_DATE"},
-                    new String[] {"FullDate", "0999-12-31", "FULL_DATE"},
-                    new String[] {"FullDate", "1000-01-01", "FULL_DATE"},
-                    new String[] {"FullDate", "1500-01-01", "FULL_DATE"},
-                    new String[] {"FullDate", "1582-10-15", "FULL_DATE"},
-                    new String[] {"FullDate", "9999-12-31", "FULL_DATE"})) {
-                var source = immunizationDate(choice[0], choice[1]);
-                writer.validate(source);
-                var receipt = writer.write(42, "T099", source);
-                session.flush();
-                session.clear();
-                int id = Integer.parseInt(receipt.get("preventions"));
-                Prevention stored = session.find(Prevention.class, id);
-                assertThat(stored.getCreatorProviderNo()).isEqualTo("T099");
-                assertThat(nativePreventionDate(session, id))
-                        .as("stored civil date for %s", choice[1])
-                        .isEqualTo(source.date().earliest().toString());
-                var read = new CdsTemporalReadService(dates).date(stored.getPreventionDate(),
-                        PartialDate.PREVENTION, id, PartialDate.PREVENTION_PREVENTIONDATE);
-                assertThat(read.getPrecision()).isEqualTo(choice[2]);
-                assertThat(read.getValue()).isEqualTo(choice[1]);
-                var preventionRead =
-                        io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO.from(
-                                stored.getPreventionDate(),
-                                dates.getFormat(PartialDate.PREVENTION, id,
-                                        PartialDate.PREVENTION_PREVENTIONDATE));
-                assertThat(preventionRead.getOriginalValue()).isEqualTo(choice[1]);
-                assertThat(extensions.getPreventionExt(id))
-                        .containsEntry("cdsDateOriginal", choice[1])
-                        .containsEntry("cdsDatePrecision", choice[2]);
-            }
-        });
+        withImmunizationTransaction(
+                (session, writer, dates, extensions) -> {
+                    for (String[] choice :
+                            java.util.List.of(
+                                    new String[] {"YearOnly", "0001", "YEAR"},
+                                    new String[] {"YearMonth", "1500-02", "MONTH"},
+                                    new String[] {"FullDate", "0001-01-01", "FULL_DATE"},
+                                    new String[] {"FullDate", "0999-12-31", "FULL_DATE"},
+                                    new String[] {"FullDate", "1000-01-01", "FULL_DATE"},
+                                    new String[] {"FullDate", "1500-01-01", "FULL_DATE"},
+                                    new String[] {"FullDate", "1582-10-15", "FULL_DATE"},
+                                    new String[] {"FullDate", "9999-12-31", "FULL_DATE"})) {
+                        var source = immunizationDate(choice[0], choice[1]);
+                        writer.validate(source);
+                        var receipt = writer.write(42, "T099", source);
+                        session.flush();
+                        session.clear();
+                        int id = Integer.parseInt(receipt.get("preventions"));
+                        Prevention stored = session.find(Prevention.class, id);
+                        assertThat(stored.getCreatorProviderNo()).isEqualTo("T099");
+                        assertThat(nativePreventionDate(session, id))
+                                .as("stored civil date for %s", choice[1])
+                                .isEqualTo(source.date().earliest().toString());
+                        var read =
+                                new CdsTemporalReadService(dates)
+                                        .date(
+                                                stored.getPreventionDate(),
+                                                PartialDate.PREVENTION,
+                                                id,
+                                                PartialDate.PREVENTION_PREVENTIONDATE);
+                        assertThat(read.getPrecision()).isEqualTo(choice[2]);
+                        assertThat(read.getValue()).isEqualTo(choice[1]);
+                        var preventionRead =
+                                io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO.from(
+                                        stored.getPreventionDate(),
+                                        dates.getFormat(
+                                                PartialDate.PREVENTION,
+                                                id,
+                                                PartialDate.PREVENTION_PREVENTIONDATE));
+                        assertThat(preventionRead.getOriginalValue()).isEqualTo(choice[1]);
+                        assertThat(extensions.getPreventionExt(id))
+                                .containsEntry("cdsDateOriginal", choice[1])
+                                .containsEntry("cdsDatePrecision", choice[2]);
+                    }
+                });
     }
 
     @Test
     @ResourceLock("java.util.TimeZone")
     void shouldRefuseUnrepresentableCalendarDaysAndTimestampFolds_beforeNativeWriting()
             throws Exception {
-        withImmunizationTransaction((session, writer, dates, extensions) -> {
-            Map<String, Long> before = nativeTemporalRowCounts(session);
-            for (String[] choice : java.util.List.of(
-                    new String[] {"FullDate", "1582-10-10", "CDS_NATIVE_DATE_REQUIRES_REVIEW"},
-                    new String[] {"FullDateTime", "2020-11-01T01:30:00-04:00",
-                            "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"},
-                    new String[] {"FullDateTime", "2020-11-01T01:30:00",
-                            "CDS_LOCAL_TIME_REQUIRES_REVIEW"},
-                    new String[] {"FullDateTime", "2020-03-08T02:30:00",
-                            "CDS_LOCAL_TIME_REQUIRES_REVIEW"})) {
-                var source = immunizationDate(choice[0], choice[1]);
-                assertThatThrownBy(() -> writer.validate(source))
-                        .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class)
-                        .hasMessage(choice[2] + " (Date)");
-                assertThatThrownBy(() -> writer.write(42, "T099", source))
-                        .isInstanceOf(io.github.carlos_emr.carlos.commn.model.CdsClinicalException.class)
-                        .hasMessage(choice[2] + " (Date)");
-                assertThat(source.date().original()).isEqualTo(choice[1]);
-                session.flush();
-                assertThat(nativeTemporalRowCounts(session)).isEqualTo(before);
-            }
-        });
+        withImmunizationTransaction(
+                (session, writer, dates, extensions) -> {
+                    Map<String, Long> before = nativeTemporalRowCounts(session);
+                    for (String[] choice :
+                            java.util.List.of(
+                                    new String[] {
+                                        "FullDate", "1582-10-10", "CDS_NATIVE_DATE_REQUIRES_REVIEW"
+                                    },
+                                    new String[] {
+                                        "FullDateTime",
+                                        "2020-11-01T01:30:00-04:00",
+                                        "CDS_NATIVE_TIMESTAMP_REQUIRES_REVIEW"
+                                    },
+                                    new String[] {
+                                        "FullDateTime",
+                                        "2020-11-01T01:30:00",
+                                        "CDS_LOCAL_TIME_REQUIRES_REVIEW"
+                                    },
+                                    new String[] {
+                                        "FullDateTime",
+                                        "2020-03-08T02:30:00",
+                                        "CDS_LOCAL_TIME_REQUIRES_REVIEW"
+                                    })) {
+                        var source = immunizationDate(choice[0], choice[1]);
+                        assertThatThrownBy(() -> writer.validate(source))
+                                .isInstanceOf(
+                                        io.github.carlos_emr.carlos.commn.model.CdsClinicalException
+                                                .class)
+                                .hasMessage(choice[2] + " (Date)");
+                        assertThatThrownBy(() -> writer.write(42, "T099", source))
+                                .isInstanceOf(
+                                        io.github.carlos_emr.carlos.commn.model.CdsClinicalException
+                                                .class)
+                                .hasMessage(choice[2] + " (Date)");
+                        assertThat(source.date().original()).isEqualTo(choice[1]);
+                        session.flush();
+                        assertThat(nativeTemporalRowCounts(session)).isEqualTo(before);
+                    }
+                });
     }
 
     @Test
     @ResourceLock("java.util.TimeZone")
     void shouldFloorTimestampPrecisionBeforeDatetimeZeroRounding_withLaterFoldKeepingItsInstant()
             throws Exception {
-        withImmunizationTransaction((session, writer, dates, extensions) -> {
-            for (String[] choice : java.util.List.of(
-                    new String[] {"2020-12-31T23:59:59.999999-05:00",
-                            "2021-01-01T04:59:59Z", "2020-12-31"},
-                    new String[] {"2020-11-01T01:30:00-05:00",
-                            "2020-11-01T06:30:00Z", "2020-11-01"})) {
-                var source = immunizationDate("FullDateTime", choice[0]);
-                writer.validate(source);
-                var receipt = writer.write(42, "T099", source);
-                session.flush();
-                session.clear();
-                int id = Integer.parseInt(receipt.get("preventions"));
-                Prevention stored = session.find(Prevention.class, id);
-                assertThat(stored.getPreventionDate().toInstant()).isEqualTo(Instant.parse(choice[1]));
-                assertThat(nativePreventionDate(session, id)).isEqualTo(choice[2]);
-                assertThat(io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
-                                .from(stored.getPreventionDate(), null).getOriginalValue())
-                        .isEqualTo(choice[2]);
-                assertThat(extensions.getPreventionExt(id))
-                        .containsEntry("cdsDateOriginal", choice[0])
-                        .containsEntry("cdsDatePrecision", "OFFSET_DATE_TIME");
-            }
-        });
+        withImmunizationTransaction(
+                (session, writer, dates, extensions) -> {
+                    for (String[] choice :
+                            java.util.List.of(
+                                    new String[] {
+                                        "2020-12-31T23:59:59.999999-05:00",
+                                        "2021-01-01T04:59:59Z",
+                                        "2020-12-31"
+                                    },
+                                    new String[] {
+                                        "2020-11-01T01:30:00-05:00",
+                                        "2020-11-01T06:30:00Z",
+                                        "2020-11-01"
+                                    })) {
+                        var source = immunizationDate("FullDateTime", choice[0]);
+                        writer.validate(source);
+                        var receipt = writer.write(42, "T099", source);
+                        session.flush();
+                        session.clear();
+                        int id = Integer.parseInt(receipt.get("preventions"));
+                        Prevention stored = session.find(Prevention.class, id);
+                        assertThat(stored.getPreventionDate().toInstant())
+                                .isEqualTo(Instant.parse(choice[1]));
+                        assertThat(nativePreventionDate(session, id)).isEqualTo(choice[2]);
+                        assertThat(
+                                        io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO
+                                                .from(stored.getPreventionDate(), null)
+                                                .getOriginalValue())
+                                .isEqualTo(choice[2]);
+                        assertThat(extensions.getPreventionExt(id))
+                                .containsEntry("cdsDateOriginal", choice[0])
+                                .containsEntry("cdsDatePrecision", "OFFSET_DATE_TIME");
+                    }
+                });
     }
 
     private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto
             immunizationDate(String choice, String value) throws Exception {
-        return normalization.immunization(CdsClinicalFixture.record(directory, "Immunizations",
-                Map.of("ImmunizationName", "Synthetic calendar vaccine",
-                        "RefusedFlag/ynIndicatorsimple", "N", "Date/" + choice, value)));
+        return normalization.immunization(
+                CdsClinicalFixture.record(
+                        directory,
+                        "Immunizations",
+                        Map.of(
+                                "ImmunizationName",
+                                "Synthetic calendar vaccine",
+                                "RefusedFlag/ynIndicatorsimple",
+                                "N",
+                                "Date/" + choice,
+                                value)));
     }
 
     private static String nativePreventionDate(Session session, int id) {
         return session.createNativeQuery(
                         "SELECT DATE_FORMAT(prevention_date,'%Y-%m-%d') FROM preventions WHERE id=:id",
                         String.class)
-                .setParameter("id", id).getSingleResult();
+                .setParameter("id", id)
+                .getSingleResult();
     }
 
     private static Map<String, Long> nativeTemporalRowCounts(Session session) {
         Map<String, Long> result = new LinkedHashMap<>();
         for (String model : java.util.List.of("Prevention", "PreventionExt", "PartialDate"))
-            result.put(model, session.createQuery("select count(p) from " + model + " p", Long.class)
-                    .getSingleResult());
+            result.put(
+                    model,
+                    session.createQuery("select count(p) from " + model + " p", Long.class)
+                            .getSingleResult());
         return result;
     }
 
@@ -674,8 +831,9 @@ class CdsClinicalStorageMariaDbIntegrationTest {
             // clinic Calendar used by the actual application and its unqualified DATETIME column.
             try (Session session = factory.withOptions().jdbcTimeZone(clinicZone).openSession()) {
                 var transaction = session.beginTransaction();
-                boolean previousActive = org.springframework.transaction.support.TransactionSynchronizationManager
-                        .isActualTransactionActive();
+                boolean previousActive =
+                        org.springframework.transaction.support.TransactionSynchronizationManager
+                                .isActualTransactionActive();
                 Map<String, Long> before;
                 try {
                     before = nativeTemporalRowCounts(session);
@@ -687,8 +845,13 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                     var dates = new PartialDateDaoImpl();
                     for (Object dao : new Object[] {preventions, extensions, dates})
                         ReflectionTestUtils.setField(dao, "entityManager", session);
-                    var writer = new CdsImmunizationPersister(
-                            preventions, extensions, dates, normalization, "America/Toronto");
+                    var writer =
+                            new CdsImmunizationPersister(
+                                    preventions,
+                                    extensions,
+                                    dates,
+                                    normalization,
+                                    "America/Toronto");
                     org.springframework.transaction.support.TransactionSynchronizationManager
                             .setActualTransactionActive(true);
                     check.run(session, writer, dates, extensions);
@@ -707,8 +870,12 @@ class CdsClinicalStorageMariaDbIntegrationTest {
 
     @FunctionalInterface
     private interface ImmunizationStorageCheck {
-        void run(Session session, CdsImmunizationPersister writer, PartialDateDao dates,
-                PreventionExtDao extensions) throws Exception;
+        void run(
+                Session session,
+                CdsImmunizationPersister writer,
+                PartialDateDao dates,
+                PreventionExtDao extensions)
+                throws Exception;
     }
 
     private static void strict(Session session) {

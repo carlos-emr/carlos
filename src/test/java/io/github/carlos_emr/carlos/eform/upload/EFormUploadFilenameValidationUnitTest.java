@@ -203,14 +203,21 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("image upload should reject source outside allowed temp directories")
     void shouldRejectImageUpload_whenSourceIsOutsideTempDirectories() throws Exception {
-        Path outsideDir = Files.createTempDirectory(Path.of(System.getProperty("user.home")), "disallowed-upload-");
+        // Own both sides of the boundary; a developer's home may be read-only.
+        Path allowedDir = Files.createDirectory(tempDir.resolve("allowed"));
+        Path outsideDir = Files.createDirectory(tempDir.resolve("allowed-sibling"));
         Path outside = Files.createFile(outsideDir.resolve("image.png"));
         UploadedFile uploadedFile = mock(UploadedFile.class);
         when(uploadedFile.getContent()).thenReturn(outside.toFile());
         when(uploadedFile.getContentType()).thenReturn("image/png");
         when(uploadedFile.getOriginalName()).thenReturn("diagram.png");
 
+        Object previousRoots = org.springframework.test.util.ReflectionTestUtils.getField(
+                io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories");
         try {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories",
+                    java.util.Set.of(allowedDir.toRealPath().toString()));
             ImageUpload2Action action = new ImageUpload2Action();
             List<UploadedFile> uploadedFiles = List.of(uploadedFile);
 
@@ -218,6 +225,8 @@ class EFormUploadFilenameValidationUnitTest extends CarlosUnitTestBase {
                     .isInstanceOf(SecurityException.class)
                     .hasMessageContaining("Invalid upload source");
         } finally {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    io.github.carlos_emr.carlos.utility.PathValidationUtils.class, "allowedTempDirectories", previousRoots);
             Files.deleteIfExists(outside);
             Files.deleteIfExists(outsideDir);
         }

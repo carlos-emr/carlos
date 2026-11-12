@@ -35,6 +35,6 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.Contact;
 
-public interface ContactDao extends AbstractDao<Contact> {
+public interface ContactDao extends AbstractDao<Contact>, CdsExportPatientTableReadDao {
     public List<Contact> search(String searchMode, String orderBy, String keyword);
 }

@@ -18,18 +18,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.billings.ca.bc.service.TeleplanExportErrors;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
- * Mutation gate for {@code billing/CA/BC/genTeleplanGroupReport.jsp}. The JSP
- * performs {@code billActivityDao.persist()} calls when generating the group
- * report in a scriptlet. Enforces POST-only AND {@code _report} {@code r}
+ * Mutation gate for the legacy BC group export service. The service commits complete
+ * files, activity, logs and claim statuses before forwarding to the activity-list JSP.
+ * Enforces POST-only AND {@code _report} {@code r}
  * privilege (matching the JSP's original {@code security:oscarSec} taglib,
  * which accepts {@code _report}, {@code _admin.reporting}, or {@code _admin}
- * at read level) before forwarding to the JSP. GET requests return 405.
+ * at read level), plus {@code _billing w} because generation updates claims.
+ * GET requests return 405.
  * <p>
  * Class name retains the {@code View...} prefix for consistency with
  * sibling gate actions in this migration; behavior is mutation-gate.
@@ -63,9 +65,7 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             return NONE;
         }
 
-        // JSP taglib allows _report OR _admin.reporting OR _admin (read). The JSP also performs
-        // billActivityDao.persist(); we keep POST-only for CSRF protection but match the JSP's
-        // documented read-privilege OR chain rather than escalating to _admin.billing w.
+        // Retain the reporting gate and require billing write access for the claim mutation.
         boolean hasReport = securityInfoManager.hasPrivilege(loggedInInfo, "_report", "r", null);
         boolean hasAdminReporting = securityInfoManager.hasPrivilege(loggedInInfo, "_admin.reporting", "r", null);
         boolean hasAdmin = securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null);
@@ -73,6 +73,23 @@ public final class ViewGenTeleplanGroupReport2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report, _admin.reporting, or _admin)");
         }
 
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_billing", "w", null)) {
+            throw new SecurityException("missing required sec object (_billing w)");
+        }
+
+        try {
+            var selection = new io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.Selection(
+                    request.getParameter("providers"), request.getParameter("monthCode"),
+                    request.getParameter("verCode"), request.getParameter("billcenter"));
+            SpringUtils.getBean(io.github.carlos_emr.carlos.billings.ca.bc.service.LegacyBcTeleplanExportService.class)
+                    .generate(selection, loggedInInfo.getLoggedInProviderNo());
+        } catch (Exception failure) {
+            var error = TeleplanExportErrors.describe(failure);
+            io.github.carlos_emr.carlos.utility.MiscUtils.getLogger().error("Legacy BC Teleplan export failed: "
+                    + error.message(), TeleplanExportErrors.diagnostic(failure));
+            response.sendError(error.status(), error.message());
+            return NONE;
+        }
         return SUCCESS;
     }
 }

@@ -48,63 +48,102 @@ import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
 class CdsWebContractUnitTest extends CarlosUnitTestBase {
-    private final CdsWebService web = new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
-    private final io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager = allowedPrivileges();
+    private final CdsWebService web =
+            new CdsWebService(org.mockito.Mockito.mock(CdsImportAccessService.class));
+    private final io.github.carlos_emr.carlos.managers.SecurityInfoManager securityInfoManager =
+            allowedPrivileges();
+
     private static io.github.carlos_emr.carlos.managers.SecurityInfoManager allowedPrivileges() {
         var privileges = mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
-        when(privileges.hasPrivilege(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
-                org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.nullable(String.class))).thenReturn(true);
+        when(privileges.hasPrivilege(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.anyString(),
+                        org.mockito.ArgumentMatchers.nullable(String.class)))
+                .thenReturn(true);
         return privileges;
     }
 
     static Stream<Arguments> unsupportedVersions() {
         return Stream.of(
                 Arguments.of((Object) null), Arguments.of((Object) new String[0]),
-                Arguments.of((Object) new String[]{"1"}), Arguments.of((Object) new String[]{"3"}),
-                Arguments.of((Object) new String[]{"02"}), Arguments.of((Object) new String[]{" 2"}),
-                Arguments.of((Object) new String[]{"2", "2"}), Arguments.of((Object) new String[]{"2", "1"}));
+                Arguments.of((Object) new String[] {"1"}),
+                        Arguments.of((Object) new String[] {"3"}),
+                Arguments.of((Object) new String[] {"02"}),
+                        Arguments.of((Object) new String[] {" 2"}),
+                Arguments.of((Object) new String[] {"2", "2"}),
+                        Arguments.of((Object) new String[] {"2", "1"}));
     }
 
-    @AfterEach void clearContext() { ActionContext.clear(); }
+    @AfterEach
+    void clearContext() {
+        ActionContext.clear();
+    }
 
-    @ParameterizedTest @MethodSource("unsupportedVersions")
-    void shouldDenyChunkBodiesQuotaAcceptAndRunControl_forIncompatibleClients(String[] versions) throws Exception {
+    @ParameterizedTest
+    @MethodSource("unsupportedVersions")
+    void shouldDenyChunkBodiesQuotaAcceptAndRunControl_forIncompatibleClients(String[] versions)
+            throws Exception {
         var access = mock(CdsImportAccessService.class);
         var uploads = mock(CdsUploadService.class);
         var imports = mock(CdsImportService.class);
         var submissions = mock(CdsUploadSubmissionService.class);
         LoggedInInfo actor = mock(LoggedInInfo.class);
-        Security security = new Security(); security.setSecurityNo(42);
+        Security security = new Security();
+        security.setSecurityNo(42);
         when(actor.getLoggedInSecurity()).thenReturn(security);
         when(actor.getLoggedInProviderNo()).thenReturn("999998");
-        for (String operation : new String[]{"begin", "chunk", "finish", "abandon", "submit", "resume", "cancel", "review"}) {
-            var request = new MockHttpServletRequest() {
-                @Override public ServletInputStream getInputStream() {
-                    throw new AssertionError("incompatible client body must not be opened");
-                }
-            };
-            request.setMethod("POST"); request.setContentType("application/octet-stream");
-            request.getSession().setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", actor);
-            if (versions != null) request.addParameter(CdsWebService.API_VERSION_PARAMETER, versions);
+        for (String operation :
+                new String[] {
+                    "begin", "chunk", "finish", "abandon", "submit", "resume", "cancel", "review"
+                }) {
+            var request =
+                    new MockHttpServletRequest() {
+                        @Override
+                        public ServletInputStream getInputStream() {
+                            throw new AssertionError("incompatible client body must not be opened");
+                        }
+                    };
+            request.setMethod("POST");
+            request.setContentType("application/octet-stream");
+            request.getSession()
+                    .setAttribute(LoggedInInfo.class.getName() + ".LOGGED_IN_INFO_KEY", actor);
+            if (versions != null)
+                request.addParameter(CdsWebService.API_VERSION_PARAMETER, versions);
             var response = new MockHttpServletResponse();
             ActionContext.of().withServletRequest(request).withServletResponse(response).bind();
             if ("submit".equals(operation)) {
-                new SubmitCdsImport2Action(new CdsWebService(access), submissions, securityInfoManager).execute();
+                new SubmitCdsImport2Action(
+                                new CdsWebService(access), submissions, securityInfoManager)
+                        .execute();
             } else if (Set.of("resume", "cancel", "review").contains(operation)) {
-                var action = new CdsImportControl2Action(new CdsWebService(access), imports, securityInfoManager); action.setOperation(operation); action.execute();
+                var action =
+                        new CdsImportControl2Action(
+                                new CdsWebService(access), imports, securityInfoManager);
+                action.setOperation(operation);
+                action.execute();
             } else {
-                var action = new CdsUpload2Action(new CdsWebService(access), uploads, securityInfoManager); action.setOperation(operation); action.execute();
+                var action =
+                        new CdsUpload2Action(
+                                new CdsWebService(access), uploads, securityInfoManager);
+                action.setOperation(operation);
+                action.execute();
             }
             assertThat(response.getStatus()).as(operation).isEqualTo(409);
             assertThat(response.getHeader(CdsWebService.API_VERSION_HEADER)).isEqualTo("2");
-            assertThat(response.getContentAsString()).contains("IMPORT_CLIENT_REFRESH_REQUIRED", "\"apiVersion\":2");
+            assertThat(response.getContentAsString())
+                    .contains("IMPORT_CLIENT_REFRESH_REQUIRED", "\"apiVersion\":2");
             verifyNoInteractions(uploads, imports, submissions);
         }
     }
 
-    @Test void shouldKeepSupportedJsonParametersStrict_withoutOverridingResponseContract() throws Exception {
-        var request = new MockHttpServletRequest(); request.setMethod("POST");
-        request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
+    @Test
+    void shouldKeepSupportedJsonParametersStrict_withoutOverridingResponseContract()
+            throws Exception {
+        var request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.addParameter("apiVersion", "2");
+        request.addParameter("operation", "begin");
         web.parameters(request, Set.of("operation"));
         request.addParameter("path", "/private/source");
         assertThatThrownBy(() -> web.parameters(request, Set.of("operation")))
@@ -112,59 +151,100 @@ class CdsWebContractUnitTest extends CarlosUnitTestBase {
         var response = new MockHttpServletResponse();
         web.json(response, 200, Map.of("ok", true, "apiVersion", 1));
         assertThat(response.getHeader(CdsWebService.API_VERSION_HEADER)).isEqualTo("2");
-        assertThat(response.getContentAsString()).contains("\"ok\":true", "\"apiVersion\":2")
+        assertThat(response.getContentAsString())
+                .contains("\"ok\":true", "\"apiVersion\":2")
                 .doesNotContain("\"apiVersion\":1");
     }
 
-    @Test void shouldKeepVersionlessLinksForExplicitReadOnlyCallersOnly_withoutAdmittingPost() {
-        var request = new MockHttpServletRequest(); request.setMethod("GET"); request.addParameter("type", "event");
+    @Test
+    void shouldKeepVersionlessLinksForExplicitReadOnlyCallersOnly_withoutAdmittingPost() {
+        var request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.addParameter("type", "event");
         web.readOnlyParameters(request, Set.of("type"));
         assertThatThrownBy(() -> web.parameters(request, Set.of("type")))
                 .hasMessage("IMPORT_CLIENT_REFRESH_REQUIRED");
-        request.setMethod("POST"); request.addParameter("apiVersion", "2");
+        request.setMethod("POST");
+        request.addParameter("apiVersion", "2");
         assertThatThrownBy(() -> web.readOnlyParameters(request, Set.of("type")))
                 .hasMessage("IMPORT_PARAMETERS_INVALID");
     }
 
-    @Test void shouldPreserveRequestContractUnderFrameworkBinding_withoutActionPropertyOrWorkflowError() throws Exception {
-        var request = new MockHttpServletRequest(); request.setMethod("POST");
-        request.addParameter("apiVersion", "2"); request.addParameter("operation", "begin");
+    @Test
+    void shouldPreserveRequestContractUnderFrameworkBinding_withoutActionPropertyOrWorkflowError()
+            throws Exception {
+        var request = new MockHttpServletRequest();
+        request.setMethod("POST");
+        request.addParameter("apiVersion", "2");
+        request.addParameter("operation", "begin");
         var response = new MockHttpServletResponse();
         var uploads = mock(CdsUploadService.class);
-        var action = org.mockito.Mockito.spy(new CdsUpload2Action(new CdsWebService(mock(CdsImportAccessService.class)), uploads, securityInfoManager));
+        var action =
+                org.mockito.Mockito.spy(
+                        new CdsUpload2Action(
+                                new CdsWebService(mock(CdsImportAccessService.class)),
+                                uploads,
+                                securityInfoManager));
         var previous = ActionContext.getContext();
         var previousDispatcher = org.apache.struts2.dispatcher.Dispatcher.getInstance();
-        var dispatcher = new org.apache.struts2.dispatcher.Dispatcher(request.getServletContext(),
-                Map.of("config", "struts-default.xml", "struts.devMode", "false"));
+        var dispatcher =
+                new org.apache.struts2.dispatcher.Dispatcher(
+                        request.getServletContext(),
+                        Map.of("config", "struts-default.xml", "struts.devMode", "false"));
         dispatcher.init();
         try {
             var container = dispatcher.getContainer();
-            container.getInstance(org.apache.struts2.ognl.ThreadAllowlist.class).allowClassHierarchy(action.getClass());
-            var stack = container.getInstance(org.apache.struts2.util.ValueStackFactory.class).createValueStack();
+            container
+                    .getInstance(org.apache.struts2.ognl.ThreadAllowlist.class)
+                    .allowClassHierarchy(action.getClass());
+            var stack =
+                    container
+                            .getInstance(org.apache.struts2.util.ValueStackFactory.class)
+                            .createValueStack();
             stack.push(action);
-            var context = stack.getActionContext().withContainer(container).withValueStack(stack)
-                    .withServletRequest(request).withServletResponse(response)
-                    .withParameters(org.apache.struts2.dispatcher.HttpParameters.create(request.getParameterMap()).build()).bind();
+            var context =
+                    stack.getActionContext()
+                            .withContainer(container)
+                            .withValueStack(stack)
+                            .withServletRequest(request)
+                            .withServletResponse(response)
+                            .withParameters(
+                                    org.apache.struts2.dispatcher.HttpParameters.create(
+                                                    request.getParameterMap())
+                                            .build())
+                            .bind();
             var invocation = mock(org.apache.struts2.ActionInvocation.class);
             var proxy = mock(org.apache.struts2.ActionProxy.class);
             when(proxy.getMethod()).thenReturn("execute");
-            when(invocation.getProxy()).thenReturn(proxy); when(invocation.getAction()).thenReturn(action);
-            when(invocation.getInvocationContext()).thenReturn(context); when(invocation.getStack()).thenReturn(stack);
+            when(invocation.getProxy()).thenReturn(proxy);
+            when(invocation.getAction()).thenReturn(action);
+            when(invocation.getInvocationContext()).thenReturn(context);
+            when(invocation.getStack()).thenReturn(stack);
             when(invocation.invoke()).thenReturn("none");
             var interceptor = new org.apache.struts2.interceptor.parameter.ParametersInterceptor();
-            container.inject(interceptor); interceptor.setRequireAnnotations("true"); interceptor.init();
-            try { assertThat(interceptor.intercept(invocation)).isEqualTo("none"); }
-            finally { interceptor.destroy(); }
+            container.inject(interceptor);
+            interceptor.setRequireAnnotations("true");
+            interceptor.init();
+            try {
+                assertThat(interceptor.intercept(invocation)).isEqualTo("none");
+            } finally {
+                interceptor.destroy();
+            }
             org.mockito.Mockito.verify(action).setOperation("begin");
             assertThat(action.hasErrors()).isFalse();
             web.parameters(request, Set.of("operation"));
             verifyNoInteractions(uploads);
         } finally {
-            dispatcher.getContainer().getInstance(org.apache.struts2.ognl.ThreadAllowlist.class).clearAllowlist();
+            dispatcher
+                    .getContainer()
+                    .getInstance(org.apache.struts2.ognl.ThreadAllowlist.class)
+                    .clearAllowlist();
             dispatcher.cleanup();
-            if (previousDispatcher == null) org.apache.struts2.dispatcher.Dispatcher.clearInstance();
+            if (previousDispatcher == null)
+                org.apache.struts2.dispatcher.Dispatcher.clearInstance();
             else org.apache.struts2.dispatcher.Dispatcher.setInstance(previousDispatcher);
-            if (previous == null) ActionContext.clear(); else previous.bind();
+            if (previous == null) ActionContext.clear();
+            else previous.bind();
         }
     }
 }

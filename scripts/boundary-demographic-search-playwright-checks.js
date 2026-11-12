@@ -9,7 +9,8 @@
  * apostrophe (O'Brien), a first name with an accent (René), a first name in CJK and an address with an
  * apostrophe, and the same address typed through to its ampersand, are each found by the text a user would type. The patients are stored
  * correctly (checked byte for byte first) so a miss is the search, not the data. Sort postbacks must retain the keyword.
- * SQL-shaped input must not widen results, and markup-shaped keywords must remain literal text in the rendered page.
+ * Deliberate SQL/XSS probes may be refused by the packaged WAF. If they reach CARLOS,
+ * SQL-shaped input must not widen results and markup-shaped keywords must remain literal text.
  * Fixtures: two synthetic patients inserted by SQL whose surname starts with the run tag; cleanup removes
  * their rows and asserts none remain.
  * Implements the wave-6 "boundary values" pattern (special characters round trip: "search finds it").
@@ -22,6 +23,17 @@ const { runWorkflow } = require('./lib/workflow-session');
 const { removeMarkedPatients } = require('./lib/gap-records-fixtures');
 
 const TIMEOUT = 30000;
+
+/** Distinguish the WAF front door from CARLOS/CSRF refusals for deliberate attacks (#5244). */
+async function isVerifiedAttackRefusal(response) {
+  const status = response.status();
+  const body = await response.text();
+  const fromApplication = Object.hasOwn(response.headers(), h.APPLICATION_HEADER);
+  if (!fromApplication && h.isWafPage(status, body)) return true;
+  h.assert(status === 200 && fromApplication,
+    `The attack search did not reach application results or a verified WAF refusal (HTTP ${status})`);
+  return false;
+}
 
 async function workflow(s) {
   const { sql, marker } = s;
@@ -44,12 +56,25 @@ async function workflow(s) {
     b.assertStored(sql, 'demographic', 'first_name', `demographic_no=${cjkId}`, T.cjk, 'Fixture CJK first name');
   });
 
-  const search = await ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
+  const openSearch=()=>ui.clickOpensPopup(s.schedule, s.schedule.locator('#search a, a:has-text("Search")').first(),
     { context: s.context, recorder: s.recorder, label: 'name-search', timeout: TIMEOUT });
-  async function find(mode, term, id) {
+  let search=await openSearch();
+  let guarded=false;
+  async function find(mode, term, id,{allowWafRefusal=false}={}) {
+    guarded=false;
+    if(await search.locator('select[name="search_mode"]').count()===0){await search.close();search=await openSearch();}
     await search.locator('select[name="search_mode"]').selectOption(mode);
     await search.locator('#keyword, input[name="keyword"]').first().fill(term);
+    const {failureMark,consumeExpectedFailure}=require('./lib/concurrency-support'),mark=failureMark(s.recorder);
+    const responsePromise=search.waitForResponse(response=>response.request().isNavigationRequest()&&response.request().method()==='POST'&&new URL(response.url()).pathname.endsWith('/demographic/DemographicSearch'));
+    responsePromise.catch(()=>{});
     await ui.clickAndAwaitReload(search, search.locator("input[type='submit']").first(), { timeout: TIMEOUT, label: `search ${mode}` });
+    const response=await responsePromise;
+    if (allowWafRefusal && await isVerifiedAttackRefusal(response)) {
+      h.assert(await search.locator('a[title="Master Demographic File"]').count()===0,'Rejected search disclosed patient results');
+      consumeExpectedFailure(s.recorder,mark,{status:403,path:/\/demographic\/DemographicSearch$/});guarded=true;return false;
+    }
+    h.assert(response.status()===200,`Patient search answered HTTP ${response.status()}`);
     const submitted = mode === 'search_name' ? term.toLowerCase() : term;
     h.assert(await search.locator('#search-sort input[name="keyword"]').inputValue() === submitted,
       'The search keyword changed while being rendered into the sort form');
@@ -88,15 +113,15 @@ async function workflow(s) {
   });
 
   await s.step('SQL-shaped keywords do not return unrelated patients', async () => {
-    await find('search_address', "' OR 1=1 --", apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
+    await find('search_address', "' OR 1=1 --", apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'SQL-shaped input widened the patient search');
   });
 
-  await s.step('markup-shaped keywords remain literal text and cannot create executable elements', async () => {
+  await s.step('markup-shaped keywords are refused or rendered literally without executable elements', async () => {
     const term = '<img src="x" onerror="window.__searchKeywordXss=1">';
-    await find('search_address', term, apostropheId);
-    h.assert((await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
-    h.assert((await search.locator('#searchResults').innerText()).includes(term),
+    await find('search_address', term, apostropheId,{allowWafRefusal:true});
+    h.assert(guarded||(await k.readResultRows(search)).length === 0, 'Markup-shaped input returned unrelated patients');
+    h.assert(guarded||(await search.locator('#searchResults').innerText()).includes(term),
       'The rendered search description did not preserve the literal keyword');
     h.assert(await search.locator('#searchResults img[src="x"]').count() === 0,
       'A search keyword was interpreted as an HTML element');
@@ -107,4 +132,4 @@ async function workflow(s) {
 }
 
 if (require.main === module) runWorkflow('boundary-demographic-search', workflow, { openPatient: false });
-module.exports = { workflow };
+module.exports = { workflow, isVerifiedAttackRefusal };

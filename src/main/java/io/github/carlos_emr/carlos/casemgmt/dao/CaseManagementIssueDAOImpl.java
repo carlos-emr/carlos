@@ -54,6 +54,34 @@ import io.github.carlos_emr.carlos.utility.LogSafe;
 @Transactional
 public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseManagementIssueDAO {
 
+    // One authorized read-only patient snapshot owns these finite scalar projections; no managed issue is loaded.
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.read(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportNativeMetadataReadSupport.Table.CASE_ISSUES);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportSourceSchema() {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.schema(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportRows(int patient) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.count(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.page(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient, afterId, limit);
+    }
+    @Override
+    @Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.chunk(entityManager(), io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan.CASE_ISSUES, patient, rowId, column, offset, length);
+    }
+
+
     private static Logger log = MiscUtils.getLogger();
 
     @Override
@@ -86,16 +114,29 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
         }
     }
 
+    /**
+     * Finds issues linked to a note, optionally filtered by resolution state.
+     * Results are ordered by resolution state, with unresolved issues first;
+     * ordering within each state is unspecified.
+     *
+     * @param noteId Integer identifier of the note; must not be null
+     * @param resolved Boolean resolution state to match, or null to return issues
+     *                 without filtering by resolution
+     * @return non-null {@code List<CaseManagementIssue>} of matching issues, or an
+     *         empty list if the note does not exist or has no matching linked issues
+     * @throws IllegalArgumentException if noteId is null
+     * @throws org.springframework.dao.DataAccessException if persistence access fails
+     */
     @SuppressWarnings("unchecked")
     @Override
     public List<CaseManagementIssue> getIssuesByNote(Integer noteId, Boolean resolved) {
         if (resolved != null) {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
+                    "select distinct cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 and cmi.resolved = ?2 order by cmi.resolved",
                     noteId, resolved);
         } else {
             return (List<CaseManagementIssue>) JpqlQueryHelper.find(entityManager(),
-                    "from CaseManagementIssue cmi where cmi.notes.id = ?1 order by cmi.resolved",
+                    "select distinct cmi from CaseManagementIssue cmi join cmi.notes n where n.id = ?1 order by cmi.resolved",
                     noteId);
         }
     }

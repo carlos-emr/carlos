@@ -40,7 +40,6 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.Set;
@@ -91,37 +90,21 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * so it can intercept errors from all downstream layers including other WAF filters, the Struts
  * dispatcher, and JSP processing.</p>
  *
- * <h3>Forwards — why {@code suspendWrappedResponseAfterForward} must be {@code false}</h3>
- * <p>Being outermost also means this filter's replay runs <em>after</em> every
- * {@code RequestDispatcher.forward()} inside the request has returned. Tomcat 11 defaults
- * {@code suspendWrappedResponseAfterForward} to {@code true}: when a forward returns,
- * {@code ApplicationDispatcher} unwraps the response-wrapper chain to the {@code ResponseFacade}
- * and calls {@code finish()} on it, which is {@code Response.setSuspended(true)} →
- * {@code OutputBuffer.setSuspended(true)}. A suspended {@code OutputBuffer} silently
- * <em>discards</em> every later write and flush.</p>
+ * <h3>Forward capture/replay contract</h3>
+ * <p>This REQUEST/ERROR boundary must inspect the completed downstream chain before replaying
+ * captured error bodies. A forward can return before that inspection: Tomcat's default
+ * {@code suspendWrappedResponseAfterForward=true} finishes the underlying response and discards
+ * later writes even though a wrapper still reports uncommitted. The sanitizer alone reproduces
+ * this with a forwarded writer; JavaMelody 2.9.0 alone does not. Monitoring is therefore not a
+ * sufficient explanation or fix for CARLOS's delayed replay.</p>
  *
- * <p>The forwarded page's body does not reach that buffer during the forward. It sits in the
- * filter stack's own buffers — javamelody's MonitoringFilter wraps every request and turns all
- * writer traffic into a {@code PrintWriter} over an {@code OutputStream} — and drains only
- * during filter unwind, as each wrapper flushes its delegate. With the buffer already suspended
- * those flushes are thrown away and the request ends with {@code Content-Length: 0}. Verified
- * consequences on the packaged install (2026-08-30): every JSP-to-JSP {@code <jsp:forward>}
- * answered 200 with an EMPTY body, and a forward on a 4xx answered a raw 500, because this
- * filter's replay found the response already finished (see
- * {@link #appendAfterCommit(HttpServletResponse, byte[])}). Nothing was logged for either.</p>
- *
- * <p>Both context descriptors therefore pin the attribute to {@code false}:
- * {@code debian/assets/tomcat/Catalina/localhost/carlos.xml} (packaged install — the deb
- * deploys from {@code conf/Catalina/localhost/} descriptors, so this is the one that is read
- * there) and {@code src/main/webapp/META-INF/context.xml} (devcontainer). Note what the fix is
- * <em>not</em>: the classic end-of-forward close that the {@code false} branch performs instead
- * is deliberately absorbed by the wrappers below — {@code PrivacyStatementAppendingFilter}'s
- * {@code DelegatingWriter} has an empty {@code flush()} <em>and</em> an empty {@code close()},
- * and {@code LogoutBroadcastFilter}'s degrades close to flush. The fix is that {@code finish()}
- * is never called, so the buffer is never suspended and the unwind-time flushes reach the wire.
- * Those no-op closes are load-bearing, not dead code, and removing a wrapper's unwind flush
- * would reintroduce the empty body. Whatever part of that close cascade does propagate lands on
- * {@link CloseShieldServletOutputStream}, which keeps it from sealing the raw stream.</p>
+ * <p>Both deployment descriptors explicitly retain {@code false}. This is a compatibility
+ * contract, not a temporary invitation to flush on every forward. The classic close is absorbed
+ * by the capture/decorating wrappers, and the container completes the response after REQUEST
+ * unwind. Keep their flush suppression and close shielding: early replay would bypass final
+ * error inspection, and replay inside a nested forward would miss outer decorations or failures.
+ * See {@code docs/response-filter-lifecycle.md} for ownership, reset, error-dispatch and bounded
+ * capture details and the container-backed regression matrix.</p>
  *
  * <h3>Compliance</h3>
  * <ul>
@@ -847,7 +830,7 @@ public class ResponseSanitizationFilter implements Filter {
         if (content == null || content.isEmpty()) {
             return;
         }
-        byte[] bytes = content.getBytes(resolveEncoding(response));
+        byte[] bytes = content.getBytes(RequestNegotiation.responseCharset(response));
         if (!prepareForReplay(response, bytes.length)) {
             appendAfterCommit(response, bytes);
             return;
@@ -924,28 +907,6 @@ public class ResponseSanitizationFilter implements Filter {
     }
 
     /**
-     * The charset to encode replayed content with: the response's own, or UTF-8 when it
-     * declares none. Shared so the byte and character replay paths cannot disagree about
-     * the encoding and produce a Content-Length that does not match the bytes.
-     *
-     * @param response HttpServletResponse the real (unwrapped) response
-     * @return Charset the charset to use
-     */
-    private static Charset resolveEncoding(HttpServletResponse response) {
-        String encoding = response.getCharacterEncoding();
-        if (encoding == null || encoding.isEmpty()) {
-            return StandardCharsets.UTF_8;
-        }
-        try {
-            return Charset.forName(encoding);
-        } catch (IllegalArgumentException e) {
-            // Unsupported or malformed charset name on the response; UTF-8 keeps the replay
-            // working rather than throwing out of the outermost filter.
-            return StandardCharsets.UTF_8;
-        }
-    }
-
-    /**
      * Prepares the real response for replaying safe captured content: clears any buffered
      * output and sets the byte-accurate Content-Length.
      *
@@ -1008,7 +969,7 @@ public class ResponseSanitizationFilter implements Filter {
             // inspected-safe page is dropped on the degraded path's own degraded path.
             try {
                 PrintWriter out = response.getWriter();
-                out.write(new String(content, resolveEncoding(response)));
+                out.write(new String(content, RequestNegotiation.responseCharset(response)));
                 out.flush();
             } catch (IOException | IllegalStateException fallbackFailure) {
                 LOGGER.error("Appending captured content after premature commit failed through "
@@ -1199,14 +1160,23 @@ public class ResponseSanitizationFilter implements Filter {
         }
 
         /**
-         * Clears the capture buffers along with the real response state, mirroring
-         * {@link #resetBuffer()} for the header-clearing variant.
+         * Clears the capture buffers and accessor selection along with the real response state.
+         * Unlike {@link #resetBuffer()}, a full reset permits switching between writer and stream.
          */
         @Override
         public void reset() {
-            // super first, for the same all-or-nothing reason as resetBuffer().
+            // Full reset releases channel selection as well as the body. Cached writers in
+            // any downstream wrapper must also be released so new output reaches this capture.
             super.reset();
             discardCapturedOutput();
+            switchingWriter = null;
+            switchingOutputStream = null;
+            shieldedPassthroughStream = null;
+            writer = null;
+            usingWriter = false;
+            usingOutputStream = false;
+            outputStreamPassthrough = false;
+            committed = false;
         }
 
         private void discardCapturedOutput() {

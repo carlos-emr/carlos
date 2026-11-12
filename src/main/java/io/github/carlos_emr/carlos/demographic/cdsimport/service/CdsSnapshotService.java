@@ -74,6 +74,11 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsXmlText;
 /** Copies an authorized source to durable, opaque private storage with a disk-backed name inventory. */
 @Service
 public class CdsSnapshotService {
+    private static final String SOURCE_MEMBER_PATH_INVALID = "CDS_SOURCE_MEMBER_PATH_INVALID";
+    private static final String FILES_MANIFEST = "files.jsonl";
+    private static final String MEMBER_KEY = "member";
+    private static final String MANIFEST_OFFSET_KEY = "manifestOffset";
+    private static final String EXPLICIT_KEY = "explicit";
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final int BUFFER = 65536;
 
@@ -81,18 +86,42 @@ public class CdsSnapshotService {
      * Creates a complete immutable snapshot. Failure leaves an unpublished .pending directory for
      * protected diagnosis/owned cleanup; it never changes the original or reports acceptance.
      */
-    public CdsSnapshotDto snapshot(Path input, Path allowedSourceRoot, Path durableRoot,
-            String snapshotId, CdsInputLimitsDto limits, BooleanSupplier cancelled) throws IOException {
-        return snapshot(input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled, () -> {});
+    public CdsSnapshotDto snapshot(
+            Path input,
+            Path allowedSourceRoot,
+            Path durableRoot,
+            String snapshotId,
+            CdsInputLimitsDto limits,
+            BooleanSupplier cancelled)
+            throws IOException {
+        return snapshot(
+                input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled, () -> {});
     }
 
-    CdsSnapshotDto snapshot(Path input, Path allowedSourceRoot, Path durableRoot, String snapshotId,
-            CdsInputLimitsDto limits, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
-        if (checkpoint==null) throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
+    CdsSnapshotDto snapshot(
+            Path input,
+            Path allowedSourceRoot,
+            Path durableRoot,
+            String snapshotId,
+            CdsInputLimitsDto limits,
+            BooleanSupplier cancelled,
+            Runnable checkpoint)
+            throws IOException {
+        if (checkpoint == null)
+            throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
         checkpoint.run();
-        try { return snapshotInternal(input, allowedSourceRoot, durableRoot, snapshotId, limits, cancelled, checkpoint); }
-        catch (CdsInputException safe) { throw safe; }
-        catch (IOException failed) {
+        try {
+            return snapshotInternal(
+                    input,
+                    allowedSourceRoot,
+                    durableRoot,
+                    snapshotId,
+                    limits,
+                    cancelled,
+                    checkpoint);
+        } catch (CdsInputException safe) {
+            throw safe;
+        } catch (IOException failed) {
             String detail = failed.getMessage();
             if (detail != null && detail.length() > 4096) detail = detail.substring(0, 4096);
             throw new CdsInputException("CDS_SOURCE_SNAPSHOT_FAILED", "", detail);
@@ -101,34 +130,53 @@ public class CdsSnapshotService {
         }
     }
 
-    private CdsSnapshotDto snapshotInternal(Path input, Path allowedSourceRoot, Path durableRoot,
-            String snapshotId, CdsInputLimitsDto limits, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
+    private CdsSnapshotDto snapshotInternal(
+            Path input,
+            Path allowedSourceRoot,
+            Path durableRoot,
+            String snapshotId,
+            CdsInputLimitsDto limits,
+            BooleanSupplier cancelled,
+            Runnable checkpoint)
+            throws IOException {
         if (snapshotId == null || !snapshotId.matches("[A-Za-z0-9_-]{1,80}")) {
             throw new IllegalArgumentException("Invalid opaque snapshot ID");
         }
         Path source = CdsPaths.within(input, allowedSourceRoot);
         Path root = durableRoot.toRealPath(LinkOption.NOFOLLOW_LINKS);
-        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS) || Files.isSymbolicLink(root)
+        if (!Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(root)
                 || Files.isSymbolicLink(input)) throw CdsPaths.failure("CDS_SOURCE_PATH_INVALID");
         if (root.startsWith(source)) throw CdsPaths.failure("CDS_SOURCE_CONTAINS_STAGING");
         Path pending = CdsPaths.privateDirectory(root.resolve(snapshotId + ".pending"), root);
         Path members = CdsPaths.privateDirectory(pending.resolve("members"), pending);
         Path index = CdsPaths.privateDirectory(pending.resolve("names"), pending);
-        Path manifest = pending.resolve("files.jsonl");
-        Inventory inventory = new Inventory(pending, members, index, manifest, limits, cancelled, checkpoint);
+        Path manifest = pending.resolve(FILES_MANIFEST);
+        Inventory inventory =
+                new Inventory(pending, members, index, manifest, limits, cancelled, checkpoint);
         try (inventory) {
             if (Files.isDirectory(source, LinkOption.NOFOLLOW_LINKS)) {
                 copyDirectory(source, inventory);
             } else if (source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".zip")) {
                 Path archive;
-                try (InputStream raw = openSource(source, allowedSourceRoot)) { archive = inventory.copyArchive(raw); }
+                try (InputStream raw = openSource(source, allowedSourceRoot)) {
+                    archive = inventory.copyArchive(raw);
+                }
                 long zipEntries = 0;
-                try (CountingSource raw = new CountingSource(Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS), limits.maxSourceBytes(), inventory::check);
-                        ZipInputStream zip = new ZipInputStream(new BufferedInputStream(raw, BUFFER), Charset.forName("IBM437"))) {
+                try (CountingSource raw =
+                                new CountingSource(
+                                        Files.newInputStream(archive, LinkOption.NOFOLLOW_LINKS),
+                                        limits.maxSourceBytes(),
+                                        inventory::check);
+                        ZipInputStream zip =
+                                new ZipInputStream(
+                                        new BufferedInputStream(raw, BUFFER),
+                                        Charset.forName("IBM437"))) {
                     inventory.archiveInput = raw;
                     ZipEntry entry;
                     while ((entry = zip.getNextEntry()) != null) {
-                        if (++zipEntries > limits.maxEntries()) throw CdsPaths.failure("CDS_INPUT_ENTRY_LIMIT");
+                        if (++zipEntries > limits.maxEntries())
+                            throw CdsPaths.failure("CDS_INPUT_ENTRY_LIMIT");
                         inventory.check();
                         String relative = normalizedRelative(entry.getName(), limits);
                         if (entry.isDirectory()) {
@@ -144,13 +192,15 @@ public class CdsSnapshotService {
                         zip.closeEntry();
                     }
                 }
-                CdsZipDirectory.validate(archive, index, pending, limits.maxEntries(), zipEntries, inventory::check);
+                CdsZipDirectory.validate(
+                        archive, index, pending, limits.maxEntries(), zipEntries, inventory::check);
             } else {
-                boolean declaredXml=source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xml");
-                try (InputStream bytes=openSource(source, allowedSourceRoot)) {
+                boolean declaredXml =
+                        source.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".xml");
+                try (InputStream bytes = openSource(source, allowedSourceRoot)) {
                     inventory.copy(source.getFileName().toString(), bytes, declaredXml);
                 }
-                if (inventory.xmls==0) throw CdsPaths.failure("CDS_SOURCE_SHAPE_UNSUPPORTED");
+                if (inventory.xmls == 0) throw CdsPaths.failure("CDS_SOURCE_SHAPE_UNSUPPORTED");
                 copyReferencedFiles(source, inventory);
             }
             if (inventory.xmls == 0) throw CdsPaths.failure("CDS_NO_PATIENT_XML");
@@ -165,61 +215,91 @@ public class CdsSnapshotService {
             throw CdsPaths.failure("CDS_ATOMIC_SNAPSHOT_PUBLICATION_UNSUPPORTED");
         }
         CdsPaths.forceDirectory(root);
-        return new CdsSnapshotDto(published, published.resolve("files.jsonl"), inventory.digest,
-                inventory.files, inventory.xmls, inventory.total);
+        return new CdsSnapshotDto(
+                published,
+                published.resolve(FILES_MANIFEST),
+                inventory.digest,
+                inventory.files,
+                inventory.xmls,
+                inventory.total);
     }
 
     /** Loads and revalidates an accepted snapshot on resume, rather than trusting ephemeral state. */
-    public CdsSnapshotDto load(Path published) throws IOException { return load(published, true); }
-
-    public CdsSnapshotDto load(Path published, boolean verifyContent) throws IOException {
-        return load(published, verifyContent, ()-> false);
+    public CdsSnapshotDto load(Path published) throws IOException {
+        return load(published, true);
     }
 
-    public CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled) throws IOException {
+    public CdsSnapshotDto load(Path published, boolean verifyContent) throws IOException {
+        return load(published, verifyContent, () -> false);
+    }
+
+    public CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled)
+            throws IOException {
         return load(published, verifyContent, cancelled, () -> {});
     }
 
-    CdsSnapshotDto load(Path published, boolean verifyContent, BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
-        if (checkpoint==null) throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
+    CdsSnapshotDto load(
+            Path published, boolean verifyContent, BooleanSupplier cancelled, Runnable checkpoint)
+            throws IOException {
+        if (checkpoint == null)
+            throw new IllegalArgumentException("Missing CDS snapshot checkpoint");
         checkpoint.run();
-        long[] next={0};
-        BooleanSupplier checked=()-> {
-            checkpoint.run();
-            if (Thread.currentThread().isInterrupted()) return true;
-            long now=System.nanoTime();
-            if (now>=next[0]) {next[0]=now+250_000_000L; return cancelled.getAsBoolean(); }
-            return false;
-        };
-        if (Files.isSymbolicLink(published) || !Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)
-                || published.getFileName().toString().endsWith(".pending")) throw CdsPaths.failure("CDS_SNAPSHOT_NOT_PUBLISHED");
+        long[] next = {0};
+        BooleanSupplier checked =
+                () -> {
+                    checkpoint.run();
+                    if (Thread.currentThread().isInterrupted()) return true;
+                    long now = System.nanoTime();
+                    if (now >= next[0]) {
+                        next[0] = now + 250_000_000L;
+                        return cancelled.getAsBoolean();
+                    }
+                    return false;
+                };
+        if (Files.isSymbolicLink(published)
+                || !Files.isDirectory(published, LinkOption.NOFOLLOW_LINKS)
+                || published.getFileName().toString().endsWith(".pending"))
+            throw CdsPaths.failure("CDS_SNAPSHOT_NOT_PUBLISHED");
         Path root = published.toRealPath(LinkOption.NOFOLLOW_LINKS);
         JsonNode seal;
-        try (InputStream input = Files.newInputStream(root.resolve("snapshot.seal"), LinkOption.NOFOLLOW_LINKS)) {
+        try (InputStream input =
+                Files.newInputStream(root.resolve("snapshot.seal"), LinkOption.NOFOLLOW_LINKS)) {
             byte[] bytes = input.readNBytes(65536);
             if (input.read() != -1) throw CdsPaths.failure("CDS_SNAPSHOT_SEAL_INVALID");
             seal = JSON.readTree(bytes);
         }
-        if (seal == null || seal.path("version").asInt() != 2) throw CdsPaths.failure("CDS_SNAPSHOT_SEAL_UNSUPPORTED");
+        if (seal == null || seal.path("version").asInt() != 2)
+            throw CdsPaths.failure("CDS_SNAPSHOT_SEAL_UNSUPPORTED");
         String expectedManifest = seal.path("manifestSha256").asText();
-        MessageDigest digest = CdsPaths.sha256(); long count = 0, xmls = 0, size = 0, manifestOffset = 0;
-        CdsSnapshotDto provisional = new CdsSnapshotDto(root, root.resolve("files.jsonl"), "", 0, 0, 0);
-        try (InputStream input = new BufferedInputStream(Files.newInputStream(root.resolve("files.jsonl"), LinkOption.NOFOLLOW_LINKS), BUFFER)) {
+        MessageDigest digest = CdsPaths.sha256();
+        long count = 0, xmls = 0, size = 0, manifestOffset = 0;
+        CdsSnapshotDto provisional =
+                new CdsSnapshotDto(root, root.resolve(FILES_MANIFEST), "", 0, 0, 0);
+        try (InputStream input =
+                new BufferedInputStream(
+                        Files.newInputStream(
+                                root.resolve(FILES_MANIFEST), LinkOption.NOFOLLOW_LINKS),
+                        BUFFER)) {
             byte[] row;
             while ((row = CdsFieldParser.readMetadataLine(input)) != null) {
                 if (checked.getAsBoolean()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
-                digest.update(row); digest.update((byte) '\n');
+                digest.update(row);
+                digest.update((byte) '\n');
                 JsonNode node = JSON.readTree(row);
                 CdsSnapshotFileDto member = file(provisional, node);
-                if (member.length() < 0 || !member.sha256().matches("[0-9a-f]{64}")
-                        || Files.size(member.path()) != member.length()) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
-                if (verifyContent && !member.sha256().equals(hashFile(member.path(), checked))) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
+                if (member.length() < 0
+                        || !member.sha256().matches("[0-9a-f]{64}")
+                        || Files.size(member.path()) != member.length())
+                    throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
+                if (verifyContent && !member.sha256().equals(hashFile(member.path(), checked)))
+                    throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_CHANGED");
                 if (verifyContent) {
                     JsonNode marker = readNameMarker(provisional, member.relativeName());
                     requireIndexBinding(marker, node, manifestOffset, row.length);
                 }
                 manifestOffset = Math.addExact(manifestOffset, row.length + 1L);
-                count++; if (member.patientXml()) xmls++;
+                count++;
+                if (member.patientXml()) xmls++;
                 size = Math.addExact(size, member.length());
             }
         }
@@ -228,25 +308,42 @@ public class CdsSnapshotService {
         if (!archiveHash.isEmpty()) {
             Path archive = root.resolve("source-archive.bin");
             if (!Files.isRegularFile(archive, LinkOption.NOFOLLOW_LINKS)
-                    || verifyContent && !archiveHash.equals(hashFile(archive, checked))) throw CdsPaths.failure("CDS_SNAPSHOT_ARCHIVE_CHANGED");
+                    || verifyContent && !archiveHash.equals(hashFile(archive, checked)))
+                throw CdsPaths.failure("CDS_SNAPSHOT_ARCHIVE_CHANGED");
         }
-        if (!manifestHash.equals(expectedManifest) || count != seal.path("files").asLong(-1)
-                || xmls != seal.path("patientXmlFiles").asLong(-1) || size != seal.path("totalBytes").asLong(-1)) {
+        if (!manifestHash.equals(expectedManifest)
+                || count != seal.path("files").asLong(-1)
+                || xmls != seal.path("patientXmlFiles").asLong(-1)
+                || size != seal.path("totalBytes").asLong(-1)) {
             throw CdsPaths.failure("CDS_SNAPSHOT_SEAL_MISMATCH");
         }
-        return new CdsSnapshotDto(root, root.resolve("files.jsonl"), fingerprint(manifestHash, archiveHash), count, xmls, size);
+        return new CdsSnapshotDto(
+                root,
+                root.resolve(FILES_MANIFEST),
+                fingerprint(manifestHash, archiveHash),
+                count,
+                xmls,
+                size);
     }
 
     public void forEachXml(CdsSnapshotDto snapshot, Consumer<CdsSnapshotFileDto> consumer)
             throws IOException {
-        forEachFile(snapshot, member -> { if (member.patientXml()) consumer.accept(member); });
+        forEachFile(
+                snapshot,
+                member -> {
+                    if (member.patientXml()) consumer.accept(member);
+                });
     }
 
     /** Includes accompanying source audit/readme/event files and XML report payloads. */
     public void forEachFile(CdsSnapshotDto snapshot, Consumer<CdsSnapshotFileDto> consumer)
             throws IOException {
-        try (InputStream input = new BufferedInputStream(Files.newInputStream(
-                CdsPaths.within(snapshot.filesManifestFile(), snapshot.root()), LinkOption.NOFOLLOW_LINKS), BUFFER)) {
+        try (InputStream input =
+                new BufferedInputStream(
+                        Files.newInputStream(
+                                CdsPaths.within(snapshot.filesManifestFile(), snapshot.root()),
+                                LinkOption.NOFOLLOW_LINKS),
+                        BUFFER)) {
             byte[] line;
             while ((line = CdsFieldParser.readMetadataLine(input)) != null) {
                 JsonNode node = JSON.readTree(line);
@@ -256,15 +353,19 @@ public class CdsSnapshotService {
     }
 
     /** Resolves only a supplied snapshot member relative to its patient's XML folder. */
-    public CdsSnapshotFileDto resolveReference(CdsSnapshotDto snapshot, String relativeXml,
-            String relativeReference) throws IOException {
-        String reference = normalizedRelative(relativeReference == null ? null : relativeReference.replace('\\', '/'), CdsInputLimitsDto.defaults());
+    public CdsSnapshotFileDto resolveReference(
+            CdsSnapshotDto snapshot, String relativeXml, String relativeReference)
+            throws IOException {
+        String reference =
+                normalizedRelative(
+                        relativeReference == null ? null : relativeReference.replace('\\', '/'),
+                        CdsInputLimitsDto.defaults());
         String xml = normalizedRelative(relativeXml, CdsInputLimitsDto.defaults());
         int separator = xml.lastIndexOf('/');
         String relative = (separator < 0 ? "" : xml.substring(0, separator + 1)) + reference;
         try {
             JsonNode marker = readNameMarker(snapshot, relative);
-            long offset = marker.path("manifestOffset").asLong(-1);
+            long offset = marker.path(MANIFEST_OFFSET_KEY).asLong(-1);
             int length = marker.path("manifestLength").asInt(-1);
             JsonNode row = readManifestRow(snapshot, offset, length);
             requireIndexBinding(marker, row, offset, length);
@@ -279,83 +380,130 @@ public class CdsSnapshotService {
         }
     }
 
-    private static JsonNode readNameMarker(CdsSnapshotDto snapshot, String relative) throws IOException {
+    private static JsonNode readNameMarker(CdsSnapshotDto snapshot, String relative)
+            throws IOException {
         Path index = snapshot.root().resolve("names").resolve(nameKey(relative));
-        try (InputStream input = Files.newInputStream(CdsPaths.within(index, snapshot.root()), LinkOption.NOFOLLOW_LINKS)) {
+        try (InputStream input =
+                Files.newInputStream(
+                        CdsPaths.within(index, snapshot.root()), LinkOption.NOFOLLOW_LINKS)) {
             byte[] bytes = CdsFieldParser.readMetadataLine(input);
-            if (bytes == null || input.read() != -1) throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+            if (bytes == null || input.read() != -1)
+                throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             JsonNode marker = JSON.readTree(bytes);
-            if (marker == null || !marker.isObject() || !relative.equals(marker.path("relativeName").asText())
-                    || marker.path("directory").asBoolean()) throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+            if (marker == null
+                    || !marker.isObject()
+                    || !relative.equals(marker.path("relativeName").asText())
+                    || marker.path("directory").asBoolean())
+                throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             return marker;
         }
     }
 
-    private static void requireIndexBinding(JsonNode marker, JsonNode row, long offset, int length) throws IOException {
-        if (row == null || !row.isObject() || !marker.path("manifestOffset").isIntegralNumber()
-                || !marker.path("manifestOffset").canConvertToLong()
-                || !marker.path("manifestLength").isIntegralNumber() || !marker.path("manifestLength").canConvertToInt()
-                || marker.path("manifestOffset").longValue() != offset
+    private static void requireIndexBinding(JsonNode marker, JsonNode row, long offset, int length)
+            throws IOException {
+        if (row == null
+                || !row.isObject()
+                || !marker.path(MANIFEST_OFFSET_KEY).isIntegralNumber()
+                || !marker.path(MANIFEST_OFFSET_KEY).canConvertToLong()
+                || !marker.path("manifestLength").isIntegralNumber()
+                || !marker.path("manifestLength").canConvertToInt()
+                || marker.path(MANIFEST_OFFSET_KEY).longValue() != offset
                 || marker.path("manifestLength").intValue() != length) {
             throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
         }
-        for (String field : new String[] {"relativeName", "member", "sha256", "length", "patientXml"}) {
+        for (String field :
+                new String[] {"relativeName", MEMBER_KEY, "sha256", "length", "patientXml"}) {
             if (row.get(field) == null || !row.get(field).equals(marker.get(field))) {
                 throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             }
         }
     }
 
-    private static JsonNode readManifestRow(CdsSnapshotDto snapshot, long offset, int length) throws IOException {
-        if (offset < 0 || length < 1 || length > 65536) throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+    private static JsonNode readManifestRow(CdsSnapshotDto snapshot, long offset, int length)
+            throws IOException {
+        if (offset < 0 || length < 1 || length > 65536)
+            throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
         Path manifest = CdsPaths.within(snapshot.filesManifestFile(), snapshot.root());
-        try (SeekableByteChannel channel = Files.newByteChannel(manifest, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
-            if (offset > channel.size() || length >= channel.size() - offset) throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+        try (SeekableByteChannel channel =
+                Files.newByteChannel(
+                        manifest, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+            if (offset > channel.size() || length >= channel.size() - offset)
+                throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             if (offset != 0) {
                 channel.position(offset - 1);
                 ByteBuffer preceding = ByteBuffer.allocate(1);
-                if (channel.read(preceding) != 1 || preceding.array()[0] != '\n') throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+                if (channel.read(preceding) != 1 || preceding.array()[0] != '\n')
+                    throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             }
             channel.position(offset);
             ByteBuffer bytes = ByteBuffer.allocate(length + 1);
             while (bytes.hasRemaining()) {
-                if (Thread.currentThread().isInterrupted()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
-                if (channel.read(bytes) < 1) throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+                if (Thread.currentThread().isInterrupted())
+                    throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+                if (channel.read(bytes) < 1)
+                    throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             }
-            if (bytes.array()[length] != '\n') throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
-            for (int i = 0; i < length; i++) if (bytes.array()[i] == '\n') throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+            if (bytes.array()[length] != '\n')
+                throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
+            for (int i = 0; i < length; i++)
+                if (bytes.array()[i] == '\n')
+                    throw CdsPaths.failure("CDS_SNAPSHOT_NAME_INDEX_INVALID");
             return JSON.readTree(bytes.array(), 0, length);
         }
     }
 
-    private static CdsSnapshotFileDto file(CdsSnapshotDto snapshot, JsonNode node) throws IOException {
-        String member = node.path("member").asText();
-        if (!member.matches("[0-9]{12}\\.bin")) throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_INVALID");
-        Path path = CdsPaths.within(snapshot.root().resolve("members").resolve(member), snapshot.root());
-        return new CdsSnapshotFileDto(node.path("relativeName").asText(), path,
-                node.path("sha256").asText(), node.path("length").asLong(), node.path("patientXml").asBoolean());
+    private static CdsSnapshotFileDto file(CdsSnapshotDto snapshot, JsonNode node)
+            throws IOException {
+        String member = node.path(MEMBER_KEY).asText();
+        if (!member.matches("[0-9]{12}\\.bin"))
+            throw CdsPaths.failure("CDS_SNAPSHOT_MEMBER_INVALID");
+        Path path =
+                CdsPaths.within(
+                        snapshot.root().resolve("members").resolve(member), snapshot.root());
+        return new CdsSnapshotFileDto(
+                node.path("relativeName").asText(),
+                path,
+                node.path("sha256").asText(),
+                node.path("length").asLong(),
+                node.path("patientXml").asBoolean());
     }
 
     private static void copyDirectory(Path source, Inventory inventory) throws IOException {
-        Files.walkFileTree(source, new SimpleFileVisitor<>() {
-            @Override public FileVisitResult preVisitDirectory(Path directory, BasicFileAttributes attrs)
-                    throws IOException {
-                inventory.check();
-                if (!directory.equals(source)) {
-                    inventory.reserveDirectory(source.relativize(directory).toString().replace('\\', '/'));
-                }
-                return FileVisitResult.CONTINUE;
-            }
-            @Override public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
-                if (!attrs.isRegularFile() || attrs.isSymbolicLink()) throw CdsPaths.failure("CDS_UNSAFE_SOURCE_MEMBER");
-                String relative = normalizedRelative(source.relativize(path).toString().replace('\\', '/'), inventory.limits);
-                try (InputStream input = openSource(path, source)) { inventory.copy(relative, input, false); }
-                return FileVisitResult.CONTINUE;
-            }
-            @Override public FileVisitResult visitFileFailed(Path path, IOException failed) throws IOException {
-                throw CdsPaths.failure("CDS_SOURCE_READ_FAILED");
-            }
-        });
+        Files.walkFileTree(
+                source,
+                new SimpleFileVisitor<>() {
+                    @Override
+                    public FileVisitResult preVisitDirectory(
+                            Path directory, BasicFileAttributes attrs) throws IOException {
+                        inventory.check();
+                        if (!directory.equals(source)) {
+                            inventory.reserveDirectory(
+                                    source.relativize(directory).toString().replace('\\', '/'));
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFile(Path path, BasicFileAttributes attrs)
+                            throws IOException {
+                        if (!attrs.isRegularFile() || attrs.isSymbolicLink())
+                            throw CdsPaths.failure("CDS_UNSAFE_SOURCE_MEMBER");
+                        String relative =
+                                normalizedRelative(
+                                        source.relativize(path).toString().replace('\\', '/'),
+                                        inventory.limits);
+                        try (InputStream input = openSource(path, source)) {
+                            inventory.copy(relative, input, false);
+                        }
+                        return FileVisitResult.CONTINUE;
+                    }
+
+                    @Override
+                    public FileVisitResult visitFileFailed(Path path, IOException failed)
+                            throws IOException {
+                        throw CdsPaths.failure("CDS_SOURCE_READ_FAILED");
+                    }
+                });
     }
 
     // SecureSourceInputStream takes ownership immediately and closes the root on every constructor
@@ -443,36 +591,47 @@ public class CdsSnapshotService {
         }
     }
 
-    private static String normalizedRelative(String raw, CdsInputLimitsDto limits) throws IOException {
-        if (raw == null || raw.isBlank() || raw.length() > limits.maxPathCharacters()
-                || raw.startsWith("/") || raw.startsWith("\\") || raw.matches("^[A-Za-z]:.*")
-                || raw.indexOf('\0') >= 0 || raw.indexOf('\\') >= 0) {
-            throw CdsPaths.failure("CDS_SOURCE_MEMBER_PATH_INVALID");
+    private static String normalizedRelative(String raw, CdsInputLimitsDto limits)
+            throws IOException {
+        if (raw == null
+                || raw.isBlank()
+                || raw.length() > limits.maxPathCharacters()
+                || raw.startsWith("/")
+                || raw.startsWith("\\")
+                || raw.matches("^[A-Za-z]:.*")
+                || raw.indexOf('\0') >= 0
+                || raw.indexOf('\\') >= 0) {
+            throw CdsPaths.failure(SOURCE_MEMBER_PATH_INVALID);
         }
         String name = raw.endsWith("/") ? raw.substring(0, raw.length() - 1) : raw;
         for (String part : name.split("/", -1)) {
             if (part.isEmpty() || part.equals(".") || part.equals("..")) {
-                throw CdsPaths.failure("CDS_SOURCE_MEMBER_PATH_INVALID");
+                throw CdsPaths.failure(SOURCE_MEMBER_PATH_INVALID);
             }
         }
         return name;
     }
 
     private static String nameKey(String name) {
-        String normalized = Normalizer.normalize(name, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
+        String normalized =
+                Normalizer.normalize(name, Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
         return CdsPaths.hex(CdsPaths.sha256().digest(normalized.getBytes(StandardCharsets.UTF_8)));
     }
 
     private static String hashFile(Path path) throws IOException {
-        return hashFile(path, ()-> false);
+        return hashFile(path, () -> false);
     }
 
     private static String hashFile(Path path, BooleanSupplier cancelled) throws IOException {
         MessageDigest digest = CdsPaths.sha256();
-        try (InputStream input = new BufferedInputStream(Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS), BUFFER)) {
-            byte[] buffer = new byte[BUFFER]; int n;
+        try (InputStream input =
+                new BufferedInputStream(
+                        Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS), BUFFER)) {
+            byte[] buffer = new byte[BUFFER];
+            int n;
             while ((n = input.read(buffer)) >= 0) {
-                if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+                if (Thread.currentThread().isInterrupted() || cancelled.getAsBoolean())
+                    throw CdsPaths.failure("CDS_INPUT_CANCELLED");
                 if (n > 0) digest.update(buffer, 0, n);
             }
         }
@@ -480,135 +639,254 @@ public class CdsSnapshotService {
     }
 
     private static String fingerprint(String manifestHash, String archiveHash) {
-        return archiveHash.isEmpty() ? manifestHash : CdsPaths.hex(CdsPaths.sha256().digest(
-                (manifestHash + "\n" + archiveHash).getBytes(StandardCharsets.US_ASCII)));
+        return archiveHash.isEmpty()
+                ? manifestHash
+                : CdsPaths.hex(
+                        CdsPaths.sha256()
+                                .digest(
+                                        (manifestHash + "\n" + archiveHash)
+                                                .getBytes(StandardCharsets.US_ASCII)));
     }
 
-    private static boolean patientCandidate(Path source, CdsInputLimitsDto limits, CdsZipDirectory.Check checkpoint) throws IOException {
-        boolean[] candidate = {true};
-        try (InputStream raw=Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
-                InputStream checked=new CountingSource(raw, limits.maxSourceBytes(), checkpoint);
-                InputStream input=new java.io.FilterInputStream(checked) {
-                    long remaining=65536;
-                    @Override public int read() throws IOException {if (remaining==0) return -1; int value=in.read(); if (value>=0)remaining--; return value; }
-                    @Override public int read(byte[] bytes, int offset, int length) throws IOException {
-                        if (length==0)return 0; if (remaining==0)return -1;
-                        int n=in.read(bytes, offset, (int) Math.min(length, remaining)); if (n>0)remaining-=n; return n;
-                    }
-                };
+    private static boolean patientCandidate(
+            Path source, CdsInputLimitsDto limits, CdsZipDirectory.Check checkpoint)
+            throws IOException {
+        try (InputStream raw = Files.newInputStream(source, LinkOption.NOFOLLOW_LINKS);
+                InputStream checked = new CountingSource(raw, limits.maxSourceBytes(), checkpoint);
+                InputStream input = new ProbeInput(checked);
                 Reader text = CdsXmlText.reader(input, limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader();
-            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            reader.setContentHandler(new DefaultHandler() {
-                @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
-                    candidate[0] = "cds".equals(uri) || Set.of("OmdCds", "PatientRecord", "Demographics", "Reports").contains(local);
-                    throw new RootFound();
-                }
-            });
-            reader.setErrorHandler(new DefaultHandler() {
-                @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
-                @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
-            });
-            try { reader.parse(new InputSource(text)); }
-            catch (RootFound complete) { return candidate[0]; }
-            catch (SAXException malformed) { return true; }
+            return probeCandidate(text, limits);
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         } catch (CdsInputException stopped) {
-            if (Set.of("CDS_INPUT_CANCELLED", "CDS_INPUT_DEADLINE", "CDS_INPUT_DISK_RESERVE", "CDS_INPUT_BYTE_LIMIT").contains(stopped.code())) throw stopped;
+            if (Set.of(
+                            "CDS_INPUT_CANCELLED",
+                            "CDS_INPUT_DEADLINE",
+                            "CDS_INPUT_DISK_RESERVE",
+                            "CDS_INPUT_BYTE_LIMIT")
+                    .contains(stopped.code())) throw stopped;
             return true;
-        } catch (IOException unresolved) {
+        } catch (IOException _) {
+            return true;
+        }
+    }
+
+    private static boolean probeCandidate(Reader text, CdsInputLimitsDto limits)
+            throws IOException, javax.xml.parsers.ParserConfigurationException, SAXException {
+        boolean[] candidate = {true};
+        var reader = CdsXmlParser.xmlReader(limits);
+        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        reader.setContentHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void startElement(
+                            String uri, String local, String qualified, Attributes attrs)
+                            throws SAXException {
+                        candidate[0] =
+                                "cds".equals(uri)
+                                        || Set.of(
+                                                        "OmdCds",
+                                                        "PatientRecord",
+                                                        "Demographics",
+                                                        "Reports")
+                                                .contains(local);
+                        throw new RootFound();
+                    }
+                });
+        reader.setErrorHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void error(SAXParseException failure) throws SAXException {
+                        throw failure;
+                    }
+
+                    @Override
+                    public void fatalError(SAXParseException failure) throws SAXException {
+                        throw failure;
+                    }
+                });
+        try {
+            reader.parse(new InputSource(text));
+        } catch (RootFound _) {
+            return candidate[0];
+        } catch (SAXException _) {
             return true;
         }
         return true;
     }
 
-    private static void copyReferencedFiles(Path originalXml, Inventory inventory) throws IOException {
+    private static final class ProbeInput extends FilterInputStream {
+        private long remaining = 65536;
+
+        private ProbeInput(InputStream input) {
+            super(input);
+        }
+
+        @Override
+        public int read() throws IOException {
+            if (remaining == 0) return -1;
+            int value = in.read();
+            if (value >= 0) remaining--;
+            return value;
+        }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            if (length == 0) return 0;
+            if (remaining == 0) return -1;
+            int n = in.read(bytes, offset, (int) Math.min(length, remaining));
+            if (n > 0) remaining -= n;
+            return n;
+        }
+    }
+
+    private static void copyReferencedFiles(Path originalXml, Inventory inventory)
+            throws IOException {
         Path copied = inventory.members.resolve("000000000001.bin");
         try (InputStream raw = Files.newInputStream(copied, LinkOption.NOFOLLOW_LINKS);
-                InputStream input = new CountingSource(raw, inventory.limits.maxSourceBytes(), inventory::check);
-                Reader text = CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
-            var reader = CdsXmlParser.xmlReader();
-            reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-            reader.setContentHandler(new DefaultHandler() {
-                private int depth;
-                private int reportDepth;
-                private StringBuilder reference;
-                private final Set<String> names = new HashSet<>();
-                private final Set<String> aliases = new HashSet<>();
-                private final Set<String> namespaces = new HashSet<>();
-                @Override public void startPrefixMapping(String prefix, String uri) throws SAXException {
-                    if (prefix.length()>inventory.limits.maxXmlNameCharacters() || uri.length()>inventory.limits.maxNamespaceUriCharacters()
-                            || aliases.add(prefix) && aliases.size()>inventory.limits.maxNamespaceAliases()
-                            || namespaces.add(uri) && namespaces.size()>inventory.limits.maxNamespaceAliases()) {
-                        throw new SAXException(CdsPaths.failure("CDS_XML_NAMESPACE_RESOURCE_LIMIT"));
-                    }
-                }
-                private void name(String value) throws SAXException {
-                    if (value.length()>inventory.limits.maxXmlNameCharacters() || names.add(value) && names.size()>inventory.limits.maxUniqueXmlNames()) {
-                        throw new SAXException(CdsPaths.failure("CDS_XML_NAME_RESOURCE_LIMIT"));
-                    }
-                }
-                @Override public void startElement(String uri, String local, String qualified, Attributes attrs) throws SAXException {
-                    name(qualified);
-                    if (attrs.getLength()>128) throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
-                    for (int i=0; i<attrs.getLength(); i++) name(attrs.getQName(i));
-                    depth++;
-                    if (depth > inventory.limits.maxXmlDepth()) throw new SAXException(CdsPaths.failure("CDS_XML_DEPTH_LIMIT"));
-                    if (depth == 3 && uri.equals("cds") && local.equals("Reports")) reportDepth = depth;
-                    if (reportDepth == 3 && depth == 4 && uri.equals("cds") && local.equals("FilePath")) reference = new StringBuilder();
-                }
-                @Override public void characters(char[] chars, int offset, int length) throws SAXException {
-                    try {
-                        inventory.check();
-                        if (reference != null) {
-                            if (reference.length() + (long) length > inventory.limits.maxPathCharacters()) throw CdsPaths.failure("CDS_SOURCE_MEMBER_PATH_INVALID");
-                            reference.append(chars, offset, length);
-                        }
-                    } catch (IOException failed) { throw new SAXException(failed); }
-                }
-                @Override public void endElement(String uri, String local, String qualified) throws SAXException {
-                    if (reference != null && depth == 4 && uri.equals("cds") && local.equals("FilePath")) {
-                        try {
-                            if (!reference.toString().isBlank()) {
-                                String relative = normalizedRelative(reference.toString().replace('\\', '/'), inventory.limits);
-                                Path key = inventory.index.resolve(nameKey(relative));
-                                if (!Files.exists(key, LinkOption.NOFOLLOW_LINKS)) {
-                                    Path source = CdsPaths.within(originalXml.getParent().resolve(relative), originalXml.getParent());
-                                    try (InputStream bytes = openSource(source, originalXml.getParent())) { inventory.copy(relative, bytes, 2); }
-                                    catch (java.nio.file.NoSuchFileException missing) { throw CdsPaths.failure("CDS_ATTACHMENT_NOT_SUPPLIED"); }
-                                }
-                            }
-                            reference = null;
-                        } catch (IOException failed) { throw new SAXException(failed); }
-                    }
-                    if (reportDepth == depth) reportDepth = 0;
-                    depth--;
-                }
-            });
-            reader.setErrorHandler(new DefaultHandler() {
-                @Override public void error(SAXParseException failure) throws SAXException { throw failure; }
-                @Override public void fatalError(SAXParseException failure) throws SAXException { throw failure; }
-            });
-            try { reader.parse(new InputSource(text)); }
-            catch (SAXException failed) {
-                if (failed.getException() instanceof CdsInputException known) throw known;
-                if (failed.getException() instanceof IOException io) throw io;
-                // Preserve malformed XML as a candidate: the full preflight parser records its
-                // failure. This discovery pass cannot classify it as a successful patient.
-            }
+                InputStream input =
+                        new CountingSource(
+                                raw, inventory.limits.maxSourceBytes(), inventory::check);
+                Reader text =
+                        CdsXmlText.reader(input, inventory.limits.maxBoundedScalarCharacters())) {
+            parseReferences(text, originalXml, inventory);
         } catch (javax.xml.parsers.ParserConfigurationException | SAXException configuration) {
             throw CdsPaths.failure("CDS_SECURE_XML_PARSER_UNAVAILABLE");
         }
     }
 
-    private static final class RootFound extends SAXException { }
+    private static void parseReferences(Reader text, Path originalXml, Inventory inventory)
+            throws IOException, javax.xml.parsers.ParserConfigurationException, SAXException {
+        var reader = CdsXmlParser.xmlReader(inventory.limits);
+        reader.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+        reader.setFeature("http://xml.org/sax/features/external-general-entities", false);
+        reader.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+        reader.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+        reader.setContentHandler(new ReferencedFilesHandler(originalXml, inventory));
+        reader.setErrorHandler(
+                new DefaultHandler() {
+                    @Override
+                    public void error(SAXParseException failure) throws SAXException {
+                        throw failure;
+                    }
+
+                    @Override
+                    public void fatalError(SAXParseException failure) throws SAXException {
+                        throw failure;
+                    }
+                });
+        try {
+            reader.parse(new InputSource(text));
+        } catch (SAXException failed) {
+            if (failed.getException() instanceof CdsInputException known) throw known;
+            if (failed.getException() instanceof IOException io) throw io;
+            // Preserve malformed XML as a candidate: the full preflight parser records its
+            // failure. This discovery pass cannot classify it as a successful patient.
+        }
+    }
+
+    private static final class ReferencedFilesHandler extends DefaultHandler {
+        private final Path originalXml;
+        private final Inventory inventory;
+        private int depth;
+        private int reportDepth;
+        private StringBuilder reference;
+        private final Set<String> names = new HashSet<>();
+        private final Set<String> aliases = new HashSet<>();
+        private final Set<String> namespaces = new HashSet<>();
+
+        private ReferencedFilesHandler(Path originalXml, Inventory inventory) {
+            this.originalXml = originalXml;
+            this.inventory = inventory;
+        }
+
+        @Override
+        public void startPrefixMapping(String prefix, String uri) throws SAXException {
+            if (prefix.length() > inventory.limits.maxXmlNameCharacters()
+                    || uri.length() > inventory.limits.maxNamespaceUriCharacters()
+                    || aliases.add(prefix)
+                            && aliases.size() > inventory.limits.maxNamespaceAliases()
+                    || namespaces.add(uri)
+                            && namespaces.size() > inventory.limits.maxNamespaceAliases()) {
+                throw new SAXException(CdsPaths.failure("CDS_XML_NAMESPACE_RESOURCE_LIMIT"));
+            }
+        }
+
+        private void name(String value) throws SAXException {
+            if (value.length() > inventory.limits.maxXmlNameCharacters()
+                    || names.add(value) && names.size() > inventory.limits.maxUniqueXmlNames()) {
+                throw new SAXException(CdsPaths.failure("CDS_XML_NAME_RESOURCE_LIMIT"));
+            }
+        }
+
+        @Override
+        public void startElement(String uri, String local, String qualified, Attributes attrs)
+                throws SAXException {
+            name(qualified);
+            if (attrs.getLength() > CdsXmlParser.MAX_ELEMENT_ATTRIBUTES)
+                throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
+            for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
+            depth++;
+            if (depth > inventory.limits.maxXmlDepth())
+                throw new SAXException(CdsPaths.failure("CDS_XML_DEPTH_LIMIT"));
+            if (depth == 3 && uri.equals("cds") && local.equals("Reports")) reportDepth = depth;
+            if (reportDepth == 3 && depth == 4 && uri.equals("cds") && local.equals("FilePath"))
+                reference = new StringBuilder();
+        }
+
+        @Override
+        public void characters(char[] chars, int offset, int length) throws SAXException {
+            try {
+                inventory.check();
+                if (reference != null) {
+                    if (reference.length() + (long) length > inventory.limits.maxPathCharacters())
+                        throw CdsPaths.failure(SOURCE_MEMBER_PATH_INVALID);
+                    reference.append(chars, offset, length);
+                }
+            } catch (IOException failed) {
+                throw new SAXException(failed);
+            }
+        }
+
+        private boolean isFilePath(String uri, String local) {
+            return depth == 4 && uri.equals("cds") && local.equals("FilePath");
+        }
+
+        private void copyReference() throws IOException {
+            if (reference.toString().isBlank()) return;
+            String relative =
+                    normalizedRelative(reference.toString().replace('\\', '/'), inventory.limits);
+            Path key = inventory.index.resolve(nameKey(relative));
+            if (Files.exists(key, LinkOption.NOFOLLOW_LINKS)) return;
+            Path source =
+                    CdsPaths.within(
+                            originalXml.getParent().resolve(relative), originalXml.getParent());
+            try (InputStream bytes = openSource(source, originalXml.getParent())) {
+                inventory.copy(relative, bytes, 2);
+            } catch (java.nio.file.NoSuchFileException _) {
+                throw CdsPaths.failure("CDS_ATTACHMENT_NOT_SUPPLIED");
+            }
+        }
+
+        @Override
+        public void endElement(String uri, String local, String qualified) throws SAXException {
+            if (reference != null && isFilePath(uri, local)) {
+                try {
+                    copyReference();
+                    reference = null;
+                } catch (IOException failed) {
+                    throw new SAXException(failed);
+                }
+            }
+            if (reportDepth == depth) reportDepth = 0;
+            depth--;
+        }
+    }
+
+    private static final class RootFound extends SAXException {}
 
     private static final class Inventory implements AutoCloseable {
         private final Path pending;
@@ -620,9 +898,11 @@ public class CdsSnapshotService {
         private final BooleanSupplier cancelled;
         private final Runnable checkpoint;
         private final long started = System.nanoTime();
+
         // One snapshot invocation owns this Inventory and all synchronous copy callbacks.
         @SuppressWarnings("java:S9428")
         private final MessageDigest manifestDigest = CdsPaths.sha256();
+
         private long entries;
         private long files;
         private long xmls;
@@ -635,27 +915,42 @@ public class CdsSnapshotService {
         private String archiveSha256 = "";
         private CountingSource archiveInput;
 
-        Inventory(Path pending, Path members, Path index, Path manifest, CdsInputLimitsDto limits,
-                BooleanSupplier cancelled, Runnable checkpoint) throws IOException {
-            this.pending = pending; this.members = members; this.index = index; this.manifest = manifest;
-            this.limits = limits; this.cancelled = cancelled; this.checkpoint=checkpoint;
+        Inventory(
+                Path pending,
+                Path members,
+                Path index,
+                Path manifest,
+                CdsInputLimitsDto limits,
+                BooleanSupplier cancelled,
+                Runnable checkpoint)
+                throws IOException {
+            this.pending = pending;
+            this.members = members;
+            this.index = index;
+            this.manifest = manifest;
+            this.limits = limits;
+            this.cancelled = cancelled;
+            this.checkpoint = checkpoint;
             output = new BufferedOutputStream(CdsPaths.newPrivateFile(manifest, pending), BUFFER);
         }
 
         void check() throws IOException {
             checkpoint.run();
-            long now=System.nanoTime();
-            if (Thread.currentThread().isInterrupted()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
-            if (now>=nextResourceCheck) {
+            long now = System.nanoTime();
+            if (Thread.currentThread().isInterrupted())
+                throw CdsPaths.failure("CDS_INPUT_CANCELLED");
+            if (now >= nextResourceCheck) {
                 if (cancelled.getAsBoolean()) throw CdsPaths.failure("CDS_INPUT_CANCELLED");
                 now = System.nanoTime();
-                nextResourceCheck=now+250_000_000L;
+                nextResourceCheck = now + 250_000_000L;
             }
-            if ((now - started) / 1_000_000 > limits.maxDurationMillis()) throw CdsPaths.failure("CDS_INPUT_DEADLINE");
-            long written=Math.addExact(total, archiveCopied);
-            if (written>=nextDiskCheck) {
-                if (Files.getFileStore(pending).getUsableSpace() < limits.minimumFreeDiskBytes()) throw CdsPaths.failure("CDS_INPUT_DISK_RESERVE");
-                nextDiskCheck=written+(16L<<20);
+            if ((now - started) / 1_000_000 > limits.maxDurationMillis())
+                throw CdsPaths.failure("CDS_INPUT_DEADLINE");
+            long written = Math.addExact(total, archiveCopied);
+            if (written >= nextDiskCheck) {
+                if (Files.getFileStore(pending).getUsableSpace() < limits.minimumFreeDiskBytes())
+                    throw CdsPaths.failure("CDS_INPUT_DISK_RESERVE");
+                nextDiskCheck = written + (16L << 20);
             }
         }
 
@@ -673,31 +968,50 @@ public class CdsSnapshotService {
 
         void parents(String name) throws IOException {
             int position = name.indexOf('/');
-            while (position >= 0) { reserveDirectory(name.substring(0, position), false); position = name.indexOf('/', position + 1); }
+            while (position >= 0) {
+                reserveDirectory(name.substring(0, position), false);
+                position = name.indexOf('/', position + 1);
+            }
         }
 
         void reserveDirectory(String relative, boolean explicit) throws IOException {
             Path key = index.resolve(nameKey(relative));
             if (Files.exists(key, LinkOption.NOFOLLOW_LINKS)) {
                 JsonNode existing;
-                try (InputStream input = Files.newInputStream(key, LinkOption.NOFOLLOW_LINKS)) { existing = JSON.readTree(input.readNBytes(65536)); }
-                if (existing == null || !relative.equals(existing.path("relativeName").asText())
-                        || !existing.path("directory").asBoolean() || explicit && existing.path("explicit").asBoolean()) {
+                try (InputStream input = Files.newInputStream(key, LinkOption.NOFOLLOW_LINKS)) {
+                    existing = JSON.readTree(input.readNBytes(65536));
+                }
+                if (existing == null
+                        || !relative.equals(existing.path("relativeName").asText())
+                        || !existing.path("directory").asBoolean()
+                        || explicit && existing.path(EXPLICIT_KEY).asBoolean()) {
                     throw CdsPaths.failure("CDS_SOURCE_NAME_COLLISION");
                 }
                 if (explicit) {
-                    ((ObjectNode) existing).put("explicit", true);
-                    Files.write(key, JSON.writeValueAsBytes(existing), StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+                    ((ObjectNode) existing).put(EXPLICIT_KEY, true);
+                    Files.write(
+                            key,
+                            JSON.writeValueAsBytes(existing),
+                            StandardOpenOption.TRUNCATE_EXISTING,
+                            StandardOpenOption.WRITE,
+                            LinkOption.NOFOLLOW_LINKS);
                     CdsPaths.forceFile(key);
                 }
-            } else reserve(relative, JSON.createObjectNode().put("relativeName", relative).put("directory", true).put("explicit", explicit));
+            } else
+                reserve(
+                        relative,
+                        JSON.createObjectNode()
+                                .put("relativeName", relative)
+                                .put("directory", true)
+                                .put(EXPLICIT_KEY, explicit));
         }
 
         void reserve(String relative, ObjectNode node) throws IOException {
             if (++entries > limits.maxEntries()) throw CdsPaths.failure("CDS_INPUT_ENTRY_LIMIT");
             Path key = index.resolve(nameKey(relative));
             try (OutputStream marker = CdsPaths.newPrivateFile(key, pending)) {
-                marker.write(JSON.writeValueAsBytes(node)); marker.write('\n');
+                marker.write(JSON.writeValueAsBytes(node));
+                marker.write('\n');
             } catch (java.nio.file.FileAlreadyExistsException collision) {
                 throw CdsPaths.failure("CDS_SOURCE_NAME_COLLISION");
             }
@@ -705,17 +1019,26 @@ public class CdsSnapshotService {
         }
 
         Path copyArchive(InputStream input) throws IOException {
-            Path path = pending.resolve("source-archive.bin"); MessageDigest hash = CdsPaths.sha256();
+            Path path = pending.resolve("source-archive.bin");
+            MessageDigest hash = CdsPaths.sha256();
             long bytes = 0;
-            try (OutputStream output = new BufferedOutputStream(CdsPaths.newPrivateFile(path, pending), BUFFER)) {
-                byte[] buffer = new byte[BUFFER]; int n;
+            try (OutputStream output =
+                    new BufferedOutputStream(CdsPaths.newPrivateFile(path, pending), BUFFER)) {
+                byte[] buffer = new byte[BUFFER];
+                int n;
                 while ((n = input.read(buffer)) >= 0) {
-                    check(); bytes = Math.addExact(bytes, n); archiveCopied=bytes;
-                    if (bytes > limits.maxSourceBytes()) throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
-                    hash.update(buffer, 0, n); output.write(buffer, 0, n);
+                    check();
+                    bytes = Math.addExact(bytes, n);
+                    archiveCopied = bytes;
+                    if (bytes > limits.maxSourceBytes())
+                        throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
+                    hash.update(buffer, 0, n);
+                    output.write(buffer, 0, n);
                 }
             }
-            CdsPaths.forceFile(path); archiveSha256 = CdsPaths.hex(hash.digest()); return path;
+            CdsPaths.forceFile(path);
+            archiveSha256 = CdsPaths.hex(hash.digest());
+            return path;
         }
 
         void copy(String name, InputStream source, boolean ignored) throws IOException {
@@ -730,69 +1053,129 @@ public class CdsSnapshotService {
             Path destination = members.resolve(member);
             MessageDigest bytesDigest = CdsPaths.sha256();
             CRC32 crc = new CRC32();
-            CdsXmlText.Signature signature=new CdsXmlText.Signature();
+            CdsXmlText.Signature signature = new CdsXmlText.Signature();
             long size = 0;
-            try (OutputStream target = new BufferedOutputStream(CdsPaths.newPrivateFile(destination, pending), BUFFER)) {
+            try (OutputStream target =
+                    new BufferedOutputStream(
+                            CdsPaths.newPrivateFile(destination, pending), BUFFER)) {
                 byte[] buffer = new byte[BUFFER];
                 int n;
                 while ((n = source.read(buffer)) >= 0) {
                     if (n == 0) continue;
                     check();
-                    size = Math.addExact(size, n); total = Math.addExact(total, n);
+                    size = Math.addExact(size, n);
+                    total = Math.addExact(total, n);
                     if (size > limits.maxSourceBytes() || total > limits.maxExpandedBytes()) {
                         throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
                     }
-                    if (archiveInput != null && total / (double) Math.max(1, archiveInput.count) > limits.maxCompressionRatio()) {
+                    if (archiveInput != null
+                            && total / (double) Math.max(1, archiveInput.count)
+                                    > limits.maxCompressionRatio()) {
                         throw CdsPaths.failure("CDS_ZIP_COMPRESSION_RATIO_LIMIT");
                     }
                     signature.accept(buffer, 0, n);
-                    bytesDigest.update(buffer, 0, n); crc.update(buffer, 0, n); target.write(buffer, 0, n);
+                    bytesDigest.update(buffer, 0, n);
+                    crc.update(buffer, 0, n);
+                    target.write(buffer, 0, n);
                 }
             }
             CdsPaths.forceFile(destination);
             boolean xmlName = relative.toLowerCase(Locale.ROOT).endsWith(".xml");
-            boolean xml = sourceRole == 1 || sourceRole == 0 && (xmlName || signature.xml()) && patientCandidate(destination, limits, this::check);
-            ObjectNode node = JSON.createObjectNode().put("relativeName", relative).put("member", member)
-                    .put("sha256", CdsPaths.hex(bytesDigest.digest())).put("length", size).put("patientXml", xml);
+            boolean xml =
+                    sourceRole == 1
+                            || sourceRole == 0
+                                    && (xmlName || signature.xml())
+                                    && patientCandidate(destination, limits, this::check);
+            ObjectNode node =
+                    JSON.createObjectNode()
+                            .put("relativeName", relative)
+                            .put(MEMBER_KEY, member)
+                            .put("sha256", CdsPaths.hex(bytesDigest.digest()))
+                            .put("length", size)
+                            .put("patientXml", xml);
             node.put("crc32", crc.getValue());
-            node.put("sourceRole", xml ? "patient-xml-candidate" : xmlName || signature.xml() ? "ancillary-xml" : "ancillary");
+            node.put(
+                    "sourceRole",
+                    xml
+                            ? "patient-xml-candidate"
+                            : xmlName || signature.xml() ? "ancillary-xml" : "ancillary");
             byte[] row = JSON.writeValueAsBytes(node);
-            reserve(relative, node.deepCopy().put("manifestOffset", manifestOffset).put("manifestLength", row.length));
-            output.write(row); output.write('\n'); manifestDigest.update(row); manifestDigest.update((byte) '\n');
+            reserve(
+                    relative,
+                    node.deepCopy()
+                            .put(MANIFEST_OFFSET_KEY, manifestOffset)
+                            .put("manifestLength", row.length));
+            output.write(row);
+            output.write('\n');
+            manifestDigest.update(row);
+            manifestDigest.update((byte) '\n');
             manifestOffset = Math.addExact(manifestOffset, row.length + 1L);
-            files++; if (xml) xmls++;
+            files++;
+            if (xml) xmls++;
         }
 
         void finish() throws IOException {
             finalCheck();
-            output.flush(); CdsPaths.forceFile(manifest);
+            output.flush();
+            CdsPaths.forceFile(manifest);
             String manifestHash = CdsPaths.hex(manifestDigest.digest());
             digest = fingerprint(manifestHash, archiveSha256);
             finalCheck();
-            try (OutputStream seal = CdsPaths.newPrivateFile(pending.resolve("snapshot.seal"), pending)) {
-                ObjectNode metadata = JSON.createObjectNode().put("version", 2).put("manifestSha256", manifestHash)
-                        .put("archiveSha256", archiveSha256).put("files", files).put("patientXmlFiles", xmls).put("totalBytes", total);
-                seal.write(JSON.writeValueAsBytes(metadata)); seal.write('\n');
+            try (OutputStream seal =
+                    CdsPaths.newPrivateFile(pending.resolve("snapshot.seal"), pending)) {
+                ObjectNode metadata =
+                        JSON.createObjectNode()
+                                .put("version", 2)
+                                .put("manifestSha256", manifestHash)
+                                .put("archiveSha256", archiveSha256)
+                                .put("files", files)
+                                .put("patientXmlFiles", xmls)
+                                .put("totalBytes", total);
+                seal.write(JSON.writeValueAsBytes(metadata));
+                seal.write('\n');
             }
             CdsPaths.forceFile(pending.resolve("snapshot.seal"));
-            CdsPaths.forceDirectory(members); CdsPaths.forceDirectory(index); CdsPaths.forceDirectory(pending);
+            CdsPaths.forceDirectory(members);
+            CdsPaths.forceDirectory(index);
+            CdsPaths.forceDirectory(pending);
         }
 
-        @Override public void close() throws IOException { output.close(); }
+        @Override
+        public void close() throws IOException {
+            output.close();
+        }
     }
 
     private static final class CountingSource extends FilterInputStream {
         private long count;
         private final long maximum;
         private final CdsZipDirectory.Check check;
+
         CountingSource(InputStream input, long maximum, CdsZipDirectory.Check check) {
-            super(input); this.maximum = maximum; this.check = check;
+            super(input);
+            this.maximum = maximum;
+            this.check = check;
         }
-        @Override public int read() throws IOException { check.run(); int value = in.read(); if (value >= 0) add(1); return value; }
-        @Override public int read(byte[] bytes, int offset, int length) throws IOException {
+
+        @Override
+        public int read() throws IOException {
             check.run();
-            int n = in.read(bytes, offset, Math.min(length, BUFFER)); if (n > 0) add(n); return n;
+            int value = in.read();
+            if (value >= 0) add(1);
+            return value;
         }
-        private void add(int n) throws IOException { count = Math.addExact(count, n); if (count > maximum) throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT"); }
+
+        @Override
+        public int read(byte[] bytes, int offset, int length) throws IOException {
+            check.run();
+            int n = in.read(bytes, offset, Math.min(length, BUFFER));
+            if (n > 0) add(n);
+            return n;
+        }
+
+        private void add(int n) throws IOException {
+            count = Math.addExact(count, n);
+            if (count > maximum) throw CdsPaths.failure("CDS_INPUT_BYTE_LIMIT");
+        }
     }
 }

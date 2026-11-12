@@ -45,7 +45,10 @@ import io.github.carlos_emr.carlos.appointment.dto.AppointmentListItemDTO;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentArchive;
 
-public interface OscarAppointmentDao extends AbstractDao<Appointment> {
+public interface OscarAppointmentDao extends AbstractDao<Appointment>, CdsExportPatientTableReadDao {
+
+    List<AppointmentDaySheetRow> findDaySheet(String start, String end, String startTime, String endTime,
+            String providerNo, boolean newOnly, String sort);
 
     public boolean checkForConflict(Appointment appt);
 
@@ -258,4 +261,14 @@ public interface OscarAppointmentDao extends AbstractDao<Appointment> {
      * @since 2026-04-11
      */
     public List<AppointmentListItemDTO> findDayAppointmentDTOs(Date date, String providerNo);
+    /** Strict timestamp/ID continuation; old extension implementations refuse unsupported paging explicitly. */
+    default List<Appointment> findByUpdateDateAndId(Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Schedule keyset paging is not supported by this DAO");
+    }
+
+    default List<Appointment> findByProgramProviderDemographicDateAndId(Integer programId, String providerNo,
+            Integer demographicId, Date after, int afterId, int limit) {
+        throw new UnsupportedOperationException("Filtered schedule keyset paging is not supported by this DAO");
+    }
+
 }

@@ -38,6 +38,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 class DemographicFieldLengthUnitTest {
 
     @Test
+    @DisplayName("should preserve pronouns and gender at the column boundary and reject overflow")
+    void shouldPreservePronounsAndGender_atTheirColumnBoundaries() {
+        Demographic demographic = new Demographic();
+        String exact = "😀".repeat(25);
+        demographic.setPronoun(exact);
+        demographic.setGender(exact);
+        assertThat(demographic.validateFieldLengths()).isEmpty();
+
+        demographic.setPronoun(exact + "X");
+        demographic.setGender(exact + "X");
+        assertThat(demographic.validateFieldLengths())
+                .contains("Pronouns exceeds maximum length of 25 characters.",
+                        "Gender exceeds maximum length of 25 characters.");
+        assertThat(demographic.getPronoun()).isEqualTo(exact + "X");
+        assertThat(demographic.getGender()).isEqualTo(exact + "X");
+    }
+
+    @Test
     @DisplayName("should return validation error when last name exceeds fifty characters")
     void shouldReturnValidationError_whenLastNameExceedsFiftyCharacters() {
         Demographic demographic = new Demographic();

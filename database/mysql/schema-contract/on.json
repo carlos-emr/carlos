@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "8bc344b722a79d90c9ab14be95616aa9ff9b9a35c33bf52949b08cac3c29f9a9",
+ "migration_sha256": "45c6c9c936896f2d9abeffda08d3366106bd020b6450c7f58462476ea4b33c22",
  "province": "on",
  "schema": {
   "checks": [
@@ -30,9 +30,9 @@
     "octet_length(`payload`) <= 1048576"
    ],
    [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_module_ck",
-    "`module_type` in ('CONSULTATION','PRESCRIPTION','E_FORM')"
+    "rx_submission_receipt",
+    "rx_submission_receipt_outcome",
+    "`outcome` = 'SAVED' and `prescription_id` is not null or `outcome` in ('PENDING','FAILED') and `prescription_id` is null"
    ]
   ],
   "columns": [
@@ -1955,18 +1955,6 @@
     null,
     null,
     5
-   ],
-   [
-    "DigitalSignature",
-    "demographicFkId",
-    "int(11)",
-    "YES",
-    "NULL",
-    "STORED GENERATED, INVISIBLE",
-    null,
-    null,
-    "nullif(`demographicId`,-1)",
-    8
    ],
    [
     "DigitalSignature",
@@ -3911,6 +3899,18 @@
     "utf8mb4_general_ci",
     null,
     4
+   ],
+   [
+    "HRMDocumentToDemographic",
+    "cds_patient_key",
+    "decimal(20,0)",
+    "YES",
+    "NULL",
+    "VIRTUAL GENERATED, INVISIBLE",
+    null,
+    null,
+    "cast(nullif(regexp_substr(`demographicNo`,'^[[:space:]]*[+]?[0-9]+'),'') as decimal(20,0))",
+    5
    ],
    [
     "HRMDocumentToDemographic",
@@ -14197,6 +14197,618 @@
     6
    ],
    [
+    "cds_export_attempt",
+    "cleanup_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    11
+   ],
+   [
+    "cds_export_attempt",
+    "cleanup_until",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "cds_export_attempt",
+    "context_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_export_attempt",
+    "context_document",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_export_attempt",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    14
+   ],
+   [
+    "cds_export_attempt",
+    "download_operator",
+    "varchar(128)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_export_attempt",
+    "download_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_export_attempt",
+    "download_until",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_export_attempt",
+    "epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_export_attempt",
+    "expires_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    16
+   ],
+   [
+    "cds_export_attempt",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_export_attempt",
+    "request_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_export_attempt",
+    "revision",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    17
+   ],
+   [
+    "cds_export_attempt",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_export_attempt",
+    "safe_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    13
+   ],
+   [
+    "cds_export_attempt",
+    "state",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_export_attempt",
+    "updated_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    15
+   ],
+   [
+    "cds_export_event",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    7
+   ],
+   [
+    "cds_export_event",
+    "epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_export_event",
+    "event_type",
+    "varchar(48)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_export_event",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_export_event",
+    "operator",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_export_event",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_export_event",
+    "safe_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_export_run",
+    "artifact_bytes",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    22
+   ],
+   [
+    "cds_export_run",
+    "artifact_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    21
+   ],
+   [
+    "cds_export_run",
+    "artifact_member",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    20
+   ],
+   [
+    "cds_export_run",
+    "blocked_patients",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    15
+   ],
+   [
+    "cds_export_run",
+    "cancel_requested",
+    "tinyint(1)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    12
+   ],
+   [
+    "cds_export_run",
+    "cohort_bytes",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    17
+   ],
+   [
+    "cds_export_run",
+    "cohort_digest",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    18
+   ],
+   [
+    "cds_export_run",
+    "cohort_member",
+    "varchar(64)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    16
+   ],
+   [
+    "cds_export_run",
+    "compatibility_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    7
+   ],
+   [
+    "cds_export_run",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    25
+   ],
+   [
+    "cds_export_run",
+    "expected_patients",
+    "bigint(20)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    13
+   ],
+   [
+    "cds_export_run",
+    "expires_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    23
+   ],
+   [
+    "cds_export_run",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_export_run",
+    "lease_until",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    11
+   ],
+   [
+    "cds_export_run",
+    "operator",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    3
+   ],
+   [
+    "cds_export_run",
+    "owner_epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "cds_export_run",
+    "owner_token",
+    "varchar(36)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
+   ],
+   [
+    "cds_export_run",
+    "processed_patients",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    14
+   ],
+   [
+    "cds_export_run",
+    "provider_no",
+    "varchar(16)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    4
+   ],
+   [
+    "cds_export_run",
+    "request_digest",
+    "varchar(64)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    6
+   ],
+   [
+    "cds_export_run",
+    "request_document",
+    "longtext",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
+   ],
+   [
+    "cds_export_run",
+    "revision",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    27
+   ],
+   [
+    "cds_export_run",
+    "safe_code",
+    "varchar(96)",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    24
+   ],
+   [
+    "cds_export_run",
+    "selected_at",
+    "datetime(6)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    19
+   ],
+   [
+    "cds_export_run",
+    "state",
+    "varchar(32)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    8
+   ],
+   [
+    "cds_export_run",
+    "submission_key",
+    "varchar(128)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_export_run",
+    "updated_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    26
+   ],
+   [
     "cds_import_admission",
     "id",
     "varchar(64)",
@@ -14327,6 +14939,18 @@
     "utf8mb4_bin",
     null,
     2
+   ],
+   [
+    "cds_import_checkpoint",
+    "native_baseline",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    10
    ],
    [
     "cds_import_checkpoint",
@@ -16283,6 +16907,18 @@
     "utf8mb4_bin",
     null,
     5
+   ],
+   [
+    "cds_import_unit",
+    "native_baseline",
+    "longtext",
+    "YES",
+    "NULL",
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    14
    ],
    [
     "cds_import_unit",
@@ -24047,6 +24683,18 @@
     "utf8mb4_general_ci",
     null,
     30
+   ],
+   [
+    "drugs",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    65
    ],
    [
     "drugs",
@@ -118921,66 +119569,6 @@
     5
    ],
    [
-    "o19_imported_signature_owner",
-    "demographic_id",
-    "int(10)",
-    "NO",
-    null,
-    "",
-    null,
-    null,
-    null,
-    2
-   ],
-   [
-    "o19_imported_signature_owner",
-    "lastUpdateDate",
-    "timestamp",
-    "NO",
-    "current_timestamp()",
-    "",
-    null,
-    null,
-    null,
-    5
-   ],
-   [
-    "o19_imported_signature_owner",
-    "lastUpdateUser",
-    "varchar(100)",
-    "NO",
-    "'o19-import'",
-    "",
-    "utf8mb4",
-    "utf8mb4_general_ci",
-    null,
-    4
-   ],
-   [
-    "o19_imported_signature_owner",
-    "module_type",
-    "varchar(24)",
-    "NO",
-    null,
-    "",
-    "utf8mb4",
-    "utf8mb4_general_ci",
-    null,
-    3
-   ],
-   [
-    "o19_imported_signature_owner",
-    "signature_id",
-    "int(11)",
-    "NO",
-    null,
-    "",
-    null,
-    null,
-    null,
-    1
-   ],
-   [
     "oscarKeys",
     "name",
     "varchar(100)",
@@ -119747,6 +120335,18 @@
     "utf8mb4_general_ci",
     null,
     2
+   ],
+   [
+    "prescription",
+    "row_version",
+    "bigint(20)",
+    "NO",
+    "0",
+    "",
+    null,
+    null,
+    null,
+    11
    ],
    [
     "prescription",
@@ -124729,6 +125329,234 @@
     10
    ],
    [
+    "rx_favorite_group",
+    "id",
+    "int(11)",
+    "NO",
+    null,
+    "auto_increment",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "rx_favorite_group",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_favorite_group",
+    "name",
+    "varchar(80)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_favorite_group",
+    "position",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "favorite_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "rx_favorite_group_member",
+    "group_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_favorite_group_member",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "attempt_id",
+    "char(36)",
+    "YES",
+    "NULL",
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    6
+   ],
+   [
+    "rx_submission_receipt",
+    "created_at",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    9
+   ],
+   [
+    "rx_submission_receipt",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    8
+   ],
+   [
+    "rx_submission_receipt",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'system'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    7
+   ],
+   [
+    "rx_submission_receipt",
+    "outcome",
+    "varchar(7)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    5
+   ],
+   [
+    "rx_submission_receipt",
+    "prescription_id",
+    "int(11)",
+    "YES",
+    "NULL",
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "rx_submission_receipt",
+    "provider_no",
+    "varchar(6)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    2
+   ],
+   [
+    "rx_submission_receipt",
+    "submission_hash",
+    "char(64)",
+    "NO",
+    null,
+    "",
+    "ascii",
+    "ascii_bin",
+    null,
+    1
+   ],
+   [
     "scheduledate",
     "available",
     "char(1)",
@@ -128358,17 +129186,6 @@
    ],
    [
     "DigitalSignature",
-    "DigitalSignature_demographicFkId",
-    1,
-    1,
-    "demographicFkId",
-    "A",
-    null,
-    "BTREE",
-    "NO"
-   ],
-   [
-    "DigitalSignature",
     "PRIMARY",
     0,
     1,
@@ -128681,6 +129498,17 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "HRMDocumentToDemographic",
+    "idx_cds_hrm_patient_key",
+    1,
+    1,
+    "cds_patient_key",
     "A",
     null,
     "BTREE",
@@ -130958,6 +131786,226 @@
     0,
     1,
     "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    2,
+    "expires_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "idx_cds_export_attempt_expiry",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    0,
+    2,
+    "epoch",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_event",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_event",
+    "idx_cds_export_event_run",
+    1,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_event",
+    "idx_cds_export_event_run",
+    1,
+    2,
+    "created_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_event",
+    "idx_cds_export_event_run",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    1,
+    "operator",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    2,
+    "created_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_history",
+    1,
+    3,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_pending",
+    1,
+    1,
+    "state",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_pending",
+    1,
+    2,
+    "lease_until",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_pending",
+    1,
+    3,
+    "updated_at",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "idx_cds_export_pending",
+    1,
+    4,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "uq_cds_export_submission",
+    0,
+    1,
+    "operator",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_run",
+    "uq_cds_export_submission",
+    0,
+    2,
+    "submission_key",
     "A",
     null,
     "BTREE",
@@ -136189,28 +137237,6 @@
     "NO"
    ],
    [
-    "o19_imported_signature_owner",
-    "PRIMARY",
-    0,
-    1,
-    "signature_id",
-    "A",
-    null,
-    "BTREE",
-    "NO"
-   ],
-   [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_demographic",
-    1,
-    1,
-    "demographic_id",
-    "A",
-    null,
-    "BTREE",
-    "NO"
-   ],
-   [
     "oscarKeys",
     "PRIMARY",
     0,
@@ -137729,6 +138755,116 @@
     "NO"
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    1,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    0,
+    2,
+    "name",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    1,
+    "group_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    0,
+    2,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite",
+    1,
+    1,
+    "favorite_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    1,
+    "submission_hash",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    2,
+    "provider_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "rx_submission_receipt",
+    "rx_submission_receipt_prescription",
+    1,
+    1,
+    "prescription_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     0,
@@ -138873,15 +140009,6 @@
    ],
    [
     "DigitalSignature",
-    "DigitalSignature_demographicFkId_fk",
-    1,
-    "demographicFkId",
-    "$self",
-    "demographic",
-    "demographic_no"
-   ],
-   [
-    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     1,
     "facilityId",
@@ -138897,6 +140024,15 @@
     "$self",
     "provider",
     "provider_no"
+   ],
+   [
+    "DigitalSignature",
+    "DigitalSignature_ibfk_3",
+    1,
+    "demographicId",
+    "$self",
+    "demographic",
+    "demographic_no"
    ],
    [
     "DigitalSignature",
@@ -139983,6 +141119,87 @@
     "PRIMARY",
     1,
     "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_attempt",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_attempt",
+    "fk_cds_export_attempt_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_export_run",
+    "id"
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_attempt",
+    "uq_cds_export_attempt",
+    2,
+    "epoch",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_event",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_event",
+    "fk_cds_export_event_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_export_run",
+    "id"
+   ],
+   [
+    "cds_export_run",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_run",
+    "uq_cds_export_submission",
+    1,
+    "operator",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_run",
+    "uq_cds_export_submission",
+    2,
+    "submission_key",
     null,
     null,
     null
@@ -142409,33 +143626,6 @@
     null
    ],
    [
-    "o19_imported_signature_owner",
-    "PRIMARY",
-    1,
-    "signature_id",
-    null,
-    null,
-    null
-   ],
-   [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_demographic_fk",
-    1,
-    "demographic_id",
-    "$self",
-    "demographic",
-    "demographic_no"
-   ],
-   [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_signature_fk",
-    1,
-    "signature_id",
-    "$self",
-    "DigitalSignature",
-    "id"
-   ],
-   [
     "oscarKeys",
     "PRIMARY",
     1,
@@ -143174,6 +144364,96 @@
     null
    ],
    [
+    "rx_favorite_group",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    1,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group",
+    "rx_favorite_group_owner_name",
+    2,
+    "name",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    1,
+    "group_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "PRIMARY",
+    2,
+    "favorite_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    1,
+    "favorite_id",
+    "$self",
+    "favorites",
+    "favoriteid"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    1,
+    "group_id",
+    "$self",
+    "rx_favorite_group",
+    "id"
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    1,
+    "submission_hash",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    2,
+    "provider_no",
+    null,
+    null,
+    null
+   ],
+   [
+    "rx_submission_receipt",
+    "PRIMARY",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "scheduledate",
     "PRIMARY",
     1,
@@ -143610,13 +144890,6 @@
    ],
    [
     "DigitalSignature",
-    "DigitalSignature_demographicFkId_fk",
-    "demographic",
-    "RESTRICT",
-    "RESTRICT"
-   ],
-   [
-    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     "Facility",
     "RESTRICT",
@@ -143626,6 +144899,13 @@
     "DigitalSignature",
     "DigitalSignature_ibfk_2",
     "provider",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "DigitalSignature",
+    "DigitalSignature_ibfk_3",
+    "demographic",
     "RESTRICT",
     "RESTRICT"
    ],
@@ -143682,6 +144962,20 @@
     "casemgmt_note_ext",
     "FKmgvgpkoky8rte7i7igeawga0y",
     "casemgmt_note",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "cds_export_attempt",
+    "fk_cds_export_attempt_run",
+    "cds_export_run",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "cds_export_event",
+    "fk_cds_export_event_run",
+    "cds_export_run",
     "RESTRICT",
     "RESTRICT"
    ],
@@ -143840,20 +145134,6 @@
     "CASCADE"
    ],
    [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_demographic_fk",
-    "demographic",
-    "RESTRICT",
-    "RESTRICT"
-   ],
-   [
-    "o19_imported_signature_owner",
-    "o19_signature_owner_signature_fk",
-    "DigitalSignature",
-    "RESTRICT",
-    "RESTRICT"
-   ],
-   [
     "program",
     "program_ibfk_1",
     "Facility",
@@ -143936,6 +145216,20 @@
     "Facility",
     "RESTRICT",
     "RESTRICT"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_favorite_fk",
+    "favorites",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
+    "rx_favorite_group_member",
+    "rx_favorite_group_member_group_fk",
+    "rx_favorite_group",
+    "RESTRICT",
+    "CASCADE"
    ]
   ],
   "tables": [
@@ -144718,6 +146012,24 @@
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"
+   ],
+   [
+    "cds_export_attempt",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_export_event",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_export_run",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
    ],
    [
     "cds_import_admission",
@@ -146046,12 +147358,6 @@
     "utf8mb4_general_ci"
    ],
    [
-    "o19_imported_signature_owner",
-    "InnoDB",
-    "Dynamic",
-    "utf8mb4_general_ci"
-   ],
-   [
     "oscarKeys",
     "InnoDB",
     "Dynamic",
@@ -146425,6 +147731,24 @@
    ],
    [
     "rschedule",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_favorite_group_member",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "rx_submission_receipt",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

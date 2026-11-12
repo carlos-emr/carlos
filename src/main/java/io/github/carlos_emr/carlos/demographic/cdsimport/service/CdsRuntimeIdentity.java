@@ -52,8 +52,7 @@ final class CdsRuntimeIdentity {
     /** Literal compile-time dependencies only: no source-controlled reflection or class instantiation. */
     private static Class<?>[] dependencies() {
         return new Class<?>[] {
-            org.apache.xerces.jaxp.SAXParserFactoryImpl.class,
-            org.apache.xerces.jaxp.validation.XMLSchemaFactory.class,
+            // JDK XML implementation bytes are covered by java.runtime.module-image below.
             org.jdom2.input.SAXBuilder.class,
             com.fasterxml.jackson.core.JsonFactory.class,
             com.fasterxml.jackson.databind.ObjectMapper.class,
@@ -74,12 +73,20 @@ final class CdsRuntimeIdentity {
             net.sf.jsqlparser.parser.CCJSqlParserUtil.class,
             org.apache.commons.dbcp2.BasicDataSource.class,
             org.apache.commons.pool2.impl.GenericObjectPool.class,
-            com.mysql.cj.jdbc.Driver.class,
+            org.mariadb.jdbc.Driver.class,
             org.apache.commons.lang3.StringUtils.class,
             org.apache.commons.io.FilenameUtils.class,
             com.google.common.base.Ascii.class,
             com.google.common.base.CharMatcher.class
         };
+    }
+
+    private static Path artifactPath(URL artifact) throws IOException {
+        try {
+            return Path.of(artifact.toURI()).toRealPath();
+        } catch (java.net.URISyntaxException _) {
+            throw unavailable();
+        }
     }
 
     static FrozenRuntime addTo(MessageDigest result, ClassLoader loader, byte[] buffer)
@@ -95,12 +102,7 @@ final class CdsRuntimeIdentity {
                 var source = type.getProtectionDomain().getCodeSource();
                 URL artifact = source == null ? null : source.getLocation();
                 if (artifact == null || !artifact.getProtocol().equals("file")) throw unavailable();
-                Path path;
-                try {
-                    path = Path.of(artifact.toURI()).toRealPath();
-                } catch (java.net.URISyntaxException invalid) {
-                    throw unavailable();
-                }
+                Path path = artifactPath(artifact);
                 String hash = artifacts.get(path);
                 if (hash == null) {
                     hash = artifactHash(path, JAR_LIMIT, buffer);
@@ -216,7 +218,7 @@ final class CdsRuntimeIdentity {
                 try {
                     if (!rulesHash.equals(zoneRulesHash()))
                         throw new CdsImportException("IMPORT_FROZEN_RUNTIME_CHANGED");
-                } catch (IOException unavailable) {
+                } catch (IOException _) {
                     throw unavailable();
                 }
                 nextProbe = System.nanoTime() + 1_000_000_000L;

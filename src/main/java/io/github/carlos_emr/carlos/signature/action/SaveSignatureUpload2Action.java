@@ -117,19 +117,6 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         boolean saveToDB = "true".equals(request.getParameter("saveToDB"));
         String signatureKey = request.getParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY);
         ModuleType moduleType = ModuleType.getByName(request.getParameter(ModuleType.class.getSimpleName()));
-        Integer demographicNo = null;
-        if (saveToDB) {
-            try {
-                demographicNo = Integer.parseInt(demographic);
-            } catch (NumberFormatException e) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographicNo");
-                return NONE;
-            }
-            if (demographicNo <= 0) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "A patient is required to save a signature");
-                return NONE;
-            }
-        }
 
         // Reject signatureKey values containing anything other than alphanumeric characters
         // to prevent path traversal (e.g. "../" sequences) from escaping the temp directory.
@@ -236,6 +223,16 @@ public final class SaveSignatureUpload2Action extends ActionSupport {
         }
 
         if (saveToDB) {
+            int demographicNo = -1;
+            if (demographic != null && !demographic.isEmpty()) {
+                try {
+                    demographicNo = Integer.parseInt(demographic);
+                } catch (NumberFormatException e) {
+                    MiscUtils.getLogger().warn("Invalid demographicNo: {}", LogSafe.sanitize(demographic)); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
+                    response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid demographicNo");
+                    return NONE;
+                }
+            }
             DigitalSignatureManager digitalSignatureManager = SpringUtils.getBean(DigitalSignatureManager.class);
             DigitalSignature signature;
             try {

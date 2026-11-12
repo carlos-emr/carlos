@@ -18,6 +18,10 @@ an administration tool — a working, secured EMR from `apt install`.
 
 ## Requirements
 
+For encryption key configuration and recovery, see the
+[startup encryption key guide](startup-encryption-key.md). The installer selects
+an external properties file; preserve its original key when restoring an install.
+
 - Ubuntu 26.04 LTS (the packages target its Tomcat 11 / OpenJDK 25 / MariaDB
   11.8 / nginx stack) on **x86-64 (amd64)**. `carlos-emr` carries the pinned
   Chromium that renders eForms to PDF, which exists only for amd64.
@@ -252,17 +256,18 @@ no way to remove it short of destroying the database. See
 
 **9. Stop the other services using ports 80 and 443** — asked only when
 another service already listens on the front-door ports, and it lists exactly
-which ones. Accept (the default) to stop each one and, where possible, keep it
+which ones. The default is **no**. Accept to stop each one and, where possible, keep it
 from starting at boot (disabled, or masked when it cannot be disabled); a
 following note shows what was done to each and the command that brings it back
 once it has been moved to other ports.
 Decline and nothing is changed, but CARLOS is not reachable until you free the
 ports yourself and run `sudo carlos-ctl finish-install`. A non-interactive
-install takes the default and goes ahead. Every service stopped (or a refusal)
+install leaves other services running unless you explicitly opt in by preseeding
+`echo 'carlos-emr carlos-emr/stop-port-conflicts boolean true' | sudo debconf-set-selections`. Every service stopped (or a refusal)
 is printed in the install output, kept in `/var/log/apt/term.log`, and logged
-to the journal: `journalctl -t carlos-emr`. To keep the installer hands-off on
-every run, preseed
-`echo 'carlos-emr carlos-emr/stop-port-conflicts boolean false' | sudo debconf-set-selections`.
+to the journal: `journalctl -t carlos-emr`. Non-interactive runs already decline
+by default unless explicitly preseeded true. Interactive runs ask again on every
+configure that finds a conflict; preseeding false does not suppress the question.
 
 **10. Done (only if you accepted the seeded-admin replacement)** — a final
 note tells you where the initial credentials were written and points you at

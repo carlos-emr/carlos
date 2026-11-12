@@ -156,13 +156,29 @@ public class DemographicWs extends AbstractWs {
 
     public Integer[] getConsentedDemographicIdsAfter(@WebParam(name = "lastUpdate") Calendar lastUpdate) {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
-        List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
-        List<Integer> demoIds = new ArrayList<Integer>();
-        for (Consent c : consents) {
-            if (!demoIds.contains(c.getDemographicNo())) demoIds.add(c.getDemographicNo());
+        var visibility = io.github.carlos_emr.carlos.utility.SpringUtils.getBean(
+                io.github.carlos_emr.carlos.managers.SecurityInfoManager.class);
+        if (loggedInInfo == null || !visibility.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
+            throw new SecurityException("Patient discovery is not authorized");
         }
+        if (lastUpdate == null) throw new IllegalArgumentException("lastUpdate is required");
+        ConsentType consentType = patientConsentManager.getProviderSpecificConsent(loggedInInfo);
+        if (consentType == null) return new Integer[0];
+        List<Consent> consents = patientConsentManager.getConsentsByTypeAndEditDate(loggedInInfo, consentType, lastUpdate.getTime());
+        var uniqueIds = new java.util.LinkedHashSet<Integer>();
+        for (Consent consent : consents) uniqueIds.add(consent.getDemographicNo());
+        List<Integer> demoIds = new ArrayList<>(uniqueIds);
 
-        return demoIds.toArray(new Integer[0]);
+        List<Integer> result = new ArrayList<>();
+        for (int start = 0; start < demoIds.size();) {
+            int end = start + Math.min(io.github.carlos_emr.carlos.commn.dao.DemographicDao.MAX_SEARCH_RESULT_SIZE,
+                    demoIds.size() - start);
+            List<Integer> batch = demoIds.subList(start, end);
+            if (batch.contains(null)) throw new IllegalStateException("Consent discovery returned a row without a patient ID");
+            var readable = visibility.getReadableDemographicIds(loggedInInfo, batch);
+            for (Integer id : batch) if (readable.contains(id)) result.add(id);
+            start = end;
+        }
+        return result.toArray(new Integer[0]);
     }
 }

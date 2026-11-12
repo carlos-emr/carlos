@@ -8,6 +8,27 @@ on:
       # Shared clinical models, DAOs and guarded datasources participate in these contracts.
       - 'src/main/java/**'
       - 'src/main/resources/cds-import/**'
+      - 'src/main/resources/cds-export/**'
+      - 'src/test/java/**/cdsimport/**'
+      - 'src/test/java/**/cdsexport/**'
+      - 'src/test/resources/demographic/cds-import-*.xml'
+      - 'src/test/resources/cds-spec/**'
+      - 'docs/cds-spec*'
+      - 'scripts/cds-spec*'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds*'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/CdsSyntheticSessionExpiry*.java'
+      - 'scripts/ci/requirements.txt'
+      - 'scripts/ci/test_run_cds_native_tier.py'
+      - 'pom.xml'
+      - '.github/workflows/cds-import-native.yml'
+  push:
+    branches: [main, 'release/**']
+    paths:
+      # Shared clinical models, DAOs and guarded datasources participate in these contracts.
+      - 'src/main/java/**'
+      - 'src/main/resources/cds-import/**'
       - 'src/test/java/**/cdsimport/**'
       - 'src/test/resources/demographic/cds-import-*.xml'
       - 'src/test/resources/cds-spec/**'
@@ -33,7 +54,7 @@ permissions:
 
 jobs:
   native-contracts:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - name: Checkout candidate

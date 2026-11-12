@@ -48,7 +48,7 @@
 <%@page import="org.apache.hc.core5.ssl.SSLContexts" %>
 <%@page import="org.apache.hc.core5.util.Timeout" %>
 <%@page import="java.util.UUID" %>
-<%@page import="java.util.Random" %>
+
 <%@page import="java.util.List" %>
 <%@page import="java.util.ArrayList" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.DHIRSubmissionLog" %>
@@ -58,35 +58,33 @@
 <%@page import="org.hl7.fhir.dstu3.model.Patient" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle.BundleEntryComponent" %>
 <%@page import="io.github.carlos_emr.carlos.utility.LoggedInInfo" %>
-<%@page import="io.github.carlos_emr.carlos.integration.fhir.builder.AbstractFhirMessageBuilder" %>
+<%@page import="io.github.carlos_emr.carlos.integration.fhir.api.DHIR" %>
 <%@page import="org.hl7.fhir.dstu3.model.Bundle" %>
 <%@page import="java.util.Map" %>
-<%@page import="java.io.InputStream" %>
-<%@page import="org.apache.commons.io.IOUtils" %>
-<%@page import="com.sun.codemodel.fmt.JSerializedObject" %>
+
+
 <%@page import="org.apache.hc.core5.http.io.entity.ByteArrayEntity" %>
 <%@page import="org.apache.hc.core5.http.HttpEntity" %>
 <%@page import="org.apache.hc.client5.http.classic.methods.HttpPost" %>
 <%@page import="org.apache.hc.core5.http.ContentType" %>
 <%@page import="org.apache.logging.log4j.Logger" %>
 <%@page import="io.github.carlos_emr.carlos.utility.MiscUtils" %>
-<%@page import="java.io.UnsupportedEncodingException" %>
+
 <%@page import="java.io.IOException" %>
-<%@page import="java.text.SimpleDateFormat" %>
+
 <%@page import="org.apache.hc.core5.http.io.entity.EntityUtils" %>
-<%@page import="javax.net.ssl.TrustManager" %>
-<%@page import="java.security.SecureRandom" %>
+
+
 
 <%@page import="javax.net.ssl.SSLContext" %>
 <%@page import="java.security.KeyManagementException" %>
 <%@page import="java.security.NoSuchAlgorithmException" %>
-<%@page import="org.apache.hc.client5.http.classic.methods.HttpGet" %>
-<%@page import="jakarta.servlet.http.Cookie" %>
+
+
 <%@page import="io.github.carlos_emr.CarlosProperties" %>
 <%@page import="org.apache.hc.client5.http.classic.HttpClient" %>
 <%@page import="com.fasterxml.jackson.databind.ObjectMapper" %>
 <%@page import="com.fasterxml.jackson.databind.JsonNode" %>
-<%@page import="com.fasterxml.jackson.databind.node.ObjectNode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
@@ -109,7 +107,6 @@
     if (!delegateOneIdEmail.equals("")) {
         providerEmail = delegateOneIdEmail;
     }
-    //logger.debug("providerEmail is " + providerEmail);
 
     String backendEconsultUrl = CarlosProperties.getInstance().getProperty("backendEconsultUrl");
 
@@ -347,8 +344,6 @@
                 <%
                     try {
                         ObjectMapper dhirMapper = new ObjectMapper();
-                        String theString = AbstractFhirMessageBuilder.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
-                        JsonNode jbundle = dhirMapper.readTree(theString);
 
                         String clientRequestId = UUID.randomUUID().toString();
 
@@ -361,14 +356,10 @@
                         httpPost.addHeader("x-oneid-email", providerEmail);
                         httpPost.addHeader("x-access-token", oneIdToken);
 
-                        ObjectNode obj = dhirMapper.createObjectNode();
-                        obj.put("url", CarlosProperties.getInstance().getProperty("dhir.url"));
-                        obj.put("service", "DHIR");
-                        obj.set("body", jbundle);
-                        obj.put("client-request-id", clientRequestId);
-                        obj.put("client-app-desc", "EMR");
+                        String payload = DHIR.encodeSubmission(bundle,
+                                CarlosProperties.getInstance().getProperty("dhir.url"), clientRequestId);
 
-                        HttpEntity reqEntity = new ByteArrayEntity(obj.toString().getBytes("UTF-8"), ContentType.APPLICATION_JSON);
+                        HttpEntity reqEntity = new ByteArrayEntity(payload.getBytes("UTF-8"), ContentType.APPLICATION_JSON);
                         httpPost.setEntity(reqEntity);
                         httpPost.setHeader("Content-type", "application/json");
 
@@ -469,12 +460,12 @@
                 <input type="button" value="Close Window" onClick="window.close()"/>
                 <%
                         }
-                    } catch (IOException e) {
-                        logger.error("Failed to submit DHIR request", e);
+                    } catch (IOException | IllegalStateException e) {
+                        logger.error("Failed to submit DHIR request: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     } catch (NoSuchAlgorithmException e) {
-                        logger.error("Failed to create an HttpClient that allows all SSL", e);
+                        logger.error("Failed to initialize DHIR HTTP client: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     } catch (KeyManagementException e) {
-                        logger.error("Failed to create an HttpClient that allows all SSL", e);
+                        logger.error("Failed to initialize DHIR HTTP client: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(e));
                     }
 
                     bundles.put(uuid, null);

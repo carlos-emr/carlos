@@ -111,6 +111,17 @@ function validateBaseUrl(rawBaseUrl, env = process.env) {
   return parsed;
 }
 
+/** Credential-bearing configuration requires TLS beyond loopback. */
+function validateCredentialBaseUrl(rawBaseUrl, env = process.env) {
+  const parsed = validateBaseUrl(rawBaseUrl, env);
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1'].includes(host)
+      && parsed.protocol !== 'https:') {
+    throw new Error('Non-loopback BASE_URL targets must use https');
+  }
+  return parsed;
+}
+
 /*
  * The fixture-writing checks seed and delete rows through the mysql client. A
  * mistyped MYSQL_HOST must not point that at a shared or production database,
@@ -121,6 +132,7 @@ function validateMysqlHost(rawHost, env = process.env) {
   const host = String(rawHost || '').trim().toLowerCase();
   const normalizedHost = host.startsWith('[') && host.endsWith(']') ? host.slice(1, -1) : host;
   const loopbackHosts = new Set(['localhost', '127.0.0.1', '::1', '0:0:0:0:0:0:0:1']);
+  if (!normalizedHost) throw new Error('non-loopback MYSQL_HOST: value must not be empty');
   if (!loopbackHosts.has(normalizedHost) && env.ALLOW_NON_LOCAL_MYSQL_HOST !== 'true') {
     throw new Error(`Refusing to seed fixtures into non-loopback MYSQL_HOST ${host}; set ALLOW_NON_LOCAL_MYSQL_HOST=true only for a disposable test database`);
   }
@@ -234,7 +246,7 @@ function appUrl(baseUrl, appPath) {
  */
 function readConfig(options = {}) {
   const env = options.env || process.env;
-  const baseUrl = validateBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
+  const baseUrl = validateCredentialBaseUrl(options.baseUrl || env.BASE_URL || 'http://127.0.0.1:8080/carlos', env);
   const config = {
     baseUrl,
     chromePath: env.CHROME_PATH || env.CHROMIUM_PATH || '',
@@ -567,6 +579,130 @@ function isBaselinedText(text, baseline) {
  */
 const WIRED_PAGES = new WeakMap();
 
+// Only records created by the wiring can qualify for this exception. A caller
+// cannot waive a failed request by attaching a public diagnostic field to it.
+const NAVIGATION_CANCELLATIONS = new WeakMap();
+
+function navigationCancellation(entry) {
+  if (entry.errorText !== 'net::ERR_ABORTED') return null;
+  const operations = NAVIGATION_CANCELLATIONS.get(entry);
+  const operation = operations && [...operations].find(candidate => candidate.confirmed);
+  return operation ? { classification: 'BROWSER_NAVIGATION_CANCELLATION', operation: operation.kind } : null;
+}
+
+/**
+ * Track pending loads across a navigation, including same-address reloads.
+ * A later URL comparison alone cannot distinguish a load the browser abandoned
+ * from a request that failed independently before the test left the page.
+ */
+function trackPendingNavigationRequests(page) {
+  const pending = new Map();
+  const candidates = new WeakMap();
+  const navigations = new Set();
+  const documentNavigations = new WeakMap();
+  const belongsTo = (frame, ancestor) => {
+    for (let current = frame; current; current = typeof current.parentFrame === 'function' ? current.parentFrame() : null) {
+      if (current === ancestor) return true;
+    }
+    return false;
+  };
+  const snapshot = (frame, kind) => {
+    const operation = { frame, kind, confirmed: false };
+    for (const [request, origin] of pending) {
+      if (!origin || (frame && !belongsTo(origin, frame))) continue;
+      if (!candidates.has(request)) candidates.set(request, new Set());
+      candidates.get(request).add(operation);
+    }
+    return operation;
+  };
+  page.on('request', request => {
+    let frame;
+    try { frame = request.frame(); } catch { /* Service-worker loads have no document to abandon. */ }
+    if (frame && typeof request.isNavigationRequest === 'function' && request.isNavigationRequest()) {
+      for (const operation of navigations) {
+        if (operation.frame === frame) {
+          operation.replacingDocument = true;
+          operation.documentRequest = request;
+          operation.responseReady = false;
+        }
+      }
+      const operation = snapshot(frame, 'document-navigation');
+      operation.replacingDocument = true;
+      operation.documentRequest = request;
+      navigations.add(operation);
+      documentNavigations.set(request, operation);
+    } else if (frame) {
+      // The old document can start another polling/resource load while its
+      // replacement response is pending. It still belongs to that document.
+      // Candidate membership alone is not an exemption: response readiness is
+      // frozen at failure and replacement must be confirmed. A pre-response
+      // application abort stays fatal even after a later commit.
+      for (const operation of navigations) {
+        if (!operation.replacingDocument || !belongsTo(frame, operation.frame)) continue;
+        if (!candidates.has(request)) candidates.set(request, new Set());
+        candidates.get(request).add(operation);
+      }
+    }
+    pending.set(request, frame);
+  });
+  page.on('response', response => {
+    // While a navigation waits on the server the old document is still alive:
+    // its own AbortController/XHR cancellations must remain failures. Chromium
+    // abandons old-document loads once the replacement response can commit.
+    // Redirect responses cannot replace the document themselves.
+    if (response.status() >= 300 && response.status() < 400) return;
+    for (const operation of navigations) {
+      if (operation.documentRequest === response.request()) operation.responseReady = true;
+    }
+  });
+  page.on('framenavigated', frame => {
+    for (const operation of navigations) {
+      // Hash/history-state navigation leaves the original document's requests
+      // alive. Only a replacement document can account for their cancellation.
+      if (operation.frame === frame && operation.replacingDocument && operation.responseReady) {
+        operation.confirmed = true;
+        navigations.delete(operation);
+      }
+    }
+  });
+  const finished = request => {
+    pending.delete(request);
+    const operation = documentNavigations.get(request);
+    if (operation) navigations.delete(operation);
+  };
+  page.on('requestfinished', finished);
+  page.on('requestfailed', finished);
+  // Retain the initiating test operation in the evidence. The document request,
+  // response and commit observers must still confirm an actual replacement.
+  for (const method of ['goto', 'reload', 'goBack', 'goForward']) {
+    if (typeof page[method] !== 'function' || typeof page.mainFrame !== 'function') continue;
+    const original = page[method].bind(page);
+    page[method] = async (...args) => {
+      const operation = snapshot(page.mainFrame(), method);
+      navigations.add(operation);
+      try { return await original(...args); } finally { navigations.delete(operation); }
+    };
+  }
+  if (typeof page.close === 'function') {
+    const original = page.close.bind(page);
+    page.close = async (...args) => {
+      const operation = snapshot(null, 'close');
+      const closed = () => { operation.confirmed = true; };
+      page.on('close', closed);
+      try { return await original(...args); } finally {
+        if (typeof page.removeListener === 'function') page.removeListener('close', closed);
+      }
+    };
+  }
+  return request => {
+    const operations = candidates.get(request);
+    // Freeze eligibility at the failure event: a later navigation response or
+    // commit cannot retroactively excuse an application-aborted request.
+    return operations && new Set([...operations].filter(operation => operation.kind === 'close'
+      || operation.responseReady));
+  };
+}
+
 /**
  * Point an already-wired page's recordings at a new label.
  *
@@ -634,6 +770,7 @@ function wireStrictPage(page, label, recorder, options = {}) {
   // they recorded before -- a migration must be a deliberate, reviewed change to
   // a check, never a silent new failure mode arriving underneath it.
   const strictSignals = options.strictSignals !== false;
+  const pendingNavigationRequests = strictSignals ? trackPendingNavigationRequests(page) : () => null;
 
   page.on('dialog', async (dialog) => {
     const entry = { label: wiring.label, type: dialog.type(), text: dialog.message() };
@@ -705,6 +842,10 @@ function wireStrictPage(page, label, recorder, options = {}) {
     }
     const failure = request.failure();
     const url = request.url();
+    // Chromium's built-in PDF renderer abandons its internal extension document
+    // while attaching the real PDF. This is not an application request failure.
+    if(request.resourceType()==='other'&&failure?.errorText==='net::ERR_ABORTED'
+      &&/^chrome-extension:\/\/mhjfbmdgcfjbbpaeojofohoefgiehjai\/[0-9a-f-]{36}$/i.test(url))return;
     if (isExpectedMissingAsset(404, url)) {
       return;
     }
@@ -717,6 +858,8 @@ function wireStrictPage(page, label, recorder, options = {}) {
     const entry = {
       label: wiring.label, url, resourceType: request.resourceType(), errorText: failure ? failure.errorText : 'unknown',
     };
+    const operations = pendingNavigationRequests(request);
+    if (operations) NAVIGATION_CANCELLATIONS.set(entry, operations);
     Object.defineProperty(entry, 'requestRef', {enumerable:false, value:new WeakRef(request)});
     const origin = issuedFrom.get(request);
     // Non-enumerable: the entry's data shape (compared and serialised elsewhere) is unchanged. False when the
@@ -783,6 +926,7 @@ function assertStrictPage(recorder, labels = null) {
   }
   for (const entry of scoped(recorder.requestFailures)) {
     if (isQualifiedCdsMetadataFailure(entry)) continue;
+    if (navigationCancellation(entry)) continue;
     problems.push(`[${entry.label}] ${entry.resourceType} request failed (${entry.errorText})`);
   }
   for (const entry of scoped(recorder.badResponses)) {
@@ -843,11 +987,7 @@ function getLatestRequest(recorder, predicate) {
  */
 function withoutQueryStrings(text) {
   return String(text == null ? '' : text)
-    .split(/(\s+)/)
-    .map((token) => (/^https?:\/\//i.test(token) || token.startsWith('/')
-      ? token.split(/[?#]/)[0]
-      : token))
-    .join('');
+    .replace(/((?:https?:\/\/|\/)[^\s"'<>?#\\]+)[?#][^\s"'<>\\]*/gi, '$1');
 }
 
 function pathOnly(rawUrl) {
@@ -921,7 +1061,12 @@ function buildFailureDetails(recorder) {
     pageErrors: clean(recorder.pageErrors),
     requestFailures: clean(recorder.requestFailures.map(entry => {
       const evidence = cdsMetadataQualification(entry);
-      return evidence ? {...entry, cdsMetadataEofEvidence:evidence} : entry;
+      const cancellation = navigationCancellation(entry);
+      // Public fields cannot claim the trusted observer's classification in
+      // exported evidence any more than they can bypass assertStrictPage.
+      const {navigationCancellation: untrustedCancellation, ...failure} = entry;
+      if (evidence) return {...failure, cdsMetadataEofEvidence:evidence};
+      return cancellation ? {...failure, navigationCancellation: cancellation} : failure;
     })),
     dialogs: clean(recorder.dialogs),
   };
@@ -935,7 +1080,7 @@ function getLaunchOptions(chromePath) {
   if (process.env.EFORM_RENDER_ENABLE_CHROMIUM_SANDBOX !== 'true') {
     args.unshift('--no-sandbox');
   }
-  const launchOptions = { headless: true, args };
+  const launchOptions = { ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: true, args };
   if (chromePath) {
     launchOptions.executablePath = chromePath;
   }
@@ -1124,7 +1269,7 @@ function logoutOnClose(browser, config, { log = console, logout = logoutContext 
 async function launchBrowser(config, { logoutOnClose: logout = true } = {}) {
   // Deliberately not a top-level require: see the module header.
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), headless: config.headless !== false });
+  const browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING, headless: config.headless !== false });
   recordBrowserVersion(browser);
   return logout && config.baseUrl ? logoutOnClose(browser, config) : browser;
 }
@@ -1147,8 +1292,15 @@ async function gotoApp(page, baseUrl, appPath, waitUntil = 'domcontentloaded') {
 }
 
 async function assertNotErrorPage(page, label, options = {}) {
-  const text = await page.locator('body').innerText({ timeout: 10000 }).catch(() => '');
-  assert(!/CARLOS has encountered an unexpected error|HTTP Status 500|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  const text = await page.locator('body').innerText({ timeout: 10000 });
+  assert(!/CARLOS has encountered an unexpected error|Exception Report|Whitelabel Error Page/i.test(text), `${label} rendered an error page`);
+  // A chart can quote an HTTP status in clinical prose. Tomcat error pages put
+  // their status in the title or heading, which distinguishes the actual page.
+  const headings = await page.locator('title, h1, h2').allTextContents();
+  assert(!headings.some(heading => /^\s*HTTP Status\s*:?\s*[45]\d\d\b/i.test(heading)),
+    `${label} rendered an error page`);
+  assert(!/(?:^|\n)\s*An error occurred\s*(?:\n|$)/i.test(text)
+    || !/Reference ID\s*:/i.test(text), `${label} rendered a sanitized error page`);
   if (!text.trim() && options.allowPdf && await page.locator('embed[type="application/pdf"], link[href^="chrome-extension://"][href$="/pdf_embedder.css"]').count() > 0) {
     // Chromium's native PDF viewer (embed or extension-backed) has no body
     // text. Accept it only after the
@@ -1202,7 +1354,9 @@ async function login(context, config, recorder, options = {}) {
     // loop below recognises the challenge by its code field.
     page.waitForURL(url => /providercontrol|appointment|forcepasswordreset|loginMfa|select_facility/i.test(String(url))
       || /\/login$/.test(new URL(String(url)).pathname), { timeout: 30000 }),
-    page.locator('input[type="submit"], button[type="submit"]').first().click(),
+    // Match the existing navigation budget even when the workflow's default
+    // locator timeout is shorter (first CAISI schedule compilation is cold).
+    page.locator('input[type="submit"], button[type="submit"]').first().click({timeout:30000}),
   ]);
   await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
 
@@ -1570,7 +1724,8 @@ async function runCheck(options) {
   const out = options.stdout || console;
   const processRef = options.processRef || process;
   const createCancellation = options.createCancellation || createGracefulSignalCancellation;
-  const cancellation = createCancellation({ signalProcess: processRef });
+  if(options.cancellationGraceMs!==undefined)assert(Number.isInteger(options.cancellationGraceMs)&&options.cancellationGraceMs>0&&options.cancellationGraceMs<=2147483647,'Invalid cancellation grace budget');
+  const cancellation = createCancellation({ signalProcess: processRef,...(options.cancellationGraceMs===undefined?{}:{graceMs:options.cancellationGraceMs}) });
   const started = options.now ? options.now() : Date.now();
   let outcome = 'PASS';
   let detail = '';
@@ -1683,6 +1838,7 @@ module.exports = {
   unescapeMysqlBatchValue,
   validateBaseUrl,
   relabelStrictPage,
+  validateCredentialBaseUrl,
   validateMysqlHost,
   withExpectedDialogs,
   wirePage,

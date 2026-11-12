@@ -45,7 +45,7 @@ NONCE = "22222222-2222-4222-8222-222222222222"
 def arguments():
     return SimpleNamespace(container="carlos-cds-owned-target", metric_container="carlos-cds-owned-metrics",
                            owner_label="io.carlos.cds.task=recovery-test", network="carlos-cds-test",
-                           prepared_root=Path("/tmp/cds-prepared"), launcher="/usr/local/bin/carlos-cds-import",
+                           prepared_root=Path("/tmp/cds-prepared"), launcher="/usr/local/bin/carlos-cds-import",  # nosec B108 -- Synthetic Docker metadata only; this test never creates or opens these paths.
                            input=DRIVER.SOURCE + "/long.xml", provider="999998", source_namespace="test-namespace",
                            source_profile="pcon-2024-02", docker="docker", docker_socket="/var/run/docker.sock")
 
@@ -60,7 +60,7 @@ def container():
                        "Destination": path, "RW": writable, "Propagation": "rprivate"})
     for index, path in enumerate((args.launcher, "/usr/lib/jvm/java-25-openjdk-amd64", "/usr/local/tomcat/webapps/carlos/WEB-INF/classes",
                                   "/usr/local/tomcat/webapps/carlos/WEB-INF/lib", "/usr/local/tomcat/lib")):
-        mounts.append({"Type": "bind", "Source": "/tmp/frozen/" + str(index), "Destination": path,
+        mounts.append({"Type": "bind", "Source": "/tmp/frozen/" + str(index), "Destination": path,  # nosec B108 -- Synthetic Docker metadata only; this test never creates or opens these paths.
                        "RW": False, "Propagation": "rprivate"})
     return {"Id": "a" * 64, "Name": "/" + args.container, "Image": "sha256:" + "b" * 64,
             "Path": "/bin/sleep", "Args": ["infinity"], "State": {"Running": True, "Paused": False},
@@ -216,7 +216,7 @@ class RecoveryProtocolTests(unittest.TestCase):
                     DRIVER.contract(info, arguments())
 
     def test_rejects_changed_source_bind_and_writable_artifact(self):
-        for path, replacement in ((DRIVER.SOURCE, {"Source": "/tmp/other"}),
+        for path, replacement in ((DRIVER.SOURCE, {"Source": "/tmp/other"}),  # nosec B108 -- Synthetic Docker metadata only; this test never creates or opens these paths.
                                   ("/usr/local/tomcat/webapps/carlos/WEB-INF/classes", {"RW": True})):
             info = container()
             next(item for item in info["Mounts"] if item["Destination"] == path).update(replacement)

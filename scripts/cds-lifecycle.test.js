@@ -425,21 +425,28 @@ test('cleanup uses an idempotent same-attempt stop marker and records only confi
 });
 
 test('browser and relay cleanup deadlines retain unknown process closure and accepted identity',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-proxy-cleanup-timeout-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
   const selected={...state(),runId:randomUUID(),submitRequested:true};const stop=path.join(directory,'stop.json');let disposals=0;
-  await assert.rejects(gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
+  const refused=assert.rejects(gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
     sql:{dispose(){disposals++;}},relay:{child:{pid:123},file:()=>stop,closed:new Promise(()=>{})},
     browserTimeoutMillis:5,relayTimeoutMillis:5,timeoutMillis:100}),/cleanup is incomplete/);
+  await new Promise(resolve=>setImmediate(resolve));
+  t.mock.timers.tick(5);await new Promise(resolve=>setImmediate(resolve));
+  t.mock.timers.tick(5);await refused;
   assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.relay,'UNKNOWN');assert.equal(selected.cleanup.relayPid,123);
   assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(selected.submitRequested,true);assert.equal(disposals,1);
   assert.equal(JSON.parse(fs.readFileSync(stop)).attempt,selected.attempt);
 });
 
-test('the overall cleanup bound does not claim a later browser close or continue later cleanup actions',async()=>{
+test('the overall cleanup bound does not claim a later browser close or continue later cleanup actions',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
   let close;let disposals=0;const selected=state();
   const pending=gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(resolve=>{close=resolve;})},
     sql:{dispose(){disposals++;}},browserTimeoutMillis:50,timeoutMillis:5});
-  await assert.rejects(pending,/cleanup is incomplete/);assert.equal(selected.cleanup.browser,'UNKNOWN');
+  const refused=assert.rejects(pending,/cleanup is incomplete/);
+  await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(5);
+  await refused;assert.equal(selected.cleanup.browser,'UNKNOWN');
   close();await new Promise(resolve=>setImmediate(resolve));
   assert.equal(selected.cleanup.browser,'UNKNOWN');assert.equal(selected.cleanup.stage,'cleanup-failed');assert.equal(disposals,0);
 });
@@ -624,16 +631,21 @@ test('the real runner preserves plain and nested failures with successful or fai
 });
 
 test('the actual runner retains actionable cleanup aggregate reasons and original causes',async t=>{
+  t.mock.timers.enable({apis:['setTimeout']});
   const directory=fs.mkdtempSync(path.join(os.tmpdir(),'cds-cleanup-diagnostics-'));t.after(()=>fs.rmSync(directory,{recursive:true}));
   for(const overall of [false,true]){
     const name=overall?'overall':'browser-and-relay',selected={...state(),runId:randomUUID(),submitRequested:true};
     const resultFile=path.join(directory,name+'-result.json'),processRef={env:{RESULT_JSON:resultFile}},lines=[];let thrown;
-    const result=await h.runCheck({name:'cleanup-aggregate-unit',processRef,stdout:{log:line=>lines.push(line)},
+    const pending=h.runCheck({name:'cleanup-aggregate-unit',processRef,stdout:{log:line=>lines.push(line)},
       createCancellation:()=>({throwIfCancelled(){},isCancellation(){return false;},dispose(){}}),run(){return'workflow-finished';},
       async cleanup(){try {await gate.cleanupLifecycle({state:selected,save(){},log(){},browser:{close:()=>new Promise(()=>{})},
         relay:overall?undefined:{child:{pid:123},file:()=>path.join(directory,'stop.json'),closed:new Promise(()=>{})},
         browserTimeoutMillis:overall?20:5,relayTimeoutMillis:5,timeoutMillis:overall?5:100});}
         catch(error){thrown=error;throw error;}}});
+    await new Promise(resolve=>setImmediate(resolve));
+    t.mock.timers.tick(5);await new Promise(resolve=>setImmediate(resolve));
+    if(!overall)t.mock.timers.tick(5);
+    const result=await pending;
     assert.equal(result.outcome,'FAIL');assert.equal(processRef.exitCode,1);assert.equal(result.cleanupFailed,true);
     assert.ok(thrown instanceof AggregateError);assert.equal(thrown.cause,thrown.errors[0]);
     if(overall)assert.match(result.detail,/CLEANUP_TIMEOUT:/);
@@ -655,6 +667,7 @@ function intentionalCloseFixture({auxiliaryLogin=false,retainedLoginClosed=false
     const selected={url:()=> 'http://localhost/carlos/form/cdsImportStatus?apiVersion=2&runId='+runId,
       method:()=> 'GET',resourceType:()=> 'fetch',frame:()=>frame,...changes};pending.add(selected);page.emit('request',selected);return selected;
   };
+  // eslint-disable-next-line unicorn/no-useless-spread -- Each failure mutates pending; requests created by callbacks belong to the subsequent closure boundary.
   let action=()=>{for(const selected of [...pending])fail(selected);};
   page.close=async()=>{action();closed=true;page.emit('close');};
   const closer=gate.createLifecyclePageCloser(page,recorder,{baseUrl:'http://localhost/carlos',auxiliaryLogin,retainedLoginClosed});
