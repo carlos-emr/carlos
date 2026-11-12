@@ -222,6 +222,87 @@ class RenderAdmissionUnitTest {
         }
     }
 
+    /**
+     * Two shared slots held by PDFs, the chart slot by a chart, and a PDF and a chart both waiting: a
+     * freed shared slot goes to the waiting PDF at once. The waiting chart may not borrow it while a
+     * chart holds a slot, so the slot must not sit idle (an eForm print or fax would fail as busy).
+     */
+    @Test
+    void shouldGiveAFreedSharedSlotToTheWaitingPdf_whenAChartWaitsTooWithTwoSharedSlots() throws Exception {
+        var slots = new Semaphore(2);
+        var chartSlots = new Semaphore(1);
+        var admission = new RenderAdmission(slots, chartSlots);
+        var firstPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+        var secondPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+        var firstChart = admission.acquire(RenderAdmission.Kind.CHART, Duration.ZERO);
+        assertThat(java.util.List.of(firstPdf, secondPdf, firstChart)).doesNotContainNull();
+        var pdfTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(5)));
+        var chartTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.CHART, Duration.ofSeconds(5)));
+        Thread pdfWorker = new Thread(pdfTask);
+        Thread chartWorker = new Thread(chartTask);
+        pdfWorker.start();
+        awaitTimedWaiting(pdfWorker);
+        chartWorker.start();
+        awaitTimedWaiting(chartWorker);
+        try {
+            firstPdf.close();
+            try (var thirdPdf = pdfTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(thirdPdf).as("the freed shared slot is not left idle").isNotNull();
+                assertThat(slots.availablePermits()).isZero();
+                assertThat(chartTask.isDone()).as("the chart still waits for a chart slot").isFalse();
+                firstChart.close();
+                try (var secondChart = chartTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                    assertThat(secondChart).isNotNull();
+                    assertThat(chartSlots.availablePermits()).isZero();
+                }
+            }
+            secondPdf.close();
+            assertThat(slots.availablePermits()).isEqualTo(2);
+            assertThat(chartSlots.availablePermits()).isEqualTo(1);
+        } finally {
+            for (Thread worker : java.util.List.of(pdfWorker, chartWorker)) { worker.interrupt(); worker.join(2000); }
+            assertThat(pdfWorker.isAlive()).isFalse();
+            assertThat(chartWorker.isAlive()).isFalse();
+        }
+    }
+
+    /**
+     * With no chart holding a slot, a waiting chart may take a freed shared slot ahead of a PDF whose
+     * class already holds one: the PDF still yields, so charts are not starved.
+     */
+    @Test
+    void shouldStillGiveAFreedSharedSlotToTheWaitingChart_whenNoChartHoldsOne() throws Exception {
+        var slots = new Semaphore(2);
+        var chartSlots = new Semaphore(0);
+        var admission = new RenderAdmission(slots, chartSlots);
+        var firstPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+        var secondPdf = admission.acquire(RenderAdmission.Kind.PDF, Duration.ZERO);
+        var chartTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.CHART, Duration.ofSeconds(5)));
+        var pdfTask = new FutureTask<>(() -> admission.acquire(RenderAdmission.Kind.PDF, Duration.ofSeconds(5)));
+        Thread chartWorker = new Thread(chartTask);
+        Thread pdfWorker = new Thread(pdfTask);
+        chartWorker.start();
+        awaitTimedWaiting(chartWorker);
+        pdfWorker.start();
+        awaitTimedWaiting(pdfWorker);
+        try {
+            firstPdf.close();
+            try (var chart = chartTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(chart).isNotNull();
+                assertThat(pdfTask.isDone()).as("the PDF yields to the chart").isFalse();
+            }
+            try (var thirdPdf = pdfTask.get(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                assertThat(thirdPdf).isNotNull();
+            }
+            secondPdf.close();
+            assertThat(slots.availablePermits()).isEqualTo(2);
+        } finally {
+            for (Thread worker : java.util.List.of(pdfWorker, chartWorker)) { worker.interrupt(); worker.join(2000); }
+            assertThat(pdfWorker.isAlive()).isFalse();
+            assertThat(chartWorker.isAlive()).isFalse();
+        }
+    }
+
     private static void awaitTimedWaiting(Thread worker) {
         long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
         while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) Thread.yield();

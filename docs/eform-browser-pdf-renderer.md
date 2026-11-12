@@ -268,8 +268,10 @@ heuristic.
   when quit times out.
 - **Bounded concurrency.** At most 2 concurrent renders (30s slot wait, then a clean failure)
   so rendering can never saturate Tomcat's request workers. Graphs (`BrowserChartRenderer`) also
-  have 1 browser of their own, which they take first, so a graph never waits behind eForm PDFs; a
-  PDF never takes it (#5853). At most 3 browsers run at once. Every WebDriver/CDP HTTP command is
+  have 1 browser of their own, which they take first, so a graph does not wait behind eForm PDFs
+  while that browser is free; a PDF never takes it (#5853). While PDFs wait for a shared browser,
+  a graph that finds its own browser busy waits for it rather than taking a shared one. At most 3
+  browsers run at once. Every WebDriver/CDP HTTP command is
   additionally client-bounded at 90s (vs Selenium's ~180s default), which sharply cuts down —
   but does not eliminate — how long a wedged Chromium can hold one of the 2 render slots; see
   "Known limitations and tracked follow-ups" for the honest worst-case shape.

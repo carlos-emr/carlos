@@ -13,7 +13,8 @@ import java.util.concurrent.TimeUnit;
  * waits behind PDFs while one is free, and a PDF never takes one. Only when they are busy does a chart
  * compete for the shared slots, under the same rule as before. A chart holding its own slot counts as
  * holding a slot for that rule, so while PDFs wait, charts keep to their own slots and PDFs keep the
- * shared ones.
+ * shared ones. A PDF therefore yields a shared slot to a waiting chart only when no chart holds a slot:
+ * a chart that already holds one could not take it, and the slot would sit idle while both wait.
  * @since 2026-11-09
  */
 final class RenderAdmission {
@@ -57,8 +58,11 @@ final class RenderAdmission {
                         // A chart's own slot costs the shared budget nothing, so it is tried first.
                         if (kind == Kind.CHART && chartSlots.tryAcquire()) return admit(kind, chartSlots);
                         // A running render cannot be preempted. Once the other class queues,
-                        // this class cannot borrow another slot while already holding one.
-                        boolean eligible = active.get(kind) == 0 || queues.get(other).isEmpty();
+                        // this class cannot borrow another slot while already holding one. A PDF need
+                        // not yield to a chart that is itself barred (a chart already holds a slot),
+                        // or a free shared slot would sit idle while both wait.
+                        boolean eligible = active.get(kind) == 0 || queues.get(other).isEmpty()
+                                || (kind == Kind.PDF && active.get(Kind.CHART) > 0);
                         if (eligible && slots.tryAcquire()) return admit(kind, slots);
                     }
                     long remaining = deadline - System.nanoTime();

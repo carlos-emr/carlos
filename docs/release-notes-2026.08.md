@@ -15,9 +15,9 @@ The medication-profile graph keeps its default height up to 20 drugs, then grows
 drug; 11 to 19 drugs no longer draw a shorter chart than 10.
 Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
 print and fax use. Graphs have one browser of their own beside the two they share with
-eForm PDFs, so a graph no longer waits behind PDF renders; while every browser is busy, or
-the service is down, graphs ask to be retried. A standalone WAR without the render-browser
-service shows no graphs.
+eForm PDFs, so a graph no longer waits behind PDF renders while its own browser is free;
+while every browser is busy, or the service is down, graphs ask to be retried. A standalone
+WAR without the render-browser service shows no graphs.
 
 Qualified bounds such as `<5` continue to plot as 5 pending the clinical decision in
 [#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser reads left to right in one pass. It accepts one
@@ -176,11 +176,11 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   removed; use the dedicated [spreadsheet exporters](spreadsheet-exports.md).
 - Measurement-chart images require the render-browser service and return 503
   when rendering is unavailable. Check that service in standalone deployments.
-  Graphs use a third render browser of their own, so the packaged render-browser
-  unit's memory ceiling rises by one browser's peak, 300 MB (`MemoryHigh=1324M`,
-  `MemoryMax=1836M`). Raise any local override of those limits to match.
   Restored upstream Chart.js defaults also show gridlines on Dashboard, Growth
   Chart and Health Tracker charts.
+- Graphs use a third render browser of their own, so the packaged render-browser
+  unit's memory ceiling rises by one browser's peak, 300 MiB (`MemoryHigh=1324M`,
+  `MemoryMax=1836M`). Raise any local override of those limits to match.
 - displaytag, JFreeChart, production POI and Selenium are removed from the WAR.
   `/taglibs.jsp` no longer declares `display` or `display-el` prefixes.
   Table paging/sorting is client-side, so old displaytag `d-…-p/s/o` bookmarks
