@@ -566,6 +566,24 @@ class MeasurementGraphErrorResponseUnitTest extends CarlosUnitTestBase {
         assertDataProblemPage("This graph cannot be drawn: a stored Weight value has no date.");
     }
 
+    /**
+     * A value that is not a number is left off the line, but its stored range is still drawn by date,
+     * so an undated one must get the named page, not a 500.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"inclRef", "labRef"})
+    void shouldSayAValueHasNoDate_whenAnUndatedMeasurementHasAStoredRange(String method) throws Exception {
+        openAsWindow();
+        request.setParameter("method", method);
+        when(extensions.getMeasurementsExtByMeasurementId(42)).thenReturn(List.of(
+                extension("minimum", "55"), extension("maximum", "70")));
+        EctMeasurementsDataBean undated = new EctMeasurementsDataBean(42, "WT", "Weight", "kg", "101", "", "",
+                "see note", "", "", "", "", "1", null, null);
+        executeChartFrom(type -> List.of(undated), new AtomicReference<>());
+
+        assertDataProblemPage("This graph cannot be drawn: a stored Weight value has no date.");
+    }
+
     @Test
     void shouldUseTheTypeCode_whenTheTypeHasNoDisplayName() {
         EctMeasurementsDataBean unnamed = new EctMeasurementsDataBean(42, "WT", " ", "kg", "101", "", "",

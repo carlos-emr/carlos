@@ -311,12 +311,20 @@ public class MeasurementGraphAction22Action extends ActionSupport {
 
     /** The day a measurement was observed; a measurement without one cannot be placed on the graph. */
     static Day observedDay(EctMeasurementsDataBean measurement) {
+        return new Day(observedDate(measurement).toInstant());
+    }
+
+    /**
+     * When a measurement was observed. Its value and its stored reference range are both placed by
+     * this date, so a measurement without one cannot be drawn.
+     */
+    static Date observedDate(EctMeasurementsDataBean measurement) {
         Date observed = measurement.getDateObservedAsDate();
         if (observed == null) {
             throw new GraphDataException(GraphDataException.Problem.NO_DATE, typeName(measurement),
                     "Measurement has no observation date");
         }
-        return new Day(observed.toInstant());
+        return observed;
     }
 
     private static SeriesCollection numericMeasurementSeries(List<EctMeasurementsDataBean> measurements) {
@@ -446,7 +454,7 @@ public class MeasurementGraphAction22Action extends ActionSupport {
             Double minimum = storedBound(extensions.get("minimum"));
             Double maximum = storedBound(extensions.get("maximum"));
             if (minimum != null && maximum != null) {
-                ranges.add(new ReferenceRange(measurement.getDateObservedAsDate().toInstant(), minimum, maximum));
+                ranges.add(new ReferenceRange(observedDate(measurement).toInstant(), minimum, maximum));
             }
         }
         return ranges;
