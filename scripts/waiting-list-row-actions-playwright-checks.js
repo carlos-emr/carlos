@@ -6,6 +6,7 @@ const h = require('./lib/playwright-harness');
 const ui = require('./lib/playwright-ui');
 const { runWorkflow } = require('./lib/workflow-session');
 const { prepareWaitingLists } = require('./lib/waiting-list-ui-workflow');
+const { failureMark, consumeExpectedFailure } = require('./lib/concurrency-support');
 
 async function workflow(s) {
   const remove = process.env.WAITING_LIST_ACTION === 'remove';
@@ -112,6 +113,7 @@ async function workflow(s) {
   });
   await s.step('a crafted over-long note past the browser is refused with 400, shown above the list, and changes no row', async () => {
     const before = all();
+    const mark = failureMark(s.recorder);
     // As a hand-made request would: the page's own row selection, then a submit that skips its checks.
     const [response] = await Promise.all([
       f.manager.waitForResponse(r => r.request().method() === 'POST'
@@ -129,6 +131,10 @@ async function workflow(s) {
     h.assert((await f.manager.locator('[data-carlos-waiting-list-note-error]').innerText())
       .includes(`Waiting list note exceeds maximum length of ${LIMIT} characters.`), 'The page does not say why the note was refused');
     h.assert(all() === before, 'A refused note changed the list');
+    // The refusal is this step's expected result, not a page defect. The browser logs the refused load after the
+    // page has loaded, so give it a moment before claiming the 400 and its console line.
+    await f.manager.waitForTimeout(1000);
+    consumeExpectedFailure(s.recorder, mark, { status: 400, path: /\/waitinglist\/SetupDisplayWaitingList$/ });
   });
 }
 if (require.main === module) runWorkflow(process.env.WAITING_LIST_ACTION === 'remove' ? 'waiting-list-manager-remove' : 'waiting-list-row-edit',
