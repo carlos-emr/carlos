@@ -269,6 +269,29 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         verify(measurementDao).findByValue("lab_no", "1111");
     }
 
+    @Test
+    @DisplayName("should leave another patient's measurements alone when two reports share an accession number")
+    void shouldLeaveAnotherPatientsMeasurements_whenAnAccessionIsShared() {
+        // The version chain is resolved by accession number alone. A recycled or colliding accession
+        // puts another patient's report in it, and that patient's values are not this report's to archive.
+        Measurement otherPatients = new Measurement();
+        otherPatients.setDataField("7.7");
+        otherPatients.setDemographicId(4711);
+        Measurement samePatients = new Measurement();
+        samePatients.setDataField("5.1");
+        samePatients.setDemographicId(42);
+        when(measurementDao.findByValue("lab_no", "1111")).thenReturn(java.util.List.of(otherPatients));
+        when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(samePatients));
+        try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {
+            versions.when(() -> Hl7textResultsData.getMatchingLabs("4616")).thenReturn("1111,2222,4616");
+            assertThat(fileResult("6.1", ".*", "2026-03-10 12:00:00", LocalDateTime.parse("2026-03-10T14:00:00")))
+                    .isNotNull();
+        }
+
+        verify(measurementDao).batchRemoveAtomically(
+                org.mockito.ArgumentMatchers.argThat(removed -> removed.size() == 1 && removed.get(0) == samePatients));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"4616,2222", "1111,4616,2222", "4616,1111,2222"})
     @DisplayName("should file a correction that sorts before the report it corrects, and archive the original")
@@ -277,6 +300,7 @@ class Hl7textResultsDataUnitTest extends CarlosUnitTestBase {
         // display order puts it first. It is still the newest delivery: the highest lab number.
         Measurement original = new Measurement();
         original.setDataField("5.1");
+        original.setDemographicId(42);
         when(measurementDao.findByValue("lab_no", "2222")).thenReturn(java.util.List.of(original));
         Measurement filed;
         try (var versions = mockStatic(Hl7textResultsData.class, CALLS_REAL_METHODS)) {

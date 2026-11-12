@@ -146,10 +146,16 @@ public class Hl7textResultsData {
         java.util.Set<String> superseded = new java.util.LinkedHashSet<>(java.util.Arrays.asList(matchingLabs));
         superseded.remove(lab_no);
         if (!superseded.isEmpty()) {
+            // The chain is resolved by accession number alone, so a recycled or colliding accession
+            // can put another patient's report in it. Only this patient's values are superseded.
+            Integer patient = patientNumber(demographic_no);
             List<MeasurementsDeleted> measurementsDeletedList = new ArrayList<>();
             List<Measurement> measurementsToRemove = new ArrayList<>();
             for (String previous : superseded) {
                 for (Measurement m : measurementDao.findByValue("lab_no", previous)) {
+                    if (patient != null && m.getDemographicId() != null && !patient.equals(m.getDemographicId())) {
+                        continue;
+                    }
                     measurementsDeletedList.add(new MeasurementsDeleted(m));
                     measurementsToRemove.add(m);
                 }
@@ -158,6 +164,16 @@ public class Hl7textResultsData {
             measurementDao.batchRemoveAtomically(measurementsToRemove);
         }
         fileMeasurements(h, lab_no, demographic_no);
+    }
+
+    /** The matched patient's number, or {@code null} when the caller supplied none that can be compared. */
+    private static Integer patientNumber(String demographicNo) {
+        try {
+            int number = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
+            return number > 0 ? number : null;
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
     }
 
     /**
