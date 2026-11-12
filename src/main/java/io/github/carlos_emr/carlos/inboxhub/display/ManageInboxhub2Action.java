@@ -148,7 +148,7 @@ public class ManageInboxhub2Action extends ActionSupport {
         labDataController.setInboxFormQueryUnclaimed(query, unclaimed);
 
         labDataController.sanitizeInboxFormQuery(loggedInInfo, query, null, null);
-        CategoryData categoryData = labDataController.getCategoryData(query);
+        CategoryData categoryData = labDataController.getCategoryData(loggedInInfo, query);
         int[] totalCounts = labDataController.getTotalResultsCountBasedOnQuery(query, categoryData);
 
         request.setAttribute("totalDocsCount", totalCounts[0]);

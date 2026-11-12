@@ -195,6 +195,20 @@ public final class HRMReportAccess {
         };
     }
 
+    /**
+     * The inbox's decision for one patient, for views that count reports by patient instead of
+     * walking them: the patient's own access rules, evaluated read-only and remembered per patient
+     * for the life of the filter. Like the inbox list it does not require {@code _hrm} read.
+     *
+     * @param security the privilege service
+     * @param user the logged-in user; a {@code null} user sees no patient's reports
+     * @return a predicate over a demographic number; {@code true} keeps the patient's reports
+     */
+    public static java.util.function.IntPredicate inboxPatientFilter(SecurityInfoManager security, LoggedInInfo user) {
+        Map<Integer, Boolean> decided = new HashMap<>();
+        return patient -> decided.computeIfAbsent(patient, id -> decide(security, user, id, false, false));
+    }
+
     /** The patients a report is filed to; a link without a patient number names none. */
     private static Set<Integer> patients(Collection<HRMDocumentToDemographic> links) {
         Set<Integer> patients = new LinkedHashSet<>();

@@ -282,6 +282,12 @@ public class DmsInboxManage2Action extends ActionSupport {
         try {
             CategoryData cData = new CategoryData(patientLastName, patientFirstName, patientHealthNumber,
                     patientSearch, providerSearch, searchProviderNo, status, abnormalStatus, startDate, endDate);
+            LoggedInInfo inboxUser = LoggedInInfo.getLoggedInInfoFromSession(request);
+            if (inboxUser != null) {
+                // The HRM rows of the list leave out a patient the user may not open; so must the sidebar.
+                cData.setHrmPatientReadable(io.github.carlos_emr.carlos.hospitalReportManager.HRMReportAccess
+                        .inboxPatientFilter(securityInfoManager, inboxUser));
+            }
             cData.populateCountsAndPatients();
             MiscUtils.getLogger().debug("LABS " + cData.getTotalLabs());
             request.setAttribute("patientFirstName", patientFirstName);
