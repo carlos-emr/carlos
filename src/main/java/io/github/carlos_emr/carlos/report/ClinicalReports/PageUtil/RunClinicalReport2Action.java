@@ -84,11 +84,15 @@ public class RunClinicalReport2Action extends ActionSupport {
         int maxNumerator = -1;
 
         MiscUtils.getLogger().debug("numerator " + numeratorId + " denominator " + denominatorId);
+        if (!chosen(numeratorId) && !chosen(denominatorId)) {
+            // A plain open of the page (nothing posted yet): show the empty form, with no message.
+            return SUCCESS;
+        }
         ClinicalReportManager reports = ClinicalReportManager.getInstance();
 
         Denominator d = reports.getDenominatorById(denominatorId);
         if (d == null) {
-            return unknownReport();
+            return unknownReport("denominator", denominatorId);
         }
         if (d.hasReplaceableValues()) {
             String[] denomReplaceKeys = d.getReplaceableKeys();
@@ -123,7 +127,7 @@ public class RunClinicalReport2Action extends ActionSupport {
         // numerator is selected. // lgtm[java/ssrf]
         Numerator n = reports.getNumeratorById(numeratorId); // nosemgrep: java.lang.security.audit.ssrf.ssrf-java
         if (n == null) {
-            return unknownReport();
+            return unknownReport("numerator", numeratorId);
         }
         MiscUtils.getLogger().debug("n" + n + " " + n.hasReplaceableValues());
         if (n.hasReplaceableValues()) {
@@ -155,8 +159,8 @@ public class RunClinicalReport2Action extends ActionSupport {
         for (int x = 0; x < 11; x++) {
             numerators[x] = reports.getNumeratorById(numeratorIds[x]);
             // An extra numerator left at "Select Below" posts an empty id; any other id must be listed.
-            if (numerators[x] == null && numeratorIds[x] != null && !numeratorIds[x].isEmpty()) {
-                return unknownReport();
+            if (numerators[x] == null && chosen(numeratorIds[x])) {
+                return unknownReport("numerator" + x, numeratorIds[x]);
             }
             if (numerators[x] != null) {
                 maxNumerator = x;
@@ -245,11 +249,19 @@ public class RunClinicalReport2Action extends ActionSupport {
         return SUCCESS;
     }
 
+    /** Whether a numerator or denominator was posted; "Select Below" posts an empty value. */
+    static boolean chosen(String id) {
+        return id != null && !id.isEmpty();
+    }
+
     /**
-     * A numerator or denominator id that is not in ClinicalReports.xml (a stale page, or a report removed
-     * from the file): the report page says so instead of failing.
+     * A numerator or denominator id that is not a usable entry of ClinicalReports.xml (a stale page, or a
+     * report removed from the file): the report page says so instead of failing, and the log names the
+     * entry so an administrator can find it. The id names a report definition, not a patient.
      */
-    private String unknownReport() {
+    private String unknownReport(String parameter, String id) {
+        MiscUtils.getLogger().warn("Clinical report {} is not a usable entry of ClinicalReports.xml: {}", parameter,
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(id));
         request.setAttribute("clinicalReportUnknown", Boolean.TRUE);
         return SUCCESS;
     }

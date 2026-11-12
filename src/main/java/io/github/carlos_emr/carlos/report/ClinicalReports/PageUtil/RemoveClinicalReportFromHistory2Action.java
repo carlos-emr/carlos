@@ -30,6 +30,7 @@
 
 package io.github.carlos_emr.carlos.report.ClinicalReports.PageUtil;
 
+import java.io.IOException;
 import java.util.List;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,10 +43,15 @@ import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
 
 /**
  * Struts2 action for removing individual clinical reports from the session history list,
  * or clearing all reports when the {@code clear=yes} parameter is passed.
+ *
+ * <p>A report is named by its {@link ReportEvaluator#getKey() key}, not its position, so a repeated post
+ * (a refresh, a double click) or a page from a second window removes nothing else. The page posts both
+ * buttons as forms; any other method is answered 405.</p>
  *
  * @since 2006-01-12
  */
@@ -61,6 +67,16 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_report)");
         }
 
+        // Removing changes the session's report list: refuse GET/HEAD before reading any parameter.
+        if (!"POST".equals(request.getMethod())) {
+            try {
+                response.setHeader("Allow", "POST");
+                response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            } catch (IOException e) {
+                MiscUtils.getLogger().warn("Unable to send 405 for a non-POST clinical report removal", e);
+            }
+            return NONE;
+        }
 
         // Handle "clear all" request
         String clear = request.getParameter("clear");
@@ -69,25 +85,16 @@ public class RemoveClinicalReportFromHistory2Action extends ActionSupport {
             return SUCCESS;
         }
 
-        String id = request.getParameter("id");
-        int nid;
-        try {
-            nid = Integer.parseInt(id);
-        } catch (NumberFormatException e) {
-            // Not a position in the list (a stale or hand-made request): show the page as it is. This
-            // route maps only "success", so an "error" result would end on the generic error page.
-            MiscUtils.getLogger().debug("Invalid clinical report id parameter: {}", id);
-            return SUCCESS;
-        }
-
-        // The page lists the session's run reports (ReportEvaluator) and posts each one's position.
-        // Could be a concurrency issue here if they opened up more than one report screen.
+        // The page lists the session's run reports and posts the key of the one to remove. A key that is
+        // not in the list (already removed, or a hand-made request) leaves the list as it is; this route
+        // maps only "success", so the page is shown either way.
+        String key = request.getParameter("key");
         List<?> reports = (List<?>) request.getSession().getAttribute("ClinicalReports");
-        if (reports != null && nid >= 0 && nid < reports.size()) {
-            reports.remove(nid);
-        }
-        if (reports != null && reports.isEmpty()) {
-            request.getSession().removeAttribute("ClinicalReports");
+        if (reports != null && key != null) {
+            reports.removeIf(report -> report instanceof ReportEvaluator evaluator && key.equals(evaluator.getKey()));
+            if (reports.isEmpty()) {
+                request.getSession().removeAttribute("ClinicalReports");
+            }
         }
 
         return SUCCESS;
