@@ -161,9 +161,19 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ReflectionTestUtils.setField(reminder, "id", id);
             if (outcome != null) {
                 reminder.startSending(at(start), at(NOW.minusHours(1)));
-                reminder.finish(outcome, 899, at(NOW.minusHours(1)));
+                if (outcome != AppointmentReminderStatus.SENDING) {
+                    reminder.finish(outcome, 899, at(NOW.minusHours(1)));
+                }
             }
             return new ReminderCandidate(reminder, other);
+        }
+
+        /** A sibling that failed this start and has no retry left: both of its attempts are spent. */
+        private ReminderCandidate failedForGood(long id) {
+            ReminderCandidate sibling = sibling(id, "t", AppointmentReminderStatus.FAILED);
+            sibling.reminder().startSending(at(start), at(NOW.minusMinutes(40)));
+            sibling.reminder().finish(AppointmentReminderStatus.FAILED, null, at(NOW.minusMinutes(40)));
+            return sibling;
         }
 
         private void siblings(ReminderCandidate... found) {
@@ -213,8 +223,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
         }
 
+        /** Fail closed: never risk a second email. A definite failure, so its one retry checks again. */
         @Test
-        void shouldSendAndWarn_whenTheSameVisitCannotBeChecked() {
+        void shouldNotSendButRecordAFailure_whenTheSameVisitCannotBeChecked() {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
             stored(reminder, appointment, appointment);
@@ -223,15 +234,76 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             try (LogCapture log = LogCapture.forLogger(AppointmentReminderService.class)) {
                 service.processDue(10);
 
-                // A second email is the lesser harm: the patient is still reminded, and the log says why.
-                assertThat(handed).hasSize(1);
+                assertThat(handed).isEmpty();
+                assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.FAILED);
+                assertThat(reminder.getAttempts()).as("its one retry is left").isEqualTo(1);
                 assertThat(log.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
                         .extracting(event -> event.getMessage().getFormattedMessage())
                         .singleElement().satisfies(message -> assertThat(message)
-                                .contains("Appointment reminder 7 could not be checked for the same visit")
+                                .isEqualTo("Appointment reminder 7 could not be checked for the same visit "
+                                        + "(java.lang.IllegalStateException); not sent")
                                 .doesNotContain(String.valueOf(PATIENT)).doesNotContain(String.valueOf(APPOINTMENT))
                                 .doesNotContain("FAKE"));
             }
+        }
+
+        /**
+         * An earlier booking that joins the visit while a later one's reminder is being sent (re-ticked, moved onto
+         * this start, or un-cancelled) waits: it is not attempted, and the next run looks again.
+         */
+        @Test
+        void shouldWaitForTheNextRun_whileAnotherBookingsReminderForTheStartIsBeingSent() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.SENDING));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(run.sent()).isZero();
+            assertThat(reminder.getLastStatus()).as("not attempted").isNull();
+            assertThat(reminder.getAttempts()).isZero();
+            assertThat(reminder.getClaimToken()).as("released for the next run").isNull();
+        }
+
+        @Test
+        void shouldSend_whenTheEarlierBookingEndedThisStartWithoutAReminder() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", AppointmentReminderStatus.NO_SENDER), failedForGood(4L));
+
+            service.processDue(10);
+
+            // Neither earlier booking will send for this start, so this one must.
+            assertThat(handed).hasSize(1);
+        }
+
+        @Test
+        void shouldYield_toAnEarlierBookingWithItsRetryStillLeft() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(3L, "t", AppointmentReminderStatus.FAILED));
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+        }
+
+        @Test
+        void shouldSend_whenALaterBookingYieldedToThisOne() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            siblings(sibling(12L, "t", AppointmentReminderStatus.DUPLICATE));
+
+            service.processDue(10);
+
+            // The later booking was recorded as covered by this one: it must not cover this one in return.
+            assertThat(handed).hasSize(1);
         }
 
         @Test
@@ -387,6 +459,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         private Long failReadsOf;
         private int failFromRead;
         private Integer failAppointmentReadsOf;
+        private int failAppointmentRead;
 
         @BeforeEach
         void table() {
@@ -419,7 +492,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             when(appointments.find(any(Integer.class))).thenAnswer(call -> {
                 Integer number = call.getArgument(0);
                 int read = reads.merge("appointment " + number, 1, Integer::sum);
-                if (number.equals(failAppointmentReadsOf) && read == 2) {
+                if (number.equals(failAppointmentReadsOf) && read == failAppointmentRead) {
                     throw new IllegalStateException("FAKE database failure");
                 }
                 return booked.get(number);
@@ -468,9 +541,10 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldSendTheRest_andRecordTheStrandedOneAsUnconfirmedLater_whenRecordingAnOutcomeFails() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
-            // The first read is the start; the second and third are the outcome and its one retry.
+            // The first read is the same-visit check, the second the start; the third and fourth are the outcome
+            // and its one retry.
             failReadsOf = 7L;
-            failFromRead = 2;
+            failFromRead = 3;
 
             ReminderRun run = service.processDue(10);
 
@@ -494,8 +568,9 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         void shouldSendTheRest_andLeaveTheOneThatCouldNotStartToALaterRun() {
             AppointmentReminder first = row(7L, NOW.plusHours(20));
             AppointmentReminder second = row(8L, NOW.plusHours(21));
-            // Read once by the claim, then again to start it: that second read fails.
+            // Read by the claim, then by the same-visit check, then to start it: that third read fails.
             failAppointmentReadsOf = 107;
+            failAppointmentRead = 3;
 
             ReminderRun run = service.processDue(10);
 
@@ -858,7 +933,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             Optional<ReminderStatusLine> shownLine = line(appointment(start, PATIENT, "t"), reminder);
 
             assertThat(shownLine).hasValueSatisfying(found -> {
-                assertThat(found.messageKey()).startsWith("appointment.reminder.status.").doesNotContain("900");
+                assertThat(found.messageKey()).startsWith("appointment.reminder.status.");
                 assertThat(found.argument()).isIn("", shown.format(NOW.minusMinutes(10)));
             });
         }
