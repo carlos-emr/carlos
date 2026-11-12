@@ -1187,8 +1187,6 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -1196,7 +1194,6 @@ public class ManageDocument2Action extends ActionSupport {
         String doc_no = request.getParameter("doc_no");
         requireDocumentPatientAccess(request, doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
         String contentType = null;
@@ -1251,8 +1248,10 @@ public class ManageDocument2Action extends ActionSupport {
             contentType = "application/octet-stream";
         }
 
-        String data = "doc_no=" + doc_no;
-        LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
+        // The view is already audited above as read/document, keyed by the document id and filed
+        // under the patient its stored link names. A second row was written here as read/"Document"
+        // with no contentId and the request's demoNo (usually absent): one view counted twice, under
+        // two spellings of the content type, the second not findable from the patient.
 
         // Preserve the inline filename for both uploaded HTML and binary document display paths.
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");

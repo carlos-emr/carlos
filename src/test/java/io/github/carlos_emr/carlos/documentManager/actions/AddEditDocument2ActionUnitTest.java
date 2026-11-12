@@ -1126,6 +1126,71 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should file the add/document audit row under the patient the upload is filed onto")
+    void shouldAuditUploadAgainstPatient_whenDocumentIsAddedToAChart() throws Exception {
+        tempUploadFile = File.createTempFile("add-edit-document-audit", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        Path documentDir = Files.createTempDirectory("add-edit-document-audit-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+
+        action.setMode("add");
+        action.setFunction("demographic");
+        action.setFunctionId("987");
+        action.setDocDesc("FAKE-DESCRIPTION consult letter");
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-05-21");
+        action.setAppointmentNo("45");
+        bindDocFileUpload(tempUploadFile, "consult-note.txt", "text/plain");
+        lenient().when(mockSecurityInfoManager.hasPrivilege(any(), any(), any(), eq("987"))).thenReturn(true);
+        lenient().when(mockSecurityInfoManager.isAllowedAccessToPatientRecord(any(), eq(987))).thenReturn(true);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("demographic"))
+                    .thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("321");
+
+            // The chart note the upload also files needs the web application context, which this
+            // unit test does not start; the audit row under test is written before that step.
+            action.execute2();
+
+            logActionMock.verify(() -> LogAction.addLog("999998", LogConst.ADD, LogConst.CON_DOCUMENT, "321",
+                    request.getRemoteAddr(), "987"));
+            // Not the five-argument form, which leaves demographic_no empty.
+            logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.ADD), eq(LogConst.CON_DOCUMENT),
+                    any(String.class), any(String.class)), never());
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            File[] writtenFiles = documentDir.toFile().listFiles();
+            if (writtenFiles != null) {
+                for (File writtenFile : writtenFiles) {
+                    Files.deleteIfExists(writtenFile.toPath());
+                }
+            }
+            Files.deleteIfExists(documentDir);
+        }
+    }
+
+    @Test
+    @DisplayName("should audit an upload that is not filed onto a patient without a patient")
+    void shouldAuditUploadWithoutPatient_whenDocumentIsAddedToAProvider() throws Exception {
+        addDocumentAndCaptureRedirect(false);
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.ADD, LogConst.CON_DOCUMENT, "321",
+                request.getRemoteAddr()));
+        logActionMock.verify(() -> LogAction.addLog(any(String.class), eq(LogConst.ADD), eq(LogConst.CON_DOCUMENT),
+                any(String.class), any(String.class), any(String.class)), never());
+    }
+
+    @Test
     @DisplayName("should keep scheduleNav on the add-document success redirect")
     void shouldKeepScheduleNav_whenAddDocumentSucceedsInScheduleShell() throws Exception {
         // The document list renders the shared navigation header only while the request carries
