@@ -51,6 +51,8 @@ public final class AppointmentReminderChoice {
     public static final String SHOWN_PARAMETER = "emailPtShown";
 
     private static final Logger logger = MiscUtils.getLogger();
+    /** Set on the request when a reminder call on the group page failed ({@link #onGroupPage}). */
+    static final String NOT_RECORDED_ATTRIBUTE = "appointmentReminderNotRecorded";
 
     private AppointmentReminderChoice() {
     }
@@ -95,7 +97,7 @@ public final class AppointmentReminderChoice {
         if (!isOnForm(request)) {
             return;
         }
-        onGroupPage(() -> record(request, user, patientBooking(bookings, formProviderNo)));
+        onGroupPage(request, () -> record(request, user, patientBooking(bookings, formProviderNo)));
     }
 
     static Appointment patientBooking(List<Appointment> bookings, String formProviderNo) {
@@ -123,7 +125,7 @@ public final class AppointmentReminderChoice {
         if (replacedNo == null || rebooked == null || rebooked.getId() == null || !isOnForm(request)) {
             return;
         }
-        onGroupPage(() -> SpringUtils.getBean(AppointmentReminderService.class)
+        onGroupPage(request, () -> SpringUtils.getBean(AppointmentReminderService.class)
                 .moveReminders(user, replacedNo, rebooked.getId()));
     }
 
@@ -132,22 +134,31 @@ public final class AppointmentReminderChoice {
      * page's other reminder calls, it never stops the page ({@link #onGroupPage}).
      */
     public static void recordAfterGroupUpdate(HttpServletRequest request, LoggedInInfo user, Appointment appointment) {
-        onGroupPage(() -> record(request, user, appointment));
+        onGroupPage(request, () -> record(request, user, appointment));
     }
 
     /**
      * Runs one of the group page's reminder calls. That page saves each booking on its own, with no transaction
      * around them, so every booking is already saved when its reminder is recorded. A reminder that cannot be
-     * stored (a database error, an edit racing the reminder job) is logged and skipped: it must not stop a Group
-     * Appt or Group Update halfway, or show an error page that invites a second submit and a duplicate booking.
-     * Edit then shows the box unticked, so staff can tick it again. The class only is logged.
+     * stored (a database error, an edit racing the reminder job) must not stop a Group Appt or Group Update
+     * halfway, or show an error page that invites a second submit and a duplicate booking. So the page carries
+     * on, the failure is logged (the class only), and the request is marked ({@link #notRecorded}): the page's
+     * result then says the appointment was saved but its reminder was not, and to tick the box again.
      */
-    static void onGroupPage(Runnable reminderCall) {
+    static void onGroupPage(HttpServletRequest request, Runnable reminderCall) {
         try {
             reminderCall.run();
         } catch (RuntimeException e) {
             logger.warn("Appointment reminder choice not stored on the group page ({})", e.getClass().getName());
+            if (request != null) {
+                request.setAttribute(NOT_RECORDED_ATTRIBUTE, Boolean.TRUE);
+            }
         }
+    }
+
+    /** Whether a reminder call on the group page failed for this request, so its result page must say so. */
+    public static boolean notRecorded(HttpServletRequest request) {
+        return request != null && Boolean.TRUE.equals(request.getAttribute(NOT_RECORDED_ATTRIBUTE));
     }
 
     /**

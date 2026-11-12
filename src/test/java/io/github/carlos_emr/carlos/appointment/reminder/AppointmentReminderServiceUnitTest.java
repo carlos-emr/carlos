@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.commn.dao.AppointmentReminderDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
+import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -213,16 +214,24 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldSend_whenTheSameVisitCannotBeChecked() {
+        void shouldSendAndWarn_whenTheSameVisitCannotBeChecked() {
             Appointment appointment = appointment(start, PATIENT, "t");
             AppointmentReminder reminder = requested();
             stored(reminder, appointment, appointment);
             when(reminders.findSameVisit(any(), anyInt(), any(), anyLong())).thenThrow(new IllegalStateException("FAKE"));
 
-            service.processDue(10);
+            try (LogCapture log = LogCapture.forLogger(AppointmentReminderService.class)) {
+                service.processDue(10);
 
-            // A second email is the lesser harm: the patient is still reminded.
-            assertThat(handed).hasSize(1);
+                // A second email is the lesser harm: the patient is still reminded, and the log says why.
+                assertThat(handed).hasSize(1);
+                assertThat(log.events()).filteredOn(event -> event.getLevel() == org.apache.logging.log4j.Level.WARN)
+                        .extracting(event -> event.getMessage().getFormattedMessage())
+                        .singleElement().satisfies(message -> assertThat(message)
+                                .contains("Appointment reminder 7 could not be checked for the same visit")
+                                .doesNotContain(String.valueOf(PATIENT)).doesNotContain(String.valueOf(APPOINTMENT))
+                                .doesNotContain("FAKE"));
+            }
         }
 
         @Test

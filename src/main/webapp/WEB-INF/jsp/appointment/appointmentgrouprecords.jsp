@@ -356,7 +356,17 @@
             if (rowsAffected == 1) bSucc = true;
         }
 
-        if (bSucc) {
+        if (bSucc && AppointmentReminderChoice.notRecorded(request)) {
+            // #5887: the bookings are saved but a reminder was not: say so, and leave the window open to read it.
+%>
+<h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
+<p role="alert" id="reminderNotRecorded"><fmt:message key="appointment.reminder.notRecorded"/></p>
+<button type="button" onclick="self.close()"><fmt:message key="global.btnClose"/></button>
+<script LANGUAGE="JavaScript">
+    self.opener.refresh();
+</script>
+<%
+        } else if (bSucc) {
 %>
 <h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">

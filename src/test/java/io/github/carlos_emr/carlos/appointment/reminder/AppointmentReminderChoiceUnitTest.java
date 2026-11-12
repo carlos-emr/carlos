@@ -202,6 +202,22 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         verify(reminders).recordRequest(user, 202, 42, ReminderChannel.EMAIL, true);
     }
 
+    /** The failure is not silent: the group page's result says the reminder was not recorded. */
+    @Test
+    void shouldMarkTheRequestForAWarning_whenAReminderCallOnTheGroupPageFails() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        MockHttpServletRequest stored = form(true, true);
+        MockHttpServletRequest failed = form(true, true);
+
+        AppointmentReminderChoice.recordAfterGroupUpdate(stored, user, appointment(202));
+        assertThat(AppointmentReminderChoice.notRecorded(stored)).as("stored: no warning").isFalse();
+
+        when(reminders.moveReminders(any(), anyInt(), anyInt())).thenThrow(new IllegalStateException("FAKE"));
+        AppointmentReminderChoice.moveReminders(failed, user, 101, appointment(201));
+        assertThat(AppointmentReminderChoice.notRecorded(failed)).isTrue();
+        assertThat(AppointmentReminderChoice.notRecorded(null)).isFalse();
+    }
+
     @Test
     void shouldAskTheStoredChoice_forTheEditPage() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
