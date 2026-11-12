@@ -21,11 +21,12 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderStatus;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderCandidate;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.commn.model.AppointmentReminder;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -42,10 +43,21 @@ public interface AppointmentReminderDao extends AbstractDao<AppointmentReminder>
     Optional<AppointmentReminder> findByAppointment(int appointmentNo, ReminderChannel channel);
 
     /**
-     * Requested reminders on {@code channel} whose appointment is dated {@code firstDate} to {@code lastDate},
-     * with that appointment, earliest first. Read without locks: the caller decides what is due and claims it.
+     * Requested reminders on {@code channel} that may be due now, with their appointments, earliest start first:
+     * the appointment starts from {@code earliestStart} to {@code latestStart}, and the reminder was never
+     * attempted for that start, or its attempt for it failed with fewer than {@code maxAttempts} attempts.
+     * Rows already reminded for their current start are left out in the query, so they never crowd out the due
+     * ones. Read without locks: the caller checks what is due exactly and claims it.
      */
-    List<ReminderCandidate> findRequestedBetween(ReminderChannel channel, LocalDate firstDate, LocalDate lastDate, int limit);
+    List<ReminderCandidate> findDue(ReminderChannel channel, LocalDateTime earliestStart, LocalDateTime latestStart,
+                                    int maxAttempts, int limit);
+
+    /**
+     * Rows on {@code channel} left {@link AppointmentReminderStatus#SENDING} by a run that stopped: their claim
+     * is gone or older than {@code staleBefore}. Locked, skipping rows locked elsewhere; must run in the
+     * caller's transaction.
+     */
+    List<AppointmentReminder> findAbandonedSending(ReminderChannel channel, Date staleBefore);
 
     /**
      * Claims the requested rows among {@code ids} that no other run holds, skipping rows locked elsewhere

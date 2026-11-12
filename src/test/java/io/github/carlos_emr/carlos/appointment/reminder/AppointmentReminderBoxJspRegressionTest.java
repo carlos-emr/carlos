@@ -73,7 +73,8 @@ class AppointmentReminderBoxJspRegressionTest {
     void shouldShowTheReminderStatusEncoded_underTheBoxOnEdit() throws IOException {
         assertThat(page("editappointment.jsp")).containsSubsequence(
                 "<input type=\"hidden\" name=\"emailPtShown\" value=\"1\">",
-                "AppointmentReminderChoice.statusLine(apptFromRequest,",
+                "AppointmentReminderChoice.statusLine(loggedInInfo,",
+                "apptFromRequest, (java.util.Locale) pageContext.getAttribute(\"appointmentLocale\"));",
                 "<fmt:message key=\"${emailReminderStatusKey}\" var=\"emailReminderStatusText\"><fmt:param value=\"${emailReminderStatusArgument}\"/></fmt:message>",
                 "<carlos:encode value=\"${emailReminderStatusText}\"/>",
                 "<% } else { %>");

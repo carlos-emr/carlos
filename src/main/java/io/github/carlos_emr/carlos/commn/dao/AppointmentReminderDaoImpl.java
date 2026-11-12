@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderStatus;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderCandidate;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -33,7 +34,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -65,22 +66,34 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
     }
 
     @Override
-    public List<ReminderCandidate> findRequestedBetween(ReminderChannel channel, LocalDate firstDate, LocalDate lastDate,
-                                                        int limit) {
-        if (channel == null || firstDate == null || lastDate == null || lastDate.isBefore(firstDate)) {
+    public List<ReminderCandidate> findDue(ReminderChannel channel, LocalDateTime earliestStart,
+                                           LocalDateTime latestStart, int maxAttempts, int limit) {
+        if (channel == null || earliestStart == null || latestStart == null || latestStart.isBefore(earliestStart)) {
             return List.of();
         }
         // A theta join: the reminder holds the appointment number, not a mapped association, so neither the
-        // appointment mapping nor its archive copy changes. The exact start is checked by the caller.
+        // appointment mapping nor its archive copy changes. The appointment's start is its date and its time,
+        // two columns, so the window and "already attempted for this start" compare each part; the caller
+        // still checks the exact window, the retry delay and the appointment's status.
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT r, a FROM AppointmentReminder r, Appointment a "
                         + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
                         + "AND a.appointmentDate BETWEEN :firstDate AND :lastDate "
+                        + "AND (a.appointmentDate > :firstDate OR a.startTime >= :firstTime) "
+                        + "AND (a.appointmentDate < :lastDate OR a.startTime <= :lastTime) "
+                        + "AND (r.sentFor IS NULL "
+                        + "OR extract(date from r.sentFor) <> a.appointmentDate "
+                        + "OR extract(time from r.sentFor) <> a.startTime "
+                        + "OR (r.lastStatus = :failed AND r.attempts < :maxAttempts)) "
                         + "ORDER BY a.appointmentDate, a.startTime, r.id",
                 Object[].class);
         query.setParameter("channel", channel);
-        query.setParameter("firstDate", java.sql.Date.valueOf(firstDate));
-        query.setParameter("lastDate", java.sql.Date.valueOf(lastDate));
+        query.setParameter("firstDate", java.sql.Date.valueOf(earliestStart.toLocalDate()));
+        query.setParameter("lastDate", java.sql.Date.valueOf(latestStart.toLocalDate()));
+        query.setParameter("firstTime", java.sql.Time.valueOf(earliestStart.toLocalTime().withNano(0)));
+        query.setParameter("lastTime", java.sql.Time.valueOf(latestStart.toLocalTime().withNano(0)));
+        query.setParameter("failed", AppointmentReminderStatus.FAILED);
+        query.setParameter("maxAttempts", maxAttempts);
         query.setMaxResults(safeLimit(limit));
         List<ReminderCandidate> candidates = new ArrayList<>();
         for (Object[] row : query.getResultList()) {
@@ -111,6 +124,27 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
             reminder.claim(claimToken, now);
         }
         return claimed;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<AppointmentReminder> findAbandonedSending(ReminderChannel channel, Date staleBefore) {
+        if (channel == null || staleBefore == null) {
+            return List.of();
+        }
+        // SENDING is set only under a claim, and ending the attempt clears both; a SENDING row whose claim is
+        // gone or old belongs to a run that stopped between marking it and recording what happened.
+        TypedQuery<AppointmentReminder> query = entityManager.createQuery(
+                "SELECT r FROM AppointmentReminder r WHERE r.channel = :channel AND r.lastStatus = :sending "
+                        + "AND (r.claimToken IS NULL OR r.claimedAt < :staleBefore) ORDER BY r.id",
+                AppointmentReminder.class);
+        query.setParameter("channel", channel);
+        query.setParameter("sending", AppointmentReminderStatus.SENDING);
+        query.setParameter("staleBefore", staleBefore);
+        query.setLockMode(LockModeType.PESSIMISTIC_WRITE);
+        query.setHint(SpecHints.HINT_SPEC_LOCK_TIMEOUT, Timeouts.SKIP_LOCKED_MILLI);
+        query.setMaxResults(MAX_LIMIT);
+        return query.getResultList();
     }
 
     private static int safeLimit(int limit) {

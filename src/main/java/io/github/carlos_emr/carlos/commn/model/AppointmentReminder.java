@@ -126,7 +126,10 @@ public class AppointmentReminder extends AbstractModel<Long> {
         return reminder;
     }
 
-    /** Staff ticked the box: the appointment is reminded again from its current start. */
+    /**
+     * Staff ticked the box. A start already attempted is not reminded again; if the appointment has moved since,
+     * it is reminded for its new start.
+     */
     public void request(String providerNo, Date now) {
         requested = true;
         requestedBy = providerNo;

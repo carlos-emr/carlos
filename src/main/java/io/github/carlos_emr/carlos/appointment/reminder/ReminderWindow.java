@@ -109,11 +109,21 @@ public final class ReminderWindow {
 
     /** The earliest appointment date that can be due at {@code now}. */
     public LocalDate firstDate(LocalDateTime now) {
-        return now.plus(cutoff).toLocalDate();
+        return earliestStart(now).toLocalDate();
     }
 
     /** The latest appointment date that can be due at {@code now}. */
     public LocalDate lastDate(LocalDateTime now) {
-        return now.plus(lead).toLocalDate();
+        return latestStart(now).toLocalDate();
+    }
+
+    /** Starts after this are due at {@code now} (as late as {@link #latestStart}): {@code now} plus the cutoff. */
+    public LocalDateTime earliestStart(LocalDateTime now) {
+        return now.plus(cutoff);
+    }
+
+    /** The latest start that is due at {@code now}: {@code now} plus the lead time. */
+    public LocalDateTime latestStart(LocalDateTime now) {
+        return now.plus(lead);
     }
 }

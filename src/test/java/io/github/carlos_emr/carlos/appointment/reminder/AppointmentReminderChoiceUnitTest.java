@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.appointment.reminder;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.DisplayName;
@@ -29,9 +30,16 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
+import java.util.Locale;
+import java.util.Optional;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -121,5 +129,41 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         assertThat(AppointmentReminderChoice.isRequested(102)).isFalse();
         assertThat(AppointmentReminderChoice.isRequested(null)).isFalse();
         assertThat(AppointmentReminderChoice.isRequested(0)).isFalse();
+    }
+
+    @Test
+    void shouldShowTheStatusLine_onlyToAUserWhoMayReadThisPatientsRecordAndEmail() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.status.due", "");
+        when(reminders.statusLine(any(Appointment.class), any(Locale.class))).thenReturn(Optional.of(line));
+        when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isEqualTo(line);
+
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
+
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(false);
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH)).isNull();
+
+        assertThat(AppointmentReminderChoice.statusLine(null, appointment(101), Locale.ENGLISH)).isNull();
+    }
+
+    @Test
+    void shouldNotLookUpTheStatus_forAnAppointmentWithoutANumberOrAPatient() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        Appointment noPatient = appointment(101);
+        noPatient.setDemographicNo(0);
+
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(null), Locale.ENGLISH)).isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, noPatient, Locale.ENGLISH)).isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, null, Locale.ENGLISH)).isNull();
+
+        verify(security, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
+        verify(reminders, never()).statusLine(any(), any());
     }
 }

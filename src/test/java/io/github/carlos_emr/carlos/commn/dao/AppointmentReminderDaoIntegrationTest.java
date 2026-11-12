@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderStatus;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderCandidate;
 import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
@@ -38,6 +39,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.Date;
@@ -48,7 +50,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * #5887: the reminder table on H2, built from the entity. One row per appointment and channel; the due query
- * reads requested rows with their appointments by date; a claim takes only unclaimed (or abandoned) rows.
+ * reads only requested rows that may be due inside the window, with their appointments; a claim takes only
+ * unclaimed (or abandoned) rows; rows left being sent by a stopped run are found.
  * The real SKIP LOCKED across two connections belongs to the MariaDB lane. FAKE patients only.
  */
 @DisplayName("AppointmentReminderDao on H2")
@@ -125,29 +128,86 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
                 .isInstanceOfAny(PersistenceException.class, DataAccessException.class);
     }
 
+    /** The reminder attempted for {@code start}, ending with {@code status}, {@code times} times. */
+    private void attempted(AppointmentReminder reminder, LocalDate day, LocalTime start, AppointmentReminderStatus status,
+                           int times) {
+        for (int i = 0; i < times; i++) {
+            reminder.startSending(at(day, start), now);
+            reminder.finish(status, null, now);
+        }
+        reminders.merge(reminder);
+    }
+
     @Test
-    void shouldReadRequestedRowsWithTheirAppointments_byDateEarliestFirst() {
-        Appointment late = appointment(DAY, LocalTime.of(15, 0));
-        Appointment early = appointment(DAY, LocalTime.of(8, 30));
-        Appointment nextWeek = appointment(DAY.plusDays(7), LocalTime.of(9, 0));
-        Appointment withdrawnAppointment = appointment(DAY, LocalTime.of(10, 0));
-        Appointment smsOnly = appointment(DAY, LocalTime.of(11, 0));
-        AppointmentReminder lateReminder = reminder(late, ReminderChannel.EMAIL);
-        AppointmentReminder earlyReminder = reminder(early, ReminderChannel.EMAIL);
-        reminder(nextWeek, ReminderChannel.EMAIL);
+    void shouldReadOnlyRowsThatMayBeDue_insideTheWindowEarliestFirst() {
+        // now is DAY-1 10:00: due starts run from DAY-1 12:00 (a 2 h cutoff) to DAY 10:00 (a 24 h lead).
+        LocalDateTime earliest = DAY.minusDays(1).atTime(12, 0);
+        LocalDateTime latest = DAY.atTime(10, 0);
+        Appointment tooSoon = appointment(DAY.minusDays(1), LocalTime.of(11, 0));
+        Appointment earliestDue = appointment(DAY.minusDays(1), LocalTime.of(13, 0));
+        Appointment due = appointment(DAY, LocalTime.of(8, 30));
+        Appointment alreadySent = appointment(DAY, LocalTime.of(9, 0));
+        Appointment moved = appointment(DAY, LocalTime.of(9, 15));
+        Appointment failedOnce = appointment(DAY, LocalTime.of(9, 30));
+        Appointment failedTwice = appointment(DAY, LocalTime.of(9, 45));
+        Appointment tooFar = appointment(DAY, LocalTime.of(15, 0));
+        Appointment withdrawnAppointment = appointment(DAY, LocalTime.of(8, 0));
+        Appointment smsOnly = appointment(DAY, LocalTime.of(8, 15));
+        reminder(tooSoon, ReminderChannel.EMAIL);
+        AppointmentReminder earliestReminder = reminder(earliestDue, ReminderChannel.EMAIL);
+        AppointmentReminder dueReminder = reminder(due, ReminderChannel.EMAIL);
+        attempted(reminder(alreadySent, ReminderChannel.EMAIL), DAY, LocalTime.of(9, 0), AppointmentReminderStatus.SENT, 1);
+        AppointmentReminder movedReminder = reminder(moved, ReminderChannel.EMAIL);
+        attempted(movedReminder, DAY, LocalTime.of(7, 0), AppointmentReminderStatus.SENT, 1);
+        AppointmentReminder retry = reminder(failedOnce, ReminderChannel.EMAIL);
+        attempted(retry, DAY, LocalTime.of(9, 30), AppointmentReminderStatus.FAILED, 1);
+        attempted(reminder(failedTwice, ReminderChannel.EMAIL), DAY, LocalTime.of(9, 45), AppointmentReminderStatus.FAILED, 2);
+        reminder(tooFar, ReminderChannel.EMAIL);
         AppointmentReminder withdrawn = reminder(withdrawnAppointment, ReminderChannel.EMAIL);
         withdrawn.withdraw("999998", now);
         reminders.merge(withdrawn);
         reminder(smsOnly, ReminderChannel.SMS);
         entityManager.flush();
 
-        List<ReminderCandidate> due = reminders.findRequestedBetween(ReminderChannel.EMAIL, DAY, DAY.plusDays(1), 10);
+        List<ReminderCandidate> candidates = reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 10);
 
-        assertThat(due).extracting(ReminderCandidate::reminder).containsExactly(earlyReminder, lateReminder);
-        assertThat(due).extracting(candidate -> candidate.appointment().getId())
-                .containsExactly(early.getId(), late.getId());
-        assertThat(reminders.findRequestedBetween(ReminderChannel.EMAIL, DAY, DAY, 1)).hasSize(1);
-        assertThat(reminders.findRequestedBetween(ReminderChannel.EMAIL, DAY.plusDays(1), DAY, 10)).isEmpty();
+        // Not the start already reminded, nor the second failure, nor anything outside the window: those can
+        // never crowd the due ones out of the limit.
+        assertThat(candidates).extracting(ReminderCandidate::reminder)
+                .containsExactly(earliestReminder, dueReminder, movedReminder, retry);
+        assertThat(candidates).extracting(candidate -> candidate.appointment().getId())
+                .containsExactly(earliestDue.getId(), due.getId(), moved.getId(), failedOnce.getId());
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 1))
+                .extracting(ReminderCandidate::reminder).containsExactly(earliestReminder);
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, latest, earliest, 2, 10)).isEmpty();
+    }
+
+    @Test
+    void shouldFindRowsLeftSending_byARunThatStopped() {
+        Date stale = new Date(now.getTime() - 20 * 60_000L);
+        Date staleBefore = new Date(now.getTime() - 15 * 60_000L);
+        AppointmentReminder abandoned = reminder(appointment(DAY, LocalTime.of(9, 0)), ReminderChannel.EMAIL);
+        abandoned.claim("FAKE-stopped", stale);
+        abandoned.startSending(at(DAY, LocalTime.of(9, 0)), stale);
+        AppointmentReminder unclaimed = reminder(appointment(DAY, LocalTime.of(9, 15)), ReminderChannel.EMAIL);
+        unclaimed.startSending(at(DAY, LocalTime.of(9, 15)), stale);
+        AppointmentReminder live = reminder(appointment(DAY, LocalTime.of(9, 30)), ReminderChannel.EMAIL);
+        live.claim("FAKE-running", now);
+        live.startSending(at(DAY, LocalTime.of(9, 30)), now);
+        AppointmentReminder finished = reminder(appointment(DAY, LocalTime.of(9, 45)), ReminderChannel.EMAIL);
+        finished.claim("FAKE-done", stale);
+        finished.startSending(at(DAY, LocalTime.of(9, 45)), stale);
+        finished.finish(AppointmentReminderStatus.SENT, null, stale);
+        AppointmentReminder sms = reminder(appointment(DAY, LocalTime.of(10, 0)), ReminderChannel.SMS);
+        sms.claim("FAKE-stopped", stale);
+        sms.startSending(at(DAY, LocalTime.of(10, 0)), stale);
+        for (AppointmentReminder reminder : List.of(abandoned, unclaimed, live, finished, sms)) {
+            reminders.merge(reminder);
+        }
+        entityManager.flush();
+
+        assertThat(reminders.findAbandonedSending(ReminderChannel.EMAIL, staleBefore))
+                .containsExactly(abandoned, unclaimed);
     }
 
     @Test

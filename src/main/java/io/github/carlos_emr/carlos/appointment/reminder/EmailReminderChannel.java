@@ -25,6 +25,7 @@ import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDao;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -32,10 +33,12 @@ import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -61,6 +64,11 @@ import java.util.function.Supplier;
  * channel does not read them. A refusal (no sender, no footer, no address, no consent, no access) is
  * returned without sending and without an email log row.
  *
+ * <p>What this class returns is what it knows: a refusal or a failure before {@link EmailManager} could hand
+ * the email to the mail server is recorded as not sent, with the exception's class as the reason. Only an
+ * exception {@code EmailManager} raises once it may have started the send is left to the service, which
+ * records it as unconfirmed and never sends that start again.
+ *
  * @since 2026-11-12
  */
 @Service
@@ -80,24 +88,27 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
     private final DemographicManager demographics;
     private final ClinicDAO clinics;
     private final ProviderDao providers;
+    private final SecurityInfoManager security;
     private final Supplier<String> senderAddress;
 
     @Autowired
     public EmailReminderChannel(EmailManager emails, EmailComposeManager compose, EmailConfigDao senders,
-                                DemographicManager demographics, ClinicDAO clinics, ProviderDao providers) {
-        this(emails, compose, senders, demographics, clinics, providers,
+                                DemographicManager demographics, ClinicDAO clinics, ProviderDao providers,
+                                SecurityInfoManager security) {
+        this(emails, compose, senders, demographics, clinics, providers, security,
                 () -> CarlosProperties.getInstance().getProperty(SENDER_PROPERTY, null));
     }
 
     EmailReminderChannel(EmailManager emails, EmailComposeManager compose, EmailConfigDao senders,
                          DemographicManager demographics, ClinicDAO clinics, ProviderDao providers,
-                         Supplier<String> senderAddress) {
+                         SecurityInfoManager security, Supplier<String> senderAddress) {
         this.emails = Objects.requireNonNull(emails, "emails");
         this.compose = Objects.requireNonNull(compose, "compose");
         this.senders = Objects.requireNonNull(senders, "senders");
         this.demographics = Objects.requireNonNull(demographics, "demographics");
         this.clinics = Objects.requireNonNull(clinics, "clinics");
         this.providers = Objects.requireNonNull(providers, "providers");
+        this.security = Objects.requireNonNull(security, "security");
         this.senderAddress = Objects.requireNonNull(senderAddress, "senderAddress");
     }
 
@@ -108,18 +119,21 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
 
     @Override
     public ReminderOutcome send(ClaimedReminder reminder) {
-        LoggedInInfo system = systemUser();
-        if (system == null) {
-            return ReminderOutcome.of(AppointmentReminderStatus.NOT_PERMITTED);
-        }
-        EmailConfig sender = activeSender();
-        if (sender == null) {
-            return ReminderOutcome.of(AppointmentReminderStatus.NO_SENDER);
-        }
-        if (emails.clinicFooterMissing()) {
-            return ReminderOutcome.of(AppointmentReminderStatus.NO_FOOTER);
-        }
+        LoggedInInfo system;
+        EmailData email;
         try {
+            system = systemUser();
+            // EmailManager's own first check, made here so that a system account without it is a refusal.
+            if (system == null || !security.hasPrivilege(system, "_email", SecurityInfoManager.WRITE, null)) {
+                return ReminderOutcome.of(AppointmentReminderStatus.NOT_PERMITTED);
+            }
+            EmailConfig sender = activeSender();
+            if (sender == null) {
+                return ReminderOutcome.of(AppointmentReminderStatus.NO_SENDER);
+            }
+            if (emails.clinicFooterMissing()) {
+                return ReminderOutcome.of(AppointmentReminderStatus.NO_FOOTER);
+            }
             Demographic patient = demographics.getDemographic(system, reminder.demographicNo());
             if (patient == null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.NO_ADDRESS);
@@ -129,15 +143,26 @@ public class EmailReminderChannel implements AppointmentReminderChannel {
                 return ReminderOutcome.of(recipients[1].isEmpty()
                         ? AppointmentReminderStatus.NO_ADDRESS : AppointmentReminderStatus.INVALID_ADDRESS);
             }
-            EmailData email = message(reminder, patient, sender, (String) recipients[0].get(0));
+            email = message(reminder, patient, sender, (String) recipients[0].get(0));
             if (emails.consentBlockMessage(system, email) != null) {
                 return ReminderOutcome.of(AppointmentReminderStatus.BLOCKED_CONSENT);
             }
+        } catch (SecurityException | PatientDirectiveException e) {
+            // The system provider may not read this patient (a restricted program, a patient's directive, or a
+            // clinic that removed its rights). Nothing was sent.
+            return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, e);
+        } catch (RuntimeException e) {
+            // Before the email reached EmailManager's send: nothing was sent, so it is a definite failure.
+            return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
+        }
+        try {
             return outcome(emails.sendEmailWithResult(system, email));
-        } catch (SecurityException e) {
-            // The system provider may not read this patient (a restricted program, or a clinic that removed
-            // its rights). Nothing was sent.
-            return ReminderOutcome.of(AppointmentReminderStatus.NOT_PERMITTED);
+        } catch (SecurityException | PatientDirectiveException e) {
+            // EmailManager's checks of the sender and the patient, before its outbox row and the transport.
+            return ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, e);
+        } catch (EmailFieldLengthException e) {
+            // Thrown by EmailManager's field check, before its outbox row and the transport.
+            return ReminderOutcome.because(AppointmentReminderStatus.FAILED, e);
         }
     }
 

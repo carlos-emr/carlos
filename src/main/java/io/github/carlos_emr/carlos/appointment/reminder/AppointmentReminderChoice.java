@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.appointment.reminder;
 
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import jakarta.servlet.http.HttpServletRequest;
@@ -68,12 +69,27 @@ public final class AppointmentReminderChoice {
                 appointment.getDemographicNo(), ReminderChannel.EMAIL, isTicked(request));
     }
 
-    /** The line under the box on Edit Appointment, or {@code null} when there is nothing to say. */
-    public static ReminderStatusLine statusLine(Appointment appointment, Locale locale) {
-        if (appointment == null || appointment.getId() == null || appointment.getId() <= 0) {
+    /**
+     * The line under the box on Edit Appointment, or {@code null} when there is nothing to say or {@code user}
+     * may not read it for this patient ({@link #mayReadStatus}).
+     */
+    public static ReminderStatusLine statusLine(LoggedInInfo user, Appointment appointment, Locale locale) {
+        if (appointment == null || appointment.getId() == null || appointment.getId() <= 0
+                || appointment.getDemographicNo() <= 0
+                || !mayReadStatus(SpringUtils.getBean(SecurityInfoManager.class), user, appointment.getDemographicNo())) {
             return null;
         }
         return SpringUtils.getBean(AppointmentReminderService.class).statusLine(appointment, locale).orElse(null);
+    }
+
+    /**
+     * A per-patient check for the status line: read on this patient's record and on their email, as the email
+     * pages check it.
+     */
+    static boolean mayReadStatus(SecurityInfoManager security, LoggedInInfo user, int demographicNo) {
+        return user != null
+                && security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, demographicNo)
+                && security.hasPrivilege(user, "_email", SecurityInfoManager.READ, demographicNo);
     }
 
     /** Whether Edit Appointment shows the box ticked for {@code appointmentNo}. */

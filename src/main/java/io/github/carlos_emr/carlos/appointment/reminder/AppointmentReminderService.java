@@ -45,8 +45,11 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.FormatStyle;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
+import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -57,21 +60,35 @@ import java.util.function.Supplier;
 /**
  * Appointment reminders (#5887): records the staff choice on Add/Edit Appointment, and sends what is due.
  *
- * <p>A run reads requested reminders with their appointments, keeps those due now ({@link ReminderWindow}),
- * claims them with SKIP LOCKED, marks each as being sent for its current start, commits, and only then asks
- * the channel to send. The outcome is recorded in its own transaction. So a crash after the send leaves the
- * attempt {@link AppointmentReminderStatus#SENDING} but never sends one start twice, and a cancelled,
- * no-show, deleted or patient-less appointment is never reminded. The appointment is read as it is at claim
- * time, so a reschedule by any path (Edit, REST, HL7, recurring bookings) needs no hook.
+ * <p>A run reads the reminders that may be due now ({@link ReminderWindow}) and claims them with SKIP LOCKED.
+ * The claim is only a lock. Then, one reminder at a time: a short transaction marks it as being sent for the
+ * appointment's current start ({@link AppointmentReminderStatus#SENDING}) and commits, the channel sends it,
+ * and the outcome is recorded in its own transaction. A failure in one reminder ends that reminder only. So:
+ * <ul>
+ *   <li>one start is never sent twice: SENDING commits before the send, and a SENDING row is never sent
+ *       again;</li>
+ *   <li>a run that stops (a restart, a database error) strands at most the one reminder it was sending. Rows
+ *       it claimed but had not started are released, or taken over once the claim is
+ *       {@link #STALE_CLAIM} old. A SENDING row whose run stopped is recorded as
+ *       {@link AppointmentReminderStatus#UNCONFIRMED} after that time: it may have gone, so it is never sent
+ *       again;</li>
+ *   <li>a cancelled, no-show, deleted or patient-less appointment, or an unticked box, is never reminded.</li>
+ * </ul>
+ * The appointment is read as it is just before the send, so moving it by editing it (Edit, drag and drop,
+ * REST, HL7) makes it due again for its new start. Cut and Paste makes a new appointment, which has a reminder
+ * only if its box is ticked.
  *
  * @since 2026-11-12
  */
 @Service
 public class AppointmentReminderService {
 
-    /** A claim older than this was abandoned by a run that stopped; another run may take the row. */
+    /**
+     * A claim older than this was abandoned by a run that stopped: another run may take the row, or record it
+     * as unconfirmed if it was being sent. Far longer than one send.
+     */
     static final Duration STALE_CLAIM = Duration.ofMinutes(15);
-    /** Candidates read per channel and run, before the due check. */
+    /** Candidates read per channel and run, before the exact due check. Only rows that may be due are read. */
     static final int MAX_CANDIDATES = 500;
     /** Attempts per appointment start: the first, and one retry after a definite transport failure. */
     static final int MAX_ATTEMPTS = 2;
@@ -198,7 +215,8 @@ public class AppointmentReminderService {
 
     /**
      * Sends the reminders due now, at most {@code batchSize} per channel. Safe to run on several servers at
-     * once: each reminder is claimed by one run only.
+     * once: each reminder is claimed by one run only. Stops between reminders when its thread is interrupted
+     * (the scheduler stopping), releasing what it had not started.
      */
     public ReminderRun processDue(int batchSize) {
         if (batchSize <= 0) {
@@ -208,10 +226,14 @@ public class AppointmentReminderService {
         int sent = 0;
         int notSent = 0;
         for (AppointmentReminderChannel channel : channels.get()) {
+            if (Thread.currentThread().isInterrupted()) {
+                break;
+            }
             LocalDateTime now = LocalDateTime.now(clock);
+            recoverAbandoned(channel.channel(), now);
             List<Long> due = new ArrayList<>();
-            for (ReminderCandidate candidate : reminders.findRequestedBetween(channel.channel(), window.firstDate(now),
-                    window.lastDate(now), MAX_CANDIDATES)) {
+            for (ReminderCandidate candidate : reminders.findDue(channel.channel(), window.earliestStart(now),
+                    window.latestStart(now), MAX_ATTEMPTS, MAX_CANDIDATES)) {
                 if (due.size() >= batchSize) {
                     break;
                 }
@@ -223,41 +245,114 @@ public class AppointmentReminderService {
                 continue;
             }
             String claimToken = UUID.randomUUID().toString();
-            List<ClaimedReminder> claimed = transactions.execute(status -> claim(due, claimToken, now));
-            if (claimed == null) {
+            List<Long> claimed = transactions.execute(status -> claim(due, claimToken, now));
+            if (claimed == null || claimed.isEmpty()) {
                 continue;
             }
             claimedCount += claimed.size();
-            for (ClaimedReminder reminder : claimed) {
-                ReminderOutcome outcome = sendSafely(channel, reminder);
-                if (outcome.status() == AppointmentReminderStatus.SENT) {
-                    sent++;
-                } else {
-                    notSent++;
+            Deque<Long> waiting = new ArrayDeque<>(claimed);
+            try {
+                while (!waiting.isEmpty() && !Thread.currentThread().isInterrupted()) {
+                    Optional<ReminderOutcome> outcome = sendOne(channel, waiting.removeFirst(), claimToken);
+                    if (outcome.isEmpty()) {
+                        continue;
+                    }
+                    if (outcome.get().status() == AppointmentReminderStatus.SENT) {
+                        sent++;
+                    } else {
+                        notSent++;
+                    }
                 }
-                transactions.executeWithoutResult(status -> recordOutcome(reminder, claimToken, outcome));
-                audit(channel.channel(), reminder, outcome);
+            } finally {
+                release(waiting, claimToken);
             }
         }
         return new ReminderRun(claimedCount, sent, notSent);
     }
 
-    /** Must run in a transaction: claims, re-checks against the appointment as it is now, and marks SENDING. */
-    private List<ClaimedReminder> claim(List<Long> ids, String claimToken, LocalDateTime now) {
-        Date at = toDate(now);
-        List<ClaimedReminder> ready = new ArrayList<>();
-        for (AppointmentReminder reminder : reminders.claim(ids, claimToken, at, toDate(now.minus(STALE_CLAIM)))) {
+    /**
+     * Must run in a transaction: claims (a lock only), re-checks each row against the appointment as it is now,
+     * and releases those no longer due. Nothing is marked as attempted here.
+     */
+    private List<Long> claim(List<Long> ids, String claimToken, LocalDateTime now) {
+        List<Long> claimed = new ArrayList<>();
+        for (AppointmentReminder reminder : reminders.claim(ids, claimToken, toDate(now), toDate(now.minus(STALE_CLAIM)))) {
             Appointment appointment = appointments.find(reminder.getAppointmentNo());
             if (appointment == null || !isDue(appointment, reminder, now)) {
                 reminder.releaseClaim();
                 continue;
             }
-            Date start = appointment.getStartTimeAsFullDate();
-            reminder.startSending(start, at);
-            ready.add(new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(),
-                    toLocal(start)));
+            claimed.add(reminder.getId());
         }
-        return ready;
+        return claimed;
+    }
+
+    /**
+     * One claimed reminder: marked SENDING in its own transaction, sent, and its outcome recorded. Whatever
+     * fails ends this reminder only; the others in the run carry on.
+     *
+     * @return the outcome, or empty when nothing was sent (no longer due, or it could not be started)
+     */
+    private Optional<ReminderOutcome> sendOne(AppointmentReminderChannel channel, long reminderId, String claimToken) {
+        ClaimedReminder started;
+        try {
+            started = transactions.execute(status -> start(reminderId, claimToken, LocalDateTime.now(clock)));
+        } catch (RuntimeException e) {
+            // Not marked and not sent: the claim lapses and a later run takes the row. The class only.
+            logger.error("Appointment reminder {} could not be started ({})", reminderId, e.getClass().getName());
+            return Optional.empty();
+        }
+        if (started == null) {
+            return Optional.empty();
+        }
+        ReminderOutcome outcome = sendSafely(channel, started);
+        recordSafely(started, claimToken, outcome);
+        try {
+            audit(channel.channel(), started, outcome);
+        } catch (RuntimeException e) {
+            logger.error("Appointment reminder {} could not be audited ({})", reminderId, e.getClass().getName());
+        }
+        return Optional.of(outcome);
+    }
+
+    /**
+     * Must run in a transaction: marks one claimed reminder as being sent for the appointment's start now, just
+     * before the send. {@code null} when the claim is no longer this run's, the box was unticked, or the
+     * appointment is no longer due (its claim is then released).
+     */
+    private ClaimedReminder start(long reminderId, String claimToken, LocalDateTime now) {
+        AppointmentReminder reminder = reminders.find(reminderId);
+        if (reminder == null || !claimToken.equals(reminder.getClaimToken())) {
+            return null;
+        }
+        Appointment appointment = appointments.find(reminder.getAppointmentNo());
+        if (!reminder.isRequested() || appointment == null || !isDue(appointment, reminder, now)) {
+            reminder.releaseClaim();
+            return null;
+        }
+        Date start = appointment.getStartTimeAsFullDate();
+        reminder.startSending(start, toDate(now));
+        return new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(), toLocal(start));
+    }
+
+    /**
+     * Records the outcome, trying once more if the first transaction fails (a concurrent edit of the row, a
+     * database blip). If both fail, the row stays SENDING and is recorded as unconfirmed once its claim is stale:
+     * never sent again.
+     */
+    private void recordSafely(ClaimedReminder claimed, String claimToken, ReminderOutcome outcome) {
+        for (int attempt = 1; ; attempt++) {
+            try {
+                transactions.executeWithoutResult(status -> recordOutcome(claimed, claimToken, outcome));
+                return;
+            } catch (RuntimeException e) {
+                logger.error("Appointment reminder {} outcome could not be recorded, try {} ({})", claimed.reminderId(),
+                        attempt, e.getClass().getName());
+                if (attempt >= 2) {
+                    return;
+                }
+            }
+        }
     }
 
     private void recordOutcome(ClaimedReminder claimed, String claimToken, ReminderOutcome outcome) {
@@ -270,24 +365,82 @@ public class AppointmentReminderService {
         reminder.finish(outcome.status(), outcome.emailLogId(), Date.from(clock.instant()));
     }
 
+    /** Releases this run's claim on reminders it did not start, so the next run need not wait for it to go stale. */
+    private void release(Collection<Long> ids, String claimToken) {
+        if (ids.isEmpty()) {
+            return;
+        }
+        try {
+            transactions.executeWithoutResult(status -> {
+                for (Long id : ids) {
+                    AppointmentReminder reminder = reminders.find(id);
+                    if (reminder != null && claimToken.equals(reminder.getClaimToken())) {
+                        reminder.releaseClaim();
+                    }
+                }
+            });
+        } catch (RuntimeException e) {
+            // The claims lapse after STALE_CLAIM instead.
+            logger.warn("Appointment reminder claims could not be released ({})", e.getClass().getName());
+        }
+    }
+
+    /**
+     * Records as unconfirmed the reminders a stopped run left SENDING: it may have sent them, so they are never
+     * sent again, and Edit says the mail server did not confirm it.
+     */
+    private void recoverAbandoned(ReminderChannel channel, LocalDateTime now) {
+        List<ClaimedReminder> recovered;
+        try {
+            recovered = transactions.execute(status -> {
+                List<ClaimedReminder> found = new ArrayList<>();
+                for (AppointmentReminder reminder : reminders.findAbandonedSending(channel, toDate(now.minus(STALE_CLAIM)))) {
+                    reminder.finish(AppointmentReminderStatus.UNCONFIRMED, reminder.getLastEmailLogId(), toDate(now));
+                    Appointment appointment = appointments.find(reminder.getAppointmentNo());
+                    found.add(new ClaimedReminder(reminder.getId(), reminder.getAppointmentNo(),
+                            appointment == null ? 0 : appointment.getDemographicNo(), toLocal(reminder.getSentFor())));
+                }
+                return found;
+            });
+        } catch (RuntimeException e) {
+            logger.error("Abandoned appointment reminders could not be recovered ({})", e.getClass().getName());
+            return;
+        }
+        if (recovered == null) {
+            return;
+        }
+        for (ClaimedReminder reminder : recovered) {
+            logger.warn("Appointment reminder {} was left being sent by a run that stopped; recorded as unconfirmed",
+                    reminder.reminderId());
+            try {
+                audit(channel, reminder, ReminderOutcome.because(AppointmentReminderStatus.UNCONFIRMED, "abandoned"));
+            } catch (RuntimeException e) {
+                logger.error("Appointment reminder {} could not be audited ({})", reminder.reminderId(),
+                        e.getClass().getName());
+            }
+        }
+    }
+
     private static ReminderOutcome sendSafely(AppointmentReminderChannel channel, ClaimedReminder reminder) {
         try {
             ReminderOutcome outcome = channel.send(reminder);
             return outcome == null ? ReminderOutcome.of(AppointmentReminderStatus.UNCONFIRMED) : outcome;
         } catch (RuntimeException e) {
-            // The channel may have sent it before failing: never retried. The class only, no patient data.
+            // The channel may have sent it before failing: never retried. A channel returns what it knows was
+            // not sent; anything thrown is unknown. The class only, no patient data.
             logger.error("Appointment reminder channel {} failed; recorded as unconfirmed ({})", channel.channel(),
                     e.getClass().getName());
-            return ReminderOutcome.of(AppointmentReminderStatus.UNCONFIRMED);
+            return ReminderOutcome.because(AppointmentReminderStatus.UNCONFIRMED, e);
         }
     }
 
     private static void audit(ReminderChannel channel, ClaimedReminder reminder, ReminderOutcome outcome) {
         String data = "reminderId=" + reminder.reminderId()
-                + (outcome.emailLogId() == null ? "" : "&emailLogId=" + outcome.emailLogId());
+                + (outcome.emailLogId() == null ? "" : "&emailLogId=" + outcome.emailLogId())
+                + (outcome.reason() == null ? "" : "&reason=" + outcome.reason());
         LogAction.addLog(Provider.SYSTEM_PROVIDER_NO, "AppointmentReminder." + channel + "." + outcome.status(),
                 LogConst.CON_APPT, String.valueOf(reminder.appointmentNo()), null,
-                String.valueOf(reminder.demographicNo()), data);
+                reminder.demographicNo() > 0 ? String.valueOf(reminder.demographicNo()) : null, data);
     }
 
     /**

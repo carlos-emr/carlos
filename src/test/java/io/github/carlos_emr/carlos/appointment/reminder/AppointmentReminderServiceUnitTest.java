@@ -47,8 +47,11 @@ import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.function.Function;
@@ -124,7 +127,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
     /** The DAOs as the database would answer: the candidate, the claim, and the row read back by id. */
     private void stored(AppointmentReminder reminder, Appointment candidate, Appointment atClaim) {
-        when(reminders.findRequestedBetween(eq(ReminderChannel.EMAIL), any(), any(), anyInt()))
+        when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), anyInt()))
                 .thenReturn(List.of(new ReminderCandidate(reminder, candidate)));
         when(reminders.claim(any(), anyString(), any(), any())).thenAnswer(call -> {
             Collection<Long> ids = call.getArgument(0);
@@ -253,7 +256,217 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
         @Test
         void shouldSendNothing_forABatchOfZero() {
             assertThat(service.processDue(0)).isEqualTo(ReminderRun.NONE);
-            verify(reminders, never()).findRequestedBetween(any(), any(), any(), anyInt());
+            verify(reminders, never()).findDue(any(), any(), any(), anyInt(), anyInt());
+        }
+
+        @Test
+        void shouldAskOnlyForStartsInsideTheWindow_notYetRemindedOrDueTheirRetry() {
+            service.processDue(10);
+
+            verify(reminders).findDue(ReminderChannel.EMAIL, NOW.plusHours(2), NOW.plusHours(24),
+                    AppointmentReminderService.MAX_ATTEMPTS, AppointmentReminderService.MAX_CANDIDATES);
+        }
+    }
+
+    /**
+     * M1 of the review: a run that fails or stops partway strands at most the reminder it was sending, and never
+     * sends a start twice. The table is a small in-memory stand-in that claims and finds as the database does.
+     */
+    @Nested
+    @DisplayName("A failure or a stop partway through a run")
+    class PartwayThrough {
+
+        private final Map<Long, AppointmentReminder> rows = new LinkedHashMap<>();
+        private final Map<Integer, Appointment> booked = new HashMap<>();
+        private final Map<Object, Integer> reads = new HashMap<>();
+        private Long failReadsOf;
+        private int failFromRead;
+        private Integer failAppointmentReadsOf;
+
+        @BeforeEach
+        void table() {
+            when(reminders.findDue(eq(ReminderChannel.EMAIL), any(), any(), anyInt(), anyInt())).thenAnswer(call ->
+                    rows.values().stream()
+                            .map(reminder -> new ReminderCandidate(reminder, booked.get(reminder.getAppointmentNo())))
+                            .toList());
+            when(reminders.claim(any(), anyString(), any(), any())).thenAnswer(call -> {
+                Collection<Long> ids = call.getArgument(0);
+                Date staleBefore = call.getArgument(3);
+                List<AppointmentReminder> claimed = new ArrayList<>();
+                for (Long id : ids) {
+                    AppointmentReminder reminder = rows.get(id);
+                    if (reminder != null && reminder.isRequested()
+                            && (reminder.getClaimToken() == null || reminder.getClaimedAt().before(staleBefore))) {
+                        reminder.claim(call.getArgument(1), call.getArgument(2));
+                        claimed.add(reminder);
+                    }
+                }
+                return claimed;
+            });
+            when(reminders.find(any(Long.class))).thenAnswer(call -> {
+                Long id = call.getArgument(0);
+                int read = reads.merge(id, 1, Integer::sum);
+                if (id.equals(failReadsOf) && read >= failFromRead) {
+                    throw new IllegalStateException("FAKE database failure");
+                }
+                return rows.get(id);
+            });
+            when(appointments.find(any(Integer.class))).thenAnswer(call -> {
+                Integer number = call.getArgument(0);
+                int read = reads.merge("appointment " + number, 1, Integer::sum);
+                if (number.equals(failAppointmentReadsOf) && read == 2) {
+                    throw new IllegalStateException("FAKE database failure");
+                }
+                return booked.get(number);
+            });
+            when(reminders.findAbandonedSending(eq(ReminderChannel.EMAIL), any())).thenAnswer(call -> {
+                Date staleBefore = call.getArgument(1);
+                return rows.values().stream()
+                        .filter(reminder -> reminder.getLastStatus() == AppointmentReminderStatus.SENDING
+                                && (reminder.getClaimToken() == null || reminder.getClaimedAt().before(staleBefore)))
+                        .toList();
+            });
+        }
+
+        private AppointmentReminder row(long id, LocalDateTime start) {
+            int appointmentNo = (int) id + 100;
+            AppointmentReminder reminder = AppointmentReminder.requested(appointmentNo, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(3)));
+            ReflectionTestUtils.setField(reminder, "id", id);
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setId(appointmentNo);
+            rows.put(id, reminder);
+            booked.put(appointmentNo, appointment);
+            return reminder;
+        }
+
+        /** The same service, its clock at {@code now}: a later run. */
+        private AppointmentReminderService runAt(LocalDateTime now) {
+            AppointmentReminderChannel email = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder reminder) {
+                    handed.add(reminder);
+                    return channelAnswer.apply(reminder);
+                }
+            };
+            return new AppointmentReminderService(reminders, appointments, () -> List.of(email),
+                    TransactionOperations.withoutTransaction(), new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(now.atZone(ZONE).toInstant(), ZONE));
+        }
+
+        @Test
+        void shouldSendTheRest_andRecordTheStrandedOneAsUnconfirmedLater_whenRecordingAnOutcomeFails() {
+            AppointmentReminder first = row(7L, NOW.plusHours(20));
+            AppointmentReminder second = row(8L, NOW.plusHours(21));
+            // The first read is the start; the second and third are the outcome and its one retry.
+            failReadsOf = 7L;
+            failFromRead = 2;
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(run).isEqualTo(new ReminderRun(2, 2, 0));
+            assertThat(handed).extracting(ClaimedReminder::reminderId).containsExactly(7L, 8L);
+            assertThat(second.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(second.getClaimToken()).isNull();
+            assertThat(first.getLastStatus()).as("only the reminder being sent is stranded")
+                    .isEqualTo(AppointmentReminderStatus.SENDING);
+
+            failReadsOf = null;
+            runAt(NOW.plus(AppointmentReminderService.STALE_CLAIM).plusMinutes(1)).processDue(10);
+
+            assertThat(first.getLastStatus()).as("it may have gone: unconfirmed")
+                    .isEqualTo(AppointmentReminderStatus.UNCONFIRMED);
+            assertThat(first.getClaimToken()).isNull();
+            assertThat(handed).as("never sent twice").extracting(ClaimedReminder::reminderId).containsExactly(7L, 8L);
+        }
+
+        @Test
+        void shouldSendTheRest_andLeaveTheOneThatCouldNotStartToALaterRun() {
+            AppointmentReminder first = row(7L, NOW.plusHours(20));
+            AppointmentReminder second = row(8L, NOW.plusHours(21));
+            // Read once by the claim, then again to start it: that second read fails.
+            failAppointmentReadsOf = 107;
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(run).isEqualTo(new ReminderRun(2, 1, 0));
+            assertThat(handed).extracting(ClaimedReminder::reminderId).containsExactly(8L);
+            assertThat(second.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(first.getLastStatus()).as("not marked, so not stranded").isNull();
+            assertThat(first.getSentFor()).isNull();
+
+            runAt(NOW.plus(AppointmentReminderService.STALE_CLAIM).plusMinutes(1)).processDue(10);
+
+            assertThat(handed).extracting(ClaimedReminder::reminderId).containsExactly(8L, 7L);
+            assertThat(first.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            assertThat(first.getAttempts()).isEqualTo(1);
+        }
+
+        @Test
+        void shouldStopBetweenReminders_andReleaseWhatItDidNotStart_whenInterrupted() {
+            AppointmentReminder first = row(7L, NOW.plusHours(20));
+            AppointmentReminder second = row(8L, NOW.plusHours(21));
+            AppointmentReminder third = row(9L, NOW.plusHours(22));
+            channelAnswer = claimed -> {
+                // The scheduler stopping while the first reminder is sent.
+                Thread.currentThread().interrupt();
+                return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+            };
+            try {
+                ReminderRun run = service.processDue(10);
+
+                assertThat(run).isEqualTo(new ReminderRun(3, 1, 0));
+            } finally {
+                assertThat(Thread.interrupted()).as("the interrupt is kept for the scheduler").isTrue();
+            }
+            assertThat(handed).extracting(ClaimedReminder::reminderId).containsExactly(7L);
+            assertThat(first.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENT);
+            for (AppointmentReminder released : List.of(second, third)) {
+                assertThat(released.getClaimToken()).as("released for the next run").isNull();
+                assertThat(released.getLastStatus()).as("never marked as being sent").isNull();
+            }
+        }
+
+        @Test
+        void shouldRecordAnAbandonedSendAsUnconfirmed_andLeaveALiveOneToItsRun() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder abandoned = row(7L, start);
+            abandoned.claim("FAKE-stopped-run", at(NOW.minus(AppointmentReminderService.STALE_CLAIM).minusMinutes(1)));
+            abandoned.startSending(at(start), at(NOW.minusMinutes(16)));
+            AppointmentReminder live = row(8L, NOW.plusHours(21));
+            live.claim("FAKE-running", at(NOW.minusMinutes(1)));
+            live.startSending(at(NOW.plusHours(21)), at(NOW.minusMinutes(1)));
+
+            ReminderRun run = service.processDue(10);
+
+            assertThat(run).isEqualTo(ReminderRun.NONE);
+            assertThat(handed).as("neither is sent again").isEmpty();
+            assertThat(abandoned.getLastStatus()).isEqualTo(AppointmentReminderStatus.UNCONFIRMED);
+            assertThat(abandoned.getClaimToken()).isNull();
+            assertThat(live.getLastStatus()).isEqualTo(AppointmentReminderStatus.SENDING);
+            assertThat(live.getClaimToken()).isEqualTo("FAKE-running");
+        }
+
+        @Test
+        void shouldNotSend_whenTheBoxWasUntickedAfterTheClaim() {
+            AppointmentReminder reminder = row(7L, NOW.plusHours(20));
+            channelAnswer = claimed -> new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+            when(appointments.find(any(Integer.class))).thenAnswer(call -> {
+                // Staff untick the box between the claim and the send.
+                reminder.withdraw("999998", at(NOW));
+                return booked.get(call.<Integer>getArgument(0));
+            });
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getClaimToken()).isNull();
+            assertThat(reminder.getLastStatus()).isNull();
         }
     }
 

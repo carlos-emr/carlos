@@ -12,7 +12,8 @@ path (`EmailManager`), so every email rule that applies to staff-sent patient em
 | `appointment_reminder.email.sender` | `carlos.properties` | The sender address reminders go from. It must be an **active** sender in Administration > Email configuration. Without it, nothing is sent and each reminder records "not set up". |
 | `appointment_reminder.email.hours_before` | `carlos.properties` | How many hours before the start the reminder goes. Default 24; kept between 3 and 168. A missing or invalid value uses 24, and the log says so. |
 
-Properties are read at startup, so restart Tomcat after changing them.
+`emailApptReminder` and `hours_before` are read at startup, so restart Tomcat after changing them. The sender
+address is read at every send.
 
 The clinic email footer must be configured, as for every patient email. The `appointment_reminder` table and the
 `_edoc` write right for the system account come from the release's database migration.
@@ -24,11 +25,17 @@ The clinic email footer must be configured, as for every patient email. The `app
 - **Address:** the patient has a valid email address on their demographic record. The first valid address is used.
 - **Timing:** the reminder goes from `hours_before` before the start until 2 hours before. A booking made inside
   that window is reminded at the next run, as long as more than 2 hours remain.
-- **Once per start:** each appointment start is reminded once. Moving the appointment (by any path: Edit, REST,
-  HL7, recurring bookings) makes it due again for the new start. Unticking the box stops it. A reminder already sent
-  cannot be recalled.
-- **Retry:** one retry, 30 minutes after a definite mail-server failure. A refusal (consent, address, setup) or an
-  unconfirmed send is never retried, so a patient is not emailed twice.
+- **Once per start:** each appointment start is reminded once. Moving the appointment by changing its date or time
+  (Edit Appointment, dragging it on the schedule, REST, HL7, or a change to a whole repeat series) makes it due
+  again for the new start. Unticking the box stops it. A reminder already sent cannot be recalled.
+- **New appointments do not inherit it:** Cut and Paste, and the copies a Repeat Booking makes, are new
+  appointments. The choice is not copied to them, so tick the box on each one that should be reminded.
+- **Retry:** one retry, 30 minutes after a definite failure (the mail server refused it, or it failed before
+  being handed over). A refusal (consent, address, setup) or an unconfirmed send is never retried, so a patient is
+  not emailed twice.
+- **A restart while sending:** the job marks each reminder just before sending it. If the server stops between that
+  mark and the outcome, that one reminder shows "sent, but the mail server did not confirm it" after 15 minutes,
+  and is never sent again. Reminders the job had not reached go at a later run.
 
 ## What the patient receives
 The subject is "Appointment reminder: {clinic}". The body:

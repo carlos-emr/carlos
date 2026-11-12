@@ -83,6 +83,12 @@ class ReminderWindowUnitTest {
 
         assertThat(window.firstDate(now)).isEqualTo(LocalDate.of(2026, 11, 13));
         assertThat(window.lastDate(now)).isEqualTo(LocalDate.of(2026, 11, 13));
+        // The starts themselves, which the due query reads between.
+        assertThat(window.earliestStart(now)).isEqualTo(now.plusHours(2));
+        assertThat(window.latestStart(now)).isEqualTo(now.plusHours(24));
+        assertThat(window.isDue(window.latestStart(now), now, null)).isTrue();
+        assertThat(window.isDue(window.earliestStart(now), now, null)).isFalse();
+        assertThat(window.isDue(window.earliestStart(now).plusSeconds(1), now, null)).isTrue();
         assertThat(window.opensAt(START)).isEqualTo(START.minusHours(24));
     }
 

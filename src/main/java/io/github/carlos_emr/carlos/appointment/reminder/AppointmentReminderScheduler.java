@@ -49,6 +49,11 @@ public class AppointmentReminderScheduler {
     static final String ENABLED_PROPERTY = "emailApptReminder";
     static final long INTERVAL_SECONDS = 300;
     static final int BATCH_SIZE = 50;
+    /**
+     * How long stopping waits for a run: it stops between reminders once interrupted, so this covers recording
+     * the one it is sending. A run still busy after it leaves that reminder to the stale-claim recovery.
+     */
+    static final long STOP_WAIT_SECONDS = 10;
 
     private static final Logger logger = MiscUtils.getLogger();
 
@@ -77,6 +82,14 @@ public class AppointmentReminderScheduler {
     public synchronized void stop() {
         if (executor != null) {
             executor.shutdownNow();
+            try {
+                if (!executor.awaitTermination(STOP_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                    logger.warn("Appointment reminder run still busy after {} seconds; stopping without it",
+                            STOP_WAIT_SECONDS);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
             executor = null;
         }
     }

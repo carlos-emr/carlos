@@ -24,16 +24,19 @@ package io.github.carlos_emr.carlos.appointment.reminder;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDao;
+import io.github.carlos_emr.carlos.commn.exception.PatientDirectiveException;
 import io.github.carlos_emr.carlos.commn.model.Clinic;
 import io.github.carlos_emr.carlos.commn.model.Demographic;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
 import io.github.carlos_emr.carlos.commn.model.EmailLog;
 import io.github.carlos_emr.carlos.commn.model.Provider;
 import io.github.carlos_emr.carlos.email.core.EmailData;
+import io.github.carlos_emr.carlos.email.core.EmailFieldLengthException;
 import io.github.carlos_emr.carlos.email.core.EmailSendResult;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -52,9 +55,11 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -82,6 +87,7 @@ class EmailReminderChannelUnitTest {
     private final DemographicManager demographics = mock(DemographicManager.class);
     private final ClinicDAO clinics = mock(ClinicDAO.class);
     private final ProviderDao providers = mock(ProviderDao.class);
+    private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final Demographic patient = new Demographic();
     private final Clinic clinic = new Clinic();
     private String configuredSender = SENDER;
@@ -103,7 +109,10 @@ class EmailReminderChannelUnitTest {
         clinic.setClinicName("FAKE Maple Clinic");
         clinic.setClinicPhone("555-0100");
         when(clinics.getClinic()).thenReturn(clinic);
-        channel = new EmailReminderChannel(emails, compose, senders, demographics, clinics, providers, () -> configuredSender);
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(true);
+        channel = new EmailReminderChannel(emails, compose, senders, demographics, clinics, providers, security,
+                () -> configuredSender);
     }
 
     private static EmailLog log(int id, EmailLog.EmailStatus status) {
@@ -268,5 +277,55 @@ class EmailReminderChannelUnitTest {
         assertThat(channel.send(REMINDER)).isEqualTo(new ReminderOutcome(AppointmentReminderStatus.UNCONFIRMED, 901));
         assertThat(channel.send(REMINDER)).isEqualTo(new ReminderOutcome(AppointmentReminderStatus.BLOCKED_CONSENT, 902));
         assertThat(channel.send(REMINDER)).isEqualTo(new ReminderOutcome(AppointmentReminderStatus.FAILED, 903));
+    }
+
+    @Test
+    void shouldRefuseWithoutSending_whenTheSystemProviderMayNotWriteEmail() {
+        when(security.hasPrivilege(any(LoggedInInfo.class), eq("_email"), eq(SecurityInfoManager.WRITE), isNull()))
+                .thenReturn(false);
+
+        assertThat(channel.send(REMINDER).status()).isEqualTo(AppointmentReminderStatus.NOT_PERMITTED);
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+    }
+
+    @Test
+    void shouldRecordNotPermittedWithItsReason_whenThePatientHasABlockingDirective() {
+        when(demographics.getDemographic(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
+                .thenThrow(new PatientDirectiveException("FAKE directive"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                new ReminderOutcome(AppointmentReminderStatus.NOT_PERMITTED, null, "PatientDirectiveException"));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+    }
+
+    @Test
+    void shouldRecordAFailureNotAnUnconfirmedSend_whenSomethingFailsBeforeTheSend() {
+        when(compose.getRecipients(any(LoggedInInfo.class), eq(Integer.valueOf(PATIENT))))
+                .thenThrow(new IllegalStateException("FAKE lookup failure"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                new ReminderOutcome(AppointmentReminderStatus.FAILED, null, "IllegalStateException"));
+        verify(emails, never()).sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class));
+    }
+
+    @Test
+    void shouldRecordWhatEmailManagerRefusesBeforeItsOutbox_asNotSent() {
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenThrow(new EmailFieldLengthException(List.of()))
+                .thenThrow(new PatientDirectiveException("FAKE directive"));
+
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                new ReminderOutcome(AppointmentReminderStatus.FAILED, null, "EmailFieldLengthException"));
+        assertThat(channel.send(REMINDER)).isEqualTo(
+                new ReminderOutcome(AppointmentReminderStatus.NOT_PERMITTED, null, "PatientDirectiveException"));
+    }
+
+    @Test
+    void shouldLeaveAnyOtherSendFailure_toTheServiceAsUnknown() {
+        // Thrown once EmailManager may have started the send: the channel cannot say it was not sent.
+        when(emails.sendEmailWithResult(any(LoggedInInfo.class), any(EmailData.class)))
+                .thenThrow(new IllegalStateException("FAKE transport fault"));
+
+        assertThatThrownBy(() -> channel.send(REMINDER)).isInstanceOf(IllegalStateException.class);
     }
 }

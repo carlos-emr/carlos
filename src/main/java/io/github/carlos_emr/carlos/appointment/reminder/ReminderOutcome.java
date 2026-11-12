@@ -25,20 +25,37 @@ import java.util.Objects;
 
 /**
  * How one reminder attempt ended (#5887). {@code emailLogId} names the email log row when the email channel
- * made one, so staff can follow it to Manage Emails.
+ * made one, so staff can follow it to Manage Emails. {@code reason}, when given, says why for the audit row: a
+ * fixed word or an exception's class name, never patient data.
  *
  * @since 2026-11-12
  */
-public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId) {
+public record ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId, String reason) {
 
     public ReminderOutcome {
         Objects.requireNonNull(status, "status");
         if (status == AppointmentReminderStatus.SENDING) {
             throw new IllegalArgumentException("SENDING is not an outcome");
         }
+        // It goes into the audit row's key=value data: letters, digits, '.', '_' and '-' only.
+        reason = reason == null || reason.isBlank() ? null : reason.replaceAll("[^A-Za-z0-9._-]", "");
+    }
+
+    public ReminderOutcome(AppointmentReminderStatus status, Integer emailLogId) {
+        this(status, emailLogId, null);
     }
 
     public static ReminderOutcome of(AppointmentReminderStatus status) {
-        return new ReminderOutcome(status, null);
+        return new ReminderOutcome(status, null, null);
+    }
+
+    /** {@code status}, because of {@code reason} (a fixed word). */
+    public static ReminderOutcome because(AppointmentReminderStatus status, String reason) {
+        return new ReminderOutcome(status, null, reason);
+    }
+
+    /** {@code status}, because {@code cause} was thrown: its class name only, never its message. */
+    public static ReminderOutcome because(AppointmentReminderStatus status, Throwable cause) {
+        return because(status, cause == null ? null : cause.getClass().getSimpleName());
     }
 }
