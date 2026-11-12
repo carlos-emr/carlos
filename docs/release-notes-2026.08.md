@@ -170,8 +170,11 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   whole lab result ([#6121](https://github.com/carlos-emr/carlos/issues/6121)): `No organisms seen`,
   `N/A` and the blood group `A positive` are no longer filed as `No`, `N` and `A`, and
   `Negative 2026-10-09` or `Collected 2026-10-09` no longer as the date. A result that starts
-  with a date and goes on (`2026-10-09 repeat`, `12/05/2026 see note`) is not filed either.
-  Other numbers, and a result that is only a date, are filed as before.
+  with a date with a four-digit year and goes on (`2026-10-09 repeat`, `12/05/2026 see note`) is
+  not filed either, nor a date written with spaces or a month name that the stock date forms do
+  not take (`10 12 2026`, `09-Oct-2026`), which was filed as its first part. Other numbers
+  (`6.5 2026-10-09` is still filed as `6.5`), and a whole date written with `-`, `/` or `.`, are
+  filed as before; so are other date forms, such as a two-digit year (`10/09/26 repeat`).
   - The package rewrites the exact previous stock line in `/etc/carlos-emr/carlos.properties`
     once. It leaves an edited line alone, and warns when that line still matches words at the
     start of a result.

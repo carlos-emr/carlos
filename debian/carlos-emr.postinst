@@ -1156,8 +1156,9 @@ OAUTH_ACCESS_DEFAULTS
         # as "A": answers the lab did not give, in the flowsheets, the
         # Measurements module and decision support. The stock line now accepts a
         # word or a date only as the whole result (^(word)$, ^date$), and its
-        # number alternative skips a result that starts with a date and goes on
-        # ("2026-10-09 repeat"); other numbers are unchanged. Same discipline as the #4613 block above, which runs first:
+        # number alternative skips a result that starts with a date with a
+        # four-digit year and goes on ("2026-10-09 repeat"); other numbers are
+        # unchanged. Same discipline as the #4613 block above, which runs first:
         # under the provisioning lock, ONLY the exact #4613 stock line, ONLY when
         # the key is defined once, ONLY once (the sentinel is written on fresh
         # installs too). An install still on the pre-#4613 line was moved
@@ -1190,7 +1191,7 @@ OAUTH_ACCESS_DEFAULTS
                         && chown --reference="${PROPERTIES}" "${lab_filter_words_tmp}" \
                         && chmod --reference="${PROPERTIES}" "${lab_filter_words_tmp}" \
                         && mv -f "${lab_filter_words_tmp}" "${PROPERTIES}"; then
-                        echo "carlos-emr: updated the stock HL7_LAB_MEASUREMENT_FILTER, which filed a word or a date at the start of a longer lab result (\"No organisms seen\" as \"No\", \"Negative 2026-10-09\" as the date) as that result's value (#6121)"
+                        echo "carlos-emr: updated the stock HL7_LAB_MEASUREMENT_FILTER, which filed a word at the start of a longer lab result, or a date found in it, as that result's value (\"No organisms seen\" as \"No\", \"Negative 2026-10-09\" as the date) (#6121)"
                     else
                         rm -f "${lab_filter_words_tmp}"
                         echo "carlos-emr: ERROR: could not rewrite HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES}" >&2
@@ -1202,7 +1203,7 @@ OAUTH_ACCESS_DEFAULTS
                     # but the definition in effect (java.util.Properties keeps the
                     # last) still has the stock word alternatives that match the
                     # start of a result: say so once, when the sentinel is written.
-                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still matches its words at the start of a result (^\\b(word)\\b), which files \"No organisms seen\" as \"No\", and its dates anywhere in it (#6121); it was left as it is because it is not the stock line" >&2
+                    echo "carlos-emr: WARNING: HL7_LAB_MEASUREMENT_FILTER in ${PROPERTIES} still matches its words at the start of a result (^\\b(word)\\b), which files \"No organisms seen\" as \"No\", and may match dates anywhere in it (#6121); it was left as it is because it is not the stock line" >&2
                 fi
                 mkdir -p "${STATE}"
                 : > "${LAB_FILTER_WORDS_SENTINEL}"

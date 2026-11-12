@@ -111,10 +111,17 @@ class TestLabFilterWordsMigration(unittest.TestCase):
         old, new = alternatives(old_line()), alternatives(shipped_line())
         self.assertEqual(len(old), len(new))
         # The two date alternatives must be the whole result; the leading number skips a result that
-        # starts with a date and goes on, and is otherwise unchanged.
-        self.assertEqual(new[:2], ["^" + date + "$" for date in old[:2]])
-        skip = ("(?![0-9]{4}[-/. ][0-9]{1,2}[-/. ][0-9]{1,2}[^0-9]"
-                "|[0-9]{1,2}[-/. ][0-9]{1,2}[-/. ][0-9]{4}[^0-9])")
+        # starts with a four-digit-year date and goes on, and is otherwise unchanged. Each date form
+        # uses the same separator twice, so a number such as "6.5 2026-10-09" is still filed as 6.5.
+        year, part, dot = "(?:19|20)[0-9]{2}", "[0-9]{1,2}", "\\\\."
+        sep = "(?:-" + part + "-|/" + part + "/|" + dot + part + dot + ")"
+        month = ("(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
+                 "|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)")
+        skip = ("(?!" + year + sep + part + "[^0-9]"
+                "|" + part + sep + year + "[^0-9]"
+                "|" + year + " " + part + " " + part + "(?:[^0-9]|$)"
+                "|" + part + " " + part + " " + year + "(?:[^0-9]|$)"
+                "|" + part + "[-/. ]" + month + "[-/. ]" + year + ")")
         self.assertTrue(old[2].startswith("^"), old[2])
         self.assertEqual(new[2], "^" + skip + old[2][1:])
         for before, after in zip(old[3:], new[3:]):
