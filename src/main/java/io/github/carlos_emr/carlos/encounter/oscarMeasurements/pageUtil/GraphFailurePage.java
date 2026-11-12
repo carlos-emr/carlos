@@ -31,6 +31,8 @@ import java.util.ResourceBundle;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.commons.lang3.Strings;
+
 import io.github.carlos_emr.carlos.eform.util.ChartRenderFailure;
 import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.SafeEncode;
@@ -79,17 +81,17 @@ public final class GraphFailurePage {
     /**
      * Whether the graph was requested as a page (a window or frame) rather than as an image. Browsers
      * say so in {@code Sec-Fetch-Dest}; without it, a request that accepts HTML is a page load, since an
-     * image load asks for {@code image/*} only. Browsers send both values in lower case, as the Fetch
-     * standard and the HTML media type spell them.
+     * image load asks for {@code image/*} only. Both are matched ignoring case: media types are
+     * case-insensitive (RFC 9110), though browsers send both in lower case.
      */
     static boolean isPageLoad(HttpServletRequest request) {
         String destination = request.getHeader("Sec-Fetch-Dest");
         if (destination != null && !destination.isBlank()) {
             String kind = destination.trim();
-            return kind.equals("document") || kind.equals("iframe") || kind.equals("frame");
+            return kind.equalsIgnoreCase("document") || kind.equalsIgnoreCase("iframe")
+                    || kind.equalsIgnoreCase("frame");
         }
-        String accept = request.getHeader("Accept");
-        return accept != null && accept.contains("text/html");
+        return Strings.CI.contains(request.getHeader("Accept"), "text/html");
     }
 
     /**

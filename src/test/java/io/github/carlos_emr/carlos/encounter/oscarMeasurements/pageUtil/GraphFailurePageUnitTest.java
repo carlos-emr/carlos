@@ -85,6 +85,15 @@ class GraphFailurePageUnitTest {
     }
 
     @Test
+    @DisplayName("should match the headers ignoring case, as media types are case-insensitive")
+    void shouldMatchTheHeaders_ignoringCase() {
+        assertThat(GraphFailurePage.isPageLoad(request(null, "TEXT/HTML,*/*"))).isTrue();
+        assertThat(GraphFailurePage.isPageLoad(request(null, "Text/Html"))).isTrue();
+        assertThat(GraphFailurePage.isPageLoad(request("Document", "image/png"))).isTrue();
+        assertThat(GraphFailurePage.isPageLoad(request("IMAGE", "TEXT/HTML"))).isFalse();
+    }
+
+    @Test
     @DisplayName("should answer an image load with the bare status, as before")
     void shouldAnswerAnImageLoad_withTheBareStatus() throws Exception {
         MockHttpServletResponse busy = new MockHttpServletResponse();
