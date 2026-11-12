@@ -710,7 +710,7 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(result).isEqualTo(ActionSupport.NONE);
         assertThat(response.getContentAsString())
                 .isEqualTo("{\"errorCode\":\"eform_render_failed\","
-                        + "\"errorMessage\":\"Le rendu du PDF du eForm a \u00e9chou\u00e9.\"}");
+                        + "\"errorMessage\":\"Le rendu du PDF de l\u2019eForm a \u00e9chou\u00e9.\"}");
     }
 
     @Test
