@@ -275,6 +275,22 @@ class AppointmentStatusTransitionServiceUnitTest {
         assertThat(transition.getAnnotation(Transactional.class)).isNotNull();
     }
 
+    @Test
+    void shouldDeclareTransactionBoundary_onTheAuditedStatusTransition() throws Exception {
+        // The day sheet calls this overload: the lock, the archive and the update must share one
+        // transaction, and the audit row and the event wait for its commit.
+        Method transition = AppointmentStatusTransitionService.class.getMethod(
+                "transition",
+                int.class,
+                String.class,
+                String.class,
+                String.class,
+                String.class,
+                LoggedInInfo.class);
+
+        assertThat(transition.getAnnotation(Transactional.class)).isNotNull();
+    }
+
     private static Appointment appointment(String status, String providerNo) {
         Appointment appointment = new Appointment();
         appointment.setId(42);
