@@ -64,6 +64,14 @@ public class GenerateReport2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Runs the report the request names (the {@code type} parameter picks its reporter) and, when it succeeds,
+     * keeps its CSV on the server for the export buttons ({@link ReportCsvDownloads#offer}).
+     *
+     * @return {@link #SUCCESS} for the result page, or {@code "fail"} when the reporter refused or failed
+     * @throws SecurityException when the signed-in provider has neither {@code _admin} nor {@code _report} read
+     */
+    @Override
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);

@@ -4,6 +4,9 @@
  */
 package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportCsvDownloads;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
@@ -85,8 +88,9 @@ class GenerateReport2ActionUnitTest extends CarlosUnitTestBase {
         String token = (String) request.getAttribute(ReportCsvDownloads.TOKEN_ATTRIBUTE);
         assertThat(token).isNotBlank();
         assertThat(request.getAttribute("csv")).isNull();
-        assertThat(ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "0"))
-                .contains("name\r\nFAKE-synthetic\r\n");
+        ByteArrayOutputStream kept = new ByteArrayOutputStream();
+        ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "0").orElseThrow().writeTo(kept);
+        assertThat(kept.toString(StandardCharsets.UTF_8)).isEqualTo("name\r\nFAKE-synthetic\r\n");
     }
 
     @Test

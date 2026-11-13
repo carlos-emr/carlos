@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -39,6 +40,8 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
     private static final int LIMIT = 10;
     private static final long START = 1_000_000_000L;
 
+    /** A store of this test's own, so other tests' results never count against its bounds. */
+    private final ReportCsvDownloads.Store store = new ReportCsvDownloads.Store(Long.MAX_VALUE);
     private final MockHttpSession session = new MockHttpSession();
 
     private ReportCsvDownloads.Kept keep(String... csvs) {
@@ -46,11 +49,15 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
     }
 
     private ReportCsvDownloads.Kept keep(long now, String... csvs) {
-        return ReportCsvDownloads.keep(session, PROVIDER, Arrays.asList(csvs), LIMIT, now);
+        return ReportCsvDownloads.keep(store, session, PROVIDER, Arrays.asList(csvs), LIMIT, now);
     }
 
     private String find(String token, String index) {
-        return ReportCsvDownloads.find(session, PROVIDER, token, index, START).orElse(null);
+        return text(ReportCsvDownloads.find(session, PROVIDER, token, index, START));
+    }
+
+    private static String text(Optional<ReportCsvDownloads.Csv> csv) {
+        return csv.map(ReportCsvDownloads.Csv::text).orElse(null);
     }
 
     @Nested
@@ -120,7 +127,7 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
             String token = keep("a\r\n").token();
             long lifetime = TimeUnit.MINUTES.toNanos(30);
 
-            assertThat(ReportCsvDownloads.find(session, PROVIDER, token, "0", START + lifetime - 1)).contains("a\r\n");
+            assertThat(text(ReportCsvDownloads.find(session, PROVIDER, token, "0", START + lifetime - 1))).isEqualTo("a\r\n");
             assertThat(ReportCsvDownloads.find(session, PROVIDER, token, "0", START + lifetime)).isEmpty();
             // Expired results are dropped, not merely hidden.
             assertThat(ReportCsvDownloads.find(session, PROVIDER, token, "0", START)).isEmpty();
@@ -203,12 +210,122 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    @Nested
+    @DisplayName("bounds across sessions")
+    class ProcessBounds {
+
+        private final ReportCsvDownloads.Store small = new ReportCsvDownloads.Store(25);
+
+        private String keepIn(MockHttpSession owner, long now, String... csvs) {
+            return ReportCsvDownloads.keep(small, owner, PROVIDER, Arrays.asList(csvs), LIMIT, now).token();
+        }
+
+        private String findIn(MockHttpSession owner, String token, long now) {
+            return text(ReportCsvDownloads.find(owner, PROVIDER, token, "0", now));
+        }
+
+        @Test
+        @DisplayName("should drop the oldest result of any session when all sessions would hold more than the store allows")
+        void shouldDropTheOldestResultOfAnySession_whenTheStoreIsFull() {
+            MockHttpSession first = new MockHttpSession();
+            MockHttpSession second = new MockHttpSession();
+            String oldest = keepIn(first, START, "0123456789");
+            String older = keepIn(second, START + 1, "0123456789");
+
+            String newest = keepIn(second, START + 2, "0123456789");
+
+            assertThat(findIn(first, oldest, START + 2)).isNull();
+            assertThat(findIn(second, older, START + 2)).isEqualTo("0123456789");
+            assertThat(findIn(second, newest, START + 2)).isEqualTo("0123456789");
+            assertThat(small.bytes()).isEqualTo(20);
+        }
+
+        @Test
+        @DisplayName("should keep the newest result whole even when it alone is larger than the store")
+        void shouldKeepTheNewestResultWhole_whenItAloneExceedsTheStore() {
+            MockHttpSession first = new MockHttpSession();
+            String older = keepIn(first, START, "0123456789");
+
+            String sequence = keepIn(new MockHttpSession(), START + 1, "0123456789", "0123456789", "0123456789");
+
+            assertThat(findIn(first, older, START + 1)).isNull();
+            assertThat(small.bytes()).isEqualTo(30);
+            assertThat(sequence).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should drop every session's expired results whenever any session keeps or finds one")
+        void shouldDropExpiredResultsOfEverySession_onAnyKeepOrFind() {
+            MockHttpSession idle = new MockHttpSession();
+            keepIn(idle, START, "0123456789");
+            long lifetime = TimeUnit.MINUTES.toNanos(ReportCsvDownloads.LIFETIME_MINUTES);
+
+            MockHttpSession active = new MockHttpSession();
+            String fresh = keepIn(active, START + lifetime - 1, "abc");
+            assertThat(small.bytes()).isEqualTo(13);
+
+            assertThat(findIn(active, fresh, START + lifetime)).isEqualTo("abc");
+            assertThat(small.bytes()).as("the idle session's result expired without that session doing anything")
+                    .isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("should release a session's results as soon as the session ends")
+        void shouldReleaseResults_whenTheSessionEnds() {
+            MockHttpSession ending = new MockHttpSession();
+            String token = keepIn(ending, START, "0123456789");
+            keepIn(new MockHttpSession(), START, "abc");
+
+            ending.invalidate();
+
+            assertThat(small.bytes()).isEqualTo(3);
+            assertThat(token).isNotNull();
+        }
+
+        @Test
+        @DisplayName("should drop the result whose report ran first, not the one kept first")
+        void shouldDropTheResultWhoseReportRanFirst_whenResultsArriveOutOfOrder() {
+            MockHttpSession owner = new MockHttpSession();
+            ReportCsvDownloads.Store roomy = new ReportCsvDownloads.Store(Long.MAX_VALUE);
+            List<String> tokens = new ArrayList<>();
+            long[] ranAt = {START + 20, START + 30, START + 10, START + 40};
+            for (int run = 0; run < ranAt.length; run++) {
+                tokens.add(ReportCsvDownloads.keep(roomy, owner, PROVIDER, List.of("r" + run), LIMIT, ranAt[run]).token());
+            }
+
+            // Run 2 was kept third but ran first, so it is the one dropped for the fourth.
+            assertThat(text(ReportCsvDownloads.find(owner, PROVIDER, tokens.get(2), "0", START + 40))).isNull();
+            assertThat(text(ReportCsvDownloads.find(owner, PROVIDER, tokens.get(0), "0", START + 40))).isEqualTo("r0");
+            assertThat(text(ReportCsvDownloads.find(owner, PROVIDER, tokens.get(1), "0", START + 40))).isEqualTo("r1");
+            assertThat(text(ReportCsvDownloads.find(owner, PROVIDER, tokens.get(3), "0", START + 40))).isEqualTo("r3");
+        }
+
+        @Test
+        @DisplayName("should give all sessions an eighth of the maximum heap, or 256 MiB when the JVM names none")
+        void shouldShareAnEighthOfTheHeap_acrossAllSessions() {
+            assertThat(ReportCsvDownloads.heapBudget(2L * 1024 * 1024 * 1024)).isEqualTo(256L * 1024 * 1024);
+            assertThat(ReportCsvDownloads.heapBudget(Long.MAX_VALUE)).isEqualTo(256L * 1024 * 1024);
+        }
+    }
+
+    @Test
+    @DisplayName("should count UTF-8 bytes exactly as String.getBytes encodes them, and stop once over the limit")
+    void shouldCountUtf8Bytes_asGetBytesEncodesThem() {
+        for (String csv : new String[] {"", "abc", "é", "１２", "\uD83D\uDE00", "a\uD83Db", "\uDE00", "x\uD83D", "Zoë,\"q\"\r\n"}) {
+            assertThat(ReportCsvDownloads.utf8Length(csv, Long.MAX_VALUE)).as(csv)
+                    .isEqualTo(csv.getBytes(StandardCharsets.UTF_8).length);
+        }
+        assertThat(ReportCsvDownloads.utf8Length("é".repeat(5), 10)).isEqualTo(10);
+        assertThat(ReportCsvDownloads.utf8Length("é".repeat(6), 10)).isEqualTo(-1);
+        assertThat(ReportCsvDownloads.utf8Length("a".repeat(11), 10)).isEqualTo(-1);
+    }
+
     @Test
     @DisplayName("should issue a distinct 256-bit hex token for every result")
     void shouldIssueUnguessableTokens_forEveryResult() {
         Set<String> tokens = new HashSet<>();
         for (int i = 0; i < 1_000; i++) {
-            String token = ReportCsvDownloads.keep(new MockHttpSession(), PROVIDER, List.of("a"), LIMIT, START).token();
+            String token = ReportCsvDownloads.keep(store, new MockHttpSession(), PROVIDER, List.of("a"), LIMIT, START).token();
             assertThat(token).matches("[0-9a-f]{64}");
             tokens.add(token);
         }
@@ -239,8 +356,8 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
             assertThat(token).matches("[0-9a-f]{64}");
             assertThat(request.getAttribute(ReportCsvDownloads.DOWNLOADS_ATTRIBUTE)).isEqualTo(List.of(true));
             assertThat(request.getAttribute("csv")).isNull();
-            assertThat(ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "0"))
-                    .contains("name\r\nsynthetic\r\n");
+            assertThat(text(ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "0")))
+                    .isEqualTo("name\r\nsynthetic\r\n");
         }
 
         @Test
@@ -258,7 +375,7 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute(ReportCsvDownloads.DOWNLOADS_ATTRIBUTE)).isEqualTo(List.of(true, false, true));
             assertThat(request.getAttribute("csv-0")).isNull();
             assertThat(request.getAttribute("csv-2")).isNull();
-            assertThat(ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "2")).contains("third\r\n");
+            assertThat(text(ReportCsvDownloads.find(request.getSession(false), PROVIDER, token, "2"))).isEqualTo("third\r\n");
             assertThat(request.getAttribute("csvWithheld-0")).isNull();
         }
 
@@ -297,7 +414,7 @@ class ReportCsvDownloadsUnitTest extends CarlosUnitTestBase {
     @DisplayName("should keep the exact UTF-8 bytes of the CSV the report produced")
     void shouldKeepExactCsvText_forUnicodeAndLineBreaks() {
         String csv = "\"\t=header\",multiline\r\n\"Zoë,\"\"text\"\"\nnext\",１２\r\n";
-        String token = ReportCsvDownloads.keep(session, PROVIDER, List.of(csv),
+        String token = ReportCsvDownloads.keep(store, session, PROVIDER, List.of(csv),
                 csv.getBytes(StandardCharsets.UTF_8).length, START).token();
 
         assertThat(find(token, "0")).isEqualTo(csv);

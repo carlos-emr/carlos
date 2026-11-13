@@ -97,9 +97,14 @@ to CSV** and **Export to XLSX** post those (with the page's CSRF token) to
 the same `_admin`/`_report` read privilege as running the report, looks the result up for
 this session and the signed-in provider, and streams the file: the CSV bytes and the XLSX
 workbook are the same as the previous posted-CSV export produced for the same data
-(`GenerateOutFiles2ActionTest` pins them by digest). The route is a read: GET and POST are
-served, other methods get 405 (registered in `MutatorActionGetRejectionContractUnitTest`
-as a read gate; `HttpMethodGuardFilter` passes it). A `csv` parameter is ignored.
+(`GenerateOutFiles2ActionTest` pins them by digest). Neither copies the kept CSV: the CSV
+download writes its bytes as they are, and the XLSX export reads them one row at a time,
+twice (once to check every row, so a cell a workbook cannot hold is a 500 before anything
+is sent, once to write), so an export holds one row however large the result and however
+many run at once. Both downloads, and the 410 page, are `Cache-Control: no-store`. The
+route is a read: GET and POST are served, other methods get 405 (registered in
+`MutatorActionGetRejectionContractUnitTest` as a read gate; `HttpMethodGuardFilter` passes
+it). A `csv` parameter is ignored.
 
 A token the session no longer holds (expired, dropped for a newer result, from another
 session or provider, or a result page opened before this change, which posts its CSV) gets
@@ -109,16 +114,23 @@ Template Library when the request named no template). No download, error page or
 `CARLOS Error: 0` is ever written in its place.
 
 Bounds and memory. Kept CSVs are heap, so a session keeps the results of its three most
-recent report runs, for 30 minutes after each ran, and at most three times
-`report_by_template.max_csv_mb` in all: older results are dropped first, and the newest
-result is always kept whole, so one sequence whose queries' CSVs add up to more is kept by
-itself (its size is bounded by the shared HTML limit, as above). An empty result keeps
-nothing. Results go with the session when the user signs out or the session times out,
-and are never written to disk: the session value is not `Serializable` (session
-persistence is also off in the packaged Tomcat). At the 5 MiB default a user who runs
-reports holds about 15 MiB at most (more only while their newest result is one larger
-sequence); at the 50 MiB maximum about 150 MiB, for each signed-in user with recent large
-reports, so raise `max_csv_mb` only with heap (`CARLOS_JAVA_XMX`) to match. Before this change the limit could only be lowered,
+recent report runs that offered a download, for 30 minutes after each ran, and at most
+three times `report_by_template.max_csv_mb` in all. All sessions together keep at most an
+eighth of the JVM's maximum heap (256 MiB with the packaged 2 GiB `CARLOS_JAVA_XMX`);
+past that the oldest results of any user are dropped, and that user's download asks them
+to run the report again. Older results go first, by when their report ran, and the newest
+result is always kept whole, so one sequence whose queries' CSVs add up to more than a
+bound is kept by itself (its size is bounded by the shared HTML limit, as above). A query
+over the CSV limit is measured without being encoded and held back. A run with nothing to
+download keeps nothing and drops nothing: older results stay downloadable from their own
+pages. Every report run and every download drops the expired results of all sessions; a
+session's results are released when the user signs out or the session times out, and are
+never written to disk: the session value is not `Serializable` (session persistence is also
+off in the packaged Tomcat). At the 5 MiB default a user who runs reports holds about
+15 MiB at most (more only while their newest result is one larger sequence); at the
+50 MiB maximum about 150 MiB, and all users together never more than the heap share
+above, so raise `max_csv_mb` with heap (`CARLOS_JAVA_XMX`) to match, or users of a busy
+server will be asked to run reports again sooner. Before this change the limit could only be lowered,
 because the downloads posted the whole CSV back through the web firewall (form data
 limited near 16 MiB, and URL encoding inflates CSV), so report data crossed the network
 twice and the file was whatever the browser sent.

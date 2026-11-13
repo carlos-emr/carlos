@@ -7,7 +7,8 @@
 // Asserts: the uploaded template row (reportTemplates), the parameterised result table equals the
 // same SELECT run in SQL for each parameter choice (literal apostrophe/comma/quote/ampersand
 // rendered as text), the result page carries only a token for the CSV kept on the server (never the CSV
-// itself), the CSV bytes parse back to the SQL rows, the XLSX is an OOXML workbook carrying the values, a
+// itself), the CSV bytes parse back to the SQL rows, the XLSX is an OOXML workbook carrying the values, both
+// downloads are Cache-Control: no-store, a
 // stale token and a pre-upgrade page that posts its CSV get the HTTP 410 "run the report again" page (no
 // download, no error page) whose button runs it again, leaving the result page fires the ViewClearSession
 // beacon, the textarea edit persists,
@@ -244,12 +245,30 @@ async function workflow(s) {
     return {name: file.suggestedFilename(), bytes: fs.readFileSync(await file.path())};
   }
 
+  // A browser download hides its response headers, so the same export is fetched once more as the route
+  // allows it, by GET in this session, to see that no browser or proxy may keep a copy of the report.
+  async function assertNotCacheable(format) {
+    const form = frame.locator('form', {has: frame.locator('input[name="resultToken"]')}).first();
+    const action = new URL(await form.evaluate(element => element.action));
+    action.search = new URLSearchParams({
+      [format]: 'Export',
+      resultToken: await form.locator('input[name="resultToken"]').inputValue(),
+      resultIndex: await form.locator('input[name="resultIndex"]').inputValue(),
+    }).toString();
+    const response = await admin.context().request.get(action.toString(), {maxRedirects: 0});
+    h.assert(response.status() === 200, `${format} export fetched again answered HTTP ${response.status()}`);
+    h.assert(/^attachment;/.test(response.headers()['content-disposition'] || ''), `${format} export fetched again was not an attachment`);
+    h.assert(response.headers()['cache-control'] === 'no-store',
+      `${format} export is cacheable (Cache-Control: ${response.headers()['cache-control'] || 'absent'})`);
+  }
+
   await s.step('Export to CSV downloads the header and rows the SQL returns', async () => {
     const file = await download('input[name="getCSV"]');
     h.assert(file.name === 'oscarReport.csv', 'CSV export used an unexpected file name');
     const parsed = parseCsv(file.bytes.toString('utf8'));
     const expected = [['demographic_no', 'last_name', 'first_name', 'sex'], ...expectedRows('F')];
     h.assert(JSON.stringify(parsed) === JSON.stringify(expected), 'CSV export differs from the SQL rows');
+    await assertNotCacheable('getCSV');
   });
 
   await s.step('Export to XLSX downloads an OOXML workbook carrying the result values', async () => {
@@ -259,6 +278,7 @@ async function workflow(s) {
     const cells = xlsxRows(file.bytes).flat();
     h.assert(cells.includes(s.marker) && cells.includes('Workflow') && cells.includes('last_name'),
       'XLSX workbook does not carry the result values');
+    await assertNotCacheable('getXLS');
   });
 
   await s.step('Back fires the ViewClearSession beacon and returns to the configuration', async () => {

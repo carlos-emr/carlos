@@ -225,6 +225,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getCharacterEncoding()).isEqualTo(StandardCharsets.UTF_8.name());
             assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"oscarReport.csv\"");
             assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
         }
 
         @Test
@@ -240,6 +241,7 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
                     .isEqualTo("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             assertThat(response.getHeader("X-Content-Type-Options")).isEqualTo("nosniff");
             assertThat(response.getHeader("Content-Disposition")).isEqualTo("attachment; filename=\"oscarReport.xlsx\"");
+            assertThat(response.getHeader("Cache-Control")).isEqualTo("no-store");
             byte[] bytes = response.getContentAsByteArray();
             assertThat(bytes).startsWith(new byte[] {'P', 'K', 3, 4});
             try (var workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(new ByteArrayInputStream(bytes))) {
@@ -461,6 +463,19 @@ class GenerateOutFiles2ActionTest extends CarlosUnitTestBase {
             assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
             assertThat(response.getHeader("Content-Disposition")).isNull();
             assertThat(response.getContentAsString()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("should answer 500 before writing anything when a cell is too long for a workbook")
+        void shouldRefuseBeforeWriting_whenACellIsTooLongForAWorkbook() throws Exception {
+            requestDownload("getXLS", runReport("name,note\nsynthetic," + "x".repeat(32_768) + "\n"), "0");
+
+            String result = new GenerateOutFiles2Action().execute();
+
+            assertThat(result).isEqualTo(ActionSupport.NONE);
+            assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            assertThat(response.getHeader("Content-Disposition")).isNull();
+            assertThat(response.getContentAsByteArray()).isEmpty();
         }
 
         @Test

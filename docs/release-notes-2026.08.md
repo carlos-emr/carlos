@@ -166,9 +166,13 @@ most recent reports). The result page no longer carries the report's data, so a 
 is always exactly what the query returned. Exporting from an expired page, or one left
 open across the upgrade, shows "This report result is no longer available" with a **Run
 the report again** button. Because the data no longer travels back through the web
-firewall, `report_by_template.max_csv_mb` can now be raised to 50; each user who runs
+firewall, `report_by_template.max_csv_mb` can now be raised to 50. Each user who runs
 reports can hold up to three times that setting in server memory until the results
-expire.
+expire, more only while their newest result is a sequence larger than that by itself (with
+a 5 MiB CSV limit and a 50 MiB HTML limit, a sequence of four 5 MiB CSVs keeps 20 MiB). All
+users together hold at most an eighth of the server's maximum heap (256 MiB with the
+packaged 2 GiB); beyond it the oldest results are dropped and their users asked to run the
+report again. Downloads are never cached by the browser.
 
 ### British Columbia billing
 

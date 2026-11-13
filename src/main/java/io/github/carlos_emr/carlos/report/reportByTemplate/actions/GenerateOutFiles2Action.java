@@ -48,13 +48,12 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import java.io.IOException;
-import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.util.Iterator;
 import java.util.Optional;
 import java.util.regex.Pattern;
-import java.util.List;
 
 /**
  * Created on December 21, 2006, 10:47 AM
@@ -76,7 +75,13 @@ import org.apache.struts2.ServletActionContext;
  * run the report again, never with an error page inside a download.</p>
  *
  * <p>A download only reads a kept result, so the route is a read: GET and POST are served (the page posts,
- * with its CSRF token, to keep the token out of URLs) and other methods are refused with 405.</p>
+ * with its CSRF token, to keep the token out of URLs) and other methods are refused with 405. Both downloads,
+ * and the 410 page, are {@code Cache-Control: no-store}: a report is patient data, and no browser or proxy may
+ * keep a copy.</p>
+ *
+ * <p>Neither format copies the kept CSV: the CSV download writes its bytes as they are, and the XLSX export
+ * reads them one row at a time, twice (once to check every row, once to write), so an export near the CSV
+ * limit holds one row, not the whole table, however many run at once.</p>
  */
 public class GenerateOutFiles2Action extends ActionSupport {
     /** Result naming the "run the report again" page, for a token this session no longer holds. */
@@ -95,6 +100,14 @@ public class GenerateOutFiles2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Sends one query's kept CSV as a CSV or XLSX attachment.
+     *
+     * @return {@link #NONE} once the response is written (the download, or a 400, 405 or 500 status), or
+     *     {@link #UNAVAILABLE}, with status 410, when this session and provider hold no such result
+     * @throws SecurityException when the signed-in provider has neither {@code _admin} nor {@code _report} read
+     */
+    @Override
     public String execute() throws IOException {
 
         // The same privileges as running the report (GenerateReport2Action).
@@ -122,7 +135,7 @@ public class GenerateOutFiles2Action extends ActionSupport {
         HttpSession session = request.getSession(false);
         String token = request.getParameter("resultToken");
         String index = request.getParameter("resultIndex");
-        Optional<String> kept = ReportCsvDownloads.find(session, loggedInInfo.getLoggedInProviderNo(), token, index);
+        Optional<ReportCsvDownloads.Csv> kept = ReportCsvDownloads.find(session, loggedInInfo.getLoggedInProviderNo(), token, index);
         if (kept.isEmpty()) {
             // Nothing written yet, so the page result is safe. No request value is logged: the token is a secret.
             MiscUtils.getLogger().info("Report by Template download refused: the result is no longer available to this session");
@@ -134,14 +147,15 @@ public class GenerateOutFiles2Action extends ActionSupport {
             }
             return UNAVAILABLE;
         }
-        String csv = kept.get();
+        ReportCsvDownloads.Csv csv = kept.get();
         if (csvFormat) {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType("text/csv;charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.csv\"");
             response.setHeader("X-Content-Type-Options", "nosniff");
+            response.setHeader("Cache-Control", "no-store");
             try {
-                response.getOutputStream().write(csv.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV attachment response with text/csv UTF-8 content type and nosniff header, built from the server-kept report result; not an HTML response
+                csv.writeTo(response.getOutputStream()); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV attachment response with text/csv UTF-8 content type and nosniff header, built from the server-kept report result; not an HTML response
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }
@@ -150,43 +164,69 @@ public class GenerateOutFiles2Action extends ActionSupport {
         }
         MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
 
-        // Parse the kept CSV into a 2-D array for spreadsheet cell population.
-        String[][] data;
-        try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
-            List<CSVRecord> records = parser.getRecords();
-            data = new String[records.size()][];
-            for (int i = 0; i < records.size(); i++) {
-                CSVRecord record = records.get(i);
-                data[i] = new String[record.size()];
-                for (int j = 0; j < record.size(); j++) {
-                    data[i][j] = record.get(j);
+        // First pass: every row is read and checked before a byte is written, so a CSV that cannot be parsed,
+        // or a cell a workbook cannot hold, is a clean error status rather than a truncated workbook.
+        try (CSVParser parser = CSVParser.parse(csv.reader(), CSVFormat.DEFAULT)) {
+            long rows = 0;
+            for (CSVRecord record : parser) {
+                if (++rows > SpreadsheetExport.MAX_ROWS) {
+                    throw new IllegalArgumentException("Too many spreadsheet rows");
                 }
+                SpreadsheetExport.checkRow(cells(record, rows == 1));
             }
         } catch (IOException | UncheckedIOException e) {
             MiscUtils.getLogger().error("Error parsing CSV", e);
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        } catch (IllegalArgumentException e) {
+            MiscUtils.getLogger().error("Error checking the XLSX rows", e);
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
             return NONE;
         }
 
         response.setContentType(SpreadsheetExport.CONTENT_TYPE);
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
+        response.setHeader("Cache-Control", "no-store");
 
-        try {
-            Object[][] cells = new Object[data.length][];
-            for (int x = 0; x < data.length; x++) {
-                cells[x] = new Object[data[x].length];
-                for (int y = 0; y < data[x].length; y++) {
-                    Double numeric = x == 0 ? null : exactSpreadsheetNumber(data[x][y]);
-                    cells[x][y] = numeric == null ? data[x][y] : numeric;
+        // Second pass: the same rows, converted and written one at a time.
+        try (CSVParser parser = CSVParser.parse(csv.reader(), CSVFormat.DEFAULT)) {
+            Iterator<CSVRecord> records = parser.iterator();
+            Iterable<Object[]> rows = () -> new Iterator<>() {
+                private boolean header = true;
+
+                @Override
+                public boolean hasNext() {
+                    return records.hasNext();
                 }
-            }
-            SpreadsheetExport.write(response.getOutputStream(), cells);
+
+                @Override
+                public Object[] next() {
+                    Object[] row = cells(records.next(), header);
+                    header = false;
+                    return row;
+                }
+            };
+            SpreadsheetExport.writeRows(response.getOutputStream(), rows);
         } catch (Exception e) {
             MiscUtils.getLogger().error("Error writing XLSX", e);
             setServerErrorIfPossible();
         }
         return NONE;
+    }
+
+    /**
+     * One CSV record as workbook cells: ordinary numbers become numbers, except in the first (header) row,
+     * and everything else stays text.
+     */
+    private static Object[] cells(CSVRecord record, boolean header) {
+        Object[] cells = new Object[record.size()];
+        for (int i = 0; i < cells.length; i++) {
+            String value = record.get(i);
+            Double numeric = header ? null : exactSpreadsheetNumber(value);
+            cells[i] = numeric == null ? value : numeric;
+        }
+        return cells;
     }
 
     /**
