@@ -162,7 +162,11 @@ class CdsExportRourkeChartComposerUnitTest {
         assertThat(printed.metadata()).containsOnlyKeys("formCreated", "provider_no");
         try (var pdf = Loader.loadPDF(printed.pdf())) {
             assertThat(pdf.getNumberOfPages()).isGreaterThanOrEqualTo(4);
-            assertThat(new PDFTextStripper().getText(pdf)).contains("FIXTURE, BABY", "3.4");
+            String text = new PDFTextStripper().getText(pdf);
+            assertThat(text).contains("FIXTURE, BABY", "3.4");
+            // A value the revision does not hold (here every visit date) prints blank, never the
+            // word "null": the 2017 pages' text fields lacked blankWhenNull (census finding).
+            assertThat(text).doesNotContainPattern("\\bnull\\b");
         }        // The same revision printed again gives the same bytes once made reproducible.
         var again = composer().print(group, plan(group, "FIXTURE"));
         String seed = "c".repeat(64);
