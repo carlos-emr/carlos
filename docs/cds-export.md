@@ -217,6 +217,74 @@ in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECI
 - Authorization is the ProblemList category's (`_casemgmt.notes`) plus the chart and patient
   gates; the registry screen's own `_dxresearch` read right is not separately required.
 
+Notes attached to other records (`casemgmt_note_link`) are exported with their notes, and
+CAISI group-note shares (`GroupNoteLink`) no longer hold a chart. Both tables used to be
+`REQUIRE_EMPTY`, so every chart with a filed document, a sent e-mail, a tickler or eForm
+note, a discontinued prescription or a shared group note was held (the ON demo data alone has
+279 link rows).
+
+- A link row says which record a note is attached to: `table_name` is the
+  `CaseManagementNoteLink` record type, `table_id` the record and `other_id` an optional
+  part of it. The note itself is an ordinary `casemgmt_note` row, already captured and
+  exported once, as the encounter list shows it (with its "View" link), as ClinicalNotes or,
+  when it carries a CPP issue, as that CPP item. The legacy exporter skipped annotated notes
+  as encounter notes and copied the newest non-import annotation into the annotated item's
+  Notes; the native export keeps the note where it is and makes the link context on it.
+- Writers and what travels, per record type: 1 `casemgmt_note` (only
+  `CaseManagementManagerImpl.saveCaseManagementNote`, which re-points an older import's
+  `imported.cms4.2011.06` data note at each new revision of the note it annotates); 2 `drugs`
+  (`RxDeleteRx2Action` discontinuation reason, `addNewNoteLink`); 5 `document`
+  (`ManageDocument2Action`, `AddEditDocument2Action`, `addNewNoteLink`: the "Document ...
+  created" note by the system provider `-1`); 6 `eform_data` (`EFormUtil.saveCMNote`,
+  possibly filed in a CPP section); 10 `tickler` (`DbTicklerAdd2Action`,
+  `CaseManagementEntry2Action`, `NotesService`, with the `TicklerNote` system issue); 12
+  `emailLog` (`EmailManager`). Types 3 `allergies`, 4 `hl7TextMessage`, 7 `demographic`, 8
+  `preventions`, 9 `labPatientPhysicianInfo` and 11 `appointment` have no CARLOS writer
+  today; they come from older OSCAR annotation screens and the CMS4 import. Every type,
+  and any other number, travels the same way. `copyRevisionMetadata` copies the links of the
+  previous revision to each new revision, so every revision of a chain carries its own rows.
+- Capture: `Plan.CASE_NOTE_LINK` (`id`, `note_id`, `other_id`, `table_id`, `table_name`)
+  owned by `CaseManagementNoteLinkDAO`, scoped to the links of the patient's own notes
+  (`exists` on `casemgmt_note.demographic_no`, as `CASE_NOTE_EXT`), read by
+  `CdsExportNoteLinkSourceReader` with the seven history categories and the
+  `casemgmt_note_link` source-schema descriptor; full JDBC receipt recipes witness every
+  row. The catalogue rules the table `MAPPED_SOURCE` in the seven history scopes.
+  `CdsExportHistoryCurrentContext` verifies each link against its witness, refuses a link of
+  a note outside the capture and gives each note revision its links in link-row order
+  (`Current.noteLinks`); a catalogued capture without the table is refused
+  (`CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID`).
+- Mapping (`CdsExportNativeHistoryMapper`): `id` is `NATIVE_NOTE_LINK_IDENTITY` and `note_id`
+  `VERIFIED_NATIVE_NOTE_LINK_PARENT` (operational); `table_name`, `table_id` and `other_id`
+  are `MAPPED` (`EXACT_NATIVE_NOTE_LINK`) into the revision's `attachedTo` list in the
+  source-note JSON, with a readable record label, SQL NULL distinct from empty. A
+  ClinicalNotes entry also opens (after any archived statement) with
+  `[CARLOS: this note is attached to another record in the sending system: document 12.]`
+  naming the current revision's records (`part <other_id>` when one is stored); a CPP item
+  keeps the facts only in its `CARLOS.NativeHistory.v1` residual, so its description and
+  Notes are unchanged. Nothing about the linked record itself is read. An `other_id` that is
+  not writable XML text holds the patient (`CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID`). The
+  CARLOS importer writes no links; an imported note that CARLOS attached later is routed
+  through the native revision context, which is the only carrier for the link.
+- Why not the annotated item's own Notes (PhysiciansNotes, allergy, medication or report
+  Notes): the note is chart text under per-note program authorization, which the item's
+  category does not apply; the item may be unselected, deleted (a discontinuation note
+  explains a drug being deleted) or a data summary; and copying would write the text twice.
+- Presence scope: `casemgmt_note_link` keeps its parent chain through `casemgmt_note` in
+  `CdsExportIndirectPatientScopeReadSupport`. As a mapped indirect table only its
+  unattributable rows are checked: a link whose note is missing, or whose note names no
+  existing patient, still holds every chart. No CARLOS screen deletes notes, so this is a
+  data repair case.
+- `GroupNoteLink` is `OPERATIONAL` (rule `GROUP_NOTE_RECIPIENT_LINK`; its patient scope is
+  removed). A group note is written in one chart and shown read-only in each recipient chart
+  a row names (`GroupNoteAction`, `GroupNoteSelect2Action`; `CaseManagementView2Action`
+  shows it only when the facility enables group notes and to a provider with the note's
+  reporter role). The row carries only that linkage (note, recipient, created time,
+  anonymous placeholder client, active). The note is exported once with the chart that
+  wrote it, under its own authorization. Copying it into a recipient's package would
+  disclose another chart's note (group notes often name the other members) without that
+  chart's authorization, and a data summary of the row would show only another chart's note
+  number; it is a live CAISI feature, so `LISTED` does not apply.
+
 Native measurements are exported as CareElements where a standard element represents them
 exactly, and each current observation also travels in full as a
 `CARLOS.NativeObservation.v1` NewCategory record. The native types and codes follow the CARLOS

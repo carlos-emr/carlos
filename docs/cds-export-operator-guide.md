@@ -192,6 +192,26 @@ notes such a chart view hides. A patient issue filed under a program is exported
 it is the program of its linked notes or one the provider works in; an issue from a
 foreign program holds the patient for review.
 
+A note that CARLOS attached to another record is exported with the other notes, and says
+what it is attached to. CARLOS attaches a note when a document is filed ("Document ...
+created at ..."), a prescription is discontinued (the reason), an eForm or a tickler is
+saved with a note, or an e-mail is sent; a CDS import made by an older OSCAR release
+attached its data notes (text starting `imported.cms4.2011.06`) to other notes, allergies,
+prescriptions, preventions or the patient record. Each such note is exported once, as the
+encounter shows it: a ClinicalNotes entry whose text begins with a line such as
+`[CARLOS: this note is attached to another record in the sending system: document 12.]`,
+or, when the note is filed in a CPP section, that CPP item, which keeps the same facts in
+its supporting data. The record type and number of every revision's link travel exactly in
+the note's source details. The note is not copied into the allergy, medication, lab or
+report it is attached to: it stays under the note's own program access rules. Charts with
+such notes are no longer held. A link whose note no longer exists, or whose note names a
+patient number with no chart, still holds every chart for review.
+
+A CAISI group note is exported once, with the chart it was written in, never with the
+other charts it was shared with. In a recipient chart the shared note is a read-only
+display of another chart's note (group notes often name the other members), so it is not
+part of the recipient's package, and sharing a note no longer holds the recipient chart.
+
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select
 NewCategory when exporting native measurements/labs or printed prescription context.
