@@ -25,7 +25,7 @@ its default and maximum.
 | Encoded HTML output | 10 MiB in UTF-8 | `report_by_template.max_html_mb` (50) |
 | Columns per query | 256 | `report_by_template.max_columns` (2,000) |
 | Characters per cell or column label | 65,536 UTF-16 code units | `report_by_template.max_cell_chars` (1,048,576) |
-| CSV output of each query, including headers, guards, quoting and separators | 5 MiB in UTF-8 | `report_by_template.max_csv_mb` (5; it can only lower the limit) |
+| CSV output of each query, including headers, guards, quoting and separators | 5 MiB in UTF-8 | `report_by_template.max_csv_mb` (50) |
 | Queries per sequence | 32 | fixed |
 
 Exceeding a limit discards the report and returns to the configuration page with a
@@ -38,7 +38,10 @@ is the exception (D260): its boundary is inclusive (exactly 5 MiB is kept; one b
 more is held back), and a query whose CSV goes over it is still shown, with a note
 above it, and without its CSV and XLSX downloads. In a sequence the note and each
 remaining download name their query. The CSV limit is per query because each
-download posts only its own query's CSV through the web firewall. A failed sequence
+query's CSV is kept and downloaded on its own (see [CSV and XLSX downloads](#csv-and-xlsx-downloads)).
+While the CSV limit is below its maximum the note ends with the same "An administrator
+can raise this limit with the setting `report_by_template.max_csv_mb` in
+carlos.properties." sentence. A failed sequence
 removes its earlier output attributes, including held-back notes, and does not
 execute later queries. A sequence shares the row, HTML and time limits, so that
 splitting a large result into subqueries cannot multiply request memory use; a
@@ -77,11 +80,48 @@ heap a running report may use: the HTML buffer grows to the next power of two an
 is copied once more into a string, and a sequence keeps each query's CSV as well
 (about as much again with ordinary text), so plan on three to four times the
 setting per report running at once (about 150–200 MiB at the 50 MiB maximum).
-The result page of a sequence carries every query's CSV in hidden fields, so the
-page itself can reach about twice the HTML limit. The packaged nginx
+The result page no longer carries the CSV (only a token), so the page itself stays
+near the HTML limit; the CSV kept for the downloads is described below. The packaged nginx
 proxy also stops waiting after 300 seconds (`proxy_read_timeout`), so at the
 300-second maximum the browser may see a gateway timeout instead of the time
 message; keep `timeout_seconds` a little lower, or raise the proxy timeout too.
+
+## CSV and XLSX downloads
+
+The downloads are built on the server, never from data the browser sends. When a report
+runs, `GenerateReport2Action` hands each query's CSV to `ReportCsvDownloads`, which keeps
+it in the user's HTTP session under a random 256-bit token and takes it off the request;
+the result page carries only that token, the query's index and the template id. **Export
+to CSV** and **Export to XLSX** post those (with the page's CSRF token) to
+`oscarReport/reportByTemplate/generateOutFilesAction`. `GenerateOutFiles2Action` checks
+the same `_admin`/`_report` read privilege as running the report, looks the result up for
+this session and the signed-in provider, and streams the file: the CSV bytes and the XLSX
+workbook are the same as the previous posted-CSV export produced for the same data
+(`GenerateOutFiles2ActionTest` pins them by digest). The route is a read: GET and POST are
+served, other methods get 405 (registered in `MutatorActionGetRejectionContractUnitTest`
+as a read gate; `HttpMethodGuardFilter` passes it). A `csv` parameter is ignored.
+
+A token the session no longer holds (expired, dropped for a newer result, from another
+session or provider, or a result page opened before this change, which posts its CSV) gets
+HTTP 410 and a page, in the user's language, saying the result is no longer available,
+with a **Run the report again** button that opens the template's configuration (or the
+Template Library when the request named no template). No download, error page or
+`CARLOS Error: 0` is ever written in its place.
+
+Bounds and memory. Kept CSVs are heap, so a session keeps the results of its three most
+recent report runs, for 30 minutes after each ran, and at most three times
+`report_by_template.max_csv_mb` in all: older results are dropped first, and the newest
+result is always kept whole, so one sequence whose queries' CSVs add up to more is kept by
+itself (its size is bounded by the shared HTML limit, as above). An empty result keeps
+nothing. Results go with the session when the user signs out or the session times out,
+and are never written to disk: the session value is not `Serializable` (session
+persistence is also off in the packaged Tomcat). At the 5 MiB default a user who runs
+reports holds about 15 MiB at most (more only while their newest result is one larger
+sequence); at the 50 MiB maximum about 150 MiB, for each signed-in user with recent large
+reports, so raise `max_csv_mb` only with heap (`CARLOS_JAVA_XMX`) to match. Before this change the limit could only be lowered,
+because the downloads posted the whole CSV back through the web firewall (form data
+limited near 16 MiB, and URL encoding inflates CSV), so report data crossed the network
+twice and the file was whatever the browser sent.
 
 ## Synthetic database and heap probe
 
@@ -100,7 +140,8 @@ for scenario in 10 10000 100000 large-cell timeout stream-timeout; do
   java -Xmx128m -cp "/tmp/report-budget-probe:$probe_cp" \
     io.github.carlos_emr.carlos.report.reportByTemplate.ReportTemplateBudgetProbe "$scenario"
 done
-# Every setting at its maximum (#5849): 100,000 rows, 50 MiB of HTML, CSV held back.
+# Every other setting at its maximum and the CSV at its 5 MiB default (#5849): 100,000 rows,
+# 50 MiB of HTML, CSV held back.
 java -Xmx512m -cp "/tmp/report-budget-probe:$probe_cp" \
   io.github.carlos_emr.carlos.report.reportByTemplate.ReportTemplateBudgetProbe maximums
 ```

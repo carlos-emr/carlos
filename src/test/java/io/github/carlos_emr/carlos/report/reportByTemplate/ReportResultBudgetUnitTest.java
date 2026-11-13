@@ -207,12 +207,28 @@ class ReportResultBudgetUnitTest extends CarlosUnitTestBase {
                 "report_by_template.timeout_seconds", "0",
                 "report_by_template.max_html_mb", "a lot",
                 "report_by_template.max_columns", " ",
-                "report_by_template.max_csv_mb", "9");
-        // Rows capped at 100,000; the zero, the word and the blank keep their defaults; the CSV limit
-        // cannot be raised above its 5 MiB ceiling (D260).
+                "report_by_template.max_csv_mb", "51");
+        // Rows capped at 100,000; the zero, the word and the blank keep their defaults; the CSV limit is
+        // capped at its 50 MiB maximum.
         assertThat(ReportResultBudget.Limits.from(settings::get))
-                .isEqualTo(new ReportResultBudget.Limits(100_000, 30, 10 * MIB, 256, 5 * MIB, 65_536));
+                .isEqualTo(new ReportResultBudget.Limits(100_000, 30, 10 * MIB, 256, 50 * MIB, 65_536));
         assertThat(ReportResultBudget.Limits.from(key -> null)).isEqualTo(ReportResultBudget.Limits.defaults());
+    }
+
+    @Test
+    @DisplayName("should let an administrator raise the CSV limit now that downloads are built on the server")
+    void shouldRaiseCsvLimit_upToItsMaximum() {
+        // Before the downloads were built on the server the CSV was posted back through the web firewall,
+        // so the limit could only be lowered below 5 MiB.
+        assertThat(ReportResultBudget.Limits.from(Map.of("report_by_template.max_csv_mb", "9")::get).maxCsvBytes())
+                .isEqualTo(9 * MIB);
+        assertThat(ReportResultBudget.Limits.from(Map.of("report_by_template.max_csv_mb", "50")::get).maxCsvBytes())
+                .isEqualTo(50 * MIB);
+        // The note above a held-back CSV names the setting only while it can still be raised.
+        assertThat(ReportResultBudget.raisableCsvSetting(SQLReporter.MAX_CSV_EXPORT_LENGTH))
+                .isEqualTo("report_by_template.max_csv_mb");
+        assertThat(ReportResultBudget.raisableCsvSetting(49 * MIB)).isEqualTo("report_by_template.max_csv_mb");
+        assertThat(ReportResultBudget.raisableCsvSetting(50 * MIB)).isNull();
     }
 
     @Test

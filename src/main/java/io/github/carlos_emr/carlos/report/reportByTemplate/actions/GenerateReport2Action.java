@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportCsvDownloads;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
 import io.github.carlos_emr.carlos.report.reportByTemplate.Reporter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -77,6 +78,8 @@ public class GenerateReport2Action extends ActionSupport {
         Reporter reporter = ReportFactory.getReporter(request.getParameter("type"));
 
         if (reporter.generateReport(request)) {
+            // Keep the CSV on the server for the export buttons; the result page carries only a token.
+            ReportCsvDownloads.offer(request, loggedInInfo.getLoggedInProviderNo());
             return SUCCESS;
         }
 

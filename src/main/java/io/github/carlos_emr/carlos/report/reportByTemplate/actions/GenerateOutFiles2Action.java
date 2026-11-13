@@ -33,11 +33,13 @@ package io.github.carlos_emr.carlos.report.reportByTemplate.actions;
 
 
 import jakarta.servlet.http.HttpServletRequest;
-import io.github.carlos_emr.carlos.report.SpreadsheetExport;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
-import io.github.carlos_emr.carlos.report.reportByTemplate.SQLReporter;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.SpreadsheetExport;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportCsvDownloads;
+import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -50,6 +52,7 @@ import java.io.StringReader;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.math.BigDecimal;
+import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.List;
 
@@ -61,7 +64,23 @@ import java.util.List;
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+/**
+ * Report by Template's "Export to CSV" and "Export to XLSX": builds the file on the server from the CSV the
+ * report kept for this session ({@link ReportCsvDownloads}).
+ *
+ * <p>The result page posts only the result's token ({@code resultToken}), the query's index
+ * ({@code resultIndex}) and the format ({@code getCSV} or {@code getXLS}). Any {@code csv} parameter, which a
+ * result page from before this change posts, is ignored: a download is always what the query returned, never
+ * what the browser sends. A token this session and provider no longer hold (expired, dropped for a newer
+ * result, from another session, or missing) is answered with HTTP 410 and a localized page asking the user to
+ * run the report again, never with an error page inside a download.</p>
+ *
+ * <p>A download only reads a kept result, so the route is a read: GET and POST are served (the page posts,
+ * with its CSRF token, to keep the token out of URLs) and other methods are refused with 405.</p>
+ */
 public class GenerateOutFiles2Action extends ActionSupport {
+    /** Result naming the "run the report again" page, for a token this session no longer holds. */
+    static final String UNAVAILABLE = "unavailable";
     private static final Pattern CANONICAL_DECIMAL = Pattern.compile("-?(?:0|[1-9]\\d*+)(?:\\.\\d++)?");
     private final SecurityInfoManager securityInfoManager;
 
@@ -76,8 +95,9 @@ public class GenerateOutFiles2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
-    public String execute() {
+    public String execute() throws IOException {
 
+        // The same privileges as running the report (GenerateReport2Action).
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
         if (loggedInInfo == null) {
             throw new SecurityException("missing required sec object (_admin or _report)");
@@ -87,74 +107,86 @@ public class GenerateOutFiles2Action extends ActionSupport {
             throw new SecurityException("missing required sec object (_admin or _report)");
         }
 
-        // CSV is read from the POST body (a hidden form field in resultReport.jsp), not from the
-        // HTTP session. The old approach stored the CSV string in the session, which accumulated
-        // across report runs and eventually caused out-of-memory crashes on large result sets.
-        String csv = request.getParameter("csv");
-        String action = request.getParameter("getCSV");
-        if (action != null) {
-            // Reject null or oversized payloads before touching the response stream.
-            if (!validateCsv(csv)) {
-                return NONE;
+        String method = request.getMethod();
+        if (!"GET".equals(method) && !"POST".equals(method)) {
+            response.setHeader("Allow", "GET, POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
+        }
+        boolean csvFormat = request.getParameter("getCSV") != null;
+        if (!csvFormat && request.getParameter("getXLS") == null) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+
+        HttpSession session = request.getSession(false);
+        String token = request.getParameter("resultToken");
+        String index = request.getParameter("resultIndex");
+        Optional<String> kept = ReportCsvDownloads.find(session, loggedInInfo.getLoggedInProviderNo(), token, index);
+        if (kept.isEmpty()) {
+            // Nothing written yet, so the page result is safe. No request value is logged: the token is a secret.
+            MiscUtils.getLogger().info("Report by Template download refused: the result is no longer available to this session");
+            response.setStatus(HttpServletResponse.SC_GONE);
+            response.setHeader("Cache-Control", "no-store");
+            int templateId = ConversionUtils.fromIntString(request.getParameter("templateid"));
+            if (templateId > 0) {
+                request.setAttribute("templateid", templateId);
             }
+            return UNAVAILABLE;
+        }
+        String csv = kept.get();
+        if (csvFormat) {
             response.setCharacterEncoding(StandardCharsets.UTF_8.name());
             response.setContentType("text/csv;charset=UTF-8");
             response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.csv\"");
             response.setHeader("X-Content-Type-Options", "nosniff");
             try {
-                response.getOutputStream().write(csv.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV attachment response with text/csv UTF-8 content type, nosniff header, and size validation; not an HTML response
+                response.getOutputStream().write(csv.getBytes(StandardCharsets.UTF_8)); // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- CSV attachment response with text/csv UTF-8 content type and nosniff header, built from the server-kept report result; not an HTML response
             } catch (Exception ioe) {
                 MiscUtils.getLogger().error("Error", ioe);
             }
             // NONE tells Struts not to resolve a JSP result — required for all direct-response actions.
             return NONE;
         }
-        action = request.getParameter("getXLS");
-        if (action != null) {
-            if (!validateCsv(csv)) {
-                return NONE;
-            }
-            MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
+        MiscUtils.getLogger().debug("Generating Spread Sheet file for the 'report by template' module ..");
 
-            // Parse the POST'd CSV string into a 2-D array for spreadsheet cell population.
-            String[][] data;
-            try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
-                List<CSVRecord> records = parser.getRecords();
-                data = new String[records.size()][];
-                for (int i = 0; i < records.size(); i++) {
-                    CSVRecord record = records.get(i);
-                    data[i] = new String[record.size()];
-                    for (int j = 0; j < record.size(); j++) {
-                        data[i][j] = record.get(j);
-                    }
+        // Parse the kept CSV into a 2-D array for spreadsheet cell population.
+        String[][] data;
+        try (CSVParser parser = CSVParser.parse(new StringReader(csv), CSVFormat.DEFAULT)) {
+            List<CSVRecord> records = parser.getRecords();
+            data = new String[records.size()][];
+            for (int i = 0; i < records.size(); i++) {
+                CSVRecord record = records.get(i);
+                data[i] = new String[record.size()];
+                for (int j = 0; j < record.size(); j++) {
+                    data[i][j] = record.get(j);
                 }
-            } catch (IOException | UncheckedIOException e) {
-                MiscUtils.getLogger().error("Error parsing CSV", e);
-                response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                return NONE;
             }
-
-            response.setContentType(SpreadsheetExport.CONTENT_TYPE);
-            response.setHeader("X-Content-Type-Options", "nosniff");
-            response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
-
-            try {
-                Object[][] cells = new Object[data.length][];
-                for (int x = 0; x < data.length; x++) {
-                    cells[x] = new Object[data[x].length];
-                    for (int y = 0; y < data[x].length; y++) {
-                        Double numeric = x == 0 ? null : exactSpreadsheetNumber(data[x][y]);
-                        cells[x][y] = numeric == null ? data[x][y] : numeric;
-                    }
-                }
-                SpreadsheetExport.write(response.getOutputStream(), cells);
-            } catch (Exception e) {
-                MiscUtils.getLogger().error("Error writing XLSX", e);
-                setServerErrorIfPossible();
-            }
+        } catch (IOException | UncheckedIOException e) {
+            MiscUtils.getLogger().error("Error parsing CSV", e);
+            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             return NONE;
         }
-        return SUCCESS;
+
+        response.setContentType(SpreadsheetExport.CONTENT_TYPE);
+        response.setHeader("X-Content-Type-Options", "nosniff");
+        response.setHeader("Content-Disposition", "attachment; filename=\"oscarReport.xlsx\"");
+
+        try {
+            Object[][] cells = new Object[data.length][];
+            for (int x = 0; x < data.length; x++) {
+                cells[x] = new Object[data[x].length];
+                for (int y = 0; y < data[x].length; y++) {
+                    Double numeric = x == 0 ? null : exactSpreadsheetNumber(data[x][y]);
+                    cells[x][y] = numeric == null ? data[x][y] : numeric;
+                }
+            }
+            SpreadsheetExport.write(response.getOutputStream(), cells);
+        } catch (Exception e) {
+            MiscUtils.getLogger().error("Error writing XLSX", e);
+            setServerErrorIfPossible();
+        }
+        return NONE;
     }
 
     /**
@@ -171,63 +203,11 @@ public class GenerateOutFiles2Action extends ActionSupport {
         return Double.isFinite(number) && BigDecimal.valueOf(number).compareTo(decimal) == 0 ? number : null;
     }
 
-    /**
-     * Guards both the CSV and XLSX export paths against null or oversized payloads.
-     *
-     * <p>Size is measured in UTF-8 bytes rather than Java char count because the
-     * server-side limit ({@link SQLReporter#MAX_CSV_EXPORT_LENGTH}) was set in bytes
-     * and multi-byte characters (e.g. accented letters, special symbols) would otherwise
-     * slip through a char-count check.
-     *
-     * @param csv the raw CSV string from the POST parameter; may be {@code null}
-     * @return {@code true} when the payload is safe to process
-     */
-    private boolean validateCsv(String csv) {
-        if (csv == null) {
-            MiscUtils.getLogger().warn("GenerateOutFiles2Action: missing CSV export payload");
-            response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-            return false;
-        }
-        if (exceedsUtf8ByteLimit(csv, SQLReporter.MAX_CSV_EXPORT_LENGTH)) {
-            MiscUtils.getLogger().warn("GenerateOutFiles2Action: CSV export payload exceeds size limit");
-            response.setStatus(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE);
-            return false;
-        }
-        return true;
-    }
-
     private void setServerErrorIfPossible() {
         if (!response.isCommitted()) {
             response.reset();
             response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
-    }
-
-    private boolean exceedsUtf8ByteLimit(String value, int maxBytes) {
-        // Count UTF-8 bytes without materializing a second multi-megabyte byte array.
-        int bytes = 0;
-        for (int i = 0; i < value.length(); ) {
-            int codePoint = value.codePointAt(i);
-            bytes += utf8ByteLength(codePoint);
-            if (bytes > maxBytes) {
-                return true;
-            }
-            i += Character.charCount(codePoint);
-        }
-        return false;
-    }
-
-    private int utf8ByteLength(int codePoint) {
-        if (codePoint <= 0x7F) {
-            return 1;
-        }
-        if (codePoint <= 0x7FF) {
-            return 2;
-        }
-        if (codePoint <= 0xFFFF) {
-            return 3;
-        }
-        return 4;
     }
 
 }

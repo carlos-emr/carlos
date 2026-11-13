@@ -863,6 +863,21 @@ class HttpMethodGuardFilterUnitTest {
         }
 
         @Test
+        @DisplayName("should pass through GET to the Report by Template download, a read of a kept result")
+        void shouldPassThrough_forGetToReportByTemplateDownload() throws Exception {
+            // GenerateOutFiles2Action only reads the result kept for the session (registered as a read gate in
+            // MutatorActionGetRejectionContractUnitTest); it answers 405 itself to methods other than GET/POST.
+            when(request.getMethod()).thenReturn("GET");
+            when(request.getRequestURI()).thenReturn("/carlos/oscarReport/reportByTemplate/generateOutFilesAction");
+            when(request.getParameter("method")).thenReturn(null);
+
+            filter.doFilter(request, response, chain);
+
+            verify(chain).doFilter(request, response);
+            verify(response, never()).sendError(anyInt(), anyString());
+        }
+
+        @Test
         @DisplayName("should pass through HEAD to read-only action")
         void shouldPassThrough_forHeadToReadOnlyAction() throws Exception {
             when(request.getMethod()).thenReturn("HEAD");

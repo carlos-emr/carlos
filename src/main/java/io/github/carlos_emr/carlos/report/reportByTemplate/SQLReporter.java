@@ -52,8 +52,9 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public class SQLReporter implements Reporter {
 
     /**
-     * Maximum number of UTF-8 bytes allowed for CSV export payloads transmitted via
-     * POST parameter. Prevents memory exhaustion and excessive request sizes.
+     * Default size, in UTF-8 bytes, of one query's CSV download ({@code report_by_template.max_csv_mb}, 5 MiB).
+     * A larger CSV is held back from the downloads; each kept CSV is heap until it expires
+     * ({@link ReportCsvDownloads}).
      */
     public static final int MAX_CSV_EXPORT_LENGTH = 5 * 1024 * 1024;
 
@@ -112,8 +113,7 @@ public class SQLReporter implements Reporter {
      * the note on that query.
      */
     private void markCsvWithheld(HttpServletRequest request, String flag) {
-        request.setAttribute(flag, Boolean.TRUE);
-        request.setAttribute("csvWithheldMb", limits.maxCsvBytes() / (1024 * 1024));
+        ReportCsvDownloads.markWithheld(request, flag, limits.maxCsvBytes());
     }
 
     /**
@@ -255,6 +255,7 @@ public class SQLReporter implements Reporter {
             request.removeAttribute("resultsethtml-" + previous);
         }
         request.removeAttribute("csvWithheldMb");
+        request.removeAttribute("csvWithheldSetting");
     }
 
     /** Null CSV denotes a limit refusal or a failed sequence; ordinary single-query errors retain result navigation. */

@@ -6,14 +6,17 @@
 //   ▸ Back ▸ Edit Template ▸ Done ▸ Delete Template.
 // Asserts: the uploaded template row (reportTemplates), the parameterised result table equals the
 // same SELECT run in SQL for each parameter choice (literal apostrophe/comma/quote/ampersand
-// rendered as text), the CSV bytes parse back to the SQL rows, the XLSX is an OOXML workbook carrying
-// the values, leaving the result page fires the ViewClearSession beacon, the textarea edit persists,
+// rendered as text), the result page carries only a token for the CSV kept on the server (never the CSV
+// itself), the CSV bytes parse back to the SQL rows, the XLSX is an OOXML workbook carrying the values, a
+// stale token and a pre-upgrade page that posts its CSV get the HTTP 410 "run the report again" page (no
+// download, no error page) whose button runs it again, leaving the result page fires the ViewClearSession
+// beacon, the textarea edit persists,
 // an edit whose SQL is a write statement is refused when saved (the stored template and the
 // database are unchanged and the typed XML stays in the textarea), a write statement already stored
 // in a template is refused at run time and writes nothing, and the confirm()-gated delete removes
 // the row. Limits (#5849): a report over the row, cell or page-size limit returns to the configuration
 // with a message naming that limit, saying which carlos.properties setting an administrator can raise, and no export; a report whose CSV is over 5 MB is still shown, with a
-// note and no CSV/XLSX download; in a sequence only the large query's downloads are held back, the note
+// note (naming report_by_template.max_csv_mb, which can now be raised) and no CSV/XLSX download; in a sequence only the large query's downloads are held back, the note
 // names that query and the remaining download names its own.
 // Fixtures: the owned synthetic patient (runWorkflow) plus a second owned FAKE patient with the
 // same marker surname; one template titled with the marker. Cleanup deletes only marker rows and
@@ -226,7 +229,12 @@ async function workflow(s) {
     h.assert(expected.length === 1 && expected[0][0] === s.patient, 'SQL fixture for the owned patient is missing');
     h.assert(result.header.join('|') === 'demographic_no|last_name|first_name|sex', 'Result header differs from the SELECT');
     h.assert(JSON.stringify(result.rows) === JSON.stringify(expected), 'Result table differs from the SQL rows');
-    h.assert(await frame.locator('input[name="csv"]').count() === 1, 'Result page did not carry one CSV export form');
+    h.assert(await frame.locator('input[name="resultToken"]').count() === 1, 'Result page did not carry one CSV export form');
+    // The downloads are built on the server: the page carries a token, never the CSV (no hidden csv field and
+    // no CSV header line anywhere in the page).
+    h.assert(await frame.locator('input[name="csv"]').count() === 0
+      && !(await frame.content()).includes('demographic_no,last_name,first_name,sex'),
+      'Result page still carries the CSV instead of a token for the result kept on the server');
   });
 
   async function download(button) {
@@ -267,6 +275,62 @@ async function workflow(s) {
     const file = await download('input[name="getCSV"]');
     h.assert(JSON.stringify(parseCsv(file.bytes.toString('utf8')).slice(1)) === JSON.stringify(expected),
       'CSV export did not quote the comma/quote-bearing value back to the SQL row');
+  });
+
+  // The 410 page for a result this session no longer holds. Its status is the expected answer here, so exactly
+  // that response (and Chromium's console line for it) is consumed; any other signal stays strict.
+  const RESULT_GONE = 'This report result is no longer available to download.';
+  async function exportExpectingRunAgain(label) {
+    const since = {responses: s.recorder.badResponses.length, console: s.recorder.consoleIssues.length};
+    const isExport = url => new URL(url).pathname.endsWith('/oscarReport/reportByTemplate/generateOutFilesAction');
+    const answered = admin.waitForResponse(r => r.request().method() === 'POST' && isExport(r.url()), {timeout: 20000});
+    answered.catch(() => {});
+    let downloads = 0;
+    const onDownload = () => { downloads++; };
+    admin.on('download', onDownload);
+    try {
+      await leaveResult(frame.locator('input[name="getCSV"]'), label);
+    } finally {
+      admin.off('download', onDownload);
+    }
+    const status = (await answered).status();
+    h.assert(status === 410, `${label}: the export answered HTTP ${status}, not 410`);
+    h.assert(downloads === 0, `${label}: the export still downloaded a file`);
+    await frame.locator('#reportResultUnavailable', {hasText: RESULT_GONE}).waitFor();
+    for (let i = s.recorder.badResponses.length - 1; i >= since.responses; i--) {
+      const entry = s.recorder.badResponses[i];
+      if (entry.status === 410 && isExport(entry.url)) s.recorder.badResponses.splice(i, 1);
+    }
+    for (let i = s.recorder.consoleIssues.length - 1; i >= since.console; i--) {
+      if (/status of 410 \(/.test(s.recorder.consoleIssues[i].text)) s.recorder.consoleIssues.splice(i, 1);
+    }
+  }
+
+  await s.step('a stale result token and an old page\'s posted CSV ask to run the report again, with no download', async () => {
+    // A token this session does not hold (expired, replaced by newer reports, or another session's).
+    await frame.locator('input[name="resultToken"]').evaluate(input => { input.value = '0'.repeat(64); });
+    await exportExpectingRunAgain('Stale result token');
+    await frameClick(frame.getByRole('link', {name: 'Run the report again', exact: true}), 'Run the report again');
+    h.assert(new URL(frame.url()).searchParams.get('templateid') === templateId, 'Run the report again opened another template');
+    await runReport('M', 'Result report (M, after a stale token)');
+    // A result page opened before the downloads moved to the server posts its whole CSV and no token: the posted
+    // CSV is ignored, never sent back as a file.
+    await frame.locator('form:has(input[name="getCSV"])').evaluate(form => {
+      for (const name of ['resultToken', 'resultIndex', 'templateid']) form.querySelector(`input[name="${name}"]`)?.remove();
+      const csv = document.createElement('input');
+      csv.type = 'hidden';
+      csv.name = 'csv';
+      csv.value = 'FAKE-posted,value\r\n';
+      form.appendChild(csv);
+    });
+    await exportExpectingRunAgain('Pre-upgrade CSV post');
+    await frameClick(frame.getByRole('link', {name: 'Run the report again', exact: true}), 'Run the report again (no template)');
+    await frame.locator('h3', {hasText: 'Template Library'}).waitFor();
+    await openFromLibrary(title, templateId);
+    await runReport('M', 'Result report (M, after an old page)');
+    const file = await download('input[name="getCSV"]');
+    h.assert(JSON.stringify(parseCsv(file.bytes.toString('utf8')).slice(1)) === JSON.stringify(expectedRows('M')),
+      'The rerun report did not download its own CSV');
   });
 
   const writeTitle = `${s.marker} RBT write`;
@@ -412,6 +476,9 @@ async function workflow(s) {
     const note = frame.locator('.alert-info[role="status"]');
     h.assert(await note.count() === 1 && (await note.innerText()).includes(CSV_HELD_BACK),
       'The report did not say its CSV and XLSX downloads are held back');
+    // The downloads are built on the server, so the 5 MB default is below the setting's maximum and can be raised.
+    h.assert((await note.innerText()).includes(canRaise('report_by_template.max_csv_mb')),
+      'The held-back note did not name the setting that raises the CSV limit');
     h.assert(await frame.locator('.alert-danger, .alert-warning').count() === 0, 'A held-back CSV was shown as an error');
     h.assert(await frame.locator('input[name="csv"], input[name="getCSV"], input[name="getXLS"]').count() === 0,
       'A report over the CSV limit still offered a download');
