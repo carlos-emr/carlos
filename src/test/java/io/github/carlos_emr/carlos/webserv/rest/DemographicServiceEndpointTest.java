@@ -241,6 +241,82 @@ class DemographicServiceEndpointTest extends CarlosRestTestBase {
             assertThat(saved.getValue().getPronoun()).isEqualTo(exact);
             assertThat(saved.getValue().getGender()).isEqualTo(exact);
         }
+
+        @ParameterizedTest
+        @CsvSource({"alert,Alert,A", "nurse,Nurse,A", "resident,Resident,A", "midwife,Midwife,A",
+                "alert,Alert,😀", "waitingListNote,Waiting list note,A", "waitingListNote,Waiting list note,😀"})
+        void shouldRejectOverlongCustomFieldsAndNote_beforeAnyWrite(String field, String label, String character) {
+            // Issue #5869: these VARCHAR(255) fields were cut silently under an empty sql_mode.
+            // WLWaitingListUtil reaches the DAO through SpringUtils, so register it there too: the
+            // no-interaction check below then covers the waiting-list write, not only the service field.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            String invalid = character.repeat(256);
+            switch (field) {
+                case "alert" -> data.setAlert(invalid);
+                case "nurse" -> data.setNurse(invalid);
+                case "resident" -> data.setResident(invalid);
+                case "midwife" -> data.setMidwife(invalid);
+                default -> data.setWaitingListNote(invalid);
+            }
+            data.setWaitingListID(7);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(400);
+                assertThat(response.readEntity(String.class))
+                        .isEqualTo(label + " exceeds maximum length of 255 characters.");
+            }
+            verifyNoInteractions(mockDemographicManager, mockWaitingListDao, updateRecords);
+        }
+
+        @ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"A", "😀"})
+        void shouldKeepCustomFieldsAndNoteWhole_whenTheyAreAtTheLimit(String character) {
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            // The patient is on list 7, so the note is written and can be read back.
+            io.github.carlos_emr.carlos.commn.model.WaitingList onTheList = new io.github.carlos_emr.carlos.commn.model.WaitingList();
+            onTheList.setListId(7);
+            onTheList.setDemographicNo(42);
+            onTheList.setPosition(3);
+            when(mockWaitingListDao.findByWaitingListIdAndDemographicId(7, 42)).thenReturn(List.of(onTheList));
+            DemographicTo1 data = payload("PUT");
+            String exact = character.repeat(255);
+            data.setAlert(exact);
+            data.setNurse(exact);
+            data.setResident(exact);
+            data.setMidwife(exact);
+            data.setWaitingListID(7);
+            data.setWaitingListNote(exact);
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.DemographicCust> cust =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.DemographicCust.class);
+            verify(mockDemographicManager).createUpdateDemographicCust(any(LoggedInInfo.class), cust.capture());
+            assertThat(cust.getValue().getAlert()).isEqualTo(exact);
+            assertThat(cust.getValue().getNurse()).isEqualTo(exact);
+            assertThat(cust.getValue().getResident()).isEqualTo(exact);
+            assertThat(cust.getValue().getMidwife()).isEqualTo(exact);
+            ArgumentCaptor<io.github.carlos_emr.carlos.commn.model.WaitingList> note =
+                    ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.WaitingList.class);
+            verify(mockWaitingListDao).saveEntity(note.capture());
+            assertThat(note.getValue().getNote()).isEqualTo(exact);
+            assertThat(note.getValue().getListId()).isEqualTo(7);
+        }
+
+        @Test
+        void shouldNotCheckTheNote_whenNoWaitingListIsNamed() {
+            // The note is written only with a list, so without one a long note is not a reason to refuse.
+            registerMock(WaitingListDao.class, mockWaitingListDao);
+            DemographicTo1 data = payload("PUT");
+            data.setWaitingListNote("A".repeat(256));
+
+            try (Response response = request().path("/demographics").invoke("PUT", data)) {
+                assertThat(response.getStatus()).isEqualTo(200);
+            }
+            verifyNoInteractions(mockWaitingListDao);
+        }
     }
 
     @ParameterizedTest

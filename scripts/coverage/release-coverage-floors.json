@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "7cca8d6d45eae872ff084ade300e3161cedd8733",
+  "comparisonSha256": "c36a90ef1591b492b004fccc5c0d6dd7b131bfee293ad828448ef5e52ba60769",
+  "baselineCommit": "ba5d934784241c22cfecdc1e64c78ff6cd6b49e7",
+  "baselineSourceTree": "7cca8d6d45eae872ff084ade300e3161cedd8733",
+  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
+    "tests": 36370,
+    "skipped": 219,
     "failures": 0,
-    "errors": 0
+    "errors": 2
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1231,7 +1231,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "01ee2514b396170fe296ea2a5c5f50db8358c624"
+      "sourceBlob": "e13932ca177ebaf407b4e28e763f019fd38cf18c"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
       "lines": 100.0,
@@ -3919,7 +3919,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "8644206165924a8f0bed79c45353687fb9b1dd12"
+      "sourceBlob": "46fdaad4a0bf5b611c16882a5676f17117100ae1"
     },
     "src/main/java/io/github/carlos_emr/carlos/webserv/rest/DiseaseRegistryService.java": {
       "lines": 100.0,
@@ -4424,6 +4424,54 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/WaitingList.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "375fc7ce89474f0ab0ec311c96107c0b304c453f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicAddRecord2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 83.33333333333333,
+      "sourceBlob": "08e4795da8f710ff298c0a74eee64d4e699b60bc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/pageUtil/DemographicUpdate2Action.java": {
+      "lines": 27.272727272727273,
+      "instructions": 29.166666666666668,
+      "branches": 37.5,
+      "sourceBlob": "4187adfc51d6cf455388f42905f8ebe029f5a5e7"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/DemographicCust.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "cc96ef9adac43766c37fa7202b76d486cc30333f"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/billings/ca/on/service/BillingObecOutputApplyService.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "41e42927661550a4eb27594cbdf151e2cdb0fee1"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLAdd2WaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "eee00904ab1d17e163ed9209108ef9aeafcda10c"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/pageUtil/WLSetupDisplayWaitingList2Action.java": {
+      "lines": 100.0,
+      "instructions": 95.83333333333333,
+      "branches": 87.5,
+      "sourceBlob": "075f29071701264ff0484f0648d97867e3adc3ad"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/waitinglist/util/WLWaitingListUtil.java": {
+      "lines": 87.5,
+      "instructions": 91.30434782608695,
+      "branches": 100.0,
+      "sourceBlob": "3e1b38d2f3f9de42c35b96b3d0d23dbd3cdcf035"
     }
   },
   "exclusions": {
@@ -4465,31 +4513,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
 }

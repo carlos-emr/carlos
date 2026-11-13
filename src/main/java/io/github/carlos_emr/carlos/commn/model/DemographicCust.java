@@ -30,6 +30,9 @@
 
 package io.github.carlos_emr.carlos.commn.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -38,6 +41,15 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "demographiccust")
 public class DemographicCust extends AbstractModel<Integer> {
+
+    /** cust1 (nurse) is VARCHAR(255). */
+    public static final int NURSE_MAX_LENGTH = 255;
+    /** cust2 (resident) is VARCHAR(255). */
+    public static final int RESIDENT_MAX_LENGTH = 255;
+    /** cust3 (the patient alert) is VARCHAR(255). */
+    public static final int ALERT_MAX_LENGTH = 255;
+    /** cust4 (midwife) is VARCHAR(255). */
+    public static final int MIDWIFE_MAX_LENGTH = 255;
 
     @Id
     @Column(name = "demographic_no")
@@ -100,6 +112,39 @@ public class DemographicCust extends AbstractModel<Integer> {
 
     public void setNotes(String notes) {
         this.notes = notes;
+    }
+
+    /**
+     * Checks the four VARCHAR(255) custom fields against their columns (issue #5869).
+     *
+     * <p>Packaged installs run MariaDB with an empty {@code sql_mode}, where a longer value is cut
+     * to 255 characters with only a warning and the save still reports success. That silently
+     * dropped the end of a long patient alert. The add, edit and REST saves call this before they
+     * write anything and refuse the whole save when it returns errors. The notes ({@code content})
+     * column is MEDIUMTEXT and is not checked here.</p>
+     *
+     * @return one message per field over its limit, naming the field and the limit but never the
+     *         value; empty when every field fits
+     */
+    public List<String> validateFieldLengths() {
+        List<String> errors = new ArrayList<>(validateAlertLength(alert));
+        Demographic.addFieldLengthError(errors, "Nurse", nurse, NURSE_MAX_LENGTH);
+        Demographic.addFieldLengthError(errors, "Resident", resident, RESIDENT_MAX_LENGTH);
+        Demographic.addFieldLengthError(errors, "Midwife", midwife, MIDWIFE_MAX_LENGTH);
+        return errors;
+    }
+
+    /**
+     * The alert check of {@link #validateFieldLengths()} alone, for a writer that changes only the
+     * alert, such as the Ontario OBEC eligibility apply (#6140).
+     *
+     * @param alert the alert as it would be stored; may be {@code null}
+     * @return a message naming the field and the limit, never the value; empty when it fits
+     */
+    public static List<String> validateAlertLength(String alert) {
+        List<String> errors = new ArrayList<>();
+        Demographic.addFieldLengthError(errors, "Alert", alert, ALERT_MAX_LENGTH);
+        return errors;
     }
 
     /** Legacy unotes is plain-text framing, not an XML document; nested tag text is clinical content. */
