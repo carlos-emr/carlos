@@ -1,12 +1,14 @@
 # CDS import documentation
 
-This is the entry point for the CDS import system targeting `release/2026.08`. Browser imports and the paired `carlos-ctl` command use the same CARLOS engine, clinical models and durable recovery contracts. Import admission is disabled by default. Export is outside this delivery.
+This is the entry point for the CDS import system targeting `release/2026.08`. Browser imports and the paired `carlos-ctl` command use the same CARLOS engine, clinical models and durable recovery contracts. Import admission is disabled by default. The CDS 5.2 exporter ships in the same release with its own admission setting, also off by default; see the [export operator guide](cds-export-operator-guide.md).
 
 These documents explain the implementation and operating contracts. Release acceptance additionally requires the executed evidence for the final candidate, recorded on the release pull request.
 
-The separate [export implementation contract](cds-export.md) records the sibling
-exporter's foundations and remaining gates. It does not change import completion
-or imply that a new exporter is available.
+The [export implementation contract](cds-export.md) describes the sibling exporter.
+Enabling export never enables import, and import completion does not depend on it.
+Packages the exporter writes are ordinary CDS 5.2 files to this importer; the CARLOS
+residual markers it adds are listed under
+[Recognised CARLOS residual markers](#recognised-carlos-residual-markers).
 
 ## Start by role
 

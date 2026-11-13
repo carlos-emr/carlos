@@ -1,6 +1,6 @@
 # CDS import operator guide — release/2026.08
 
-Use the existing **Administration → Data Management → Demographic Import** page or the paired `carlos-ctl cds-import` command. Both call the same CARLOS import engine. This work implements import. Export tickets #3973, #3946, #3959 and #3968 remain separate; #3979 is the main import feature reference.
+Use the existing **Administration → Data Management → Demographic Import** page or the paired `carlos-ctl cds-import` command. Both call the same CARLOS import engine. This guide covers import; #3979 is the main import feature reference. The CDS 5.2 exporter that ships beside it, and the fixes to the legacy CDS 4 export, are described in the [export operator guide](cds-export-operator-guide.md).
 
 Read the [web workflow](cds-import-web.md), [clinical normalization contract](cds-clinical-import-contract.md), [maintenance admission procedure](cds-maintenance-admission.md), [legacy projection safeguards](cds-legacy-projection-contract.md) and [durable ledger contract](cds-import-ledger.md) before enabling a deployment.
 

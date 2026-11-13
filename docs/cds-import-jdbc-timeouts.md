@@ -1,6 +1,6 @@
 # CDS JDBC connection deadlines
 
-Controlled CDS connections use the shipped Connector/J transport settings before opening a socket.
+Controlled CDS connections use the shipped MariaDB Connector/J transport settings before opening a socket.
 Missing `connectTimeout` receives **5000 ms** and missing `socketTimeout` receives **60000 ms**.
 Explicit positive operator values are retained up to **30000 ms** for connect and **300000 ms**
 for socket reads. An explicit zero, negative, nonnumeric or over-ceiling value is refused with
@@ -23,7 +23,8 @@ The scope is deliberate:
 - Dedicated nonpooled coordinator, maintenance and ordinary filesystem-admission connections
   always use a separately copied bounded factory. Ordinary pool flags are not changed by these calls.
 
-Controlled connections require one primary-writer endpoint: Connector/J `SINGLE_CONNECTION`.
+Controlled connections require one primary-writer endpoint: a MariaDB Connector/J URL with no
+high-availability mode (`HaMode.NONE`).
 Multi-host failover, load-balance, replication and DNS-SRV URLs are refused before connecting or
 resolving SRV targets with `CDS_JDBC_SINGLE_HOST_REQUIRED`. A secondary host cannot retain an
 unbounded per-host override. The protocol does not claim cross-server advisory-lock or HA failover
