@@ -43,6 +43,13 @@ public final class CdsExportPreventionClassifier {
 
     public enum Rule {
         CONFIGURED_IMMUNIZATION,
+        /**
+         * The built-in catch-all {@code OtherA} ("Other immunization or injection"): an
+         * {@code injection} layout outside the Screenings heading with no declared type. It is
+         * exported as an Immunizations entry without ImmunizationType, the shape the CARLOS
+         * importer itself writes back as {@code OtherA}.
+         */
+        CATCH_ALL_INJECTION,
         CVC_IMMUNIZATION,
         CONFIGURED_NON_IMMUNIZATION,
         UNKNOWN_TYPE,
@@ -67,6 +74,9 @@ public final class CdsExportPreventionClassifier {
         }
     }
 
+    /** The catch-all prevention type of the shipped configuration and of the CARLOS importer. */
+    static final String CATCH_ALL_TYPE = "OtherA";
+
     private static final int MAX_XML = 1_048_576,
             MAX_ROWS = 10_000,
             MAX_CATALOGUE_BYTES = 4_194_304;
@@ -87,6 +97,7 @@ public final class CdsExportPreventionClassifier {
     private final Map<String, Definition> definitions;
     private final Map<String, Kind> configured;
     private final Map<String, Rule> configuredReviews;
+    private final Set<String> catchAll;
     private final Set<String> vaccineNames, vaccineCodes, unresolvedMappings;
 
     public static CdsExportPreventionClassifier fromCaptured(
@@ -119,6 +130,7 @@ public final class CdsExportPreventionClassifier {
         var extracted = new HashMap<String, Definition>();
         var types = new HashMap<String, Kind>();
         var reviewRules = new HashMap<String, Rule>();
+        var catchAllNames = new HashSet<String>();
         try {
             var reader =
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsXmlReaders.reader(
@@ -178,7 +190,17 @@ public final class CdsExportPreventionClassifier {
                                             && "PAPMAM".equals(layout)
                                             && "Other".equals(heading))
                                 kind = Kind.NON_IMMUNIZATION;
-                            else {
+                            else if (CATCH_ALL_TYPE.equals(name)
+                                    && "injection".equals(layout)
+                                    && "Other".equals(heading)) {
+                                // A30: the catch-all "Other immunization or injection" records an
+                                // injection with the vaccine fields (name, lot, route, site, dose).
+                                // Its natural CDS home is Immunizations without a type, which is
+                                // exactly what the CARLOS importer maps back to OtherA; holding
+                                // every chart that used it lost nothing less.
+                                kind = Kind.IMMUNIZATION;
+                                catchAllNames.add(name);
+                            } else {
                                 kind = Kind.REQUIRES_REVIEW;
                                 reviewRules.put(name, Rule.CATEGORY_NOT_PROVEN);
                             }
@@ -227,6 +249,7 @@ public final class CdsExportPreventionClassifier {
         definitions = Map.copyOf(extracted);
         configured = Map.copyOf(types);
         configuredReviews = Map.copyOf(reviewRules);
+        catchAll = Set.copyOf(catchAllNames);
         var rows = new TreeMap<String, CdsExportCapturedTextRowDto>();
         long bytes = 0;
         for (var row : catalogue) {
@@ -332,7 +355,11 @@ public final class CdsExportPreventionClassifier {
         if (configuredKind == Kind.NON_IMMUNIZATION && (byName || byCode))
             return new Decision(Kind.REQUIRES_REVIEW, Rule.CONFLICTING_CATEGORY);
         if (configuredKind == Kind.IMMUNIZATION)
-            return new Decision(Kind.IMMUNIZATION, Rule.CONFIGURED_IMMUNIZATION);
+            return new Decision(
+                    Kind.IMMUNIZATION,
+                    catchAll.contains(nativeType)
+                            ? Rule.CATCH_ALL_INJECTION
+                            : Rule.CONFIGURED_IMMUNIZATION);
         if (byName || byCode) return new Decision(Kind.IMMUNIZATION, Rule.CVC_IMMUNIZATION);
         if (configuredKind == Kind.NON_IMMUNIZATION)
             return nativeSnomed == null || nativeSnomed.isEmpty()

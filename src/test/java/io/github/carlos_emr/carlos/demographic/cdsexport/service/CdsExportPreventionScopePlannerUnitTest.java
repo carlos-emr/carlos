@@ -224,16 +224,46 @@ class CdsExportPreventionScopePlannerUnitTest {
         assertThat(result.toString()).doesNotContain("27", "Td", result.scopeSha256());
     }
 
+    /**
+     * A clinic configuration that files OtherA outside the Other heading, so the classification
+     * alone cannot prove it a vaccine (the shipped placement is CATCH_ALL_INJECTION).
+     */
     private static CdsExportPreventionClassifier withCatchAll() throws IOException {
         return CdsExportPreventionClassifier.fromCaptured(
                 "a".repeat(64),
-                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/><item name='OtherB' layout='PAPMAM' headingName='Other'/></preventions>"
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='OtherA' layout='injection' healthCanadaType=''/><item name='OtherB' layout='PAPMAM' headingName='Other'/></preventions>"
                         .getBytes(StandardCharsets.UTF_8),
                 List.of());
     }
 
+    @Test
+    void shouldSelectANativeShippedCatchAllRow_asAnImmunizationWithoutAReceipt() throws Exception {
+        // A30: the shipped OtherA ("Other immunization or injection", injection layout under
+        // Other) is exported as an untyped immunization, never held, and needs no receipt.
+        var shipped =
+                CdsExportPreventionClassifier.fromCaptured(
+                        "a".repeat(64),
+                        "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/><item name='OtherB' layout='PAPMAM' headingName='Other'/></preventions>"
+                                .getBytes(StandardCharsets.UTF_8),
+                        List.of());
+        var result =
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                27,
+                                shipped,
+                                List.of(row(1, "OtherA", "0", null), row(2, "OtherB", "0", null)),
+                                candidates -> {
+                                    throw new AssertionError("No row needs a receipt");
+                                });
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.representable()).isTrue();
+    }
+
     // Review finding F10: the importer files a vaccine with an absent or unconfigured
-    // ImmunizationType as OtherA, which the classification alone cannot prove.
+    // ImmunizationType as OtherA, which the classification alone cannot prove in a configuration
+    // that files OtherA elsewhere.
     @Test
     void shouldSelectAReceiptProvenImportedCatchAllVaccine_asAnImmunization() throws Exception {
         var asked = new ArrayList<Set<Integer>>();
@@ -264,7 +294,7 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void shouldHoldANativeCatchAllRow_withCategoryNotProven() throws Exception {
+    void shouldHoldAnUnplacedNativeCatchAllRow_withCategoryNotProven() throws Exception {
         var result =
                 new CdsExportPreventionScopePlanner()
                         .plan(

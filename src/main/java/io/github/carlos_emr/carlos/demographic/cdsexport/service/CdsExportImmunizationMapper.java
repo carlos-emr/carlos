@@ -59,7 +59,14 @@ public final class CdsExportImmunizationMapper {
      * The catch-all injection type, and the CARLOS importer's fallback for a vaccine whose CDS
      * ImmunizationType is absent or not configured (CdsImmunizationPersister.preventionType).
      */
-    static final String CATCH_ALL_TYPE = "OtherA";
+    static final String CATCH_ALL_TYPE = CdsExportPreventionClassifier.CATCH_ALL_TYPE;
+
+    /**
+     * ImmunizationName of a catch-all entry recorded without a name: the item's label on the
+     * prevention screen. The name field is optional there; the entry's exact rows, the empty name
+     * included, travel in the prevention residual.
+     */
+    static final String CATCH_ALL_LABEL = "Other immunization or injection";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
@@ -166,6 +173,9 @@ public final class CdsExportImmunizationMapper {
                 && nativeType != null
                 && !nativeType.equals(CATCH_ALL_TYPE)
                 && CdsExportNativeFieldAssessments.legal(nativeType, 120)) name = nativeType;
+        if ((name == null || name.isBlank())
+                && category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
+                && !byKey.containsKey("cdsName")) name = CATCH_ALL_LABEL;
         if (name == null || name.isBlank())
             source.review("prevention_type", "ImmunizationName", "IMMUNIZATION_NAME_REQUIRED");
         boolean typeProven = true;
@@ -217,9 +227,11 @@ public final class CdsExportImmunizationMapper {
                     typeCarried
                             ? "ImmunizationName;" + RESIDUAL
                             : "ImmunizationName/ImmunizationType",
-                    typeCarried
-                            ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
-                            : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");
+                    category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
+                            ? "CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION"
+                            : typeCarried
+                                    ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
+                                    : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");
         boolean refused = false;
         String refusal = source.raw("refused"), statusNote = null;
         if ("0".equals(refusal) || "1".equals(refusal)) {

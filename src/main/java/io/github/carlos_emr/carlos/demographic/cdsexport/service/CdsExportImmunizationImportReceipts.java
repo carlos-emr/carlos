@@ -38,8 +38,10 @@ import java.util.*;
  * CDS Immunizations element (review finding F10).
  *
  * <p>The importer stores an imported vaccine whose ImmunizationType is absent or not configured
- * as the catch-all type {@code OtherA}, which the frozen prevention classification cannot prove
- * to be a vaccine. Such a row is still provably an immunization when an applied Immunizations
+ * as the catch-all type {@code OtherA}. The shipped catch-all (an {@code injection} item under
+ * Other) is classified an immunization ({@code CATCH_ALL_INJECTION}), but a clinic configuration
+ * that places {@code OtherA} differently leaves the frozen classification unable to prove it a
+ * vaccine. Such a row is still provably an immunization when an applied Immunizations
  * import unit names it in its target receipt and that receipt carries a native-baseline witness
  * sealed under the installation key: the seal binds the receipt digest, so a database writer can
  * neither invent the unit's references nor move a witness to another receipt, and only the

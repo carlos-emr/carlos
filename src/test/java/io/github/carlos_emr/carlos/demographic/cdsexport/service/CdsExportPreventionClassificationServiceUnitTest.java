@@ -312,7 +312,8 @@ class CdsExportPreventionClassificationServiceUnitTest {
                 .hasMessage("EMBEDDED_PLAN_REVOKED");
     }
 
-    // Review finding F10: an imported vaccine filed as the catch-all OtherA type.
+    // Review finding F10: an imported vaccine filed as the catch-all OtherA type, in a
+    // configuration that files OtherA outside the Other heading (see catchAll below).
     private static final Set<String> UNIT_TABLES =
             Set.of("preventions_scope", "CVCImmunization", "CVCMapping", "cds_import_unit");
 
@@ -487,7 +488,7 @@ class CdsExportPreventionClassificationServiceUnitTest {
     private static CdsExportPreventionClassifier catchAll(String digest) throws IOException {
         return CdsExportPreventionClassifier.fromCaptured(
                 digest,
-                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>"
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' healthCanadaType=''/></preventions>"
                         .getBytes(StandardCharsets.UTF_8),
                 List.of());
     }

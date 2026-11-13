@@ -570,8 +570,9 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
 
     @Test
     void shouldVerifyUnknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection_forImmunizationCaptureContract() {
+        // A type the installed configuration does not define is held, never silently included.
         sql.update(
-                "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
+                "update preventions set prevention_type='UNCONFIGURED_INJECTION' where id=? and demographic_no=?",
                 first,
                 patient);
         read.executeWithoutResult(
@@ -580,10 +581,30 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                         var state = snapshots.prepare(patient, () -> {});
                         assertThat(state.selection().reviews())
                                 .containsEntry(
-                                        first,
-                                        CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                                        first, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
                         assertThatThrownBy(state::clinicalIds)
                                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+    }
+
+    // A30: with the installed configuration a native "Other immunization or injection" (OtherA)
+    // is captured as an immunization, with or without an import, and does not hold a
+    // PastHealth-only export: it is not a screening.
+    @Test
+    void shouldCaptureANativeCatchAllInjection_asAnImmunizationWithTheInstalledConfiguration() {
+        sql.update(
+                "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
+                first,
+                patient);
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        var state = snapshots.prepare(patient, () -> {});
+                        assertThat(state.selection().reviews()).doesNotContainKey(first);
+                        assertThat(state.clinicalIds()).isEqualTo(vaccineIds());
                     } catch (IOException failed) {
                         throw new UncheckedIOException(failed);
                     }
@@ -624,22 +645,25 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                         throw new UncheckedIOException(failed);
                     }
                 });
-        // Without Immunizations the capture copies no Immunizations unit: the row stays held.
+        // Without Immunizations no Immunizations unit is copied; the installed configuration
+        // still classifies the catch-all as an immunization, so it neither holds a PastHealth-only
+        // export nor becomes one of its screenings (A30).
         read.executeWithoutResult(
                 status -> {
                     try {
-                        assertThat(receipts.prepare(patient, () -> {}, false).selection().reviews())
-                                .containsEntry(
-                                        first,
-                                        CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                        var selection = receipts.prepare(patient, () -> {}, false).selection();
+                        assertThat(selection.reviews()).doesNotContainKey(first);
+                        assertThat(selection.otherPreventions()).doesNotContain(first);
                     } catch (IOException failed) {
                         throw new UncheckedIOException(failed);
                     }
                 });
     }
 
+    // A foreign receipt still proves nothing (CdsExportImmunizationImportReceiptsUnitTest); with
+    // the installed configuration the catch-all no longer needs that proof (A30).
     @Test
-    void shouldHoldACatchAllVaccine_whenTheImportReceiptBelongsToAnotherPatientsImport()
+    void shouldCaptureTheInstalledCatchAll_whenTheImportReceiptBelongsToAnotherPatientsImport()
             throws Exception {
         sql.update(
                 "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
@@ -662,12 +686,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                 status -> {
                     try {
                         var state = receipts.prepare(patient, () -> {}, true);
-                        assertThat(state.selection().reviews())
-                                .containsEntry(
-                                        first,
-                                        CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
-                        assertThatThrownBy(state::clinicalIds)
-                                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                        assertThat(state.selection().reviews()).doesNotContainKey(first);
+                        assertThat(state.clinicalIds()).isEqualTo(vaccineIds());
                     } catch (IOException failed) {
                         throw new UncheckedIOException(failed);
                     }

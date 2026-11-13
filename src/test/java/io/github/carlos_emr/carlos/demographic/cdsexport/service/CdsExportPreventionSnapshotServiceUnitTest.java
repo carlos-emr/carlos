@@ -315,12 +315,13 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     // Review finding F10: capture-time selection reads the same import receipts the finished
-    // capture reclassifies, so an imported OtherA vaccine is captured as an immunization.
+    // capture reclassifies, so an imported OtherA vaccine is captured as an immunization. The
+    // configuration files OtherA outside the Other heading, where only a receipt can prove it.
     private CdsExportPreventionSnapshotService withReceipts(
             CdsImportUnitDao units, List<Map<String, String>> unitRows) throws Exception {
         Files.writeString(
                 file,
-                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>");
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' healthCanadaType=''/></preventions>");
         when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
                 .thenReturn(List.of(raw(1, "OtherA"), raw(2, "PAP")));
         var pages = new ArrayList<CdsExportRawKeyRowDto>();

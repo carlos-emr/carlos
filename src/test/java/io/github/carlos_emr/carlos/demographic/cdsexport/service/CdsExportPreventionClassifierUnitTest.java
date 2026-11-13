@@ -86,10 +86,12 @@ class CdsExportPreventionClassifierUnitTest {
             assertThat(value.classify(name, null).kind()).as(name).isEqualTo(IMMUNIZATION);
         for (String name : List.of("OtherB", "Smoking", "PAP", "Tuberculosis"))
             assertThat(value.classify(name, null).kind()).as(name).isEqualTo(NON_IMMUNIZATION);
+        // A30: the shipped catch-all "Other immunization or injection" is an untyped immunization.
         assertThat(value.classify("OtherA", null))
                 .isEqualTo(
                         new CdsExportPreventionClassifier.Decision(
-                                REQUIRES_REVIEW, CATEGORY_NOT_PROVEN));
+                                IMMUNIZATION,
+                                CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION));
     }
 
     @Test
@@ -305,8 +307,21 @@ class CdsExportPreventionClassifierUnitTest {
                 "<preventions><item name='Tuberculosis' layout='injection' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other'/><item name='B12' layout='injection' headingName='Other'/></preventions>";
         var value = from(xml, List.of(vaccine(1, "Verified vaccine", "123456789")));
         assertThat(value.classify("Tuberculosis", null).kind()).isEqualTo(NON_IMMUNIZATION);
-        assertThat(value.classify("OtherA", null).rule()).isEqualTo(CATEGORY_NOT_PROVEN);
+        // Only the catch-all OtherA under Other is placed by name; any other injection item and an
+        // OtherA filed elsewhere still need explicit vaccine evidence.
+        assertThat(value.classify("OtherA", null).rule())
+                .isEqualTo(CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION);
         assertThat(value.classify("B12", null).rule()).isEqualTo(CATEGORY_NOT_PROVEN);
+        var elsewhere =
+                from(
+                        "<preventions><item name='OtherA' layout='injection' headingName='Screenings'/><item name='Td' layout='injection' healthCanadaType='Td'/></preventions>",
+                        List.of());
+        assertThat(elsewhere.classify("OtherA", null).kind()).isEqualTo(NON_IMMUNIZATION);
+        var unheaded =
+                from(
+                        "<preventions><item name='OtherA' layout='injection'/></preventions>",
+                        List.of());
+        assertThat(unheaded.classify("OtherA", null).rule()).isEqualTo(CATEGORY_NOT_PROVEN);
         assertThat(value.classify("OtherA", "123456789").kind()).isEqualTo(IMMUNIZATION);
         assertThat(value.classify("Tuberculosis", "123456789").rule())
                 .isEqualTo(CONFLICTING_CATEGORY);

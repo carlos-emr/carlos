@@ -423,6 +423,45 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldExportTheShippedCatchAllInjection_asAnUntypedImmunizationInsteadOfHolding()
+            throws Exception {
+        // A30: "Other immunization or injection" (OtherA, injection layout under Other) records
+        // the vaccine fields; it is exported as Immunizations without ImmunizationType, which the
+        // CARLOS importer maps back to OtherA. Every native row travels in the residual.
+        definitions =
+                CdsExportPreventionClassifier.fromCaptured(
+                        "a".repeat(64),
+                        "<preventions><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>"
+                                .getBytes(StandardCharsets.UTF_8),
+                        List.of());
+        parent.put("prevention_type", "OtherA");
+        extra(30, "name", "Vitamin B12");
+        extra(31, "lot", "B12-77");
+        var named = map();
+        assertThat(named.nativeRowRepresentable()).isTrue();
+        assertThat(named.value().name()).isEqualTo("Vitamin B12");
+        assertThat(named.value().type()).isNull();
+        assertThat(decision(named, "preventions", "prevention_type").rule())
+                .isEqualTo("CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.IMMUNIZATIONS,
+                                body ->
+                                        new CdsExportImmunizationXmlWriter()
+                                                .write(named.value(), body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).contains("Vitamin B12", "B12-77").doesNotContain("ImmunizationType");
+        // The name box is optional: an unnamed entry is named by its label on the screen.
+        extras.clear();
+        extra(30, "name", "");
+        var unnamed = map();
+        assertThat(unnamed.nativeRowRepresentable()).isTrue();
+        assertThat(unnamed.value().name()).isEqualTo(CdsExportImmunizationMapper.CATCH_ALL_LABEL);
+        assertThat(unnamed.value().sourceContext()).contains("OtherA");
+    }
+
+    @Test
     void
             shouldVerifyYearAndMonthMarkersNeverInventAClinicalMonthDayOrClock_forImmunizationMapperContract()
                     throws Exception {
