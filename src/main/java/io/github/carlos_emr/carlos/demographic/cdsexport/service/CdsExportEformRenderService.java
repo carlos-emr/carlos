@@ -202,15 +202,11 @@ public class CdsExportEformRenderService {
         try {
             pace(checkpoint, intervalNanos);
             started = clock.getAsLong();
-            try (var rendered = renderer.render(identity, fdid)) {
-                checkpoint.run();
-                long bytes = Files.size(rendered.path());
-                if (bytes > maximumBytes) return done(Reason.TOO_LARGE, started, false);
-                if (!pdf(rendered.path())) return done(Reason.BROWSER_FAILURE, started, true);
-                var file = spool.stage("EFORM_RENDERING", out -> Files.copy(rendered.path(), out));
-                if (file.plaintextBytes() != bytes) throw new IOException("CDS_EXPORT_EFORM_RENDER_SPOOL_INVALID");
-                failures.set(0);
-                return new Outcome(null, file, elapsed(started));
+            EFormBrowserPdfService.RenderedEformPdf made;
+            // Only the renderer's own failures are classified; a cancellation or lease check
+            // below always propagates.
+            try {
+                made = renderer.render(identity, fdid);
             } catch (EformContentUnavailableException incomplete) {
                 checkpoint.run();
                 return done(Reason.INCOMPLETE, started, false);
@@ -223,6 +219,26 @@ public class CdsExportEformRenderService {
             } catch (RuntimeException failed) {
                 checkpoint.run();
                 return done(Reason.BROWSER_FAILURE, started, true);
+            }
+            try (var rendered = made) {
+                checkpoint.run();
+                long bytes;
+                boolean pdf;
+                try {
+                    bytes = Files.size(rendered.path());
+                    pdf = pdf(rendered.path());
+                } catch (IOException unreadable) {
+                    // The renderer's own output vanished or cannot be read: a renderer fault.
+                    return done(Reason.BROWSER_FAILURE, started, true);
+                }
+                if (bytes > maximumBytes) return done(Reason.TOO_LARGE, started, false);
+                if (!pdf) return done(Reason.BROWSER_FAILURE, started, true);
+                // A spool write failure is the export's own storage failing: it stops the job.
+                var file = spool.stage("EFORM_RENDERING", out -> Files.copy(rendered.path(), out));
+                if (file.plaintextBytes() != bytes)
+                    throw new IOException("CDS_EXPORT_EFORM_RENDER_SPOOL_INVALID");
+                failures.set(0);
+                return new Outcome(null, file, elapsed(started));
             }
         } finally {
             lastFinished.set(clock.getAsLong());

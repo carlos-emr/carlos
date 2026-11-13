@@ -206,6 +206,37 @@ class CdsExportEformRenderServiceUnitTest {
     }
 
     @Test
+    void shouldPropagateACancellationAfterTheRender_withoutCountingItAsABrowserFailure()
+            throws Exception {
+        var made = new RenderedEformPdf[1];
+        var service =
+                service(
+                        (identity, fdid) -> {
+                            made[0] = output(PDF);
+                            return made[0];
+                        },
+                        "0");
+        var checks = new AtomicInteger();
+
+        assertThatThrownBy(
+                        () ->
+                                service.render(
+                                        1,
+                                        who,
+                                        spool,
+                                        () -> {
+                                            if (checks.incrementAndGet() == 2)
+                                                throw new java.util.concurrent.CancellationException(
+                                                        "CDS_EXPORT_WAIT_INTERRUPTED");
+                                        }))
+                .isInstanceOf(java.util.concurrent.CancellationException.class);
+        assertThat(made[0].path()).doesNotExist();
+        assertThat(spool.members).isEmpty();
+        assertThat(CdsExportEformRenderService.EXPORT_RENDERS.availablePermits()).isEqualTo(1);
+        assertThat(service.render(2, who, spool, () -> {}).rendered()).isTrue();
+    }
+
+    @Test
     void shouldPassARefusedIdentityThrough_asAnAuthorizationChange() {
         var service =
                 service(
