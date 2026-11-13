@@ -37,7 +37,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.struts2.ActionSupport;
@@ -66,8 +65,6 @@ import static org.mockito.Mockito.*;
 @Tag("signature")
 class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
-    private static final String VALID_KEY_PREFIX = "testkey";
-
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private AutoCloseable mockitoCloseable;
@@ -86,12 +83,13 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
     void setUp() {
         mockitoCloseable = MockitoAnnotations.openMocks(this);
 
-        // Fresh alphanumeric key per test so parallel runs don't collide on /tmp.
-        signatureKey = VALID_KEY_PREFIX + UUID.randomUUID().toString().replace("-", "");
-
         mockRequest = new MockHttpServletRequest();
         mockResponse = new MockHttpServletResponse();
         mockRequest.setMethod("POST");
+
+        // A fresh key issued to this request's session, as the page that opens the pad does, so
+        // parallel runs don't collide on /tmp.
+        signatureKey = DigitalSignatureUtils.generateSignatureRequestId(mockRequest.getSession());
 
         servletActionContextMock = mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(mockRequest);
@@ -238,6 +236,9 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             assertThat(mockResponse.getStatus()).isEqualTo(HttpServletResponse.SC_BAD_REQUEST);
         }
 
+        // The issued-key refusals (403) are in SaveSignatureUpload2ActionIssuedKeyUnitTest: CI
+        // never runs this class on this release line (Surefire unmatched baseline).
+
         @Test
         @DisplayName("should return 400 when path validation throws")
         void shouldReturn400_whenPathValidationThrows() throws Exception {
@@ -286,7 +287,7 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
             mockRequest.setParameter("source", "IPAD");
             mockRequest.setParameter("signatureImage", "data:image/png;base64,garbage");
 
-            try (MockedConstruction<Base64> ignored = mockConstruction(Base64.class,
+            try (var _ = mockConstruction(Base64.class,
                     (mock, context) -> when(mock.decode(any(byte[].class)))
                             .thenThrow(new IllegalArgumentException("bad base64")))) {
                 action.execute();
@@ -375,11 +376,13 @@ class SaveSignatureUpload2ActionTest extends CarlosUnitTestBase {
 
                         @Override
                         public void setReadListener(ReadListener listener) {
+                            // Not needed: the action reads this stream synchronously, so no listener is ever registered.
                         }
                     };
                 }
             };
             failingRequest.setMethod("POST");
+            failingRequest.setSession(mockRequest.getSession()); // the session the key was issued to
             failingRequest.setParameter(DigitalSignatureUtils.SIGNATURE_REQUEST_ID_KEY, signatureKey);
             servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(failingRequest);
 

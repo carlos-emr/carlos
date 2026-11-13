@@ -147,6 +147,8 @@ jobs:
         run: node scripts/rtl-measurement-browser-check.js
       - name: Check eForm toolbar and fax compatibility in Chromium
         run: node scripts/eform-toolbar-browser-check.js
+      - name: Check signature upload refusals and retries in Chromium
+        run: node scripts/tablet-signature-browser-check.js
       - name: Check dashboard tickler typed dates and times in Chromium
         run: node scripts/dashboard-tickler-picker-browser-check.js
       - name: Check calendar initialization in eForms

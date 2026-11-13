@@ -5,6 +5,9 @@
  */
 package io.github.carlos_emr.carlos.form.pdfservlet;
 
+import io.github.carlos_emr.carlos.utility.DigitalSignatureUtils;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.mock.web.MockHttpSession;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.FaxConfigDao;
@@ -288,10 +291,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         }
     }
 
-    /** A 13-digit-suffix pad file name for the given provider, matching generateSignatureRequestId. */
-    private static Path padFileFor(String providerNo) {
-        // providerNo + a 13-digit timestamp, the exact shape the servlet accepts.
-        return Path.of(System.getProperty("java.io.tmpdir"), "signature_" + providerNo + System.currentTimeMillis() + ".jpg");
+    /** The pad capture path for a request id issued to {@code session}, as the prescription page gets it. */
+    private static Path padFileFor(HttpSession session) {
+        return Path.of(DigitalSignatureUtils.getTempFilePath(DigitalSignatureUtils.generateSignatureRequestId(session)));
     }
 
     /** A decodable PNG that is distinct from {@link #tinyPng()} so byte assertions can tell them apart. */
@@ -1271,8 +1273,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 request, prescriptionDao.find(SCRIPT_ID));
 
         String rx = bound.getParameter("rx");
-        assertThat(rx).contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100");
-        assertThat(rx).contains("1 tab PO BID; hold if SBP<100" + nl + "Qty 60");
+        assertThat(rx)
+                .contains("Metoprolol 25 mg tablet" + nl + "1 tab PO BID; hold if SBP<100")
+                .contains("1 tab PO BID; hold if SBP<100" + nl + "Qty 60");
     }
 
     @Test
@@ -1292,8 +1295,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
         String rx = bound.getParameter("rx");
-        assertThat(rx).contains("1 tab PO BID; hold if SBP<100");
-        assertThat(rx).doesNotContain("BID" + System.lineSeparator() + " hold");
+        assertThat(rx)
+                .contains("1 tab PO BID; hold if SBP<100")
+                .doesNotContain("BID" + System.lineSeparator() + " hold");
     }
 
     @Test
@@ -1402,8 +1406,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // A database or wiring failure is not a directive. Absorbing it would fax a prescription with no
         // patient on it while masking an outage; it must propagate and stop the fax.
         when(demographicManager.getDemographic(any(), eq(DEMOGRAPHIC_NO))).thenThrow(new IllegalStateException("datasource down"));
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
 
-        assertThatThrownBy(() -> new FrmCustomedPDFServlet().bindFaxContentToRecord(request))
+        assertThatThrownBy(() -> servlet.bindFaxContentToRecord(request))
                 .isInstanceOf(IllegalStateException.class);
     }
 
@@ -1453,9 +1458,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         io.github.carlos_emr.carlos.commn.model.Provider provider = new io.github.carlos_emr.carlos.commn.model.Provider();
         provider.setFirstName("Ada");
         provider.setLastName("Prescriber");
-        ProviderDao providerDao = mock(ProviderDao.class);
-        when(providerDao.getProvider("999998")).thenReturn(provider);
-        registerMock(ProviderDao.class, providerDao);
+        ProviderDao prescriberProviderDao = mock(ProviderDao.class);
+        when(prescriberProviderDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, prescriberProviderDao);
 
         HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
@@ -1564,11 +1569,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @Test
     @DisplayName("should prefer a valid pad capture image over the stored signature when it exists")
     void shouldPreferPadFile_whenPresentInTempDirectory() throws Exception {
-        Path padFile = padFileFor("999998"); // this provider's capture (13-digit millis suffix)
+        MockHttpServletRequest request = createFaxRequest();
+        Path padFile = padFileFor(request.getSession()); // a capture this session's page asked for
         try {
             byte[] padBytes = otherPng(); // distinct from the stored signature's tinyPng()
             Files.write(padFile, padBytes);
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1584,9 +1589,9 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    @DisplayName("should reject another provider's pad capture and use the stored signature")
-    void shouldRejectAnotherProvidersPadFile_andUseStoredSignature() throws Exception {
-        Path foreignPad = padFileFor("888888"); // a different provider's capture
+    @DisplayName("should reject a pad capture issued to another session and use the stored signature")
+    void shouldRejectAnotherSessionsPadFile_andUseStoredSignature() throws Exception {
+        Path foreignPad = padFileFor(new MockHttpSession()); // another login's capture
         try {
             byte[] foreignBytes = otherPng(); // a real, decodable image — distinct from the stored one
             Files.write(foreignPad, foreignBytes);
@@ -1615,11 +1620,11 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // script and draws on the pad. The document names the PERSISTED prescriber (the fax body is
         // bound to the record), so honouring this capture would put provider B's ink under provider
         // A's name. The stored signature — the one A actually left on the script — is used instead.
-        Path ownPad = padFileFor("999998");
+        MockHttpServletRequest request = createFaxRequest();
+        Path ownPad = padFileFor(request.getSession());
         try {
             byte[] ownBytes = otherPng(); // a real, decodable image, and this caller's own capture
             Files.write(ownPad, ownBytes);
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", ownPad.toString());
             stubStoredSignature("111111"); // the script was written by a DIFFERENT provider
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1636,12 +1641,35 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should reject a pad file named in the old provider-number format and use the stored signature")
+    void shouldRejectOldFormatPadFile_andUseStoredSignature() throws Exception {
+        Path oldFormatPad = Path.of(System.getProperty("java.io.tmpdir"),
+                "signature_999998" + System.currentTimeMillis() + ".jpg");
+        try {
+            byte[] padBytes = otherPng();
+            Files.write(oldFormatPad, padBytes);
+            MockHttpServletRequest request = createFaxRequest();
+            request.addParameter("imgFile", oldFormatPad.toString());
+            stubStoredSignature();
+            LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
+            when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
+
+            byte[] resolved = new FrmCustomedPDFServlet().resolveSignatureImage(request, loggedInInfo);
+
+            assertThat(resolved).isEqualTo(tinyPng());
+            assertThat(resolved).isNotEqualTo(padBytes);
+        } finally {
+            Files.deleteIfExists(oldFormatPad);
+        }
+    }
+
+    @Test
     @DisplayName("should fall back to the stored signature when the pad file is not a decodable image")
     void shouldFallBackToStoredSignature_whenPadFileNotAnImage() throws Exception {
-        Path padFile = padFileFor("999998");
+        MockHttpServletRequest request = createFaxRequest();
+        Path padFile = padFileFor(request.getSession());
         try {
             Files.write(padFile, "not-an-image".getBytes(StandardCharsets.UTF_8));
-            MockHttpServletRequest request = createFaxRequest();
             request.addParameter("imgFile", padFile.toString());
             stubStoredSignature();
             LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
@@ -1680,8 +1708,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
     @DisplayName("should fall back to the stored signature when the named pad file does not exist")
     void shouldFallBackToStoredSignature_whenPadFileMissing() throws Exception {
         MockHttpServletRequest request = createFaxRequest();
-        // A well-formed pad name for THIS provider that was never written.
-        request.addParameter("imgFile", padFileFor("999998").getFileName().toString());
+        // A well-formed pad name issued to THIS session that was never written.
+        request.addParameter("imgFile", padFileFor(request.getSession()).getFileName().toString());
         stubStoredSignature();
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
@@ -1704,7 +1732,7 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         when(loggedInInfo.getLoggedInProviderNo()).thenReturn("999998");
 
         // Real PathValidationUtils behaviour: validatePath reduces "../../etc/passwd" to its base
-        // name "passwd" (it does not throw), which then fails the signature_<provider><millis>.jpg
+        // name "passwd" (it does not throw), which then fails the signature_<requestId>.jpg
         // pad pattern, so the servlet falls back to the stored signature. The SecurityException
         // path is exercised separately below with a forced stub. Here we PROVE the raw traversal
         // value reached the validator rather than being used as a path directly.
@@ -1837,17 +1865,17 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         // Give the RECORD known values so the assertions prove where the replacements came FROM.
         // Asserting only "not the posted value" would pass even if the binding wrote empty strings,
         // i.e. it would go green over a fix that silently dropped the prescriber's real notes.
-        Prescription record = prescriptionDao.find(SCRIPT_ID);
-        record.setComments("Take with food. Recheck INR in 5 days.");
+        Prescription prescriptionRecord = prescriptionDao.find(SCRIPT_ID);
+        prescriptionRecord.setComments("Take with food. Recheck INR in 5 days.");
         io.github.carlos_emr.carlos.commn.model.Provider provider =
                 new io.github.carlos_emr.carlos.commn.model.Provider();
         provider.setFirstName("Ada");
         provider.setLastName("Prescriber");
         provider.setPractitionerNo("CPSO-12345");
         provider.setBillingNo("BILL-67890");
-        ProviderDao providerDao = mock(ProviderDao.class);
-        when(providerDao.getProvider("999998")).thenReturn(provider);
-        registerMock(ProviderDao.class, providerDao);
+        ProviderDao prescriberProviderDao = mock(ProviderDao.class);
+        when(prescriberProviderDao.getProvider("999998")).thenReturn(provider);
+        registerMock(ProviderDao.class, prescriberProviderDao);
 
         request.addParameter("additNotes", "Oxycodone 80 mg, #100, refills x5");
         request.addParameter("pracNo", "999999");
@@ -2212,8 +2240,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2246,8 +2274,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
 
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "Smith & Jones\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2261,9 +2289,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
 
         java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
 
-        assertThat(parsed.get("clinicTel")).isEqualTo("8195551111");
-        assertThat(parsed.get("clinicFax")).isEqualTo("8195552222");
-        assertThat(parsed.get("clinicName")).isEqualTo("Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
+        assertThat(parsed)
+                .containsEntry("clinicTel", "8195551111")
+                .containsEntry("clinicFax", "8195552222")
+                .containsEntry("clinicName", "Site Nord\n2 rue Nord\nGatineau, QC J8X 1A1");
     }
 
     @Test
@@ -2272,10 +2301,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
                 "2 <br> North Ave", "City </b>", "ON", "P1P 1P1", "123<br>456", "789</b>012",
                 "T&eacute;l", "Fax");
         java.util.HashMap<String, String> parsed = FrmCustomedPDFServlet.parseSCAddress(block);
-        assertThat(parsed.get("clinicName"))
-                .isEqualTo("North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1");
-        assertThat(parsed.get("clinicTel")).isEqualTo("123<br>456");
-        assertThat(parsed.get("clinicFax")).isEqualTo("789</b>012");
+        assertThat(parsed)
+                .containsEntry("clinicName", "North <br> &amp; </b> Clinic\n2 <br> North Ave\nCity </b>, ON P1P 1P1")
+                .containsEntry("clinicTel", "123<br>456")
+                .containsEntry("clinicFax", "789</b>012");
     }
 
     @Test
@@ -2295,8 +2324,8 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
             when(siteDao.getActiveSitesByProviderNo("999998")).thenReturn(List.of(site));
             HttpServletRequest bound = new FrmCustomedPDFServlet().bindFaxContentToRecord(request);
             assertThat(bound.getParameter("useSC")).isEqualTo("true");
-            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")).get("clinicName"))
-                    .isEqualTo("North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
+            assertThat(FrmCustomedPDFServlet.parseSCAddress(bound.getParameter("scAddress")))
+                    .containsEntry("clinicName", "North <br> &amp; </b> Clinic\n2 North Ave\nBarrie, ON L4M 1A1");
         } finally {
             restoreProperty("multisites", previousMultisites);
         }
@@ -2309,8 +2338,10 @@ class FrmCustomedPDFServletUnitTest extends CarlosUnitTestBase {
         Prescription prescription = prescriptionDao.find(SCRIPT_ID);
         when(securityInfoManager.hasPrivilege(any(), eq("_rx"), eq(SecurityInfoManager.READ), eq(String.valueOf(DEMOGRAPHIC_NO))))
                 .thenThrow(new IllegalStateException("datasource down"));
+        FrmCustomedPDFServlet servlet = new FrmCustomedPDFServlet();
+        LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
 
-        assertThatThrownBy(() -> new FrmCustomedPDFServlet().isFaxDeniedByPrivilege(prescription, mock(LoggedInInfo.class)))
+        assertThatThrownBy(() -> servlet.isFaxDeniedByPrivilege(prescription, loggedInInfo))
                 .isInstanceOf(IllegalStateException.class);
     }
 

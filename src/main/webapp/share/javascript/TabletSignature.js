@@ -275,7 +275,16 @@ function saveCanvas() {
             url: contextPath + "/signature_pad/SaveSignatureUpload",
             data: jQuery("#signatureForm").serialize(),
             success: function (data) {
-                var savedId = jQuery(jQuery(data.trim())[0]).val();
+                // A timed-out login can redirect the upload to a 200 HTML login page. Only
+                // the upload action's explicit result is a successful capture.
+                var result = jQuery.parseHTML(data, document, false);
+                var savedField = jQuery(result).filter('input[name="signatureId"]');
+                var savedId = savedField.val();
+                var persists = jQuery('#signatureForm input[name="saveToDB"]').val() === 'true';
+                if (savedField.length !== 1 || (persists && !/^[1-9][0-9]*$/.test(savedId))) {
+                    signatureSaveFailed();
+                    return;
+                }
                 OnSignEvent(true, false, savedId);
             },
             // Without an error handler, any non-2xx (a WAF 403 on the base64 image,
@@ -283,10 +292,7 @@ function saveCanvas() {
             // nothing — the "signature not saved, no message" symptom. Surface it so
             // the clinician knows the signature was not captured and can retry.
             error: function (xhr) {
-                var status = xhr && xhr.status ? xhr.status : "unknown";
-                alert("The signature could not be saved (server responded " + status
-                    + "). Please try again; if it keeps failing, contact your administrator.");
-                OnSignEvent(false, false);
+                signatureSaveFailed(xhr && xhr.status);
             }
         });
         return false;
@@ -294,6 +300,15 @@ function saveCanvas() {
         document.getElementById("signatureForm").submit();
     }
 
+}
+
+function signatureSaveFailed(status) {
+    var recovery = status === 403
+        ? " Please reopen the signing page and sign again; this signing request may have expired."
+        : " Please try again; if it keeps failing, reopen the signing page or contact your administrator.";
+    alert("The signature could not be saved" + (status ? " (server responded " + status + ")" : "") + "." + recovery);
+    // Keep the drawing and retry controls; never tell the parent that this capture was saved.
+    OnSignEvent(false, true);
 }
 
 

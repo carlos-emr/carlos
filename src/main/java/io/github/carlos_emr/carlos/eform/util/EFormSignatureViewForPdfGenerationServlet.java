@@ -217,6 +217,12 @@ public final class EFormSignatureViewForPdfGenerationServlet extends HttpServlet
             if (stored == null) {
                 continue;
             }
+            if ("Letter".equals(value.getVarName())) {
+                // saveRTL() escapes the editor's already-escaped image markup. Use the same
+                // single decoding pass as the PDF composer, so its image reference is recognized.
+                // The signature's authoritative patient binding is still checked before streaming.
+                stored = EFormRenderPdfHtmlComposer.decodeStoredLetter(stored);
+            }
             Matcher matcher = DIGITAL_SIGNATURE_ID_REFERENCE.matcher(stored);
             while (matcher.find()) {
                 if (signatureId.equals(matcher.group(1))) {

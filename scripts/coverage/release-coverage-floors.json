@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "9e26724996c222a5e92a4df8f0b5c1c069589f7c",
+  "comparisonSha256": "3602d71b73a7692f15542daa05174b0dd0b860c3d52d8927047b171bb0ee562a",
+  "baselineCommit": "985aa46544b52b6d034462e780bd661cb2241bbe",
+  "baselineSourceTree": "9e26724996c222a5e92a4df8f0b5c1c069589f7c",
+  "baselineReportSha256": "0f62476456d9d173a7c42901ce45dc895601f43a0cfa6a3153b319545380f912",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven) through verify-release-evidence.py: receipt PASS, run ab200761-f82b-4b79-895c-09bec0f34602. It used a local copy of the plan with forkCount 2 instead of 3, a 6-hour timeout instead of 40 minutes, and the routed skip that #6150 adds for its MariaDB test. Source: a local test merge (3ea3d17969) of release 1b27a8fd2c with the heads of #6130, #5141 (985aa46544), #6139 (a092a76172), #6142 (468a111070), #6145, #6152, #6150, #6151 (88d5204ece), #6154 (3b937c194f) and #6153. 36,467 tests, 219 skipped, 0 failures.",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
+    "tests": 36467,
+    "skipped": 219,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "e42bcd0c62638541342eb52e660ec05384464d26c1819e6247e8469765f97576",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -1891,7 +1891,7 @@
       "lines": 62.5,
       "instructions": 59.64912280701754,
       "branches": 25.0,
-      "sourceBlob": "d657900821bc955511caa413d0bf5e20545045b4"
+      "sourceBlob": "04687c10414702a23609a205a12c471a7becc6e7"
     },
     "src/main/java/io/github/carlos_emr/carlos/encounter/oscarConsultationRequest/pageUtil/EctConsultationFormRequestPrintAction22Action.java": {
       "lines": 97.05882352941177,
@@ -2758,10 +2758,10 @@
       "sourceBlob": "99be3b99e07c56165ac8c48f36bc81f91481dd1f"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DigitalSignatureManagerImpl.java": {
-      "lines": 0.0,
-      "instructions": 0.0,
+      "lines": 23.07,
+      "instructions": 18.86,
       "branches": 100.0,
-      "sourceBlob": "ec27a49f324b93084bbdc9affbf0021cc555f280"
+      "sourceBlob": "e7870366ecbfaecb15c968099c91a99460c5d3dd"
     },
     "src/main/java/io/github/carlos_emr/carlos/managers/DocumentManagerImpl.java": {
       "lines": 0.0,
@@ -3439,7 +3439,7 @@
       "lines": 40.0,
       "instructions": 38.095238095238095,
       "branches": 100.0,
-      "sourceBlob": "c4e2037b0ecf7e00f99210b90fbf1aafdb61c159"
+      "sourceBlob": "c024501885a14d5c48af5c254501f038958a160d"
     },
     "src/main/java/io/github/carlos_emr/carlos/util/DateUtils.java": {
       "lines": 25.0,
@@ -4424,6 +4424,48 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/data/EForm.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7331494b8bbab7983a42d42ff2b129e73a2b6dda"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/eform/util/EFormSignatureViewForPdfGenerationServlet.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0bc6ca6d4a3aed59816cf780e63cdd13e987d782"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/form/pdfservlet/FrmCustomedPDFServlet.java": {
+      "lines": 89.82035928143712,
+      "instructions": 91.32947976878613,
+      "branches": 71.9298245614035,
+      "sourceBlob": "00584aa8048e1b09c63b1043d1402ec3d0dff5bc"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/ConsultationSignatureService.java": {
+      "lines": 100.0,
+      "instructions": 93.54838709677419,
+      "branches": 83.33333333333333,
+      "sourceBlob": "38058668cbc646d72cd9c1ca9b585e310907f0c9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/managers/DigitalSignatureManager.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bf9f37deda53eb9bf13547df214ba5a110c93db8"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/signature/action/SaveSignatureUpload2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "125d0e3834a7c927ec2a0316f19aea6838399051"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/utility/DigitalSignatureUtils.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7cec40039b0c7dd84cb64e928ef44a39a2a4e1d4"
     }
   },
   "exclusions": {
@@ -4465,31 +4507,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "3ea3d1796990a1e6ce53b71f01b03f58a0a91fa1"
 }

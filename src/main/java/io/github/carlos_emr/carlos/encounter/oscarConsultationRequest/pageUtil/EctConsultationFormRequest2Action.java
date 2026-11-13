@@ -118,6 +118,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private static final String ATTR_WARNING_MESSAGE = "warningMessage";
     // Posted form field value that carries the signature reference through existing consultation flows.
     private static final String ATTR_SIGNATURE_IMG = "signatureImg";
+    private static final String ATTR_REQ_ID = "reqId";
     // Preview-only request attribute used to substitute a just-persisted signature id while rendering the PDF.
     private static final String ATTR_PREVIEW_SIGNATURE_IMG = "consultPreviewSignatureImg";
     private static final String SIGNATURE_NOT_APPLIED_WARNING = "The captured signature could not be saved and will not appear on the PDF.";
@@ -175,7 +176,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
         return trimmed == null ? null : Integer.valueOf(trimmed);
     }
 
-    private ConsultationConsultantSelection resolveConsultant(LoggedInInfo loggedInInfo, int demographicId,
+    private ConsultationConsultantSelection resolveConsultant(int demographicId,
             Integer consultationRequestId, ProfessionalSpecialistDao specialists) {
         boolean healthCareTeam = CarlosProperties.getInstance()
                 .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
@@ -185,14 +186,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 demographicId, getSpecialist(), healthCareTeam);
         if (selection == null) {
             request.setAttribute("demographicId", String.valueOf(demographicId));
-            if (consultationRequestId != null) request.setAttribute("reqId", String.valueOf(consultationRequestId));
+            if (consultationRequestId != null) request.setAttribute(ATTR_REQ_ID, String.valueOf(consultationRequestId));
             request.setAttribute("validateError", Boolean.TRUE);
             Map<String, Object> values = new HashMap<>();
             org.springframework.beans.BeanWrapper submitted = new org.springframework.beans.BeanWrapperImpl(this);
             for (String field : List.of("allergies", "appointmentDate", "appointmentHour", "appointmentMinute",
                     "appointmentNotes", "appointmentPm", "clinicalInformation", "concurrentProblems",
                     "currentMedications", "patientWillBook", "providerNo", "reasonForConsultation",
-                    "referalDate", "sendTo", "service", "status", "urgency", "siteName", "signatureImg",
+                    "referalDate", "sendTo", "service", "status", "urgency", "siteName", ATTR_SIGNATURE_IMG,
                     "followUpDate", "letterheadName", "letterheadAddress", "letterheadPhone", "letterheadFax",
                     "appointmentInstructions", "docNo", "labNo", "formNo", "eFormNo", "hrmNo", "faxAccount")) {
                 values.put(field, submitted.getPropertyValue(field));
@@ -253,7 +254,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
             // field blank. The form re-runs its own patient-scoped _con check on this value.
             request.setAttribute("demographicId", String.valueOf(demographicId));
             if (requestId != null) {
-                request.setAttribute("reqId", String.valueOf(requestId));
+                request.setAttribute(ATTR_REQ_ID, String.valueOf(requestId));
             }
             rejectInput(ATTACHMENTS_NOT_VERIFIED);
             return false;
@@ -486,7 +487,6 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         ConsultationRequestDao consultationRequestDao = (ConsultationRequestDao) SpringUtils.getBean(ConsultationRequestDao.class);
         ProfessionalSpecialistDao professionalSpecialistDao = (ProfessionalSpecialistDao) SpringUtils.getBean(ProfessionalSpecialistDao.class);
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
 
         String[] format = new String[]{"yyyy-MM-dd", "yyyy/MM/dd"};
 
@@ -512,7 +512,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                     return INPUT;
                 }
 
-                ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
+                ConsultationConsultantSelection consultant = resolveConsultant(demographicId,
                         null, professionalSpecialistDao);
                 if (consultant == null) return INPUT;
 
@@ -522,14 +522,14 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 }
 
                 if (newSignature) {
-                    // Manual signature from tablet/signature pad. Capture intent up front: a null result
-                    // is a genuine failure only when a signature was actually collected (a stamp-less
-                    // provider who simply did not sign is the benign, common case).
-                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    // The submitted capture marker survives session-ID eviction and a missing temp
+                    // file. Do not mistake a rejected capture for a provider who never signed.
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
+                    boolean manualSubmitted = !trimmedSignatureImg.isEmpty() && !SignatureReference.isStoredId(trimmedSignatureImg);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (manualCaptured) {
+                    } else if (manualCaptured || manualSubmitted) {
                         // A signature was collected but could not be persisted; the consultation is still
                         // saved. Log at error so it surfaces at the production default root level and warn
                         // the provider that the consultation saved without a signature.
@@ -622,7 +622,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid consultation date or attachment selection");
                 return NONE;
             }
-            request.setAttribute("reqId", requestId);
+            request.setAttribute(ATTR_REQ_ID, requestId);
             request.setAttribute("transType", "2");
 
         } else if (submission.startsWith("Update")) {
@@ -652,7 +652,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                 return INPUT;
             }
 
-            ConsultationConsultantSelection consultant = resolveConsultant(loggedInInfo, demographicId,
+            ConsultationConsultantSelection consultant = resolveConsultant(demographicId,
                     consultationRequestId, professionalSpecialistDao);
             if (consultant == null) return INPUT;
 
@@ -670,26 +670,20 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
                         : null;
 
                 if (newSignature) {
-                    // Manual re-sign from tablet/signature pad. See create-path note: warn only when a
-                    // signature was actually collected but failed to persist.
-                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(manualSignatureRequestId);
+                    // As on create, the posted marker preserves capture intent even after eviction.
+                    boolean manualCaptured = consultationSignatureService.wasManualSignatureCaptured(loggedInInfo.getSession(), manualSignatureRequestId);
+                    boolean manualSubmitted = !trimmedSignatureImg.isEmpty() && !SignatureReference.isStoredId(trimmedSignatureImg);
                     DigitalSignature signature = digitalSignatureManager.processAndSaveDigitalSignature(loggedInInfo, manualSignatureRequestId, demographicId, ModuleType.CONSULTATION);
                     if (signature != null) {
                         signatureId = "" + signature.getId();
-                    } else if (preservedStoredSignatureId != null) {
-                        // Manual capture failed - fall back to the existing stored signature already on the
-                        // consultation record; do not trust the submitted field value.
-                        signatureId = preservedStoredSignatureId;
-                    } else if (manualCaptured) {
-                        // A signature was collected but could not be persisted and there is nothing to fall
-                        // back to; the update still saves. Log at error and warn the provider.
-                        signatureId = null;
-                        logger.error("Captured manual signature could not be persisted for provider {} on consultation update (requestId={})", LogSafe.sanitize(signatureProviderNo), LogSafe.sanitize(requestId));
-                        request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
                     } else {
-                        // No signature was collected - benign, leave the update unsigned silently.
-                        signatureId = null;
-                        logger.debug("No manual signature captured for consultation update (requestId={}); saved without a signature", requestId);
+                        // Preserve only the record's own stored signature, and disclose a failed
+                        // replacement even when that older signature remains available.
+                        signatureId = preservedStoredSignatureId;
+                        if (manualCaptured || manualSubmitted) {
+                            logger.error("Captured manual signature could not be persisted on consultation update");
+                            request.setAttribute(ATTR_SIGNATURE_NOT_APPLIED, Boolean.TRUE);
+                        }
                     }
                 } else if (signatureRef.isStamp()) {
                     // Stamp signature with no existing DigitalSignature - create immutable copy.
@@ -870,7 +864,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 			request.setAttribute("faxAccount", this.getFaxAccount());
 		  	request.setAttribute("documents", documents);			
 			request.setAttribute("copyToRecipients", copytoRecipients);
-			request.setAttribute("reqId", requestId);
+			request.setAttribute(ATTR_REQ_ID, requestId);
 			request.setAttribute("accounts", accounts);
 			request.setAttribute("transactionType", TransactionType.CONSULTATION.name());
 			request.setAttribute("transType", "consultRequest");
@@ -992,42 +986,26 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
 
         ArrayList<HashMap<String, ? extends Object>> attachedHRMDocumentsList = consultationManager.getAttachedHRMDocuments(loggedInInfo, demographicNo, requestId);
 
-        if (attachedDocumentList != null) {
-            for (EDoc documentItem : attachedDocumentList) {
-                String description = documentItem.getDescription();
-                if (StringUtils.isEmpty(description)) {
-                    description = documentItem.getFileName();
-                }
-                documents.add(description);
-            }
-        }
-
-        if (attachedLabList != null) {
-            for (LabResultData labResultData : attachedLabList) {
-                documents.add(labResultData.getDisciplineDisplayString());
-            }
-        }
-
-        if (attachedFormsList != null && !attachedFormsList.isEmpty()) {
-            for (EctFormData.PatientForm attachedForm : attachedFormsList) {
-                documents.add(attachedForm.formName);
-            }
-        }
-
-        if (attachedEFormsList != null && !attachedEFormsList.isEmpty()) {
-            for (EFormData attachedEForm : attachedEFormsList) {
-                documents.add(attachedEForm.getFormName());
-            }
-        }
-
-        if (attachedHRMDocumentsList != null && !attachedHRMDocumentsList.isEmpty()) {
-            for (HashMap<String, ? extends Object> attachedHRMDocument : attachedHRMDocumentsList) {
-                documents.add(attachedHRMDocument.get("name") + "");
-            }
-        }
+        // Each attachment's name, in this order; a missing list adds nothing.
+        addNames(documents, attachedDocumentList, documentItem -> StringUtils.isEmpty(documentItem.getDescription())
+                ? documentItem.getFileName() : documentItem.getDescription());
+        addNames(documents, attachedLabList, LabResultData::getDisciplineDisplayString);
+        addNames(documents, attachedFormsList, attachedForm -> attachedForm.formName);
+        addNames(documents, attachedEFormsList, EFormData::getFormName);
+        addNames(documents, attachedHRMDocumentsList, attachedHRMDocument -> attachedHRMDocument.get("name") + "");
         return new FaxCoverAttachments(documents, labsNotIncluded,
                 ConsultationAttachmentsNotIncluded.describe(consultationManager, loggedInInfo,
                         Integer.parseInt(requestId), attachedFormsList, attachedHRMDocumentsList, locale));
+    }
+
+    /** Adds {@code name} of each item to {@code into}, in order; a {@code null} list adds nothing. */
+    private static <T> void addNames(List<String> into, List<T> items, java.util.function.Function<T, String> name) {
+        if (items == null) {
+            return;
+        }
+        for (T item : items) {
+            into.add(name.apply(item));
+        }
     }
 
     private boolean persistManualSignatureForRendering(LoggedInInfo loggedInInfo, String requestId, String demographicNo,
@@ -1129,7 +1107,7 @@ public class EctConsultationFormRequest2Action extends ActionSupport {
     private boolean renderConsultationFormWithAttachments(HttpServletRequest request, HttpServletResponse response, String requestId, String demographicNo) {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
-        request.setAttribute("reqId", requestId);
+        request.setAttribute(ATTR_REQ_ID, requestId);
         request.setAttribute("demographicId", demographicNo);
         String fileName = generateFileName(loggedInInfo, Integer.parseInt(demographicNo));
         String base64PDF = "";

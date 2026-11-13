@@ -96,6 +96,9 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * checks if digital signatures are enabled for the current facility before proceeding.
      * If not enabled, the method returns `null`. It also handles the case where the
      * temporary signature file is not found, logging a debug message and returning `null`.
+     * Only a request id issued to the logged-in user's session by
+     * {@link io.github.carlos_emr.carlos.utility.DigitalSignatureUtils#generateSignatureRequestId}
+     * is read; any other id returns `null`.
      *
      * @param loggedInInfo          Information about the currently logged-in user, used to
      *                              determine facility and provider details.
@@ -103,7 +106,8 @@ public interface DigitalSignatureManager extends OscarManagerBase {
      * @param demographicNo         The ID of the demographic entity associated with the signature.
      * @param moduleType            {@link ModuleType} The module from which the signature originated.
      * @return The saved `DigitalSignature` object, or `null` if digital signatures are
-     *         disabled, the file is not found, or an error occurs during processing.
+     *         disabled, the request id was not issued to this session, the file is not found,
+     *         or an error occurs during processing.
      */
     DigitalSignature processAndSaveDigitalSignature(LoggedInInfo loggedInInfo, String signatureRequestId, Integer demographicNo, ModuleType moduleType);
 
