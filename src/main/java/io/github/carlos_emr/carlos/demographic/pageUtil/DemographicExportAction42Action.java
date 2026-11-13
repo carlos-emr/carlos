@@ -32,10 +32,8 @@ package io.github.carlos_emr.carlos.demographic.pageUtil;
 import io.github.carlos_emr.carlos.utility.LegacyXmlBeans;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URL;
@@ -2975,8 +2973,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                 new File(oscarProperties.getProperty("DOCUMENT_DIR")));
     }
 
-    // FindSecBugs PATH_TRAVERSAL_IN: FileInputStream reads only from a previously PathValidationUtils-validated document path
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileInputStream reads only from a previously PathValidationUtils-validated document path")
+    // FindSecBugs PATH_TRAVERSAL_IN: reads only a previously PathValidationUtils-validated document path
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "reads only a previously PathValidationUtils-validated document path")
     private byte[] readExportDocumentBytes(File file) throws IOException {
         // The caller admits only files within the embedding limit, which is below the largest
         // Java array; the old (int) cast overflowed above 2 GB (#3968).
