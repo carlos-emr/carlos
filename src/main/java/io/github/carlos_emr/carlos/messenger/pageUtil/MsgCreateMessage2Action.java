@@ -226,17 +226,29 @@ public class MsgCreateMessage2Action extends ActionSupport {
                 return redisplay(session, staged, "Failed to send message. Please try again.", parsedDemoNo);
             }
 
-            // Link message and demographic if both IDs are valid (> 0).
-            Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
-            if (parsedMessageId > 0 && parsedDemoNo > 0) {
-                messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
-            }
-
             request.setAttribute("SentMessageProvs", sentToWho);
+            // Delivery has succeeded. Report each remaining failure on the sent
+            // page so an error response cannot invite sending the same reply again.
+            // A failed patient link must remain visible, separately from archiving.
+            if (parsedDemoNo > 0) {
+                try {
+                    Integer parsedMessageId = ConversionUtils.fromIntString(messageId);
+                    if (parsedMessageId <= 0) {
+                        throw new IllegalStateException("Sent message has no usable patient-link id");
+                    }
+                    messengerDemographicManager.attachDemographicToMessage(loggedInInfo, parsedMessageId, parsedDemoNo);
+                } catch (RuntimeException failed) {
+                    reportAfterSendFailure(PATIENT_LINK_AFTER_SEND_FAILED, "patient link", failed);
+                }
+            }
             // A reply or forward of a message whose chart items were saved has sent them; the next
             // reply or forward of that message starts without them, as it did when sending cleared
             // the messenger bean (issue #4673).
-            MsgAttachmentStaging.releaseSource(session, attachmentKey, staged);
+            try {
+                MsgAttachmentStaging.releaseSource(session, attachmentKey, staged);
+            } catch (RuntimeException failed) {
+                reportAfterSendFailure(ATTACHMENTS_AFTER_SEND_FAILED, "saved attachment cleanup", failed);
+            }
 
             if ("1".equals(request.getParameter(ARCHIVE_AFTER_SEND))) {
                 archiveRepliedMessage(userNo);
@@ -277,6 +289,16 @@ public class MsgCreateMessage2Action extends ActionSupport {
     static final String ARCHIVE_AFTER_SEND = "archiveAfterSend";
     /** Request attribute for the sent page: the reply went out, but the message replied to is still in the inbox. */
     static final String ARCHIVE_AFTER_SEND_FAILED = "archiveAfterSendFailed";
+    /** The message was sent, but its patient-record link was not saved. */
+    static final String PATIENT_LINK_AFTER_SEND_FAILED = "patientLinkAfterSendFailed";
+    /** The message was sent, but saved chart attachments could not be released. */
+    static final String ATTACHMENTS_AFTER_SEND_FAILED = "attachmentsAfterSendFailed";
+
+    private void reportAfterSendFailure(String attribute, String operation, RuntimeException failed) {
+        // Exception messages can include clinical values; log only the operation and type.
+        MiscUtils.getLogger().error("Message sent; {} failed ({})", operation, failed.getClass().getSimpleName());
+        request.setAttribute(attribute, Boolean.TRUE);
+    }
 
     /**
      * Send and Archive (#6042): archives the message replied to, only now that the reply is sent.

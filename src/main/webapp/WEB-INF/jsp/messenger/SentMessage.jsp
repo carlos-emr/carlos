@@ -144,6 +144,16 @@
     <fmt:message
 					key="messenger.SentMessage.msgMessageSentTo" /> <carlos:encode value='<%= request.getAttribute("SentMessageProvs") != null ? request.getAttribute("SentMessageProvs").toString() : "" %>' context="html"/>
 </div>
+<c:if test="${patientLinkAfterSendFailed}">
+<div class="alert alert-warning" role="alert" data-carlos-patient-link-after-send-failed="true" style="margin-left:20px; margin-right:20px;">
+    <fmt:message key="messenger.SentMessage.patientLinkFailed"/>
+</div>
+</c:if>
+<c:if test="${attachmentsAfterSendFailed}">
+<div class="alert alert-warning" role="alert" data-carlos-attachments-after-send-failed="true" style="margin-left:20px; margin-right:20px;">
+    <fmt:message key="messenger.SentMessage.attachmentCleanupFailed"/>
+</div>
+</c:if>
 <%-- Send and Archive (#6042): the reply went out, but the message replied to could not be archived. --%>
 <c:if test="${archiveAfterSendFailed}">
 <div class="alert alert-warning" role="alert" data-carlos-archive-after-send-failed="true" style="margin-left:20px; margin-right:20px;">

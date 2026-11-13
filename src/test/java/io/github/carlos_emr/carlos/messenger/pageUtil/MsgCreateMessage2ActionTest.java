@@ -656,6 +656,89 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             }
 
             @org.junit.jupiter.params.ParameterizedTest
+            @org.junit.jupiter.params.provider.ValueSource(strings = {"persistence", "privilege", "message-id"})
+            void shouldWarnAndStillArchive_whenTheSentReplyCannotBeLinkedToItsPatient(String failure) throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                if ("message-id".equals(failure)) {
+                    sentMessageId = "FAKE-unusable-id";
+                } else {
+                    RuntimeException refused = "privilege".equals(failure)
+                            ? new SecurityException("FAKE patient privilege changed")
+                            : new org.springframework.dao.DataAccessResourceFailureException("FAKE patient link failed");
+                    doThrow(refused).when(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+                }
+
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+                assertThat(getMockRequest().getAttribute("patientLinkAfterSendFailed")).isEqualTo(Boolean.TRUE);
+                assertThat(getMockRequest().getAttribute("attachmentsAfterSendFailed")).isNull();
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+                assertThat(getMockRequest().getAttribute("createMessageError")).isNull();
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_DELETED);
+                verify(messageListDao, times(1)).merge(ownCopy);
+                assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow)).isNull();
+                assertThat(MsgAttachmentStaging.peek(getMockSession(), otherWindow).pdfDemographicNo()).isEqualTo(202);
+            }
+
+            @Test
+            void shouldWarnAndStillArchive_whenSavedAttachmentCleanupFailsAfterTheReplyIsSent() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                try (MockedStatic<MsgAttachmentStaging> staging = mockStatic(MsgAttachmentStaging.class, CALLS_REAL_METHODS)) {
+                    staging.when(() -> MsgAttachmentStaging.releaseSource(any(), eq(thisWindow), any()))
+                            .thenThrow(new IllegalStateException("FAKE cleanup failed"));
+
+                    assertThat(send()).isEqualTo("success");
+
+                    assertThat(sends.get()).isEqualTo(1);
+                    assertThat(getMockRequest().getAttribute("attachmentsAfterSendFailed")).isEqualTo(Boolean.TRUE);
+                    assertThat(getMockRequest().getAttribute("patientLinkAfterSendFailed")).isNull();
+                    assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+                    assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_DELETED);
+                    verify(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+                    verify(messageListDao, times(1)).merge(ownCopy);
+                    staging.verify(() -> MsgAttachmentStaging.restore(any(), any(), any()), never());
+                }
+            }
+
+            @Test
+            void shouldShowEveryFailure_whenPatientLinkCleanupAndArchiveAllFailAfterSending() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                doThrow(new IllegalStateException("FAKE patient link failed"))
+                        .when(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+                doThrow(new org.springframework.dao.DataRetrievalFailureException("FAKE archive failed"))
+                        .when(messageListDao).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
+                try (MockedStatic<MsgAttachmentStaging> staging = mockStatic(MsgAttachmentStaging.class, CALLS_REAL_METHODS)) {
+                    staging.when(() -> MsgAttachmentStaging.releaseSource(any(), eq(thisWindow), any()))
+                            .thenThrow(new IllegalStateException("FAKE cleanup failed"));
+
+                    assertThat(send()).isEqualTo("success");
+
+                    assertThat(sends.get()).isEqualTo(1);
+                    assertThat(getMockRequest().getAttribute("SentMessageProvs")).isEqualTo(RECIPIENT);
+                    assertThat(getMockRequest().getAttribute("patientLinkAfterSendFailed")).isEqualTo(Boolean.TRUE);
+                    assertThat(getMockRequest().getAttribute("attachmentsAfterSendFailed")).isEqualTo(Boolean.TRUE);
+                    assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isEqualTo(Boolean.TRUE);
+                    verify(messageListDao, times(1)).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
+                    staging.verify(() -> MsgAttachmentStaging.restore(any(), any(), any()), never());
+                }
+            }
+
+            @Test
+            void shouldWarnWithoutArchiving_whenAnOrdinarySentMessageCannotBeLinkedToItsPatient() throws Exception {
+                doThrow(new IllegalStateException("FAKE patient link failed"))
+                        .when(mockDemoManager).attachDemographicToMessage(any(), eq(77), eq(101));
+
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute("patientLinkAfterSendFailed")).isEqualTo(Boolean.TRUE);
+                verifyNoInteractions(messageListDao);
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_READ);
+            }
+
+            @org.junit.jupiter.params.ParameterizedTest
             @org.junit.jupiter.params.provider.ValueSource(strings = {"recipients", "patient", "delivery"})
             void shouldLeaveTheMessageRepliedToInTheInbox_whenTheReplyIsRefused(String refusal) throws Exception {
                 getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
