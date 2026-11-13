@@ -8,6 +8,7 @@
   "CdsExportDocumentReceiptUnitTest",
   "CdsExportDocumentRepresentationUnitTest",
   "CdsExportNativeReportAssemblyUnitTest",
+  "CdsExportReportFileFormatsUnitTest",
   "CdsExportReportOccurrenceServiceUnitTest",
   "CdsExportReportPublicationEvidenceUnitTest",
   "CdsExportReportRetainedSourceUnitTest",

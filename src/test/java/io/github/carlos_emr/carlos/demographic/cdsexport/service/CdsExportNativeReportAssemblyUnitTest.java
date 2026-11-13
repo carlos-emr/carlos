@@ -592,6 +592,29 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
+    void shouldDeclareTheStoredContentType_whenTheScannerFileHasNoExtension() throws Exception {
+        add(96, uploaded(96, "20260305101600scan0001", "application/pdf"), "A", PDF);
+        String xml = assemble();
+        assertThat(xml)
+                .contains("<FileExtensionAndVersion>pdf</FileExtensionAndVersion>");
+        assertThat(attachments.keySet()).singleElement().asString().endsWith(".pdf");
+    }
+
+    @Test
+    void shouldExportAnUnrecognisedFile_asOpaqueBinaryInsteadOfHoldingThePatient()
+            throws Exception {
+        byte[] heic = {0, 0, 0, 24, 'f', 't', 'y', 'p', 'h', 'e', 'i', 'c', 0, 0, 0, 0};
+        add(97, uploaded(97, "20260305101700photo.heic", "image/heic"), "A", heic);
+        String xml = assemble();
+        assertThat(xml)
+                .contains(
+                        "<Format>Binary</Format>",
+                        "<FileExtensionAndVersion>bin</FileExtensionAndVersion>",
+                        "photo.heic");
+        assertThat(attachments.keySet()).singleElement().asString().endsWith(".bin");
+    }
+
+    @Test
     void shouldHoldOnlyThisPatient_forAnEmptyFile() throws Exception {
         add(98, uploaded(98, "20260305101800empty.pdf", "application/pdf"), "A", new byte[0]);
         assertThatThrownBy(this::assemble)

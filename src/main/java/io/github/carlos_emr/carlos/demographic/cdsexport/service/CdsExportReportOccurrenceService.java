@@ -550,13 +550,15 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             if (file != null && file.content().bytes() < 1)
                                 throw new CdsExportMappingReviewException(
                                         "CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY");
+                            // A file's declaration needs its leading bytes, read while it is
+                            // staged; this first mapping only surfaces any hold before staging.
                             var content =
                                     file == null
                                             ? CdsExportNativeReportMapper.Content.html()
                                             : nativeFile(
                                                     patientKey,
                                                     documentId,
-                                                    nativeExtension(file.filename()));
+                                                    CdsExportReportFileFormats.OPAQUE);
                             var mapped =
                                     new CdsExportNativeReportMapper()
                                             .map(
@@ -572,7 +574,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             mapped.fields(),
                                             1_000_000,
                                             control::checkpoint);
-                            natives.add(new NativeDocument(documentId, file, mapped));
+                            natives.add(new NativeDocument(documentId, document, link, file, mapped));
                         }
                         for (var report : natives) {
                             control.checkpoint();
@@ -581,6 +583,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             CdsExportStagedFileDto copied = null;
                             if (file != null) {
                                 control.authorizeCategory(patient.patient(), category(), false);
+                                var prefix = new ByteArrayOutputStream(CdsExportReportFileFormats.PREFIX);
                                 copied =
                                         store.stage(
                                                 "REPORT_ATTACHMENT",
@@ -599,14 +602,41 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                         transfer(
                                                                 input,
                                                                 outputBytes,
-                                                                control::checkpoint);
+                                                                control::checkpoint,
+                                                                prefix);
                                                     }
                                                 });
                                 attachments.add(copied);
                                 if (copied.plaintextBytes() != file.content().bytes()
                                         || !copied.plaintextSha256()
                                                 .equals(file.content().sha256())) invalid();
+                                // The authenticated copy's own leading bytes decide what the
+                                // file is declared as; the stored name and type stay in Notes.
+                                mapped =
+                                        new CdsExportNativeReportMapper()
+                                                .map(
+                                                        patient.patient(),
+                                                        report.document(),
+                                                        report.link(),
+                                                        nativeFile(
+                                                                patientKey,
+                                                                report.id(),
+                                                                CdsExportReportFileFormats.extension(
+                                                                        file.filename(),
+                                                                        report.document()
+                                                                                .fields()
+                                                                                .get("contenttype"),
+                                                                        prefix.toByteArray())),
+                                                        providers,
+                                                        zone);
+                                new CdsExportNativeFieldAssessmentValidator()
+                                        .requireRepresentable(
+                                                mapped.rows(),
+                                                mapped.fields(),
+                                                1_000_000,
+                                                control::checkpoint);
                             }
+                            var section = mapped;
                             var identity =
                                     new CdsExportIdentityDto(
                                             patientKey,
@@ -615,7 +645,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     "carlos-native-occurrence-v1",
                                                     "document",
                                                     report.id()));
-                            var assessments = new LinkedHashMap<>(mapped.fields());
+                            var assessments = new LinkedHashMap<>(section.fields());
                             if (file != null) assessFile(file, "referenced", assessments);
                             streams.requireActive();
                             control.authorizeCategory(patient.patient(), category(), false);
@@ -623,13 +653,13 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                 output.attachment(
                                         identity,
                                         new CdsExportPackageMemberDto(
-                                                mapped.text().get("FilePath"), copied));
+                                                section.text().get("FilePath"), copied));
                             xml.emit(
                                     new CdsExportXmlComposer.Section(
                                             identity,
                                             body ->
                                                     new CdsExportNativeReportMapper()
-                                                            .write(mapped, body)));
+                                                            .write(section, body)));
                             streams.requireActive();
                             control.authorizeCategory(patient.patient(), category(), false);
                             output.accept(
@@ -739,6 +769,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
     /** A mapped native document and, when its content is a stored file, that captured file. */
     private record NativeDocument(
             String id,
+            CdsExportCapturedTextRowDto document,
+            CdsExportCapturedTextRowDto link,
             CdsExportCapturedDocumentFiles.File file,
             CdsExportNativeReportMapper.Result mapped) {
         @Override
@@ -927,11 +959,26 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
 
     private static void transfer(InputStream input, OutputStream output, Runnable checkpoint)
             throws IOException {
+        transfer(input, output, checkpoint, null);
+    }
+
+    /** Copies every byte; when {@code prefix} is given it also keeps the leading bytes. */
+    private static void transfer(
+            InputStream input,
+            OutputStream output,
+            Runnable checkpoint,
+            ByteArrayOutputStream prefix)
+            throws IOException {
         byte[] buffer = new byte[65536];
         try {
             for (int n; (n = input.read(buffer)) != -1; ) {
                 checkpoint.run();
                 if (n == 0) invalid();
+                if (prefix != null && prefix.size() < CdsExportReportFileFormats.PREFIX)
+                    prefix.write(
+                            buffer,
+                            0,
+                            Math.min(n, CdsExportReportFileFormats.PREFIX - prefix.size()));
                 output.write(buffer, 0, n);
             }
         } finally {
@@ -949,14 +996,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
-    }
-
-    private static String nativeExtension(String filename) {
-        int dot = filename.lastIndexOf('.');
-        String extension = dot < 0 ? "" : filename.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!Set.of("pdf", "txt", "rtf", "doc", "docx", "jpg", "jpeg", "png", "tif", "tiff", "bmp")
-                .contains(extension)) review();
-        return extension;
     }
 
     private static void review() {
