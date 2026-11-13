@@ -229,7 +229,7 @@ cancellation. Resume is subject to the original binding and current authorizatio
 | 0 | Completed foreground export, or a successful observation/control/detached acceptance. Read the durable result; these are different outcomes. |
 | 1 | Invalid/conflicting arguments. |
 | 2 | Configuration/runtime failure or an unconfirmed result (`CDS_EXPORT_UNCERTAIN`); inspect the original durable job. `CDS_EXPORT_NOT_STARTED: <code>` means this command did not submit or change any job (for example a missing `cds.export.clinicalZone` or an unknown submission key). |
-| 3 | Authorization denied. |
+| 3 | Authorization denied. `CDS_EXPORT_DELEGATION_NOT_CONFIGURED` means the operator has no `cds.export.operator.<user>.providers` delegation; `CDS_EXPORT_DELEGATION_DENIED` means the delegation does not cover the requested provider or facility; `lack read access to _object` names a role right the provider is missing; `CDS_EXPORT_AUTHORIZATION` is any other current permission refusal. |
 | 4 | Review, failed or incomplete foreground work, or unavailable artifact. |
 | 5 | The package is ready but leaves out held patients; it is not a complete migration. |
 | 130 | Waiting interrupted (Ctrl-C); durable cancellation was not requested. The lease is released before the process exits, so the job can be resumed at once. A SIGTERM-stopped wait exits 143 with the same meaning. |

@@ -810,9 +810,17 @@ class CdsExportAccessServiceUnitTest {
         var policy = new CdsExportConfigurationService(properties);
         policy.requireDelegation("operator$", "100", 3);
         assertThatThrownBy(() -> policy.requireDelegation("operator$", "100", null))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_DELEGATION_DENIED");
         assertThatThrownBy(() -> policy.requireDelegation("operator$", "100", 4))
-                .isInstanceOf(SecurityException.class);
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_DELEGATION_DENIED");
+        assertThatThrownBy(() -> policy.requireDelegation("operator$", "200", 3))
+                .hasMessage("CDS_EXPORT_DELEGATION_DENIED");
+        // An operator with no delegation at all is told so, not that a permission was revoked.
+        assertThatThrownBy(() -> policy.requireDelegation("other", "100", 3))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_DELEGATION_NOT_CONFIGURED");
         properties.setProperty("cds.export.enabled", "tru");
         assertThatThrownBy(() -> new CdsExportConfigurationService(properties).enabled())
                 .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");

@@ -260,6 +260,22 @@ class CdsExportCliUnitTest {
     }
 
     @Test
+    void shouldSayTheDelegationIsMissing_insteadOfAGenericDenial() throws Exception {
+        doThrow(new SecurityException("CDS_EXPORT_DELEGATION_NOT_CONFIGURED")).when(runtime).accept();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_DELEGATION_NOT_CONFIGURED")
+                .contains("cds.export.operator.<user>.providers")
+                .doesNotContain("current export scope is denied");
+        error.reset();
+        doThrow(new SecurityException("CDS_EXPORT_DELEGATION_DENIED")).when(runtime).accept();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_DELEGATION_DENIED")
+                .doesNotContain("current export scope is denied");
+    }
+
+    @Test
     void shouldNameTheSafeCode_andNeverSendToReconcileAJobThatWasNotSubmitted() throws Exception {
         int status =
                 CdsExportCli.runAuthorized(

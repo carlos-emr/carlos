@@ -134,9 +134,15 @@ public class CdsExportConfigurationService {
                 invalid();
             }
         }
+        // Distinct codes so an operator can tell a delegation that was never configured from one
+        // that does not cover this provider or facility, and both from a clinical permission
+        // refusal (CDS_EXPORT_AUTHORIZATION_DENIED). None of them names a provider or patient.
+        if (providers.isEmpty())
+            throw new SecurityException("CDS_EXPORT_DELEGATION_NOT_CONFIGURED");
         if (!providers.contains(provider)
                 || !facilities.isEmpty()
-                        && (facility == null || !facilities.contains(facility.toString()))) deny();
+                        && (facility == null || !facilities.contains(facility.toString())))
+            throw new SecurityException("CDS_EXPORT_DELEGATION_DENIED");
     }
 
     /**

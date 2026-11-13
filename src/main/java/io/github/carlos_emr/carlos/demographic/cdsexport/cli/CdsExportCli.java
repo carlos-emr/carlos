@@ -197,13 +197,7 @@ public final class CdsExportCli {
             String missing =
                     io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService
                             .missingObject(denied);
-            err.println(
-                    missing == null
-                            ? "CDS_EXPORT_AUTHORIZATION: current export scope is denied"
-                            : "CDS_EXPORT_AUTHORIZATION: the export provider's roles lack read"
-                                    + " access to "
-                                    + missing
-                                    + "; grant it or leave out the categories that need it");
+            err.println(authorizationMessage(denied, missing));
             outcome = 3;
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
@@ -397,5 +391,20 @@ public final class CdsExportCli {
 
     private static synchronized void line(PrintStream out, Object value) throws IOException {
         out.println(JSON.writeValueAsString(value));
+    }
+
+    /** One line naming why the export was refused, with no provider, patient or account names. */
+    static String authorizationMessage(SecurityException denied, String missingObject) {
+        if (missingObject != null)
+            return "CDS_EXPORT_AUTHORIZATION: the export provider's roles lack read access to "
+                    + missingObject
+                    + "; grant it or leave out the categories that need it";
+        if ("CDS_EXPORT_DELEGATION_NOT_CONFIGURED".equals(denied.getMessage()))
+            return "CDS_EXPORT_DELEGATION_NOT_CONFIGURED: this operator has no export delegation;"
+                    + " an administrator must set cds.export.operator.<user>.providers";
+        if ("CDS_EXPORT_DELEGATION_DENIED".equals(denied.getMessage()))
+            return "CDS_EXPORT_DELEGATION_DENIED: this operator's export delegation does not cover"
+                    + " the requested provider or facility";
+        return "CDS_EXPORT_AUTHORIZATION: current export scope is denied";
     }
 }
