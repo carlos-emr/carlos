@@ -211,9 +211,16 @@ public final class CdsExportDemographicMapper {
     }
 
     private static HealthCard health(State state) {
-        boolean any =
-                Set.of("hin", "ver", "hc_type", "hc_renew_date").stream().anyMatch(state::present);
-        if (!any) return null;
+        boolean card = Set.of("hin", "ver", "hc_renew_date").stream().anyMatch(state::present);
+        if (!card) {
+            // The add and edit forms always submit an issuer: add-form-personal.jsp:865-866
+            // preselects the clinic's default province, or "OT" (Other). Without a number,
+            // version or expiry there is no health card to describe, and HealthCard is optional,
+            // so the issuer alone states no patient fact and must not hold the chart.
+            if (state.present("hc_type"))
+                state.operational("hc_type", "HEALTH_CARD_ISSUER_WITHOUT_A_CARD");
+            return null;
+        }
         String number = state.token("hin", "HealthCard/Number", 20, true);
         String version = state.token("ver", "HealthCard/Version", 2, false);
         String province = CdsHealthCardAuthority.wire(state.value("hc_type"));

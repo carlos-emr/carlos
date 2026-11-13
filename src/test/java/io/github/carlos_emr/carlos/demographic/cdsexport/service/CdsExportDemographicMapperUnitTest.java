@@ -279,8 +279,11 @@ class CdsExportDemographicMapperUnitTest {
         fields.put("hin", "0123456789");
         assertThat(mapper.map(row(fields)).fields().get("hc_type").outcome())
                 .isEqualTo(Outcome.REQUIRES_REVIEW);
+        // Updated for D11: an issuer alone (the form default) is no card; a version or expiry
+        // without the number still requires review.
         fields.put("hin", "");
         fields.put("hc_type", "ON");
+        fields.put("ver", "AB");
         assertThat(mapper.map(row(fields)).fields().get("hin").outcome())
                 .isEqualTo(Outcome.REQUIRES_REVIEW);
         fields = baseline();
@@ -291,6 +294,26 @@ class CdsExportDemographicMapperUnitTest {
         assertThat(result.fields().get("email").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
         assertThat(result.fields().get("patient_status_date").outcome())
                 .isEqualTo(Outcome.REQUIRES_REVIEW);
+    }
+
+    @Test
+    void shouldOmitTheHealthCard_whenOnlyTheFormDefaultIssuerIsPresent() throws Exception {
+        // D11: add-form-personal.jsp preselects the clinic province (or "OT") as hc_type, so an
+        // uninsured patient, or one whose number is pending, has an issuer and no card.
+        for (String issuer : List.of("ON", "OT")) {
+            var fields = baseline();
+            fields.put("hin", "");
+            fields.put("ver", "");
+            fields.put("hc_type", issuer);
+            var result = mapper.map(row(fields));
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertThat(result.healthCard()).isNull();
+            assertThat(result.fields().get("hc_type").outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(result.fields().get("hc_type").rule())
+                    .isEqualTo("HEALTH_CARD_ISSUER_WITHOUT_A_CARD");
+            assertThat(parse(xml(result)).getElementsByTagNameNS("cds", "HealthCard").getLength())
+                    .isZero();
+        }
     }
 
     @Test
