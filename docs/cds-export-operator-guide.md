@@ -54,7 +54,12 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    the audit registration. Confirm the recipient can use it and agree how long it
    remains accessible. The registration verifies an approved arrangement and
    binds its bytes; software cannot independently prove an external archive or
-   support agreement is available.
+   support agreement is available. The export carries each patient's current
+   demographic snapshot and enrolment history only. Superseded demographic values
+   (earlier names, health cards, addresses, phone numbers, physicians, extension
+   values, alerts and patient notes kept in `demographicArchive`,
+   `demographicExtArchive` and `demographiccustArchive`) are not exported, and this
+   arrangement is where they remain available.
 7. Verify the receiving recipient tool authenticates CMS AES-256-GCM with RSA-OAEP
    SHA-256/MGF1-SHA-256 and opens the exact resulting ZIP. The recipient keeps its
    private key. The application stores only the registered public certificate.

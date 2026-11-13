@@ -217,14 +217,14 @@
     "demographic": "MAPPED_SOURCE",
     "demographicArchive": "MAPPED_SOURCE",
     "demographicExt": "MAPPED_SOURCE",
-    "demographicExtArchive": "REQUIRE_EMPTY",
+    "demographicExtArchive": "OPERATIONAL",
     "demographicPharmacy": "MAPPED_SOURCE",
     "demographicQueryFavourites": "REQUIRE_EMPTY",
     "demographicSets": "REQUIRE_EMPTY",
     "demographic_merged": "MAPPED_SOURCE",
     "demographicaccessory": "REQUIRE_EMPTY",
     "demographiccust": "MAPPED_SOURCE",
-    "demographiccustArchive": "REQUIRE_EMPTY",
+    "demographiccustArchive": "OPERATIONAL",
     "demographicstudy": "REQUIRE_EMPTY",
     "desannualreviewplan": "REQUIRE_EMPTY",
     "desaprisk": "REQUIRE_EMPTY",
@@ -720,16 +720,10 @@
     "custom_filter": [
       "demographic_no"
     ],
-    "demographicExtArchive": [
-      "demographic_no"
-    ],
     "demographicSets": [
       "demographic_no"
     ],
     "demographicaccessory": [
-      "demographic_no"
-    ],
-    "demographiccustArchive": [
       "demographic_no"
     ],
     "demographicstudy": [
@@ -1177,6 +1171,8 @@
     "serviceSpecialists": "Referral service/specialist directory, not a patient referral, consultation or clinical author record. Selected clinical relationships retain their own capture/refusal. See docs/cds-export-source-rulings.md.",
     "default_issue": "Provider default issue definitions, not assigned patient issues; all patient case-management issues remain independently inventoried. Reviewed DefaultIssue model and DefaultIssueDaoImpl.",
     "messengerMembershipLock": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md.",
-    "user_ds_message_prefs": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md."
+    "user_ds_message_prefs": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md.",
+    "demographicExtArchive": "Superseded demographicExt snapshot: DemographicAddRecord2Action and DemographicUpdate2Action write one row per edited extension key on every save, keyed by the same demographicArchive id; DemographicManagerImpl.archiveExtension keeps the prior value. Guide 18.2 transfers the current snapshot, which demographicExt carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence.",
+    "demographiccustArchive": "Superseded demographiccust snapshot (alert, care-team names, patient note) kept by DemographicManagerImpl.createUpdateDemographicCust when a value changes. Guide 18.2 transfers the current snapshot, which demographiccust carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence."
   }
 }

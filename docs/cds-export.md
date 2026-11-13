@@ -1655,9 +1655,28 @@ The six public physician fields retain their existing authenticated lookup scope
 and exact typed field closure; no private whole-provider row is read or invented. Native field
 closure covers the entire captured row universe, and the registered patient ID
 is used in actual XML. A retained demographic field without a proven parent,
-extra/unaccounted providers, populated unsupported carriers, multiple parents or
-unrepresented demographic archives still require explicit review. The retained
-source path and its strict source-field closure are unchanged. Sixty-nine affected
+a provider row that no demographic column names exactly, populated unsupported carriers
+or multiple parents still require explicit review. The retained
+source path and its strict source-field closure are unchanged.
+
+Superseded demographic snapshots are audited history, not refused data. Every CARLOS save
+of a patient writes a `demographicArchive` row and, keyed by the same archive id, one
+`demographicExtArchive` row per edited extension key; a changed alert, care-team name or
+patient note archives the previous `demographiccust` values in `demographiccustArchive`.
+Migration guide 18.2 transfers the current snapshot. Archived roster columns are mapped into
+`Enrolment` history; every other archived column, including previous names, health cards,
+addresses and phone numbers, is decided `OPERATIONAL` under
+`SUPERSEDED_DEMOGRAPHIC_SNAPSHOT_IN_APPROVED_AUDIT` and is not exported. A former
+most-responsible physician named only by an archive row is accounted for the same way
+(`SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT`). The extension and custom archive
+tables carry the same ruling in the source catalogue (`OPERATIONAL`), so an edited patient
+is no longer held because these rows exist. Earlier values stay available only through the
+approved audit arrangement in operator-guide step 6; the package does not carry them.
+
+The demographic occurrence decides exactly the public provider rows that its own columns
+name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
+whichever categories are selected. A provider captured only for another selected category
+is decided by that category's receipt, on both the native and the retained path. Sixty-nine affected
 checks passed, including twelve native assembly/boundary cases, schema readback,
 selected-note witness scope, substituted fields, registered-ID mismatch and shared
 primary/enrolment physician uses. Clean packaging and genuine installed native

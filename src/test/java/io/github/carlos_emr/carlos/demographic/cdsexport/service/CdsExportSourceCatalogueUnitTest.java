@@ -134,6 +134,23 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
+    void shouldRuleEverySupersededDemographicSnapshot_underTheOneApprovedAuditArrangement() {
+        // D6: every CARLOS save of a patient writes demographicArchive plus a demographicExtArchive
+        // row per edited extension key (DemographicUpdate2Action), and a changed alert or note
+        // archives demographiccust (DemographicManagerImpl.createUpdateDemographicCust). The
+        // patient-row half was accepted as audited history while these two halves refused the
+        // chart; all three now share the superseded-snapshot ruling.
+        var catalogue = CdsExportSourceCatalogue.current();
+        assertThat(catalogue.tables().get("demographicArchive"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
+        for (String table : List.of("demographicExtArchive", "demographiccustArchive")) {
+            assertThat(catalogue.tables().get(table))
+                    .isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
+            assertThat(catalogue.patientScopes()).doesNotContainKey(table);
+        }
+    }
+
+    @Test
     void shouldRefuseTheUnclassifiedSourcePresence_atBothIndependentCountAndValueBoundaries() {
         doThrow(
                         new CdsExportReviewException(
