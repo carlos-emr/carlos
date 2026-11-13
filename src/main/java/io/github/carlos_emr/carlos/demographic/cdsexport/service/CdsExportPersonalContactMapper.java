@@ -269,6 +269,16 @@ public final class CdsExportPersonalContactMapper {
                                 "role",
                                 root + "/ContactPurpose",
                                 "CONTACT_PURPOSE_VALUES_REQUIRES_REVIEW");
+                    else if (legacyRelationshipId(role))
+                        // Older health-care-team data stored a CtlRelationships row id ("3" is
+                        // Parent in the shipped table); DemographicContactCreator still resolves
+                        // it for display. The export capture does not include that site-editable
+                        // table, so the id cannot be resolved from authenticated evidence, and
+                        // emitting the digits as a plain-text purpose would lose the relationship.
+                        linkState.review(
+                                "role",
+                                root + "/ContactPurpose",
+                                "LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW");
                     else {
                         String code = ROLES.get(role);
                         purposes.add(
@@ -447,6 +457,12 @@ public final class CdsExportPersonalContactMapper {
 
     private static boolean present(String value) {
         return value != null && !value.isEmpty();
+    }
+
+    /** The same test DemographicContactCreator applies before its CtlRelationships lookup. */
+    static boolean legacyRelationshipId(String role) {
+        String trimmed = role.trim();
+        return !trimmed.isEmpty() && trimmed.chars().allMatch(Character::isDigit);
     }
 
     private static void scope() throws IOException {

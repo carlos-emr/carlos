@@ -193,6 +193,34 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
+    void shouldRefuseALegacyRelationshipId_insteadOfExportingItsDigitsAsThePurpose()
+            throws Exception {
+        // D4: older health-care-team data stored CtlRelationships ids ("3" is Parent in the
+        // shipped table). The export cannot resolve the site-editable table, so it holds the
+        // patient rather than writing <PurposeAsPlainText>3</PurposeAsPlainText>.
+        for (String legacy : List.of("3", " 21 ")) {
+            var link = changed(changed(changed(association(-1, 9), "role", legacy), "ec", "false"), "sdm", "false");
+            var result = map(List.of(link), List.of(contact(9)));
+            assertThat(result.nativeRepresentable()).isFalse();
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "DemographicContact", link.recordKey(), "role"))
+                                    .rule())
+                    .isEqualTo("LEGACY_RELATIONSHIP_ID_REQUIRES_REVIEW");
+        }
+        // contact.jsp and AddAlternateContact.jsp write the relationship's text value, which
+        // remains an exact plain-text purpose through the schema and receiving parser.
+        var current = changed(changed(changed(association(-1, 9), "role", "Parent"), "ec", "false"), "sdm", "false");
+        var result = map(List.of(current), List.of(contact(9)));
+        assertThat(result.nativeRepresentable()).isTrue();
+        var record = parse(result, HASH);
+        assertThat(new CdsFieldParser().firstText(record, "Contact/ContactPurpose/PurposeAsPlainText", 50))
+                .isEqualTo("Parent");
+    }
+
+    @Test
     void shouldVerifyNote_fromOneAssociationCanBeUsedWhenTheSharedContactHasNone()
             throws Exception {
         var result =
