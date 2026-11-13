@@ -78,6 +78,44 @@ class CdsExportAppointmentMapperUnitTest {
     }
 
     @Test
+    void shouldExportASignedOrVerifiedAppointment_asTheChartShowsItsStatus() throws Exception {
+        var fields = new LinkedHashMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.APPOINTMENT_STATUSES
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.putAll(Map.of("id", "3", "status", "H", "description", "Here", "active", "1"));
+        var here =
+                new CdsExportCapturedTextRowDto(
+                        "appointment_status", CdsExportPatientTableSourceReader.key(3), fields);
+        var original = lookups();
+        var lookups =
+                new CdsExportAppointmentLookupsDto(
+                        "a".repeat(64),
+                        original.providers(),
+                        Map.of("H", List.of(here)),
+                        Map.of(),
+                        Set.of());
+        // Sign & Exit appends S, verifying appends V; the chart shows "Here/Signed" and
+        // "Here/Verified" (ApptStatusData), with no status row of its own.
+        for (var expected : Map.of("HS", "Here/Signed", "HV", "Here/Verified").entrySet()) {
+            var appointment = baseline();
+            appointment.put("status", expected.getKey());
+            var mapped = mapper.map(27, appointment(appointment), lookups, ZONE);
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().status()).isEqualTo(expected.getValue());
+            assertThat(mapped.fields().get(key("status")).rule())
+                    .isEqualTo("CAPTURED_STATUS_DEFINITION_WITH_SIGNED_OR_VERIFIED_MARK");
+        }
+        // Any other second letter still needs an exact definition.
+        var unknown = baseline();
+        unknown.put("status", "HX");
+        var mapped = mapper.map(27, appointment(unknown), lookups, ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isFalse();
+        assertThat(mapped.fields().get(key("status")).rule())
+                .isEqualTo("EXACT_STATUS_DEFINITION_REQUIRED");
+    }
+
+    @Test
     void shouldRefuseAProviderCollationAlias_insteadOfNormalizingItsIdentity() throws Exception {
         var fields = baseline();
         fields.put("provider_no", "0É27");

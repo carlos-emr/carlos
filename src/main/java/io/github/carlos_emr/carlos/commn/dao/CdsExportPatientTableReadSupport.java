@@ -1309,10 +1309,19 @@ public final class CdsExportPatientTableReadSupport {
             if (this == DEMOGRAPHIC_MERGES)
                 return "(d.`demographic_no`=:patient or d.`merged_to`=:patient)";
             if (this == APPOINTMENT_STATUSES) {
+                // Signing or verifying appends S or V to a status (H becomes HS); the chart shows
+                // the first letter's status (ApptStatusData), so that row is the definition.
+                String definition =
+                        "d.`status`=case when char_length(a.`status`)=2 and binary"
+                                + " right(a.`status`,1) in ('S','V') then left(a.`status`,1)"
+                                + " else a.`status` end";
                 return "(exists (select 1 from `appointment` a where a.`demographic_no`=:patient"
-                        + " and a.`status`=d.`status`) or exists (select 1 from"
-                        + " `appointmentArchive` a where a.`demographic_no`=:patient and"
-                        + " a.`status`=d.`status`))";
+                        + " and "
+                        + definition
+                        + ") or exists (select 1 from `appointmentArchive` a where"
+                        + " a.`demographic_no`=:patient and "
+                        + definition
+                        + "))";
             }
             // Only appointment rows carry reasonCode (appointmentArchive has no such column). The
             // list name uses the column's own collation, exactly as LookupListDao.findByName does

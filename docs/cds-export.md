@@ -1342,7 +1342,7 @@ What an appointment exports, and what stays in CARLOS:
 | Native value | Export |
 | --- | --- |
 | date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` (end is inclusive) |
-| `status` | `AppointmentStatus`: the captured status definition's description |
+| `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. Any other code needs its own exact definition. |
 | `provider_no` | `Provider`: public name and OHIP number |
 | `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. A labelled purpose over 250 characters, or an item without a label, requires review. |
 | `notes` | `AppointmentNotes` |

@@ -217,6 +217,14 @@ public final class CdsExportAppointmentMapper {
             throws IOException {
         String code = source.raw("status");
         if (code == null || code.isEmpty()) return null;
+        // Signing or verifying an encounter appends S or V to the appointment's status (H becomes
+        // HS); the chart shows the first letter's status with "/Signed" or "/Verified"
+        // (ApptStatusData). Every other code needs its own exact definition.
+        String mark = "";
+        if (code.length() == 2 && (code.endsWith("S") || code.endsWith("V"))) {
+            mark = code.substring(1);
+            code = code.substring(0, 1);
+        }
         var candidates = lookups.statuses().getOrDefault(code, List.of());
         if (candidates.size() != 1) {
             source.review("status", "AppointmentStatus", "EXACT_STATUS_DEFINITION_REQUIRED");
@@ -255,9 +263,25 @@ public final class CdsExportAppointmentMapper {
                     "status", "AppointmentStatus", "STATUS_DEFINITION_HAS_NO_MEANINGFUL_LABEL");
             return null;
         }
+        if (mark.isEmpty()) {
+            source.set(
+                    "status",
+                    Outcome.MAPPED,
+                    "AppointmentStatus",
+                    "EXACT_CAPTURED_STATUS_DEFINITION");
+            return label;
+        }
+        String marked = label + (mark.equals("S") ? "/Signed" : "/Verified");
+        if (marked.codePointCount(0, marked.length()) > 250) {
+            source.review("status", "AppointmentStatus", "EXACT_STATUS_DEFINITION_REQUIRED");
+            return null;
+        }
         source.set(
-                "status", Outcome.MAPPED, "AppointmentStatus", "EXACT_CAPTURED_STATUS_DEFINITION");
-        return label;
+                "status",
+                Outcome.MAPPED,
+                "AppointmentStatus",
+                "CAPTURED_STATUS_DEFINITION_WITH_SIGNED_OR_VERIFIED_MARK");
+        return marked;
     }
 
     /**

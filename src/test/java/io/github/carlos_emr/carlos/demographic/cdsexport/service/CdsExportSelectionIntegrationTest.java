@@ -1051,6 +1051,64 @@ class CdsExportSelectionIntegrationTest {
     @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
             named = "cds.export.test.properties",
             matches = ".+")
+    void shouldCaptureTheFirstLettersDefinition_forASignedOrVerifiedStatus() throws Exception {
+        insert(first, physician, "AC");
+        String code = "\u03a9";
+        assertThat(
+                        sql.queryForObject(
+                                "select count(*) from appointment_status where status in (?,?)",
+                                Long.class,
+                                code,
+                                code + "S"))
+                .isZero();
+        try {
+            sql.update(
+                    "insert into appointment_status(id,status,description,active) values(?,?,?,1)",
+                    -first,
+                    code,
+                    "Here \u03a9");
+            // Sign & Exit appends S to the status; the chart shows the first letter's status.
+            sql.update(
+                    "insert into appointment(appointment_no,demographic_no,provider_no,appointment_date,start_time,end_time,status) "
+                            + "values(?,?,?,'2024-02-29','10:00:00','10:30:00',?)",
+                    -first,
+                    first,
+                    physician,
+                    code + "S");
+            var source =
+                    context.getBean(
+                            io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDao.class);
+            sourceRead()
+                    .execute(
+                            status -> {
+                                var reader = new CdsExportAppointmentStatusSourceReader(source);
+                                assertThat(reader.count(first)).isEqualTo(1);
+                                var page = source.findCdsExportRowsAfter(first, null, 32);
+                                assertThat(page).hasSize(1);
+                                assertThat(
+                                                new String(
+                                                        page.getFirst()
+                                                                .cells()
+                                                                .get("status")
+                                                                .inlineBytes(),
+                                                        StandardCharsets.UTF_8))
+                                        .isEqualTo(code);
+                                status.setRollbackOnly();
+                                return null;
+                            });
+        } finally {
+            sql.update(
+                    "delete from appointment where appointment_no=? and demographic_no=?",
+                    -first,
+                    first);
+            sql.update("delete from appointment_status where id=? and status=?", -first, code);
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+            named = "cds.export.test.properties",
+            matches = ".+")
     void shouldCaptureExactReferencedStatusDefinitions_includingInactiveAndDuplicateCodes()
             throws Exception {
         insert(first, physician, "AC");
