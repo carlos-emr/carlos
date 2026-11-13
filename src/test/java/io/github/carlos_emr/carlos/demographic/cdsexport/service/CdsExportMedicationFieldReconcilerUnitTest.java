@@ -85,6 +85,40 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldProveAnImportedMonthDurationByItsUnit_andKeepItWhenUnchangedOrEditedInCarlos()
+            throws Exception {
+        // #3958: the importer now stores "3 months" as duration 3, durunit M (review M4).
+        var months = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        months.put("duration", "3");
+        months.put("durationUnit", "M");
+        var source =
+                JSON.copy()
+                        .disable(
+                                com.fasterxml.jackson.databind.DeserializationFeature
+                                        .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                        .treeToValue(months, CdsMedicationDto.class);
+        var stored = baseline();
+        stored.put("duration", "3");
+        stored.put("durunit", "M");
+        var current = new LinkedHashMap<>(stored);
+        current.put("comment", "Current provider note");
+        var unchanged = reconcile(fixture(current, numbers(), true, source, stored));
+        assertThat(unchanged.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(unchanged.preparedPaths()).contains("Duration");
+        assertThat(unchanged.mapping().value().fields()).containsEntry(Field.Duration, "3 months");
+        var edited = new LinkedHashMap<>(stored);
+        edited.put("duration", "2");
+        edited.put("durunit", "W");
+        var changed = reconcile(fixture(edited, numbers(), true, source, stored));
+        assertThat(changed.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(changed.currentPaths()).contains("Duration");
+        assertThat(changed.mapping().value().fields()).containsEntry(Field.Duration, "14");
+        var received = roundTrip(unchanged.mapping().value());
+        assertThat(received.duration()).isEqualTo("3");
+        assertThat(received.durationUnit()).isEqualTo("M");
+    }
+
+    @Test
     void shouldReuseVerifiedSourceOnlyStrength_whenOnlyProviderNotesChanged() throws Exception {
         assertThatThrownBy(() -> new CdsExportPreparedMedicationMapper().map(sourceOnlyStrength()))
                 .hasMessage("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");
@@ -484,6 +518,7 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                 "PO",
                 "BID",
                 "030",
+                "D",
                 30,
                 "12.5",
                 12,

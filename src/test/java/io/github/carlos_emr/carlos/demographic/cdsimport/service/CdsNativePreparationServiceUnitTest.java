@@ -302,6 +302,59 @@ class CdsNativePreparationServiceUnitTest {
         }
     }
 
+    @Test
+    void shouldLoadAMedicationSealedWithDurationDays_asItsExactDayDuration() throws Exception {
+        // Review M4: a payload sealed before #3958 names durationDays; its meaning is unit D.
+        var dao = mock(CdsImportPreparationDao.class);
+        Map<String, CdsImportPreparation> rows = new HashMap<>();
+        when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
+        String legacy =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(
+                                getClass()
+                                        .getResourceAsStream(
+                                                "/cds-export/legacy-medication-preparation-duration-days.json"))
+                        .get("payloads")
+                        .get("days")
+                        .textValue();
+        var type = io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationNativeDto.class;
+        var current =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .registerModule(
+                                new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                        .readValue(
+                                legacy.replace(
+                                        "\"durationDays\":\"030\"",
+                                        "\"duration\":\"030\",\"durationUnit\":\"D\""),
+                                type);
+        service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), current);
+        var row = rows.values().iterator().next();
+        row.setPayload(legacy);
+        row.setDigest(
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSeal.digest(
+                        row.getPayloadType(),
+                        row.getSourceDigest(),
+                        row.getOptionsDigest(),
+                        row.getRulesetDigest(),
+                        legacy));
+        try (var ownership = mockStatic(CdsImportUnitService.class)) {
+            var decoded =
+                    service(dao).load("run", 1, "a".repeat(64), "b".repeat(64), command(), type);
+            assertThat(decoded).isEqualTo(current);
+            assertThat(decoded.source().duration()).isEqualTo("030");
+            assertThat(decoded.source().durationUnit()).isEqualTo("D");
+        }
+        assertThat(row.getPayload()).isEqualTo(legacy);
+    }
+
     private static CdsNativePreparationService service(CdsImportPreparationDao dao) {
         return service(dao, mock(CdsImportLedgerService.class));
     }

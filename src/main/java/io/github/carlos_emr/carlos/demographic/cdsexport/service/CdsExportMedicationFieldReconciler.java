@@ -393,8 +393,8 @@ public final class CdsExportMedicationFieldReconciler {
                 "rx_date",
                 source.start().earliest() == null ? null : source.start().earliest().toString());
         values.put("start_date_unknown", source.start().exactCalendarDate() ? "0" : "1");
-        values.put("duration", trim(source.durationDays()));
-        values.put("durunit", source.durationDays() == null ? null : "D");
+        values.put("duration", trim(source.duration()));
+        values.put("durunit", source.duration() == null ? null : source.durationUnit());
         values.put("quantity", trim(source.quantity()));
         values.put("repeat", number(source.repeats()));
         values.put("refill_duration", number(source.refillDurationDays()));

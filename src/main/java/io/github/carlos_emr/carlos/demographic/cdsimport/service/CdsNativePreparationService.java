@@ -205,8 +205,13 @@ public class CdsNativePreparationService {
                                                 .CdsAllergyDto.class
                                 ? io.github.carlos_emr.carlos.demographic.cds.contract
                                         .CdsPreparedAllergyDefaults.apply(value)
-                                : io.github.carlos_emr.carlos.demographic.cds.contract
-                                        .CdsPreparedHistoryDefaults.apply(value),
+                                : type
+                                                == io.github.carlos_emr.carlos.demographic
+                                                        .cdsimport.dto.CdsMedicationNativeDto.class
+                                        ? io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsPreparedMedicationDefaults.apply(value)
+                                        : io.github.carlos_emr.carlos.demographic.cds.contract
+                                                .CdsPreparedHistoryDefaults.apply(value),
                         type);
             } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");

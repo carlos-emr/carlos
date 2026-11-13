@@ -49,7 +49,13 @@ public final class CdsExportPreparedMedicationMapper {
         put(values, Field.Form, source.form());
         put(values, Field.Route, source.route());
         put(values, Field.Frequency, source.frequency());
-        put(values, Field.Duration, source.durationDays());
+        // The same rendering as a native duration: a source "3 months" is never 90 days.
+        if (source.duration() != null) {
+            String duration =
+                    CdsExportMedicationMapper.duration(source.duration(), source.durationUnit());
+            if (duration == null) throw new IOException("CDS_EXPORT_PREPARED_DURATION_INVALID");
+            values.put(Field.Duration, duration);
+        }
         put(values, Field.RefillDuration, source.refillDurationDays());
         put(values, Field.Quantity, source.quantity());
         put(values, Field.RefillQuantity, source.refillQuantity());

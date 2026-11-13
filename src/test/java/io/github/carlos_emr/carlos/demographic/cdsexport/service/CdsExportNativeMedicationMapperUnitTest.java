@@ -272,14 +272,72 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
-    void shouldKeepNativeMonthsAtThirtyDaysWithoutMultiplyingRefills() throws Exception {
+    void shouldWriteNativeMonthsAndYearsWithTheirUnit_neverAsAnAssertedDayCount() throws Exception {
+        // Review M9: this test used to expect "2 months" exported as Duration 60, the
+        // prescription calculator's 30-day month. A month or year is not an exact number of
+        // days, so the authored unit is written instead (the medication Duration is CDS text);
+        // the CARLOS importer reads "2 months" back as duration 2, unit M. Refills stay separate.
         var fields = source();
         fields.put("duration", "2");
         fields.put("durunit", "M");
         fields.put("repeat", "5");
         assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
-                .containsEntry(Field.Duration, "60")
+                .containsEntry(Field.Duration, "2 months")
                 .containsEntry(Field.NumberOfRefills, "5");
+        fields.put("duration", "1");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Duration, "1 month");
+        fields.put("durunit", "Y");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Duration, "1 year");
+        fields.put("duration", "3");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Duration, "3 years");
+    }
+
+    @Test
+    void shouldWriteNativeWeeksAsTheirExactDays_onTheNativeAndReconciledPaths() throws Exception {
+        var fields = source();
+        fields.put("duration", "3");
+        fields.put("durunit", "W");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Duration, "21");
+        var candidate =
+                new CdsExportMedicationMapper()
+                        .candidate(
+                                27,
+                                CdsExportMedicationMapperUnitTest.medication(fields),
+                                List.of(),
+                                Map.of());
+        assertThat(candidate.values()).containsEntry(Field.Duration, "21");
+        assertThat(
+                        candidate.assessments().values().stream()
+                                .filter(field -> "Duration".equals(field.destination()))
+                                .map(field -> field.outcome()))
+                .doesNotContain(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+    }
+
+    @Test
+    void shouldRoundTripAuthoredDurationUnits_throughTheCarlosImporter() throws Exception {
+        // The exported text must be read back by CdsClinicalNormalizationService with its unit.
+        for (var entry : Map.of("D", "30", "M", "3", "Y", "1").entrySet()) {
+            String text = CdsExportMedicationMapper.duration(entry.getValue(), entry.getKey());
+            var matcher =
+                    java.util.regex.Pattern.compile(
+                                    "([0-9]+)\\s*(D|DAYS?|W|WEEKS?|M|MONTHS?|Y|YEARS?)?",
+                                    java.util.regex.Pattern.CASE_INSENSITIVE)
+                            .matcher(text);
+            assertThat(matcher.matches()).as(text).isTrue();
+            assertThat(matcher.group(1)).isEqualTo(entry.getValue());
+            assertThat(matcher.group(2) == null ? "D" : matcher.group(2).substring(0, 1).toUpperCase(java.util.Locale.ROOT))
+                    .isEqualTo(entry.getKey());
+        }
+        assertThat(CdsExportMedicationMapper.duration("2", "W")).isEqualTo("14");
+        assertThat(CdsExportMedicationMapper.duration("2", null)).isNull();
+        assertThat(CdsExportMedicationMapper.duration("2", "unknown")).isNull();
+        assertThat(CdsExportMedicationMapper.duration("1.5", "D")).isNull();
     }
 
     @Test

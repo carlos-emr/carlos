@@ -186,7 +186,8 @@ class CdsExportMedicationMapperUnitTest {
         assertThat(received.doseUnit()).isEqualTo("tablet");
         assertThat(received.quantity()).isEqualTo("12.5");
         assertThat(received.refillQuantity()).isEqualTo(12);
-        assertThat(received.durationDays()).isEqualTo("030");
+        assertThat(received.duration()).isEqualTo("030");
+        assertThat(received.durationUnit()).isEqualTo("D");
         assertThat(received.refillDurationDays()).isEqualTo(30);
         assertThat(received.providerNotes()).isEqualTo("Provider-only café 😀\r\nLiteral note");
         assertThat(received.pharmacyInstructions()).isEqualTo("Patient instructions");
@@ -262,7 +263,10 @@ class CdsExportMedicationMapperUnitTest {
                 List.of(
                         Map.of("BN", "Another brand"),
                         Map.of("unitName", "mL"),
-                        Map.of("duration", "3", "durunit", "M"),
+                        // A month is now written with its unit (review M9); an unknown unit
+                        // and a missing one still cannot be read as days.
+                        Map.of("duration", "3", "durunit", "X"),
+                        Map.of("duration", "3", "durunit", ""),
                         Map.of("regional_identifier", "1234567"),
                         Map.of("quantity", "one"),
                         Map.of("repeat", "-1"),

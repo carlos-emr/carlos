@@ -992,7 +992,11 @@ of a complete medication export.
 `CdsExportRetainedPreparationReader` verifies historical unit/category/type/source/options/
 ruleset ownership and the exact original preparation seal before decoding. It reads the
 captured index, not current import staging or current import options. Shared transient allergy
-defaults retain old omitted optional properties without rewriting any stored payload/seal.
+defaults retain old omitted optional properties without rewriting any stored payload/seal. A
+medication preparation sealed before #3958 names its initial duration `durationDays`; the shared
+medication defaults (`CdsPreparedMedicationDefaults`, used by the importer's resume decoder too)
+read it as the same amount with unit `D`, and refuse a payload carrying both shapes or an unknown
+unit.
 The temporal converter proves original lexical meaning plus its recorded synthetic shift;
 it preserves calendar precision, offsets, fractional seconds and legal end-of-day spelling.
 It rejects inconsistent anchors and cannot truncate a clock into a date-only destination.
@@ -2032,9 +2036,13 @@ empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Sour
 pinned medication `ResidualInfo`. Unstructured strength remains exact `DrugDescription` and
 source context; it is never split into an invented amount/unit. An unlabelled native regional
 identifier stays explicitly unqualified source context and is not asserted as a Health Canada
-DIN. Native `OD` maps to CT-024 `QD`; native duration weeks/months use the prescription calculator's exact
-7/30-day rules without multiplying refills. Unknown status and a false past-medication flag do
-not establish current treatment. Unbound import-provenance markers require review.
+DIN. Native `OD` maps to CT-024 `QD`. A native initial duration keeps its authored meaning:
+days as authored, weeks as their exact day count (`2 W` is `14`), and months or years with their
+unit as text (`3 months`, `1 year`; the medication `Duration` is CDS text), because a month or a
+year is not an exact number of days. Refills never multiply the duration. The CARLOS importer
+reads the unit back (#3958), and the same rendering applies to imported prescriptions whose
+duration was edited in CARLOS. Unknown status and a false past-medication flag do not establish
+current treatment. Unbound import-provenance markers require review.
 
 `CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
 CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies

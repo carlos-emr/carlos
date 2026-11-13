@@ -111,17 +111,10 @@ public final class CdsExportNativeMedicationMapper {
             values.put(Field.DrugDescription, strength);
         }
         String duration = source.get("duration"), unit = source.get("durunit");
-        if (populated(duration) && !"D".equals(unit)) {
-            if (!duration.matches("[0-9]+") || !Set.of("W", "M").contains(unit == null ? "" : unit))
-                review();
-            // The native prescription calculator defines W=7 and M=30 days. Refills are
-            // separate dispense information; they do not multiply the exported duration.
-            values.put(
-                    Field.Duration,
-                    new BigInteger(duration)
-                            .multiply(BigInteger.valueOf(unit.equals("W") ? 7 : 30))
-                            .toString());
-        }
+        // The shared candidate wrote days, weeks as exact days, and months/years with their
+        // unit (never the calculator's 30-day month); any other unit is not established.
+        if (populated(duration) && CdsExportMedicationMapper.duration(duration, unit) == null)
+            review();
         String sig = source.get("special");
         if (populated(sig)) {
             String pharmacy = source.get("special_instruction");

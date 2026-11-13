@@ -164,15 +164,26 @@ public final class CdsExportMedicationMapper {
         put(values, Field.DosageUnitOfMeasure, unit == null ? unitName : unit);
         text(source, values, "duration", Field.Duration);
         if (values.containsKey(Field.Duration)) {
+            String durationUnit = source.raw("durunit");
+            String rendered = duration(values.get(Field.Duration), durationUnit);
             if (!values.get(Field.Duration).matches("[0-9]+"))
                 source.review(
                         "duration", Field.Duration.name(), "NUMERIC_DAY_DURATION_REQUIRES_REVIEW");
-            if ("D".equals(source.raw("durunit")))
-                source.set(
-                        "durunit", Outcome.MAPPED, Field.Duration.name(), "EXPLICIT_DURATION_DAYS");
-            else {
+            else if (rendered == null
+                    || !CdsExportNativeFieldAssessments.legal(rendered, Field.Duration.maximum())) {
                 source.review("durunit", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
                 source.review("duration", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
+            } else {
+                values.put(Field.Duration, rendered);
+                source.set(
+                        "durunit",
+                        Outcome.MAPPED,
+                        Field.Duration.name(),
+                        switch (durationUnit) {
+                            case "D" -> "EXPLICIT_DURATION_DAYS";
+                            case "W" -> "EXACT_WEEK_DURATION_DAYS";
+                            default -> "CALENDAR_DURATION_UNIT_PRESERVED";
+                        });
             }
         }
         for (var pair :
@@ -560,6 +571,29 @@ public final class CdsExportMedicationMapper {
             metadata.forEach(row -> row.review("format", path, invalid.getMessage()));
             return new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         }
+    }
+
+    /**
+     * The CDS Duration text of a native initial duration (whole number plus D/W/M/Y unit), or
+     * null when its meaning is not established. Days stay as authored; a week is exactly seven
+     * days. A month or a year is not an exact number of days, so it is never written as one: it
+     * keeps its unit as text ("3 months", "1 year"), which the medication Duration (CDS text,
+     * not a number) permits and the CARLOS importer reads back as the same amount and unit.
+     * Refills are separate dispense information and never multiply the duration.
+     */
+    static String duration(String amount, String unit) {
+        if (amount == null || unit == null || !amount.matches("[0-9]+")) return null;
+        boolean one = new java.math.BigInteger(amount).equals(java.math.BigInteger.ONE);
+        return switch (unit) {
+            case "D" -> amount;
+            case "W" ->
+                    new java.math.BigInteger(amount)
+                            .multiply(java.math.BigInteger.valueOf(7))
+                            .toString();
+            case "M" -> amount + (one ? " month" : " months");
+            case "Y" -> amount + (one ? " year" : " years");
+            default -> null;
+        };
     }
 
     private static void text(

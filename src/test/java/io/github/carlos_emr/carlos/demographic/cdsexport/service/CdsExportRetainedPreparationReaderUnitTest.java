@@ -581,6 +581,7 @@ class CdsExportRetainedPreparationReaderUnitTest {
                         "PO",
                         "BID",
                         "30",
+                        "D",
                         null,
                         "12",
                         null,
@@ -622,6 +623,92 @@ class CdsExportRetainedPreparationReaderUnitTest {
                         run + ":" + unit);
         assertThat(result.value()).isEqualTo(value);
         assertThat(result.value().source().prescriberFirstName()).isEqualTo("Original");
+    }
+
+    @Test
+    void shouldDecodeMedicationsSealedWithDurationDays_asDaysWithoutRewritingTheirSeal()
+            throws Exception {
+        // Review M4: preparations sealed before #3958 name the initial duration durationDays.
+        var legacy =
+                JSON.readTree(
+                                getClass()
+                                        .getResourceAsStream(
+                                                "/cds-export/legacy-medication-preparation-duration-days.json"))
+                        .get("payloads");
+        String days = legacy.get("days").textValue();
+        var index = fixture(CdsMedicationNativeDto.class, days, "MedicationsAndTreatments");
+        var result = reader.medication(index, run + ":" + unit);
+        assertThat(result.value().source().duration()).isEqualTo("030");
+        assertThat(result.value().source().durationUnit()).isEqualTo("D");
+        assertThat(result.value().archived()).isFalse();
+        assertThat(
+                        index.tables()
+                                .get("cds_import_preparation")
+                                .values()
+                                .iterator()
+                                .next()
+                                .fields()
+                                .get("payload"))
+                .isEqualTo(days);
+        var absent =
+                reader.medication(
+                        fixture(
+                                CdsMedicationNativeDto.class,
+                                legacy.get("absent").textValue(),
+                                "MedicationsAndTreatments"),
+                        run + ":" + unit);
+        assertThat(absent.value().source().duration()).isNull();
+        assertThat(absent.value().source().durationUnit()).isNull();
+    }
+
+    @Test
+    void shouldRefuseMedicationsNamingBothDurationShapesOrAnUnknownUnit_underRecomputedSeals()
+            throws Exception {
+        String days =
+                JSON.readTree(
+                                getClass()
+                                        .getResourceAsStream(
+                                                "/cds-export/legacy-medication-preparation-duration-days.json"))
+                        .get("payloads")
+                        .get("days")
+                        .textValue();
+        for (String changed :
+                List.of(
+                        days.replace(
+                                "\"durationDays\":\"030\"",
+                                "\"durationDays\":\"030\",\"duration\":\"030\",\"durationUnit\":\"D\""),
+                        days.replace("\"durationDays\":\"030\"", "\"durationDays\":30"),
+                        days.replace(
+                                "\"durationDays\":\"030\"",
+                                "\"duration\":\"3\",\"durationUnit\":\"Q\""),
+                        days.replace(
+                                "\"durationDays\":\"030\"",
+                                "\"duration\":\"3\",\"durationUnit\":null"),
+                        days.replace("\"durationDays\":\"030\"", "\"duration\":\"3\""))) {
+            assertThat(changed).isNotEqualTo(days);
+            assertThatThrownBy(
+                            () ->
+                                    reader.medication(
+                                            fixture(
+                                                    CdsMedicationNativeDto.class,
+                                                    changed,
+                                                    "MedicationsAndTreatments"),
+                                            run + ":" + unit))
+                    .hasMessage("CDS_EXPORT_RETAINED_PREPARATION_INVALID");
+        }
+        String months =
+                days.replace(
+                        "\"durationDays\":\"030\"", "\"duration\":\"3\",\"durationUnit\":\"M\"");
+        var value =
+                reader.medication(
+                                fixture(
+                                        CdsMedicationNativeDto.class,
+                                        months,
+                                        "MedicationsAndTreatments"),
+                                run + ":" + unit)
+                        .value();
+        assertThat(value.source().duration()).isEqualTo("3");
+        assertThat(value.source().durationUnit()).isEqualTo("M");
     }
 
     @Test
