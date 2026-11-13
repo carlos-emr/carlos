@@ -46,7 +46,11 @@ final class CdsExportNativeLaboratoryParser {
         }
     }
 
-    record Parsed(Message message, List<Observation> observations) {
+    /**
+     * @param blockedMessage the laboratory marked the whole message "do not disclose" with the MDS
+     *     ZPD-3 = Y indicator, as MDSHandler.isTestResultBlocked reads it
+     */
+    record Parsed(Message message, List<Observation> observations, boolean blockedMessage) {
         Parsed {
             observations = List.copyOf(observations);
         }
@@ -93,7 +97,7 @@ final class CdsExportNativeLaboratoryParser {
             Segment order = null, result = null;
             List<Segment> orderComments = new ArrayList<>(), resultComments = new ArrayList<>();
             int orders = 0, results = 0, patients = 0;
-            boolean orderHasResult = false;
+            boolean orderHasResult = false, blockedMessage = false;
             for (var segment : segments) {
                 checkpoint.run();
                 switch (segment.getName()) {
@@ -156,6 +160,12 @@ final class CdsExportNativeLaboratoryParser {
                         else if (order != null) orderComments.add(segment);
                         // Message-level comments remain in the complete supporting context.
                     }
+                    case "ZPD" -> {
+                        // MDS "do not disclose" indicator; the segment also stays in the
+                        // complete supporting context.
+                        if ("Y".equalsIgnoreCase(Terser.get(segment, 3, 0, 1, 1)))
+                            blockedMessage = true;
+                    }
                     default -> {
                         /* Every other segment remains in the exact supporting context. */
                     }
@@ -166,7 +176,7 @@ final class CdsExportNativeLaboratoryParser {
             append(observations, order, result, orders, results, orderComments, resultComments);
             if (observations.isEmpty() || observations.size() > 8192)
                 review("CDS_EXPORT_NATIVE_LAB_RESULT_CAPACITY");
-            return new Parsed(message, observations);
+            return new Parsed(message, observations, blockedMessage);
         } catch (HL7Exception | IllegalArgumentException | CharacterCodingException failure) {
             review("CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW");
             return null;

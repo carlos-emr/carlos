@@ -42,7 +42,8 @@ final class CdsExportNativeLaboratoryMapper {
             Map<String, String> text,
             Map<String, CdsExportDateDto> dates,
             String flag,
-            boolean enumFlag) {
+            boolean enumFlag,
+            boolean blocked) {
         Value {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
@@ -140,8 +141,21 @@ final class CdsExportNativeLaboratoryMapper {
                 put(text, "TestResultsInformationReportedByTheLab", information.toString(), 32000);
                 put(text, "NotesFromLab", notes.toString(), 32000);
                 put(text, "TestResultStatus", scalar(obx, 11, 0, 1), 20);
+                // The laboratory's "do not disclose" marking travels as BlockedTestResult, using
+                // the rules CARLOS's own handlers apply: OBX-13 "BLOCKED" (CMLHandler,
+                // GDMLHandler) or the message-level MDS ZPD-3 "Y" (MDSHandler). A blocked result
+                // is never presented to a receiver as an ordinary unrestricted one.
+                boolean blocked =
+                        source.parsed().blockedMessage()
+                                || "BLOCKED".equals(scalar(obx, 13, 0, 1));
                 result.add(
-                        new Value(observation.ordinal(), text, dates, flag, FLAGS.contains(flag)));
+                        new Value(
+                                observation.ordinal(),
+                                text,
+                                dates,
+                                flag,
+                                FLAGS.contains(flag),
+                                blocked));
             }
             return List.copyOf(result);
         } catch (HL7Exception failure) {
@@ -208,6 +222,7 @@ final class CdsExportNativeLaboratoryMapper {
                         "TestResultsInformationReportedByTheLab",
                         "NotesFromLab",
                         "TestResultStatus")) text(value, name, xml);
+        if (value.blocked()) xml.element("cds", "BlockedTestResult", "Y");
     }
 
     void writeSupporting(

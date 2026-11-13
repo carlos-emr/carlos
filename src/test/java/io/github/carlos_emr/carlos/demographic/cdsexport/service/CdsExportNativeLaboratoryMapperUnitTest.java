@@ -226,6 +226,42 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldMarkTheLaboratorysDoNotDiscloseResults_asBlockedTestResults() throws Exception {
+        String text = message();
+        assertThat(text).contains("|F|||20260709143500-0400\rNTE");
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        // CML/GDML: OBX-13 "BLOCKED" blocks that one result.
+        var oneBlocked =
+                mapper.map(
+                        source(text.replace("|F|||20260709143500-0400\rNTE", "|F||BLOCKED|20260709143500-0400\rNTE")),
+                        ZoneId.of("America/Toronto"));
+        assertThat(oneBlocked).extracting(CdsExportNativeLaboratoryMapper.Value::blocked)
+                .containsExactly(true, false, false, false);
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.LABORATORY_RESULTS,
+                                body -> mapper.write(oneBlocked.getFirst(), body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).containsPattern("TestResultStatus>F</[^>]*TestResultStatus><[^>]*BlockedTestResult>Y</");
+        assertThat(
+                        new String(
+                                render(
+                                        CdsCategory.LABORATORY_RESULTS,
+                                        body -> mapper.write(oneBlocked.get(1), body)),
+                                StandardCharsets.UTF_8))
+                .doesNotContain("BlockedTestResult");
+        // MDS: a ZPD segment with ZPD-3 "Y" blocks every result of the message.
+        var allBlocked =
+                mapper.map(source(text + "ZPD|1||Y\r"), ZoneId.of("America/Toronto"));
+        assertThat(allBlocked).extracting(CdsExportNativeLaboratoryMapper.Value::blocked)
+                .containsOnly(true);
+        assertThat(mapper.map(source(text + "ZPD|1||N\r"), ZoneId.of("America/Toronto")))
+                .extracting(CdsExportNativeLaboratoryMapper.Value::blocked)
+                .containsOnly(false);
+    }
+
+    @Test
     void shouldPreserveExplicitHl7NullResults_asAbsentValuesWithTheirActualStatus()
             throws Exception {
         var source = source(message().replace("||5.4|mmol/L", "||\"\"|mmol/L"));
