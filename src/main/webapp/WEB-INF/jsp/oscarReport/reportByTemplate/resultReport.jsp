@@ -91,6 +91,7 @@
             }
 
         </style>
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
     <%
 
@@ -122,11 +123,11 @@
 
     %>
 
-    <body onunload="clearSession();">
+    <body class="rbt-page" onunload="clearSession();">
 
         <%@ include file="rbtTopNav.jspf" %>
 
-    <h3>
+    <h3 id="rbtReportHeading">
         ${carlos:forHtml(reportobject.title)}<br>
         <small>${carlos:forHtml(reportobject.description)}</small>
     </h3>
@@ -141,7 +142,7 @@
         </div>
     </c:if>
 
-    <div class="reportBorderDiv row">
+    <div class="reportBorderDiv row" role="region" aria-labelledby="rbtReportHeading" tabindex="0">
         <c:forEach items="${ htmlList }" var="htmlOut" varStatus="query">
             <%-- Shown above a result whose CSV went over the CSV limit, so its downloads are held back (#5849, D260).
                  In a sequence it names the query, as the export buttons below do. --%>
