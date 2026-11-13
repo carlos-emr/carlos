@@ -81,6 +81,17 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
     }
 
     @Test
+    void shouldPublishNumericStrengthsAsExactPlainDecimals_withoutATrailingZero() throws Exception {
+        assertThat(CdsExportDrugReferenceLookupService.strength(500.0d)).isEqualTo("500");
+        assertThat(CdsExportDrugReferenceLookupService.strength(1.0E7d)).isEqualTo("10000000");
+        assertThat(CdsExportDrugReferenceLookupService.strength(0.125d)).isEqualTo("0.125");
+        assertThat(CdsExportDrugReferenceLookupService.strength(0.0d)).isEqualTo("0");
+        assertThat(CdsExportDrugReferenceLookupService.strength("2.5 mg/mL")).isEqualTo("2.5 mg/mL");
+        assertThatThrownBy(() -> CdsExportDrugReferenceLookupService.strength(Double.NaN))
+                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+    }
+
+    @Test
     void shouldRefuseNetworkWorkInsideADatabaseTransaction_beforeCallingDrugRef() {
         var client = mock(RxDrugRef.class);
         TransactionSynchronizationManager.setActualTransactionActive(true);

@@ -71,7 +71,7 @@ public class CdsExportDrugReferenceLookupService {
                 result.add(
                         new CdsExportDrugReferenceDto.Component(
                                 (String) component.get("name"),
-                                component.get("strength").toString(),
+                                strength(component.get("strength")),
                                 (String) component.get("unit")));
             }
             return new CdsExportDrugReferenceDto(
@@ -98,5 +98,23 @@ public class CdsExportDrugReferenceLookupService {
 
     private static void review() throws IOException {
         throw new CdsExportMappingReviewException("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+    }
+
+    /**
+     * DrugRef serves numeric strengths as doubles (DrugLookUpManager); Double.toString would
+     * publish "500.0" or "1.0E7". The exact plain decimal without a trailing zero is written
+     * instead (a trailing zero is on ISMP Canada's do-not-use list). Text strengths stay as
+     * authored.
+     */
+    static String strength(Object value) throws IOException {
+        if (value instanceof String text) return text;
+        try {
+            var decimal = new java.math.BigDecimal(value.toString()).stripTrailingZeros();
+            if (decimal.signum() < 0) review();
+            return (decimal.signum() == 0 ? java.math.BigDecimal.ZERO : decimal).toPlainString();
+        } catch (NumberFormatException notFinite) {
+            review();
+            return null;
+        }
     }
 }

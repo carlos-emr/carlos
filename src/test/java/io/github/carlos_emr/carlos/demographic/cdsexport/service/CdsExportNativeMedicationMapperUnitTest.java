@@ -252,6 +252,80 @@ class CdsExportNativeMedicationMapperUnitTest {
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, x -> mapper.write(result, x));
     }
 
+    private static CdsExportCapturedTextRowDto prescribed(Map<String, String> fields) {
+        // takemin = takemax = 1.0f, as the Rx page stores "Take 1 tab".
+        var one =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric.Codec
+                                .IEEE754_BINARY32_V1,
+                        "3f800000");
+        fields.put("takemin", "1.0");
+        fields.put("takemax", "1.0");
+        return new CdsExportCapturedTextRowDto(
+                "drugs",
+                CdsExportPatientTableSourceReader.key(51),
+                fields,
+                Map.of("takemin", one, "takemax", one));
+    }
+
+    @Test
+    void shouldNeverExportTheProductStrengthUnit_asTheUnitOfACountedDose() throws Exception {
+        // RxWriteScript2Action.createNewRx: Amoxicillin 500 mg, "Take 1 tab TID".
+        var fields = source();
+        fields.put("dosage", "500.0mg");
+        fields.put("unit", "mg");
+        fields.put("unitName", null);
+        fields.put("drug_form", "CAPSULE");
+        var capsule = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(capsule.value().fields())
+                .containsEntry(Field.Dosage, "1")
+                .containsEntry(Field.DosageUnitOfMeasure, "capsule")
+                .containsEntry(Field.DrugDescription, "500.0mg");
+        // A form that is not counted (a suspension) has no recorded dose unit: none is invented.
+        fields.put("dosage", "250mg/5mL");
+        fields.put("unit", "mL");
+        fields.put("drug_form", "SUSPENSION");
+        var suspension = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(suspension.value().fields())
+                .containsEntry(Field.Dosage, "1")
+                .doesNotContainKey(Field.DosageUnitOfMeasure);
+        assertThat(suspension.metadata()).contains("\"unit\":\"mL\"", "250mg/5mL");
+        // A unit the strength does not name is the dose unit as recorded.
+        fields.put("dosage", "100mcg/dose");
+        fields.put("unit", "puff");
+        fields.put("drug_form", "AEROSOL, METERED DOSE");
+        assertThat(mapper.map(27, prescribed(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.DosageUnitOfMeasure, "puff");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(capsule, xml));
+    }
+
+    @Test
+    void shouldExportTheQuantityWithItsUnit_andNeverAsADoseUnit() throws Exception {
+        // A custom drug with quantity "100 mL", and a Mitte "1 month" prescription.
+        var fields = source();
+        fields.put("unit", "");
+        fields.put("unitName", "mL");
+        fields.put("quantity", "100");
+        var liquid = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(liquid.value().fields())
+                .containsEntry(Field.Quantity, "100 mL")
+                .doesNotContainKey(Field.DosageUnitOfMeasure);
+        fields.put("unitName", "month");
+        fields.put("quantity", "1");
+        var mitte = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(mitte.value().fields())
+                .containsEntry(Field.Quantity, "1 month")
+                .doesNotContainKey(Field.DosageUnitOfMeasure);
+        // An importer-shaped (or re-prescribed imported) row repeats the dose unit in unitName.
+        fields.put("unit", "tablet");
+        fields.put("unitName", "tablet");
+        fields.put("quantity", "30");
+        assertThat(mapper.map(27, prescribed(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Quantity, "30")
+                .containsEntry(Field.DosageUnitOfMeasure, "tablet");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(mitte, xml));
+    }
+
     @Test
     void shouldUseTheAuthoredCustomName_andRetainTheSeparateBrandAndAmbiguousUnits()
             throws Exception {

@@ -398,8 +398,10 @@ public final class CdsExportMedicationMapper {
         } else {
             // An all-zero legacy default without an explicit dose is not clinical evidence.
             if (minimum == 0f && maximum == 0f) return;
-            String first = new java.math.BigDecimal(low.decimal()).toPlainString();
-            String last = new java.math.BigDecimal(high.decimal()).toPlainString();
+            // A trailing zero ("1.0") is on ISMP Canada's do-not-use list: it is misread as ten.
+            // Stripping it keeps the exact value, which still parses back to the same float.
+            String first = plainDose(low.decimal());
+            String last = plainDose(high.decimal());
             literal = minimum == maximum ? first : first + "-" + last;
             if (!CdsExportNativeFieldAssessments.legal(literal, Field.Dosage.maximum())) return;
             values.put(Field.Dosage, literal);
@@ -414,6 +416,11 @@ public final class CdsExportMedicationMapper {
                 Outcome.MAPPED,
                 Field.Dosage.name(),
                 "EXACT_IEEE_DOSE_BOUND_WITH_ROUNDTRIP_DECIMAL");
+    }
+
+    private static String plainDose(String decimal) {
+        var value = new java.math.BigDecimal(decimal).stripTrailingZeros();
+        return (value.signum() == 0 ? java.math.BigDecimal.ZERO : value).toPlainString();
     }
 
     private static CdsExportPublicProviderDto prescriber(

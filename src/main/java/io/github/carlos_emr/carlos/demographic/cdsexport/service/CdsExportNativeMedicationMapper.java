@@ -135,10 +135,24 @@ public final class CdsExportNativeMedicationMapper {
         }
         String frequency = source.get("freqcode");
         if ("OD".equals(frequency)) values.put(Field.Frequency, "QD");
-        if (populated(source.get("unit"))
-                && populated(source.get("unitName"))
-                && !source.get("unit").equals(source.get("unitName")))
-            values.remove(Field.DosageUnitOfMeasure);
+        String doseUnit =
+                doseUnit(source.get("unit"), source.get("dosage"), source.get("drug_form"));
+        values.remove(Field.DosageUnitOfMeasure);
+        if (doseUnit != null && values.containsKey(Field.Dosage))
+            values.put(Field.DosageUnitOfMeasure, doseUnit);
+        String quantityUnit = source.get("unitName");
+        if (populated(quantityUnit)
+                && !quantityUnit.equals(source.get("unit"))
+                && values.containsKey(Field.Quantity)) {
+            // On the Rx page unitName is the quantity's unit (or the Mitte duration unit), never
+            // a dose unit: "100" with unitName "mL" was authored as "100 mL", and Mitte "1" with
+            // "month" as "1 month"; a bare number would misstate the amount dispensed. The CDS
+            // importer copies the dose unit into both unit and unitName, so an equal pair is
+            // that copy (kept by re-prescribing an imported drug), not a quantity unit.
+            String authored = values.get(Field.Quantity) + " " + quantityUnit.strip();
+            if (!CdsExportNativeFieldAssessments.legal(authored, Field.Quantity.maximum())) review();
+            values.put(Field.Quantity, authored);
+        }
         String status = source.get("rxStatus");
         boolean knownStatus =
                 status != null
@@ -217,6 +231,38 @@ public final class CdsExportNativeMedicationMapper {
                         values);
         CdsExportMedicationXmlWriter.validate(value);
         return new Result(value, metadata, fields, archived);
+    }
+
+    private static final java.util.regex.Pattern STRENGTH_UNIT =
+            java.util.regex.Pattern.compile("[0-9]+(?:[.,][0-9]+)?\\s*([A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*)");
+    private static final List<String> COUNT_UNITS =
+            List.of("capsule", "tablet", "patch", "pellet", "pill", "drop", "granule");
+
+    /**
+     * The administered-dose unit of a native prescription, or null when it is not recorded.
+     * The Rx page stores the DrugRef strength unit of the product in {@code unit} ("mg" for
+     * "500.0mg") while takemin/takemax count dispensable units ("take 1 tab"), so a {@code unit}
+     * that names the product's strength unit is never the dose unit; the count unit then comes
+     * from the drug form when the form is a counted form (tablet, capsule, ...), as the legacy
+     * exporter derived it. A {@code unit} the strength does not mention (a custom drug's "puff",
+     * an imported "tablet") is the dose unit as recorded. {@code unitName} is the quantity unit
+     * and is handled with Quantity.
+     */
+    static String doseUnit(String unit, String strength, String form) {
+        if (!populated(unit)) return null;
+        String recorded = unit.strip();
+        var strengthUnits = new java.util.HashSet<String>();
+        if (populated(strength)) {
+            var matcher = STRENGTH_UNIT.matcher(strength);
+            while (matcher.find()) strengthUnits.add(matcher.group(1).toLowerCase(Locale.ROOT));
+        }
+        if (!strengthUnits.contains(recorded.toLowerCase(Locale.ROOT)))
+            return CdsExportNativeFieldAssessments.legal(recorded, Field.DosageUnitOfMeasure.maximum())
+                    ? recorded
+                    : null;
+        String shape = form == null ? "" : form.toLowerCase(Locale.ROOT);
+        for (String count : COUNT_UNITS) if (shape.contains(count)) return count;
+        return null;
     }
 
     private static CdsExportDrugReferenceDto reference(
