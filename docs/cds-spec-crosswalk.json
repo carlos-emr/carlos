@@ -39504,7 +39504,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java"
         ],
-        "normalization": "Content TextContent/decoded Media and relative external FilePath handled boundedly; both allowed Content+FilePath representations retained. Known media/header mismatch becomes opaque with warning; invalid/unsupported text encoding remains intact opaque. No arbitrary filesystem access or whole-document decode. Verified publication inodes use mode 0640 for the document-store shared group; unverified partials and ownership journals remain private. Content hashes and source representations remain unchanged.",
+        "normalization": "Content TextContent/decoded Media and relative external FilePath handled boundedly; both allowed Content+FilePath representations retained. Recognized types are those CARLOS stores and exports (PDF, text, JPEG, PNG, TIFF, GIF, BMP, doc, docx, RTF), each confirmed by its bounded header; known media/header mismatch becomes opaque with warning; HTML is never published as HTML (an HTML file stays opaque and reviewed, HTML text stays plain text and reviewed) because the document viewer renders text/html in the CARLOS origin; invalid/unsupported text encoding remains intact opaque. No arbitrary filesystem access or whole-document decode. Verified publication inodes use mode 0640 for the document-store shared group; unverified partials and ownership journals remain private. Content hashes and source representations remain unchanged.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 15 (Reports)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39908,7 +39908,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "70fee49faf3d8f4edbf42aeb0496ba86360321e942207ac3d5119c8225c04180"
+    "sha256": "e3f66748fe6c36f4d722f24a8f9b2aba6de52c8caa4bdad3978e0f321d883b53"
   },
   "root": "cds:OmdCds",
   "schemas": [

@@ -25,6 +25,7 @@
   "CdsExportNativeReportAssemblyUnitTest",
   "CdsExportPrintedFormUnitTest",
   "CdsExportReportFileFormatsUnitTest",
+  "CdsExportReportMediaRoundTripUnitTest",
   "CdsExportReportOccurrenceServiceUnitTest",
   "CdsExportReportPublicationEvidenceUnitTest",
   "CdsExportReportRetainedSourceUnitTest",

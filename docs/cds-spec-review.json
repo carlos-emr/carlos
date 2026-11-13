@@ -3427,7 +3427,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java"
       ],
-      "normalization": "Content TextContent/decoded Media and relative external FilePath handled boundedly; both allowed Content+FilePath representations retained. Known media/header mismatch becomes opaque with warning; invalid/unsupported text encoding remains intact opaque. No arbitrary filesystem access or whole-document decode. Verified publication inodes use mode 0640 for the document-store shared group; unverified partials and ownership journals remain private. Content hashes and source representations remain unchanged.",
+      "normalization": "Content TextContent/decoded Media and relative external FilePath handled boundedly; both allowed Content+FilePath representations retained. Recognized types are those CARLOS stores and exports (PDF, text, JPEG, PNG, TIFF, GIF, BMP, doc, docx, RTF), each confirmed by its bounded header; known media/header mismatch becomes opaque with warning; HTML is never published as HTML (an HTML file stays opaque and reviewed, HTML text stays plain text and reviewed) because the document viewer renders text/html in the CARLOS origin; invalid/unsupported text encoding remains intact opaque. No arbitrary filesystem access or whole-document decode. Verified publication inodes use mode 0640 for the document-store shared group; unverified partials and ownership journals remain private. Content hashes and source representations remain unchanged.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 15 (Reports)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -4069,8 +4069,8 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java": "40db43175563ede57f27792317419bd6ce2c1b41bdab492c257fe8ff680c00fc",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPreflightIdentityService.java": "887f4fd8eaceef00b0d4dd773458b80f1788b7cc568f8a0ade3e5bbf5d219f13",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsProviderResolver.java": "ae26b6565baa3455e3006fa5a45824f68cb03c4f4a7ff6a0f77854f1ed8f882e",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java": "8674ba963791895925859f10a5d43fc26d9ba62f69cd1ea690eb42d4e8be7204",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java": "cbcdf9fe2a2f253b4687eadd5e694009a52122aebc30ac4cd6f7212cc125c924",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportImportService.java": "b21758f0e3bc5d418abde6f34661a001b61e14ccc71756589f054ceba853132b",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsReportMediaService.java": "47c3f1ba24061899b6fe3b668f7019d53ea4e5bf0682c2606f7275d0aa0f0815",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceContextParser.java": "ff3dce1bb757a417b3db95d042cbf51a12e9a1eeec8fdbff0c0fb4368b42ec07",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java": "1f04657e1394b6d3fc7723f5583d10bbc16946d474fc561f48679fa66d6f7a5f",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsTargetReceiptService.java": "40915c401ab7741cab59e4f46c84c40237ccf462abb32386c285809cf3f9008b",

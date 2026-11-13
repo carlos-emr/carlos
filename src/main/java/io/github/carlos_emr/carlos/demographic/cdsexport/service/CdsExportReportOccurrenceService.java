@@ -1550,7 +1550,15 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         "docdesc"))
             if (!edited.contains(column) && !Objects.equals(imported.get(column), row.get(column)))
                 invalid();
-        if (variant.mediaReviewRequired()
+        // A media review the import asked for (an opaque, HTML or unconfirmed file, text of
+        // unstated encoding) does not hold the patient: the report is written from its retained
+        // source with its own declaration and the verified original bytes, so nothing about the
+        // media is claimed that the source did not say. An empty representation still holds, as
+        // an empty native document file does (CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY), and so does a
+        // reviewed source whose Format contradicts its content, which the export's own XML
+        // validator refuses (CDS_EXPORT_REPORT_FORMAT_MISMATCH).
+        if (variant.length() == 0
+                || variant.mediaReviewRequired() && formatContradicted(prepared, variant)
                 || !edited.contains("abnormal") && !"0".equals(row.get("abnormal"))
                 || !edited.contains("public1") && !"0".equals(row.get("public1"))
                 || !"0".equals(row.get("restrictToProgram"))
@@ -1566,6 +1574,20 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                 || !Integer.toString(patient).equals(link.fields().get("module_id"))
                 || !row.get("document_no").equals(link.fields().get("document_no"))
                 || !"A".equals(link.fields().get("status"))) invalid();
+    }
+
+    /**
+     * Whether the import found the source's Format contradicting this representation: Text over
+     * a file or Media ({@code CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED}), or Binary over
+     * base64 TextContent. Written back unchanged, either is refused by the export's validator.
+     */
+    private static boolean formatContradicted(
+            CdsReportNativeDto prepared, CdsReportNativeDto.Variant variant) {
+        for (var diagnostic : variant.diagnostics())
+            if ("CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED".equals(diagnostic.code()))
+                return true;
+        return variant.name().equals("embedded")
+                && "base64-from-text".equals(prepared.values().get("ContentEncoding"));
     }
 
     /** The digest the verified receipt saw for the one reference in {@code ref}. */

@@ -214,6 +214,15 @@ file of an imported document was replaced on the edit page, the current file is 
 report's content, and the name, type and SHA-256 fingerprint of the file the import brought
 travel with it. The imported file itself is still in CARLOS's document directory (the edit
 page does not delete it) but is not put in the package, since the chart no longer shows it.
+An imported report that the import kept for review of its file type (an HTML file, a file of a
+type CARLOS does not recognise, or text whose encoding the sender did not state) is exported
+like any other, with the type the sending EMR declared and its original bytes; it does not hold
+the patient. Every type CARLOS's own export declares except `html` and `bin` (PDF, text, JPEG,
+PNG, TIFF, GIF, BMP, Word `doc` and `docx`, RTF) is imported as that type when its bytes bear it
+out, so a CARLOS-to-CARLOS move keeps the documents viewable; HTML is never shown as a web page
+inside CARLOS (see the [import contract](cds-import.md#report-file-types)). An imported report
+with an empty file still holds the patient, as does one the sending EMR marked as Text although it
+is a file (or as Binary although it is text), which a CDS file cannot carry unchanged.
 
 A document restricted to a program is exported when the exporting provider, and the operator
 when one runs the export, both work in that program (are members of it under Program

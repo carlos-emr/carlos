@@ -689,6 +689,24 @@ encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
 patient's output is accepted.
 
+The CARLOS importer recognises every declaration this exporter writes except `html` and `bin`
+(`CdsReportMediaService`, confirmed against the same leading bytes `CdsExportReportFileFormats`
+reads), so a CARLOS-to-CARLOS move re-imports PDF, text, JPEG, PNG, TIFF, GIF, BMP, `doc`,
+`docx` and RTF documents as their own types. An HTML file is imported as an opaque document
+requiring review and Add HTML text as plain text requiring review, because the document viewer
+(`ManageDocument2Action.display`) renders a `text/html` document as a live page in the CARLOS
+origin; see [Report file types](cds-import.md#report-file-types). A report imported for media
+review (opaque, HTML, unconfirmed or of unstated text encoding) is exported again from its
+retained source like any other: `CdsExportReportOccurrenceService.bind` no longer holds it,
+because the retained elements keep the sender's own declaration and the attachment is the
+verified original bytes, so the export claims nothing the source did not say. An imported
+representation with no bytes still holds the patient (`CDS_EXPORT_UNMAPPED_DATA`), as an empty
+native document file does (`CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY`), and so does a reviewed source
+whose Format contradicts its content (Text over a file or Media,
+`CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED`, or Binary over base64 TextContent), which this
+exporter's XML validator would refuse (`CDS_EXPORT_REPORT_FORMAT_MISMATCH`).
+`CdsExportReportMediaRoundTripUnitTest` exports, imports and binds each stored type.
+
 A document restricted to a program (`restrictToProgram` set and a program other than none or
 `-1`; the chart shows a flagged document without a program to everyone) is exported when every
 current exporting identity, the effective provider and any operator, works in that program:

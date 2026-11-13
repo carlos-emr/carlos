@@ -128,6 +128,45 @@ other native extensions.
 
 Export clinical qualification remains separate from these shared transfer rules.
 
+## Report file types
+
+A report file is published as a native document of the type its `FileExtensionAndVersion`
+declares when its first sixteen bytes bear the declaration out (`CdsReportMediaService`; the
+[clinical contract](cds-clinical-import-contract.md#report-representations-and-clinical-timing)
+has the details). The recognised types are every type CARLOS stores and its own export declares
+except `html` and `bin`:
+
+| Declaration (and spellings) | Published as | Confirmed by |
+| --- | --- | --- |
+| `pdf`, `application/pdf` | `application/pdf` | `%PDF-n.n` header |
+| `txt`, `text/plain` | `text/plain;charset=UTF-8` | strict UTF-8 decoding of the whole file (unstated encoding is reviewed) |
+| `jpg`, `jpeg`, `image/jpeg` | `image/jpeg` | JPEG header |
+| `png`, `image/png` | `image/png` | PNG signature |
+| `tif`, `tiff`, `image/tiff` | `image/tiff` | TIFF byte-order header |
+| `gif`, `image/gif` | `image/gif` | `GIF87a`/`GIF89a` |
+| `bmp`, `image/bmp`, `image/x-bmp`, `image/x-ms-bmp` | `image/bmp` | `BM` with zero reserved bytes |
+| `doc`, `application/msword` | `application/msword` | OLE2 compound-file header |
+| `docx`, the Word OOXML type | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | ZIP local-file header |
+| `rtf`, `application/rtf`, `text/rtf` | `application/rtf` | `{\rtf` |
+
+A declaration the bytes contradict becomes an opaque document requiring review
+(`CDS_REPORT_MEDIA_DECLARATION_MISMATCH`). An unknown or versioned declaration takes a PDF, PNG,
+JPEG, TIFF, GIF or RTF header when the bytes have one (`CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER`);
+a bitmap, OLE2 or ZIP header alone names no type, since other formats and text share it. Any
+other file, `bin` included, stays opaque and reviewed (`CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED`).
+
+HTML (`html`, `htm`, `text/html`) is recognised but never published as HTML. The document viewer
+(`ManageDocument2Action.display`) renders a `text/html` document as a live page in the CARLOS
+origin, the behaviour a clinician's own upload relies on; script in a file from another system
+must not run there. An HTML file is therefore an opaque `application/octet-stream` document
+requiring review (`CDS_REPORT_HTML_RETAINED_OPAQUE`), which the browser downloads rather than
+renders (CARLOS sends `X-Content-Type-Options: nosniff`), and HTML report text, which is how
+CARLOS exports an Add HTML or Add Link document, stays plain text requiring review
+(`CDS_REPORT_HTML_RETAINED_AS_TEXT`), its markup shown rather than run. The original bytes and
+declaration remain in the report's protected source fields. A report imported for review is still
+exported again by CARLOS from its retained source without holding the patient (see the
+[export contract](cds-export.md)).
+
 ## Deployment companions
 
 The CARLOS application owns the shared engine, web workflow, migrations and clinical behavior. [carlos-ctl](https://github.com/carlos-emr/carlos-ctl/pull/15) supplies the verified host/container command and delegation boundary. [carlos-podman](https://github.com/carlos-emr/carlos-podman/pull/22) supplies the coordinated container integration. Compatible packages, runtime classes, configuration and implementation fingerprints must be verified together. Publishing a companion release asset follows the normal maintainer release process.

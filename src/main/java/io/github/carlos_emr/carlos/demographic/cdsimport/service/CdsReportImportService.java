@@ -547,6 +547,13 @@ public class CdsReportImportService implements CdsCategoryImportService {
             case "CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED" ->
                     "The report media type is unsupported or unrecognized; complete original bytes"
                             + " remain an opaque document requiring source media review";
+            case "CDS_REPORT_HTML_RETAINED_OPAQUE" ->
+                    "The report is an HTML file, which the document viewer would show as a live"
+                            + " page; complete original bytes remain an opaque document requiring"
+                            + " source media review";
+            case "CDS_REPORT_HTML_RETAINED_AS_TEXT" ->
+                    "The report text is declared HTML; it is kept as plain text, its markup shown"
+                            + " rather than rendered, and requires source media review";
             case "CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER" ->
                     "Native media type follows a bounded recognized file header; the original"
                             + " versioned or unsupported declaration remains in report details";

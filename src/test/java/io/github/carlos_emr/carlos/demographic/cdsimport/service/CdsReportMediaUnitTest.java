@@ -111,6 +111,119 @@ class CdsReportMediaUnitTest {
         }
     }
 
+    /** Leading bytes of each format CARLOS stores, as a scanner, word processor or camera writes them. */
+    private static final byte[] GIF = {'G', 'I', 'F', '8', '9', 'a', 1, 0, 1, 0, (byte) 0x80, 0, 0};
+    private static final byte[] BMP = {'B', 'M', 70, 0, 0, 0, 0, 0, 0, 0, 54, 0, 0, 0, 40, 0};
+    private static final byte[] DOC = {
+        (byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0, (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1, 0, 0
+    };
+    private static final byte[] DOCX = {'P', 'K', 3, 4, 20, 0, 6, 0, 8, 0, 0, 0, 33, 0};
+    private static final byte[] RTF = ascii("{\\rtf1\\ansi\\deff0 Synthetic referral letter}");
+
+    private static byte[] ascii(String value) {
+        return value.getBytes(StandardCharsets.ISO_8859_1);
+    }
+
+    @Test
+    void shouldPublishEachFormatCarlosExports_withoutMediaReview() throws Exception {
+        // Every declaration CdsExportReportFileFormats writes for these stored files, in each
+        // spelling a sending EMR also uses.
+        Object[][] cases = {
+            {"gif", GIF, "gif", "image/gif"},
+            {"image/gif", GIF, "gif", "image/gif"},
+            {"bmp", BMP, "bmp", "image/bmp"},
+            {"image/x-ms-bmp", BMP, "bmp", "image/bmp"},
+            {"doc", DOC, "doc", "application/msword"},
+            {"application/msword", DOC, "doc", "application/msword"},
+            {
+                "docx",
+                DOCX,
+                "docx",
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            },
+            {"rtf", RTF, "rtf", "application/rtf"},
+            {"text/rtf", RTF, "rtf", "application/rtf"}
+        };
+        for (Object[] value : cases) {
+            var result = inspect((String) value[0], (byte[]) value[1]);
+            assertThat(result.extension()).as((String) value[0]).isEqualTo(value[2]);
+            assertThat(result.mime()).as((String) value[0]).isEqualTo(value[3]);
+            assertThat(result.reviewRequired()).as((String) value[0]).isFalse();
+            assertThat(result.diagnostics()).as((String) value[0]).isEmpty();
+        }
+    }
+
+    @Test
+    void shouldRetainOpaqueBytesAndWarn_whenANewlyRecognisedDeclarationIsNotBorneOut() throws Exception {
+        byte[] text = ascii("BMI was 31.2 kg/m2 at the visit");
+        for (String declaration : List.of("gif", "bmp", "doc", "docx", "rtf")) {
+            var result = inspect(declaration, text);
+            assertThat(result.extension()).as(declaration).isEqualTo("bin");
+            assertThat(result.mime()).as(declaration).isEqualTo("application/octet-stream");
+            assertThat(result.reviewRequired()).as(declaration).isTrue();
+            assertThat(result.diagnostics())
+                    .extracting("code")
+                    .as(declaration)
+                    .containsExactly("CDS_REPORT_MEDIA_DECLARATION_MISMATCH");
+        }
+        // A Word document is not a bitmap, and RTF is not a GIF.
+        assertThat(inspect("bmp", DOC).mime()).isEqualTo("application/octet-stream");
+        assertThat(inspect("gif", RTF).mime()).isEqualTo("application/octet-stream");
+    }
+
+    @Test
+    void shouldNameGifAndRtfFromTheirHeaders_butOnlyConfirmADeclaredBitmapOrWordFile()
+            throws Exception {
+        var gif = inspect("GIF version 89a", GIF);
+        assertThat(gif.mime()).isEqualTo("image/gif");
+        assertThat(gif.reviewRequired()).isFalse();
+        assertThat(gif.diagnostics())
+                .extracting("code")
+                .containsExactly("CDS_REPORT_MEDIA_FROM_BOUNDED_HEADER");
+        assertThat(inspect("", RTF).mime()).isEqualTo("application/rtf");
+        // A bitmap, OLE2 or ZIP header alone is also many other formats (or text).
+        for (byte[] bytes : List.of(BMP, DOC, DOCX)) {
+            var result = inspect("unknown", bytes);
+            assertThat(result.mime()).isEqualTo("application/octet-stream");
+            assertThat(result.reviewRequired()).isTrue();
+            assertThat(result.diagnostics())
+                    .extracting("code")
+                    .containsExactly("CDS_REPORT_MEDIA_UNRECOGNIZED_SOURCE_RETAINED");
+        }
+        // RTF is a recognisable format, so it is never published as plain text.
+        assertThat(inspect("txt", RTF).mime()).isEqualTo("application/octet-stream");
+    }
+
+    @Test
+    void shouldKeepAnHtmlFileOpaque_soTheDocumentViewerNeverRendersIt() throws Exception {
+        byte[] html =
+                "<html><body><script>alert(document.cookie)</script>Synthetic</body></html>"
+                        .getBytes(StandardCharsets.UTF_8);
+        for (String declaration :
+                List.of("html", "HTM", ".html", "text/html", "text/html; charset=UTF-8")) {
+            var result = inspect(declaration, html);
+            assertThat(result.extension()).as(declaration).isEqualTo("bin");
+            assertThat(result.mime()).as(declaration).isEqualTo("application/octet-stream");
+            assertThat(result.reviewRequired()).as(declaration).isTrue();
+            assertThat(result.diagnostics())
+                    .extracting("code")
+                    .as(declaration)
+                    .containsExactly("CDS_REPORT_HTML_RETAINED_OPAQUE");
+        }
+        // Even an HTML file that starts with another format's header stays opaque.
+        assertThat(inspect("html", GIF).mime()).isEqualTo("application/octet-stream");
+    }
+
+    @Test
+    void shouldKeepHtmlReportTextAsPlainText_withAReviewWarning() {
+        var result = media.xmlText(40, "html");
+        assertThat(result.mime()).isEqualTo("text/plain;charset=UTF-8");
+        assertThat(result.reviewRequired()).isTrue();
+        assertThat(result.diagnostics())
+                .extracting("code")
+                .containsExactly("CDS_REPORT_HTML_RETAINED_AS_TEXT");
+    }
+
     @Test
     void shouldRetainOpaqueBytesAndWarn_whenMediaDeclarationMismatches() throws Exception {
         byte[] original = "This is not a PDF report".getBytes(StandardCharsets.UTF_8);

@@ -40,7 +40,24 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Bounded media sanity only: no PDF/image object tree, conversion, arbitrary charset guess, or byte rewriting. */
+/**
+ * Bounded media sanity only: no PDF/image object tree, conversion, arbitrary charset guess, or byte
+ * rewriting.
+ *
+ * <p>The recognised report types are those CARLOS stores and its CDS export declares
+ * ({@code CdsExportReportFileFormats}): PDF, plain text, JPEG, PNG, TIFF, GIF, BMP, Word
+ * ({@code doc}, {@code docx}) and RTF. Each declaration is kept only when the file's first sixteen
+ * bytes bear it out, as the exporter checks them. PDF, PNG, JPEG, TIFF, GIF and RTF headers also
+ * name a format on their own; a BMP, OLE2 ({@code doc}) or ZIP ({@code docx}) header is common to
+ * other formats or to text, so it only confirms a declaration.
+ *
+ * <p>HTML is recognised but never published as HTML. The document viewer
+ * ({@code ManageDocument2Action.display}) renders a {@code text/html} document as a live page in
+ * the CARLOS origin, which is how a clinician's own upload is shown. Bytes from another system
+ * must not run script there, so an HTML file stays an opaque document requiring review
+ * ({@code CDS_REPORT_HTML_RETAINED_OPAQUE}), served as {@code application/octet-stream}, and HTML
+ * report text stays plain text. Any other type stays opaque and reviewed.
+ */
 @Service
 public class CdsReportMediaService {
     private record Media(String extension, String mime) {}
@@ -57,6 +74,24 @@ public class CdsReportMediaService {
 
     private static final Media OPAQUE = new Media("bin", "application/octet-stream");
     private static final Media TEXT = new Media("txt", "text/plain;charset=UTF-8");
+    private static final Media PDF = new Media("pdf", "application/pdf");
+    private static final Media JPEG = new Media("jpg", "image/jpeg");
+    private static final Media PNG = new Media("png", "image/png");
+    private static final Media TIFF = new Media("tif", "image/tiff");
+    private static final Media GIF = new Media("gif", "image/gif");
+    private static final Media BMP = new Media("bmp", "image/bmp");
+    private static final Media DOC = new Media("doc", "application/msword");
+    private static final Media DOCX =
+            new Media(
+                    "docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    private static final Media RTF = new Media("rtf", "application/rtf");
+
+    /**
+     * A recognised declaration that is never published as itself: HTML would render as a live page
+     * in the CARLOS origin (see the class comment).
+     */
+    private static final Media HTML = new Media("html", "text/html");
 
     /** XML parser/corrected logical strings already establish this representation's UTF8 encoding. */
     public Result xmlText(long length) {
@@ -72,7 +107,11 @@ public class CdsReportMediaService {
                 declaration != null
                         && !declaration.isBlank()
                         && (source == null || !source.extension().equals("txt"));
-        if (inconsistent)
+        // HTML text (CARLOS exports an Add HTML or Add Link document this way) is kept as the
+        // plain text it is, never rendered: its markup is shown, not run.
+        if (source == HTML)
+            notice(diagnostics, "CDS_REPORT_HTML_RETAINED_AS_TEXT", "FileExtensionAndVersion");
+        else if (inconsistent)
             notice(
                     diagnostics,
                     "CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED",
@@ -125,8 +164,13 @@ public class CdsReportMediaService {
                     notice(diagnostics, "CDS_REPORT_TEXT_ENCODING_INFERRED_UTF8", sourcePath);
                 return result(TEXT, length == 0 || !specified, diagnostics);
             }
+            if (declared == HTML) {
+                // Recognised, but published opaque: the viewer would run it in the CARLOS origin.
+                notice(diagnostics, "CDS_REPORT_HTML_RETAINED_OPAQUE", sourcePath);
+                return result(OPAQUE, true, diagnostics);
+            }
             if (declared != null) {
-                if (!declared.equals(actual)) {
+                if (!matches(declared, prefix)) {
                     notice(diagnostics, "CDS_REPORT_MEDIA_DECLARATION_MISMATCH", sourcePath);
                     return result(OPAQUE, true, diagnostics);
                 }
@@ -160,63 +204,77 @@ public class CdsReportMediaService {
     private static Media declared(String source) {
         String value = source == null ? "" : source.trim().toLowerCase(Locale.ROOT);
         return switch (value) {
-            case "pdf", ".pdf", "application/pdf" -> new Media("pdf", "application/pdf");
+            case "pdf", ".pdf", "application/pdf" -> PDF;
             case "txt",
                     ".txt",
                     "text/plain",
                     "text/plain;charset=utf-8",
                     "text/plain; charset=utf-8" ->
                     TEXT;
-            case "jpg", "jpeg", ".jpg", ".jpeg", "image/jpeg" -> new Media("jpg", "image/jpeg");
-            case "png", ".png", "image/png" -> new Media("png", "image/png");
-            case "tif", "tiff", ".tif", ".tiff", "image/tiff" -> new Media("tif", "image/tiff");
-            default -> null;
+            case "jpg", "jpeg", ".jpg", ".jpeg", "image/jpeg" -> JPEG;
+            case "png", ".png", "image/png" -> PNG;
+            case "tif", "tiff", ".tif", ".tiff", "image/tiff" -> TIFF;
+            case "gif", ".gif", "image/gif" -> GIF;
+            case "bmp", ".bmp", "image/bmp", "image/x-bmp", "image/x-ms-bmp" -> BMP;
+            case "doc", ".doc", "application/msword" -> DOC;
+            case "docx",
+                    ".docx",
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                    DOCX;
+            case "rtf", ".rtf", "application/rtf", "text/rtf" -> RTF;
+            case "html", "htm", ".html", ".htm", "text/html" -> HTML;
+            default -> value.startsWith("text/html;") ? HTML : null;
         };
     }
 
+    /** The formats whose leading bytes name them on their own, in the order they are tried. */
+    private static final List<Media> SIGNATURES = List.of(PDF, PNG, JPEG, TIFF, GIF, RTF);
+
     private static Media signature(byte[] bytes) {
-        int start =
-                bytes.length >= 3
-                                && u(bytes[0]) == 0xEF
-                                && u(bytes[1]) == 0xBB
-                                && u(bytes[2]) == 0xBF
-                        ? 3
-                        : 0;
-        if (bytes.length >= start + 9
-                && bytes[start] == '%'
-                && bytes[start + 1] == 'P'
-                && bytes[start + 2] == 'D'
-                && bytes[start + 3] == 'F'
-                && bytes[start + 4] == '-'
-                && bytes[start + 5] >= '0'
-                && bytes[start + 5] <= '9'
-                && bytes[start + 6] == '.'
-                && bytes[start + 7] >= '0'
-                && bytes[start + 7] <= '9'
-                && (bytes[start + 8] == '\r' || bytes[start + 8] == '\n'))
-            return new Media("pdf", "application/pdf");
-        if (bytes.length >= 8
-                && u(bytes[0]) == 137
-                && bytes[1] == 'P'
-                && bytes[2] == 'N'
-                && bytes[3] == 'G'
-                && bytes[4] == 13
-                && bytes[5] == 10
-                && bytes[6] == 26
-                && bytes[7] == 10) return new Media("png", "image/png");
-        if (bytes.length >= 3 && u(bytes[0]) == 255 && u(bytes[1]) == 216 && u(bytes[2]) == 255)
-            return new Media("jpg", "image/jpeg");
-        if (bytes.length >= 4
-                && ((bytes[0] == 'I'
-                                && bytes[1] == 'I'
-                                && (bytes[2] == 42 || bytes[2] == 43)
-                                && bytes[3] == 0)
-                        || (bytes[0] == 'M'
-                                && bytes[1] == 'M'
-                                && bytes[2] == 0
-                                && (bytes[3] == 42 || bytes[3] == 43))))
-            return new Media("tif", "image/tiff");
+        for (Media media : SIGNATURES) if (matches(media, bytes)) return media;
         return null;
+    }
+
+    /** Whether the bounded header is the declared binary format's own (the exporter's checks). */
+    private static boolean matches(Media media, byte[] bytes) {
+        if (media == PDF) {
+            int start = hasUtf8Bom(bytes) ? 3 : 0;
+            return bytes.length >= start + 9
+                    && bytes[start] == '%'
+                    && bytes[start + 1] == 'P'
+                    && bytes[start + 2] == 'D'
+                    && bytes[start + 3] == 'F'
+                    && bytes[start + 4] == '-'
+                    && bytes[start + 5] >= '0'
+                    && bytes[start + 5] <= '9'
+                    && bytes[start + 6] == '.'
+                    && bytes[start + 7] >= '0'
+                    && bytes[start + 7] <= '9'
+                    && (bytes[start + 8] == '\r' || bytes[start + 8] == '\n');
+        }
+        if (media == PNG) return starts(bytes, 0, 137, 'P', 'N', 'G', 13, 10, 26, 10);
+        if (media == JPEG) return starts(bytes, 0, 255, 216, 255);
+        if (media == TIFF)
+            return starts(bytes, 0, 'I', 'I', 42, 0)
+                    || starts(bytes, 0, 'I', 'I', 43, 0)
+                    || starts(bytes, 0, 'M', 'M', 0, 42)
+                    || starts(bytes, 0, 'M', 'M', 0, 43);
+        if (media == GIF)
+            return starts(bytes, 0, 'G', 'I', 'F', '8', '7', 'a')
+                    || starts(bytes, 0, 'G', 'I', 'F', '8', '9', 'a');
+        if (media == RTF) return starts(bytes, 0, '{', '\\', 'r', 't', 'f');
+        // "BM" alone is ordinary text; the bitmap header's reserved bytes must also be zero.
+        if (media == BMP) return starts(bytes, 0, 'B', 'M') && starts(bytes, 6, 0, 0, 0, 0);
+        if (media == DOC) return starts(bytes, 0, 0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1);
+        if (media == DOCX) return starts(bytes, 0, 'P', 'K', 3, 4);
+        return false;
+    }
+
+    private static boolean starts(byte[] bytes, int offset, int... expected) {
+        if (bytes.length < offset + expected.length) return false;
+        for (int i = 0; i < expected.length; i++)
+            if (u(bytes[offset + i]) != expected[i]) return false;
+        return true;
     }
 
     private static int u(byte value) {

@@ -175,14 +175,71 @@ class CdsExportReportOccurrenceServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAClinicalMediaReviewFlag_evenWhenTheProjectionIsUnchanged() {
+    void shouldBindAReportImportedForMediaReview_whenTheProjectionIsUnchanged() {
+        // An opaque, HTML or unconfirmed file is written from its retained source with its own
+        // declaration and verified bytes; the media review the import asked for holds nothing.
+        variant =
+                new CdsReportNativeDto.Variant(
+                        variant.name(),
+                        "bin",
+                        "application/octet-stream",
+                        variant.digest(),
+                        variant.length(),
+                        true,
+                        List.of());
+        document.put("contenttype", "application/octet-stream");
+        document.put("docdesc", "Imported report (source media review required)");
+        assertThatCode(this::bind).doesNotThrowAnyException();
+    }
+
+    @Test
+    void shouldRequireReview_whenAReviewedSourceFormatContradictsItsContent() {
+        // Text over a file or Media, and Binary over base64 text, are refused by the export's
+        // XML validator when written back; such a reviewed report still holds the patient.
+        variant =
+                new CdsReportNativeDto.Variant(
+                        "referenced",
+                        "pdf",
+                        "application/pdf",
+                        variant.digest(),
+                        variant.length(),
+                        true,
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_REPORT_BINARY_FORMAT_DECLARATION_RETAINED", "Format")));
+        prepared = new CdsReportNativeDto(prepared.values(), List.of(variant), prepared.event(),
+                prepared.received(), prepared.sent());
+        document.put("contenttype", "application/pdf");
+        document.put("docdesc", "Imported report (source media review required)");
+        assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+
+        variant =
+                new CdsReportNativeDto.Variant(
+                        "embedded",
+                        "bin",
+                        "application/octet-stream",
+                        variant.digest(),
+                        variant.length(),
+                        true,
+                        List.of());
+        var values = new HashMap<>(prepared.values());
+        values.put("Format", "Binary");
+        values.put("ContentEncoding", "base64-from-text");
+        prepared = new CdsReportNativeDto(values, List.of(variant), prepared.event(),
+                prepared.received(), prepared.sent());
+        document.put("contenttype", "application/octet-stream");
+        assertThatThrownBy(this::bind).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldRequireReview_forAnEmptyImportedRepresentation() {
         variant =
                 new CdsReportNativeDto.Variant(
                         variant.name(),
                         variant.extension(),
                         variant.mime(),
                         variant.digest(),
-                        variant.length(),
+                        0,
                         true,
                         List.of());
         document.put("docdesc", "Imported report (source media review required)");

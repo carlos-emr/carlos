@@ -34,11 +34,14 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Map;
 
-/** Small synthetic field spools exercise the real bounded field reader without a clinical database. */
-final class CdsClinicalFixture {
+/**
+ * Small synthetic field spools exercise the real bounded field reader without a clinical database.
+ * Public so the exporter's round-trip tests can import what it exports.
+ */
+public final class CdsClinicalFixture {
     private CdsClinicalFixture() { }
 
-    static CdsRecordDto record(Path directory, String section, Map<String, String> source) throws IOException {
+    public static CdsRecordDto record(Path directory, String section, Map<String, String> source) throws IOException {
         Path privateDirectory = Files.createTempDirectory(directory, "clinical-");
         Path fields = privateDirectory.resolve("fields.jsonl");
         Path values = privateDirectory.resolve("values.bin");
