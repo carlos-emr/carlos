@@ -303,12 +303,22 @@ class CdsExportPrescriptionOccurrenceServiceUnitTest {
                         new CdsExportPrescriptionOccurrenceService.Source(parent, null));
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(List.of(parent), fields, 1000, () -> {});
-        render(
-                CdsCategory.NEW_CATEGORY,
-                xml ->
-                        CdsExportPrescriptionOccurrenceService.write(
-                                new CdsExportPrescriptionOccurrenceService.Source(parent, null),
-                                xml));
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.NEW_CATEGORY,
+                                out ->
+                                        CdsExportPrescriptionOccurrenceService.write(
+                                                new CdsExportPrescriptionOccurrenceService.Source(
+                                                        parent, null),
+                                                out)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        // Residual Content is an xs:token: the JSON carries every space escaped, so a
+        // schema-aware reader cannot collapse a run of spaces in the printed text.
+        String content =
+                xml.substring(xml.indexOf("CARLOS.Prescription.v1"))
+                        .replaceAll("(?s).*?<cdsd:Content>(.*?)</cdsd:Content>.*", "$1");
+        assertThat(content).startsWith("{").doesNotContain(" ");
     }
 
     @Test

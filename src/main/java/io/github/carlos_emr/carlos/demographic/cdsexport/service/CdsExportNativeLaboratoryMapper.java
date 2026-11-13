@@ -358,7 +358,8 @@ final class CdsExportNativeLaboratoryMapper {
                 xml,
                 "CARLOS.Laboratory.v1",
                 "string",
-                JsonMapper.builder().build().writeValueAsString(context));
+                CdsExportScreeningMapper.tokenSafe(
+                        JsonMapper.builder().build().writeValueAsString(context)));
         xml.end();
     }
 

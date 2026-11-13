@@ -195,15 +195,13 @@ final class CdsExportHistoryNativeReconciler {
                         });
             }
             var json = JsonMapper.builder().build();
-            String metadata =
-                    json.writeValueAsString(
-                            Map.of(
-                                    "version",
-                                    1,
-                                    "originalImportedProjection",
-                                    prepared.content(),
-                                    "nativeHistory",
-                                    json.readTree(nativeValue.metadata())));
+            // One fixed key order: Map.of iterates in a per-JVM salted order, so it would change
+            // the residual bytes of an unchanged item between runs.
+            var context = new LinkedHashMap<String, Object>();
+            context.put("version", 1);
+            context.put("originalImportedProjection", prepared.content());
+            context.put("nativeHistory", json.readTree(nativeValue.metadata()));
+            String metadata = CdsExportScreeningMapper.tokenSafe(json.writeValueAsString(context));
             var pattern =
                     Pattern.compile("^ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]*)\\](?:/|$)");
             long ordinal = 0;

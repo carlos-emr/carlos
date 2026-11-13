@@ -192,8 +192,12 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
                                                                 List.of(noted, acknowledged)),
                                                         xml)),
                         StandardCharsets.UTF_8);
+        // Residual Content is an xs:token: spaces travel escaped so none collapse.
         assertThat(residual)
-                .contains("Repeat in 3 months; \\\"call\\\" patient", "Waiting for imaging");
+                .contains(
+                        "Repeat\\u0020in\\u00203\\u0020months;\\u0020\\\"call\\\"\\u0020patient",
+                        "Waiting\\u0020for\\u0020imaging")
+                .doesNotContain("Waiting for imaging");
         var carried =
                 CdsExportInboxReviewMapper.carriedFields(
                         reviews.carried(), "NewCategory/ResidualInfo");

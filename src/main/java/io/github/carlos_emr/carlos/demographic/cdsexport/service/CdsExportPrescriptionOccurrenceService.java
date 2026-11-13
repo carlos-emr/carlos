@@ -199,7 +199,7 @@ public class CdsExportPrescriptionOccurrenceService {
         xml.element("cds", "CategoryDescription", "Native printed prescription and source context");
         xml.start("cds", "ResidualInfo");
         CdsExportNativeHistoryXmlWriter.residualElement(
-                xml, "CARLOS.Prescription.v1", "string", json);
+                xml, "CARLOS.Prescription.v1", "string", CdsExportScreeningMapper.tokenSafe(json));
         xml.end();
     }
 

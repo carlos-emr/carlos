@@ -272,8 +272,11 @@ class CdsExportNativeHistoryMapperUnitTest {
                                             "Exact native narrative",
                                             entry.getValue(),
                                             List.of())));
+            // The narrative is in an element or, escaped, in the token-typed residual details.
             assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
-                    .contains("Exact native narrative", "CARLOS.NativeHistory.v1");
+                    .contains("CARLOS.NativeHistory.v1")
+                    .containsAnyOf(
+                            "Exact native narrative", "Exact\\u0020native\\u0020narrative");
         }
     }
 
@@ -737,6 +740,8 @@ class CdsExportNativeHistoryMapperUnitTest {
                         "\"attachedTo\":[{\"record\":\"document\",\"table_name\":\"5\","
                                 + "\"table_id\":\"12\",\"other_id\":null}]");
         assertThat(text).endsWith(result.value().metadata());
+        // One fixed key order, so an unchanged note writes the same bytes on every run.
+        assertThat(result.value().metadata()).startsWith("{\"version\":1,\"revisions\":[");
         String key = CdsExportPatientTableSourceReader.key(301);
         assertThat(result.rows())
                 .filteredOn(r -> r.table().equals("casemgmt_note_link"))

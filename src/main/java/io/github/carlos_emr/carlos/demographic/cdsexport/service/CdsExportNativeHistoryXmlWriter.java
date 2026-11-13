@@ -53,7 +53,7 @@ public final class CdsExportNativeHistoryXmlWriter {
         xml.start("cds_dt", "DataElement");
         xml.element("cds_dt", "Name", "CARLOS.NativeHistory.v1");
         xml.element("cds_dt", "DataType", "string");
-        xml.element("cds_dt", "Content", value.metadata());
+        xml.element("cds_dt", "Content", CdsExportScreeningMapper.tokenSafe(value.metadata()));
         xml.end();
         residualElement(
                 xml,

@@ -461,7 +461,9 @@ class CdsExportHistoryNativeReconcilerUnitTest {
         assertThat(xml)
                 .contains(
                         "Current edited narrative",
-                        "Original imported narrative",
+                        // The imported projection travels in the token-typed residual, where
+                        // spaces are escaped so none collapse.
+                        "Original\\u0020imported\\u0020narrative",
                         "Mother",
                         "Original clinical supplement",
                         "Original.Vendor.Value",

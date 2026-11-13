@@ -418,7 +418,7 @@ public final class CdsExportNativeMedicationMapper {
                             writer,
                             CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT,
                             "string",
-                            result.metadata());
+                            CdsExportScreeningMapper.tokenSafe(result.metadata()));
                     CdsExportNativeHistoryXmlWriter.residualElement(
                             writer,
                             CdsNativeExtensionContract.MEDICATION_ARCHIVED,

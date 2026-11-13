@@ -499,6 +499,26 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldEscapeEverySpaceOfTheSourceContext_soATokenReaderKeepsRunsOfSpaces()
+            throws Exception {
+        var fields = source();
+        fields.put("BN", "Separate  brand");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                x -> mapper.write(result, x)),
+                        StandardCharsets.UTF_8);
+        // Residual Content is an xs:token, whose normalization collapses runs of spaces.
+        assertThat(xml)
+                .contains("CARLOS.Medication.Source.v1", "Separate\\u0020\\u0020brand")
+                .doesNotContain("Separate  brand");
+        // The in-memory details keep the exact value; only the written carrier is escaped.
+        assertThat(result.metadata()).contains("Separate  brand");
+    }
+
+    @Test
     void shouldExportAnArchivedPrescriptionAsNoLongerCurrent_byItsArchiveReason() throws Exception {
         for (var reason :
                 List.of(

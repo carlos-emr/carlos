@@ -307,7 +307,7 @@ words in it, a fractional or signed episode count, an unknown unit or a partial 
 is rounded and no unit is guessed. The supporting record's `CARLOS.Observation.v1` content is
 the complete row, its extensions and matching vocabulary rows as JSON in one fixed key order
 (`version`, `deleted`, `rows`; each row `table`, then its fields sorted by column), with every
-space escaped as ` ` so the `xs:token` whitespace collapse cannot change a decoded value;
+space escaped as `\u0020` so the `xs:token` whitespace collapse cannot change a decoded value;
 an unchanged chart produces the same bytes on every run. Deleted measurements are not exported. A
 `measurementsDeleted` row is either a clinician's deletion of an erroneous entry
 (`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
@@ -2562,8 +2562,9 @@ and downloads through the authorized form.
 
 The test recipient decrypts both real downloads independently. A separate
 oracle validates each patient XML against the pinned OntarioMD XSD and compares
-fourteen explicit native facts. Four altered clinical outputs must remain
-schema valid and must fail that comparison. Direct read-only checks require
+every explicit native fact it expects: demographic, history, report, laboratory and
+medication values (it prints how many it compared). Every altered clinical output in
+its mutation list must remain schema valid and must fail that comparison. Direct read-only checks require
 two genuinely complete durable jobs, matching CLI/browser implementation
 bindings, unchanged native chart values and no import metadata.
 
@@ -2591,7 +2592,11 @@ Native prescriptions use a separate mapper beside the strict retained-source rec
 Established dates, exact dose witnesses, supply, route, frequency, status and public prescriber
 fields have standard destinations. The complete captured `drugs` row, including SQL NULL versus
 empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Source.v1` under the
-pinned medication `ResidualInfo`. Unstructured strength remains exact `DrugDescription` and
+pinned medication `ResidualInfo`. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
+`CARLOS.Prescription.v1`, `CARLOS.Laboratory.v1`, `CARLOS.NativeHistory.v1` and the others named in
+this document) is written in one fixed key order with every space escaped as `\u0020`:
+residual `Content` is an `xs:token`, whose normalization would otherwise collapse a run of
+spaces, and an unchanged chart writes the same bytes on every run. Unstructured strength remains exact `DrugDescription` and
 source context; it is never split into an invented amount/unit. An unlabelled native regional
 identifier stays explicitly unqualified source context and is not asserted as a Health Canada
 DIN. Native `OD` maps to CT-024 `QD`. A native initial duration keeps its authored meaning:

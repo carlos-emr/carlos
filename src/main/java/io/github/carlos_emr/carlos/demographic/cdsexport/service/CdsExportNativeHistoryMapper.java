@@ -372,7 +372,7 @@ public final class CdsExportNativeHistoryMapper {
                 detail.put("narrative", body == null ? "" : body);
             metadata.add(detail);
         }
-        String json = JSON.writeValueAsString(Map.of("version", 1, "revisions", metadata));
+        String json = JSON.writeValueAsString(versioned("revisions", metadata));
         var coding = code(category, current);
         String body = bodies.getLast();
         boolean archived = "1".equals(current.note().value().fields().get("archived"));
@@ -686,7 +686,7 @@ public final class CdsExportNativeHistoryMapper {
                 text.put("ProblemStatus", resolved.equals("1") ? "Resolved" : "Active");
             }
         }
-        String json = JSON.writeValueAsString(Map.of("version", 1, "patientIssue", metadata));
+        String json = JSON.writeValueAsString(versioned("patientIssue", metadata));
         return new Result(
                 new CdsExportNativeHistoryDto(category, text, Map.of(), coding, List.of(), json),
                 fields,
@@ -750,6 +750,17 @@ public final class CdsExportNativeHistoryMapper {
         result.put("lastName", p.lastName());
         if (p.ohipNumber() != null) result.put("ohip", p.ohipNumber());
         return result;
+    }
+
+    /**
+     * The versioned details object in one fixed key order. Map.of iterates in a per-JVM salted
+     * order, which would change the bytes of an unchanged item between runs and workers.
+     */
+    private static Map<String, Object> versioned(String key, Object value) {
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put(key, value);
+        return context;
     }
 
     private static CdsExportNativeHistoryDto.Code code(

@@ -283,6 +283,9 @@ public final class CdsExportHistoryCurrentContext {
                                 row ->
                                         Long.toString(id)
                                                 .equals(row.value().fields().get("note_id")))
+                        // Map.copyOf iterates in a per-JVM salted order; the extensions feed
+                        // the note's details, which must not change between runs.
+                        .sorted(Comparator.comparing(row -> row.value().recordKey()))
                         .toList();
         var selectedLinks =
                 links.stream()

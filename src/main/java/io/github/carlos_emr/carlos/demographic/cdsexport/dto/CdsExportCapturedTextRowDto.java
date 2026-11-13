@@ -36,7 +36,8 @@ public record CdsExportCapturedTextRowDto(String table, String recordKey, Map<St
                 || fields.keySet().stream().anyMatch(column -> column == null || !column.matches("[A-Za-z0-9_]{1,128}"))) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_INVALID");
         }
-        exactNumbers = Map.copyOf(exactNumbers);
+        // Sorted, like fields: both are serialized into residual JSON that must not change between runs.
+        exactNumbers = Collections.unmodifiableSortedMap(new TreeMap<>(Map.copyOf(exactNumbers)));
         if (!fields.keySet().containsAll(exactNumbers.keySet()))
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_NUMERIC_SCOPE_INVALID");
         for (String column : exactNumbers.keySet()) if (fields.get(column) == null) throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_NUMERIC_SCOPE_INVALID");
