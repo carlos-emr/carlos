@@ -1440,6 +1440,17 @@ function updateCPPNote() {
                 evalScripts: true,
                 postBody: params,
                 onSuccess: function (request) {
+                    // A saved item is answered by the redirect to its refreshed CPP listing
+                    // (issueNoteSave's listCPPNotes result), so that landing counts as saved too.
+                    if (!saveAnsweredByAction(request, url)
+                            && !saveAnsweredByAction(request, ctx + "/CaseManagementView")) {
+                        // Not saved: reopen the editor with the typed text.
+                        complete(false);
+                        $('showEditNote').style.display = 'block';
+                        if ($('channel')) $('channel').style.visibility = 'hidden';
+                        alertSessionEndedNotSaved();
+                        return;
+                    }
                     try {
                         if (request.responseText.length > 0) {
                             $(div).update(request.responseText);
@@ -1461,7 +1472,8 @@ function updateCPPNote() {
                     complete(false);
                     $('showEditNote').style.display = 'block';
                     if ($('channel')) $('channel').style.visibility = 'hidden';
-                    alert(cppSaveError + " " + request.status);
+                    if (request.status == 401) alertSessionEndedNotSaved();
+                    else alert(cppSaveError + " " + request.status);
                 }
             }
         );
@@ -3112,6 +3124,12 @@ function updateCPPNote() {
                 postBody: params,
                 evalScripts: true,
                 onSuccess: function (request) {
+                    if (!saveAnsweredByAction(request, url)) {
+                        // Not saved: keep the editor and its text in place.
+                        alertSessionEndedNotSaved();
+                        setTimer();
+                        return;
+                    }
                     destroyNoteIssueAutocomplete();
                     $("notCPP").update(request.responseText);
                     var qc = $("quickChart");
@@ -3124,7 +3142,8 @@ function updateCPPNote() {
                 onFailure: function (request) {
                     // In particular, a stale-revision 409 must leave the clinician's
                     // text and selected issues available to copy or recover.
-                    alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
+                    if (request.status == 401) alertSessionEndedNotSaved();
+                    else alert(request.status == 400 ? invalidObservationDateError : savingNoteError + " " + request.status);
                     setTimer();
                 },
                 onComplete: function () { restoreControls(); }
@@ -3189,7 +3208,55 @@ function updateCPPNote() {
 
         }
 
+        // While the sign-in check runs, autosave is paused and the note's controls are held
+        // (the saving status shows, and Save, Sign and Bill wait), so the submission carries
+        // the note as it was when Sign & Save was chosen and no other save starts meanwhile.
+        clearAutoSaveTimer();
+        var signIntent = noteSignIntent(document.forms["caseManagementEntryForm"]);
+        var restoreControls = beginNoteSwitchSave();
+        whenStillSignedIn(function () {
+            // A disabled control is left out of a form submission: restore them first. A key
+            // press during the check (Ctrl+B) may have changed Sign, Verify or Bill; submit the
+            // choices made when Sign & Save was chosen.
+            restoreControls();
+            applyNoteSignIntent(document.forms["caseManagementEntryForm"], signIntent);
+            submitNotePage(method, chain);
+        }, function () {
+            restoreControls();
+            // A later plain Save must not sign, verify or bill the note.
+            resetNoteSignIntent(document.forms["caseManagementEntryForm"]);
+            setTimer();
+            alertSessionEndedNotSaved();
+        });
+        return false;
+    }
 
+    // Sign, Verify and Bill set these hidden fields before Sign & Save; put back their
+    // defaults when that save does not happen.
+    var NOTE_SIGN_FIELDS = {sign: "off", verify: "off", toBill: "false"};
+    function noteSignField(form, name) {
+        var control = form && form.elements ? form.elements[name] : null;
+        return control && control.type === "hidden" ? control : null;
+    }
+    function noteSignIntent(form) {
+        var intent = {};
+        Object.keys(NOTE_SIGN_FIELDS).forEach(function (name) {
+            var control = noteSignField(form, name);
+            if (control) intent[name] = control.value;
+        });
+        return intent;
+    }
+    function applyNoteSignIntent(form, intent) {
+        Object.keys(intent).forEach(function (name) {
+            var control = noteSignField(form, name);
+            if (control) control.value = intent[name];
+        });
+    }
+    function resetNoteSignIntent(form) {
+        applyNoteSignIntent(form, NOTE_SIGN_FIELDS);
+    }
+
+    function submitNotePage(method, chain) {
         document.forms["caseManagementEntryForm"].method.value = method;
         document.forms["caseManagementEntryForm"].ajax.value = false;
         document.forms["caseManagementEntryForm"].chain.value = chain;
@@ -3220,8 +3287,6 @@ function updateCPPNote() {
                 jQuery("#" + jQuery(this).attr('submit_addon')).click();
             }
         );
-
-        return false;
     }
 
     var changeIssueMsg;
@@ -3417,13 +3482,95 @@ function updateCPPNote() {
     var queuedNoteSave = null;
     var noteSwitchSavePending = false;
     var noteSavingMessage = "${carlos:forJavaScriptBlock(noteSavingLabel)}";
+    var sessionEndedNotSavedError;
+
+    // A save counts only when the save action itself answered (#5868). Once the sign-in
+    // has ended (the inactivity limit, or a facility still to be chosen), the login filter
+    // redirects every request, AJAX included, and the browser follows that redirect to the
+    // sign-in page as an ordinary HTTP 200. That page must never be taken for a saved note
+    // or CPP item, or put in place of the text the clinician typed.
+    function saveAnsweredByAction(response, requestUrl) {
+        if (!(response.status >= 200 && response.status < 300)) return false;
+        if (!response.responseURL) return true;
+        try {
+            var expected = new URL(requestUrl, window.location.href);
+            var actual = new URL(response.responseURL, window.location.href);
+            return actual.origin === expected.origin && actual.pathname === expected.pathname;
+        } catch (invalidUrl) {
+            return false;
+        }
+    }
+
+    function alertSessionEndedNotSaved() {
+        alert(sessionEndedNotSavedError || savingNoteError);
+    }
+
+    // Sign and Save leaves the chart with a full form submission, so a sign-in page in
+    // its place would discard the note before any script could notice. Ask the session
+    // heartbeat first without following a redirect: a redirect, a 401/403 or
+    // {"valid":false} means the sign-in has ended (the inactivity limit), and the note
+    // stays on screen. Any other outcome, including no answer within the time limit,
+    // submits as before, so an unreachable heartbeat never blocks a save. autoRefresh
+    // keeps this check from counting as activity; the submission itself does. If the
+    // limit passes in the moment between this answer and the submission, the submission
+    // is redirected as before and only the autosave draft keeps the text.
+    var SIGN_IN_CHECK_TIMEOUT_MS = 8000;
+    function whenStillSignedIn(proceed, refuse) {
+        var settled = false;
+        var timer = null;
+        // Exactly one of proceed or refuse runs, whichever way the check ends; both
+        // release the held controls and autosave.
+        function settle(signedIn) {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            if (signedIn) proceed(); else refuse();
+        }
+        if (typeof fetch !== "function") {
+            settle(true);
+            return;
+        }
+        var controller = typeof AbortController === "function" ? new AbortController() : null;
+        timer = setTimeout(function () {
+            if (controller) controller.abort();
+            settle(true);
+        }, SIGN_IN_CHECK_TIMEOUT_MS);
+        var check;
+        try {
+            check = fetch(ctx + "/status/SessionHeartbeat?autoRefresh=true",
+                    {credentials: "same-origin", redirect: "manual", cache: "no-store",
+                        signal: controller ? controller.signal : undefined});
+        } catch (unavailable) {
+            settle(true);
+            return;
+        }
+        check
+            .then(function (response) {
+                if (response.type === "opaqueredirect" || response.status === 401 || response.status === 403) return false;
+                if (!response.ok) return true;
+                return response.json().then(function (state) {
+                    return !(state && state.valid === false);
+                }, function () {
+                    return true;
+                });
+            }, function () {
+                return true;
+            })
+            .catch(function () {
+                return true;
+            })
+            .then(settle);
+    }
 
     function beginNoteSwitchSave() {
         noteSwitchSavePending = true;
         var form = document.forms["caseManagementEntryForm"];
         // The first chart load runs before the note form has been rendered.
         if (!form) return function () { noteSwitchSavePending = false; };
-        var controls = Array.from(form.elements).map(function (control) {
+        // The toolbar's Save, Sign & Save, Sign, Bill and Attach are <input type="image">,
+        // which form.elements leaves out: hold them too.
+        var images = form.querySelectorAll ? Array.from(form.querySelectorAll('input[type="image"]')) : [];
+        var controls = Array.from(form.elements).concat(images).map(function (control) {
             var disabled = control.disabled;
             control.disabled = true;
             return {control: control, disabled: disabled};
