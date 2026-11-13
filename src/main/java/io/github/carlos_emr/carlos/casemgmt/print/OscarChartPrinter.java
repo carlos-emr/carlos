@@ -34,6 +34,8 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalRead
 
 import io.github.carlos_emr.carlos.commn.printing.PdfFonts;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.SimpleDateFormat;
@@ -43,6 +45,7 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ResourceBundle;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -246,6 +249,18 @@ public class OscarChartPrinter implements java.io.Closeable {
 
 
     /**
+     * The name in the title on every page. The eChart print action sets no {@code demoName}, so the title
+     * printed "null" for every patient; it now names the patient being printed. A missing part is left out.
+     */
+    String headerName() {
+        Object attribute = request.getAttribute("demoName");
+        if (attribute != null && !attribute.toString().isBlank()) {
+            return attribute.toString();
+        }
+        return (Objects.toString(demographic.getFirstName(), "") + " " + Objects.toString(demographic.getLastName(), "")).trim();
+    }
+
+    /**
      * Prints the patient header block (name, age, sex, DOB, phone, provider info) and
      * draws a horizontal rule beneath it. Also sets the document-level header phrase
      * for subsequent pages.
@@ -257,7 +272,7 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         //set up document title and header
         ResourceBundle propResource = ResourceBundle.getBundle("oscarResources");
-        String title = propResource.getString("encounter.pdfPrint.title") + " " + (String) request.getAttribute("demoName") + "\n";
+        String title = propResource.getString("encounter.pdfPrint.title") + " " + headerName() + "\n";
         String gender = propResource.getString("encounter.pdfPrint.gender") + " " + (String) request.getAttribute("demoSex") + "\n";
         String dob = propResource.getString("encounter.pdfPrint.dob") + " " + (String) request.getAttribute("demoDOB") + "\n";
         String age = propResource.getString("encounter.pdfPrint.age") + " " + (String) request.getAttribute("demoAge") + "\n";
@@ -359,23 +374,23 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         p = new Paragraph();
         phrase = PdfFonts.phrase(LEADING, "", font);
-        PdfFonts.addText(phrase, "Title: " + demographic.getTitle() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Last Name: " + demographic.getLastName() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "First Name: " + demographic.getFirstName() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Gender: " + demographic.getSex() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Title: " + orBlank(demographic.getTitle()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Last Name: " + orBlank(demographic.getLastName()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "First Name: " + orBlank(demographic.getFirstName()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Gender: " + orBlank(demographic.getSex()) + "\n", phrase.getFont());
         PdfFonts.addText(phrase, "Date of Birth: " + demographic.getFormattedDob() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Offical Language: " + demographic.getOfficialLanguage() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Spoken Language: " + demographic.getSpokenLanguage() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Offical Language: " + orBlank(demographic.getOfficialLanguage()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Spoken Language: " + orBlank(demographic.getSpokenLanguage()) + "\n", phrase.getFont());
         PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
         p = new Paragraph();
         phrase = PdfFonts.phrase(LEADING, "", font);
-        PdfFonts.addText(phrase, "Roster Status: " + demographic.getRosterStatus() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Roster Status: " + orBlank(demographic.getRosterStatus()) + "\n", phrase.getFont());
         PdfFonts.addText(phrase, "Date Rostered: " + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Patient Status: " + demographic.getPatientStatus() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Chart No (MRN): " + demographic.getChartNo() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Patient Status: " + orBlank(demographic.getPatientStatus()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Chart No (MRN): " + orBlank(demographic.getChartNo()) + "\n", phrase.getFont());
         if (demographic.getDateJoined() != null) {
             PdfFonts.addText(phrase, "Date Joined: " + formatter.format(demographic.getDateJoined()) + "\n", phrase.getFont());
         }
@@ -388,12 +403,12 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         p = new Paragraph();
         phrase = PdfFonts.phrase(LEADING, "", font);
-        PdfFonts.addText(phrase, "Address: " + demographic.getAddress() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "City: " + demographic.getCity() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Province: " + demographic.getProvince() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Postal Code: " + demographic.getPostal() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Email: " + demographic.getEmail() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "Phone: " + demographic.getPhone() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Address: " + orBlank(demographic.getAddress()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "City: " + orBlank(demographic.getCity()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Province: " + orBlank(demographic.getProvince()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Postal Code: " + orBlank(demographic.getPostal()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Email: " + orBlank(demographic.getEmail()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Phone: " + orBlank(demographic.getPhone()) + "\n", phrase.getFont());
 
         List<DemographicExt> exts = demographicExtDao.getDemographicExtByDemographicNo(demographic.getDemographicNo());
         String phoneExt = null;
@@ -407,7 +422,7 @@ public class OscarChartPrinter implements java.io.Closeable {
             }
         }
 
-        PdfFonts.addText(phrase, "Work Phone: " + demographic.getPhone2(), phrase.getFont());
+        PdfFonts.addText(phrase, "Work Phone: " + orBlank(demographic.getPhone2()), phrase.getFont());
         if (phoneExt != null) {
             PdfFonts.addText(phrase, " ext:" + phoneExt + "\n", phrase.getFont());
         } else {
@@ -424,8 +439,8 @@ public class OscarChartPrinter implements java.io.Closeable {
 
         p = new Paragraph();
         phrase = PdfFonts.phrase(LEADING, "", font);
-        PdfFonts.addText(phrase, "Health Insurance #: " + demographic.getHin() + "\n", phrase.getFont());
-        PdfFonts.addText(phrase, "HC Type: " + demographic.getHcType() + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "Health Insurance #: " + orBlank(demographic.getHin()) + "\n", phrase.getFont());
+        PdfFonts.addText(phrase, "HC Type: " + orBlank(demographic.getHcType()) + "\n", phrase.getFont());
         if (demographic.getEffDate() != null) {
             PdfFonts.addText(phrase, "Eff Date: " + formatter.format(demographic.getEffDate()) + "\n", phrase.getFont());
         }
@@ -452,8 +467,8 @@ public class OscarChartPrinter implements java.io.Closeable {
         phrase = PdfFonts.phrase(LEADING, "", font);
         //alerts & notes
         if (demographicCust != null) {
-            PdfFonts.addText(phrase, "Alerts: " + demographicCust.getAlert() + "\n", phrase.getFont());
-            if (demographicCust.getNotes().length() > 0) {
+            PdfFonts.addText(phrase, "Alerts: " + orBlank(demographicCust.getAlert()) + "\n", phrase.getFont());
+            if (StringUtils.isNotEmpty(demographicCust.getNotes())) {
                 PdfFonts.addText(phrase, "Notes: " + io.github.carlos_emr.carlos.commn.model.DemographicCust.patientNotesText(demographicCust.getNotes()) + "\n", phrase.getFont());
             }
         }
@@ -478,12 +493,18 @@ public class OscarChartPrinter implements java.io.Closeable {
             String emergencyContact = r.get("emergency_contact");
             String notes = r.get("notes");
 
-            PdfFonts.addText(phrase, relation + " - " + relationDemographic.getFormattedName() + " - " + subDecisionMaker + " - " + emergencyContact + " - " + notes + "\n", phrase.getFont());
+            PdfFonts.addText(phrase, orBlank(relation) + " - " + relationDemographic.getFormattedName() + " - "
+                    + orBlank(subDecisionMaker) + " - " + orBlank(emergencyContact) + " - " + orBlank(notes) + "\n", phrase.getFont());
         }
         PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
+    }
+
+    /** A record value as printed: empty when the field is empty, never the word "null". */
+    private static String orBlank(Object value) {
+        return Objects.toString(value, "");
     }
 
     /**
