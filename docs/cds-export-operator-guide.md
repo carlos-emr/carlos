@@ -121,6 +121,18 @@ importer restores the item's exact text. Personal history, which CDS allows only
 residual data, travels in the same carrier, so its line breaks survive; other
 schema-aware receivers collapse whitespace in residual content.
 
+Note access is decided per note, in the note's own program, because an export has no
+selected chart program. A note filed under a program needs the provider's single
+membership in that program, the note role's read grant (same role, role default or
+program grant) and, when facility filtering is on, the export's facility. A note
+filed with no program (`program_no` empty or `0`, written by a provider without a
+program) needs only the patient's program domain, as in the chart when no program
+is selected. The chart opened with a selected program applies that program's role
+grants to every note and hides role-less unscoped notes, so the export can include
+notes such a chart view hides. A patient issue filed under a program is exported when
+it is the program of its linked notes or one the provider works in; an issue from a
+foreign program holds the patient for review.
+
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select
 NewCategory when exporting native measurements/labs or printed prescription context.
