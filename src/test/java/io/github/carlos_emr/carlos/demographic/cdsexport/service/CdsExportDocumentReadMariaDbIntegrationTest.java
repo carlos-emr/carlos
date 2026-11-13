@@ -615,20 +615,17 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReview_forUnqualifiedDatabaseFileStorage() {
+    void shouldExportTheDocument_whenAnOlderReleaseAlsoKeptADatabaseCopy() {
+        // No CARLOS screen reads document_storage; the stored file is the record, and the
+        // database copy is a listed removed-feature row, counted and never a hold.
         sql.update(
                 "insert into document_storage(id,documentNo,fileContents,uploadDate)"
                         + " values(?,?,?,CURRENT_TIMESTAMP)",
                 patient,
                 patient,
                 body.getBytes(StandardCharsets.UTF_8));
-        assertThatThrownBy(
-                        () ->
-                                read.execute(
-                                        status ->
-                                                documents.findCdsExportRowsAfter(
-                                                        patient, null, 32)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var rows = read.execute(status -> documents.findCdsExportRowsAfter(patient, null, 32));
+        assertThat(rows).isNotEmpty();
     }
 
     @Test

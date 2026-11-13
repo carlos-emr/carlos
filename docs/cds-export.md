@@ -311,8 +311,10 @@ table `providerLabRouting_documents` (its schema contract names the physical
 Reports scope and scoped by the document's `ctl_document` chart link exactly as
 `Plan.DOCUMENTS` scopes the document (`Plan.DOCUMENT_ROUTES`, `DOCUMENT_REVIEWS`,
 `DOCUMENT_EXTRA_REVIEWERS`, through `CdsExportReviewerReadDao`, which proves the patient's
-document associations first; `requireLocalDocumentAssociations` no longer refuses these
-sidecars, only `document_storage`). The public provider lookup names their providers. The
+document associations first; `requireLocalDocumentAssociations` refuses none of these
+sidecars, nor a `document_storage` row: that is a database copy of a document's bytes that only
+an older release wrote and no CARLOS screen reads, so it is listed in the ReadMe and the stored
+file is exported). The public provider lookup names their providers. The
 first reviewer (`document.reviewer`, `reviewdatetime`) stays as it was; each review record,
 each later reviewer (`AddEditDocument2Action` writes a `DocumentExtraReviewer` row for every
 review after the first) and each acknowledged route becomes one more `Reports/ReportReviewed`
@@ -349,8 +351,8 @@ excluded from every chart; unattributable rows still hold every chart. A `DOC` r
 row is scoped through the document's `ctl_document` chart link, like the document itself
 (a reassigned document keeps its earlier `patientLabRouting` row); every other routing
 type is scoped through `patientLabRouting` of exactly the same type, so an MDS lab never
-lends its number to an HL7 lab. `document_storage` and the other parent-scoped tables
-keep the earlier rule. The exclusion is visible, not silent:
+lends its number to an HL7 lab. The other parent-scoped tables keep the earlier rule
+(`document_storage` is a listed table, counted per chart). The exclusion is visible, not silent:
 `CdsExportClinicalPackageService` counts the unlinked rows per table once per attempt
 generation before any chart is captured (`CdsExportSourceCatalogueDao.unlinkedSourceRows`,
 counts only) and `CdsExportLedgerService.recordUnlinkedSources` writes one

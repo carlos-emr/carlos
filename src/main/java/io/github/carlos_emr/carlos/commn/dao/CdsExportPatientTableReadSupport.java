@@ -1293,22 +1293,9 @@ public final class CdsExportPatientTableReadSupport {
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
-        var sidecars =
-                query(
-                                em,
-                                """
-                                select 1,1 from document d where exists (select 1 from ctl_document c
-                                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
-                                and exists (select 1 from document_storage s where s.documentNo=d.document_no)
-                                """)
-                        .setParameter("patient", patient)
-                        .setMaxResults(1)
-                        .getResultList();
-        if (!sidecars.isEmpty())
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.UNMAPPED_DATA);
+        // A document_storage row is a database copy of a document's bytes that only an older
+        // release wrote and no CARLOS screen reads: the chart shows the stored file, which is the
+        // exported Report. It is LISTED (counted in the ReadMe), never a hold.
         // Until document-specific current program authorization is qualified, refuse the whole
         // selected source before any document metadata/body can enter encrypted capture.
         var restricted =
