@@ -106,6 +106,9 @@ not subsequent chart changes. Messenger encounter attachments are labelled
 **Historical encounter** snapshots, consultation/form prefills use CPP, and
 legacy encounter-editor writes return HTTP 410. Historical chart print access
 remains read-only and patient-scoped.
+Messenger's Attach Patient window also offers **All current chart notes and CPP**:
+every current note and the CPP from the modern chart, as the chart prints them,
+without locked notes. Preview is audited like the chart print, and so is attaching.
 
 Keep the same external file, `AbandonOldChart=true` and the original encryption
 key on rollback. Restoring an older false/absent flag while retaining modern-only

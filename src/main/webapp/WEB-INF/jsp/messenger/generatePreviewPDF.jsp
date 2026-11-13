@@ -44,9 +44,12 @@
   - attachmentKey: the key of the compose window the chooser was opened from, posted back with
     the ticked items so they are staged for that window's message only (issue #4673)
 
-  The form posts item KEYS to messenger/Doc2PDF (item=demographic|encounter|prescriptions, or
-  previewItem=<key> with isPreview=true) and the server renders each item itself
-  (MsgAttachPDF2Action / MsgPdfAttachmentResolver). The page used to load each item into the
+  The form posts item KEYS to messenger/Doc2PDF (item=demographic|currentEncounter|encounter|
+  prescriptions, or previewItem=<key> with isPreview=true) and the server renders each item itself
+  (MsgAttachPDF2Action / MsgPdfAttachmentResolver). The current encounter (#5856) is the patient's
+  notes and CPP from the modern chart (every current note, locked notes left out), printed as the
+  chart prints them; the historical encounter is the last legacy revision, offered only when it has
+  content. The page used to load each item into the
   frameset's hidden source frame and post the captured page HTML back; that let a forged request
   store arbitrary markup as a chart PDF and was refused by the front-door WAF (#4133).
 
@@ -91,7 +94,7 @@
 <fmt:setLocale value="<%= io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request) %>"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="messenger.generatePreviewPDF.information" var="informationLabel"/>
-<fmt:message key="messenger.generatePreviewPDF.historicalEncounter" var="encounterLabel"/>
+<fmt:message key="messenger.generatePreviewPDF.currentEncounter" var="currentEncounterTitle"/>
 <fmt:message key="messenger.generatePreviewPDF.currentPrescriptions" var="currentPrescTitle"/>
 <fmt:message key="messenger.generatePreviewPDF.confirmClose" var="exitConfirmMsg"/>
 
@@ -142,11 +145,14 @@
     // read, so the page does not reveal whether, or when, an encounter exists.
     boolean canDemographic = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
             MsgPdfAttachmentResolver.Item.DEMOGRAPHIC, demographicNoInt);
+    boolean canCurrentEncounter = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
+            MsgPdfAttachmentResolver.Item.CURRENT_ENCOUNTER, demographicNoInt);
     boolean canEncounter = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
             MsgPdfAttachmentResolver.Item.ENCOUNTER, demographicNoInt);
     boolean canPrescriptions = MsgAttachPDF2Action.canReadItem(securityInfoManager, loggedInInfo,
             MsgPdfAttachmentResolver.Item.PRESCRIPTIONS, demographicNoInt);
     pageContext.setAttribute("canDemographic", canDemographic);
+    pageContext.setAttribute("canCurrentEncounter", canCurrentEncounter);
 
     // The name is shown only with the demographic item, so it is looked up only when that item is
     // offered: the lookup enforces _demographic read, which a user attaching only the encounter
@@ -192,7 +198,7 @@
          * Streams one item back as a PDF into this frame. Only the item key is posted; the
          * server renders the page (messenger/Doc2PDF, MsgAttachPDF2Action).
          *
-         * @param {string} itemKey - demographic | encounter | prescriptions
+         * @param {string} itemKey - demographic | currentEncounter | encounter | prescriptions
          */
         function PreviewPDF(itemKey) {
             var form = document.getElementById('attachForm');
@@ -294,12 +300,29 @@
                 </tr>
                 </c:if>
 
-                <%-- Encounters section --%>
+                <%-- Encounters section: the current notes and CPP (#5856), then the historical revision --%>
                 <tr class="table-secondary">
                     <th colspan="3">
-                        ${carlos:forHtml(encounterLabel)}
+                        <fmt:message key="messenger.generatePreviewPDF.secEncounters"/>
                     </th>
                 </tr>
+                <c:if test="${canCurrentEncounter}">
+                <tr>
+                    <td class="align-middle">
+                        <input type="checkbox" name="item" value="currentEncounter"
+                               aria-label="${carlos:forHtmlAttribute(currentEncounterTitle)}"/>
+                    </td>
+                    <td class="align-middle">${carlos:forHtml(currentEncounterTitle)}</td>
+                    <td class="align-middle">
+                        <button type="button"
+                                class="btn btn-outline-secondary btn-sm"
+                                data-preview-item="currentEncounter"
+                                onclick="PreviewPDF(this.dataset.previewItem)">
+                            <fmt:message key="messenger.generatePreviewPDF.btnPreview"/>
+                        </button>
+                    </td>
+                </tr>
+                </c:if>
                 <c:if test="${hasEncounter}">
                 <tr>
                     <td class="align-middle">

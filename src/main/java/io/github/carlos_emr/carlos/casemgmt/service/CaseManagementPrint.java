@@ -115,6 +115,17 @@ public class CaseManagementPrint {
 
     private AllergyDao allergyDao = SpringUtils.getBean(AllergyDao.class);
 
+    /** Locked notes are left out of the notes body ({@link #leaveOutLockedNotes()}). */
+    private boolean leaveOutLockedNotes;
+
+    /**
+     * Leaves locked notes out of the notes body. The Messenger attachment of a patient's chart notes uses
+     * this (#5856).
+     */
+    public void leaveOutLockedNotes() {
+        this.leaveOutLockedNotes = true;
+    }
+
     /**
      * Generates a comprehensive PDF printout of patient medical records.
      *
@@ -224,6 +235,9 @@ public class CaseManagementPrint {
             throw new NoteAccessDeniedException();
         }
         notes = readableNotes;
+        if (leaveOutLockedNotes) {
+            notes = notes.stream().filter(note -> !note.isLocked()).collect(Collectors.toList());
+        }
 
         // we're not guaranteed any ordering of notes given to us, so sort by observation date
         CarlosProperties p = CarlosProperties.getInstance();
