@@ -179,6 +179,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeDemographicAssemblerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeFieldAssessmentValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeHistoryMapperUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeLaboratoryFeedUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeLaboratoryMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeMedicationMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativePreventionDateMapperUnitTest",

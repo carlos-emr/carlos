@@ -127,10 +127,13 @@ final class CdsExportNativeLaboratoryMapper {
                 String accession = stored == null || stored.isEmpty() ? order : stored;
                 put(text, "AccessionNumber", accession, 120);
                 String type = scalar(obx, 2, 0, 1);
-                if (!Set.of("NM", "ST", "TX", "FT", "CE", "CWE", "CNE", "DT", "TS", "DTM")
+                // ED (an embedded document) is not a result value: the parser exports it as a
+                // Reports entry (CdsExportLaboratoryDocumentMapper).
+                if (!Set.of("NM", "SN", "ST", "TX", "FT", "CE", "CWE", "CNE", "DT", "TS", "DTM")
                         .contains(type)) review("CDS_EXPORT_NATIVE_LAB_VALUE_TYPE_REQUIRES_REVIEW");
                 String value;
-                if (Set.of("CE", "CWE", "CNE").contains(type)) {
+                if (type.equals("SN")) value = structuredNumeric(raw, obx, observation.repetition());
+                else if (Set.of("CE", "CWE", "CNE").contains(type)) {
                     String code = scalar(obx, 5, observation.repetition(), 1);
                     String description =
                             componentText(raw, obx, 5, observation.repetition(), 2);
@@ -370,6 +373,45 @@ final class CdsExportNativeLaboratoryMapper {
         return entry;
     }
 
+    /**
+     * An HL7 structured numeric (SN) value as the result text: comparator, first number,
+     * separator or suffix and second number, written together as the laboratory reports them
+     * ({@code ">60"}, {@code "1:20"}, {@code "10-20"}, {@code "2+"}). Some laboratories escape the
+     * SN's own component separators ({@code \S\1\S\:\S\20}, the Excelleris guide's titre);
+     * the escaped text then holds the same four components. A value that is not a structured
+     * numeric in either form is malformed and needs review; the exact text always stays in the
+     * complete source message.
+     */
+    static String structuredNumeric(
+            CdsExportNativeLaboratoryParser.Raw raw, Segment obx, int repetition)
+            throws IOException {
+        var repetitions = raw.repetitions(obx, 5);
+        if (repetition >= repetitions.size()) return "";
+        var components =
+                CdsExportNativeLaboratoryParser.Raw.split(repetitions.get(repetition), raw.component);
+        var parts = new ArrayList<String>();
+        for (String component : components)
+            if (component.indexOf(raw.subcomponent) >= 0)
+                review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+            else parts.add(literal(decode(component, raw)));
+        if (parts.size() == 1 && parts.getFirst().indexOf(raw.component) >= 0)
+            parts =
+                    new ArrayList<>(
+                            CdsExportNativeLaboratoryParser.Raw.split(
+                                    parts.getFirst(), raw.component));
+        if (parts.size() > 4) review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+        String rendered = String.join("", parts);
+        if (!rendered.isEmpty() && !STRUCTURED_NUMERIC.matcher(rendered).matches())
+            review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+        return rendered;
+    }
+
+    /** Comparator, number, then a separator or suffix with an optional second number. */
+    private static final java.util.regex.Pattern STRUCTURED_NUMERIC =
+            java.util.regex.Pattern.compile(
+                    "(?:(?:>=|<=|<>|>|<|=) ?)?[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"
+                            + "(?:[-+/.:](?:[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+))?)?");
+
     static CdsExportDateDto temporal(String value, ZoneId zone) throws IOException {
         try {
             if (value == null
@@ -397,6 +439,32 @@ final class CdsExportNativeLaboratoryMapper {
                 return new CdsExportDateDto(
                         CdsExportDateDto.Precision.DATE,
                         LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE).toString());
+            if (value.length() == 10 || value.length() == 12) {
+                // Hour or minute precision (YYYYMMDDHH[MM], with or without an offset). A CDS
+                // date-time carries seconds, which the laboratory did not report: the date it
+                // wrote is exported, never an invented ":00", and the exact time stays in the
+                // complete source message.
+                LocalDateTime.parse(
+                        value.substring(0, 4)
+                                + "-"
+                                + value.substring(4, 6)
+                                + "-"
+                                + value.substring(6, 8)
+                                + "T"
+                                + value.substring(8, 10)
+                                + ":"
+                                + (value.length() == 12 ? value.substring(10, 12) : "00"));
+                if (!offset.isEmpty()) {
+                    var reported =
+                            ZoneOffset.of(offset.substring(0, 3) + ":" + offset.substring(3));
+                    if (Math.abs(reported.getTotalSeconds()) > 14 * 3600)
+                        review("CDS_EXPORT_NATIVE_LAB_OFFSET_REQUIRES_REVIEW");
+                }
+                return new CdsExportDateDto(
+                        CdsExportDateDto.Precision.DATE,
+                        LocalDate.parse(value.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE)
+                                .toString());
+            }
             if (value.length() < 14 || value.length() > 24)
                 review("CDS_EXPORT_NATIVE_LAB_CLOCK_PRECISION_REQUIRES_REVIEW");
             String iso =

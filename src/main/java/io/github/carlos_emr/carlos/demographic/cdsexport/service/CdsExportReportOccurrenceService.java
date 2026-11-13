@@ -836,6 +836,24 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             totals[0]++;
                             totals[2]++;
                         }
+                        // Embedded documents of native HL7 laboratory reports, after the chart's
+                        // own documents.
+                        long laboratoryDocuments =
+                                laboratoryDocuments(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        tables,
+                                        source,
+                                        index,
+                                        bounds,
+                                        control,
+                                        store,
+                                        attachments,
+                                        xml,
+                                        output);
+                        totals[0] = Math.addExact(totals[0], laboratoryDocuments);
+                        totals[2] = Math.addExact(totals[2], laboratoryDocuments);
                         for (String program : granted)
                             if (!control.documentProgramReadable(patient.patient(), program))
                                 throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
@@ -882,6 +900,122 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         else throw cleanup;
                     }
             }
+        }
+    }
+
+    /**
+     * Emits one Reports entry for every embedded document (OBX-2 {@code ED}) of the patient's
+     * native HL7 laboratory reports ({@link CdsExportLaboratoryDocumentMapper}), with its decoded
+     * bytes staged as the report's attachment. Each report's inbox acknowledgements are its
+     * reviews. Nothing is read when LaboratoryResults was not selected: the reports are not
+     * captured then.
+     *
+     * @return the number of entries emitted
+     */
+    private long laboratoryDocuments(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            String patientKey,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> attachments,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        if (!lease.document().command().categories().contains(CdsCategory.LABORATORY_RESULTS)
+                || !tables.contains("hl7TextMessage")) return 0;
+        var laboratories =
+                new CdsExportLaboratoryOccurrenceService(values, verification, witnesses, captures);
+        var sources =
+                laboratories.nativeSources(lease, patient, tables, source, index, bounds, control)
+                        .stream()
+                        .filter(laboratory -> !laboratory.parsed().documents().isEmpty())
+                        .toList();
+        if (sources.isEmpty()) return 0;
+        var routes = laboratories.routes(lease, patient, tables, source, bounds, control);
+        var providers =
+                new CdsExportPublicProviderReader(captures)
+                        .read(lease, patient, tables, source, bounds, control);
+        var zone =
+                new CdsExportClinicalZoneService(captures)
+                        .read(lease, patient, tables, source, bounds.fields(), bounds.bytes(), control)
+                        .zone();
+        var mapper = new CdsExportLaboratoryDocumentMapper();
+        long emitted = 0;
+        for (var laboratory : sources) {
+            var reviews =
+                    CdsExportInboxReviewMapper.report()
+                            .map(routes.getOrDefault(laboratory.id(), List.of()), List.of(), providers, zone);
+            var assessments = CdsExportNativeLaboratoryMapper.assessments(laboratory, reviews);
+            var rows = new ArrayList<>(laboratory.rows());
+            rows.addAll(reviews.rows());
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(rows, assessments, 1_000_000, control::checkpoint);
+            for (int i = 0; i < laboratory.parsed().documents().size(); i++) {
+                control.checkpoint();
+                String id = laboratory.id() + ":" + laboratory.parsed().documents().get(i).ordinal();
+                var payload = CdsExportLaboratoryDocumentMapper.payload(laboratory, i);
+                byte[] bytes = payload.bytes();
+                String extension =
+                        bytes == null
+                                ? null
+                                : CdsExportReportFileFormats.extension(
+                                        null, null, CdsExportLaboratoryDocumentMapper.prefix(bytes));
+                String path =
+                        bytes == null
+                                ? null
+                                : "Reports/"
+                                        + CdsImportKeys.hash(
+                                                "cds-export-native-lab-document-file-v1",
+                                                patientKey,
+                                                id)
+                                        + "."
+                                        + extension;
+                // Mapped before anything is staged: a document that holds the patient costs no copy.
+                var result = mapper.map(laboratory, i, payload, path, extension, zone, reviews);
+                var identity =
+                        new CdsExportIdentityDto(
+                                patientKey,
+                                category(),
+                                CdsImportKeys.hash("carlos-native-occurrence-v1", "hl7TextMessage", id));
+                control.authorizeCategory(patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                control.authorizeCategory(patient.patient(), category(), false);
+                if (bytes != null) {
+                    var copied = store.stage("REPORT_ATTACHMENT", target -> target.write(bytes));
+                    attachments.add(copied);
+                    if (copied.plaintextBytes() != bytes.length
+                            || !copied.plaintextSha256().equals(sha256(bytes))) invalid();
+                    output.attachment(identity, new CdsExportPackageMemberDto(path, copied));
+                }
+                xml.emit(new CdsExportXmlComposer.Section(identity, body -> mapper.write(result, body)));
+                output.accept(
+                        new CdsExportClinicalOccurrenceService.Receipt(
+                                identity,
+                                index.sourceManifestSha256(),
+                                "hl7TextMessage",
+                                id,
+                                null,
+                                assessments,
+                                Set.of(),
+                                Set.of()));
+                control.authorizeCategory(patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                control.authorizeCategory(patient.patient(), category(), false);
+                emitted++;
+            }
+        }
+        return emitted;
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            return HexFormat.of()
+                    .formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(bytes));
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
         }
     }
 

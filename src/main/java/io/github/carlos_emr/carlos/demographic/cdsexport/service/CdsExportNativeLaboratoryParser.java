@@ -47,13 +47,21 @@ final class CdsExportNativeLaboratoryParser {
     }
 
     /**
+     * @param observations every result value, mapped to LaboratoryResults
+     * @param documents every embedded document (OBX-2 {@code ED}, one per value repetition),
+     *     exported as a Reports entry linked to the report by its accession number
      * @param blockedMessage the laboratory marked the whole message "do not disclose" with the MDS
      *     ZPD-3 = Y indicator, as MDSHandler.isTestResultBlocked reads it
      */
     record Parsed(
-            Message message, List<Observation> observations, boolean blockedMessage, Raw raw) {
+            Message message,
+            List<Observation> observations,
+            List<Observation> documents,
+            boolean blockedMessage,
+            Raw raw) {
         Parsed {
             observations = List.copyOf(observations);
+            documents = List.copyOf(documents);
         }
 
         @Override
@@ -136,14 +144,21 @@ final class CdsExportNativeLaboratoryParser {
             collect(message, segments, 0, checkpoint);
             if (segments.isEmpty() || !segments.getFirst().getName().equals("MSH")) invalid();
             var msh = segments.getFirst();
+            // "ORU" without its R01 trigger never gets here: HAPI cannot tell the structure from
+            // it, so CARLOS's own handlers (CMLHandler and the others parse with PipeParser) never
+            // stored such a message, and parse() above refuses it the same way.
             if (!"ORU".equals(Terser.get(msh, 9, 0, 1, 1))
                     || !"R01".equals(Terser.get(msh, 9, 0, 2, 1)))
                 review("CDS_EXPORT_NATIVE_LAB_MESSAGE_TYPE_REQUIRES_REVIEW");
             var observations = new ArrayList<Observation>();
             Segment order = null, result = null;
             List<Segment> orderComments = new ArrayList<>(), resultComments = new ArrayList<>();
+            var documents = new ArrayList<Observation>();
             int orders = 0, results = 0, patients = 0;
-            boolean orderHasResult = false, blockedMessage = false;
+            boolean blockedMessage = false;
+            // An order without results (a pending, cancelled or fee-only test: the CML samples
+            // end with one) is not a result: it adds no observation, and its OBR and NTE
+            // segments travel in the complete source message.
             for (var segment : segments) {
                 checkpoint.run();
                 switch (segment.getName()) {
@@ -151,10 +166,9 @@ final class CdsExportNativeLaboratoryParser {
                         if (++patients > 1) review("CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS");
                     }
                     case "ORC" -> {
-                        if (order != null && !orderHasResult)
-                            review("CDS_EXPORT_NATIVE_LAB_ORDER_WITHOUT_RESULT");
                         append(
                                 observations,
+                                documents,
                                 order,
                                 result,
                                 orders,
@@ -163,15 +177,13 @@ final class CdsExportNativeLaboratoryParser {
                                 resultComments);
                         order = null;
                         result = null;
-                        orderHasResult = false;
                         orderComments = new ArrayList<>();
                         resultComments = new ArrayList<>();
                     }
                     case "OBR" -> {
-                        if (order != null && !orderHasResult)
-                            review("CDS_EXPORT_NATIVE_LAB_ORDER_WITHOUT_RESULT");
                         append(
                                 observations,
+                                documents,
                                 order,
                                 result,
                                 orders,
@@ -182,7 +194,6 @@ final class CdsExportNativeLaboratoryParser {
                         result = null;
                         orders++;
                         results = 0;
-                        orderHasResult = false;
                         orderComments = new ArrayList<>();
                         resultComments = new ArrayList<>();
                     }
@@ -190,6 +201,7 @@ final class CdsExportNativeLaboratoryParser {
                         if (order == null) review("CDS_EXPORT_NATIVE_LAB_RESULT_WITHOUT_ORDER");
                         append(
                                 observations,
+                                documents,
                                 order,
                                 result,
                                 orders,
@@ -198,7 +210,6 @@ final class CdsExportNativeLaboratoryParser {
                                 resultComments);
                         result = segment;
                         results++;
-                        orderHasResult = true;
                         resultComments = new ArrayList<>();
                     }
                     case "NTE" -> {
@@ -217,12 +228,23 @@ final class CdsExportNativeLaboratoryParser {
                     }
                 }
             }
-            if (order == null || !orderHasResult || patients != 1)
-                review("CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE");
-            append(observations, order, result, orders, results, orderComments, resultComments);
-            if (observations.isEmpty() || observations.size() > 8192)
+            // A message with no order, or for no patient, is not a laboratory report. One whose
+            // orders all wait for results exports no result; it travels whole in its NewCategory
+            // supporting record.
+            if (orders == 0 || patients != 1) review("CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE");
+            append(
+                    observations,
+                    documents,
+                    order,
+                    result,
+                    orders,
+                    results,
+                    orderComments,
+                    resultComments);
+            if (observations.size() + documents.size() > 8192)
                 review("CDS_EXPORT_NATIVE_LAB_RESULT_CAPACITY");
-            return new Parsed(message, observations, blockedMessage, raw(text, segments));
+            return new Parsed(
+                    message, observations, documents, blockedMessage, raw(text, segments));
         } catch (HL7Exception | IllegalArgumentException | CharacterCodingException failure) {
             review("CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW");
             return null;
@@ -231,6 +253,7 @@ final class CdsExportNativeLaboratoryParser {
 
     private static void append(
             List<Observation> output,
+            List<Observation> documents,
             Segment order,
             Segment result,
             int orderOrdinal,
@@ -242,14 +265,16 @@ final class CdsExportNativeLaboratoryParser {
         var comments = new ArrayList<>(orderComments);
         comments.addAll(resultComments);
         // NM, coded and date repetitions are separate values; TX and FT repetitions are the
-        // continuation lines of one narrative, which the mapper joins into one result.
+        // continuation lines of one narrative, which the mapper joins into one result. Each
+        // repetition of an ED value is one embedded document, exported as a Reports entry.
         String type = Terser.get(result, 2, 0, 1, 1);
         int repetitions =
                 "TX".equals(type) || "FT".equals(type) ? 1 : Math.max(1, result.getField(5).length);
-        if (repetitions > 8192 || output.size() > 8192 - repetitions)
+        var target = "ED".equals(type) ? documents : output;
+        if (repetitions > 8192 || output.size() + documents.size() > 8192 - repetitions)
             review("CDS_EXPORT_NATIVE_LAB_RESULT_CAPACITY");
         for (int i = 0; i < repetitions; i++)
-            output.add(
+            target.add(
                     new Observation(
                             orderOrdinal + ":" + resultOrdinal + ":" + i,
                             order,
@@ -306,7 +331,7 @@ final class CdsExportNativeLaboratoryParser {
     }
 
     /** HAPI's own unescaping: only the delimiter escapes; formatting escapes stay as written. */
-    private static String unescapeDelimiters(String text, Raw raw) {
+    static String unescapeDelimiters(String text, Raw raw) {
         var out = new StringBuilder(text.length());
         int index = 0;
         while (index < text.length()) {

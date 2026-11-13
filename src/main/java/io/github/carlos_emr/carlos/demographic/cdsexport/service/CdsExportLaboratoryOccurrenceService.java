@@ -332,6 +332,13 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                     .command()
                                     .categories()
                                     .contains(CdsCategory.NEW_CATEGORY)) review();
+                    // Embedded documents are exported as Reports entries by the Reports assembler.
+                    for (var nativeSource : nativeSources)
+                        if (!nativeSource.parsed().documents().isEmpty()
+                                && !lease.document()
+                                        .command()
+                                        .categories()
+                                        .contains(CdsCategory.REPORTS)) review();
                     var zone =
                             nativeSources.isEmpty()
                                     ? null

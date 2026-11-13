@@ -489,7 +489,7 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                         () ->
                                 new CdsExportNativeLaboratoryMapper()
                                         .map(
-                                                source(message().replace("|NM|", "|ED|")),
+                                                source(message().replace("|NM|", "|CP|")),
                                                 ZoneId.of("America/Toronto")))
                 .hasMessage("CDS_EXPORT_NATIVE_LAB_VALUE_TYPE_REQUIRES_REVIEW");
         assertThatThrownBy(() -> source(message().replace("OBR|2", "ORC|2")))
@@ -505,7 +505,7 @@ class CdsExportNativeLaboratoryMapperUnitTest {
 
     @Test
     void
-            shouldPreservePartialDateAndExplicitOffsetPrecision_andRefuseInventedMinuteSecondsOrDstOffsets()
+            shouldPreservePartialDateAndExplicitOffsetPrecision_andNeverInventMinuteSecondsOrDstOffsets()
                     throws Exception {
         assertThat(CdsExportNativeLaboratoryMapper.temporal("2020", null).lexical())
                 .isEqualTo("2020");
@@ -517,11 +517,17 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                         CdsExportNativeLaboratoryMapper.temporal("20260709143500.123400-0400", null)
                                 .lexical())
                 .isEqualTo("2026-07-09T14:35:00.1234-04:00");
+        // A minute-precision time is exported as its date; the seconds are never invented.
+        assertThat(
+                        CdsExportNativeLaboratoryMapper.temporal(
+                                        "202607091435", ZoneId.of("America/Toronto"))
+                                .lexical())
+                .isEqualTo("2026-07-09");
         assertThatThrownBy(
                         () ->
                                 CdsExportNativeLaboratoryMapper.temporal(
-                                        "202607091435", ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_CLOCK_PRECISION_REQUIRES_REVIEW");
+                                        "2026070914351", ZoneId.of("America/Toronto")))
+                .hasMessage("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
         assertThatThrownBy(
                         () ->
                                 CdsExportNativeLaboratoryMapper.temporal(

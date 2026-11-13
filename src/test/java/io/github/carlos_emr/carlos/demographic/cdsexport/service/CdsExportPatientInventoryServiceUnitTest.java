@@ -429,6 +429,40 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldExpectAReportsOccurrence_forEachEmbeddedLabDocument() throws Exception {
+        var f =
+                fixture(
+                        CdsCategory.LABORATORY_RESULTS,
+                        CdsCategory.NEW_CATEGORY,
+                        CdsCategory.REPORTS);
+        var source =
+                CdsExportNativeLaboratoryMapperUnitTest.source(
+                        CdsExportNativeLaboratoryMapperUnitTest.message()
+                                .replace("|NM|2345-7^Glucose^LN||5.4|", "|ED|PDF^Report^L||JVBERi0xLjQK|"));
+        when(f.laboratoryInventory.nativeSources(
+                        any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(List.of(source));
+        var result = capture(f);
+        assertThat(
+                        result.identities().stream()
+                                .filter(i -> i.category() == CdsCategory.LABORATORY_RESULTS))
+                .hasSize(3);
+        assertThat(result.identities().stream().filter(i -> i.category() == CdsCategory.REPORTS))
+                .containsExactly(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.REPORTS,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "hl7TextMessage", "91:1:1:0")));
+        // Excluding Reports would leave the document unexported, so the selection needs review.
+        var withoutReports = fixture(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY);
+        when(withoutReports.laboratoryInventory.nativeSources(
+                        any(), any(), anySet(), any(), any(), any(), any()))
+                .thenReturn(List.of(source));
+        assertThatThrownBy(() -> capture(withoutReports)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
     void shouldRequireTheExplicitSupportingCategory_forNativeLabSourceContext() throws Exception {
         var f = fixture(CdsCategory.LABORATORY_RESULTS);
         var source =

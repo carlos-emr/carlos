@@ -85,6 +85,8 @@ class CdsExportNativeReportAssemblyUnitTest {
     private Set<String> importedDocuments = Set.of();
     private boolean tamperAfterScans;
     private CdsExportClinicalOccurrenceService.Result result;
+    /** A native HL7 report of the patient, captured with LaboratoryResults; null without one. */
+    private String laboratory;
 
     /** One captured document: its row, its patient link and, when the capture read one, its file. */
     private record Doc(int id, Map<String, String> document, Map<String, String> link, byte[] file) {}
@@ -100,6 +102,10 @@ class CdsExportNativeReportAssemblyUnitTest {
         service = spy(store);
         when(stores.openExisting(any(), anyLong(), any(), any())).thenReturn(service);
         when(patient.patient()).thenReturn(PATIENT);
+        lease = lease(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS));
+    }
+
+    private static CdsExportLeaseDto lease(Set<CdsCategory> categories) {
         var command =
                 new CdsExportCommand(
                         "report-assembly",
@@ -109,11 +115,10 @@ class CdsExportNativeReportAssemblyUnitTest {
                         CdsExportCommand.Selection.SELECTED_PATIENTS,
                         List.of(),
                         List.of(PATIENT),
-                        Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS),
+                        categories,
                         "recipient",
                         "audit");
-        lease =
-                new CdsExportLeaseDto(
+        return new CdsExportLeaseDto(
                         RUN,
                         1,
                         HASH,
@@ -225,8 +230,72 @@ class CdsExportNativeReportAssemblyUnitTest {
         rows("DocumentExtraReviewer").put(CdsExportPatientTableSourceReader.key(id), row);
     }
 
+    /**
+     * Captures {@code text} as the patient's native HL7 report 91 (as the lab upload stores it),
+     * with LaboratoryResults selected beside Reports.
+     */
+    private void laboratory(String text) {
+        laboratory = text;
+        var message = new TreeMap<String, String>();
+        Plan.LABORATORY_MESSAGES.columns().forEach(column -> message.put(column, null));
+        message.put("lab_id", "91");
+        message.put(
+                "message",
+                Base64.getEncoder().encodeToString(text.getBytes(StandardCharsets.UTF_8)));
+        message.put("type", "PATHL7");
+        rows("hl7TextMessage").put(CdsExportPatientTableSourceReader.key(91), message);
+        var information = new TreeMap<String, String>();
+        Plan.LABORATORY_INFORMATION.columns().forEach(column -> information.put(column, null));
+        information.put("id", "92");
+        information.put("lab_no", "91");
+        information.put("accessionNum", "2016-1M7161515");
+        information.put("sending_facility", "LifeLabs");
+        rows("hl7TextInfo").put(CdsExportPatientTableSourceReader.key(92), information);
+        var routing = new TreeMap<String, String>();
+        Plan.LABORATORY_ROUTING.columns().forEach(column -> routing.put(column, null));
+        routing.put("id", "93");
+        routing.put("lab_no", "91");
+        routing.put("demographic_no", Integer.toString(PATIENT));
+        routing.put("lab_type", "HL7");
+        rows("patientLabRouting").put(CdsExportPatientTableSourceReader.key(93), routing);
+        rows("providerLabRouting");
+        rows("cds_laboratory_result");
+        lease =
+                lease(
+                        Set.of(
+                                CdsCategory.DEMOGRAPHICS,
+                                CdsCategory.REPORTS,
+                                CdsCategory.LABORATORY_RESULTS));
+    }
+
+    /** An inbox route of the native HL7 report 91 (lab_type HL7). */
+    private void laboratoryRoute(int id, String provider, String status, String time, String comment) {
+        var row = new TreeMap<String, String>();
+        Plan.LABORATORY_REVIEWERS.columns().forEach(column -> row.put(column, null));
+        row.put("id", Integer.toString(id));
+        row.put("lab_no", "91");
+        row.put("lab_type", "HL7");
+        row.put("provider_no", provider);
+        row.put("status", status);
+        row.put("timestamp", CdsExportLaboratoryReviewerMappingUnitTest.instant(time));
+        row.put("comment", comment);
+        rows("providerLabRouting").put(CdsExportPatientTableSourceReader.key(id), row);
+    }
+
     private Map<String, CdsExportCapturedTableDto> scopes() {
         var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
+        if (laboratory != null)
+            for (var plan :
+                    List.of(
+                            Plan.LABORATORY_RESULTS,
+                            Plan.LABORATORY_MESSAGES,
+                            Plan.LABORATORY_INFORMATION,
+                            Plan.LABORATORY_ROUTING,
+                            Plan.LABORATORY_REVIEWERS))
+                scopes.put(
+                        plan.table(),
+                        new CdsExportCapturedTableDto(
+                                Set.copyOf(plan.columns()), rows(plan.table()).size(), HASH));
         long files = documents.stream().filter(doc -> doc.file() != null).count();
         scopes.put(
                 "document",
@@ -439,22 +508,32 @@ class CdsExportNativeReportAssemblyUnitTest {
             receiptRows.add(
                     witness("ctl_document", PATIENT + "_" + doc.id(), key, doc.link()));
         }
+        if (laboratory != null)
+            for (String table : List.of("hl7TextMessage", "hl7TextInfo", "patientLabRouting"))
+                for (var row : rows(table).entrySet())
+                    receiptRows.add(
+                            witness(
+                                    table,
+                                    row.getValue()
+                                            .get(table.equals("hl7TextMessage") ? "lab_id" : "id"),
+                                    row.getKey(),
+                                    row.getValue()));
         when(witnesses.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
                         call -> {
                             for (var row : receiptRows)
                                 ((CdsExportNativeRowReceiptReader.Receipts) call.getArgument(7))
                                         .accept(row);
+                            var counts = new TreeMap<String, Long>();
+                            counts.put("document", (long) documents.size());
+                            counts.put("ctl_document", (long) documents.size());
+                            for (var row : receiptRows) counts.putIfAbsent(row.table(), 0L);
+                            for (var row : receiptRows)
+                                if (!row.table().equals("document")
+                                        && !row.table().equals("ctl_document"))
+                                    counts.merge(row.table(), 1L, Long::sum);
                             return new CdsExportNativeRowReceiptsDto(
-                                    HASH,
-                                    Map.of(
-                                            "document",
-                                            (long) documents.size(),
-                                            "ctl_document",
-                                            (long) documents.size()),
-                                    receiptRows.size(),
-                                    0,
-                                    Set.of());
+                                    HASH, counts, receiptRows.size(), 0, Set.of());
                         });
         var references = new HashMap<String, List<CdsExportRetainedIndexDto.Reference>>();
         var applied = new HashSet<String>();
@@ -887,6 +966,57 @@ class CdsExportNativeReportAssemblyUnitTest {
         assertThatThrownBy(this::assemble)
                 .isInstanceOf(CdsExportReviewException.class)
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThat(attachments).isEmpty();
+    }
+
+    @Test
+    void shouldExportAnExcellerisPdfResult_asALabReportBesideTheChartsDocuments() throws Exception {
+        add(81, uploaded(81, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        String message =
+                CdsExportNativeLaboratoryFeedUnitTest.fixture(
+                                "Excelleris-ON/excellerisON-Path-PDF.xml")
+                        .getFirst();
+        laboratory(message);
+        provider("103", "Cy", "Inbox", "123456");
+        laboratoryRoute(701, "103", "A", "2026-03-08 11:45:00", "Discussed with patient");
+        String xml = assemble();
+        var reports = reports(xml);
+        // The chart's document, then the laboratory's embedded PDF: the patient is not held.
+        assertThat(reports).hasSize(2);
+        assertThat(reports.get(1))
+                .contains(
+                        "<Format>Binary</Format>",
+                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>",
+                        "<Class>Lab Report</Class>",
+                        "<SourceFacility>LifeLabs</SourceFacility>",
+                        "<cdsd:FullDate>2026-03-08</cdsd:FullDate>",
+                        "Accession number: 2016-1M7161515",
+                        "Discussed with patient");
+        assertThat(attachments).hasSize(2);
+        var pdf =
+                attachments.values().stream()
+                        .filter(member -> reports.get(1).contains(member.relativePath()))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(new String(attachment(pdf), 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        assertThat(receipts).hasSize(2);
+        assertThat(receipts.get(1).table()).isEqualTo("hl7TextMessage");
+        assertThat(receipts.get(1).fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        assertThat(result.nativeRows()).isEqualTo(2);
+        assertThat(result.nativeOnlyRows()).isEqualTo(2);
+    }
+
+    @Test
+    void shouldExportNothingMore_forALaboratoryReportWithoutAnEmbeddedDocument() throws Exception {
+        laboratory(
+                CdsExportNativeLaboratoryFeedUnitTest.fixture("HL7-CML/HT05038.hl7").getFirst());
+        String xml = assemble();
+        assertThat(reports(xml)).isEmpty();
+        assertThat(receipts).isEmpty();
         assertThat(attachments).isEmpty();
     }
 }

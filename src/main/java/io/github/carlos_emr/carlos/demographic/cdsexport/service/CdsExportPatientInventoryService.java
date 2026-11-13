@@ -356,6 +356,20 @@ public class CdsExportPatientInventoryService {
                         lease, patient, tables, source, index, bounds, control)) {
             if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
                 review();
+            // An embedded document is a Reports entry (CdsExportLaboratoryDocumentMapper);
+            // excluding Reports would leave it unexported, so the selection needs review.
+            if (!laboratory.parsed().documents().isEmpty()
+                    && !lease.document().command().categories().contains(CdsCategory.REPORTS))
+                review();
+            for (var document : laboratory.parsed().documents())
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                CdsCategory.REPORTS,
+                                "hl7TextMessage",
+                                laboratory.id() + ":" + document.ordinal()),
+                        budget);
             for (var observation : laboratory.parsed().observations())
                 add(
                         expected,
