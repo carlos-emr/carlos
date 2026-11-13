@@ -20,8 +20,8 @@
     "Fresh ON/BC and retained-data upgrades from the exact release base, packaged CLI/boot validation and unchanged prior migration history"
   ],
   "integration": {
-    "coreBase": "38cfc10c0ae72c66ebe501703de462f59249da1f",
-    "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
+    "coreBase": "9ba62cab4b5538dcbfaa9377a3090dc79cc4a562",
+    "upgradeSqlBaseline": "9ba62cab4b5538dcbfaa9377a3090dc79cc4a562",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
     "cliHead": "b759f117a165526e01a57295e22cc9e35f2a9697",
     "cliVersion": "1.3.5",

@@ -1013,9 +1013,11 @@ Native clinical clocks use the same explicit `cds.export.clinicalZone` as the ac
 plan; a configured import zone must agree. No JVM default zone is inferred.
 
 This change targets `release/2026.08`, integrating through
-`38cfc10c0ae72c66ebe501703de462f59249da1f`, including the release lab and package/test qualification fixes.
-Its released migration bytes are identical to the pinned upgrade SQL baseline
-`ef69eea17a4cc3fb288b26327471fce1e20dcd8f`. The integration retains the release's
+`9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
+Its released migration bytes are identical to the pinned upgrade SQL baseline, that same commit
+(80 ON / 79 BC migrations, high water `V1.0.59.39`). The release renumbered its own unpublished
+migrations in #6167, so the earlier baseline `ef69eea17a4cc3fb288b26327471fce1e20dcd8f` can no
+longer be upgraded and is retired. The integration retains the release's
 importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.

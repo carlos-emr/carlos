@@ -48,7 +48,7 @@ except ImportError:
     sys.exit("Install hash-pinned dependencies from scripts/ci/requirements.txt before running this gate")
 
 IMAGE = 'mariadb:11.8.8@sha256:24e76fcec8c003a0362d0dd53f4806e7e79458d7fdeaf47437760e19496f5a9c'
-RELEASE_UPGRADE_BASE = 'ef69eea17a4cc3fb288b26327471fce1e20dcd8f'
+RELEASE_UPGRADE_BASE = '9ba62cab4b5538dcbfaa9377a3090dc79cc4a562'
 CLASSES = (
     'CdsImportMaintenanceMariaDbIntegrationTest', 'CdsIdentityMariaDbIntegrationTest',
     'CdsImportCoordinatorMariaDbIntegrationTest',
@@ -465,7 +465,7 @@ def main():
                            container_output + '/upgrade-' + province + '.json'], log)
                     proof = json.loads((output / ('upgrade-' + province + '.json')).read_text())
                     expected = {'status': 'CLI_AND_RETENTION_PASSED', 'baseCommit': RELEASE_UPGRADE_BASE, 'province': province,
-                                'baseMigrations': 78 if province == 'on' else 77,
+                                'baseMigrations': 80 if province == 'on' else 79,
                                 'headMigrations': head_migrations(repository, province), 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1, 'retainedHrmLinks': 4,
                                 'appliedHistoryUnchanged': True, 'cliMigrate': True, 'cliValidate': True,
                                 'bootValidate': True, 'pending': 0}

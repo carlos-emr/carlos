@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Actual release history, retained synthetic clinical data, CLI runner and boot validation. */
 public final class CdsReleaseUpgradeProof {
-    private static final String BASE = "ef69eea17a4cc3fb288b26327471fce1e20dcd8f";
+    private static final String BASE = "9ba62cab4b5538dcbfaa9377a3090dc79cc4a562";
     private static final String HISTORY =
             "SELECT * FROM flyway_schema_history ORDER BY installed_rank";
     private static final String PATIENT =
@@ -149,9 +149,9 @@ public final class CdsReleaseUpgradeProof {
                         .load();
         int initial = original.migrate().migrationsExecuted;
         original.validate();
-        require(initial == (province.equals("on") ? 78 : 77), "BASE_HISTORY_COUNT");
+        require(initial == (province.equals("on") ? 80 : 79), "BASE_HISTORY_COUNT");
         require(
-                original.info().current().getVersion().toString().equals("1.0.59.37"),
+                original.info().current().getVersion().toString().equals("1.0.59.39"),
                 "BASE_HIGH_WATER");
         return initial;
     }
