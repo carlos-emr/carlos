@@ -52,6 +52,8 @@ class FormRourke2020UnitTest {
         stored.setP5_1CommentsOther(null);
         stored.setFormCreated(null);
         stored.setFormEdited(null);
+        stored.setC_APGAR1min(null);
+        stored.setC_APGAR5min(null);
 
         Properties printed = stored.toProperties();
 
@@ -60,6 +62,9 @@ class FormRourke2020UnitTest {
                 .containsEntry("p5_1CommentsOther", "")
                 .containsEntry("formCreated", "")
                 .containsEntry("formEdited", "")
+                // A NULL Integer column too: blank, never the text "null".
+                .containsEntry("c_APGAR1min", "")
+                .containsEntry("c_APGAR5min", "")
                 .containsEntry("provider_no", "999998");
     }
 }

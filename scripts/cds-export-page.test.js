@@ -24,6 +24,10 @@ test('a running job shows its selection, not a frozen processed count', () => {
     assert.equal(presentation(job({state: 'READY', artifactAvailable: true, complete: true, waiting: false,
         totalPatients: 55, processedPatients: 55})).count, '55 of 55 patients processed.');
     assert.equal(presentation(job({state: 'FAILED', waiting: false, totalPatients: 55})).count, '0 of 55 patients processed.');
+    // No worker owns it (waiting, or stopped by a restart): not shown as working.
+    const stalled = presentation(job({state: 'CAPTURING', totalPatients: 55}));
+    assert.equal(stalled.running, false);
+    assert.equal(stalled.count, '0 of 55 patients processed.');
 });
 test('ready requires actual artifact availability', () => {
     assert.equal(presentation(job({state: 'READY', waiting: false})).complete, false);

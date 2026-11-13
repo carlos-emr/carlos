@@ -53,6 +53,9 @@ public record CdsCliArguments(String operation, String provider, String runId, M
                     || value.chars().anyMatch(c -> c < 32 || c == 127)
                     || values.putIfAbsent(option, value) != null) throw invalid();
         }
+        // Run IDs are stored as lowercase UUIDs; one pasted in capitals names the same run.
+        for (String named : java.util.List.of("--run", "--confirm"))
+            values.computeIfPresent(named, (option, value) -> lowerHex(value));
         String operation = values.get("--operation"), provider = values.get("--provider");
         if (!OPERATIONS.contains(operation == null ? "" : operation)
                 || provider == null || !provider.matches("[A-Za-z0-9_-]{1,16}")) throw invalid();
@@ -115,6 +118,16 @@ public record CdsCliArguments(String operation, String provider, String runId, M
     /** Import runs are named by random UUIDs; any other run ID is refused before the engine starts. */
     private static final java.util.regex.Pattern RUN_ID =
             java.util.regex.Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+    /** Lowers only the ASCII letters A-F, so no other character can turn into a valid run ID. */
+    private static String lowerHex(String value) {
+        StringBuilder lowered = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            lowered.append(c >= 'A' && c <= 'F' ? (char) (c + ('a' - 'A')) : c);
+        }
+        return lowered.toString();
+    }
 
     private static void runId(String value) {
         if (value == null || !RUN_ID.matcher(value).matches()) throw invalid();

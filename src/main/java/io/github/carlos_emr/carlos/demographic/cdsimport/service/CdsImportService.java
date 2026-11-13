@@ -210,7 +210,9 @@ public class CdsImportService {
     }
 
     public CdsImportJobDto status(CdsImportActorDto actor, String run) throws IOException {
-        return requireActor(actor, run).job();
+        if (startedBy(actor, run)) return requireActor(actor, run).job();
+        authorizeAbandon(actor, run);
+        return ledger.status(run);
     }
 
     public CdsImportStatusDto observe(LoggedInInfo viewer, String run) {
@@ -223,6 +225,7 @@ public class CdsImportService {
     }
 
     public Map<String, Object> summary(CdsImportActorDto actor, String run) throws IOException {
+        if (!startedBy(actor, run)) return abandonSummary(actor, run);
         var context = actorContext(actor, run);
         try {
             return operatorSummary(run, observations.summary(actor, context));
@@ -240,7 +243,7 @@ public class CdsImportService {
 
     public List<CdsImportPatientDto> patients(
             CdsImportActorDto actor, String run, String after, int limit) throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         return ledger.patients(run, after, limit);
     }
 
@@ -253,13 +256,13 @@ public class CdsImportService {
     /** The run's latest unresolved stopping diagnostic with protected evidence, or null. */
     public CdsImportDiagnosticDto latestStoppingDiagnostic(CdsImportActorDto actor, String run)
             throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         return ledger.latestStoppingDiagnostic(run);
     }
 
     public List<CdsImportDiagnosticDto> diagnostics(
             CdsImportActorDto actor, String run, long after, int limit) throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         return ledger.diagnostics(run, after, limit);
     }
 
@@ -279,7 +282,7 @@ public class CdsImportService {
     }
 
     public void cancel(CdsImportActorDto actor, String run) throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         reviews.cancel(run);
         ledger.cancel(run);
     }
@@ -336,7 +339,7 @@ public class CdsImportService {
     }
 
     public Path report(CdsImportActorDto actor, String run, String type) throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         return results.report(run, type);
     }
 
@@ -356,7 +359,7 @@ public class CdsImportService {
      */
     public Map<String, Object> diagnosticEvidence(
             CdsImportActorDto actor, String run, long diagnosticId) throws IOException {
-        requireActor(actor, run);
+        requireOperatorOrDelegate(actor, run);
         var diagnostic = ledger.diagnosticStatus(run, diagnosticId);
         if (diagnostic.protectedDetailLocation() == null)
             throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
@@ -364,11 +367,12 @@ public class CdsImportService {
     }
 
     /**
-     * Authorizes a command-line abandon of {@code run}. The run's own operator may abandon it,
-     * as may another root-delegated operator whose delegation covers the run's provider,
-     * facility and program: a run started in the browser has no abandon there, and could
-     * otherwise never be closed. The live delegation and the provider's current rights are
-     * checked; the run's original operator stays on its record.
+     * Authorizes a command-line abandon of {@code run}, and the status, report and cancel that
+     * precede it. The run's own operator may abandon it, as may another root-delegated operator
+     * whose delegation covers the run's provider, facility and program: a run started in the
+     * browser has no abandon there, and could otherwise never be cancelled and closed from the
+     * command line. The live delegation and the provider's current rights are checked; the
+     * run's original operator stays on its record.
      *
      * @throws SecurityException when the actor is not root-delegated for this run's scope
      */
@@ -402,8 +406,37 @@ public class CdsImportService {
     public void observe(
             CdsImportActorDto actor, String run, String operation, long osUid, String verifiedNonce)
             throws IOException {
+        if (DELEGABLE.contains(operation) && !startedBy(actor, run)) {
+            authorizeAbandon(actor, run);
+            ledger.observeDelegated(
+                    run, actor.operator(), actor.providerNo(), operation, osUid, verifiedNonce);
+            return;
+        }
         requireActor(actor, run);
         ledger.observe(run, actor.operator(), actor.providerNo(), operation, osUid, verifiedNonce);
+    }
+
+    /**
+     * The command-line operations another root-delegated operator may perform on a run it did
+     * not start, within {@link #authorizeAbandon}'s scope: reading it, cancelling it and closing
+     * it. A run started in the browser can be cancelled and abandoned only this way from the
+     * command line. Import and resume stay with the run's own operator.
+     */
+    private static final java.util.Set<String> DELEGABLE =
+            java.util.Set.of("status", "cancel", "report", "abandon");
+
+    private boolean startedBy(CdsImportActorDto actor, String run) throws IOException {
+        return actor != null && jobs.loadContext(jobs.binding(run)).document().actor().equals(actor);
+    }
+
+    /**
+     * The run's own operator, with its live rights (a revocation stops the run), or another
+     * root-delegated operator for the run's scope (see {@link #DELEGABLE}).
+     */
+    private void requireOperatorOrDelegate(CdsImportActorDto actor, String run)
+            throws IOException {
+        if (startedBy(actor, run)) requireActor(actor, run);
+        else authorizeAbandon(actor, run);
     }
 
     public void resolveReview(LoggedInInfo viewer, String run, CdsImportReviewCommand command)

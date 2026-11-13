@@ -595,7 +595,7 @@ class CdsCliProtocolUnitTest {
                         "--confirm", "run-1", "--reason", "stated"
                     },
                     {"--operation", "status", "--provider", "999998", "--run", NONCE + "0"},
-                    {"--operation", "cancel", "--provider", "999998", "--run", NONCE.toUpperCase()},
+                    {"--operation", "cancel", "--provider", "999998", "--run", NONCE.replace('-', '_')},
                     // 1001 characters are refused however they are encoded.
                     {
                         "--operation", "abandon", "--provider", "999998", "--run", NONCE,
@@ -604,6 +604,16 @@ class CdsCliProtocolUnitTest {
                 })
             assertThatThrownBy(() -> CdsCliArguments.parse(refused))
                     .isInstanceOf(IllegalArgumentException.class);
+        // A run ID pasted in capitals names the same, lowercase-stored run.
+        assertThat(
+                        CdsCliArguments.parse(
+                                        new String[] {
+                                            "--operation", "abandon", "--provider", "999998",
+                                            "--run", NONCE.toUpperCase(java.util.Locale.ROOT),
+                                            "--confirm", NONCE, "--reason", "stated"
+                                        })
+                                .runId())
+                .isEqualTo(NONCE);
         // A reason is counted in characters (code points), as carlos-ctl counts it: 600
         // characters that need two UTF-16 units each are within the limit on both sides.
         assertThat(

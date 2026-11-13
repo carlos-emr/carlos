@@ -139,72 +139,86 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
             ArrayList<NavBarDisplayDAO.Item> items = new ArrayList<NavBarDisplayDAO.Item>();
             String result;
 
-            for (int i = 0; i < prevList.size(); i++) {
-                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
-                HashMap<String, String> h = prevList.get(i);
-                String prevName = h.get("name");
-                ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNumber);
+            try {
+                for (int i = 0; i < prevList.size(); i++) {
+                    NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
+                    HashMap<String, String> h = prevList.get(i);
+                    String prevName = h.get("name");
+                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(loggedInInfo, prevName, demographicNumber);
 
-                boolean show = pdc.display(loggedInInfo, h, bean.demographicNo, alist.size());
-                if (show) {
-                    String prefix;
-                    String colour;
-                    String newestRecordId = null;
+                    boolean show = pdc.display(loggedInInfo, h, bean.demographicNo, alist.size());
+                    if (show) {
+                        String prefix;
+                        String colour;
+                        String newestRecordId = null;
 
-                    boolean timingReview = hasUncertainTiming(alist);
-                    if (timingReview) {
-                        item.setDate(null);
-                        prefix = PREFIX_WARNING;
-                        colour = COLOUR_HIGHLIGHT;
-                    } else if (alist.size() > 0) {
-                        // Newest record: the same one whose date and status this row shows.
-                        Map<String, Object> hdata = newestPrevention(alist);
-                        newestRecordId = (String) hdata.get("id");
-                        Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
-                        result = hExt.get("result");
-                        String refused = (String) hdata.get("refused");
+                        boolean timingReview = hasUncertainTiming(alist);
+                        if (timingReview) {
+                            item.setDate(null);
+                            prefix = PREFIX_WARNING;
+                            colour = COLOUR_HIGHLIGHT;
+                        } else if (alist.size() > 0) {
+                            // Newest record: the same one whose date and status this row shows.
+                            Map<String, Object> hdata = newestPrevention(alist);
+                            newestRecordId = (String) hdata.get("id");
+                            Map<String, String> hExt = PreventionData.getPreventionKeyValues((String) hdata.get("id"));
+                            result = hExt.get("result");
+                            String refused = (String) hdata.get("refused");
 
-                        item.setDate(preventionDate(hdata));
+                            item.setDate(preventionDate(hdata));
 
-                        // Default for items with records: up-to-date
-                        prefix = PREFIX_CHECK;
-                        colour = COLOUR_UP_TO_DATE;
+                            // Default for items with records: up-to-date
+                            prefix = PREFIX_CHECK;
+                            colour = COLOUR_UP_TO_DATE;
 
-                        if ("1".equals(refused)) {
-                            prefix = PREFIX_X;
-                            colour = COLOUR_INELIGIBLE;
-                        } else if ("2".equals(refused)) {
-                            prefix = PREFIX_DASH;
-                            colour = COLOUR_INELIGIBLE;
-                        } else if (result != null && result.equalsIgnoreCase("pending")) {
-                            prefix = PREFIX_HOURGLASS;
-                            colour = COLOUR_PENDING;
+                            if ("1".equals(refused)) {
+                                prefix = PREFIX_X;
+                                colour = COLOUR_INELIGIBLE;
+                            } else if ("2".equals(refused)) {
+                                prefix = PREFIX_DASH;
+                                colour = COLOUR_INELIGIBLE;
+                            } else if (result != null && result.equalsIgnoreCase("pending")) {
+                                prefix = PREFIX_HOURGLASS;
+                                colour = COLOUR_PENDING;
+                            }
+
+                        } else {
+                            item.setDate(null);
+                            prefix = PREFIX_CIRCLE;
+                            colour = COLOUR_NOT_DOCUMENTED;
                         }
 
-                    } else {
-                        item.setDate(null);
-                        prefix = PREFIX_CIRCLE;
-                        colour = COLOUR_NOT_DOCUMENTED;
-                    }
+                        boolean isWarning = timingReview || warningTable.containsKey(prevName);
+                        if (isWarning) {
+                            prefix = PREFIX_WARNING;
+                            colour = COLOUR_HIGHLIGHT;
+                        }
 
-                    boolean isWarning = timingReview || warningTable.containsKey(prevName);
-                    if (isWarning) {
-                        prefix = PREFIX_WARNING;
-                        colour = COLOUR_HIGHLIGHT;
-                    }
+                        String title = StringUtils.maxLenString(h.get("name"), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
+                        item.setTitle(prefix + title);
+                        item.setColour(colour);
+                        item.setLinkTitle(timingReview ? h.get("desc") + " — Timing requires review" : h.get("desc"));
+                        item.setURL(canWritePrevention && !timingReview ? buildItemHandler(request.getContextPath(), bean.demographicNo, h, newestRecordId) : url);
 
-                    String title = StringUtils.maxLenString(h.get("name"), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES);
-                    item.setTitle(prefix + title);
-                    item.setColour(colour);
-                    item.setLinkTitle(timingReview ? h.get("desc") + " — Timing requires review" : h.get("desc"));
-                    item.setURL(canWritePrevention && !timingReview ? buildItemHandler(request.getContextPath(), bean.demographicNo, h, newestRecordId) : url);
-
-                    if (isWarning) {
-                        warnings.add(item);
-                    } else {
-                        items.add(item);
+                        if (isWarning) {
+                            warnings.add(item);
+                        } else {
+                            items.add(item);
+                        }
                     }
                 }
+            } catch (IllegalStateException unavailable) {
+                if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(unavailable.getMessage())) throw unavailable;
+                // A prevention read failed (logged by PreventionData). Say so in the panel rather
+                // than list the rows that happened to be read as if they were the whole history,
+                // or leave the panel blank.
+                NavBarDisplayDAO.Item item = NavBarDisplayDAO.Item();
+                item.setTitle(PREFIX_WARNING + getText("encounter.LeftNavBar.PreventionUnavailable"));
+                item.setColour(COLOUR_HIGHLIGHT);
+                item.setLinkTitle(getText("encounter.LeftNavBar.PreventionUnavailable"));
+                item.setURL(url);
+                Dao.addItem(item);
+                return true;
             }
 
             //sort items without warnings chronologically

@@ -59,6 +59,9 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsImportAbandonService {
+    private static final org.apache.logging.log4j.Logger LOG =
+            org.apache.logging.log4j.LogManager.getLogger(CdsImportAbandonService.class);
+
     /** The longest stated reason, in characters. */
     static final int MAXIMUM_REASON = 1000;
 
@@ -115,55 +118,75 @@ public class CdsImportAbandonService {
         String stated = reason(reason);
         configuration.requireEnabled();
         try (var coordinator = coordinators.acquire()) {
-            // Refuse before taking the maintenance window: an owner that closes without an
-            // explicit reopen keeps the clinic closed, so a refused request must never take one.
-            ledger.requireAbandonable(runId, actor);
-            try (var owner = maintenance.acquire()) {
-                safety.verify(owner);
-                long epoch = ledger.claimAbandon(runId, actor, coordinator, owner);
-                Map<String, String> verification = new LinkedHashMap<>();
-                String record;
-                // The published digest is salted: a short reason that names a patient cannot be
-                // recovered by guessing. The salt is kept beside the reason, in the protected
-                // record only.
-                String salt = CdsPaths.hex(salt());
-                String digest = reasonDigest(salt, stated);
-                try {
-                    verify(runId, epoch, coordinator, owner, verification);
-                    record =
-                            evidence.writeAbandonment(
-                                    runId,
-                                    epoch,
-                                    record(runId, actor, stated, salt, digest, verification));
-                    if (record == null)
-                        throw new CdsImportException("ABANDON_EVIDENCE_UNAVAILABLE");
-                    coordinator.check();
-                    ledger.abandon(
-                            runId,
-                            epoch,
-                            actor,
-                            verification,
-                            digest,
-                            record,
-                            (demographicNo, checked) ->
-                                    chartAudit(runId, actor, demographicNo, checked));
-                } catch (RuntimeException refused) {
-                    // Nothing was abandoned: give back administrative admission only. The
-                    // maintenance window and every hold stay exactly as they were.
-                    try {
-                        ledger.release(runId, epoch);
-                    } catch (RuntimeException retained) {
-                        refused.addSuppressed(retained);
-                    }
-                    throw refused;
-                }
-                release(runId, epoch, owner);
-            }
-            long reporting = ledger.claimReporting(runId);
+            // Set once the abandon transaction has committed: from then on the run is abandoned,
+            // so a later failure (the release, the owner's close, report delivery) is recorded and
+            // reported through the run's status, never thrown as if nothing had been done.
+            boolean abandoned = false;
             try {
-                results.generate(runId, reporting, coordinator);
-            } catch (IOException | RuntimeException undelivered) {
-                reportFailure(runId, reporting, undelivered);
+                // Refuse before taking the maintenance window: an owner that closes without an
+                // explicit reopen keeps the clinic closed, so a refused request must never take
+                // one.
+                ledger.requireAbandonable(runId, actor);
+                try (var owner = maintenance.acquire()) {
+                    safety.verify(owner);
+                    long epoch = ledger.claimAbandon(runId, actor, coordinator, owner);
+                    Map<String, String> verification = new LinkedHashMap<>();
+                    String record;
+                    // The published digest is salted: a short reason that names a patient cannot be
+                    // recovered by guessing. The salt is kept beside the reason, in the protected
+                    // record only.
+                    String salt = CdsPaths.hex(salt());
+                    String digest = reasonDigest(salt, stated);
+                    try {
+                        verify(runId, epoch, coordinator, owner, verification);
+                        record =
+                                evidence.writeAbandonment(
+                                        runId,
+                                        epoch,
+                                        record(runId, actor, stated, salt, digest, verification));
+                        if (record == null)
+                            throw new CdsImportException("ABANDON_EVIDENCE_UNAVAILABLE");
+                        coordinator.check();
+                        ledger.abandon(
+                                runId,
+                                epoch,
+                                actor,
+                                verification,
+                                digest,
+                                record,
+                                (demographicNo, checked) ->
+                                        chartAudit(runId, actor, demographicNo, checked));
+                    } catch (RuntimeException refused) {
+                        // Nothing was abandoned: give back administrative admission only. The
+                        // maintenance window and every hold stay exactly as they were.
+                        try {
+                            ledger.release(runId, epoch);
+                        } catch (RuntimeException retained) {
+                            refused.addSuppressed(retained);
+                        }
+                        throw refused;
+                    }
+                    abandoned = true;
+                    release(runId, epoch, owner);
+                }
+            } catch (RuntimeException afterCommit) {
+                if (!abandoned) throw afterCommit;
+                // Maintenance stays closed until a reconciled release; the run's status names
+                // the release state, and the operator reconciles as for any failed close.
+                LOG.error("CDS import abandon: ABANDON_RELEASE_UNCONFIRMED {}",
+                        io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(afterCommit));
+            }
+            try {
+                long reporting = ledger.claimReporting(runId);
+                try {
+                    results.generate(runId, reporting, coordinator);
+                } catch (IOException | RuntimeException undelivered) {
+                    reportFailure(runId, reporting, undelivered);
+                }
+            } catch (RuntimeException unclaimed) {
+                // The abandon is durable; its reports are delivered like any stopped run's.
+                LOG.error("CDS import abandon: ABANDON_REPORT_UNCLAIMED {}",
+                        io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(unclaimed));
             }
         }
         return ledger.status(runId);
@@ -310,8 +333,8 @@ public class CdsImportAbandonService {
                 failure instanceof CdsImportException known
                         ? known.getCode()
                         : "IMPORT_REPORT_DELIVERY_FAILED";
-        String detail = evidence.write(runId, epoch, failure);
         try {
+            String detail = evidence.write(runId, epoch, failure);
             ledger.reportingFailureDiagnostic(runId, epoch, code, detail);
         } catch (RuntimeException unavailable) {
             // The abandon itself is durable; report delivery is retried like any stopped run's.

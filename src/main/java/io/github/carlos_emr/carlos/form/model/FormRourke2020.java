@@ -1344,15 +1344,15 @@ public class FormRourke2020 extends AbstractModel<Integer> implements Serializab
 
         Properties props = new Properties();
         setFormProperty(props, "provider_no", getProviderNo());
-        setFormProperty(props, "demographic_no", String.valueOf(getDemographicNo()));
+        setFormProperty(props, "demographic_no", getDemographicNo());
         setFormProperty(props, "p3_immunization", getP3Immunization());
         setFormProperty(props, "p4_immunization", getP4Immunization());
         setFormProperty(props, "c_male", getCMale());
         setFormProperty(props, "c_female", getCFemale());
         setFormProperty(props, "formCreated", frmRecordHelp.parseDateFieldOrNull(getFormCreated()));
         setFormProperty(props, "formEdited", getFormEdited() == null ? "" : new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(getFormEdited()));
-        setFormProperty(props, "c_APGAR1min", String.valueOf(getC_APGAR1min()));
-        setFormProperty(props, "c_APGAR5min", String.valueOf(getC_APGAR5min()));
+        setFormProperty(props, "c_APGAR1min", getC_APGAR1min());
+        setFormProperty(props, "c_APGAR5min", getC_APGAR5min());
         if (getC_birthDate() != null) {
             setFormProperty(props, "c_birthDate", frmRecordHelp.parseDateFieldOrNull(getC_birthDate()));
         }

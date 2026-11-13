@@ -102,7 +102,10 @@ An abandon is a one-shot CLI control for a root-delegated operator acting for th
 the run's own operator, or another operator whose delegation (`cds.import.operator.*`) covers the
 run's provider, facility and program. The web page has no abandon button, so an import started
 in the browser is abandoned this way; the run keeps its original operator, and the abandon's
-events and protected record name the operator who abandoned it. It refuses (exit `4`, `CDS_REASON: safeCode=...`) and changes
+events and protected record name the operator who abandoned it. The same operator may also run
+`--status`, `--report` and `--cancel` on that run, so it can cancel the run first (cancelling in
+the browser works as well). `--resume` stays with the operator that started the run: a run started
+in the browser is resumed in the browser. It refuses (exit `4`, `CDS_REASON: safeCode=...`) and changes
 nothing unless the run is stopped after writing (`INCOMPLETE` or `RECONCILIATION_REQUIRED`),
 already cancelled (`ABANDON_CANCEL_REQUIRED` otherwise), and has no pending resume
 (`ABANDON_RESUME_PENDING`) or review (`ABANDON_REVIEW_PENDING`). An operator without such a

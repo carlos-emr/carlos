@@ -58,6 +58,7 @@ class CdsImportServiceAbandonAuthorizationUnitTest {
     private final CdsImportJobService jobs = mock(CdsImportJobService.class);
     private final CdsImportAccessService access = mock(CdsImportAccessService.class);
     private final CdsImportCommand command = mock(CdsImportCommand.class);
+    private final CdsImportReviewService reviews = mock(CdsImportReviewService.class);
     private CdsImportService service;
 
     @BeforeEach
@@ -66,6 +67,10 @@ class CdsImportServiceAbandonAuthorizationUnitTest {
         var context = mock(CdsImportJobService.ReadContext.class);
         var document = mock(CdsImportJobDocumentDto.class);
         when(jobs.binding(RUN)).thenReturn(binding);
+        var started = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(started.operator()).thenReturn("web-7");
+        when(started.providerNo()).thenReturn("999998");
+        when(binding.job()).thenReturn(started);
         when(jobs.loadContext(binding)).thenReturn(context);
         when(context.document()).thenReturn(document);
         when(document.actor()).thenReturn(STARTED_IN_BROWSER);
@@ -79,7 +84,7 @@ class CdsImportServiceAbandonAuthorizationUnitTest {
                         access,
                         mock(CdsImportConfigurationService.class),
                         mock(CdsImportCleanupService.class),
-                        mock(CdsImportReviewService.class),
+                        reviews,
                         mock(CdsImportFailureEvidenceService.class),
                         mock(CdsImportObservationService.class));
     }
@@ -95,6 +100,51 @@ class CdsImportServiceAbandonAuthorizationUnitTest {
         verify(ledger)
                 .observeAbandon(
                         RUN, "unix:operator", "999998", 0, "5613b36a-4909-48bd-86f1-bd07b31c11f2");
+    }
+
+    @Test
+    void shouldLetARootDelegatedOperatorCancelAndReadABrowserRun_forTheRunsOwnScope()
+            throws Exception {
+        var delegated = new CdsImportActorDto("unix:operator", "999998", null, null, 1, 2);
+        var job = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(ledger.status(RUN)).thenReturn(job);
+
+        service.observe(delegated, RUN, "cancel", 0, "5613b36a-4909-48bd-86f1-bd07b31c11f2");
+        service.cancel(delegated, RUN);
+
+        // The documented cancel-then-abandon path works from the command line; the run is never
+        // stopped as revoked on behalf of an operator that did not start it.
+        verify(ledger)
+                .observeDelegated(
+                        RUN, "unix:operator", "999998", "cancel", 0,
+                        "5613b36a-4909-48bd-86f1-bd07b31c11f2");
+        verify(reviews).cancel(RUN);
+        verify(ledger).cancel(RUN);
+        org.assertj.core.api.Assertions.assertThat(service.status(delegated, RUN)).isSameAs(job);
+        verify(ledger, never()).authorizationStopped(anyString(), anyLong());
+    }
+
+    @Test
+    void shouldKeepResumeAndImportWithTheRunsOwnOperator_forADelegate() {
+        var delegated = new CdsImportActorDto("unix:operator", "999998", null, null, 1, 2);
+
+        assertThatThrownBy(
+                        () -> service.observe(
+                                delegated, RUN, "resume", 0, "5613b36a-4909-48bd-86f1-bd07b31c11f2"))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> service.resumeAndWait(delegated, RUN))
+                .isInstanceOf(SecurityException.class);
+        verify(ledger, never())
+                .observe(anyString(), anyString(), anyString(), anyString(), anyLong(), anyString());
+    }
+
+    @Test
+    void shouldRefuseAnotherWebAccountsCancel_evenForTheSameProvider() {
+        var otherAccount = new CdsImportActorDto("web-8", "999998", "999998", 8, 1, 2);
+
+        assertThatThrownBy(() -> service.cancel(otherAccount, RUN))
+                .isInstanceOf(SecurityException.class);
+        verify(ledger, never()).cancel(anyString());
     }
 
     @Test

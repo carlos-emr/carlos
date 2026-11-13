@@ -40,6 +40,8 @@ class CdsImportAbandonServiceUnitTest {
     private final CdsImportMaintenanceService maintenance = mock(CdsImportMaintenanceService.class);
     private final CdsImportConfigurationService configuration =
             mock(CdsImportConfigurationService.class);
+    private final CdsImportFailureEvidenceService evidence =
+            mock(CdsImportFailureEvidenceService.class);
     private final CdsImportAbandonService service =
             new CdsImportAbandonService(
                     ledger,
@@ -48,7 +50,7 @@ class CdsImportAbandonServiceUnitTest {
                     mock(CdsImportTargetSafetyService.class),
                     mock(CdsTargetReceiptService.class),
                     mock(CdsImportResultService.class),
-                    mock(CdsImportFailureEvidenceService.class),
+                    evidence,
                     configuration);
 
     @Test
@@ -134,5 +136,31 @@ class CdsImportAbandonServiceUnitTest {
                 .isInstanceOf(SecurityException.class);
         verifyNoInteractions(maintenance);
         verify(coordinator, times(2)).close();
+    }
+
+    @Test
+    void shouldReturnTheAbandonedRun_whenReleaseAndReportingFailAfterTheCommit() {
+        var coordinator = mock(CdsImportCoordinatorService.Owner.class);
+        var owner = mock(CdsImportMaintenanceService.Owner.class);
+        var abandoned = mock(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobDto.class);
+        when(coordinators.acquire()).thenReturn(coordinator);
+        when(maintenance.acquire()).thenReturn(owner);
+        when(ledger.claimAbandon(RUN, ACTOR, coordinator, owner)).thenReturn(4L);
+        when(evidence.writeAbandonment(eq(RUN), eq(4L), any())).thenReturn("abandonment-record");
+        when(owner.releaseVerified()).thenReturn(true);
+        // The abandon transaction commits; then the database blips.
+        doThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic"))
+                .when(ledger)
+                .maintenanceReleaseReconciled(RUN, 4L);
+        when(ledger.claimReporting(RUN))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic"));
+        when(ledger.status(RUN)).thenReturn(abandoned);
+
+        // The run is abandoned, so the operator gets its status (which names the release and
+        // report state), not a failure that a retry would answer with IMPORT_ABANDONED.
+        assertThat(service.abandon(RUN, ACTOR, RUN, "stuck after the 2026.08 upgrade"))
+                .isSameAs(abandoned);
+        verify(ledger).abandon(eq(RUN), eq(4L), eq(ACTOR), any(), anyString(), eq("abandonment-record"), any());
+        verify(ledger, never()).release(RUN, 4L);
     }
 }

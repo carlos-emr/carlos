@@ -276,6 +276,21 @@ class EctDisplayPrevention2ActionUnitTest {
             assertThat(pap.getURL()).contains("id=918");
         }
 
+        @Test
+        void shouldShowOneWarningRow_whenAPreventionReadFails() throws Exception {
+            unavailablePap = true;
+
+            NavBarDisplayDAO panel = render(true, mock(CVCMappingDao.class));
+
+            // Never the rows that happened to be read before the failure, as if they were all.
+            assertThat(panel.numItems()).isEqualTo(1);
+            assertThat(panel.getItem(0).getTitle()).startsWith("⚠ ").endsWith("Preventions");
+            assertThat(panel.getItem(0).getURL()).isEqualTo(LIST_HANDLER);
+        }
+
+        /** Makes the PAP read fail as an unavailable prevention source. */
+        private boolean unavailablePap;
+
         private NavBarDisplayDAO render(boolean canWrite, CVCMappingDao cvcMappingDao) throws Exception {
             Map<String, Object> record = history("917", null);
             record.put("refused", "0");
@@ -324,6 +339,10 @@ class EctDisplayPrevention2ActionUnitTest {
                     data.when(() -> PreventionData.getPreventionKeyValues("918")).thenReturn(new HashMap<>());
                 }
                 data.when(() -> PreventionData.getPreventionKeyValues("917")).thenReturn(new HashMap<>());
+                if (unavailablePap) {
+                    data.when(() -> PreventionData.getPreventionData(loggedInInfo, "PAP", 42))
+                            .thenThrow(new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE"));
+                }
 
                 EctDisplayPrevention2Action action = spy(new EctDisplayPrevention2Action(cvcMappingDao));
                 doReturn("Preventions").when(action).getText(anyString());

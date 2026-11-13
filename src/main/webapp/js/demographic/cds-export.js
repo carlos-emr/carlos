@@ -98,17 +98,22 @@
         if (incoming.epoch < current.epoch || incoming.revision < current.revision) return current;
         return incoming;
     }
+    function running(job) {
+        return !FINAL.has(job.state) && job.workerOwned;
+    }
     function presentation(job) {
         checkedJob(job);
         const label = job.heldBack
             ? text('heldBack', job.blockedPatients)
             : job.state === 'READY' && !job.complete ? text('readyUnavailable') : stateLabel(job.state);
         return {label, complete: job.complete, downloadable: job.complete || job.heldBack, terminal: FINAL.has(job.state),
-            // The ledger counts a patient as processed only when the package is published, so a running
-            // job shows its selection, never a frozen "0 of N".
+            // The ledger counts a patient as processed only when the package is published, so a job a
+            // worker is running shows its selection, never a frozen "0 of N". A job no worker owns
+            // (waiting, or stopped by a restart) is not shown as working.
             count: job.totalPatients === null ? text('countUnknown')
-                : FINAL.has(job.state) ? text('countProgress', job.processedPatients, job.totalPatients)
-                : text('countWorking', job.totalPatients),
+                : running(job) ? text('countWorking', job.totalPatients)
+                : text('countProgress', job.processedPatients, job.totalPatients),
+            running: running(job),
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
@@ -253,8 +258,8 @@
                 ? text('runtimeChanged')
                 : current.safeCode || '';
             const progress = byId('exportProgress');
-            // Indeterminate while running: per-patient progress is not recorded until publication.
-            if (current.totalPatients === null || !shown.terminal) progress.removeAttribute('value');
+            // Indeterminate while a worker runs it: per-patient progress is recorded at publication.
+            if (current.totalPatients === null || shown.running) progress.removeAttribute('value');
             else { progress.max = Math.max(1, current.totalPatients); progress.value = current.processedPatients; }
             controls();
         }

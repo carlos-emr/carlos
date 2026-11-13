@@ -1466,6 +1466,22 @@ public class CdsImportLedgerService {
         observe(runId, operator, providerNo, "abandon", osUid, verifiedNonce, false);
     }
 
+    /**
+     * {@link #observe} of a status, report, cancel or abandon by a root-delegated operator
+     * acting for the run's provider who did not start it; the facade has checked the delegation.
+     */
+    public void observeDelegated(
+            String runId,
+            String operator,
+            String providerNo,
+            String operation,
+            long osUid,
+            String verifiedNonce) {
+        if (!Set.of("status", "report", "cancel", "abandon").contains(operation))
+            throw new IllegalArgumentException("Invalid CLI observation");
+        observe(runId, operator, providerNo, operation, osUid, verifiedNonce, false);
+    }
+
     private void observe(
             String runId,
             String operator,
