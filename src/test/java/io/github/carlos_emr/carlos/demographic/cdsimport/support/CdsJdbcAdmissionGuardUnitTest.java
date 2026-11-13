@@ -53,6 +53,9 @@ class CdsJdbcAdmissionGuardUnitTest {
             assertThat(statement.getConnection()).isSameAs(guarded);
             statement.setLong(1, 27);
             statement.setQueryTimeout(5);
+            // IMP-2: the deadline is kept by the reviewed statement and enforced client side; the
+            // driver's own setting is a no-op once the read is server-prepared.
+            assertThat(statement.getQueryTimeout()).isEqualTo(5);
             assertThatThrownBy(
                             () -> statement.unwrap(org.mariadb.jdbc.ServerPreparedStatement.class))
                     .isInstanceOf(SQLException.class);
@@ -64,7 +67,7 @@ class CdsJdbcAdmissionGuardUnitTest {
                     .isInstanceOf(SQLException.class);
         }
         verify(binary).setLong(1, 27);
-        verify(binary).setQueryTimeout(5);
+        verify(binary, org.mockito.Mockito.never()).setQueryTimeout(org.mockito.ArgumentMatchers.anyInt());
         verify(binary).close();
         assertThatThrownBy(
                         () ->
