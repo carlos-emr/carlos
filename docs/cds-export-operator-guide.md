@@ -33,7 +33,8 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    permission; it preserves an existing customized grant/denial on replay.
    A saved job ID or Unix root identity does not replace clinical authorization.
    Selecting Laboratory Results also requires read access to `_lab_sensitive`,
-   which no role receives by default. Admission checks every selected category's
+   which no role receives by default, and selecting ProblemList requires read
+   access to `_dxresearch` (the Disease Registry). Admission checks every selected category's
    role-level right and refuses a missing one by name (CLI exit 3, browser
    "Export refused" notice naming the right) before anything is accepted.
 4. Configure `cds.export.clinicalZone` explicitly and consistently with the clinic
@@ -206,16 +207,18 @@ year-month or a full date) and, when resolved, the day it was resolved. A curren
 episode is sent with its dates, code, description and notes. Registry entries deleted from the
 registry and episodes saved as Deleted are not exported and do not hold the patient. A code the
 code table does not list, or from a system without a code table here (the SNOMED CT pregnancy
-codes), is still sent with its code and no standard description. Three cases hold the patient:
-an entry or episode with a status CARLOS does not write
-(`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`,
-`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`), a start date or precision the registry
+codes), is still sent with its code and no standard description. A code its table describes on
+more than one row (the bundled BC MSP table continues some long descriptions on a second row) is
+sent with each description, in table order, joined by " / ". An entry saved without a start date
+is sent without an onset date. Two cases hold the patient: an entry or episode with a status
+CARLOS does not write (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`,
+`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`), and a start date or precision the registry
 cannot show (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`,
 `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`,
-`CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW`), and a code its code table describes twice
-in different words (`CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS`; the bundled BC MSP
-table continues some long descriptions on a second row). A diagnosis that is both an Ongoing
-Concern and a registry entry is two records in CARLOS and is sent as two ProblemList items.
+`CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW`). A diagnosis that is both an Ongoing Concern
+and a registry entry is two records in CARLOS and is sent as two ProblemList items. Selecting
+ProblemList requires read access to `_dxresearch` (the Disease Registry), which by default only
+the doctor role has; admission refuses a missing one by name.
 
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name

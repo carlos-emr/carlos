@@ -137,7 +137,7 @@ class CdsExportProblemRegistryMapperUnitTest {
     }
 
     @Test
-    void shouldExportAnActiveEntry_withADottedIcd9CodeAndItsTableDescription() throws Exception {
+    void shouldExportAnActiveEntry_withItsStoredIcd9CodeAndItsTableDescription() throws Exception {
         var entry = registry(5, Map.of());
         var description = reference("icd9", "2500", "icd9", "1301", "2500", "DIABETES MELLITUS");
         var result = mapper.mapRegistry(27, entry, List.of(), List.of(description));
@@ -150,7 +150,7 @@ class CdsExportProblemRegistryMapperUnitTest {
                 .doesNotContainKeys("ResolutionDate", "Notes", "ProblemDescription");
         assertThat(value.code())
                 .isEqualTo(
-                        new CdsExportNativeHistoryDto.Code("icd9", "250.0", "DIABETES MELLITUS"));
+                        new CdsExportNativeHistoryDto.Code("icd9", "2500", "DIABETES MELLITUS"));
         assertThat(value.dates())
                 .containsExactly(
                         Map.entry(
@@ -234,7 +234,7 @@ class CdsExportProblemRegistryMapperUnitTest {
         var result = mapper.mapRegistry(27, registry(5, Map.of("dxresearch_code", "9999")), List.of(), List.of());
         requireAccounted(result);
         assertThat(result.value().code())
-                .isEqualTo(new CdsExportNativeHistoryDto.Code("icd9", "999.9", ""));
+                .isEqualTo(new CdsExportNativeHistoryDto.Code("icd9", "9999", ""));
     }
 
     @Test
@@ -251,18 +251,39 @@ class CdsExportProblemRegistryMapperUnitTest {
     }
 
     @Test
-    void shouldHoldACodeWithConflictingTableDescriptions_forReview() {
+    void shouldSendEveryDistinctTableDescription_inCodeTableRowOrder() throws Exception {
+        // The bundled BC MSP table continues a long description on the next row; the chart lists
+        // the entry once per row, so no row is chosen: both are sent, in row order.
         var entry = registry(5, Map.of("coding_system", "msp", "dxresearch_code", "V03"));
-        assertThatThrownBy(
-                        () ->
-                                mapper.mapRegistry(
-                                        27,
-                                        entry,
-                                        List.of(),
-                                        List.of(
-                                                reference("msp", "V03", "diagnosticcode", "10010", "V03", "NEED FOR VACCINATION"),
-                                                reference("msp", "V03", "diagnosticcode", "10011", "V03", "DISEASES"))))
-                .hasMessage("CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS");
+        var result =
+                mapper.mapRegistry(
+                        27,
+                        entry,
+                        List.of(),
+                        List.of(
+                                reference("msp", "V03", "diagnosticcode", "10011", "V03", "DISEASES"),
+                                reference("msp", "V03", "diagnosticcode", "9", "V03", "SOME BACTERIAL"),
+                                reference("msp", "V03", "diagnosticcode", "10010", "V03", "NEED FOR VACCINATION")));
+        requireAccounted(result);
+        assertThat(result.value().code().description())
+                .isEqualTo("SOME BACTERIAL / NEED FOR VACCINATION / DISEASES");
+        assertThat(result.value().code().value()).isEqualTo("V03");
+        assertThat(metadata(result.value()).path("diseaseRegistry").path("references")).hasSize(3);
+    }
+
+    @Test
+    void shouldSendNoOnset_whenTheStartDateIsTheColumnDefault() throws Exception {
+        var entry = registry(5, Map.of("start_date", "0001-01-01"));
+        var marked = precision(9, 5, "4", "YYYY");
+
+        var result = mapper.mapRegistry(27, entry, List.of(marked), List.of());
+
+        requireAccounted(result);
+        assertThat(result.value().dates()).doesNotContainKey("OnsetDate");
+        assertThat(field(result, entry, "start_date").rule())
+                .isEqualTo("REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED");
+        assertThat(field(result, marked, "format").rule())
+                .isEqualTo("REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED");
     }
 
     @Test
@@ -416,7 +437,7 @@ class CdsExportProblemRegistryMapperUnitTest {
                 .containsEntry("ProblemDiagnosisDescription", "HYPERTENSION NOS")
                 .containsEntry("ProblemDescription", "High blood pressure, home readings");
         assertThat(result.value().code())
-                .isEqualTo(new CdsExportNativeHistoryDto.Code("icd9", "401.9", "HYPERTENSION NOS"));
+                .isEqualTo(new CdsExportNativeHistoryDto.Code("icd9", "4019", "HYPERTENSION NOS"));
     }
 
     @Test
@@ -463,12 +484,12 @@ class CdsExportProblemRegistryMapperUnitTest {
     }
 
     @Test
-    void shouldDotIcd9Codes_asTheLegacyExporterFormattedThem() {
-        assertThat(CdsExportProblemRegistryMapper.icd9("2500")).isEqualTo("250.0");
-        assertThat(CdsExportProblemRegistryMapper.icd9("25000")).isEqualTo("250.00");
-        assertThat(CdsExportProblemRegistryMapper.icd9("V700")).isEqualTo("V70.0");
-        assertThat(CdsExportProblemRegistryMapper.icd9("1234567")).isEqualTo("123.456.7");
-        assertThat(CdsExportProblemRegistryMapper.icd9("250")).isEqualTo("250");
-        assertThat(CdsExportProblemRegistryMapper.icd9("250.0")).isEqualTo("250.0");
+    void shouldSendIcd9Codes_exactlyAsStoredLikeTheCppProblems() throws Exception {
+        for (String stored : List.of("2500", "25000", "V700", "250")) {
+            var entry = registry(5, Map.of("dxresearch_code", stored));
+            var result = mapper.mapRegistry(27, entry, List.of(), List.of());
+            requireAccounted(result);
+            assertThat(result.value().code().value()).isEqualTo(stored);
+        }
     }
 }

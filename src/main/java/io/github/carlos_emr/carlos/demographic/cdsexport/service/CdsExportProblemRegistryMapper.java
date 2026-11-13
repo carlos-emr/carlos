@@ -51,10 +51,13 @@ import java.util.*;
  * saved as {@code Deleted} is accounted, not exported. Any other status of either source holds
  * the patient for review.
  *
- * <p>Both: the stored coding system and code become DiagnosisCode (an ICD-9 code dotted as the
- * legacy exporter's {@code Util.formatIcd9} did), and the public code-table description becomes
- * StandardCodeDescription and ProblemDiagnosisDescription. A code whose table has no row for it,
- * or whose system has no reviewed table, is still exported, with an empty standard description. A
+ * <p>Both: the stored coding system and code become DiagnosisCode exactly as stored (as the CPP
+ * problems send theirs), and the public code-table description becomes
+ * StandardCodeDescription and ProblemDiagnosisDescription (several differing rows of one code, as
+ * the BC MSP table's continued descriptions, are joined by " / " in table row order). A code whose
+ * table has no row for it, or whose system has no reviewed table, is still exported, with an empty
+ * standard description. A start date left at the column default {@code 0001-01-01} gives no
+ * OnsetDate. A
  * code, system or text a standard element cannot carry exactly is left out of that element only.
  * Every captured value, apart from the row identity and patient owner, also travels in the
  * {@code CARLOS.NativeHistory.v1} residual as JSON with SQL NULL and empty text distinct and every
@@ -157,7 +160,13 @@ public final class CdsExportProblemRegistryMapper {
         if (onset != null) {
             when.put("OnsetDate", onset);
             source.set("start_date", Outcome.MAPPED, ONSET, "EXACT_NATIVE_REGISTRY_START_DATE");
-        } else carried(source, "start_date", "EXACT_NATIVE_REGISTRY_START_DATE");
+        } else
+            carried(
+                    source,
+                    "start_date",
+                    NO_ONSET_RECORDED.equals(source.raw("start_date"))
+                            ? "REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED"
+                            : "EXACT_NATIVE_REGISTRY_START_DATE");
         String updated = source.raw("update_date");
         LocalDate updatedDay = clockDay(updated);
         if ("C".equals(status)) {
@@ -298,6 +307,14 @@ public final class CdsExportProblemRegistryMapper {
                 review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW");
             return null;
         }
+        // 0001-01-01 is the column default, left when no start date was entered: there is no
+        // onset to send (the stored value and any precision row stay in the residual).
+        if (NO_ONSET_RECORDED.equals(stored)) {
+            if (newest != null)
+                for (String column : List.of("field_name", "format"))
+                    carried(newest, column, "REGISTRY_START_DATE_COLUMN_DEFAULT_NO_ONSET_RECORDED");
+            return null;
+        }
         var day = calendarDay(stored);
         if (day == null) review("CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW");
         if (marker == null || marker.isEmpty()) return day(day);
@@ -327,7 +344,10 @@ public final class CdsExportProblemRegistryMapper {
             throws IOException {
         String system = source.raw(systemColumn), code = source.raw(codeColumn);
         var descriptions = new TreeSet<String>();
-        var exact = new ArrayList<String>();
+        var rowKeys = new HashSet<String>();
+        // Each description with its code-table row key, so continued text is read in row order
+        // (numeric row ids numerically; ICHPPC rows are keyed by their own code).
+        var exact = new TreeMap<String, String>(ROW_ORDER);
         for (var reference : sorted(references)) {
             shape(
                     reference,
@@ -347,24 +367,25 @@ public final class CdsExportProblemRegistryMapper {
                 fields.set(column, Outcome.MAPPED, RESIDUAL, "EXACT_PUBLIC_CODE_TABLE_ROW");
             String description = reference.fields().get("description");
             String stripped = description == null ? "" : description.strip();
-            if (!stripped.isEmpty() && CdsExportNativeFieldAssessments.legal(stripped, 65_536)) {
-                descriptions.add(token(stripped));
-                exact.add(stripped);
-            }
+            String id = reference.fields().get("reference_id");
+            if (id == null || id.isEmpty() || !rowKeys.add(id)) scope();
+            if (!stripped.isEmpty() && CdsExportNativeFieldAssessments.legal(stripped, 65_536)
+                    && descriptions.add(token(stripped)))
+                exact.put(id, stripped);
             fields.set(
                     "description",
                     Outcome.MAPPED,
                     DESCRIPTION,
                     "EXACT_PUBLIC_CODE_TABLE_DESCRIPTION");
         }
-        // A code table holding one code twice with different descriptions has no single answer;
-        // the chart lists the entry once per row. Never pick an arbitrary first row.
-        if (descriptions.size() > 1)
-            review("CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS");
-        String standard = descriptions.isEmpty() ? "" : descriptions.first();
-        if (!token(standard).equals(standard) || !CdsExportNativeFieldAssessments.legal(standard, TEXT_LIMIT))
-            standard = "";
-        String description = exact.isEmpty() ? null : exact.getFirst();
+        // A code table can hold one code on several rows with different text: the bundled BC MSP
+        // table continues long descriptions on the next row, and the chart lists the entry once
+        // per row. No row is chosen over another: every distinct description is sent, in
+        // code-table row order, joined by " / "; each row stays whole in the residual.
+        String joined = exact.isEmpty() ? null : String.join(" / ", exact.values());
+        String standard = joined == null ? "" : token(joined);
+        if (!CdsExportNativeFieldAssessments.legal(standard, TEXT_LIMIT)) standard = "";
+        String description = joined;
         if (description != null && !CdsExportNativeFieldAssessments.legal(description, TEXT_LIMIT))
             description = null;
         CdsExportNativeHistoryDto.Code result = null;
@@ -373,35 +394,22 @@ public final class CdsExportProblemRegistryMapper {
                 && system != null
                 && !system.isBlank()
                 && CdsExportNativeFieldAssessments.legal(system, SYSTEM_LIMIT)) {
-            String value =
-                    CdsExportDiagnosisCodeReadSupport.Reference.of(system)
-                                    == CdsExportDiagnosisCodeReadSupport.Reference.ICD9
-                            ? icd9(code)
-                            : code;
+            // The code exactly as stored, as the CPP problems send it: one ProblemList never
+            // mixes two spellings of a code (the legacy exporter's dotting also split long codes
+            // at every third character).
+            String value = code;
             if (token(value).equals(value)
                     && CdsExportNativeFieldAssessments.legal(value, CODE_LIMIT))
                 result = new CdsExportNativeHistoryDto.Code(system, value, standard);
         }
         if (result != null) {
             source.set(systemColumn, Outcome.MAPPED, DIAGNOSIS, "EXACT_NATIVE_CODING_SYSTEM");
-            source.set(codeColumn, Outcome.MAPPED, DIAGNOSIS, "EXACT_NATIVE_CODE_RAW_IN_RESIDUAL");
+            source.set(codeColumn, Outcome.MAPPED, DIAGNOSIS, "EXACT_NATIVE_CODE");
         } else {
             carried(source, systemColumn, "CODE_NOT_A_STANDARD_CODE_CARRIED_IN_RESIDUAL");
             carried(source, codeColumn, "CODE_NOT_A_STANDARD_CODE_CARRIED_IN_RESIDUAL");
         }
         return new Coding(result, description);
-    }
-
-    /**
-     * The legacy exporter's {@code Util.formatIcd9}: a dot after every three characters. Only a
-     * stored code of four or more letters and digits is dotted; any other form stays as stored.
-     */
-    static String icd9(String code) {
-        if (!code.matches("[0-9A-Za-z]{4,}")) return code;
-        var result = new StringBuilder(code.substring(0, 3));
-        for (int i = 3; i < code.length(); i += 3)
-            result.append('.').append(code, i, Math.min(code.length(), i + 3));
-        return result.toString();
     }
 
     private static Result result(
@@ -446,6 +454,19 @@ public final class CdsExportProblemRegistryMapper {
             result.add(carriedValues(reference, Set.of("coding_system", "code")));
         return result;
     }
+
+    /** The dxresearch.start_date column default: no start date was entered. */
+    static final String NO_ONSET_RECORDED = "0001-01-01";
+
+    /** Code-table row keys: all-digit ids in numeric order before any other key, then text. */
+    private static final Comparator<String> ROW_ORDER =
+            Comparator.<String, Boolean>comparing(key -> !key.matches("[0-9]{1,64}"))
+                    .thenComparing(
+                            key ->
+                                    key.matches("[0-9]{1,64}")
+                                            ? new java.math.BigInteger(key)
+                                            : java.math.BigInteger.ZERO)
+                    .thenComparing(Comparator.naturalOrder());
 
     private static void carried(
             CdsExportNativeFieldAssessments fields, String column, String rule) {

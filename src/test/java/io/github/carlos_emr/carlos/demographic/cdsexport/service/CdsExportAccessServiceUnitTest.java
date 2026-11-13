@@ -722,6 +722,34 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseProblemListExportAtAdmission_whenTheRolesLackDiseaseRegistryRead() {
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_dxresearch"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, command("100")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_dxresearch)");
+        // A job without ProblemList does not need the Disease Registry right.
+        assertThat(access.webActor(session, demographicCommand("100")).providerNo())
+                .isEqualTo("100");
+    }
+
+    @Test
+    void shouldRecheckDiseaseRegistryRead_forEachProblemListPatient() {
+        var actor = access.webActor(session, command("100"));
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_dxresearch"), eq("r"), eq("27")))
+                .thenReturn(false);
+        assertThatThrownBy(
+                        () ->
+                                access.requireCategory(
+                                        actor, command("100"), 27, CdsCategory.PROBLEM_LIST, false))
+                .isInstanceOf(SecurityException.class);
+        assertThat(
+                        access.requireCategory(
+                                actor, command("100"), 27, CdsCategory.PAST_HEALTH, false))
+                .isNotNull();
+    }
+
+    @Test
     void shouldRefuseFacilityOrProviderScopeSubstitution_forAccessServiceContract() {
         var actor = access.webActor(session, command("100"));
         assertThatThrownBy(() -> access.requirePatient(actor, command("200"), 27))

@@ -478,7 +478,17 @@ public class CdsExportAccessService {
         if ((sensitive || laboratoryScope)
                 && !security.hasPrivilegeReadOnly(context, "_lab_sensitive", "r", target))
             refuse(patient, "_lab_sensitive");
+        // ProblemList carries the Disease Registry, whose own screen needs _dxresearch read. It
+        // is required whenever ProblemList is selected, by name at admission and again for each
+        // patient, whether or not the chart holds a registry entry.
+        if (command.categories().contains(CdsCategory.PROBLEM_LIST)
+                && (only == null || only == CdsCategory.PROBLEM_LIST)
+                && !security.hasPrivilegeReadOnly(context, DISEASE_REGISTRY_READ, "r", target))
+            refuse(patient, DISEASE_REGISTRY_READ);
     }
+
+    /** The Disease Registry's own read object, required with ProblemList. */
+    static final String DISEASE_REGISTRY_READ = "_dxresearch";
 
     private static void refuse(Integer patient, String object) {
         if (patient == null) throw new SecurityException("missing required sec object (" + object + ")");

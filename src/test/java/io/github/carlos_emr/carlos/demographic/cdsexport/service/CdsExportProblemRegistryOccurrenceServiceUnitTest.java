@@ -344,7 +344,7 @@ class CdsExportProblemRegistryOccurrenceServiceUnitTest {
         var registry = (Element) problems.item(1);
         assertThat(text(registry, "cds", "ProblemDiagnosisDescription"))
                 .isEqualTo("DIABETES MELLITUS");
-        assertThat(text(registry, "cds_dt", "StandardCode")).isEqualTo("250.0");
+        assertThat(text(registry, "cds_dt", "StandardCode")).isEqualTo("2500");
         assertThat(text(registry, "cds_dt", "YearMonth")).isEqualTo("2024-03");
         assertThat(text(registry, "cds", "ProblemStatus")).isEqualTo("Active");
         var resolved = (Element) problems.item(2);

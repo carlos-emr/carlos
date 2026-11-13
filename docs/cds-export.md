@@ -169,9 +169,10 @@ in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECI
   status holds the patient (`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`). The episode
   description is ProblemDiagnosisDescription when the code table has no description for the
   code, otherwise ProblemDescription beside the code-table description; the notes are Notes.
-- DiagnosisCode is the stored coding system and code; an ICD-9 code of four or more letters and
-  digits is dotted as the legacy exporter's `Util.formatIcd9` did (`2500` becomes `250.0`), and
-  the stored code stays in the residual. StandardCodeDescription (token-normalized) and
+- DiagnosisCode is the stored coding system and code exactly as stored, as the CPP problems send
+  theirs, so one ProblemList never spells a code two ways (the legacy exporter dotted ICD-9 codes
+  with `Util.formatIcd9`, which also split long codes at every third character).
+  StandardCodeDescription (token-normalized) and
   ProblemDiagnosisDescription come from the public code table.
 - Code-table descriptions are read in the same patient snapshot through
   `CdsExportDiagnosisCodeReadSupport`. Its fixed allowlist is the legacy exporter's
@@ -182,9 +183,12 @@ in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECI
   them, so the four code tables keep their `REFERENCE` ruling. A code the table does not list,
   or a system without a reviewed table (`SnomedCore`, whose licensed table is outside the
   physical contract, so pregnancy codes have none), is still exported with an empty
-  StandardCodeDescription. A code the table holds twice with different descriptions holds the
-  patient (`CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS`); the bundled BC `diagnosticcode`
-  table splits 90 long MSP descriptions over continuation rows this way.
+  StandardCodeDescription. A code the table holds on several rows with different descriptions
+  (the bundled BC `diagnosticcode` table splits 90 long MSP descriptions over continuation rows)
+  is sent with every distinct description, in code-table row order, joined by " / ": the chart
+  lists the entry once per row, so no row is chosen over another, and each row stays whole in the
+  residual. A `start_date` still at its column default `0001-01-01` (no start date entered) gives
+  no OnsetDate; the stored value and any precision row stay in the residual.
 - Nothing is clipped or dropped. A code a standard element cannot carry exactly (more than 20
   characters, or irregular spacing), a blank coding system, a description over 250 characters or
   notes over 65,536 characters leave that element out and travel only in the residual. The
