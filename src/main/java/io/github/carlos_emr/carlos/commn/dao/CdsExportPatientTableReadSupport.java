@@ -1311,10 +1311,12 @@ public final class CdsExportPatientTableReadSupport {
             if (this == APPOINTMENT_STATUSES) {
                 // Signing or verifying appends S or V to a status (H becomes HS); the chart shows
                 // the first letter's status (ApptStatusData), so that row is the definition.
+                // CAST(... AS BINARY) is MariaDB's BINARY operator spelled so the CDS maintenance
+                // guard can parse it; a node that runs imports refused the shorthand (census D1).
                 String definition =
-                        "d.`status`=case when char_length(a.`status`)=2 and binary"
-                                + " right(a.`status`,1) in ('S','V') then left(a.`status`,1)"
-                                + " else a.`status` end";
+                        "d.`status`=case when char_length(a.`status`)=2 and"
+                                + " CAST(right(a.`status`,1) AS BINARY) in ('S','V') then"
+                                + " left(a.`status`,1) else a.`status` end";
                 return "(exists (select 1 from `appointment` a where a.`demographic_no`=:patient"
                         + " and "
                         + definition
