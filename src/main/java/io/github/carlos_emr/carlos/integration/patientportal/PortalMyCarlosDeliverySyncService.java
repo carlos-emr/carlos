@@ -9,11 +9,7 @@ import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDevic
 import java.time.Clock;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
-import io.github.carlos_emr.carlos.log.LogAction;
-import io.github.carlos_emr.carlos.log.LogConst;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Objects;
@@ -47,7 +43,7 @@ final class PortalMyCarlosDeliverySyncService {
      */
     static final long UNKNOWN_SETTLED_SECONDS = 900;
 
-    /** Audit of an event passed over; written only after the collection that passed it commits. */
+    /** Strict skip audit in the collection transaction; failure prevents cursor advancement. */
     @FunctionalInterface
     interface SkipAudit { void skipped(String clinic, long sequence, String kind); }
 
@@ -57,8 +53,7 @@ final class PortalMyCarlosDeliverySyncService {
             PortalMyCarlosPatientBindingDao bindings, PortalMyCarlosDeliveryClient client,
             PortalMyCarlosDeliveryCipher cipher, Supplier<Current> configuration, Clock clock, PropertyDao properties) {
         this(transactions, events, outbox, sender, devices, bindings, client, cipher, configuration, clock, properties,
-                (clinic, sequence, kind) -> LogAction.addLog("-1", LogConst.UPDATE, "mycarlosDeliveryEventSkipped",
-                        Long.toString(sequence), null, null, "kind=" + kind + " reason=unknown_recipient"));
+                (clinic, sequence, kind) -> events.auditSkipped(clinic, sequence, kind, clock.instant().getEpochSecond()));
     }
 
     PortalMyCarlosDeliverySyncService(PortalMyCarlosDeviceApprovalTransactions transactions,
@@ -83,8 +78,7 @@ final class PortalMyCarlosDeliverySyncService {
 
     enum Result { BUSY, COLLECTED, RECOVERED_ACK, QUARANTINED }
     private record Writer(String clinic, String token, long through, long acknowledged, String configHash) {}
-    private record Collected(long through, boolean quarantined, List<Skip> skipped) {}
-    private record Skip(long sequence, String kind) {}
+    private record Collected(long through, boolean quarantined) {}
     private record Prepared(Runnable apply, boolean proofVerified, boolean skipped) {
         Prepared(Runnable apply, boolean proofVerified) { this(apply, proofVerified, false); }
     }
@@ -135,7 +129,6 @@ final class PortalMyCarlosDeliverySyncService {
             long pageId = keepPage(writer, exact, null);
             long through = writer.through();
             String failure = null;
-            List<Skip> skipped = new ArrayList<>();
             for (var event : page.events()) {
                 if (through == Long.MAX_VALUE || event.sequence() != through + 1) { failure = "event_gap";
                     break; }
@@ -146,14 +139,13 @@ final class PortalMyCarlosDeliverySyncService {
                 prepared.apply().run();
                 // A passed-over event keeps its place in the sequence as an unverified row.
                 events.event(writer.clinic(), event, pageId, prepared.proofVerified());
-                if (prepared.skipped()) skipped.add(new Skip(event.sequence(), event.kind()));
+                if (prepared.skipped()) audit.skipped(writer.clinic(), event.sequence(), event.kind());
                 through = event.sequence();
             }
             if (failure != null) events.quarantinePage(pageId, failure);
             events.commitThrough(writer.clinic(), writer.token(), writer.through(), through);
-            return new Collected(through, failure != null, List.copyOf(skipped));
+            return new Collected(through, failure != null);
         });
-        collected.skipped().forEach(skip -> audit.skipped(writer.clinic(), skip.sequence(), skip.kind()));
         // Only the durable prefix may leave CARLOS as an acknowledgment. A quarantined suffix
         // keeps the feed visibly paused until reconciled and can never become Picked up by status.
         if (collected.through() > writer.through() || !collected.quarantined()) acknowledge(writer, collected.through());

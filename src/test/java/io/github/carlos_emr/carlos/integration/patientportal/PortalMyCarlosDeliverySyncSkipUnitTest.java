@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.integration.patientportal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -91,6 +92,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
     private final PropertyDao properties = mock(PropertyDao.class);
 
     // The checkpoint row and what the collector wrote, as the DAO would hold them.
+    private boolean transactionActive;
     private long committed;
     private long acknowledged;
     private String writerId;
@@ -104,7 +106,11 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
 
     @BeforeEach
     void wireFakeCollectorState() throws Exception {
-        when(transactions.withApprovalState(any())).thenAnswer(call -> ((Supplier<?>) call.getArgument(0)).get());
+        when(transactions.withApprovalState(any())).thenAnswer(call -> {
+            transactionActive = true;
+            try { return ((Supplier<?>) call.getArgument(0)).get(); }
+            finally { transactionActive = false; }
+        });
         when(events.checkpoint(CLINIC)).thenAnswer(call ->
                 new PortalMyCarlosDeliveryEventDao.Checkpoint(committed, acknowledged, writerId, writerUntil));
         doAnswer(call -> { writerId = call.getArgument(1); writerUntil = call.getArgument(2); return null; })
@@ -139,6 +145,14 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
     }
 
     private PortalMyCarlosDeliverySyncService collector() {
+        return collector((clinic, sequence, kind) -> {
+            assertTrue(transactionActive, "skip audit must share the collection transaction");
+            assertTrue(sequence > committed, "skip audit must precede checkpoint advancement");
+            audited.add(clinic + ":" + sequence + ":" + kind);
+        });
+    }
+
+    private PortalMyCarlosDeliverySyncService collector(PortalMyCarlosDeliverySyncService.SkipAudit audit) {
         var settings = PatientPortalSettings.fromProperties(Map.of(PatientPortalSettings.BASE_URL_KEY, "https://portal.example.test",
                 PatientPortalSettings.CLINIC_ID_KEY, CLINIC, PatientPortalSettings.SERVICE_TOKEN_KEY, "FAKE-service-token-only-00000001",
                 PatientPortalSettings.STAFF_ASSERTION_KEY, PortalTestKeys.PRIVATE_KEY, PatientPortalSettings.STAFF_ASSERTION_KEY_ID, "FAKE-staff",
@@ -146,7 +160,7 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         Current current = Current.fromValidated(settings, "https://portal.example.test", true, true);
         return new PortalMyCarlosDeliverySyncService(transactions, events, outbox, sender, devices, bindings, client, cipher,
                 () -> current, Clock.fixed(Instant.ofEpochSecond(NOW), ZoneOffset.UTC), properties,
-                (clinic, sequence, kind) -> audited.add(clinic + ":" + sequence + ":" + kind));
+                audit);
     }
 
     private static ObjectNode envelope(long sequence, String kind, long occurredAt, String recipient) {
@@ -205,6 +219,24 @@ class PortalMyCarlosDeliverySyncSkipUnitTest {
         // The removal is applied all the same: its key stays fenced if it is ever accepted.
         verify(outbox).fenceDevice(CLINIC, KID);
         verify(outbox, never()).terminal(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("should not advance or acknowledge when the required skip audit fails")
+    void shouldNotAdvanceOrAcknowledge_whenSkipAuditFails() throws Exception {
+        portalSends(deviceRemoved(1, NOW - 3600, UNKNOWN_RECIPIENT));
+        var failure = new IllegalStateException("FAKE required audit failure");
+        var service = collector((clinic, sequence, kind) -> {
+            assertTrue(transactionActive);
+            throw failure;
+        });
+        assertEquals(failure, assertThrows(IllegalStateException.class, service::poll));
+        assertEquals(0, committed);
+        assertTrue(acks.isEmpty());
+        verify(events, never()).commitThrough(anyString(), anyString(), anyLong(), anyLong());
+        verify(client, never()).acknowledge(anyLong());
+        // This mock verifies the commit/ack ordering only. Physical rollback of
+        // event/fence/audit/page rows requires the separate MariaDB regression.
     }
 
     @Test
