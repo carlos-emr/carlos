@@ -198,6 +198,38 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
+    void shouldExportTheDinOfAnAllergyChosenFromTheDrugSearch_andClassifyItsLookupMetadata()
+            throws Exception {
+        // RxAddAllergy2Action for a brand (category 13) search result.
+        var fields = baseline();
+        fields.putAll(
+                Map.of(
+                        "TYPECODE", "13",
+                        "drugref_id", "45678",
+                        "regional_identifier", "02247701",
+                        "atc", "J01CA04",
+                        "nonDrug", "0"));
+        var brand = mapper.map(27, allergy(fields), List.of());
+        assertThat(brand.nativeRowRepresentable()).isTrue();
+        assertThat(brand.value().codeType()).isEqualTo("DIN");
+        assertThat(brand.value().codeValue()).isEqualTo("02247701");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .ALLERGIES_AND_ADVERSE_REACTIONS,
+                                body -> new CdsExportAllergyXmlWriter().write(brand.value(), body)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml).contains("DIN", "02247701").doesNotContain("CARLOS.Allergy.Atc.v1");
+        // An ingredient (14) search result is named by its description; its id is not a code.
+        var ingredient = baseline();
+        ingredient.putAll(Map.of("TYPECODE", "14", "drugref_id", "987"));
+        var mapped = mapper.map(27, allergy(ingredient), List.of());
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().codeValue()).isNull();
+    }
+
+    @Test
     void shouldDistinguishUnknownDrugPropertyFromDrugAndNonDrug_withoutTruthyOrEmptyCoercion()
             throws Exception {
         var fields = baseline();
@@ -248,13 +280,11 @@ class CdsExportAllergyMapperUnitTest {
                         "000027"));
         var result = mapper.map(27, allergy(fields), List.of());
         assertThat(result.nativeRowRepresentable()).isFalse();
-        for (String column :
-                List.of(
-                        "TYPECODE",
-                        "drugref_id",
-                        "regional_identifier",
-                        "HIC_SEQNO",
-                        "providerNo")) {
+        // The brand search result's DIN, category and search id are now exported or classified
+        // (review F6); a legacy First Databank code and an author the UI never writes still block.
+        assertThat(result.fields().get(key("regional_identifier")).outcome())
+                .isEqualTo(Outcome.MAPPED);
+        for (String column : List.of("HIC_SEQNO", "providerNo")) {
             assertThat(result.fields().get(key(column)).outcome())
                     .isEqualTo(Outcome.REQUIRES_REVIEW);
         }

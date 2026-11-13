@@ -72,6 +72,11 @@ public final class CdsExportAllergyMapper {
             "Inactive in the sending EMR: this allergy record was archived (removed, replaced by"
                     + " an edit, or marked inactive) and is not a current allergy.";
 
+    /** DrugRef search categories: 13 is a brand product, the others generic/ingredient/class results. */
+    private static final String BRAND_TYPE = "13";
+
+    private static final Set<String> SEARCH_TYPES = Set.of("10", "11", "12", "14");
+
     /** Partial native values stay package-private; callers must retain every unresolved field disposition. */
     record Candidate(
             CdsExportAllergyDto value,
@@ -157,15 +162,37 @@ public final class CdsExportAllergyMapper {
                     "NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
         }
         String atcPath = "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ATC;
-        String type = null, code = source.token("atc", atcPath, 7);
-        if (code != null) {
-            if (CdsNativeExtensionContract.validAllergyAtc(code)) type = "ATC";
-            else source.review("atc", atcPath, "SINGLE_ATC_CODE_REQUIRES_REVIEW");
+        String typeCode = source.raw("TYPECODE");
+        String din = source.raw("regional_identifier");
+        String type = null, code = null;
+        if (BRAND_TYPE.equals(typeCode) && din != null && din.matches("[0-9]{8}")) {
+            // A brand chosen from the drug search: RxAddAllergy2Action stores the DIN DrugRef
+            // resolved for that product, and the ATC code of the same product. The DIN is the
+            // standard allergy Code, as the legacy exporter wrote it; the ATC is derived from
+            // that product, not an independent coding (the importer refuses two codings).
+            type = "DIN";
+            code = source.token("regional_identifier", "Code/CodeValue", 20);
+            source.set("TYPECODE", Outcome.MAPPED, "Code/CodeType", "DRUGREF_RESOLVED_BRAND_DIN");
+            if (source.raw("atc") != null)
+                source.operational("atc", "ATC_DERIVED_FROM_THE_EXPORTED_DIN_PRODUCT");
+        } else {
+            code = source.token("atc", atcPath, 7);
+            if (code != null) {
+                if (CdsNativeExtensionContract.validAllergyAtc(code)) type = "ATC";
+                else source.review("atc", atcPath, "SINGLE_ATC_CODE_REQUIRES_REVIEW");
+            }
+            if ("0".equals(typeCode))
+                source.operational("TYPECODE", "NATIVE_CATALOGUE_TYPE_UNSPECIFIED");
+            else if ("8".equals(typeCode) && type != null)
+                source.set("TYPECODE", Outcome.MAPPED, atcPath, "EXPLICIT_ATC_CLASS_TYPE");
+            else if (SEARCH_TYPES.contains(typeCode))
+                // Generic, ingredient and class search results name the allergen by their
+                // description; the search category is catalogue lookup metadata, not a code.
+                source.operational("TYPECODE", "DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE");
         }
-        if ("0".equals(source.raw("TYPECODE")))
-            source.operational("TYPECODE", "NATIVE_CATALOGUE_TYPE_UNSPECIFIED");
-        else if ("8".equals(source.raw("TYPECODE")) && type != null)
-            source.set("TYPECODE", Outcome.MAPPED, atcPath, "EXPLICIT_ATC_CLASS_TYPE");
+        // The DrugRef search id is a catalogue lookup key, never a DIN (RxAddAllergy2Action).
+        if (source.raw("drugref_id") != null)
+            source.operational("drugref_id", "DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE");
         String age =
                 source.token(
                         "age_of_onset",
