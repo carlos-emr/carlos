@@ -36,6 +36,7 @@
   "CdsExportScreeningOccurrenceServiceUnitTest",
   "CdsImportAbandonMariaDbIntegrationTest",
   "CdsImportAbandonServiceUnitTest",
+  "CdsImportServiceAbandonAuthorizationUnitTest",
   "CdsNativeBaselineFieldPageMariaDbIntegrationTest",
   "CdsSourceFieldPresenceIntegrationTest",
   "CdsSourceFieldPresenceResolverUnitTest",
