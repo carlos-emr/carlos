@@ -1329,520 +1329,529 @@ public class FormRourke2020 extends AbstractModel<Integer> implements Serializab
         // default
     }
 
+    /**
+     * Writes one print property. A NULL column (a record saved before a field existed, or written
+     * outside the form) prints as a blank field instead of failing the whole Print, as
+     * {@link FormRourke2017} does.
+     */
+    private static void setFormProperty(Properties properties, String name, Object value) {
+        properties.setProperty(name, value == null ? "" : value.toString());
+    }
+
     public Properties toProperties() {
         FrmRecordHelp frmRecordHelp = new FrmRecordHelp();
         frmRecordHelp.setDateFormat("dd/MM/yyyy");
 
         Properties props = new Properties();
-        props.setProperty("provider_no", getProviderNo());
-        props.setProperty("demographic_no", String.valueOf(getDemographicNo()));
-        props.setProperty("p3_immunization", getP3Immunization());
-        props.setProperty("p4_immunization", getP4Immunization());
-        props.setProperty("c_male", getCMale());
-        props.setProperty("c_female", getCFemale());
-        props.setProperty("formCreated", frmRecordHelp.parseDateFieldOrNull(getFormCreated()));
-        props.setProperty("formEdited", new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(getFormEdited()));
-        props.setProperty("c_APGAR1min", String.valueOf(getC_APGAR1min()));
-        props.setProperty("c_APGAR5min", String.valueOf(getC_APGAR5min()));
+        setFormProperty(props, "provider_no", getProviderNo());
+        setFormProperty(props, "demographic_no", String.valueOf(getDemographicNo()));
+        setFormProperty(props, "p3_immunization", getP3Immunization());
+        setFormProperty(props, "p4_immunization", getP4Immunization());
+        setFormProperty(props, "c_male", getCMale());
+        setFormProperty(props, "c_female", getCFemale());
+        setFormProperty(props, "formCreated", frmRecordHelp.parseDateFieldOrNull(getFormCreated()));
+        setFormProperty(props, "formEdited", getFormEdited() == null ? "" : new SimpleDateFormat("yyyy/MM/dd HH:mm:ss").format(getFormEdited()));
+        setFormProperty(props, "c_APGAR1min", String.valueOf(getC_APGAR1min()));
+        setFormProperty(props, "c_APGAR5min", String.valueOf(getC_APGAR5min()));
         if (getC_birthDate() != null) {
-            props.setProperty("c_birthDate", frmRecordHelp.parseDateFieldOrNull(getC_birthDate()));
+            setFormProperty(props, "c_birthDate", frmRecordHelp.parseDateFieldOrNull(getC_birthDate()));
         }
-        props.setProperty("c_birthRemarks", getC_birthRemarks());
-        props.setProperty("c_birthWeight", getC_birthWeight());
-        props.setProperty("c_dischargeWeight", getC_dischargeWeight());
-        props.setProperty("c_famHistory", getC_famHistory());
-        props.setProperty("c_fsa", getCFsa());
+        setFormProperty(props, "c_birthRemarks", getC_birthRemarks());
+        setFormProperty(props, "c_birthWeight", getC_birthWeight());
+        setFormProperty(props, "c_dischargeWeight", getC_dischargeWeight());
+        setFormProperty(props, "c_famHistory", getC_famHistory());
+        setFormProperty(props, "c_fsa", getCFsa());
         if (getStartOfGestation() != null) {
-            props.setProperty("c_startOfGestation", frmRecordHelp.parseDateFieldOrNull(getStartOfGestation()));
+            setFormProperty(props, "c_startOfGestation", frmRecordHelp.parseDateFieldOrNull(getStartOfGestation()));
         }
-        props.setProperty("c_headCirc", getC_headCirc());
-        props.setProperty("c_headCirc", getC_headCirc());
-        props.setProperty("c_lastVisited", getC_lastVisited());
-        props.setProperty("c_length", getCLength());
-        props.setProperty("c_pName", getC_pName());
-        props.setProperty("c_riskFactors", getC_riskFactors());
+        setFormProperty(props, "c_headCirc", getC_headCirc());
+        setFormProperty(props, "c_headCirc", getC_headCirc());
+        setFormProperty(props, "c_lastVisited", getC_lastVisited());
+        setFormProperty(props, "c_length", getCLength());
+        setFormProperty(props, "c_pName", getC_pName());
+        setFormProperty(props, "c_riskFactors", getC_riskFactors());
         if (getP1Date1m() != null) {
-            props.setProperty("p1_date1m", frmRecordHelp.parseDateFieldOrNull(getP1Date1m()));
+            setFormProperty(props, "p1_date1m", frmRecordHelp.parseDateFieldOrNull(getP1Date1m()));
         }
         if (getP1Date1w() != null) {
-            props.setProperty("p1_date1w", frmRecordHelp.parseDateFieldOrNull(getP1Date1w()));
+            setFormProperty(props, "p1_date1w", frmRecordHelp.parseDateFieldOrNull(getP1Date1w()));
         }
         if (getP1Date2w() != null) {
-            props.setProperty("p1_date2w", frmRecordHelp.parseDateFieldOrNull(getP1Date2w()));
+            setFormProperty(props, "p1_date2w", frmRecordHelp.parseDateFieldOrNull(getP1Date2w()));
         }
-        props.setProperty("p1_development1m", getP1Development1m());
-        props.setProperty("p1_development1w", getP1Development1w());
-        props.setProperty("p1_development2w", getP1Development2w());
-        props.setProperty("p1_hc1m", getP1Hc1m());
-        props.setProperty("p1_hc1w", getP1Hc1w());
-        props.setProperty("p1_hc2w", getP1Hc2w());
-        props.setProperty("p1_ht1m", getP1Ht1m());
-        props.setProperty("p1_ht1w", getP1Ht1w());
-        props.setProperty("p1_ht2w", getP1Ht2w());
-        props.setProperty("p1_immunization1m", getP1Immunization1m());
-        props.setProperty("p1_immunization1w", getP1Immunization1w());
-        props.setProperty("p1_immunization2w", getP1Immunization2w());
-        props.setProperty("p1_pConcern1m", getP1_pConcern1m());
-        props.setProperty("p1_pConcern1w", getP1_pConcern1w());
-        props.setProperty("p1_pConcern2w", getP1_pConcern2w());
-        props.setProperty("p1_education1w", getP1Education1w());
-        props.setProperty("p1_education2w", getP1Education2w());
-        props.setProperty("p1_education1m", getP1Education1m());
-        props.setProperty("p1_pNutrition1m", getP1_pNutrition1m());
-        props.setProperty("p1_pNutrition1w", getP1_pNutrition1w());
-        props.setProperty("p1_pNutrition2w", getP1_pNutrition2w());
-        props.setProperty("p1_pPhysical1m", getP1_pPhysical1m());
-        props.setProperty("p1_pPhysical1w", getP1_pPhysical1w());
-        props.setProperty("p1_pPhysical2w", getP1_pPhysical2w());
-        props.setProperty("p1_problems1m", getP1Problems1m());
-        props.setProperty("p1_problems1w", getP1Problems1w());
-        props.setProperty("p1_problems2w", getP1Problems2w());
-        props.setProperty("p1_signature1m", getP1Signature1m());
-        props.setProperty("p1_signature1w", getP1Signature1w());
-        props.setProperty("p1_signature2w", getP1Signature2w());
-        props.setProperty("p1_wt1m", getP1Wt1m());
-        props.setProperty("p1_wt1w", getP1Wt1w());
-        props.setProperty("p1_wt2w", getP1Wt2w());
+        setFormProperty(props, "p1_development1m", getP1Development1m());
+        setFormProperty(props, "p1_development1w", getP1Development1w());
+        setFormProperty(props, "p1_development2w", getP1Development2w());
+        setFormProperty(props, "p1_hc1m", getP1Hc1m());
+        setFormProperty(props, "p1_hc1w", getP1Hc1w());
+        setFormProperty(props, "p1_hc2w", getP1Hc2w());
+        setFormProperty(props, "p1_ht1m", getP1Ht1m());
+        setFormProperty(props, "p1_ht1w", getP1Ht1w());
+        setFormProperty(props, "p1_ht2w", getP1Ht2w());
+        setFormProperty(props, "p1_immunization1m", getP1Immunization1m());
+        setFormProperty(props, "p1_immunization1w", getP1Immunization1w());
+        setFormProperty(props, "p1_immunization2w", getP1Immunization2w());
+        setFormProperty(props, "p1_pConcern1m", getP1_pConcern1m());
+        setFormProperty(props, "p1_pConcern1w", getP1_pConcern1w());
+        setFormProperty(props, "p1_pConcern2w", getP1_pConcern2w());
+        setFormProperty(props, "p1_education1w", getP1Education1w());
+        setFormProperty(props, "p1_education2w", getP1Education2w());
+        setFormProperty(props, "p1_education1m", getP1Education1m());
+        setFormProperty(props, "p1_pNutrition1m", getP1_pNutrition1m());
+        setFormProperty(props, "p1_pNutrition1w", getP1_pNutrition1w());
+        setFormProperty(props, "p1_pNutrition2w", getP1_pNutrition2w());
+        setFormProperty(props, "p1_pPhysical1m", getP1_pPhysical1m());
+        setFormProperty(props, "p1_pPhysical1w", getP1_pPhysical1w());
+        setFormProperty(props, "p1_pPhysical2w", getP1_pPhysical2w());
+        setFormProperty(props, "p1_problems1m", getP1Problems1m());
+        setFormProperty(props, "p1_problems1w", getP1Problems1w());
+        setFormProperty(props, "p1_problems2w", getP1Problems2w());
+        setFormProperty(props, "p1_signature1m", getP1Signature1m());
+        setFormProperty(props, "p1_signature1w", getP1Signature1w());
+        setFormProperty(props, "p1_signature2w", getP1Signature2w());
+        setFormProperty(props, "p1_wt1m", getP1Wt1m());
+        setFormProperty(props, "p1_wt1w", getP1Wt1w());
+        setFormProperty(props, "p1_wt2w", getP1Wt2w());
         if (getP2Date2m() != null) {
-            props.setProperty("p2_date2m", frmRecordHelp.parseDateFieldOrNull(getP2Date2m()));
+            setFormProperty(props, "p2_date2m", frmRecordHelp.parseDateFieldOrNull(getP2Date2m()));
         }
         if (getP2Date4m() != null) {
-            props.setProperty("p2_date4m", frmRecordHelp.parseDateFieldOrNull(getP2Date4m()));
+            setFormProperty(props, "p2_date4m", frmRecordHelp.parseDateFieldOrNull(getP2Date4m()));
         }
         if (getP2Date6m() != null) {
-            props.setProperty("p2_date6m", frmRecordHelp.parseDateFieldOrNull(getP2Date6m()));
+            setFormProperty(props, "p2_date6m", frmRecordHelp.parseDateFieldOrNull(getP2Date6m()));
         }
-        props.setProperty("p2_development2m", getP2Development2m());
-        props.setProperty("p2_development4m", getP2Development4m());
-        props.setProperty("p2_development6m", getP2Development6m());
-        props.setProperty("p2_education2m", getP2Education2m());
-        props.setProperty("p2_education4m", getP2Education4m());
-        props.setProperty("p2_education6m", getP2Education6m());
-        props.setProperty("p2_hc2m", getP2Hc2m());
-        props.setProperty("p2_hc4m", getP2Hc4m());
-        props.setProperty("p2_hc6m", getP2Hc6m());
-        props.setProperty("p2_ht2m", getP2Ht2m());
-        props.setProperty("p2_ht4m", getP2Ht4m());
-        props.setProperty("p2_ht6m", getP2Ht6m());
-        props.setProperty("p2_immunization6m", getP2Immunization6m());
-        props.setProperty("p2_nutrition2m", getP2Nutrition2m());
-        props.setProperty("p2_nutrition4m", getP2Nutrition4m());
-        props.setProperty("p2_nutrition6m", getP2Nutrition6m());
-        props.setProperty("p2_pConcern2m", getP2_pConcern2m());
-        props.setProperty("p2_pConcern4m", getP2_pConcern4m());
-        props.setProperty("p2_pConcern6m", getP2_pConcern6m());
-        props.setProperty("p2_physical2m", getP2Physical2m());
-        props.setProperty("p2_physical4m", getP2Physical4m());
-        props.setProperty("p2_physical6m", getP2Physical6m());
-        props.setProperty("p2_problems2m", getP2Problems2m());
-        props.setProperty("p2_problems4m", getP2Problems4m());
-        props.setProperty("p2_problems6m", getP2Problems6m());
-        props.setProperty("p2_signature2m", getP2Signature2m());
-        props.setProperty("p2_signature4m", getP2Signature4m());
-        props.setProperty("p2_signature6m", getP2Signature6m());
-        props.setProperty("p2_wt2m", getP2Wt2m());
-        props.setProperty("p2_wt4m", getP2Wt4m());
-        props.setProperty("p2_wt6m", getP2Wt6m());
+        setFormProperty(props, "p2_development2m", getP2Development2m());
+        setFormProperty(props, "p2_development4m", getP2Development4m());
+        setFormProperty(props, "p2_development6m", getP2Development6m());
+        setFormProperty(props, "p2_education2m", getP2Education2m());
+        setFormProperty(props, "p2_education4m", getP2Education4m());
+        setFormProperty(props, "p2_education6m", getP2Education6m());
+        setFormProperty(props, "p2_hc2m", getP2Hc2m());
+        setFormProperty(props, "p2_hc4m", getP2Hc4m());
+        setFormProperty(props, "p2_hc6m", getP2Hc6m());
+        setFormProperty(props, "p2_ht2m", getP2Ht2m());
+        setFormProperty(props, "p2_ht4m", getP2Ht4m());
+        setFormProperty(props, "p2_ht6m", getP2Ht6m());
+        setFormProperty(props, "p2_immunization6m", getP2Immunization6m());
+        setFormProperty(props, "p2_nutrition2m", getP2Nutrition2m());
+        setFormProperty(props, "p2_nutrition4m", getP2Nutrition4m());
+        setFormProperty(props, "p2_nutrition6m", getP2Nutrition6m());
+        setFormProperty(props, "p2_pConcern2m", getP2_pConcern2m());
+        setFormProperty(props, "p2_pConcern4m", getP2_pConcern4m());
+        setFormProperty(props, "p2_pConcern6m", getP2_pConcern6m());
+        setFormProperty(props, "p2_physical2m", getP2Physical2m());
+        setFormProperty(props, "p2_physical4m", getP2Physical4m());
+        setFormProperty(props, "p2_physical6m", getP2Physical6m());
+        setFormProperty(props, "p2_problems2m", getP2Problems2m());
+        setFormProperty(props, "p2_problems4m", getP2Problems4m());
+        setFormProperty(props, "p2_problems6m", getP2Problems6m());
+        setFormProperty(props, "p2_signature2m", getP2Signature2m());
+        setFormProperty(props, "p2_signature4m", getP2Signature4m());
+        setFormProperty(props, "p2_signature6m", getP2Signature6m());
+        setFormProperty(props, "p2_wt2m", getP2Wt2m());
+        setFormProperty(props, "p2_wt4m", getP2Wt4m());
+        setFormProperty(props, "p2_wt6m", getP2Wt6m());
         if (getP3Date12m() != null) {
-            props.setProperty("p3_date12m", frmRecordHelp.parseDateFieldOrNull(getP3Date12m()));
+            setFormProperty(props, "p3_date12m", frmRecordHelp.parseDateFieldOrNull(getP3Date12m()));
         }
         if (getP3Date15m() != null) {
-            props.setProperty("p3_date15m", frmRecordHelp.parseDateFieldOrNull(getP3Date15m()));
+            setFormProperty(props, "p3_date15m", frmRecordHelp.parseDateFieldOrNull(getP3Date15m()));
         }
         if (getP3Date9m() != null) {
-            props.setProperty("p3_date9m", frmRecordHelp.parseDateFieldOrNull(getP3Date9m()));
+            setFormProperty(props, "p3_date9m", frmRecordHelp.parseDateFieldOrNull(getP3Date9m()));
         }
-        props.setProperty("p3_development12m", getP3Development12m());
-        props.setProperty("p3_development15m", getP3Development15m());
-        props.setProperty("p3_development9m", getP3Development9m());
-        props.setProperty("p3_education9m", getP3Education9m());
-        props.setProperty("p3_education12m", getP3Education12m());
-        props.setProperty("p3_education15m", getP3Education15m());
-        props.setProperty("p3_hc12m", getP3Hc12m());
-        props.setProperty("p3_hc15m", getP3Hc15m());
-        props.setProperty("p3_hc9m", getP3Hc9m());
-        props.setProperty("p3_ht12m", getP3Ht12m());
-        props.setProperty("p3_ht15m", getP3Ht15m());
-        props.setProperty("p3_ht9m", getP3Ht9m());
-        props.setProperty("p3_nutrition12m", getP3Nutrition12m());
-        props.setProperty("p3_nutrition15m", getP3Nutrition15m());
-        props.setProperty("p3_nutrition9m", getP3Nutrition9m());
-        props.setProperty("p3_pConcern12m", getP3_pConcern12m());
-        props.setProperty("p3_pConcern15m", getP3_pConcern15m());
-        props.setProperty("p3_pConcern9m", getP3_pConcern9m());
-        props.setProperty("p3_physical12m", getP3Physical12m());
-        props.setProperty("p3_physical15m", getP3Physical15m());
-        props.setProperty("p3_physical9m", getP3Physical9m());
-        props.setProperty("p3_problems12m", getP3Problems12m());
-        props.setProperty("p3_problems15m", getP3Problems15m());
-        props.setProperty("p3_problems9m", getP3Problems9m());
-        props.setProperty("p3_signature12m", getP3Signature12m());
-        props.setProperty("p3_signature15m", getP3Signature15m());
-        props.setProperty("p3_signature9m", getP3Signature9m());
-        props.setProperty("p3_wt12m", getP3Wt12m());
-        props.setProperty("p3_wt15m", getP3Wt15m());
-        props.setProperty("p3_wt9m", getP3Wt9m());
+        setFormProperty(props, "p3_development12m", getP3Development12m());
+        setFormProperty(props, "p3_development15m", getP3Development15m());
+        setFormProperty(props, "p3_development9m", getP3Development9m());
+        setFormProperty(props, "p3_education9m", getP3Education9m());
+        setFormProperty(props, "p3_education12m", getP3Education12m());
+        setFormProperty(props, "p3_education15m", getP3Education15m());
+        setFormProperty(props, "p3_hc12m", getP3Hc12m());
+        setFormProperty(props, "p3_hc15m", getP3Hc15m());
+        setFormProperty(props, "p3_hc9m", getP3Hc9m());
+        setFormProperty(props, "p3_ht12m", getP3Ht12m());
+        setFormProperty(props, "p3_ht15m", getP3Ht15m());
+        setFormProperty(props, "p3_ht9m", getP3Ht9m());
+        setFormProperty(props, "p3_nutrition12m", getP3Nutrition12m());
+        setFormProperty(props, "p3_nutrition15m", getP3Nutrition15m());
+        setFormProperty(props, "p3_nutrition9m", getP3Nutrition9m());
+        setFormProperty(props, "p3_pConcern12m", getP3_pConcern12m());
+        setFormProperty(props, "p3_pConcern15m", getP3_pConcern15m());
+        setFormProperty(props, "p3_pConcern9m", getP3_pConcern9m());
+        setFormProperty(props, "p3_physical12m", getP3Physical12m());
+        setFormProperty(props, "p3_physical15m", getP3Physical15m());
+        setFormProperty(props, "p3_physical9m", getP3Physical9m());
+        setFormProperty(props, "p3_problems12m", getP3Problems12m());
+        setFormProperty(props, "p3_problems15m", getP3Problems15m());
+        setFormProperty(props, "p3_problems9m", getP3Problems9m());
+        setFormProperty(props, "p3_signature12m", getP3Signature12m());
+        setFormProperty(props, "p3_signature15m", getP3Signature15m());
+        setFormProperty(props, "p3_signature9m", getP3Signature9m());
+        setFormProperty(props, "p3_wt12m", getP3Wt12m());
+        setFormProperty(props, "p3_wt15m", getP3Wt15m());
+        setFormProperty(props, "p3_wt9m", getP3Wt9m());
         if (getP4Date18m() != null) {
-            props.setProperty("p4_date18m", frmRecordHelp.parseDateFieldOrNull(getP4Date18m()));
+            setFormProperty(props, "p4_date18m", frmRecordHelp.parseDateFieldOrNull(getP4Date18m()));
         }
         if (getP4Date24m() != null) {
-            props.setProperty("p4_date24m", frmRecordHelp.parseDateFieldOrNull(getP4Date24m()));
+            setFormProperty(props, "p4_date24m", frmRecordHelp.parseDateFieldOrNull(getP4Date24m()));
         }
         if (getP4Date48m() != null) {
-            props.setProperty("p4_date48m", frmRecordHelp.parseDateFieldOrNull(getP4Date48m()));
+            setFormProperty(props, "p4_date48m", frmRecordHelp.parseDateFieldOrNull(getP4Date48m()));
         }
-        props.setProperty("p4_development18m", getP4Development18m());
-        props.setProperty("p4_development24m", getP4Development24m());
-        props.setProperty("p4_development36m", getP4Development36m());
-        props.setProperty("p4_development48m", getP4Development48m());
-        props.setProperty("p4_development60m", getP4Development60m());
-        props.setProperty("p4_education18m", getP4Education18m());
-        props.setProperty("p4_education24m", getP4Education24m());
-        props.setProperty("p4_education48m", getP4Education48m());
-        props.setProperty("p4_hc18m", getP4Hc18m());
-        props.setProperty("p4_hc24m", getP4Hc24m());
-        props.setProperty("p4_ht18m", getP4Ht18m());
-        props.setProperty("p4_ht24m", getP4Ht24m());
-        props.setProperty("p4_ht48m", getP4Ht48m());
-        props.setProperty("p4_bmi24m", getP4Bmi24m());
-        props.setProperty("p4_bmi48m", getP4Bmi48m());
-        props.setProperty("p4_nippisingattained", getP4Nippisingattained());
-        props.setProperty("p4_nutrition18m", getP4Nutrition18m());
-        props.setProperty("p4_nutrition24m", getP4Nutrition24m());
-        props.setProperty("p4_nutrition48m", getP4Nutrition48m());
-        props.setProperty("p4_pConcern18m", getP4_pConcern18m());
-        props.setProperty("p4_pConcern24m", getP4_pConcern24m());
-        props.setProperty("p4_pConcern48m", getP4_pConcern48m());
-        props.setProperty("p4_physical18m", getP4Physical18m());
-        props.setProperty("p4_physical24m", getP4Physical24m());
-        props.setProperty("p4_physical48m", getP4Physical48m());
-        props.setProperty("p4_problems18m", getP4Problems18m());
-        props.setProperty("p4_problems24m", getP4Problems24m());
-        props.setProperty("p4_problems48m", getP4Problems48m());
-        props.setProperty("p4_signature18m", getP4Signature18m());
-        props.setProperty("p4_signature24m", getP4Signature24m());
-        props.setProperty("p4_signature48m", getP4Signature48m());
-        props.setProperty("p4_wt18m", getP4Wt18m());
-        props.setProperty("p4_wt24m", getP4Wt24m());
-        props.setProperty("p4_wt48m", getP4Wt48m());
+        setFormProperty(props, "p4_development18m", getP4Development18m());
+        setFormProperty(props, "p4_development24m", getP4Development24m());
+        setFormProperty(props, "p4_development36m", getP4Development36m());
+        setFormProperty(props, "p4_development48m", getP4Development48m());
+        setFormProperty(props, "p4_development60m", getP4Development60m());
+        setFormProperty(props, "p4_education18m", getP4Education18m());
+        setFormProperty(props, "p4_education24m", getP4Education24m());
+        setFormProperty(props, "p4_education48m", getP4Education48m());
+        setFormProperty(props, "p4_hc18m", getP4Hc18m());
+        setFormProperty(props, "p4_hc24m", getP4Hc24m());
+        setFormProperty(props, "p4_ht18m", getP4Ht18m());
+        setFormProperty(props, "p4_ht24m", getP4Ht24m());
+        setFormProperty(props, "p4_ht48m", getP4Ht48m());
+        setFormProperty(props, "p4_bmi24m", getP4Bmi24m());
+        setFormProperty(props, "p4_bmi48m", getP4Bmi48m());
+        setFormProperty(props, "p4_nippisingattained", getP4Nippisingattained());
+        setFormProperty(props, "p4_nutrition18m", getP4Nutrition18m());
+        setFormProperty(props, "p4_nutrition24m", getP4Nutrition24m());
+        setFormProperty(props, "p4_nutrition48m", getP4Nutrition48m());
+        setFormProperty(props, "p4_pConcern18m", getP4_pConcern18m());
+        setFormProperty(props, "p4_pConcern24m", getP4_pConcern24m());
+        setFormProperty(props, "p4_pConcern48m", getP4_pConcern48m());
+        setFormProperty(props, "p4_physical18m", getP4Physical18m());
+        setFormProperty(props, "p4_physical24m", getP4Physical24m());
+        setFormProperty(props, "p4_physical48m", getP4Physical48m());
+        setFormProperty(props, "p4_problems18m", getP4Problems18m());
+        setFormProperty(props, "p4_problems24m", getP4Problems24m());
+        setFormProperty(props, "p4_problems48m", getP4Problems48m());
+        setFormProperty(props, "p4_signature18m", getP4Signature18m());
+        setFormProperty(props, "p4_signature24m", getP4Signature24m());
+        setFormProperty(props, "p4_signature48m", getP4Signature48m());
+        setFormProperty(props, "p4_wt18m", getP4Wt18m());
+        setFormProperty(props, "p4_wt24m", getP4Wt24m());
+        setFormProperty(props, "p4_wt48m", getP4Wt48m());
 
-        props.setProperty("p5_1InjeRota", getP5_1InjeRota());
-        props.setProperty("p5_2InjeRota", getP5_2InjeRota());
-        props.setProperty("p5_3InjeRota", getP5_2InjeRota());
-        props.setProperty("p5_1LotNRota", getP5_1LotNRota());
-        props.setProperty("p5_2LotNRota", getP5_2LotNRota());
-        props.setProperty("p5_3LotNRota", getP5_3LotNRota());
-        props.setProperty("p5_1InitialRota", getP5_1InitialRota());
-        props.setProperty("p5_2InitialRota", getP5_2InitialRota());
-        props.setProperty("p5_3InitialRota", getP5_3InitialRota());
-        props.setProperty("p5_1CommentsRota", getP5_1CommentsRota());
-        props.setProperty("p5_2CommentsRota", getP5_2CommentsRota());
-        props.setProperty("p5_3CommentsRota", getP5_3CommentsRota());
+        setFormProperty(props, "p5_1InjeRota", getP5_1InjeRota());
+        setFormProperty(props, "p5_2InjeRota", getP5_2InjeRota());
+        setFormProperty(props, "p5_3InjeRota", getP5_2InjeRota());
+        setFormProperty(props, "p5_1LotNRota", getP5_1LotNRota());
+        setFormProperty(props, "p5_2LotNRota", getP5_2LotNRota());
+        setFormProperty(props, "p5_3LotNRota", getP5_3LotNRota());
+        setFormProperty(props, "p5_1InitialRota", getP5_1InitialRota());
+        setFormProperty(props, "p5_2InitialRota", getP5_2InitialRota());
+        setFormProperty(props, "p5_3InitialRota", getP5_3InitialRota());
+        setFormProperty(props, "p5_1CommentsRota", getP5_1CommentsRota());
+        setFormProperty(props, "p5_2CommentsRota", getP5_2CommentsRota());
+        setFormProperty(props, "p5_3CommentsRota", getP5_3CommentsRota());
         if (getP5_1GiveDtRota() != null) {
-            props.setProperty("p5_1GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtRota()));
+            setFormProperty(props, "p5_1GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtRota()));
         }
         if (getP5_2GiveDtRota() != null) {
-            props.setProperty("p5_2GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtRota()));
+            setFormProperty(props, "p5_2GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtRota()));
         }
         if (getP5_3GiveDtRota() != null) {
-            props.setProperty("p5_3GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtRota()));
+            setFormProperty(props, "p5_3GiveDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtRota()));
         }
         if (getP5_1ExpDtRota() != null) {
-            props.setProperty("p5_1ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtRota()));
+            setFormProperty(props, "p5_1ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtRota()));
         }
         if (getP5_2ExpDtRota() != null) {
-            props.setProperty("p5_2ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtRota()));
+            setFormProperty(props, "p5_2ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtRota()));
         }
         if (getP5_3ExpDtRota() != null) {
-            props.setProperty("p5_3ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtRota()));
+            setFormProperty(props, "p5_3ExpDtRota", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtRota()));
         }
         if (getP5_1GiveDtHib() != null) {
-            props.setProperty("p5_1GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHib()));
+            setFormProperty(props, "p5_1GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHib()));
         }
         if (getP5_2GiveDtHib() != null) {
-            props.setProperty("p5_2GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHib()));
+            setFormProperty(props, "p5_2GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHib()));
         }
         if (getP5_3GiveDtHib() != null) {
-            props.setProperty("p5_3GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHib()));
+            setFormProperty(props, "p5_3GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHib()));
         }
         if (getP5_4GiveDtHib() != null) {
-            props.setProperty("p5_4GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_4GiveDtHib()));
+            setFormProperty(props, "p5_4GiveDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_4GiveDtHib()));
         }
         if (getP5_1ExpDtHib() != null) {
-            props.setProperty("p5_1ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHib()));
+            setFormProperty(props, "p5_1ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHib()));
         }
         if (getP5_2ExpDtHib() != null) {
-            props.setProperty("p5_2ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHib()));
+            setFormProperty(props, "p5_2ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHib()));
         }
         if (getP5_3ExpDtHib() != null) {
-            props.setProperty("p5_3ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHib()));
+            setFormProperty(props, "p5_3ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHib()));
         }
         if (getP5_4ExpDtHib() != null) {
-            props.setProperty("p5_4ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_4ExpDtHib()));
+            setFormProperty(props, "p5_4ExpDtHib", frmRecordHelp.parseDateFieldOrNull(getP5_4ExpDtHib()));
         }
-        props.setProperty("p5_1InjeHib", getP5_1InjeHib());
-        props.setProperty("p5_1LotNHib", getP5_1LotNHib());
-        props.setProperty("p5_1InitialHib", getP5_1InitialHib());
-        props.setProperty("p5_1CommentsHib", getP5_1CommentsHib());
-        props.setProperty("p5_2InjeHib", getP5_2InjeHib());
-        props.setProperty("p5_2LotNHib", getP5_2LotNHib());
-        props.setProperty("p5_2InitialHib", getP5_2InitialHib());
-        props.setProperty("p5_2CommentsHib", getP5_2CommentsHib());
-        props.setProperty("p5_3InjeHib", getP5_3InjeHib());
-        props.setProperty("p5_3LotNHib", getP5_3LotNHib());
-        props.setProperty("p5_3InitialHib", getP5_3InitialHib());
-        props.setProperty("p5_3CommentsHib", getP5_3CommentsHib());
-        props.setProperty("p5_4InjeHib", getP5_4InjeHib());
-        props.setProperty("p5_4LotNHib", getP5_4LotNHib());
-        props.setProperty("p5_4InitialHib", getP5_4InitialHib());
-        props.setProperty("p5_4CommentsHib", getP5_4CommentsHib());
+        setFormProperty(props, "p5_1InjeHib", getP5_1InjeHib());
+        setFormProperty(props, "p5_1LotNHib", getP5_1LotNHib());
+        setFormProperty(props, "p5_1InitialHib", getP5_1InitialHib());
+        setFormProperty(props, "p5_1CommentsHib", getP5_1CommentsHib());
+        setFormProperty(props, "p5_2InjeHib", getP5_2InjeHib());
+        setFormProperty(props, "p5_2LotNHib", getP5_2LotNHib());
+        setFormProperty(props, "p5_2InitialHib", getP5_2InitialHib());
+        setFormProperty(props, "p5_2CommentsHib", getP5_2CommentsHib());
+        setFormProperty(props, "p5_3InjeHib", getP5_3InjeHib());
+        setFormProperty(props, "p5_3LotNHib", getP5_3LotNHib());
+        setFormProperty(props, "p5_3InitialHib", getP5_3InitialHib());
+        setFormProperty(props, "p5_3CommentsHib", getP5_3CommentsHib());
+        setFormProperty(props, "p5_4InjeHib", getP5_4InjeHib());
+        setFormProperty(props, "p5_4LotNHib", getP5_4LotNHib());
+        setFormProperty(props, "p5_4InitialHib", getP5_4InitialHib());
+        setFormProperty(props, "p5_4CommentsHib", getP5_4CommentsHib());
 
         if (getP5_1GiveDtPneu() != null) {
-            props.setProperty("p5_1GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtPneu()));
+            setFormProperty(props, "p5_1GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtPneu()));
         }
         if (getP5_1ExpDtPneu() != null) {
-            props.setProperty("p5_1ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtPneu()));
+            setFormProperty(props, "p5_1ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtPneu()));
         }
-        props.setProperty("p5_1InjePneu", getP5_1InjePneu());
-        props.setProperty("p5_1LotNPneu", getP5_1LotNPneu());
-        props.setProperty("p5_1InitialPneu", getP5_1InitialPneu());
-        props.setProperty("p5_1CommentsPneu", getP5_1CommentsPneu());
+        setFormProperty(props, "p5_1InjePneu", getP5_1InjePneu());
+        setFormProperty(props, "p5_1LotNPneu", getP5_1LotNPneu());
+        setFormProperty(props, "p5_1InitialPneu", getP5_1InitialPneu());
+        setFormProperty(props, "p5_1CommentsPneu", getP5_1CommentsPneu());
         if (getP5_2GiveDtPneu() != null) {
-            props.setProperty("p5_2GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtPneu()));
+            setFormProperty(props, "p5_2GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtPneu()));
         }
         if (getP5_2ExpDtPneu() != null) {
-            props.setProperty("p5_2ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtPneu()));
+            setFormProperty(props, "p5_2ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtPneu()));
         }
-        props.setProperty("p5_2InjePneu", getP5_2InjePneu());
-        props.setProperty("p5_2LotNPneu", getP5_2LotNPneu());
-        props.setProperty("p5_2InitialPneu", getP5_2InitialPneu());
-        props.setProperty("p5_2CommentsPneu", getP5_2CommentsPneu());
+        setFormProperty(props, "p5_2InjePneu", getP5_2InjePneu());
+        setFormProperty(props, "p5_2LotNPneu", getP5_2LotNPneu());
+        setFormProperty(props, "p5_2InitialPneu", getP5_2InitialPneu());
+        setFormProperty(props, "p5_2CommentsPneu", getP5_2CommentsPneu());
         if (getP5_3GiveDtPneu() != null) {
-            props.setProperty("p5_3GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtPneu()));
+            setFormProperty(props, "p5_3GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtPneu()));
         }
         if (getP5_3ExpDtPneu() != null) {
-            props.setProperty("p5_3ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtPneu()));
+            setFormProperty(props, "p5_3ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtPneu()));
         }
-        props.setProperty("p5_3InjePneu", getP5_3InjePneu());
-        props.setProperty("p5_3LotNPneu", getP5_3LotNPneu());
-        props.setProperty("p5_3InitialPneu", getP5_3InitialPneu());
-        props.setProperty("p5_3CommentsPneu", getP5_3CommentsPneu());
+        setFormProperty(props, "p5_3InjePneu", getP5_3InjePneu());
+        setFormProperty(props, "p5_3LotNPneu", getP5_3LotNPneu());
+        setFormProperty(props, "p5_3InitialPneu", getP5_3InitialPneu());
+        setFormProperty(props, "p5_3CommentsPneu", getP5_3CommentsPneu());
         if (getP5_4GiveDtPneu() != null) {
-            props.setProperty("p5_4GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_4GiveDtPneu()));
+            setFormProperty(props, "p5_4GiveDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_4GiveDtPneu()));
         }
         if (getP5_4ExpDtPneu() != null) {
-            props.setProperty("p5_4ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_4ExpDtPneu()));
+            setFormProperty(props, "p5_4ExpDtPneu", frmRecordHelp.parseDateFieldOrNull(getP5_4ExpDtPneu()));
         }
-        props.setProperty("p5_4InjePneu", getP5_4InjePneu());
-        props.setProperty("p5_4LotNPneu", getP5_4LotNPneu());
-        props.setProperty("p5_4InitialPneu", getP5_4InitialPneu());
-        props.setProperty("p5_4CommentsPneu", getP5_4CommentsPneu());
+        setFormProperty(props, "p5_4InjePneu", getP5_4InjePneu());
+        setFormProperty(props, "p5_4LotNPneu", getP5_4LotNPneu());
+        setFormProperty(props, "p5_4InitialPneu", getP5_4InitialPneu());
+        setFormProperty(props, "p5_4CommentsPneu", getP5_4CommentsPneu());
 
         if (getP5_1GiveDtMenCon() != null) {
-            props.setProperty("p5_1GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtMenCon()));
+            setFormProperty(props, "p5_1GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtMenCon()));
         }
         if (getP5_1ExpDtMenCon() != null) {
-            props.setProperty("p5_1ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtMenCon()));
+            setFormProperty(props, "p5_1ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtMenCon()));
         }
-        props.setProperty("p5_1InjeMenCon", getP5_1InjeMenCon());
-        props.setProperty("p5_1LotNMenCon", getP5_1LotNMenCon());
-        props.setProperty("p5_1InitialMenCon", getP5_1InitialMenCon());
-        props.setProperty("p5_1CommentsMenCon", getP5_1CommentsMenCon());
+        setFormProperty(props, "p5_1InjeMenCon", getP5_1InjeMenCon());
+        setFormProperty(props, "p5_1LotNMenCon", getP5_1LotNMenCon());
+        setFormProperty(props, "p5_1InitialMenCon", getP5_1InitialMenCon());
+        setFormProperty(props, "p5_1CommentsMenCon", getP5_1CommentsMenCon());
         if (getP5_2GiveDtMenCon() != null) {
-            props.setProperty("p5_2GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtMenCon()));
+            setFormProperty(props, "p5_2GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtMenCon()));
         }
         if (getP5_2ExpDtMenCon() != null) {
-            props.setProperty("p5_2ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtMenCon()));
+            setFormProperty(props, "p5_2ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtMenCon()));
         }
-        props.setProperty("p5_2InjeMenCon", getP5_2InjeMenCon());
-        props.setProperty("p5_2LotNMenCon", getP5_2LotNMenCon());
-        props.setProperty("p5_2InitialMenCon", getP5_2InitialMenCon());
-        props.setProperty("p5_2CommentsMenCon", getP5_2CommentsMenCon());
+        setFormProperty(props, "p5_2InjeMenCon", getP5_2InjeMenCon());
+        setFormProperty(props, "p5_2LotNMenCon", getP5_2LotNMenCon());
+        setFormProperty(props, "p5_2InitialMenCon", getP5_2InitialMenCon());
+        setFormProperty(props, "p5_2CommentsMenCon", getP5_2CommentsMenCon());
         if (getP5_3GiveDtMenCon() != null) {
-            props.setProperty("p5_3GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtMenCon()));
+            setFormProperty(props, "p5_3GiveDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtMenCon()));
         }
         if (getP5_3ExpDtMenCon() != null) {
-            props.setProperty("p5_3ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtMenCon()));
+            setFormProperty(props, "p5_3ExpDtMenCon", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtMenCon()));
         }
-        props.setProperty("p5_3InjeMenCon", getP5_3InjeMenCon());
-        props.setProperty("p5_3LotNMenCon", getP5_3LotNMenCon());
-        props.setProperty("p5_3InitialMenCon", getP5_3InitialMenCon());
-        props.setProperty("p5_3CommentsMenCon", getP5_3CommentsMenCon());
+        setFormProperty(props, "p5_3InjeMenCon", getP5_3InjeMenCon());
+        setFormProperty(props, "p5_3LotNMenCon", getP5_3LotNMenCon());
+        setFormProperty(props, "p5_3InitialMenCon", getP5_3InitialMenCon());
+        setFormProperty(props, "p5_3CommentsMenCon", getP5_3CommentsMenCon());
 
         if (getP5_1GiveDtHepa() != null) {
-            props.setProperty("p5_1GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHepa()));
+            setFormProperty(props, "p5_1GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHepa()));
         }
         if (getP5_1ExpDtHepa() != null) {
-            props.setProperty("p5_1ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHepa()));
+            setFormProperty(props, "p5_1ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHepa()));
         }
-        props.setProperty("p5_1InjeHepa", getP5_1InjeHepa());
-        props.setProperty("p5_1LotNHepa", getP5_1LotNHepa());
-        props.setProperty("p5_1InitialHepa", getP5_1InitialHepa());
-        props.setProperty("p5_1CommentsHepa", getP5_1CommentsHepa());
+        setFormProperty(props, "p5_1InjeHepa", getP5_1InjeHepa());
+        setFormProperty(props, "p5_1LotNHepa", getP5_1LotNHepa());
+        setFormProperty(props, "p5_1InitialHepa", getP5_1InitialHepa());
+        setFormProperty(props, "p5_1CommentsHepa", getP5_1CommentsHepa());
         if (getP5_2GiveDtHepa() != null) {
-            props.setProperty("p5_2GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHepa()));
+            setFormProperty(props, "p5_2GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHepa()));
         }
         if (getP5_2ExpDtHepa() != null) {
-            props.setProperty("p5_2ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHepa()));
+            setFormProperty(props, "p5_2ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHepa()));
         }
-        props.setProperty("p5_2InjeHepa", getP5_2InjeHepa());
-        props.setProperty("p5_2LotNHepa", getP5_2LotNHepa());
-        props.setProperty("p5_2InitialHepa", getP5_2InitialHepa());
-        props.setProperty("p5_2CommentsHepa", getP5_2CommentsHepa());
+        setFormProperty(props, "p5_2InjeHepa", getP5_2InjeHepa());
+        setFormProperty(props, "p5_2LotNHepa", getP5_2LotNHepa());
+        setFormProperty(props, "p5_2InitialHepa", getP5_2InitialHepa());
+        setFormProperty(props, "p5_2CommentsHepa", getP5_2CommentsHepa());
         if (getP5_3GiveDtHepa() != null) {
-            props.setProperty("p5_3GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHepa()));
+            setFormProperty(props, "p5_3GiveDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHepa()));
         }
         if (getP5_3ExpDtHepa() != null) {
-            props.setProperty("p5_3ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHepa()));
+            setFormProperty(props, "p5_3ExpDtHepa", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHepa()));
         }
-        props.setProperty("p5_3InjeHepa", getP5_3InjeHepa());
-        props.setProperty("p5_3LotNHepa", getP5_3LotNHepa());
-        props.setProperty("p5_3InitialHepa", getP5_3InitialHepa());
-        props.setProperty("p5_3CommentsHepa", getP5_3CommentsHepa());
+        setFormProperty(props, "p5_3InjeHepa", getP5_3InjeHepa());
+        setFormProperty(props, "p5_3LotNHepa", getP5_3LotNHepa());
+        setFormProperty(props, "p5_3InitialHepa", getP5_3InitialHepa());
+        setFormProperty(props, "p5_3CommentsHepa", getP5_3CommentsHepa());
 
         if (getP5_1GiveDtMMR() != null) {
-            props.setProperty("p5_1GiveDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtMMR()));
+            setFormProperty(props, "p5_1GiveDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtMMR()));
         }
         if (getP5_1ExpDtMMR() != null) {
-            props.setProperty("p5_1ExpDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtMMR()));
+            setFormProperty(props, "p5_1ExpDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtMMR()));
         }
-        props.setProperty("p5_1InjeMMR", getP5_1InjeMMR());
-        props.setProperty("p5_1LotNMMR", getP5_1LotNMMR());
-        props.setProperty("p5_1InitialMMR", getP5_1InitialMMR());
-        props.setProperty("p5_1CommentsMMR", getP5_1CommentsMMR());
+        setFormProperty(props, "p5_1InjeMMR", getP5_1InjeMMR());
+        setFormProperty(props, "p5_1LotNMMR", getP5_1LotNMMR());
+        setFormProperty(props, "p5_1InitialMMR", getP5_1InitialMMR());
+        setFormProperty(props, "p5_1CommentsMMR", getP5_1CommentsMMR());
         if (getP5_2GiveDtMMR() != null) {
-            props.setProperty("p5_2GiveDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtMMR()));
+            setFormProperty(props, "p5_2GiveDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtMMR()));
         }
         if (getP5_2ExpDtMMR() != null) {
-            props.setProperty("p5_2ExpDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtMMR()));
+            setFormProperty(props, "p5_2ExpDtMMR", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtMMR()));
         }
-        props.setProperty("p5_2InjeMMR", getP5_2InjeMMR());
-        props.setProperty("p5_2LotNMMR", getP5_2LotNMMR());
-        props.setProperty("p5_2InitialMMR", getP5_2InitialMMR());
-        props.setProperty("p5_2CommentsMMR", getP5_2CommentsMMR());
+        setFormProperty(props, "p5_2InjeMMR", getP5_2InjeMMR());
+        setFormProperty(props, "p5_2LotNMMR", getP5_2LotNMMR());
+        setFormProperty(props, "p5_2InitialMMR", getP5_2InitialMMR());
+        setFormProperty(props, "p5_2CommentsMMR", getP5_2CommentsMMR());
 
         if (getP5_1GiveDtVaricella() != null) {
-            props.setProperty("p5_1GiveDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtVaricella()));
+            setFormProperty(props, "p5_1GiveDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtVaricella()));
         }
         if (getP5_1ExpDtVaricella() != null) {
-            props.setProperty("p5_1ExpDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtVaricella()));
+            setFormProperty(props, "p5_1ExpDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtVaricella()));
         }
-        props.setProperty("p5_1InjeVaricella", getP5_1InjeVaricella());
-        props.setProperty("p5_1LotNVaricella", getP5_1LotNVaricella());
-        props.setProperty("p5_1InitialVaricella", getP5_1InitialVaricella());
-        props.setProperty("p5_1CommentsVaricella", getP5_1CommentsVaricella());
+        setFormProperty(props, "p5_1InjeVaricella", getP5_1InjeVaricella());
+        setFormProperty(props, "p5_1LotNVaricella", getP5_1LotNVaricella());
+        setFormProperty(props, "p5_1InitialVaricella", getP5_1InitialVaricella());
+        setFormProperty(props, "p5_1CommentsVaricella", getP5_1CommentsVaricella());
         if (getP5_2GiveDtVaricella() != null) {
-            props.setProperty("p5_2GiveDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtVaricella()));
+            setFormProperty(props, "p5_2GiveDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtVaricella()));
         }
         if (getP5_2ExpDtVaricella() != null) {
-            props.setProperty("p5_2ExpDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtVaricella()));
+            setFormProperty(props, "p5_2ExpDtVaricella", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtVaricella()));
         }
-        props.setProperty("p5_2InjeVaricella", getP5_2InjeVaricella());
-        props.setProperty("p5_2LotNVaricella", getP5_2LotNVaricella());
-        props.setProperty("p5_2InitialVaricella", getP5_2InitialVaricella());
-        props.setProperty("p5_2CommentsVaricella", getP5_2CommentsVaricella());
+        setFormProperty(props, "p5_2InjeVaricella", getP5_2InjeVaricella());
+        setFormProperty(props, "p5_2LotNVaricella", getP5_2LotNVaricella());
+        setFormProperty(props, "p5_2InitialVaricella", getP5_2InitialVaricella());
+        setFormProperty(props, "p5_2CommentsVaricella", getP5_2CommentsVaricella());
 
         if (getP5_1GiveDtdTapIpv() != null) {
-            props.setProperty("p5_1GiveDtdTapIpv", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtdTapIpv()));
+            setFormProperty(props, "p5_1GiveDtdTapIpv", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtdTapIpv()));
         }
         if (getP5_1ExpDtdTapIpv() != null) {
-            props.setProperty("p5_1ExpDtdTapIpv", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtdTapIpv()));
+            setFormProperty(props, "p5_1ExpDtdTapIpv", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtdTapIpv()));
         }
-        props.setProperty("p5_1InjeDTaPIpv", getP5_1InjeDTaPIpv());
-        props.setProperty("p5_1LotNDTaPIpv", getP5_1LotNDTaPIpv());
-        props.setProperty("p5_1InitialDTaPIpv", getP5_1InitialDTaPIpv());
-        props.setProperty("p5_1CommentsDTaPIpv", getP5_1CommentsDTaPIpv());
+        setFormProperty(props, "p5_1InjeDTaPIpv", getP5_1InjeDTaPIpv());
+        setFormProperty(props, "p5_1LotNDTaPIpv", getP5_1LotNDTaPIpv());
+        setFormProperty(props, "p5_1InitialDTaPIpv", getP5_1InitialDTaPIpv());
+        setFormProperty(props, "p5_1CommentsDTaPIpv", getP5_1CommentsDTaPIpv());
 
         if (getP5_1GiveDtdTap() != null) {
-            props.setProperty("p5_1GiveDtdTap", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtdTap()));
+            setFormProperty(props, "p5_1GiveDtdTap", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtdTap()));
         }
         if (getP5_1ExpDtdTap() != null) {
-            props.setProperty("p5_1ExpDtdTap", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtdTap()));
+            setFormProperty(props, "p5_1ExpDtdTap", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtdTap()));
         }
-        props.setProperty("p5_1InjeDTap", getP5_1InjeDTap());
-        props.setProperty("p5_1LotNDTap", getP5_1LotNDTap());
-        props.setProperty("p5_1InitialDTap", getP5_1InitialDTap());
-        props.setProperty("p5_1CommentsDTap", getP5_1CommentsDTap());
+        setFormProperty(props, "p5_1InjeDTap", getP5_1InjeDTap());
+        setFormProperty(props, "p5_1LotNDTap", getP5_1LotNDTap());
+        setFormProperty(props, "p5_1InitialDTap", getP5_1InitialDTap());
+        setFormProperty(props, "p5_1CommentsDTap", getP5_1CommentsDTap());
 
-        props.setProperty("p5_1NaciInfluenza", getP5_1NaciInfluenza());
+        setFormProperty(props, "p5_1NaciInfluenza", getP5_1NaciInfluenza());
         if (getP5_1GiveDtInfluenza() != null) {
-            props.setProperty("p5_1GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtInfluenza()));
+            setFormProperty(props, "p5_1GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtInfluenza()));
         }
         if (getP5_1ExpDtInfluenza() != null) {
-            props.setProperty("p5_1ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtInfluenza()));
+            setFormProperty(props, "p5_1ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtInfluenza()));
         }
-        props.setProperty("p5_1InjeInfluenza", getP5_1InjeInfluenza());
-        props.setProperty("p5_1LotNInfluenza", getP5_1LotNInfluenza());
-        props.setProperty("p5_1InitialInfluenza", getP5_1InitialInfluenza());
-        props.setProperty("p5_1CommentsInfluenza", getP5_1CommentsInfluenza());
-        props.setProperty("p5_2NaciInfluenza", getP5_2NaciInfluenza());
+        setFormProperty(props, "p5_1InjeInfluenza", getP5_1InjeInfluenza());
+        setFormProperty(props, "p5_1LotNInfluenza", getP5_1LotNInfluenza());
+        setFormProperty(props, "p5_1InitialInfluenza", getP5_1InitialInfluenza());
+        setFormProperty(props, "p5_1CommentsInfluenza", getP5_1CommentsInfluenza());
+        setFormProperty(props, "p5_2NaciInfluenza", getP5_2NaciInfluenza());
         if (getP5_2GiveDtInfluenza() != null) {
-            props.setProperty("p5_2GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtInfluenza()));
+            setFormProperty(props, "p5_2GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtInfluenza()));
         }
         if (getP5_2ExpDtInfluenza() != null) {
-            props.setProperty("p5_2ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtInfluenza()));
+            setFormProperty(props, "p5_2ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtInfluenza()));
         }
-        props.setProperty("p5_2InjeInfluenza", getP5_2InjeInfluenza());
-        props.setProperty("p5_2LotNInfluenza", getP5_2LotNInfluenza());
-        props.setProperty("p5_2InitialInfluenza", getP5_2InitialInfluenza());
-        props.setProperty("p5_2CommentsInfluenza", getP5_2CommentsInfluenza());
-        props.setProperty("p5_3NaciInfluenza", getP5_3NaciInfluenza());
+        setFormProperty(props, "p5_2InjeInfluenza", getP5_2InjeInfluenza());
+        setFormProperty(props, "p5_2LotNInfluenza", getP5_2LotNInfluenza());
+        setFormProperty(props, "p5_2InitialInfluenza", getP5_2InitialInfluenza());
+        setFormProperty(props, "p5_2CommentsInfluenza", getP5_2CommentsInfluenza());
+        setFormProperty(props, "p5_3NaciInfluenza", getP5_3NaciInfluenza());
         if (getP5_3GiveDtInfluenza() != null) {
-            props.setProperty("p5_3GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtInfluenza()));
+            setFormProperty(props, "p5_3GiveDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtInfluenza()));
         }
         if (getP5_3ExpDtInfluenza() != null) {
-            props.setProperty("p5_3ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtInfluenza()));
+            setFormProperty(props, "p5_3ExpDtInfluenza", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtInfluenza()));
         }
-        props.setProperty("p5_3InjeInfluenza", getP5_3InjeInfluenza());
-        props.setProperty("p5_3LotNInfluenza", getP5_3LotNInfluenza());
-        props.setProperty("p5_3InitialInfluenza", getP5_3InitialInfluenza());
-        props.setProperty("p5_3CommentsInfluenza", getP5_3CommentsInfluenza());
+        setFormProperty(props, "p5_3InjeInfluenza", getP5_3InjeInfluenza());
+        setFormProperty(props, "p5_3LotNInfluenza", getP5_3LotNInfluenza());
+        setFormProperty(props, "p5_3InitialInfluenza", getP5_3InitialInfluenza());
+        setFormProperty(props, "p5_3CommentsInfluenza", getP5_3CommentsInfluenza());
 
         if (getP5_1GiveDtHpv() != null) {
-            props.setProperty("p5_1GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHpv()));
+            setFormProperty(props, "p5_1GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtHpv()));
         }
         if (getP5_1ExpDtHpv() != null) {
-            props.setProperty("p5_1ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHpv()));
+            setFormProperty(props, "p5_1ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtHpv()));
         }
-        props.setProperty("p5_1InjeHPV", getP5_1InjeHPV());
-        props.setProperty("p5_1LotNHPV", getP5_1LotNHPV());
-        props.setProperty("p5_1InitialHPV", getP5_1InitialHPV());
-        props.setProperty("p5_1CommentsHPV", getP5_1CommentsHPV());
+        setFormProperty(props, "p5_1InjeHPV", getP5_1InjeHPV());
+        setFormProperty(props, "p5_1LotNHPV", getP5_1LotNHPV());
+        setFormProperty(props, "p5_1InitialHPV", getP5_1InitialHPV());
+        setFormProperty(props, "p5_1CommentsHPV", getP5_1CommentsHPV());
         if (getP5_2GiveDtHpv() != null) {
-            props.setProperty("p5_2GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHpv()));
+            setFormProperty(props, "p5_2GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_2GiveDtHpv()));
         }
         if (getP5_2ExpDtHpv() != null) {
-            props.setProperty("p5_2ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHpv()));
+            setFormProperty(props, "p5_2ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_2ExpDtHpv()));
         }
-        props.setProperty("p5_2InjeHPV", getP5_2InjeHPV());
-        props.setProperty("p5_2LotNHPV", getP5_2LotNHPV());
-        props.setProperty("p5_2InitialHPV", getP5_2InitialHPV());
-        props.setProperty("p5_2CommentsHPV", getP5_2CommentsHPV());
+        setFormProperty(props, "p5_2InjeHPV", getP5_2InjeHPV());
+        setFormProperty(props, "p5_2LotNHPV", getP5_2LotNHPV());
+        setFormProperty(props, "p5_2InitialHPV", getP5_2InitialHPV());
+        setFormProperty(props, "p5_2CommentsHPV", getP5_2CommentsHPV());
         if (getP5_3GiveDtHpv() != null) {
-            props.setProperty("p5_3GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHpv()));
+            setFormProperty(props, "p5_3GiveDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_3GiveDtHpv()));
         }
         if (getP5_3ExpDtHpv() != null) {
-            props.setProperty("p5_3ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHpv()));
+            setFormProperty(props, "p5_3ExpDtHpv", frmRecordHelp.parseDateFieldOrNull(getP5_3ExpDtHpv()));
         }
-        props.setProperty("p5_3InjeHPV", getP5_3InjeHPV());
-        props.setProperty("p5_3LotNHPV", getP5_3LotNHPV());
-        props.setProperty("p5_3InitialHPV", getP5_3InitialHPV());
-        props.setProperty("p5_3CommentsHPV", getP5_3CommentsHPV());
+        setFormProperty(props, "p5_3InjeHPV", getP5_3InjeHPV());
+        setFormProperty(props, "p5_3LotNHPV", getP5_3LotNHPV());
+        setFormProperty(props, "p5_3InitialHPV", getP5_3InitialHPV());
+        setFormProperty(props, "p5_3CommentsHPV", getP5_3CommentsHPV());
 
         if (getP5_1GiveDtOther() != null) {
-            props.setProperty("p5_1GiveDtOther", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtOther()));
+            setFormProperty(props, "p5_1GiveDtOther", frmRecordHelp.parseDateFieldOrNull(getP5_1GiveDtOther()));
         }
         if (getP5_1ExpDtOther() != null) {
-            props.setProperty("p5_1ExpDtOther", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtOther()));
+            setFormProperty(props, "p5_1ExpDtOther", frmRecordHelp.parseDateFieldOrNull(getP5_1ExpDtOther()));
         }
-        props.setProperty("p5_1InjeOther", getP5_1InjeOther());
-        props.setProperty("p5_1LotNOther", getP5_1LotNOther());
-        props.setProperty("p5_1InitialOther", getP5_1InitialOther());
-        props.setProperty("p5_1CommentsOther", getP5_1CommentsOther());
-        props.setProperty("p5_1NaciOther", getP5_1NaciOther());
+        setFormProperty(props, "p5_1InjeOther", getP5_1InjeOther());
+        setFormProperty(props, "p5_1LotNOther", getP5_1LotNOther());
+        setFormProperty(props, "p5_1InitialOther", getP5_1InitialOther());
+        setFormProperty(props, "p5_1CommentsOther", getP5_1CommentsOther());
+        setFormProperty(props, "p5_1NaciOther", getP5_1NaciOther());
 
         for (FormBooleanValue booleanValue : getBooleanValueMap().values()) {
-            props.setProperty(booleanValue.getId().getFieldName(), booleanValue.getValue() ? "checked='checked'" : "");
+            setFormProperty(props, booleanValue.getId().getFieldName(), booleanValue.getValue() ? "checked='checked'" : "");
         }
 
         return props;
