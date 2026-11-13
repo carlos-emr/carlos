@@ -6,11 +6,10 @@
  * and archive from the inbox's own Archive button (messenger-inbox-actions); nothing pressed Send and Archive.
  *
  * WHY THIS CHECK EXISTS. Send and Archive does two things from one click on the compose page (CreateMessage.jsp
- * XMLHttpRequestSendnArch): it takes the message being answered from the page that opened the compose window
- * (the server-supplied original message ID), archives it with a background POST to messenger/DisplayMessages
- * (btnDelete=archive&messageNo=<id>), and then submits the reply. If the background archive is refused the page only
- * shows a warning for a moment and sends anyway, so a clinician who asked for the message to be archived finds it still in
- * their inbox, with nothing on screen saying why.
+ * sendAndArchive): it submits the reply once with archiveAfterSend=1 and the server-supplied original message ID, and
+ * the server archives that message only after the reply is sent (MsgCreateMessage2Action, #6042). The page used to
+ * archive it first with a background POST to messenger/DisplayMessages, so a refused reply left the message archived
+ * with no reply, and a clinician who closed the window found it in the archive unanswered.
  *
  * User path: Schedule ▸ Msg ▸ a message from another provider ▸ Reply (messenger/HandleMessages) ▸ Send and Archive.
  * Asserted:
@@ -18,10 +17,12 @@
  *      A controlled disabled-recipient form fault then sends a real native Send POST without recipients. The server's
  *      error redisplay must retain the original message ID, raw subject/body and compose key, with no stored reply or
  *      source-row change. The sender is selected again on that redisplay before the following Send and Archive.
- *   2. Send and Archive posts the archive for exactly the message replied to (DisplayMessages, btnDelete, its messageNo)
- *      and the application accepts it, then posts the reply (CreateMessage). One reply is stored from the test login and
- *      delivered to the sender only.
- *   3. The message replied to is archived for the test login only: its messagelisttbl row is "del", the other
+ *   2. A refused Send and Archive (the same controlled form fault) posts the reply once with archiveAfterSend=1 and the
+ *      original ID, makes no background archive POST, and leaves the message replied to in the inbox: no reply stored and
+ *      no delivery row changed.
+ *   3. Send and Archive posts the reply once with archiveAfterSend=1 and the original ID, and no background archive POST.
+ *      One reply is stored from the test login and delivered to the sender only.
+ *   4. The message replied to is archived for the test login only: its messagelisttbl row is "del", the other
  *      recipient's row is unchanged, the inbox no longer lists it and the archive box (boxType=2) does.
  * Fixtures: one message seeded by SQL the way a local send writes it (sender: messenger contact 1; recipients: the test
  * login and contact 2; subject and lines carry the run marker). SKIP when the messenger contacts are not 1 and 2 plus the
@@ -131,6 +132,7 @@ async function workflow(s) {
   });
 
   let retryBody;
+  let recipient;
   await s.step('an actual Send with a disabled recipient reaches server refusal and retains the reply for Send and Archive', async () => {
     const attachmentKey = await inbox.locator('input[name="attachmentKey"]').inputValue();
     const rawSubject = `  Re:${subject}  `;
@@ -144,7 +146,7 @@ async function workflow(s) {
     const selectedValues = await selected.evaluateAll(boxes => boxes.map(box => box.value));
     h.assert(selectedValues.length > 0 && selectedValues.every(value => value === selectedValues[0]),
       'The reply does not select only its original sender, including any group copies');
-    const recipient = selectedValues[0];
+    recipient = selectedValues[0];
     // Controlled form fault: validation sees a checked box, while the browser omits
     // its disabled value from the real POST. No shared contact or HTTP response is changed.
     await selected.evaluateAll(boxes => boxes.forEach(box => { box.disabled = true; }));
@@ -174,31 +176,63 @@ async function workflow(s) {
     await inbox.locator(`input[name="provider"][value="${recipient}"]`).first().check();
   });
 
-  let archive;
+  // Background archive POSTs (the old flow) seen while a Send and Archive is pressed: there must be none.
+  async function sendAndArchive() {
+    const archivePosts = [];
+    const watch = request => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/messenger/DisplayMessages')) archivePosts.push(request);
+    };
+    inbox.on('request', watch);
+    try {
+      const [reply] = await Promise.all([
+        inbox.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/messenger/CreateMessage'),
+          { timeout: 30000 }),
+        inbox.locator('#sendArchive').click(),
+      ]);
+      await settle(inbox);
+      const posted = new URLSearchParams(reply.request().postData() || '');
+      h.assert(posted.get('archiveAfterSend') === '1' && posted.get('archiveMessageId') === messageId,
+        `Send and Archive posted archiveAfterSend=${posted.get('archiveAfterSend')} archiveMessageId=${posted.get('archiveMessageId')}, `
+        + `not 1 and the message replied to (${messageId})`);
+      h.assert(archivePosts.length === 0, `Send and Archive still made ${archivePosts.length} background archive POST(s) before the reply`);
+      return reply;
+    } finally {
+      inbox.off('request', watch);
+    }
+  }
+
+  await s.step('a refused Send and Archive leaves the message replied to in the inbox', async () => {
+    // The same controlled fault: validation sees the checked sender, the browser omits its disabled value.
+    const selected = inbox.locator('input[name="provider"]:checked');
+    await selected.evaluateAll(boxes => boxes.forEach(box => { box.disabled = true; }));
+    const before = sourceState();
+    const beforeMessages = JSON.stringify(owned());
+    const refused = await sendAndArchive();
+    h.assert(refused.status() === 200 && Object.hasOwn(refused.headers(), h.APPLICATION_HEADER),
+      'The refused Send and Archive did not return the real application compose page');
+    h.assert((await inbox.locator('body').innerText()).includes('No valid recipients selected'),
+      'The application did not display its controlled recipient refusal');
+    h.assert(statusOf(self) !== 'del', 'A refused Send and Archive archived the message replied to');
+    h.assert(sourceState() === before && JSON.stringify(owned()) === beforeMessages,
+      'The refused Send and Archive stored a reply or changed the original message/delivery rows');
+    h.assert(await inbox.locator('input[name="archiveMessageId"]').inputValue() === messageId,
+      'The refused Send and Archive lost the original message for the next try');
+    await inbox.locator(`input[name="provider"][value="${recipient}"]`).first().check();
+  });
+
   let reply;
-  await s.step('Send and Archive archives exactly the message replied to, then sends one reply to the sender', async () => {
+  await s.step('Send and Archive sends one reply to the sender, then archives exactly the message replied to', async () => {
     const otherBefore = otherRow();
-    [archive, reply] = await Promise.all([
-      inbox.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/messenger/DisplayMessages'),
-        { timeout: 30000 }),
-      inbox.waitForResponse(r => r.request().method() === 'POST' && new URL(r.url()).pathname.endsWith('/messenger/CreateMessage'),
-        { timeout: 30000 }),
-      inbox.locator('#sendArchive').click(),
-    ]);
-    const sent = new URLSearchParams(archive.request().postData() || '');
-    h.assert(sent.get('btnDelete') === 'archive' && JSON.stringify(sent.getAll('messageNo')) === JSON.stringify([messageId]),
-      `Send and Archive posted ${JSON.stringify(Object.fromEntries(sent))} to DisplayMessages, not the archive of message ${messageId}`);
+    reply = await sendAndArchive();
     h.assert(reply.status() < 400, `The reply answered HTTP ${reply.status()}`);
-    await settle(inbox);
     const replies = sql.rows(`SELECT messageid, sentbyNo FROM messagetbl WHERE thesubject=${h.sqlString(`Re:${subject}`)}`);
     h.assert(replies.length === 1 && replies[0][1] === self, `Send and Archive stored ${replies.length} replies, not one from ${self}`);
     h.assert(messageText(sql.value(`SELECT themessage FROM messagetbl WHERE messageid=${replies[0][0]}`)) === messageText(retryBody),
       'The retried reply did not store the exact recovered message text');
     const delivered = sql.rows(`SELECT provider_no FROM messagelisttbl WHERE message=${replies[0][0]} ORDER BY provider_no`).map(row => row[0]);
     h.assert(JSON.stringify(delivered) === JSON.stringify([SENDER]), `The reply was delivered to ${JSON.stringify(delivered)}, not to ${SENDER}`);
-    h.assert(archive.status() >= 200 && archive.status() < 300,
-      `The archive of the message replied to answered HTTP ${archive.status()}; the reply was sent but the message stays in the `
-      + `inbox (its row for the test login is "${statusOf(self)}")`);
+    h.assert(!(await inbox.locator('[data-carlos-archive-after-send-failed]').count()),
+      'The sent page says the message replied to could not be archived');
     h.assert(statusOf(self) === 'del', `The message replied to has status "${statusOf(self)}" for the test login, not archived ("del")`);
     h.assert(otherRow() === otherBefore, 'Send and Archive changed the other recipient\'s copy of the message');
   });

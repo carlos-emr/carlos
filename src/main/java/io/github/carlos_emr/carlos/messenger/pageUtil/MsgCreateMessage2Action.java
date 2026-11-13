@@ -238,6 +238,9 @@ public class MsgCreateMessage2Action extends ActionSupport {
             // the messenger bean (issue #4673).
             MsgAttachmentStaging.releaseSource(session, attachmentKey, staged);
 
+            if ("1".equals(request.getParameter(ARCHIVE_AFTER_SEND))) {
+                archiveRepliedMessage(userNo);
+            }
             return SUCCESS;
         } catch (RuntimeException e) {
             if (!sent) {
@@ -270,7 +273,44 @@ public class MsgCreateMessage2Action extends ActionSupport {
         return ERROR;
     }
 
-    /** Optional compose carrier only; the archive endpoint still authorizes the requested message. */
+    /** Form field: Send and Archive asks for the message replied to to be archived once the reply is sent. */
+    static final String ARCHIVE_AFTER_SEND = "archiveAfterSend";
+    /** Request attribute for the sent page: the reply went out, but the message replied to is still in the inbox. */
+    static final String ARCHIVE_AFTER_SEND_FAILED = "archiveAfterSendFailed";
+
+    /**
+     * Send and Archive (#6042): archives the message replied to, only now that the reply is sent.
+     * The page used to archive it first, with a background POST, and then submit the reply; a
+     * refused reply (attachments released, chart PDFs for another patient or too large, no valid
+     * recipient, a failed send) left the message archived with no reply.
+     *
+     * <p>It archives as the inbox's Archive button does ({@link MsgBulkOperationHelper}): only this
+     * provider's own local recipient rows for that message change, so a message the provider did
+     * not receive is left alone. The reply is never undone: when the archive fails, the sent page
+     * says the message is still in the inbox.</p>
+     */
+    private void archiveRepliedMessage(String providerNo) {
+        Integer original = archiveMessageId(request);
+        if (original == null) {
+            return;
+        }
+        try {
+            MsgBulkOperationHelper.updateSelectedMessages(request, providerNo,
+                    new String[]{original.toString()}, msg -> msg.setDeleted(true));
+        } catch (RuntimeException failed) {
+            MiscUtils.getLogger().error("Send and Archive: the reply was sent, the message replied to was not archived ({})",
+                    failed.getClass().getSimpleName());
+            request.setAttribute(MsgBulkOperationHelper.ATTR_UPDATE_FAILURE_COUNT, 1);
+        }
+        if (request.getAttribute(MsgBulkOperationHelper.ATTR_UPDATE_FAILURE_COUNT) != null) {
+            request.setAttribute(ARCHIVE_AFTER_SEND_FAILED, Boolean.TRUE);
+        }
+    }
+
+    /**
+     * Optional compose carrier naming the message replied to. Send and Archive archives it after the
+     * reply is sent, and only this provider's own rows for it ({@link #archiveRepliedMessage}).
+     */
     private static Integer archiveMessageId(HttpServletRequest request) {
         String[] values = request.getParameterValues("archiveMessageId");
         if (values == null || values.length == 0) return null;

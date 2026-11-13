@@ -21,6 +21,9 @@
  */
 package io.github.carlos_emr.carlos.messenger.pageUtil;
 
+import io.github.carlos_emr.carlos.commn.dao.MessageListDao;
+import io.github.carlos_emr.carlos.commn.dao.OscarCommLocationsDao;
+import io.github.carlos_emr.carlos.commn.model.MessageList;
 import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -607,6 +610,100 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
                     .isEqualTo("<PDF>FAKE newer send</PDF>");
             assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfDemographicNo()).isEqualTo(202);
+        }
+
+        /**
+         * #6042: Send and Archive archives the message replied to only once the reply is sent, and
+         * only the replying provider's own local copy. The page used to archive it first, so a
+         * refused reply left it archived with no reply.
+         */
+        @Nested
+        @DisplayName("Send and Archive")
+        class SendAndArchive {
+
+            private final MessageListDao messageListDao = mock(MessageListDao.class);
+            private final MessageList ownCopy = new MessageList();
+
+            @BeforeEach
+            void replyToMessage55() {
+                replaceSpringUtilsBean(MessageListDao.class, messageListDao);
+                replaceSpringUtilsBean(OscarCommLocationsDao.class, mock(OscarCommLocationsDao.class));
+                ownCopy.setProviderNo(TEST_PROVIDER);
+                ownCopy.setMessage(55L);
+                ownCopy.setStatus(MessageList.STATUS_READ);
+                ownCopy.setRemoteLocation(0);
+                ownCopy.setDestinationFacilityId(0);
+                when(messageListDao.findByProviderNoAndMessageNo(TEST_PROVIDER, 55L)).thenAnswer(lookup -> {
+                    // The message replied to is looked up only once the reply has gone out.
+                    assertThat(sends.get()).isEqualTo(1);
+                    return List.of(ownCopy);
+                });
+                action.setAttachmentKey(thisWindow);
+                action.setDemographic_no("101");
+                getMockRequest().setParameter("archiveMessageId", "55");
+            }
+
+            @Test
+            void shouldArchiveTheMessageRepliedTo_afterTheReplyIsSent() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_DELETED);
+                verify(messageListDao).merge(ownCopy);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED)).isNull();
+            }
+
+            @org.junit.jupiter.params.ParameterizedTest
+            @org.junit.jupiter.params.provider.ValueSource(strings = {"recipients", "patient", "delivery"})
+            void shouldLeaveTheMessageRepliedToInTheInbox_whenTheReplyIsRefused(String refusal) throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                switch (refusal) {
+                    case "recipients" -> noRecipients = true;
+                    case "patient" -> action.setDemographic_no("202");
+                    default -> sentMessageId = "";
+                }
+
+                assertThat(send()).isEqualTo("error");
+
+                verifyNoInteractions(messageListDao);
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_READ);
+                // The redisplayed page still carries the message replied to, for the next try.
+                assertThat(getMockRequest().getAttribute("archiveMessageId")).isEqualTo(55);
+            }
+
+            @Test
+            void shouldNotArchive_whenAPlainSendCarriesTheMessageRepliedTo() throws Exception {
+                assertThat(send()).isEqualTo("success");
+
+                verifyNoInteractions(messageListDao);
+                assertThat(ownCopy.getStatus()).isEqualTo(MessageList.STATUS_READ);
+            }
+
+            @Test
+            void shouldArchiveNothing_whenTheProviderDidNotReceiveTheMessage() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                doReturn(List.of()).when(messageListDao).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
+
+                assertThat(send()).isEqualTo("success");
+
+                verify(messageListDao, never()).merge(any());
+            }
+
+            @Test
+            void shouldSayTheMessageIsStillInTheInbox_whenTheArchiveFailsAfterTheReplyIsSent() throws Exception {
+                getMockRequest().setParameter(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND, "1");
+                doThrow(new org.springframework.dao.DataRetrievalFailureException("FAKE database failure"))
+                        .when(messageListDao).findByProviderNoAndMessageNo(TEST_PROVIDER, 55L);
+
+                // The reply is sent and stays sent; the sent page says the original is still in the inbox.
+                assertThat(send()).isEqualTo("success");
+
+                assertThat(sends.get()).isEqualTo(1);
+                assertThat(getMockRequest().getAttribute(MsgCreateMessage2Action.ARCHIVE_AFTER_SEND_FAILED))
+                        .isEqualTo(Boolean.TRUE);
+            }
         }
     }
 }
