@@ -67,6 +67,13 @@ public final class CdsExportNativeHistoryXmlWriter {
                     CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
                     "string",
                     value.text().get("NativePersonalNarrative"));
+        if (value.category() != CdsCategory.PERSONAL_HISTORY
+                && value.text().containsKey("NativeNarrative"))
+            residualElement(
+                    xml,
+                    CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                    "string",
+                    CdsNativeExtensionContract.encodeNarrative(value.text().get("NativeNarrative")));
         xml.end();
         List<String> order =
                 switch (value.category()) {

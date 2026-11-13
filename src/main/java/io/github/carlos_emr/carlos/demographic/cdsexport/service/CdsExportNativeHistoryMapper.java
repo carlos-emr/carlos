@@ -372,6 +372,9 @@ public final class CdsExportNativeHistoryMapper {
                 if (!CdsExportNativeFieldAssessments.legal(body, notesCap))
                     review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
                 put(text, "Notes", body);
+                // Notes alone is not the item's text to a CARLOS importer; the versioned carrier
+                // lets it restore the narrative instead of a placeholder.
+                text.put("NativeNarrative", body);
                 var note = current.note().value();
                 var key = new CdsExportNativeFieldKeyDto(note.table(), note.recordKey(), "note");
                 var prior = decisions.get(key);

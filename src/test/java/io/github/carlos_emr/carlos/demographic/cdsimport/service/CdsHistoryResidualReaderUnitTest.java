@@ -149,6 +149,48 @@ class CdsHistoryResidualReaderUnitTest {
     }
 
     @Test
+    void shouldRestoreALongCppNarrative_fromItsCarrierOnlyOutsidePersonalHistory()
+            throws Exception {
+        for (String category : List.of("FamilyHistory", "PastHealth", "ProblemList", "RiskFactors")) {
+            var record =
+                    parsed(
+                            category,
+                            "<ResidualInfo>"
+                                    + element(
+                                            CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                                            "string",
+                                            "Long native narrative café 😀")
+                                    + "</ResidualInfo>");
+            var result = new CdsHistoryResidualReader(fields).read(record);
+            assertThat(fields.readLogicalText(record, result.narrative(), 1000))
+                    .isEqualTo("Long native narrative café 😀");
+            assertThat(result.personalNarrative()).isNull();
+        }
+        var personal =
+                parsed(
+                        "PersonalHistory",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                                        "string",
+                                        "Wrong carrier")
+                                + "</ResidualInfo>");
+        assertThatThrownBy(() -> new CdsHistoryResidualReader(fields).read(personal))
+                .hasMessageContaining("CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldEncodeNarrativeWhitespace_soTokenNormalizationCannotChangeIt() {
+        String text = "Line one\n\tLine  two\r\n \"quoted\" café 😀 ";
+        String encoded = CdsNativeExtensionContract.encodeNarrative(text);
+        assertThat(encoded).doesNotContain(" ", "\n", "\r", "\t");
+        assertThat(CdsNativeExtensionContract.decodeNarrative(encoded)).isEqualTo(text);
+        for (String malformed : List.of("", "plain text", "\"a\"\"b\"", "{\"a\":1}", "\"open", "42"))
+            assertThatThrownBy(() -> CdsNativeExtensionContract.decodeNarrative(malformed))
+                    .hasMessage("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+    }
+
+    @Test
     void shouldKeepUnmarkedHistoricalImportsCompatible_andLeaveUnrelatedLargeResidualTextStreamed()
             throws Exception {
         var record =

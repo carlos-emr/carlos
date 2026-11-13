@@ -159,6 +159,21 @@ public final class CdsExportHistoryRetainedSource {
                                 values,
                                 checkpoint)
                         : body == null ? null : relative.get(body + "[1]");
+        // A CARLOS export carries a narrative too long for the description element in a versioned
+        // residual instead; the importer read it only when the description element was absent.
+        boolean carrier = false;
+        if (descriptor == null
+                && category != CdsCategory.PERSONAL_HISTORY
+                && category != CdsCategory.CLINICAL_NOTES) {
+            descriptor =
+                    marker(
+                            fields,
+                            CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                            "string",
+                            values,
+                            checkpoint);
+            carrier = descriptor != null;
+        }
         if (category != CdsCategory.CLINICAL_NOTES) {
             var archive =
                     marker(
@@ -178,7 +193,7 @@ public final class CdsExportHistoryRetainedSource {
                                     archive, prepared.archived() ? "1" : "0", values, checkpoint)))
                 invalid();
         }
-        verifyBody(category, prepared, descriptor, values, checkpoint);
+        verifyBody(category, prepared, descriptor, carrier, values, checkpoint);
         Pattern datePath = datePattern(category);
         var temporal = new LinkedHashMap<String, CdsTemporalDto>();
         var dates = new LinkedHashMap<String, CdsExportDateDto>();
@@ -278,6 +293,7 @@ public final class CdsExportHistoryRetainedSource {
             CdsCategory category,
             CdsHistoryNativeDto prepared,
             CdsExportRetainedFieldDto body,
+            boolean carrier,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -300,7 +316,8 @@ public final class CdsExportHistoryRetainedSource {
                                                                                         .PERSONAL_HISTORY
                                                                         ? "ResidualInfo"
                                                                         : body(category)));
-        if (body == null) {
+        // An importer that predates the narrative carrier ignored it and stored the placeholder.
+        if (body == null || carrier && structured) {
             if (!structured
                     || oversized
                     || !prepared.content()
@@ -322,6 +339,19 @@ public final class CdsExportHistoryRetainedSource {
                                             + " this clinical category's CDS source fields. No"
                                             + " narrative excerpt was substituted.]"))
                 invalid();
+        } else if (carrier) {
+            // The importer decoded the carrier's whitespace-free encoding before preparing it.
+            if (structured) invalid();
+            String decoded;
+            try {
+                decoded =
+                        CdsNativeExtensionContract.decodeNarrative(
+                                text(values, body, 2_400_000, checkpoint));
+            } catch (IllegalArgumentException malformed) {
+                invalid();
+                return;
+            }
+            if (!decoded.equals(prepared.content())) invalid();
         } else {
             if (structured) invalid();
             int offset = 0;

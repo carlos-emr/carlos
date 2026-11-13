@@ -23,6 +23,9 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 
+import io.github.carlos_emr.carlos.commn.model.CdsClinicalException;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
+
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementIssueDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteDAO;
 import io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteExtDAO;
@@ -160,6 +163,13 @@ public class CdsHistoryPersister {
                 });
         if (descriptor[0] == null && nativeState.personalNarrative() != null)
             descriptor[0] = nativeState.personalNarrative();
+        // A CARLOS export writes no description element for a narrative too long for it; its
+        // versioned carrier holds the exact text (Notes holds the same text for other readers).
+        boolean encoded = false;
+        if (descriptor[0] == null && nativeState.narrative() != null) {
+            descriptor[0] = nativeState.narrative();
+            encoded = true;
+        }
         if (nativeState.archived())
             notice.accept(new CdsClinicalDiagnosticDto(
                     "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION", "ResidualInfo"));
@@ -179,7 +189,19 @@ public class CdsHistoryPersister {
             String logical = null;
             boolean oversized = false;
             try {
-                logical = fields.readLogicalText(record, descriptor[0], (int) limit);
+                if (encoded) {
+                    // Each escaped character is at most six encoded ones; the decoded narrative
+                    // is held to the same native bound as any other body below.
+                    String carrier =
+                            fields.readLogicalText(
+                                    record, descriptor[0], (int) Math.min(6 * limit, 2_400_000));
+                    try {
+                        logical = CdsNativeExtensionContract.decodeNarrative(carrier);
+                    } catch (IllegalArgumentException malformed) {
+                        throw new CdsClinicalException(
+                                "CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+                    }
+                } else logical = fields.readLogicalText(record, descriptor[0], (int) limit);
                 oversized =
                         logical.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > limit;
             } catch (CdsInputException capacity) {

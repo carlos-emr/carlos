@@ -216,6 +216,37 @@ class CdsExportHistoryInteroperabilityUnitTest {
     }
 
     @Test
+    void shouldRestoreLongNativeCppNarratives_insteadOfAPlaceholder() throws Exception {
+        var tags =
+                Map.of(
+                        CdsCategory.FAMILY_HISTORY, "FamHistory",
+                        CdsCategory.PAST_HEALTH, "MedHistory",
+                        CdsCategory.PROBLEM_LIST, "Concerns",
+                        CdsCategory.RISK_FACTORS, "RiskFactors");
+        for (var entry : tags.entrySet()) {
+            // Longer than every description element (250, or 120 for RiskFactor), with the line
+            // breaks and repeated spaces a clinician types into the CPP box.
+            String narrative =
+                    ("Line one of a long " + entry.getValue() + " item café 😀\n"
+                                    + "  indented detail,   spaced\n")
+                            .repeat(8);
+            var mapped =
+                    new CdsExportNativeHistoryMapper()
+                            .map(
+                                    27,
+                                    entry.getKey(),
+                                    List.of(note(91, narrative, entry.getValue(), List.of())),
+                                    providers(),
+                                    ZoneId.of("America/Toronto"));
+            assertThat(mapped.value().text()).containsEntry("Notes", narrative);
+            var imported = roundTrip(mapped.value(), entry.getValue());
+            assertThat(imported.note().getNote()).as(entry.getKey().wireName()).isEqualTo(narrative);
+            assertThat(imported.prepared().diagnostics())
+                    .noneMatch(d -> d.code().equals("CDS_HISTORY_STRUCTURED_SOURCE_FIELDS"));
+        }
+    }
+
+    @Test
     void shouldReceiveAnArchivedEncounterNote_asAStatedArchivedNoteRatherThanALiveOne()
             throws Exception {
         var original = note(91, "Seen for cough. Plan: fluids.", null, List.of());

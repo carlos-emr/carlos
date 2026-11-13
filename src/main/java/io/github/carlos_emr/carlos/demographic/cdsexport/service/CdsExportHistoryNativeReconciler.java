@@ -116,7 +116,8 @@ final class CdsExportHistoryNativeReconciler {
                             original, "note", current.note().value().fields().get("note"));
             for (var entry : nativeValue.text().entrySet()) {
                 String name = entry.getKey(), value = entry.getValue();
-                if (name.equals("NativePersonalNarrative")) continue;
+                if (name.equals("NativePersonalNarrative") || name.equals("NativeNarrative"))
+                    continue;
                 if (!edited
                         && Set.of(
                                         "ProblemDiagnosisProcedureDescription",
@@ -209,6 +210,34 @@ final class CdsExportHistoryNativeReconciler {
                 markers.put(
                         CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
                         nativeValue.text().get("NativePersonalNarrative"));
+            // An edit decides the item's text again: a long current narrative travels in the
+            // narrative carrier, and a carrier left from the original import must not survive an
+            // edit that now fits the description element.
+            boolean carrier =
+                    category != CdsCategory.PERSONAL_HISTORY
+                            && nativeValue.text().containsKey("NativeNarrative");
+            if (edited && carrier)
+                markers.put(
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                        CdsNativeExtensionContract.encodeNarrative(
+                                nativeValue.text().get("NativeNarrative")));
+            if (edited && !carrier && residual && category != CdsCategory.PERSONAL_HISTORY) {
+                var stale =
+                        CdsExportHistoryRetainedSource.marker(
+                                sourceFields,
+                                CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                                "string",
+                                values,
+                                checkpoint);
+                if (stale != null) {
+                    String element = stale.sourcePath().substring(root.length() + 1);
+                    replace(
+                            changes,
+                            sourceFields,
+                            element.substring(0, element.length() - "/Content[1]".length()),
+                            null);
+                }
+            }
             if (!residual) {
                 replace(
                         changes,

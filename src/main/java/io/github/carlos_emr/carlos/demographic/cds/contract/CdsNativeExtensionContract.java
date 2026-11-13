@@ -53,6 +53,52 @@ public final class CdsNativeExtensionContract {
     /** PersonalHistory permits only residual fields, so its native narrative has an explicit carrier. */
     public static final String HISTORY_PERSONAL_NARRATIVE = "CARLOS.History.PersonalNarrative.v1";
 
+    /**
+     * The complete native narrative of a FamilyHistory, PastHealth, ProblemList or RiskFactors
+     * item too long for its description element (250 characters, 120 for RiskFactor). The
+     * exporter then writes no description, the same text in the standard Notes element for any
+     * receiver, and this carrier so a CARLOS importer restores the item's text exactly rather
+     * than a placeholder. A description element, when present, always wins. The content is
+     * {@link #encodeNarrative}: residual Content is {@code xs:token}, and a schema-aware reader
+     * (the CARLOS importer included) collapses the line breaks and repeated spaces of raw text.
+     */
+    public static final String HISTORY_NARRATIVE = "CARLOS.History.Narrative.v1";
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper NARRATIVE_JSON =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .enable(
+                            com.fasterxml.jackson.databind.DeserializationFeature
+                                    .FAIL_ON_TRAILING_TOKENS);
+
+    /**
+     * One JSON string literal in which every XML whitespace character (space, tab, line feed,
+     * carriage return) is a JSON escape, so token normalization cannot alter it.
+     */
+    public static String encodeNarrative(String text) {
+        if (text == null) throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        try {
+            return NARRATIVE_JSON.writeValueAsString(text).replace(" ", "\\u0020");
+        } catch (com.fasterxml.jackson.core.JsonProcessingException impossible) {
+            throw new IllegalStateException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID", impossible);
+        }
+    }
+
+    /** Exact inverse of {@link #encodeNarrative}; any other shape is refused, never guessed. */
+    public static String decodeNarrative(String encoded) {
+        if (encoded == null
+                || encoded.isEmpty()
+                || encoded.chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n'))
+            throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        try {
+            var node = NARRATIVE_JSON.readTree(encoded);
+            if (node == null || !node.isTextual())
+                throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+            return node.textValue();
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            throw new IllegalArgumentException("CDS_HISTORY_NARRATIVE_ENCODING_INVALID");
+        }
+    }
+
     /** Complete native prescription context; unqualified codes remain explicitly unqualified. */
     public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
 

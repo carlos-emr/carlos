@@ -33,7 +33,8 @@ final class CdsHistoryResidualReader {
     private static final Set<String> KNOWN =
             Set.of(
                     CdsNativeExtensionContract.HISTORY_ARCHIVED,
-                    CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE);
+                    CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
+                    CdsNativeExtensionContract.HISTORY_NARRATIVE);
     private static final Set<String> CPP =
             Set.of(
                     "PersonalHistory",
@@ -48,10 +49,15 @@ final class CdsHistoryResidualReader {
         this.fields = Objects.requireNonNull(fields);
     }
 
-    record NativeState(boolean archived, CdsFieldDto personalNarrative) {}
+    /**
+     * @param personalNarrative the PersonalHistory narrative carrier, or null
+     * @param narrative the narrative carrier of another CPP item whose text did not fit its
+     *     description element, or null; the persister uses it only when that element is absent
+     */
+    record NativeState(boolean archived, CdsFieldDto personalNarrative, CdsFieldDto narrative) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
-        if (!CPP.contains(record.section())) return new NativeState(false, null);
+        if (!CPP.contains(record.section())) return new NativeState(false, null, null);
         var state = new State(record);
         try {
             fields.forEachField(
@@ -64,7 +70,8 @@ final class CdsHistoryResidualReader {
                         }
                     });
             state.finish();
-            return new NativeState(Boolean.TRUE.equals(state.archived), state.narrative);
+            return new NativeState(
+                    Boolean.TRUE.equals(state.archived), state.personalNarrative, state.narrative);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -76,6 +83,7 @@ final class CdsHistoryResidualReader {
         private final Set<String> seen = new HashSet<>();
         private String group;
         private Boolean archived;
+        private CdsFieldDto personalNarrative;
         private CdsFieldDto narrative;
 
         State(CdsRecordDto record) {
@@ -126,8 +134,11 @@ final class CdsHistoryResidualReader {
                             case "false", "0" -> false;
                             default -> throw invalidValue();
                         };
-            } else {
+            } else if (name.equals(CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE)) {
                 if (!record.section().equals("PersonalHistory")) invalid();
+                personalNarrative = values.get("Content");
+            } else {
+                if (record.section().equals("PersonalHistory")) invalid();
                 narrative = values.get("Content");
             }
             values.clear();

@@ -25,6 +25,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsWireSchema;
@@ -261,6 +262,38 @@ class CdsExportHistoryRetainedSourceUnitTest {
                         temporal("2020-02-28", false),
                         "StartDate",
                         prepared.diagnostics());
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_HISTORY_SOURCE_INVALID");
+    }
+
+    @Test
+    void shouldVerifyALongNarrativeCarrier_forNewAndPreCarrierPreparations() throws Exception {
+        String narrative = "Long family history\n  with   spacing, café 😀 ".repeat(12);
+        fields.clear();
+        add("ResidualInfo[1]/DataElement[1]/Name[1]", CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        add("ResidualInfo[1]/DataElement[1]/DataType[1]", "string");
+        add(
+                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                CdsNativeExtensionContract.encodeNarrative(narrative));
+        add("StartDate[1]/FullDate[1]", "2020-02-28");
+        add("Notes[1]", narrative);
+        prepare(narrative, "StartDate", temporal("2020-02-28", false));
+        assertThat(read().sourceFields()).hasSize(5);
+        // An importer that ignored the carrier stored the structured-source placeholder.
+        prepared =
+                new CdsHistoryNativeDto(
+                        "[CDS FamilyHistory: no narrative body supplied. Separate clinical source"
+                                + " fields retain this occurrence's complete values.]",
+                        null,
+                        null,
+                        null,
+                        null,
+                        temporal("2020-02-28", false),
+                        "StartDate",
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_HISTORY_STRUCTURED_SOURCE_FIELDS", "FamilyHistory")));
+        assertThat(read().sourceFields()).hasSize(5);
+        prepare(narrative.strip(), "StartDate", temporal("2020-02-28", false));
         assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_HISTORY_SOURCE_INVALID");
     }
 

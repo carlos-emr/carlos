@@ -113,7 +113,11 @@ the original and edits in one clinical occurrence. A clinical note whose latest
 revision is archived (removed from the active record) is still exported, because the
 encounter list still shows it, but its text begins with a statement that it is
 archived and not current: ClinicalNotes has no status field, and the receiving
-importer, CARLOS included, files it as an ordinary note carrying that statement.
+importer, CARLOS included, files it as an ordinary note carrying that statement. A
+history item longer than its description element (250 characters, 120 for a risk
+factor) has no description; its complete text is in Notes, and also in the versioned
+`CARLOS.History.Narrative.v1` residual (whitespace escaped), from which a CARLOS
+importer restores the item's exact text.
 
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select

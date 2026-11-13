@@ -287,7 +287,11 @@ class CdsExportNativeHistoryMapperUnitTest {
                                                 "note"))
                                 .destination())
                 .isEqualTo("Notes");
-        render(result.value());
+        // A CARLOS importer reads the item's text from the versioned carrier, not from Notes.
+        assertThat(result.value().text()).containsEntry("NativeNarrative", "N".repeat(251));
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains(CdsNativeExtensionContract.HISTORY_NARRATIVE)
+                .doesNotContain("ProblemDiagnosisProcedureDescription");
     }
 
     @Test
