@@ -53,6 +53,13 @@ public final class CdsExportSupportingFilesComposer {
                     + " similar); each is a Reports entry holding a CARLOS data summary PDF of the"
                     + " record's stored fields, not an original document.";
 
+    /**
+     * ReadMe field counting a patient's captured records that are deliberately not exported:
+     * eForms the chart no longer lists (deleted or replaced by an edit) and patient-independent
+     * eForms. Every field of them is accounted in the reconciliation audit.
+     */
+    public static final String NOT_EXPORTED = "Patient records not exported";
+
     /** How the receiver reads the listed removed-feature tables. */
     public static final String LISTED_NOTICE =
             "Listed tables not exported hold records of removed CARLOS features; their rows were"
@@ -200,6 +207,11 @@ public final class CdsExportSupportingFilesComposer {
                             readMe,
                             "Patient listed table not exported",
                             listed.table() + ": " + listed.rows() + " rows");
+                for (var withheld : patient.notExported().entrySet())
+                    line(
+                            readMe,
+                            NOT_EXPORTED,
+                            withheld.getKey() + ": " + withheld.getValue());
                 event(eventLog, patient);
                 count = Math.incrementExact(count);
                 totalPatients = Math.incrementExact(totalPatients);

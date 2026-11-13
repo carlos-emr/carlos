@@ -69,6 +69,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportListedSourceReader.class,
     CdsExportDataSummaryOccurrenceService.class,
     CdsExportDataSummaryPdfService.class,
+    // No eForm renderer bean here: a command-line process renders nothing, and its eForms carry
+    // the "rendered form unavailable" note when it runs a job itself.
+    io.github.carlos_emr.carlos.commn.dao.CdsExportEformRenderReadDao.class,
+    CdsExportEformRenderService.class,
+    CdsExportEformRenderingSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportHospitalReportReadDao.class,
     CdsExportHospitalReportScopeSourceReader.class,
     CdsExportHospitalReportSourceReader.class,

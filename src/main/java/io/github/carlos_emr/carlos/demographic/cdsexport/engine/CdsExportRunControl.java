@@ -79,6 +79,15 @@ public interface CdsExportRunControl {
         for (var scope : java.util.List.copyOf(scopes)) authorizeNote(category, scope);
     }
 
+    /**
+     * Fresh Reports and eForm read check for one patient, outside any source transaction, returning
+     * the job's effective provider identity an eForm of that patient is rendered as. Never a system
+     * identity; an adapter without a renderer identity refuses, so it stays fail-closed.
+     */
+    default io.github.carlos_emr.carlos.utility.LoggedInInfo authorizeRendering(int patient) {
+        throw new SecurityException("CDS_EXPORT_RENDER_AUTHORIZATION_REQUIRED");
+    }
+
     /** Actual sensitive laboratory occurrences must explicitly require their additional domain privilege. */
     void authorizeCategory(int patient, CdsCategory category, boolean sensitiveLaboratory);
 }

@@ -762,6 +762,37 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseReportsExportAtAdmission_whenTheRolesLackEformRead() {
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_eform"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, command("100")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_eform)");
+        // A job without Reports carries no eForm and does not need the right.
+        assertThat(access.webActor(session, demographicCommand("100")).providerNo())
+                .isEqualTo("100");
+    }
+
+    @Test
+    void shouldRenderAsTheJobsEffectiveProvider_afterAFreshEformCheckForThePatient() {
+        var actor = access.webActor(session, command("200"));
+
+        var identity = access.requireEformRendering(actor, command("200"), 27);
+
+        assertThat(identity.getLoggedInProviderNo()).isEqualTo("200");
+        verify(permissions, atLeastOnce())
+                .hasPrivilegeReadOnly(
+                        argThat(info -> "100".equals(info.getLoggedInProviderNo())),
+                        eq("_eform"),
+                        eq("r"),
+                        eq("27"));
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_eform"), eq("r"), eq("27")))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.requireEformRendering(actor, command("200"), 27))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldRecheckDiseaseRegistryRead_forEachProblemListPatient() {
         var actor = access.webActor(session, command("100"));
         when(permissions.hasPrivilegeReadOnly(any(), eq("_dxresearch"), eq("r"), eq("27")))

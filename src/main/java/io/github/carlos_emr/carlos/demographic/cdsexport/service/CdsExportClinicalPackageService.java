@@ -78,11 +78,13 @@ public class CdsExportClinicalPackageService {
             String relative,
             List<CdsExportNoteAccessDto> notes,
             Map<String, Long> dataSummaries,
-            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {
+            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
+            Map<String, Long> notExported) {
         private PatientFile {
             notes = List.copyOf(notes);
             dataSummaries = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dataSummaries));
             listed = List.copyOf(listed);
+            notExported = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(notExported));
         }
     }
 
@@ -272,7 +274,8 @@ public class CdsExportClinicalPackageService {
                                             relative,
                                             notes,
                                             captured.dataSummaries(),
-                                            captured.listed()))
+                                            captured.listed(),
+                                            captured.notExported()))
                             != null) ambiguous();
                     // Two names for one billing number are ambiguous; physicians without a
                     // number (and the Unassigned folder) are told apart by name only.
@@ -429,7 +432,8 @@ public class CdsExportClinicalPackageService {
                                                                         file.document()
                                                                                 .validation(),
                                                                         file.dataSummaries(),
-                                                                        file.listed()))
+                                                                        file.listed(),
+                                                                        file.notExported()))
                                                 .iterator(),
                                         Math.min(limits.patients(), 1_000_000),
                                         limits.patients(),
@@ -601,7 +605,8 @@ public class CdsExportClinicalPackageService {
             CdsExportPatientDocumentService.Document document,
             CdsExportPatientFileDto name,
             Map<String, Long> dataSummaries,
-            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {}
+            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
+            Map<String, Long> notExported) {}
 
     /** One selected patient's capture, retained payload, finished document and file binding. */
     private Captured capturePatient(
@@ -665,8 +670,17 @@ public class CdsExportClinicalPackageService {
                 dataSummaries == null
                         ? Map.<String, Long>of()
                         : dataSummaries.kinds(lease, patient, tables, source, bounds, control);
+        var withheld =
+                dataSummaries == null
+                        ? Map.<String, Long>of()
+                        : dataSummaries.notExported(lease, patient, tables, source, bounds, control);
         return new Captured(
-                source, document, name, summaries, listed(lease, patient, tables, source, bounds, control));
+                source,
+                document,
+                name,
+                summaries,
+                listed(lease, patient, tables, source, bounds, control),
+                withheld);
     }
 
     /** The captured listed-table counts of one patient, read back from the sealed capture. */
@@ -886,7 +900,8 @@ public class CdsExportClinicalPackageService {
                                     xml.xmlSha256(),
                                     xml.xmlBytes(),
                                     file.dataSummaries(),
-                                    file.listed());
+                                    file.listed(),
+                                    file.notExported());
                         })
                 .toList();
     }

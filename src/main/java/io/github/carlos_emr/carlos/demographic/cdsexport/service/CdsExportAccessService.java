@@ -148,6 +148,17 @@ public class CdsExportAccessService {
     }
 
     /**
+     * The identity an eForm of this patient is rendered as: the job's effective provider, after
+     * the same live checks as any Reports read of the patient (including {@code _eform} read, for
+     * both identities). The renderer re-checks {@code _eform} itself; it never runs as a system
+     * identity with wider rights.
+     */
+    public LoggedInInfo requireEformRendering(
+            CdsExportActorDto actor, CdsExportCommand command, int patient) {
+        return requireCategory(actor, command, patient, CdsCategory.REPORTS, false);
+    }
+
+    /**
      * Native pharmacy rights apply even when MedicationsAndTreatments is not selected for the wire.
      */
     public LoggedInInfo requirePharmacyRead(
@@ -507,10 +518,20 @@ public class CdsExportAccessService {
                 && (only == null || only == CdsCategory.PROBLEM_LIST)
                 && !security.hasPrivilegeReadOnly(context, DISEASE_REGISTRY_READ, "r", target))
             refuse(patient, DISEASE_REGISTRY_READ);
+        // Reports carry every current eForm (its stored values and the form as the chart shows
+        // it), so they need the eForm screen's own read right, by name at admission and again for
+        // each patient, whether or not the chart holds an eForm (maintainer decision 6).
+        if (command.categories().contains(CdsCategory.REPORTS)
+                && (only == null || only == CdsCategory.REPORTS)
+                && !security.hasPrivilegeReadOnly(context, EFORM_READ, "r", target))
+            refuse(patient, EFORM_READ);
     }
 
     /** The Disease Registry's own read object, required with ProblemList. */
     static final String DISEASE_REGISTRY_READ = "_dxresearch";
+
+    /** The eForm read object, required with Reports, which carry every eForm of the chart. */
+    static final String EFORM_READ = "_eform";
 
     private static void refuse(Integer patient, String object) {
         if (patient == null) throw new SecurityException("missing required sec object (" + object + ")");

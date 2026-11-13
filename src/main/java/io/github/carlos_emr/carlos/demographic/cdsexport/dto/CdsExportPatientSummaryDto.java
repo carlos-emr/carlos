@@ -29,12 +29,22 @@ import java.util.Map;
  * scope are absent, not zero. ReportsText/ReportsBinary count representations, not extra sections.
  * {@code dataSummaries} counts the data-summary Reports per record kind label, in kind order;
  * {@code listed} names the removed-feature tables holding this patient's rows that were not
- * exported.
+ * exported; {@code notExported} counts captured records that are deliberately not exported (removed
+ * and patient-independent eForms), per ReadMe label.
  */
 public record CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
         Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
         String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,
-        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {
+        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
+        Map<String, Long> notExported) {
+    public CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
+            Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
+            String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,
+            java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {
+        this(patient, occurrences, textReports, binaryReports, xmlSha256, xmlBytes, dataSummaries,
+                listed, Map.of());
+    }
+
     public CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
             Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
             String xmlSha256, long xmlBytes) {
@@ -45,7 +55,9 @@ public record CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
     public CdsExportPatientSummaryDto {
         dataSummaries = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dataSummaries));
         listed = java.util.List.copyOf(listed);
-        if (dataSummaries.values().stream().anyMatch(value -> value == null || value < 1))
+        notExported = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(notExported));
+        if (dataSummaries.values().stream().anyMatch(value -> value == null || value < 1)
+                || notExported.values().stream().anyMatch(value -> value == null || value < 1))
             throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SUMMARY_INVALID");
         occurrences = Map.copyOf(occurrences);
         if (xmlSha256 == null || !xmlSha256.matches("[0-9a-f]{64}") || xmlBytes < 1

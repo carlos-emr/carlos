@@ -291,9 +291,6 @@ public class CdsExportNativeCaptureService {
             throw new IOException("CDS_EXPORT_STORAGE_BINDING_REQUIRED");
         var available = selected(lease, tables);
         authorizeCategories(patient, available, control);
-        List<CdsExportNativeSourceReader> selected = prepareCapture(patient, available, control);
-        for (var reader : selected) reader.authorizeReadScope(patient, control);
-        control.checkpoint();
         Runnable probe =
                 () -> {
                     if (TransactionSynchronizationManager.isActualTransactionActive())
@@ -303,6 +300,71 @@ public class CdsExportNativeCaptureService {
         var store =
                 stores.openExisting(
                         lease.runId(), lease.epoch(), lease.document().storage(), probe);
+        // Pre-capture output (rendered eForms) is spooled encrypted under the job's key and never
+        // held in heap; the spool is this capture's alone and is erased whatever its outcome.
+        var spooled = new ArrayList<CdsExportStagedFileDto>();
+        var spool =
+                new CdsExportNativeSourceReader.Spool() {
+                    @Override
+                    public CdsExportStagedFileDto stage(
+                            String purpose, CdsExportStagingService.Content content)
+                            throws IOException {
+                        var member = store.stage(purpose, content);
+                        spooled.add(member);
+                        return member;
+                    }
+
+                    @Override
+                    public java.io.InputStream open(CdsExportStagedFileDto file)
+                            throws IOException {
+                        if (!spooled.contains(file))
+                            throw new IOException("CDS_EXPORT_CAPTURE_SPOOL_SCOPE_INVALID");
+                        return store.open(file);
+                    }
+                };
+        Throwable spoolFailure = null;
+        try {
+            return captureSelected(
+                    lease,
+                    patientScope,
+                    tables,
+                    prepareCapture(patient, available, control, spool),
+                    maximumFields,
+                    maximumValueBytes,
+                    control,
+                    probe,
+                    store);
+        } catch (IOException | RuntimeException | Error failure) {
+            spoolFailure = failure;
+            throw failure;
+        } finally {
+            for (var member : spooled.reversed())
+                try {
+                    store.discardUnpublished(member);
+                } catch (IOException cleanup) {
+                    if (spoolFailure != null) spoolFailure.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
+        }
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    private CdsExportPatientCaptureDto captureSelected(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patientScope,
+            Set<String> tables,
+            List<CdsExportNativeSourceReader> selected,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control,
+            Runnable probe,
+            CdsExportStagingService store)
+            throws IOException {
+        int patient = patientScope.patient();
+        for (var reader : selected) reader.authorizeReadScope(patient, control);
+        control.checkpoint();
         var owned = new ArrayList<CdsExportStagedFileDto>(3);
         boolean complete = false;
         Throwable primary = null;
@@ -757,12 +819,15 @@ public class CdsExportNativeCaptureService {
     }
 
     private static List<CdsExportNativeSourceReader> prepareCapture(
-            int patient, List<CdsExportNativeSourceReader> available, CdsExportRunControl control)
+            int patient,
+            List<CdsExportNativeSourceReader> available,
+            CdsExportRunControl control,
+            CdsExportNativeSourceReader.Spool spool)
             throws IOException {
         var result = new ArrayList<CdsExportNativeSourceReader>();
         for (var reader : available) {
             control.checkpoint();
-            var prepared = reader.forCapture(patient, control);
+            var prepared = reader.forCapture(patient, control, spool);
             if (prepared == null
                     || !reader.table().equals(prepared.table())
                     || !reader.columns().equals(prepared.columns())

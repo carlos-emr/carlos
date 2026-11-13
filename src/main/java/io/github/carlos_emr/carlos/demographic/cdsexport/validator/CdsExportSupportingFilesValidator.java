@@ -56,17 +56,31 @@ public final class CdsExportSupportingFilesValidator {
             CdsExportXmlValidationDto xml,
             java.util.Map<String, Long> dataSummaries,
             java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
-                    listed) {
+                    listed,
+            java.util.Map<String, Long> notExported) {
         public Patient {
             dataSummaries =
                     java.util.Collections.unmodifiableMap(
                             new java.util.LinkedHashMap<>(dataSummaries));
             listed = java.util.List.copyOf(listed);
+            notExported =
+                    java.util.Collections.unmodifiableMap(
+                            new java.util.LinkedHashMap<>(notExported));
+        }
+
+        public Patient(
+                String relativePath,
+                CdsExportPatientFileDto naming,
+                CdsExportXmlValidationDto xml,
+                java.util.Map<String, Long> dataSummaries,
+                java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
+                        listed) {
+            this(relativePath, naming, xml, dataSummaries, listed, java.util.Map.of());
         }
 
         public Patient(
                 String relativePath, CdsExportPatientFileDto naming, CdsExportXmlValidationDto xml) {
-            this(relativePath, naming, xml, java.util.Map.of(), java.util.List.of());
+            this(relativePath, naming, xml, java.util.Map.of(), java.util.List.of(), java.util.Map.of());
         }
 
         @Override
@@ -240,6 +254,10 @@ public final class CdsExportSupportingFilesValidator {
                     text.field(
                             "Patient listed table not exported",
                             listed.table() + ": " + listed.rows() + " rows");
+                for (var withheld : pending.notExported().entrySet())
+                    text.field(
+                            CdsExportSupportingFilesComposer.NOT_EXPORTED,
+                            withheld.getKey() + ": " + withheld.getValue());
                 validateEvent(csv.required(), pending.xml(), metadata.categories());
                 pending = next(patientFiles, checkpoint);
             }

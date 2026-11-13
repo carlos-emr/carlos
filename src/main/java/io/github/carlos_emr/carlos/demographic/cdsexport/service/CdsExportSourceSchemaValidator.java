@@ -43,6 +43,7 @@ public final class CdsExportSourceSchemaValidator {
                     "HRMDocumentToProvider",
                     CdsExportHospitalReportSources.FILES,
                     "native_document_files",
+                    CdsExportEformRenderingSourceReader.TABLE,
                     "document",
                     "ctl_document",
                     "measurements",
@@ -153,6 +154,8 @@ public final class CdsExportSourceSchemaValidator {
                                         ? "TRUSTED_NATIVE_DOCUMENT_STORAGE"
                                         : scope.equals(CdsExportListedSourceReader.TABLE)
                                         ? "TRUSTED_LISTED_SOURCE_COUNTS"
+                                        : scope.equals(CdsExportEformRenderingSourceReader.TABLE)
+                                        ? "TRUSTED_EFORM_RENDERINGS"
                                         : scope.equals("medication_reference")
                                                         || scope.equals(
                                                                 CdsExportProblemRegistrySources

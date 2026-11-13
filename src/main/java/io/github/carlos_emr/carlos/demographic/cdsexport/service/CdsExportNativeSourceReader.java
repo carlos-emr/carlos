@@ -56,6 +56,34 @@ public interface CdsExportNativeSourceReader {
         return this;
     }
 
+    /**
+     * Encrypted scratch members of one capture attempt, for work a reader must do before the
+     * source transaction (an eForm rendered in a browser). Members are staged under the job's
+     * storage key, readable only through this spool, never published, and discarded when the
+     * capture ends, successful or not.
+     */
+    interface Spool {
+        io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto stage(
+                String purpose, CdsExportStagingService.Content content) throws IOException;
+
+        java.io.InputStream open(
+                io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto file)
+                throws IOException;
+    }
+
+    /**
+     * {@link #forCapture(int, io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl)}
+     * with an encrypted spool for bounded pre-capture output. A reader that spools must still
+     * compare what it prepared with the actual source snapshot before writing it.
+     */
+    default CdsExportNativeSourceReader forCapture(
+            int patient,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control,
+            Spool spool)
+            throws IOException {
+        return forCapture(patient, control);
+    }
+
     /** Exact note dependencies carried in the authenticated manifest, never saved permission grants. */
     default java.util.List<
                     io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto>

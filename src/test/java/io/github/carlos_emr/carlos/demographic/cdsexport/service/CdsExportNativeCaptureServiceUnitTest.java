@@ -40,6 +40,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeCaptureDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStorageBindingDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
@@ -1626,6 +1627,38 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
+    void shouldEraseThePreCaptureSpool_whetherTheCaptureSucceedsOrFails() throws Exception {
+        source.spoolBeforeCapture = true;
+        var receipt =
+                service().capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+        assertThat(source.spooled).isNotNull();
+        // Only the three published capture members remain; the spooled render is gone.
+        try (var files = Files.list(root)) {
+            assertThat(files.collect(java.util.stream.Collectors.toSet()))
+                    .hasSize(cohortMembers.size() + 3)
+                    .noneMatch(file -> file.getFileName().toString().contains(source.spooled.memberId()));
+        }
+        assertThat(receipt.capture().patient()).isEqualTo(PATIENT);
+
+        source.fail = true;
+        assertThatThrownBy(
+                        () ->
+                                service()
+                                        .capture(
+                                                lease,
+                                                patientScope,
+                                                Set.of("demographic"),
+                                                1000,
+                                                8L << 20,
+                                                new Control()))
+                .hasMessage("SOURCE_FAILED");
+        try (var files = Files.list(root)) {
+            assertThat(files.collect(java.util.stream.Collectors.toSet()))
+                    .hasSize(cohortMembers.size() + 3);
+        }
+    }
+
+    @Test
     void shouldAuthorizeCategories_beforePreparingPatientDependencies() {
         var control = new Control();
         control.refuseAt = 1;
@@ -2065,6 +2098,23 @@ class CdsExportNativeCaptureServiceUnitTest {
     private static final class FixtureReader implements CdsExportNativeSourceReader {
         int preparations;
         CdsExportNativeSourceReader preparedReader;
+        boolean spoolBeforeCapture;
+        CdsExportStagedFileDto spooled;
+
+        @Override
+        public CdsExportNativeSourceReader forCapture(
+                int patient, CdsExportRunControl control, Spool spool) throws IOException {
+            if (spoolBeforeCapture) {
+                spooled =
+                        spool.stage(
+                                "EFORM_RENDERING",
+                                output -> output.write("%PDF-synthetic".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
+                try (var input = spool.open(spooled)) {
+                    assertThat(input.readAllBytes()).hasSize(14);
+                }
+            }
+            return forCapture(patient, control);
+        }
 
         @Override
         public CdsExportNativeSourceReader forCapture(int patient, CdsExportRunControl control) {

@@ -279,6 +279,62 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
+    void shouldCountRemovedAndPatientIndependentEforms_andRefuseAReadmeThatAltersTheCount()
+            throws Exception {
+        // Plan item 2.5: eForms the chart no longer lists are captured, accounted and never
+        // exported; the receiver is told how many, per patient.
+        var withheld = new java.util.LinkedHashMap<String, Long>();
+        withheld.put("Removed eForm (deleted or replaced by an edit)", 2L);
+        withheld.put("Patient-independent eForm", 1L);
+        var plain = actual;
+        actual =
+                List.of(
+                        new CdsExportSupportingFilesValidator.Patient(
+                                plain.getFirst().relativePath(),
+                                plain.getFirst().naming(),
+                                plain.getFirst().xml(),
+                                java.util.Map.of(),
+                                List.of(),
+                                withheld));
+        var text = new ByteArrayOutputStream();
+        new CdsExportSupportingFilesComposer()
+                .compose(
+                        text,
+                        new ByteArrayOutputStream(),
+                        metadata,
+                        physicians.iterator(),
+                        List.of(
+                                        new CdsExportPatientSummaryDto(
+                                                plain.getFirst().naming(),
+                                                plain.getFirst().xml().occurrences(),
+                                                null,
+                                                null,
+                                                plain.getFirst().xml().xmlSha256(),
+                                                plain.getFirst().xml().xmlBytes(),
+                                                java.util.Map.of(),
+                                                List.of(),
+                                                withheld))
+                                .iterator(),
+                        () -> {});
+        readMe = text.toByteArray();
+        assertThat(new String(readMe, StandardCharsets.UTF_8))
+                .contains(
+                        "Patient records not exported: \"Removed eForm (deleted or replaced by an edit): 2\"\n"
+                                + "Patient records not exported: \"Patient-independent eForm: 1\"\n");
+        assertThat(validate().patientFiles()).isEqualTo(1);
+        byte[] intact = readMe;
+        readMe = replace(intact, "Patient-independent eForm: 1", "Patient-independent eForm: 3");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        readMe =
+                replace(
+                        intact,
+                        "Patient records not exported: \"Patient-independent eForm: 1\"\n",
+                        "");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        actual = plain;
+    }
+
+    @Test
     void shouldRefuseAReadmeWithADifferentUnlinkedInboxCount_thanTheMetadata() throws Exception {
         var counted =
                 new CdsExportPackageMetadataDto(

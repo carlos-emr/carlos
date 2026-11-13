@@ -151,9 +151,35 @@ final class CdsExportDataSummaryPlanner {
             int revision,
             int revisions,
             CdsExportDateDto event,
-            boolean detached) {
+            boolean detached,
+            String notice) {
         Group {
             rows = List.copyOf(rows);
+        }
+
+        Group(
+                CdsExportDataSummaryRegistry.Kind kind,
+                String table,
+                String id,
+                List<Row> rows,
+                int revision,
+                int revisions,
+                CdsExportDateDto event,
+                boolean detached) {
+            this(kind, table, id, rows, revision, revisions, event, detached, null);
+        }
+
+        /**
+         * The same record with a fixed, PHI-free notice printed under the summary's statement
+         * (an eForm whose rendered form could not be produced).
+         */
+        Group withNotice(String text) {
+            return new Group(kind, table, id, rows, revision, revisions, event, detached, text);
+        }
+
+        /** The root row of the record (the row itself for a detached child). */
+        Row root() {
+            return rows.getFirst();
         }
 
         /** The CDS SubClass: the record kind, the form and its revision (at most 60 characters). */

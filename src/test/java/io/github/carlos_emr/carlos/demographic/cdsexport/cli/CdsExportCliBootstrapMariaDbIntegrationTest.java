@@ -196,6 +196,19 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service
                                             .CdsExportLaboratoryRoutingSourceReader.class))
                     .isNotNull();
+            // Reports capture every current eForm's render outcome in the CLI too; this process
+            // has no renderer, so a job it runs itself notes each eForm instead of holding it.
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportEformRenderingSourceReader.class))
+                    .isNotNull();
+            assertThat(
+                            context.getBean(
+                                            io.github.carlos_emr.carlos.demographic.cdsexport
+                                                    .service.CdsExportEformRenderService.class)
+                                    .available())
+                    .isFalse();
             var sql = new JdbcTemplate(context.getBean(DataSource.class));
             assertThat(sql.queryForObject("SELECT DATABASE()", String.class))
                     .isEqualTo("cds_export_test");

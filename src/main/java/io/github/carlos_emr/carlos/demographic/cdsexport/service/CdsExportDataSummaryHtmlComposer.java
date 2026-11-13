@@ -110,7 +110,12 @@ final class CdsExportDataSummaryHtmlComposer {
                 .append(SafeEncode.forHtmlContent(title))
                 .append("</h1><p class=\"statement\">")
                 .append(SafeEncode.forHtmlContent(STATEMENT))
-                .append("</p><table class=\"patient\">");
+                .append("</p>");
+        if (group.notice() != null)
+            html.append("<p class=\"statement\">")
+                    .append(SafeEncode.forHtmlContent(group.notice()))
+                    .append("</p>");
+        html.append("<table class=\"patient\">");
         row(html, "Patient", join(patient.lastName(), patient.firstName()));
         row(html, "Date of birth", patient.dateOfBirth());
         row(html, "Sex", patient.sex());

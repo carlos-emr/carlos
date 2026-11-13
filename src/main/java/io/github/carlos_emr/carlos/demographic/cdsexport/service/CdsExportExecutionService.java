@@ -397,6 +397,13 @@ public class CdsExportExecutionService {
         }
 
         @Override
+        public io.github.carlos_emr.carlos.utility.LoggedInInfo authorizeRendering(int patient) {
+            outsideCapture();
+            return access.requireEformRendering(
+                    lease.document().actor(), lease.document().command(), patient);
+        }
+
+        @Override
         public void authorizeCategory(
                 int patient, CdsCategory category, boolean sensitiveLaboratory) {
             outsideCapture();
