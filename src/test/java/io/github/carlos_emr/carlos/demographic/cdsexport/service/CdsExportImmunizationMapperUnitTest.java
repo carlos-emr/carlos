@@ -571,6 +571,89 @@ class CdsExportImmunizationMapperUnitTest {
         assertThat(map().value()).isNull();
     }
 
+    private CdsExportImmunizationMappingDto map(java.util.function.Predicate<String> readable)
+            throws Exception {
+        return mapper.map(
+                27,
+                new CdsExportCapturedTextRowDto(
+                        "preventions", CdsExportPatientTableSourceReader.key(17), parent),
+                extras,
+                dates,
+                definitions,
+                readable);
+    }
+
+    // OPEN-6: a vaccine restricted to a program is exported when a fresh check says every
+    // exporting identity works in it, and its flag and program travel exactly in the residual.
+    @Test
+    void shouldExportARestrictedVaccine_whenItsProgramIsReadableLive() throws Exception {
+        parent.put("restrictToProgram", "1");
+        parent.put("programNo", "10034");
+        var asked = new ArrayList<String>();
+        var result =
+                map(
+                        program -> {
+                            asked.add(program);
+                            return true;
+                        });
+        assertThat(asked).containsExactly("10034");
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        for (String column : List.of("restrictToProgram", "programNo")) {
+            var field = decision(result, "preventions", column);
+            assertThat(field.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(field.destination()).isEqualTo("ResidualInfo");
+            assertThat(field.rule()).isEqualTo("PROGRAM_SCOPE_AUTHORIZED");
+        }
+        assertThat(result.value().sourceContext())
+                .contains("\"restrictToProgram\":\"1\"", "\"programNo\":\"10034\"");
+        // A legacy NULL flag beside a program is restricted as well.
+        parent.put("restrictToProgram", null);
+        assertThat(map(program -> true).nativeRowRepresentable()).isTrue();
+    }
+
+    @Test
+    void shouldHoldARestrictedVaccine_whenItsProgramIsNotReadableLive() throws Exception {
+        parent.put("restrictToProgram", "1");
+        parent.put("programNo", "10034");
+        var result = map(program -> false);
+        assertThat(result.value()).isNull();
+        assertThat(decision(result, "preventions", "restrictToProgram").rule())
+                .isEqualTo("PROGRAM_SCOPE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldTreatAFlagWithoutAProgramOrAZeroFlag_asUnrestrictedWithoutAskingAnyProgram()
+            throws Exception {
+        for (var scope :
+                Arrays.asList(
+                        new String[] {"1", null},
+                        new String[] {"1", "-1"},
+                        new String[] {"0", "10034"})) {
+            parent.put("restrictToProgram", scope[0]);
+            parent.put("programNo", scope[1]);
+            var result =
+                    map(
+                            program -> {
+                                throw new AssertionError("No program to check");
+                            });
+            assertThat(result.nativeRowRepresentable()).isTrue();
+            assertThat(decision(result, "preventions", "restrictToProgram").rule())
+                    .isEqualTo("UNRESTRICTED_PROGRAM_SCOPE");
+        }
+    }
+
+    @Test
+    void shouldHoldAMalformedRestrictionFlag_evenWhenEveryProgramIsReadable() throws Exception {
+        for (String program : Arrays.asList("10034", null)) {
+            parent.put("restrictToProgram", "2");
+            parent.put("programNo", program);
+            var result = map(ignored -> true);
+            assertThat(result.value()).isNull();
+            assertThat(decision(result, "preventions", "restrictToProgram").rule())
+                    .isEqualTo("PROGRAM_SCOPE_REQUIRES_REVIEW");
+        }
+    }
+
     @Test
     void
             shouldVerifyExactDictionaryNoteLimitCountsCodePointsAndNeverTruncates_forImmunizationMapperContract()

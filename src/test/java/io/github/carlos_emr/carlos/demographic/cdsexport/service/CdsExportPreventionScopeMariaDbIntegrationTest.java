@@ -286,42 +286,116 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
                         "FOREIGN_TYPE");
     }
 
+    private void restrict(Integer flag, Integer program) {
+        sql.update(
+                "update preventions set restrictToProgram=?,programNo=? where id=? and demographic_no=?",
+                flag,
+                program,
+                first,
+                patient);
+    }
+
+    private long counted(CdsExportNativeSourceReader scoped) {
+        Long count = read.execute(status -> scoped.count(patient));
+        return count;
+    }
+
+    /** A run control whose live program check answers {@code allowed}, recording each question. */
+    static io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl programs(
+            boolean allowed, List<String> asked) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl() {
+            @Override
+            public void checkpoint() {}
+
+            @Override
+            public void captureCheckpoint() {}
+
+            @Override
+            public void authorizePatient(int patient) {}
+
+            @Override
+            public void authorizeCategory(
+                    int patient,
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category,
+                    boolean sensitiveLaboratory) {}
+
+            @Override
+            public boolean restrictedProgramReadable(
+                    int patient,
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category,
+                    String program) {
+                asked.add(category.wireName() + ":" + program);
+                return allowed;
+            }
+        };
+    }
+
+    // Replaces the blanket refusal of every flagged row: the chart's document rule decides which
+    // rows are restricted, and only restriction metadata is read.
     @Test
-    void shouldVerifyActiveUnknownAndAmbiguousProgramScopesRefuse_beforeAnyMetadataProjection() {
-        for (Integer flag : Arrays.asList(1, 2, null)) {
-            sql.update(
-                    "update preventions set restrictToProgram=?,programNo=1 where id=? and demographic_no=?",
-                    flag,
-                    first,
-                    patient);
-            assertThatThrownBy(() -> access.requireUnrestricted(patient))
-                    .isInstanceOf(CdsExportReviewException.class)
-                    .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
-            assertThatThrownBy(() -> read.executeWithoutResult(status -> reader.count(patient)))
-                    .isInstanceOf(CdsExportReviewException.class);
-            assertThatThrownBy(
-                            () ->
-                                    read.executeWithoutResult(
-                                            status ->
-                                                    dao.findCdsExportRowsAfter(patient, null, 32)))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+    void shouldReadOnlyTheChartsProgramRestrictions_beforeAnyPreventionValue() {
+        restrict(1, 57);
+        assertThat(access.restrictions(patient)).containsExactly(entry(first, 57));
+        // A legacy NULL flag beside a program counts as restricted.
+        restrict(null, 57);
+        assertThat(access.restrictions(patient)).containsExactly(entry(first, 57));
+        // A malformed flag beside a program is listed, so its program is authorized before the
+        // row is read; the classification still names the malformed flag as a review.
+        restrict(2, 57);
+        assertThat(access.restrictions(patient)).containsExactly(entry(first, 57));
+        // A flag set without a program (NULL or -1), and an explicit 0 flag whatever the
+        // program, are shown to everyone.
+        for (var unrestricted :
+                Arrays.asList(
+                        new Integer[] {1, null},
+                        new Integer[] {1, -1},
+                        new Integer[] {0, 57},
+                        new Integer[] {null, null})) {
+            restrict(unrestricted[0], unrestricted[1]);
+            assertThat(access.restrictions(patient)).isEmpty();
+            assertThat(counted(reader)).isEqualTo(3);
         }
+        // The rows themselves are no longer refused by the DAO; the readers decide.
+        restrict(1, 57);
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> rows =
+                read.execute(status -> dao.findCdsExportRowsAfter(patient, null, 32));
+        assertThat(rows).hasSize(3);
     }
 
     @Test
-    void shouldVerifyAnExplicitFalseFlagKeepsItsMeaningEven_withARecordedProgramAffiliation() {
-        sql.update(
-                "update preventions set restrictToProgram=0,programNo=123 where id=? and demographic_no=?",
-                first,
-                patient);
-        assertThatCode(() -> access.requireUnrestricted(patient)).doesNotThrowAnyException();
-        read.executeWithoutResult(status -> assertThat(reader.count(patient)).isEqualTo(3));
+    void shouldCaptureRestrictedMetadata_onlyAfterEveryProgramIsAuthorizedLive() throws Exception {
+        restrict(1, 57);
+        // A reader never prepared for this chart reads nothing restricted.
+        assertThatThrownBy(() -> counted(reader))
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        var asked = new ArrayList<String>();
+        var allowed = programs(true, asked);
+        var prepared = reader.forCapture(patient, allowed);
+        assertThat(prepared.table()).isEqualTo(reader.table());
+        prepared.authorizeReadScope(patient, allowed);
+        // Each selected prevention category is checked, for the one restricted program.
+        assertThat(asked).containsExactlyInAnyOrder("Immunizations:57", "PastHealth:57");
+        assertThat(counted(prepared)).isEqualTo(3);
+        // Nobody exporting works in the program: the patient is held before any value is read.
+        var refused = reader.forCapture(patient, programs(false, new ArrayList<>()));
+        assertThatThrownBy(
+                        () ->
+                                refused.authorizeReadScope(
+                                        patient, programs(false, new ArrayList<>())))
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        // A restriction changed after its program was authorized is caught in the snapshot.
+        restrict(1, 58);
+        assertThatThrownBy(() -> counted(prepared)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        // A restriction removed after authorization is a change as well.
+        restrict(0, 57);
+        assertThatThrownBy(() -> counted(prepared)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
     }
 
     @Test
     void
-            shouldVerifyFreshProgramRevocationIsVisibleEvenWhileAnOlderReadonlySnapshotStillSeesTheOriginalMetadata_forPreventionScopeContract() {
+            shouldVerifyFreshProgramRestrictionIsVisibleEvenWhileAnOlderReadonlySnapshotStillSeesTheOriginalMetadata_forPreventionScopeContract() {
         read.executeWithoutResult(
                 status -> {
                     var before = dao.findCdsExportRowsAfter(patient, null, 1).getFirst();
@@ -337,9 +411,9 @@ class CdsExportPreventionScopeMariaDbIntegrationTest {
                     }
                     assertThat(dao.findCdsExportRowsAfter(patient, null, 1).getFirst())
                             .isEqualTo(before);
-                    assertThatThrownBy(() -> access.requireUnrestricted(patient))
-                            .isInstanceOf(CdsExportReviewException.class)
-                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    // The preflight runs in its own transaction and sees the committed change.
+                    assertThat(access.restrictions(patient)).containsExactly(entry(first, 1));
+                    assertThat(dao.readCdsExportProgramRestrictions(patient)).isEmpty();
                 });
     }
 

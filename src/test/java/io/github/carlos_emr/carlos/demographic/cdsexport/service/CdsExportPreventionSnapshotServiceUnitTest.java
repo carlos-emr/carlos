@@ -224,14 +224,111 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
     }
 
+    /** A scope whose live preflight read {@code restrictions} for patient 27. */
+    private static CdsExportPreventionAccessService.Scope authorized(
+            Map<Integer, Integer> restrictions) throws IOException {
+        var access = mock(CdsExportPreventionAccessService.class);
+        when(access.restrictions(27)).thenReturn(new TreeMap<>(restrictions));
+        return CdsExportPreventionAccessService.Scope.prepare(
+                access,
+                27,
+                mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+                        .class));
+    }
+
+    // A selection never prepared by a reader that authorized the chart's programs still reads
+    // nothing restricted: the restrictions are read before any configuration or type row.
     @Test
     void shouldVerifyProgramRestrictionsAreChecked_beforeConfigurationOrTypeRowsAreRead() throws Exception {
         Files.delete(file);
-        when(preventions.hasCdsExportUnresolvedProgramScope(27)).thenReturn(true);
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
         assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {})))
                 .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
         verify(preventions, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
         verify(vaccines, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
+    }
+
+    @Test
+    void shouldSelectARestrictedPrevention_whenItsProgramWasAuthorizedBeforeTheSnapshot()
+            throws Exception {
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", "57"), raw(2, "PAP", null, null)));
+        var scope = authorized(Map.of(1, 57));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {}, false, scope);
+                    // The restriction is authorization's concern, not a classification review.
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    assertThat(state.restrictions()).containsExactly(entry(1, 57));
+                    // The same snapshot cannot be reused by a reader that authorized nothing.
+                    assertThatThrownBy(() -> snapshots.prepare(27, () -> {}))
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldRefuseChangedRestrictions_beforeAnyTypeRowIsRead() throws Exception {
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 58)));
+        var scope = authorized(Map.of(1, 57));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {}, false, scope)))
+                .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        verify(preventions, never()).findCdsExportRowsAfter(anyInt(), any(), anyInt());
+    }
+
+    @Test
+    void shouldTreatAFlagWithoutAProgramOrAnExplicitZeroFlag_asUnrestricted() throws Exception {
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", null), raw(2, "PAP", "0", "57")));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    return null;
+                });
+        // A flag set with no program (-1) is shown to everyone as well.
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "1", "-1"), raw(2, "PAP", null, "-1")));
+        transaction(
+                () -> {
+                    assertThat(snapshots.prepare(27, () -> {}).clinicalIds()).containsExactly(1);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldHoldAMalformedRestrictionFlag_underTheProgramScopeCode() throws Exception {
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "Td", "2", null), raw(2, "PAP", null, null)));
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    assertThat(state.selection().reviews())
+                            .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
+                    assertThatThrownBy(state::clinicalIds)
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    assertThatThrownBy(state::screeningIds)
+                            .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldRefuseRestrictionsThatDisagree_withTheClassificationMetadataOfTheSameSnapshot()
+            throws Exception {
+        // The restriction read and the metadata read come from one snapshot; a disagreement is an
+        // internal inconsistency, never a silently unrestricted row.
+        when(preventions.readCdsExportProgramRestrictions(27))
+                .thenReturn(new TreeMap<>(Map.of(1, 57)));
+        var scope = authorized(Map.of(1, 57));
+        assertThatThrownBy(() -> transaction(() -> snapshots.prepare(27, () -> {}, false, scope)))
+                .hasRootCauseMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
     }
 
     @Test
@@ -450,12 +547,16 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     private static CdsExportRawRowDto raw(int id, String type) {
+        return raw(id, type, null, null);
+    }
+
+    private static CdsExportRawRowDto raw(int id, String type, String flag, String program) {
         var values = new TreeMap<String, String>();
         values.put("id", Integer.toString(id));
         values.put("demographic_no", "27");
         values.put("prevention_type", type);
-        values.put("programNo", null);
-        values.put("restrictToProgram", null);
+        values.put("programNo", program);
+        values.put("restrictToProgram", flag);
         values.put("snomedId", null);
         var cells = new TreeMap<String, CdsExportRawCellDto>();
         for (var entry : values.entrySet()) {

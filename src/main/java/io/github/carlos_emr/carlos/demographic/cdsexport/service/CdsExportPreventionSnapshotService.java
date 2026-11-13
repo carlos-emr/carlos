@@ -117,28 +117,48 @@ public class CdsExportPreventionSnapshotService {
         this.keys = keys;
     }
 
+    /** Without authorized program restrictions: a chart with a restricted row is held. */
     State prepare(int patient, Runnable checkpoint) throws IOException {
         return prepare(patient, checkpoint, false);
+    }
+
+    /** Without authorized program restrictions: a chart with a restricted row is held. */
+    State prepare(int patient, Runnable checkpoint, boolean receipts) throws IOException {
+        return prepare(
+                patient, checkpoint, receipts, CdsExportPreventionAccessService.Scope.UNPREPARED);
     }
 
     /**
      * @param receipts whether a prevention category (Immunizations or PastHealth) is selected,
      *     so the capture copies the patient's Immunizations import units and an import receipt may
      *     prove an unplaced row
+     * @param authorized the program restrictions the preparing reader read before this snapshot
+     *     and authorized live; before any metadata is read they must be exactly the chart's
+     *     restrictions in this snapshot ({@code CDS_EXPORT_SOURCE_CHANGED} otherwise), and an
+     *     unprepared scope reads nothing restricted ({@code CDS_EXPORT_PREVENTION_PROGRAM_SCOPE})
      */
-    State prepare(int patient, Runnable checkpoint, boolean receipts) throws IOException {
+    State prepare(
+            int patient,
+            Runnable checkpoint,
+            boolean receipts,
+            CdsExportPreventionAccessService.Scope authorized)
+            throws IOException {
         Object owner = transaction();
-        if (patient < 1 || checkpoint == null) invalid();
+        if (patient < 1 || checkpoint == null || authorized == null) invalid();
         var existing = TransactionSynchronizationManager.getResource(key);
         if (existing != null) {
             if (!(existing instanceof State)) invalid();
             var state = (State) existing;
             state.require(patient);
             if (state.receipts != receipts) invalid();
+            authorized.requireSnapshot(patient, state.restrictions);
             return state;
         }
         checkpoint.run();
-        if (preventions.hasCdsExportUnresolvedProgramScope(patient)) program();
+        // Restriction metadata only, before any prevention type is read: the restrictions in
+        // this snapshot must be exactly the ones authorized live outside it.
+        var restrictions = preventions.readCdsExportProgramRestrictions(patient);
+        authorized.requireSnapshot(patient, restrictions);
         var validator = new CdsExportSourceSchemaValidator();
         validator.verify(
                 "preventions_scope",
@@ -177,6 +197,7 @@ public class CdsExportPreventionSnapshotService {
                             patient,
                             CdsExportPreventionScopePlanner.COLUMNS,
                             checkpoint);
+            requireRestrictions(metadata, restrictions);
             var definitions = CdsExportPreventionClassifier.forSelection(xml, catalogue);
             var selected =
                     new CdsExportPreventionScopePlanner()
@@ -198,7 +219,8 @@ public class CdsExportPreventionSnapshotService {
                             definitions.configurationSha256(),
                             definitions.catalogueSha256(),
                             selected,
-                            receipts);
+                            receipts,
+                            restrictions);
             TransactionSynchronizationManager.bindResource(key, state);
             try {
                 TransactionSynchronizationManager.registerSynchronization(
@@ -255,6 +277,7 @@ public class CdsExportPreventionSnapshotService {
         private final String configurationSha256, catalogueSha256;
         private final CdsExportPreventionScopePlanner.Selection selection;
         private final boolean receipts;
+        private final SortedMap<Integer, Integer> restrictions;
         private boolean closed;
 
         private State(
@@ -264,7 +287,8 @@ public class CdsExportPreventionSnapshotService {
                 String configurationSha256,
                 String catalogueSha256,
                 CdsExportPreventionScopePlanner.Selection selection,
-                boolean receipts) {
+                boolean receipts,
+                SortedMap<Integer, Integer> restrictions) {
             this.patient = patient;
             this.owner = owner;
             this.xml = xml;
@@ -272,6 +296,17 @@ public class CdsExportPreventionSnapshotService {
             this.catalogueSha256 = catalogueSha256;
             this.selection = selection;
             this.receipts = receipts;
+            this.restrictions = Collections.unmodifiableSortedMap(new TreeMap<>(restrictions));
+        }
+
+        /**
+         * The chart's program restrictions as this snapshot read them, proved equal to the ones
+         * the preparing reader authorized. Each prevention reader proves its own authorized
+         * restrictions equal to these before it reads a row.
+         */
+        SortedMap<Integer, Integer> restrictions() {
+            require(patient);
+            return restrictions;
         }
 
         private void require(int requested) {
@@ -344,20 +379,18 @@ public class CdsExportPreventionSnapshotService {
 
         Set<Integer> clinicalIds() {
             require(patient);
-            if (!selection.representable())
-                throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+            requireRepresentable(selection.reviews());
             return selection.immunizations();
         }
 
         /**
-         * Non-immunization (screening) rows, captured only for PastHealth. An unclassifiable or
-         * program-restricted row could be a screening, so it holds the patient for review here
-         * too rather than letting a PastHealth-only export pass without it.
+         * Non-immunization (screening) rows, captured only for PastHealth. An unclassifiable row,
+         * or one with a malformed program restriction, could be a screening, so it holds the
+         * patient for review here too rather than letting a PastHealth-only export pass without it.
          */
         Set<Integer> screeningIds() {
             require(patient);
-            if (!selection.representable())
-                throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+            requireRepresentable(selection.reviews());
             return selection.otherPreventions();
         }
 
@@ -530,9 +563,40 @@ public class CdsExportPreventionSnapshotService {
         }
     }
 
-    private static void program() {
-        throw new CdsExportReviewException(
-                CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
+    /**
+     * A partition with a review holds the patient: a malformed program restriction as
+     * {@code CDS_EXPORT_PREVENTION_PROGRAM_SCOPE}, any other review as unmapped data.
+     */
+    static void requireRepresentable(Map<Integer, CdsExportPreventionScopePlanner.Review> reviews) {
+        if (reviews.containsValue(CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE))
+            throw CdsExportPreventionAccessService.hold();
+        if (!reviews.isEmpty())
+            throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
+
+    /**
+     * The restrictions read from this snapshot must be exactly the restricted rows of the
+     * classification metadata read from it, under the same rule: the proof and the partition
+     * describe the same rows.
+     */
+    private static void requireRestrictions(
+            List<CdsExportCapturedTextRowDto> metadata, SortedMap<Integer, Integer> restrictions)
+            throws IOException {
+        var expected = new TreeMap<Integer, Integer>();
+        for (var row : metadata) {
+            String flag = row.fields().get("restrictToProgram"),
+                    program = row.fields().get("programNo");
+            if (program == null || program.equals("-1") || "0".equals(flag)) continue;
+            try {
+                if (expected.put(
+                                Integer.parseInt(row.fields().get("id")),
+                                Integer.parseInt(program))
+                        != null) invalid();
+            } catch (NumberFormatException failed) {
+                throw new IOException("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+            }
+        }
+        if (!expected.equals(restrictions)) invalid();
     }
 
     private static void invalid() throws IOException {

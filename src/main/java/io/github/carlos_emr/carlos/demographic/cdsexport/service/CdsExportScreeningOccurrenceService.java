@@ -242,6 +242,17 @@ public class CdsExportScreeningOccurrenceService {
         var seen = new HashSet<Integer>();
         // 0 emitted, 1 assessed fields, 2 superseded versions (accounted, not exported)
         long[] counts = new long[3];
+        // A screening shown only inside a program is written when a fresh check says every
+        // exporting identity works in it; a program nobody exporting works in holds the patient,
+        // and each program so granted is checked again after the screenings are written.
+        var granted = new TreeSet<String>();
+        java.util.function.Predicate<String> readable =
+                program -> {
+                    if (!control.restrictedProgramReadable(patient.patient(), category, program))
+                        throw CdsExportPreventionAccessService.hold();
+                    granted.add(program);
+                    return true;
+                };
         var finished =
                 rows.forEach(
                         lease,
@@ -289,7 +300,13 @@ public class CdsExportScreeningOccurrenceService {
                             }
                             var mapping =
                                     new CdsExportScreeningMapper()
-                                            .map(patient.patient(), row, child, dates, definitions);
+                                            .map(
+                                                    patient.patient(),
+                                                    row,
+                                                    child,
+                                                    dates,
+                                                    definitions,
+                                                    readable);
                             if (!mapping.representable()) review();
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
@@ -341,6 +358,9 @@ public class CdsExportScreeningOccurrenceService {
                 || Math.addExact(counts[0], counts[2])
                         != source.capture().tables().get(parentTable).rows()
                 || counts[1] != expected) scope();
+        for (String program : granted)
+            if (!control.restrictedProgramReadable(patient.patient(), category, program))
+                throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
         captures.authorizeSources(lease, patient, tables, control);
         patient.require(lease);
         control.checkpoint();

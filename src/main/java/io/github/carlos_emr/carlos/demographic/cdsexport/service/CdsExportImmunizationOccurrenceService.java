@@ -348,6 +348,19 @@ public class CdsExportImmunizationOccurrenceService
                                             + auxiliaryKeys.size()) scope();
                     var usedFields = new HashSet<String>();
                     var seen = new HashSet<Integer>();
+                    // A vaccine shown only inside a program is written when a fresh check says
+                    // every exporting identity works in it; a program nobody exporting works in
+                    // holds the patient, and each program so granted is checked again after the
+                    // vaccines are written.
+                    var granted = new TreeSet<String>();
+                    java.util.function.Predicate<String> readable =
+                            program -> {
+                                if (!control.restrictedProgramReadable(
+                                        patient.patient(), category, program))
+                                    throw CdsExportPreventionAccessService.hold();
+                                granted.add(program);
+                                return true;
+                            };
                     var finished =
                             rows.forEach(
                                     lease,
@@ -425,7 +438,8 @@ public class CdsExportImmunizationOccurrenceService
                                                                     row,
                                                                     child,
                                                                     dates,
-                                                                    definitions);
+                                                                    definitions,
+                                                                    readable);
                                             if (!mapping.nativeRowRepresentable()) review();
                                             fields = mapping.fields();
                                             content =
@@ -527,6 +541,10 @@ public class CdsExportImmunizationOccurrenceService
                         if (field.category() == category && !expectedFields.add(field.id()))
                             scope();
                     if (!usedFields.equals(expectedFields)) scope();
+                    for (String program : granted)
+                        if (!control.restrictedProgramReadable(
+                                patient.patient(), category, program))
+                            throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
                     streams.requireActive();
                     captures.authorizeSources(lease, patient, tables, control);
                     patient.require(lease);

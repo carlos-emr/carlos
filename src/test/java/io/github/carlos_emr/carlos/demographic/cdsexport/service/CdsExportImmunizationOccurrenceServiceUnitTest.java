@@ -97,6 +97,62 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         verify(f.captures).authorizeSources(f.lease, f.patient, f.tables, f.control);
     }
 
+    /** The fixture's native vaccine, restricted to program 57. */
+    private static void restrict(Fixture f) {
+        var fields = new TreeMap<>(f.parents.getFirst().fields());
+        fields.put("restrictToProgram", "1");
+        fields.put("programNo", "57");
+        f.parents = List.of(row("preventions", fields));
+        f.witnesses = List.of(witness(f.parents.getFirst()));
+    }
+
+    // OPEN-6: a vaccine restricted to a program is written after a live program check, carried
+    // with its flag and program in the residual, and the program is checked once more after the
+    // patient's vaccines are written.
+    @Test
+    void shouldExportARestrictedVaccine_afterLiveProgramChecksBeforeAndAfterWriting()
+            throws Exception {
+        var f = fixture(false, null);
+        restrict(f);
+        when(f.control.restrictedProgramReadable(27, CdsCategory.IMMUNIZATIONS, "57"))
+                .thenReturn(true);
+        var records = parse(compose(f, false));
+        assertThat(records.stream().filter(r -> r.section().equals("Immunizations"))).hasSize(1);
+        assertThat(f.receipts.getFirst().fields().entrySet())
+                .filteredOn(entry -> entry.getKey().column().equals("restrictToProgram"))
+                .singleElement()
+                .satisfies(
+                        entry ->
+                                assertThat(entry.getValue().rule())
+                                        .isEqualTo("PROGRAM_SCOPE_AUTHORIZED"));
+        verify(f.control, times(2)).restrictedProgramReadable(27, CdsCategory.IMMUNIZATIONS, "57");
+    }
+
+    @Test
+    void shouldHoldARestrictedVaccine_whenNobodyExportingWorksInItsProgram() throws Exception {
+        var f = fixture(false, null);
+        restrict(f);
+        assertThatThrownBy(() -> compose(f, false))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        assertThat(f.receipts).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseThePatient_whenAGrantedProgramIsRevokedWhileItsVaccinesAreWritten()
+            throws Exception {
+        var f = fixture(false, null);
+        restrict(f);
+        when(f.control.restrictedProgramReadable(27, CdsCategory.IMMUNIZATIONS, "57"))
+                .thenReturn(true, false);
+        assertThatThrownBy(() -> compose(f, false))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_ACCESS_CHANGED");
+        verify(f.captures, never()).authorizeSources(any(), any(), any(), any());
+    }
+
     @Test
     void shouldStillHoldAnUnknownDeletedFlag_forReview() throws Exception {
         var f = fixture(false, null);
@@ -415,8 +471,12 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         try (var construction =
                 mockConstruction(
                         CdsExportImmunizationMapper.class,
+                        // The service maps through the overload carrying the live program
+                        // check.
                         (mock, context) ->
-                                when(mock.map(anyInt(), any(), anyList(), anyList(), any()))
+                                when(mock.map(
+                                                anyInt(), any(), anyList(), anyList(), any(),
+                                                any()))
                                         .thenReturn(forged))) {
             assertThatThrownBy(() -> compose(f, false))
                     .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");

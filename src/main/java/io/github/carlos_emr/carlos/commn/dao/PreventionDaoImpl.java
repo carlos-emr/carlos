@@ -321,39 +321,37 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportRows(int patient) {
-        requireCdsExportUnrestrictedProgram(patient);
         return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient);
     }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportRowsAfter(int patient, Long afterId, int limit) {
-        requireCdsExportUnrestrictedProgram(patient);
         return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient, afterId, limit);
     }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
-        requireCdsExportUnrestrictedProgram(patient);
         return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, patient, rowId, column, offset, length);
     }
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public boolean hasCdsExportUnresolvedProgramScope(int patient) {
-        return CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient);
+    public java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient) {
+        return CdsExportPatientTableReadSupport.preventionProgramRestrictions(entityManager, patient);
     }
-    private void requireCdsExportUnrestrictedProgram(int patient) {
-        if (hasCdsExportUnresolvedProgramScope(patient)) throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
-    }
+    // Program-restricted rows are not refused here: every CDS export reader of these rows reads
+    // the restrictions first in their own transaction, authorizes each program live, and proves
+    // the same restrictions inside the source snapshot before it reads a row
+    // (CdsExportPreventionAccessService.Scope).
 
     /** Explicit patient-owned immunization selection; no unselected prevention payload is read. */
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionCount(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected); }
+    public long countCdsExportPreventionRows(int patient, java.util.Set<Integer> selected){return CdsExportPatientTableReadSupport.preventionCount(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected); }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportPreventionRowsAfter(int patient, java.util.Set<Integer> selected, Long after, int limit){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionPage(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, after, limit); }
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportPreventionRowsAfter(int patient, java.util.Set<Integer> selected, Long after, int limit){return CdsExportPatientTableReadSupport.preventionPage(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, after, limit); }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly=true, propagation=org.springframework.transaction.annotation.Propagation.MANDATORY)
-    public byte[] readCdsExportPreventionChunk(int patient, java.util.Set<Integer> selected, long row, String column, long offset, int length){if (CdsExportPatientTableReadSupport.unresolvedPreventionProgram(entityManager, patient))throw new IllegalStateException("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE"); return CdsExportPatientTableReadSupport.preventionChunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, row, column, offset, length); }
+    public byte[] readCdsExportPreventionChunk(int patient, java.util.Set<Integer> selected, long row, String column, long offset, int length){return CdsExportPatientTableReadSupport.preventionChunk(entityManager, CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL, patient, selected, row, column, offset, length); }
 }

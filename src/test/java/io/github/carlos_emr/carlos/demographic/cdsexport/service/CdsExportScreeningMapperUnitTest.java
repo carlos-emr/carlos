@@ -339,10 +339,76 @@ class CdsExportScreeningMapperUnitTest {
         }
     }
 
+    // Without a live program check, a restricted screening is still held.
     @Test
     void shouldHoldAProgramRestrictedScreening_forReview() throws Exception {
         var row = parent(31, Map.of("restrictToProgram", "1", "programNo", "10016"));
         assertThat(map(row, List.of(), List.of()).representable()).isFalse();
+    }
+
+    // OPEN-6: a screening restricted to a program is exported when a fresh check says every
+    // exporting identity works in it, and its flag and program travel exactly in the residual.
+    @Test
+    void shouldExportARestrictedScreening_whenItsProgramIsReadableLive() throws Exception {
+        var row = parent(31, Map.of("restrictToProgram", "1", "programNo", "10016"));
+        var asked = new ArrayList<String>();
+        var result =
+                mapper.map(
+                        27,
+                        row,
+                        List.of(),
+                        List.of(),
+                        classifier(),
+                        program -> {
+                            asked.add(program);
+                            return true;
+                        });
+        assertThat(asked).containsExactly("10016");
+        assertThat(result.representable()).isTrue();
+        for (String column : List.of("restrictToProgram", "programNo")) {
+            assertThat(field(result, row, column).outcome())
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(field(result, row, column).destination())
+                    .isEqualTo(CdsExportScreeningMapper.RESIDUAL);
+            assertThat(field(result, row, column).rule()).isEqualTo("PROGRAM_SCOPE_AUTHORIZED");
+        }
+        assertThat(context(result).path("prevention").path("restrictToProgram").asText())
+                .isEqualTo("1");
+        assertThat(context(result).path("prevention").path("programNo").asText())
+                .isEqualTo("10016");
+        var refused =
+                mapper.map(27, row, List.of(), List.of(), classifier(), program -> false);
+        assertThat(refused.representable()).isFalse();
+        assertThat(field(refused, row, "programNo").rule())
+                .isEqualTo("PROGRAM_SCOPE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldTreatAFlagWithoutAProgramOrAZeroFlag_asUnrestrictedScreening() throws Exception {
+        for (var scope :
+                List.of(
+                        Map.of("restrictToProgram", "1"),
+                        Map.of("restrictToProgram", "1", "programNo", "-1"),
+                        Map.of("restrictToProgram", "0", "programNo", "10016"))) {
+            var row = parent(31, scope);
+            var result =
+                    mapper.map(
+                            27,
+                            row,
+                            List.of(),
+                            List.of(),
+                            classifier(),
+                            program -> {
+                                throw new AssertionError("No program to check");
+                            });
+            assertThat(result.representable()).isTrue();
+        }
+        // A malformed flag needs review whatever any program check would say.
+        var malformed = parent(31, Map.of("restrictToProgram", "2"));
+        assertThat(
+                        mapper.map(27, malformed, List.of(), List.of(), classifier(), p -> true)
+                                .representable())
+                .isFalse();
     }
 
     @Test

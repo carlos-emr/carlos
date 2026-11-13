@@ -28,22 +28,42 @@ import java.io.*;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Explicit trusted-configuration source; no SQL table or native row receipt is claimed. Exact bytes also drive selection in this same snapshot. */
+/**
+ * Explicit trusted-configuration source; no SQL table or native row receipt is claimed. Exact
+ * bytes also drive selection in this same snapshot. This reader prepares the patient's prevention
+ * selection ({@link CdsExportPreventionSnapshotService#prepare}), which reads the classification
+ * metadata of every prevention row: the chart's program restrictions are therefore read first, in
+ * their own short transaction ({@link #forCapture}), each program is authorized live
+ * ({@link #authorizeReadScope}), and the selection proves inside its snapshot that the
+ * restrictions are the ones authorized.
+ */
 @Service
 public class CdsExportPreventionConfigurationSourceReader implements CdsExportNativeSourceReader {
     private final CdsExportPreventionSnapshotService snapshots;
+    private final CdsExportPreventionAccessService access;
     private final Set<CdsCategory> selected;
+    private final CdsExportPreventionAccessService.Scope scope;
 
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionConfigurationSourceReader(
-            CdsExportPreventionSnapshotService snapshots) {
-        this(snapshots, CdsExportPreventionSources.CATEGORIES);
+            CdsExportPreventionSnapshotService snapshots,
+            CdsExportPreventionAccessService access) {
+        this(
+                snapshots,
+                access,
+                CdsExportPreventionSources.CATEGORIES,
+                CdsExportPreventionAccessService.Scope.UNPREPARED);
     }
 
     private CdsExportPreventionConfigurationSourceReader(
-            CdsExportPreventionSnapshotService snapshots, Set<CdsCategory> selected) {
+            CdsExportPreventionSnapshotService snapshots,
+            CdsExportPreventionAccessService access,
+            Set<CdsCategory> selected,
+            CdsExportPreventionAccessService.Scope scope) {
         this.snapshots = java.util.Objects.requireNonNull(snapshots);
+        this.access = java.util.Objects.requireNonNull(access);
         this.selected = Set.copyOf(selected);
+        this.scope = java.util.Objects.requireNonNull(scope);
     }
 
     @Override
@@ -56,7 +76,30 @@ public class CdsExportPreventionConfigurationSourceReader implements CdsExportNa
     public CdsExportNativeSourceReader forRequest(
             io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
         return new CdsExportPreventionConfigurationSourceReader(
-                snapshots, CdsExportPreventionSources.selected(command));
+                snapshots, access, CdsExportPreventionSources.selected(command), scope);
+    }
+
+    /** The chart's program restrictions, read in their own short transaction before capture. */
+    @Override
+    public CdsExportNativeSourceReader forCapture(
+            int patient,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control)
+            throws IOException {
+        if (scope.prepared()) throw new IOException("CDS_EXPORT_PREVENTION_CAPTURE_SCOPE_INVALID");
+        return new CdsExportPreventionConfigurationSourceReader(
+                snapshots,
+                access,
+                selected,
+                CdsExportPreventionAccessService.Scope.prepare(access, patient, control));
+    }
+
+    /** Live program check, outside the source transaction, for each selected category. */
+    @Override
+    public void authorizeReadScope(
+            int patient,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) {
+        scope.authorize(patient, selected, control);
+        control.checkpoint();
     }
 
     @Override
@@ -104,7 +147,7 @@ public class CdsExportPreventionConfigurationSourceReader implements CdsExportNa
             // patient's Immunizations import units, so their receipts may prove a row the
             // classification cannot place (review F10). A proved vaccine then belongs to
             // Immunizations and never holds a PastHealth-only export.
-            snapshots.prepare(patient, checkpoint, !selected.isEmpty());
+            snapshots.prepare(patient, checkpoint, !selected.isEmpty(), scope);
             return 1;
         } catch (IOException failed) {
             throw new UncheckedIOException(failed);

@@ -30,15 +30,22 @@ import java.util.*;
 /**
  * Complete bounded partition of patient prevention metadata using exact frozen classification.
  * No clinical values, program grant, omitted row, duplicate or unknown type is inferred. A
- * review partition cannot authorize clinical capture or complete export. The source adapter
- * must check program restrictions before loading type metadata; this planner is an additional
- * independent check of the subsequently authenticated frozen metadata, not a disclosure gate.
+ * review partition cannot authorize clinical capture or complete export.
  *
- * <p>The one exception to classification is origin proof (review finding F10): an unrestricted
- * row the classification cannot place, which an authenticated CARLOS import receipt proves was
- * written from a CDS Immunizations element ({@link CdsExportImmunizationImportReceipts}), is an
+ * <p>A program restriction is not a classification fact. The source readers read the chart's
+ * restrictions first, authorize each program live and prove the same restrictions inside the
+ * source snapshot before they load type metadata ({@link CdsExportPreventionAccessService}), and
+ * the mappers check each exported row's program again, live. This planner therefore classifies a
+ * row restricted to a program like any other; only a malformed restriction flag (anything but
+ * {@code 0}, {@code 1} or NULL) is a {@link Review#PROGRAM_SCOPE} review, since the chart's rule
+ * cannot be applied to it ({@link ProgramRestriction}). It is an additional independent check of
+ * the subsequently authenticated frozen metadata, not a disclosure gate.
+ *
+ * <p>The one exception to classification is origin proof (review finding F10): a row the
+ * classification cannot place, which an authenticated CARLOS import receipt proves was written
+ * from a CDS Immunizations element ({@link CdsExportImmunizationImportReceipts}), is an
  * immunization; it then travels through the retained-import path, whose field reconciler still
- * holds any native change it cannot represent. A program restriction is never overridden, and
+ * holds any native change it cannot represent. A malformed restriction is never overridden, and
  * a row the classification places is never moved.
  */
 public final class CdsExportPreventionScopePlanner {
@@ -53,8 +60,9 @@ public final class CdsExportPreventionScopePlanner {
 
     /**
      * Origin proof for rows the classification cannot place. It receives the candidate row ids
-     * (unrestricted rows classified for review) once, and returns the ids an authenticated import
-     * receipt proves are imported immunizations; a returned id outside the candidates is refused.
+     * (rows classified for review whose program restriction, if any, is well formed) once, and
+     * returns the ids an authenticated import receipt proves are imported immunizations; a
+     * returned id outside the candidates is refused.
      */
     @FunctionalInterface
     interface ImportedImmunizations {
@@ -63,7 +71,37 @@ public final class CdsExportPreventionScopePlanner {
         Set<Integer> proven(Set<Integer> candidates) throws IOException;
     }
 
+    /**
+     * One prevention row's program restriction under the rule the chart applies to a document
+     * restricted to a program: a row is restricted when its flag is set (or a legacy NULL) and it
+     * names a program other than none or {@code -1}. A flag set without a program, and an
+     * explicit {@code 0} flag whatever the program, are unrestricted. A flag other than
+     * {@code 0}, {@code 1} or NULL, or a program that is not an integer, is malformed and stays a
+     * named review, never silently unrestricted.
+     *
+     * @param malformed whether the chart's rule cannot be applied to the row
+     * @param program the program the row is restricted to, or null when it is not restricted
+     */
+    record ProgramRestriction(boolean malformed, String program) {
+        static final ProgramRestriction NONE = new ProgramRestriction(false, null),
+                MALFORMED = new ProgramRestriction(true, null);
+
+        static ProgramRestriction of(String flag, String program) {
+            if (flag != null && !flag.equals("0") && !flag.equals("1")) return MALFORMED;
+            if ("0".equals(flag) || program == null || program.equals("-1")) return NONE;
+            if (!program.matches("0|-?[1-9][0-9]{0,9}")
+                    || Long.parseLong(program) < Integer.MIN_VALUE
+                    || Long.parseLong(program) > Integer.MAX_VALUE) return MALFORMED;
+            return new ProgramRestriction(false, program);
+        }
+
+        boolean restricted() {
+            return program != null;
+        }
+    }
+
     public enum Review {
+        /** A malformed program restriction flag: the chart's program rule cannot be applied. */
         PROGRAM_SCOPE,
         UNKNOWN_TYPE,
         CATEGORY_NOT_PROVEN,
@@ -188,7 +226,7 @@ public final class CdsExportPreventionScopePlanner {
             int id,
             String recordKey,
             Map<String, String> fields,
-            boolean unrestricted,
+            boolean malformedProgramScope,
             CdsExportPreventionClassifier.Decision decision) {
         @Override
         public String toString() {
@@ -229,20 +267,15 @@ public final class CdsExportPreventionScopePlanner {
             for (String value : row.fields().values())
                 if (value != null && !CdsExportNativeFieldAssessments.legal(value, 255))
                     invalid();
-            // Historical NULL/no-program means no recorded restriction. Explicit false remains
-            // false even with an affiliation. An active/unknown flag never supplies a grant.
-            boolean unrestricted = "0".equals(flag) || flag == null && program == null;
+            // A well-formed restriction was authorized before this metadata could be read; a
+            // malformed flag cannot be, and never supplies a grant.
+            boolean malformed = ProgramRestriction.of(flag, program).malformed();
             var decision = classifier.classify(type, code);
-            if (unrestricted
-                    && decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW)
+            if (!malformed && decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW)
                 candidates.add(id);
             rows.add(
                     new Classified(
-                            id,
-                            row.recordKey(),
-                            new TreeMap<>(row.fields()),
-                            unrestricted,
-                            decision));
+                            id, row.recordKey(), new TreeMap<>(row.fields()), malformed, decision));
             after = row.recordKey();
         }
         var proven =
@@ -270,7 +303,7 @@ public final class CdsExportPreventionScopePlanner {
                     frame(output, entry.getValue());
                 }
                 var decision = row.decision();
-                if (!row.unrestricted()) {
+                if (row.malformedProgramScope()) {
                     reviews.put(id, Review.PROGRAM_SCOPE);
                     frame(output, "REVIEW_PROGRAM_SCOPE");
                 } else if (proven.contains(id)) {

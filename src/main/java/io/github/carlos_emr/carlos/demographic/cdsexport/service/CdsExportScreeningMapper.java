@@ -40,6 +40,11 @@ import java.util.*;
  * a rule below requires review. Superseded or removed versions are never mapped (see
  * {@link CdsExportPreventionVersions}), and a row whose frozen classification is not a
  * screening never becomes one here.
+ *
+ * <p>A row restricted to a program (legacy OSCAR 19/CAISI columns) is exported when a fresh check
+ * says every exporting identity works in that program; its flag and program then travel exactly
+ * in the residual with the rest of the row. Without that check it is held, and a malformed flag
+ * always needs review.
  */
 public final class CdsExportScreeningMapper {
     static final String RESIDUAL = "PastHealth/ResidualInfo",
@@ -84,6 +89,25 @@ public final class CdsExportScreeningMapper {
             List<CdsExportCapturedTextRowDto> precision,
             CdsExportPreventionClassifier classifier)
             throws IOException {
+        // Without a live program check, a screening restricted to a program is held.
+        return map(patient, row, extensions, precision, classifier, program -> false);
+    }
+
+    /**
+     * As {@link #map(int, CdsExportCapturedTextRowDto, List, List, CdsExportPreventionClassifier)},
+     * for a screening the chart may show only inside a program. {@code readableProgram} is a fresh
+     * answer to whether every exporting identity works in that program; the row needs review
+     * when it is false.
+     */
+    public Result map(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> extensions,
+            List<CdsExportCapturedTextRowDto> precision,
+            CdsExportPreventionClassifier classifier,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        Objects.requireNonNull(readableProgram);
         shape(row, CdsExportPreventionSources.SCREENINGS, PARENT);
         int id = integer(row.fields().get("id"));
         if (patient < 1
@@ -106,8 +130,19 @@ public final class CdsExportScreeningMapper {
             source.review("deleted", "", "SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT");
         else if (!CdsExportPreventionVersions.current(deleted))
             source.review("deleted", RESIDUAL, "ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
-        String restriction = source.raw("restrictToProgram");
-        if (!("0".equals(restriction) || restriction == null && source.raw("programNo") == null))
+        // An unrestricted row's flag and program are carried as recorded.
+        var restriction =
+                CdsExportPreventionScopePlanner.ProgramRestriction.of(
+                        source.raw("restrictToProgram"), source.raw("programNo"));
+        if (restriction.restricted() && readableProgram.test(restriction.program()))
+            // The flag and program travel exactly in the residual with the whole native row.
+            for (String column : List.of("restrictToProgram", "programNo"))
+                source.set(
+                        column,
+                        Outcome.MAPPED,
+                        RESIDUAL,
+                        CdsExportImmunizationMapper.PROGRAM_SCOPE_AUTHORIZED);
+        else if (restriction.restricted() || restriction.malformed())
             for (String column : List.of("restrictToProgram", "programNo"))
                 source.review(column, "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
         String type = source.raw("prevention_type");

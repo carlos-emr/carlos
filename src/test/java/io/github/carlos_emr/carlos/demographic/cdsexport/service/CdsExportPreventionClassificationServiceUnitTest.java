@@ -251,28 +251,39 @@ class CdsExportPreventionClassificationServiceUnitTest {
                 .hasMessage("CANCELLED_AFTER_PLAN");
     }
 
+    // OPEN-6: a well-formed restriction was authorized live before the capture read this
+    // metadata, and the mappers check the program again, so the frozen classification places the
+    // row like any other. Only a malformed flag stays a review partition, never a grant.
     @Test
-    void shouldVerifyACapturedProgramRestrictionIsStillAReviewPartitionRatherThanAGrant_forPreventionClassificationServiceContract() {
-        var fields = new TreeMap<>(row(1, "Td").fields());
-        fields.put("restrictToProgram", "1");
-        fields.put("programNo", "1");
-        metadata =
-                List.of(
-                        new CdsExportCapturedTextRowDto(
-                                "preventions_scope",
-                                CdsExportPatientTableSourceReader.key(1),
-                                fields),
-                        row(2, "PAP"));
-        assertThatCode(
-                        () -> {
-                            var result = classify();
-                            assertThat(result.reviews())
-                                    .containsEntry(
-                                            1,
-                                            CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
-                            assertThat(result.immunizations()).isEmpty();
-                        })
-                .doesNotThrowAnyException();
+    void shouldVerifyOnlyAMalformedProgramRestrictionIsAReviewPartitionRatherThanAGrant_forPreventionClassificationServiceContract() {
+        for (String flag : List.of("1", "2")) {
+            var fields = new TreeMap<>(row(1, "Td").fields());
+            fields.put("restrictToProgram", flag);
+            fields.put("programNo", "1");
+            metadata =
+                    List.of(
+                            new CdsExportCapturedTextRowDto(
+                                    "preventions_scope",
+                                    CdsExportPatientTableSourceReader.key(1),
+                                    fields),
+                            row(2, "PAP"));
+            assertThatCode(
+                            () -> {
+                                var result = classify();
+                                if (flag.equals("1")) {
+                                    assertThat(result.reviews()).isEmpty();
+                                    assertThat(result.immunizations()).containsExactly(1);
+                                } else {
+                                    assertThat(result.reviews())
+                                            .containsEntry(
+                                                    1,
+                                                    CdsExportPreventionScopePlanner.Review
+                                                            .PROGRAM_SCOPE);
+                                    assertThat(result.immunizations()).isEmpty();
+                                }
+                            })
+                    .doesNotThrowAnyException();
+        }
     }
 
     @Test

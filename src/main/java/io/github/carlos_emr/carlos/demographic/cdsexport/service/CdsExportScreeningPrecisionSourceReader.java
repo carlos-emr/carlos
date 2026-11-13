@@ -39,11 +39,7 @@ public class CdsExportScreeningPrecisionSourceReader extends CdsExportSelectedPr
                 CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION,
                 snapshots,
                 access,
-                Partition.SCREENINGS);
-    }
-
-    @Override
-    public String table() {
-        return CdsExportPreventionSources.SCREENING_PRECISION;
+                Partition.SCREENINGS,
+                CdsExportPreventionSources.SCREENING_PRECISION);
     }
 }

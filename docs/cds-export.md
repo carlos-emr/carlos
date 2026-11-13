@@ -28,7 +28,8 @@ spaces escaped, so `xs:token` normalization cannot change them. Screenings are c
 their own logical tables (`preventions_screening`, `preventionsExt_screening`,
 `prevention_precision_screening`) beside the classification inputs shared with Immunizations,
 so every screening has its own expected PastHealth identity and row witnesses; a missing,
-duplicated or unwitnessed row refuses the patient. Program-restricted rows, rows whose type is
+duplicated or unwitnessed row refuses the patient. A row restricted to a program is exported
+under the program rule described below. A malformed program restriction flag, rows whose type is
 not a proven screening, unknown status codes, duplicate result/reason/comments extensions and
 unsupported date precision hold the patient for review, and any unclassifiable prevention row
 also holds a PastHealth export because it may be a screening.
@@ -164,11 +165,38 @@ of Notes. The complete parent, extension and precision rows travel in the same
 and "never remind" choice, the CVC concept, flu risk factors, refusal reasons and the free-text
 administering provider are carried exactly. The form saves an empty row for every unfilled
 input; an empty row is not a fact and never hides the type name. An edited vaccine's link to the
-version it replaced is not exported. Program-restricted rows, unknown status codes, duplicate
+version it replaced is not exported. A row restricted to a program is exported under the
+program rule below. A malformed program restriction flag, unknown status codes, duplicate
 standard fields, unsupported date precision and the importer's date hints on a row no applied
 import claims still hold the patient. An imported vaccine is written from its retained original
 elements without this residual, so a provider, reminder or status added after the import holds
 the patient for review.
+
+`preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
+screen writes or reads. A prevention row is restricted to a program under the rule the chart
+applies to a document restricted to a program: the flag set (or a legacy NULL) and a program
+other than none or `-1`. A flag set without a program and an explicit `0` flag, whatever the
+program, are unrestricted. Such a row is exported when every current exporting identity, the
+effective provider and any operator, works in that program (any `program_provider` membership
+in it, `CdsExportRunControl.restrictedProgramReadable`, `CdsExportAccessService.canReadRestrictedProgram`).
+Every prevention reader (`prevention_configuration`, `preventions_scope` and the six vaccine and
+screening tables) reads only prevention ids and their programs first, in their own short
+read-only transaction (`CdsExportPreventionAccessService`, bounded at
+`MAXIMUM_PROGRAM_RESTRICTIONS`); checks each program live, for each category it serves, before any
+prevention value is read; and proves inside the capture snapshot that the restrictions are the
+ones it authorized (a change is `CDS_EXPORT_SOURCE_CHANGED`). The selection
+(`CdsExportPreventionSnapshotService.prepare`) applies the same proof before it reads any
+classification metadata and checks that its restrictions are exactly the restricted rows of that
+metadata; a reader never prepared still reads nothing restricted. The DAOs no longer refuse
+restricted rows themselves. The classification places a restricted row like any other row; a
+malformed flag (anything but `0`, `1` or NULL) is a `PROGRAM_SCOPE` review. The vaccine and
+screening mappers check each restricted row's program again, live, before it is written, and
+every program so granted is checked once more after the patient's vaccines or screenings are
+written (a change is `CDS_EXPORT_ACCESS_CHANGED`). An authorized row's flag and program are
+`PROGRAM_SCOPE_AUTHORIZED` and travel exactly in the `CARLOS.Prevention.Source.v1` residual with
+the rest of the row. A program nobody exporting works in, and a malformed flag, hold the patient
+with `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`. An imported vaccine reconciled from its retained
+elements has no native residual, so a restriction on it still needs review.
 
 An imported vaccine whose ImmunizationType was absent or not configured is filed by the CARLOS
 importer as the catch-all `OtherA` (review finding F10). The shipped prevention configuration now
@@ -178,9 +206,9 @@ Immunizations occurrence only on the importer's own receipt (`CdsExportImmunizat
 `ALREADY_COMPLETE`) `Immunizations` import unit of this patient whose receipt names exactly one
 `preventions` row, this one, and whose native-baseline witness, sealed under the installation
 key and bound to that receipt's digest, records the row's identifier and this patient. The same
-rule covers any unrestricted row the classification cannot place (an unknown, unresolved or
-conflicting type), never a program-restricted row, and it never moves a row the classification
-did place. The proof applies whenever Immunizations or PastHealth is selected, so a proved
+rule covers any row the classification cannot place (an unknown, unresolved or conflicting
+type), never a row with a malformed program restriction, and it never moves a row the
+classification did place. The proof applies whenever Immunizations or PastHealth is selected, so a proved
 vaccine is never taken for a possible screening in a PastHealth-only export. Capture-time
 selection reads the units through `CdsImportUnitDao` in the capture's
 repeatable-read snapshot, and the finished-capture reclassification re-proves the partition
@@ -1950,10 +1978,11 @@ provider descriptions and other clinical values stay outside this projection. Ev
 authorization boundary now runs a reader's additional scope checks after ordinary patient and
 category rights, outside the captured transaction. Prevention restriction checks use fresh
 read-committed transactions, so an older snapshot cannot keep a newly restricted record readable.
-An active, unknown or ambiguous program restriction requires review before capture or frozen
-readback; no program grant is inferred. A legacy null flag with no program records no additional
-restriction, and explicit false keeps its meaning. Program-specific authorization remains required
-before restricted facts can be supported. Classification partitions every frozen metadata row
+(Superseded: a program restriction no longer requires review by itself. Each restricted program
+is authorized live before capture, proved unchanged inside the snapshot and checked again at
+mapping, as the native immunization section above describes; only a malformed flag requires
+review, and no program grant is inferred.) A legacy null flag with no program records no
+restriction, and explicit false keeps its meaning. Classification partitions every frozen metadata row
 into vaccinations, other preventions or explicit review, with generation/count/hash checks and
 final live authority. This is not a native immunization occurrence writer or whole-chart proof.
 

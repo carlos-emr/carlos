@@ -1852,21 +1852,43 @@ public final class CdsExportPatientTableReadSupport {
                 plan.table, (String) engines.getFirst()[0], captured, primary);
     }
 
-    /** Reads only restriction metadata, before any prevention type or clinical value is loaded. */
-    public static boolean unresolvedPreventionProgram(EntityManager em, int patient) {
+    /**
+     * Restriction metadata only, before any prevention type or clinical value is loaded:
+     * prevention id to program for each of the patient's prevention rows (every version, deleted
+     * ones included) restricted to a program. The rule is the one the chart applies to a
+     * document restricted to a program ({@link #documentProgramRestrictions}): the flag set and
+     * a program other than none or {@code -1}; a legacy NULL flag beside a program counts as
+     * restricted, a flag set without a program and an explicit 0 flag do not. A malformed flag
+     * beside a program is listed here, so its program is authorized before the row is read; the
+     * classification still names the malformed flag as a review. No other column is read.
+     */
+    public static java.util.SortedMap<Integer, Integer> preventionProgramRestrictions(
+            EntityManager em, int patient) {
         patient(patient);
         var found =
                 rows(
                         query(
                                         em,
-                                        "select count(*),1 from `preventions` d where"
-                                            + " d.`demographic_no`=:patient and"
-                                            + " ((d.`restrictToProgram` is not null and"
-                                            + " d.`restrictToProgram`<>0) or (d.`restrictToProgram`"
-                                            + " is null and d.`programNo` is not null))")
-                                .setParameter("patient", patient));
-        if (found.size() != 1) invalid();
-        return number(found.getFirst()[0]) != 0;
+                                        "select d.`id`, d.`programNo` from `preventions` d where"
+                                            + " d.`demographic_no`=:patient and d.`programNo` is"
+                                            + " not null and d.`programNo`<>-1 and"
+                                            + " (d.`restrictToProgram` is null or"
+                                            + " d.`restrictToProgram`<>0) order by d.`id`")
+                                .setParameter("patient", patient)
+                                .setMaxResults(MAXIMUM_PROGRAM_RESTRICTIONS + 1));
+        if (found.size() > MAXIMUM_PROGRAM_RESTRICTIONS)
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportReviewException(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
+        var result = new java.util.TreeMap<Integer, Integer>();
+        for (Object[] row : found)
+            if (row.length != 2
+                    || result.put(
+                                    Math.toIntExact(number(row[0])),
+                                    Math.toIntExact(number(row[1])))
+                            != null) invalid();
+        return java.util.Collections.unmodifiableSortedMap(result);
     }
 
     /**

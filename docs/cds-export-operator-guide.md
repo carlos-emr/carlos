@@ -303,6 +303,15 @@ exported: when a prevention is edited, CARLOS keeps the earlier version as a del
 deleted prevention is also only flagged. Only the current version of each prevention is sent,
 as the legacy exporter did, and the earlier versions do not hold the patient for review.
 
+A prevention restricted to a program (data from OSCAR 19 or CAISI; CARLOS itself never sets
+one) follows the document rule: it is exported when the exporting provider, and the operator when
+one runs the export, both work in that program (are members of it under Program Management). A
+prevention flagged as restricted but without a program, or explicitly unrestricted, is exported
+as any other. When either does not work in the program, or the restriction flag holds a value
+other than 0, 1 or empty, the patient is held with `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`: add the
+provider to the program, or run the export as a provider who works in it, and export the patient
+again. The flag and program travel with the exported entry in its CARLOS residual.
+
 A vaccine imported without a configured ImmunizationType is filed in CARLOS as `OtherA`
 ("Other immunization or injection"). It is exported as an immunization, from its original
 imported elements. With the shipped prevention configuration `OtherA` is itself classified as an

@@ -40,11 +40,7 @@ public class CdsExportScreeningSourceReader extends CdsExportSelectedPreventionS
                 CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL,
                 snapshots,
                 access,
-                Partition.SCREENINGS);
-    }
-
-    @Override
-    public String table() {
-        return CdsExportPreventionSources.SCREENINGS;
+                Partition.SCREENINGS,
+                CdsExportPreventionSources.SCREENINGS);
     }
 }

@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.charset.*;
@@ -225,9 +224,8 @@ public class CdsExportImmunizationCaptureValidator {
         patient.require(lease);
         control.checkpoint();
         // Authenticate the entire capture and final authority before returning even an adverse
-        // review.
-        if (!selection.representable())
-            throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+        // review. A malformed program restriction holds the patient under its own name.
+        CdsExportPreventionSnapshotService.requireRepresentable(selection.reviews());
         return selection;
     }
 

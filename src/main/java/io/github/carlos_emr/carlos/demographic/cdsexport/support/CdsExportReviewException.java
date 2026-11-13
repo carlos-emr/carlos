@@ -25,6 +25,11 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.support;
 public final class CdsExportReviewException extends RuntimeException {
     public enum Reason {
         UNMAPPED_DATA,
+        /**
+         * A prevention of the chart is restricted to a program that not every exporting identity
+         * works in (or its restriction flag is malformed), so the chart as those identities see
+         * it lacks it. The patient is held.
+         */
         PREVENTION_PROGRAM_SCOPE,
         /**
          * A document of the chart is shown only inside a program that not every exporting identity

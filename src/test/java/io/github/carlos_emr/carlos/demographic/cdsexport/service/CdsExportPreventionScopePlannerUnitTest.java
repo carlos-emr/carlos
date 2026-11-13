@@ -108,22 +108,58 @@ class CdsExportPreventionScopePlannerUnitTest {
                 .isNotEqualTo(plan(List.of(row(1, "Td", null, null))).scopeSha256());
     }
 
+    // A malformed flag cannot be read under the chart's program rule, so it never provides
+    // program authority, whatever the program.
     @ParameterizedTest
-    @ValueSource(strings = {"1", "2", "-1", "true", ""})
-    void shouldVerifyActiveOrUnknownRestrictionStatesNeverProvideProgramAuthority_forPreventionScopePlannerContract(String flag)
+    @ValueSource(strings = {"2", "-1", "true", ""})
+    void shouldVerifyUnknownRestrictionStatesNeverProvideProgramAuthority_forPreventionScopePlannerContract(String flag)
             throws Exception {
-        var result = plan(List.of(row(1, "Td", flag, "1")));
-        assertThat(result.immunizations()).isEmpty();
-        assertThat(result.reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
-        assertThat(result.representable()).isFalse();
+        for (String program : Arrays.asList("1", null)) {
+            var result = plan(List.of(row(1, "Td", flag, program)));
+            assertThat(result.immunizations()).isEmpty();
+            assertThat(result.reviews())
+                    .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
+            assertThat(result.representable()).isFalse();
+        }
+    }
+
+    // OPEN-6: these rows used to be PROGRAM_SCOPE reviews that held the chart. The readers now
+    // read them only after every exporting identity is known to work in the program (and the
+    // mappers check it again), so the restriction is not a classification fact any more.
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(
+            value = {"1,1", "NULL,1", "1,NULL", "1,-1"},
+            nullValues = "NULL")
+    void shouldClassifyARowRestrictedToAProgram_likeAnyOtherRow(String flag, String program)
+            throws Exception {
+        var result = plan(List.of(row(1, "Td", flag, program), row(2, "PAP", flag, program)));
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.reviews()).isEmpty();
     }
 
     @Test
-    void shouldVerifyNullRestriction_withARecordedProgramIsAmbiguousAndCannotBeCapturedAsUnrestricted()
-            throws Exception {
-        assertThat(plan(List.of(row(1, "Td", null, "1"))).reviews())
-                .containsEntry(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE);
+    void shouldReadTheChartsProgramRule_forEveryFlagAndProgram() {
+        var rule = new LinkedHashMap<List<String>, CdsExportPreventionScopePlanner.ProgramRestriction>();
+        rule.put(Arrays.asList("1", "57"), new CdsExportPreventionScopePlanner.ProgramRestriction(false, "57"));
+        rule.put(Arrays.asList(null, "57"), new CdsExportPreventionScopePlanner.ProgramRestriction(false, "57"));
+        rule.put(Arrays.asList("1", "0"), new CdsExportPreventionScopePlanner.ProgramRestriction(false, "0"));
+        rule.put(Arrays.asList("1", null), CdsExportPreventionScopePlanner.ProgramRestriction.NONE);
+        rule.put(Arrays.asList("1", "-1"), CdsExportPreventionScopePlanner.ProgramRestriction.NONE);
+        rule.put(Arrays.asList("0", "57"), CdsExportPreventionScopePlanner.ProgramRestriction.NONE);
+        rule.put(Arrays.asList("0", "x"), CdsExportPreventionScopePlanner.ProgramRestriction.NONE);
+        rule.put(Arrays.asList(null, null), CdsExportPreventionScopePlanner.ProgramRestriction.NONE);
+        rule.put(Arrays.asList("2", null), CdsExportPreventionScopePlanner.ProgramRestriction.MALFORMED);
+        rule.put(Arrays.asList("2", "57"), CdsExportPreventionScopePlanner.ProgramRestriction.MALFORMED);
+        rule.put(Arrays.asList("1", "+57"), CdsExportPreventionScopePlanner.ProgramRestriction.MALFORMED);
+        rule.put(Arrays.asList("1", "4294967296"), CdsExportPreventionScopePlanner.ProgramRestriction.MALFORMED);
+        rule.forEach(
+                (input, expected) ->
+                        assertThat(
+                                        CdsExportPreventionScopePlanner.ProgramRestriction.of(
+                                                input.get(0), input.get(1)))
+                                .as(String.valueOf(input))
+                                .isEqualTo(expected));
     }
 
     @ParameterizedTest
@@ -320,7 +356,7 @@ class CdsExportPreventionScopePlannerUnitTest {
                                 27,
                                 withCatchAll(),
                                 List.of(
-                                        row(1, "OtherA", "1", "5"),
+                                        row(1, "OtherA", "2", "5"),
                                         row(2, "OtherB", "0", null),
                                         row(3, "Td", "0", null)),
                                 candidates -> {

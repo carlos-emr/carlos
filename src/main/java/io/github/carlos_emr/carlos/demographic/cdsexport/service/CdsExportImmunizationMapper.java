@@ -36,8 +36,12 @@ import java.util.*;
  * date, flu risk factors, a refusal reason, a vaccine type outside the CT-020 list) is carried
  * exactly instead of refusing the chart. Empty extension rows, which the prevention form saves
  * for every unfilled input, are not facts. Duplicate standard keys, stale imported date hints,
- * program restrictions, removed versions and unknown statuses still require reconciliation; no
- * first/last row silently wins.
+ * malformed program restrictions, removed versions and unknown statuses still require
+ * reconciliation; no first/last row silently wins.
+ *
+ * <p>A row restricted to a program (legacy OSCAR 19/CAISI columns) is exported when a fresh check
+ * says every exporting identity works in that program; its flag and program then travel exactly
+ * in the residual with the rest of the row. Without that check it is held.
  */
 public final class CdsExportImmunizationMapper {
     private final java.time.ZoneId zone;
@@ -54,6 +58,9 @@ public final class CdsExportImmunizationMapper {
     static final String RESIDUAL = "ResidualInfo";
 
     static final String CARRIED = "EXACT_NATIVE_PREVENTION_SOURCE_CONTEXT";
+
+    /** A restricted row whose program every exporting identity works in, checked live. */
+    static final String PROGRAM_SCOPE_AUTHORIZED = "PROGRAM_SCOPE_AUTHORIZED";
 
     /**
      * The catch-all injection type, and the CARLOS importer's fallback for a vaccine whose CDS
@@ -110,7 +117,26 @@ public final class CdsExportImmunizationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             CdsExportPreventionClassifier classifier)
             throws IOException {
-        var candidate = candidate(patient, row, extensions, precision, classifier);
+        // Without a live program check, a vaccine restricted to a program is held.
+        return map(patient, row, extensions, precision, classifier, program -> false);
+    }
+
+    /**
+     * As {@link #map(int, CdsExportCapturedTextRowDto, List, List, CdsExportPreventionClassifier)},
+     * for a vaccine the chart may show only inside a program. {@code readableProgram} is a fresh
+     * answer to whether every exporting identity works in that program; the row needs review
+     * when it is false.
+     */
+    public CdsExportImmunizationMappingDto map(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> extensions,
+            List<CdsExportCapturedTextRowDto> precision,
+            CdsExportPreventionClassifier classifier,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        var candidate =
+                candidate(patient, row, extensions, precision, classifier, readableProgram);
         boolean blocked =
                 candidate.fields().values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
@@ -138,6 +164,19 @@ public final class CdsExportImmunizationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             CdsExportPreventionClassifier classifier)
             throws IOException {
+        // Without a live program check, a vaccine restricted to a program is held.
+        return candidate(patient, row, extensions, precision, classifier, program -> false);
+    }
+
+    Candidate candidate(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> extensions,
+            List<CdsExportCapturedTextRowDto> precision,
+            CdsExportPreventionClassifier classifier,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        Objects.requireNonNull(readableProgram);
         int id = verifiedPatientRow(patient, row, extensions, precision, classifier);
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
@@ -158,13 +197,21 @@ public final class CdsExportImmunizationMapper {
             source.operational("never", "NO_NATIVE_REMINDER_SUPPRESSION");
         else if ("1".equals(source.raw("never")))
             source.set("never", Outcome.MAPPED, RESIDUAL, "NATIVE_NEVER_REMIND_CARRIED");
-        // The recording provider, reminder date, free-text administering provider, program of a
-        // previously authorized unrestricted row and the CVC concept have no CDS Immunizations
-        // element; carried() already maps them exactly to the residual.
-        String restriction = source.raw("restrictToProgram");
-        if ("0".equals(restriction) || restriction == null && source.raw("programNo") == null)
-            source.operational("restrictToProgram", "PREVIOUSLY_AUTHORIZED_UNRESTRICTED_SCOPE");
-        else source.review("restrictToProgram", "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
+        // The recording provider, reminder date, free-text administering provider, program of
+        // an unrestricted row and the CVC concept have no CDS Immunizations element; carried()
+        // already maps them exactly to the residual.
+        var restriction =
+                CdsExportPreventionScopePlanner.ProgramRestriction.of(
+                        source.raw("restrictToProgram"), source.raw("programNo"));
+        if (restriction.malformed())
+            source.review("restrictToProgram", "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
+        else if (!restriction.restricted())
+            source.operational("restrictToProgram", "UNRESTRICTED_PROGRAM_SCOPE");
+        else if (readableProgram.test(restriction.program())) {
+            // The flag and program travel exactly in the residual with the whole native row.
+            source.set("restrictToProgram", Outcome.MAPPED, RESIDUAL, PROGRAM_SCOPE_AUTHORIZED);
+            source.set("programNo", Outcome.MAPPED, RESIDUAL, PROGRAM_SCOPE_AUTHORIZED);
+        } else source.review("restrictToProgram", "", "PROGRAM_SCOPE_REQUIRES_REVIEW");
         String nativeType = source.raw("prevention_type");
         var category = classifier.classify(nativeType, source.raw("snomedId"));
         if (category.kind() != CdsExportPreventionClassifier.Kind.IMMUNIZATION)

@@ -98,7 +98,7 @@ class CdsExportSourceRecipeUnitTest {
         var dates = mock(PartialDateDao.class);
         return service(
                 reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of()),
-                new CdsExportPreventionConfigurationSourceReader(snapshots),
+                new CdsExportPreventionConfigurationSourceReader(snapshots, access),
                 new CdsExportPreventionScopeSourceReader(preventions, access),
                 new CdsExportCvcImmunizationSourceReader(mock(CVCImmunizationDao.class)),
                 new CdsExportCvcMappingSourceReader(mock(CVCMappingDao.class)),

@@ -27,25 +27,39 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Only metadata necessary to classify every patient prevention; no dates, descriptions, notes or extension values enter this projection. */
+/**
+ * Only metadata necessary to classify every patient prevention; no dates, descriptions, notes or
+ * extension values enter this projection. A row restricted to a program is read only after its
+ * program is authorized live ({@link #forCapture}, {@link #authorizeReadScope}) and the capture
+ * proves inside its snapshot that the restrictions are the ones authorized.
+ */
 @Service
 public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableSourceReader {
     private final CdsExportPreventionAccessService access;
     private final PreventionDao source;
+    private final Set<CdsCategory> selected;
+    private final CdsExportPreventionAccessService.Scope scope;
 
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionScopeSourceReader(
             PreventionDao source, CdsExportPreventionAccessService access) {
-        this(source, access, CdsExportPreventionSources.CATEGORIES);
+        this(
+                source,
+                access,
+                CdsExportPreventionSources.CATEGORIES,
+                CdsExportPreventionAccessService.Scope.UNPREPARED);
     }
 
     private CdsExportPreventionScopeSourceReader(
             PreventionDao source,
             CdsExportPreventionAccessService access,
-            Set<CdsCategory> selected) {
+            Set<CdsCategory> selected,
+            CdsExportPreventionAccessService.Scope scope) {
         super(source, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, selected);
         this.access = java.util.Objects.requireNonNull(access);
         this.source = java.util.Objects.requireNonNull(source);
+        this.selected = Set.copyOf(selected);
+        this.scope = java.util.Objects.requireNonNull(scope);
     }
 
     @Override
@@ -58,7 +72,20 @@ public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableS
     public CdsExportNativeSourceReader forRequest(
             io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
         return new CdsExportPreventionScopeSourceReader(
-                source, access, CdsExportPreventionSources.selected(command));
+                source, access, CdsExportPreventionSources.selected(command), scope);
+    }
+
+    /** The chart's program restrictions, read in their own short transaction before capture. */
+    @Override
+    public CdsExportNativeSourceReader forCapture(int patient, CdsExportRunControl control)
+            throws java.io.IOException {
+        if (scope.prepared())
+            throw new java.io.IOException("CDS_EXPORT_PREVENTION_CAPTURE_SCOPE_INVALID");
+        return new CdsExportPreventionScopeSourceReader(
+                source,
+                access,
+                selected,
+                CdsExportPreventionAccessService.Scope.prepare(access, patient, control));
     }
 
     @Override
@@ -75,11 +102,7 @@ public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableS
     }
 
     private void requireSnapshotScope(int patient) {
-        if (source.hasCdsExportUnresolvedProgramScope(patient))
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.PREVENTION_PROGRAM_SCOPE);
+        scope.requireSnapshot(patient, source.readCdsExportProgramRestrictions(patient));
     }
 
     @Override
@@ -87,9 +110,13 @@ public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableS
         return "preventions_scope";
     }
 
+    /**
+     * Live program check for every program a prevention of this chart is restricted to, outside
+     * the source transaction, for each selected prevention category.
+     */
     @Override
     public void authorizeReadScope(int patient, CdsExportRunControl control) {
-        access.requireUnrestricted(patient);
+        scope.authorize(patient, selected, control);
         control.checkpoint();
     }
 

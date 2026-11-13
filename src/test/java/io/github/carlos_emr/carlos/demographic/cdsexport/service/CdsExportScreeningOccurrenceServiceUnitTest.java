@@ -429,6 +429,51 @@ class CdsExportScreeningOccurrenceServiceUnitTest {
                 .isEqualTo(2);
     }
 
+    /** Screening 31, restricted to program 57. */
+    private void restrict() {
+        parents = List.of(parent(31, Map.of("refused", "1", "restrictToProgram", "1", "programNo", "57")), parents.get(1));
+        witnesses.removeIf(witness -> witness.id().equals("31"));
+        witnesses.add(witness(parents.get(0)));
+    }
+
+    // OPEN-6: a screening restricted to a program is written after a live program check, carried
+    // with its flag and program in the residual, and the program is checked once more after the
+    // patient's screenings are written.
+    @Test
+    void shouldExportARestrictedScreening_afterLiveProgramChecksBeforeAndAfterWriting()
+            throws Exception {
+        restrict();
+        when(control.restrictedProgramReadable(27, CdsCategory.PAST_HEALTH, "57")).thenReturn(true);
+        compose();
+        assertThat(emitted).isEqualTo(2);
+        assertThat(receipts.get(0).fields().entrySet())
+                .filteredOn(entry -> entry.getKey().column().equals("programNo"))
+                .singleElement()
+                .satisfies(
+                        entry ->
+                                assertThat(entry.getValue().rule())
+                                        .isEqualTo("PROGRAM_SCOPE_AUTHORIZED"));
+        verify(control, times(2)).restrictedProgramReadable(27, CdsCategory.PAST_HEALTH, "57");
+    }
+
+    @Test
+    void shouldHoldARestrictedScreening_whenNobodyExportingWorksInItsProgram() {
+        restrict();
+        assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        assertThat(receipts).isEmpty();
+    }
+
+    @Test
+    void shouldRefuseThePatient_whenAGrantedProgramIsRevokedWhileItsScreeningsAreWritten() {
+        restrict();
+        when(control.restrictedProgramReadable(27, CdsCategory.PAST_HEALTH, "57"))
+                .thenReturn(true, false);
+        assertThatThrownBy(this::compose)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_ACCESS_CHANGED");
+        verify(captures, never()).authorizeSources(any(), any(), anySet(), any());
+    }
+
     @Test
     void shouldStillHoldAnUnknownDeletedFlag_forReview() {
         parents = List.of(parent(31, Map.of("deleted", "2")), parents.get(1));

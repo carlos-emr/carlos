@@ -27,6 +27,5 @@ import org.springframework.stereotype.Service;
 /** Only the current patient vaccine selection; original ownership, duplicates, archived/unknown values and all physical columns are retained. */
 @Service
 public class CdsExportImmunizationPrecisionSourceReader extends CdsExportSelectedPreventionSourceReader {
-    public CdsExportImmunizationPrecisionSourceReader(PartialDateDao source, CdsExportPreventionSnapshotService snapshots, CdsExportPreventionAccessService access){super(source, CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION, snapshots, access); }
-    @Override public String table(){return "prevention_precision"; }
+    public CdsExportImmunizationPrecisionSourceReader(PartialDateDao source, CdsExportPreventionSnapshotService snapshots, CdsExportPreventionAccessService access){super(source, CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION, snapshots, access, Partition.IMMUNIZATIONS, "prevention_precision"); }
 }

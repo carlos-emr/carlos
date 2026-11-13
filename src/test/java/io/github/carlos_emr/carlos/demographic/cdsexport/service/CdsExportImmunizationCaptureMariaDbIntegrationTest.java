@@ -487,7 +487,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                                         context.getBean(CVCImmunizationDaoImpl.class)),
                                 new CdsExportCvcMappingSourceReader(
                                         context.getBean(CVCMappingDaoImpl.class)),
-                                new CdsExportPreventionConfigurationSourceReader(snapshots),
+                                new CdsExportPreventionConfigurationSourceReader(
+                                        snapshots, access),
                                 reader,
                                 new CdsExportImmunizationSourceReader(dao, snapshots, access),
                                 new CdsExportImmunizationExtSourceReader(
@@ -820,13 +821,187 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                 "update preventions set restrictToProgram=1,programNo=1 where id=? and demographic_no=?",
                 first,
                 patient);
+        // The DAO no longer refuses a chart with a restricted row: the program boundary is the
+        // readers' and the selection's, which a capture never prepared does not pass.
+        Long none =
+                read.execute(status -> precision.countCdsExportPreventionRows(patient, Set.of()));
+        assertThat(none).isZero();
         assertThatThrownBy(
                         () ->
                                 read.executeWithoutResult(
-                                        status ->
-                                                precision.countCdsExportPreventionRows(
-                                                        patient, Set.of())))
+                                        status -> {
+                                            try {
+                                                snapshots.prepare(patient, () -> {});
+                                            } catch (IOException failed) {
+                                                throw new UncheckedIOException(failed);
+                                            }
+                                        }))
+                .isInstanceOf(CdsExportReviewException.class)
                 .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+    }
+
+    /** The prevention readers of an Immunizations and PastHealth capture, as registered. */
+    private List<CdsExportNativeSourceReader> preventionReaders() {
+        return List.<CdsExportNativeSourceReader>of(
+                        new CdsExportCvcImmunizationSourceReader(
+                                context.getBean(CVCImmunizationDaoImpl.class)),
+                        new CdsExportCvcMappingSourceReader(context.getBean(CVCMappingDaoImpl.class)),
+                        new CdsExportPreventionConfigurationSourceReader(snapshots, access),
+                        reader,
+                        new CdsExportImmunizationSourceReader(dao, snapshots, access),
+                        new CdsExportImmunizationExtSourceReader(extensions, snapshots, access),
+                        new CdsExportImmunizationPrecisionSourceReader(precision, snapshots, access),
+                        new CdsExportScreeningSourceReader(dao, snapshots, access),
+                        new CdsExportScreeningExtSourceReader(extensions, snapshots, access),
+                        new CdsExportScreeningPrecisionSourceReader(precision, snapshots, access))
+                .stream()
+                .sorted(Comparator.comparing(CdsExportNativeSourceReader::table))
+                .toList();
+    }
+
+    /** Counts and captures every reader in one snapshot, as the capture service does. */
+    private Map<String, Long> captureAll(List<CdsExportNativeSourceReader> readers, OutputStream values) {
+        var counts = new TreeMap<String, Long>();
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        for (var input : readers)
+                            counts.put(input.table(), input.count(patient, () -> {}));
+                        new CdsExportNativeCaptureComposer()
+                                .compose(
+                                        values,
+                                        OutputStream.nullOutputStream(),
+                                        counts.keySet(),
+                                        100000,
+                                        8L << 20,
+                                        () -> {},
+                                        writer -> {
+                                            for (var input : readers) {
+                                                writer.beginTable(
+                                                        input.table(),
+                                                        input.columns(),
+                                                        counts.get(input.table()));
+                                                input.capture(patient, writer);
+                                                writer.endTable();
+                                            }
+                                        });
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+        return counts;
+    }
+
+    private List<CdsExportNativeSourceReader> prepared(
+            List<CdsExportNativeSourceReader> readers,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control)
+            throws IOException {
+        var result = new ArrayList<CdsExportNativeSourceReader>();
+        for (var input : readers) {
+            var ready = input.forCapture(patient, control);
+            assertThat(ready.table()).isEqualTo(input.table());
+            assertThat(ready.categories()).isEqualTo(input.categories());
+            assertThat(ready.requiredTables()).isEqualTo(input.requiredTables());
+            ready.authorizeReadScope(patient, control);
+            result.add(ready);
+        }
+        return result;
+    }
+
+    // OPEN-6: a legacy prevention restricted to a program no longer holds the chart. It is read
+    // once every exporting identity is known to work in its program, as the chart's document
+    // rule says, and the restrictions read before the snapshot are proved inside it.
+    @Test
+    void shouldCaptureRestrictedPreventions_onlyAfterEveryReaderAuthorizedTheirProgramsLive()
+            throws Exception {
+        sql.update(
+                "update preventions set restrictToProgram=1,programNo=57 where id=? and demographic_no=?",
+                first,
+                patient);
+        sql.update(
+                "update preventions set restrictToProgram=NULL,programNo=58 where id=? and demographic_no=?",
+                first + 1,
+                patient);
+        var registered = preventionReaders();
+        // Readers never prepared for this chart read nothing restricted.
+        assertThatThrownBy(() -> captureAll(registered, OutputStream.nullOutputStream()))
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        var asked = new ArrayList<String>();
+        var allowed = CdsExportPreventionScopeMariaDbIntegrationTest.programs(true, asked);
+        var ready = prepared(registered, allowed);
+        assertThat(asked)
+                .contains(
+                        "Immunizations:57",
+                        "Immunizations:58",
+                        "PastHealth:57",
+                        "PastHealth:58");
+        var values = new ByteArrayOutputStream();
+        var counts = captureAll(ready, values);
+        assertThat(counts)
+                .containsEntry("preventions", 2L)
+                .containsEntry(CdsExportPreventionSources.SCREENINGS, 1L)
+                .containsEntry("preventions_scope", 3L);
+        assertThat(values.toString(StandardCharsets.UTF_8)).contains(largeText, "PAP", "Td");
+        // A program nobody exporting works in holds the patient before any value is read.
+        for (var input : registered) {
+            var refused =
+                    input.forCapture(
+                            patient,
+                            CdsExportPreventionScopeMariaDbIntegrationTest.programs(
+                                    false, new ArrayList<>()));
+            if (input.table().startsWith("CVC")) continue;
+            assertThatThrownBy(
+                            () ->
+                                    refused.authorizeReadScope(
+                                            patient,
+                                            CdsExportPreventionScopeMariaDbIntegrationTest.programs(
+                                                    false, new ArrayList<>())))
+                    .as(input.table())
+                    .isInstanceOf(CdsExportReviewException.class)
+                    .hasMessage("CDS_EXPORT_PREVENTION_PROGRAM_SCOPE");
+        }
+        // A restriction changed between the preflight and the snapshot is a changed source.
+        sql.update(
+                "update preventions set programNo=59 where id=? and demographic_no=?",
+                first,
+                patient);
+        assertThatThrownBy(() -> captureAll(ready, OutputStream.nullOutputStream()))
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+        // Every selected reader proves its own authorized restrictions against the selection's.
+        var stale = prepared(registered, allowed);
+        sql.update(
+                "update preventions set programNo=57 where id=? and demographic_no=?",
+                first,
+                patient);
+        var mixed = new ArrayList<CdsExportNativeSourceReader>();
+        var fresh = prepared(registered, allowed);
+        for (int i = 0; i < registered.size(); i++)
+            mixed.add(
+                    registered.get(i).table().equals("preventions") ? stale.get(i) : fresh.get(i));
+        assertThatThrownBy(() -> captureAll(mixed, OutputStream.nullOutputStream()))
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_SOURCE_CHANGED");
+    }
+
+    @Test
+    void shouldCaptureAFlagWithoutAProgramOrAnExplicitZeroFlag_asUnrestricted() {
+        sql.update(
+                "update preventions set restrictToProgram=1,programNo=NULL where id=? and demographic_no=?",
+                first,
+                patient);
+        sql.update(
+                "update preventions set restrictToProgram=0,programNo=57 where id=? and demographic_no=?",
+                first + 1,
+                patient);
+        sql.update(
+                "update preventions set restrictToProgram=1,programNo=-1 where id=? and demographic_no=?",
+                first + 2,
+                patient);
+        // No program to authorize: the readers never prepared read every row.
+        var counts = captureAll(preventionReaders(), OutputStream.nullOutputStream());
+        assertThat(counts).containsEntry("preventions", 2L).containsEntry("preventions_scope", 3L);
     }
 
     private void sqlUpdateOutsideSnapshot(String statement, int id, int parent) {
