@@ -297,6 +297,31 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      - name: Generate and require the successful Java run's coverage counters
+        # make install packages before running tests; the prepare-package report
+        # goal therefore runs before any execution data exists on a clean CI tree.
+        # Render the counters explicitly after the successful tests and retakes.
+        run: |
+          docker exec carlos-tomcat-dev test -s target/jacoco.exec
+          docker exec carlos-tomcat-dev test -s target/ci-permission-reports/jacoco.exec
+          docker exec carlos-tomcat-dev test -s target/ci-permission-reports/coverage/jacoco.xml
+          docker exec carlos-tomcat-dev rm -f target/site/jacoco/jacoco.xml
+          docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:report
+          docker exec carlos-tomcat-dev test -s target/site/jacoco/jacoco.xml
+
+      - name: Preserve Java coverage counters
+        # JaCoCo contains source/probe counters, not configuration or clinical output.
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: java-coverage-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            target/site/jacoco/jacoco.xml
+            target/jacoco.exec
+            target/ci-permission-reports/jacoco.exec
+            target/ci-permission-reports/coverage/jacoco.xml
+          if-no-files-found: error
+          retention-days: 14
+
   report-fonts:
     # The complete Java suite and six fresh-JVM font scenarios exceeded the
     # shared 40-minute budget. Keep every scenario in an independent job.
@@ -331,29 +356,6 @@ jobs:
             target/rourke-font-matrix/
             target/rourke-pdf/
           if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Generate and require the successful Java run's coverage counters
-        # make install packages before running tests; the prepare-package report
-        # goal therefore runs before any execution data exists on a clean CI tree.
-        # Render the counters explicitly after the successful tests and retakes.
-        run: |
-          docker exec carlos-tomcat-dev test -s target/jacoco.exec
-          docker exec carlos-tomcat-dev rm -f target/site/jacoco/jacoco.xml
-          docker exec carlos-tomcat-dev mvn --batch-mode --no-transfer-progress jacoco:report
-          docker exec carlos-tomcat-dev test -s target/site/jacoco/jacoco.xml
-
-      - name: Preserve Java coverage counters
-        # JaCoCo contains source/probe counters, not configuration or clinical output.
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: java-coverage-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            target/site/jacoco/jacoco.xml
-            target/jacoco.exec
-            target/ci-permission-reports/jacoco.exec
-            target/ci-permission-reports/coverage/jacoco.xml
-          if-no-files-found: error
           retention-days: 14
 
   mariadb-dao-tests:
