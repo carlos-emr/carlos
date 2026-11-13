@@ -43,6 +43,15 @@ import java.util.zip.ZipOutputStream;
 public final class CdsCliEngineFixture {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final Path CONFIG = Path.of("/etc/carlos-emr/carlos.properties");
+
+    /**
+     * Per-installation native-baseline key root: root:carlos 0750 below the root-owned
+     * configuration directory, holding one 32-byte root:carlos 0640 key, as an operator provisions
+     * it. Every installed import seals its receipt witness with it.
+     */
+    private static final Path NATIVE_BASELINE_KEYS = CONFIG.resolveSibling("cds-native-baseline");
+
+    private static final String NATIVE_BASELINE_KEY_ID = "fixture";
     private static final String PROVIDER = "999998";
 
     public static void main(String[] args) {
@@ -166,7 +175,8 @@ public final class CdsCliEngineFixture {
             Connection connection, Properties jdbc, String url, Path root) throws Exception {
         if (!root.isAbsolute()
                 || Files.exists(root, LinkOption.NOFOLLOW_LINKS)
-                || Files.exists(CONFIG, LinkOption.NOFOLLOW_LINKS)) {
+                || Files.exists(CONFIG, LinkOption.NOFOLLOW_LINKS)
+                || Files.exists(NATIVE_BASELINE_KEYS, LinkOption.NOFOLLOW_LINKS)) {
             throw new IllegalStateException(
                     "Existing fixture or production configuration is never replaced");
         }
@@ -348,6 +358,8 @@ public final class CdsCliEngineFixture {
         config.setProperty("cds.import.allowedRoot", source.toString());
         config.setProperty("cds.import.stagingRoot", state.resolve("runs").toString());
         config.setProperty("cds.import.uploadRoot", state.resolve("uploads").toString());
+        config.setProperty("cds.nativeBaseline.keyRoot", NATIVE_BASELINE_KEYS.toString());
+        config.setProperty("cds.nativeBaseline.activeKey", NATIVE_BASELINE_KEY_ID);
         config.setProperty("DOCUMENT_DIR", root.resolve("documents").toString());
         config.setProperty("cds.import.sourceNamespaces", namespace);
         config.setProperty("cds.import.source." + namespace + ".profiles", "pcon-2024-02");
@@ -359,6 +371,22 @@ public final class CdsCliEngineFixture {
         if (!Files.exists(CONFIG.getParent(), LinkOption.NOFOLLOW_LINKS))
             Files.createDirectories(CONFIG.getParent());
         rootReadable(CONFIG.getParent(), true);
+        directory(NATIVE_BASELINE_KEYS, false);
+        Path key = NATIVE_BASELINE_KEYS.resolve(NATIVE_BASELINE_KEY_ID + ".key");
+        byte[] keyBytes = new byte[32];
+        new java.security.SecureRandom().nextBytes(keyBytes);
+        // Created owner-only, then opened to the service group: never readable by others.
+        try (var channel =
+                Files.newByteChannel(
+                        key,
+                        java.util.Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE),
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rw-------")))) {
+            channel.write(java.nio.ByteBuffer.wrap(keyBytes));
+        } finally {
+            java.util.Arrays.fill(keyBytes, (byte) 0);
+        }
+        rootReadable(key, false);
         try (var output = Files.newOutputStream(CONFIG, StandardOpenOption.CREATE_NEW)) {
             config.store(output, "Disposable CDS installed-engine fixture");
         }
