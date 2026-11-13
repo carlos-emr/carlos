@@ -12,6 +12,7 @@
 <%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<fmt:setBundle basename="oscarResources"/>
 <fmt:setBundle basename="cdsExportMessages" var="cdsx"/>
 <!DOCTYPE html>
 <html lang="${carlos:forHtmlAttribute(pageContext.response.locale.language)}">
