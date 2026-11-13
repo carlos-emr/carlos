@@ -378,10 +378,12 @@ public class CdsExportExecutionService {
         }
 
         @Override
-        public boolean documentProgramReadable(int patient, String program) {
+        public boolean restrictedProgramReadable(
+                int patient, CdsCategory category, String program) {
             outsideCapture();
-            return access.canReadDocumentProgram(
-                    lease.document().actor(), lease.document().command(), patient, program);
+            return access.canReadRestrictedProgram(
+                    lease.document().actor(), lease.document().command(), category, patient,
+                    program);
         }
 
         @Override

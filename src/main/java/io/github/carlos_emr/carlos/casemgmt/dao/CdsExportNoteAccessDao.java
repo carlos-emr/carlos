@@ -261,12 +261,13 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     }
 
     /**
-     * Whether the provider works in the program a document is restricted to: any
-     * {@code program_provider} membership in it, the rule the chart's document list and document
-     * links apply ({@code EDocUtil} program filtering, {@code DocumentPatientLink}). It reads no
-     * document and decides nothing about any other program.
+     * Whether the provider works in the program a record is restricted to (a document, or a
+     * legacy prevention row): any {@code program_provider} membership in it, the rule the chart's
+     * document list and document links apply ({@code EDocUtil} program filtering,
+     * {@code DocumentPatientLink}). It reads no record and decides nothing about any other
+     * program.
      */
-    public boolean canReadDocumentProgram(String provider, int program) {
+    public boolean canReadRestrictedProgram(String provider, int program) {
         if (provider == null || provider.isEmpty()) return false;
         return !entityManager()
                 .createNativeQuery(

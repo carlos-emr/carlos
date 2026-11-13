@@ -61,11 +61,14 @@ public interface CdsExportRunControl {
     }
 
     /**
-     * Fresh program check for a document restricted to a program: true when every current
-     * identity works in that program, the rule the chart's document list applies. False holds the
-     * patient; it never grants anything, so an adapter without this check stays fail-closed.
+     * Fresh program check for a record restricted to a program (a document in Reports, a
+     * prevention in Immunizations or PastHealth): true when every current exporting identity, the
+     * effective provider and any operator, works in that program, which is any
+     * {@code program_provider} membership in it, the rule the chart's document list applies.
+     * The category's ordinary chart rights are required as well. False holds the patient; it never
+     * grants anything, so an adapter without this check stays fail-closed.
      */
-    default boolean documentProgramReadable(int patient, String program) {
+    default boolean restrictedProgramReadable(int patient, CdsCategory category, String program) {
         return false;
     }
 

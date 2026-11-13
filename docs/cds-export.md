@@ -481,7 +481,7 @@ any `program_provider` membership in it, the rule the chart's document list appl
 (`EDocUtil` program filtering, `DocumentPatientLink`). The Reports capture reads only document
 numbers and their programs first, in their own short transaction
 (`CdsExportDocumentProgramScopeService`); checks each program live before any document value is
-read (`CdsExportDocumentSourceReader.authorizeReadScope`, `CdsExportAccessService.canReadDocumentProgram`);
+read (`CdsExportDocumentSourceReader.authorizeReadScope`, `CdsExportAccessService.canReadRestrictedProgram`);
 and proves inside the capture snapshot that the restrictions are the ones it authorized (a
 change is `CDS_EXPORT_SOURCE_CHANGED`). The report mapper checks each program again, live,
 before the document is written, and every program so granted is checked once more after the

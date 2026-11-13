@@ -659,8 +659,10 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         java.util.function.Predicate<String> readable =
                                 program -> {
                                     boolean allowed =
-                                            control.documentProgramReadable(
-                                                    patient.patient(), program);
+                                            control.restrictedProgramReadable(
+                                                    patient.patient(),
+                                                    CdsCategory.REPORTS,
+                                                    program);
                                     if (allowed) granted.add(program);
                                     return allowed;
                                 };
@@ -890,7 +892,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         totals[0] = Math.addExact(totals[0], laboratoryDocuments);
                         totals[2] = Math.addExact(totals[2], laboratoryDocuments);
                         for (String program : granted)
-                            if (!control.documentProgramReadable(patient.patient(), program))
+                            if (!control.restrictedProgramReadable(
+                                    patient.patient(), CdsCategory.REPORTS, program))
                                 throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
                         // Re-authenticates the whole captured values member before any staged
                         // attachment can be accepted with this patient's output.

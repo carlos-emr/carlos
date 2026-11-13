@@ -291,17 +291,64 @@ class CdsExportAccessServiceUnitTest {
                         "recipient",
                         "audit");
         var actor = access.webActor(session, command);
-        when(notes.canReadDocumentProgram("100", 10034)).thenReturn(true);
-        assertThat(access.canReadDocumentProgram(actor, command, 27, "10034")).isTrue();
+        when(notes.canReadRestrictedProgram("100", 10034)).thenReturn(true);
+        assertThat(
+                        access.canReadRestrictedProgram(
+                                actor, command, CdsCategory.REPORTS, 27, "10034"))
+                .isTrue();
         // A program the provider does not work in holds the patient; it is not an access failure.
-        assertThat(access.canReadDocumentProgram(actor, command, 27, "10016")).isFalse();
-        verify(notes).canReadDocumentProgram("100", 10016);
+        assertThat(
+                        access.canReadRestrictedProgram(
+                                actor, command, CdsCategory.REPORTS, 27, "10016"))
+                .isFalse();
+        verify(notes).canReadRestrictedProgram("100", 10016);
         // Reports must be selected, and a malformed program is refused outright.
         assertThatThrownBy(
-                        () -> access.canReadDocumentProgram(actor, noteCommand("100"), 27, "10034"))
+                        () ->
+                                access.canReadRestrictedProgram(
+                                        actor, noteCommand("100"), CdsCategory.REPORTS, 27,
+                                        "10034"))
                 .isInstanceOf(SecurityException.class);
-        assertThatThrownBy(() -> access.canReadDocumentProgram(actor, command, 27, "x"))
+        assertThatThrownBy(
+                        () ->
+                                access.canReadRestrictedProgram(
+                                        actor, command, CdsCategory.REPORTS, 27, "x"))
                 .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
+    void shouldAnswerAPreventionProgramCheck_byTheExportingProvidersProgramMembership() {
+        var command =
+                new CdsExportCommand(
+                        "prevention-rights",
+                        "100",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        java.util.Set.of(
+                                CdsCategory.DEMOGRAPHICS,
+                                CdsCategory.IMMUNIZATIONS,
+                                CdsCategory.PAST_HEALTH),
+                        "recipient",
+                        "audit");
+        var actor = access.webActor(session, command);
+        when(notes.canReadRestrictedProgram("100", 10034)).thenReturn(true);
+        // A legacy prevention restricted to a program follows the chart's document rule.
+        for (var category : List.of(CdsCategory.IMMUNIZATIONS, CdsCategory.PAST_HEALTH)) {
+            assertThat(access.canReadRestrictedProgram(actor, command, category, 27, "10034"))
+                    .isTrue();
+            assertThat(access.canReadRestrictedProgram(actor, command, category, 27, "10016"))
+                    .isFalse();
+        }
+        // Only the categories whose records carry a program restriction, and only when selected.
+        for (var category : List.of(CdsCategory.REPORTS, CdsCategory.PROBLEM_LIST))
+            assertThatThrownBy(
+                            () ->
+                                    access.canReadRestrictedProgram(
+                                            actor, command, category, 27, "10034"))
+                    .isInstanceOf(SecurityException.class);
     }
 
     @Test

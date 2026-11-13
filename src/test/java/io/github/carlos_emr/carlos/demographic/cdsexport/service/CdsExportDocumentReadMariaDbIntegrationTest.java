@@ -524,7 +524,14 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                     boolean sensitiveLaboratory) {}
 
             @Override
-            public boolean documentProgramReadable(int patient, String program) {
+            public boolean restrictedProgramReadable(
+                    int patient,
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category,
+                    String program) {
+                assertThat(category)
+                        .isEqualTo(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .REPORTS);
                 asked.add(program);
                 return allowed;
             }

@@ -287,24 +287,40 @@ public class CdsExportAccessService {
     }
 
     /**
-     * Fresh program check for a document restricted to a program. The chart shows such a document
-     * only to a provider who works in its program, so every current identity (the effective
-     * provider and any operator) must; the ordinary Reports chart rights are required as well. A
-     * false answer holds the patient; nothing here grants a document the chart would not show.
+     * The categories whose records may be restricted to a program: a document (Reports) and a
+     * prevention (Immunizations, PastHealth screenings).
      */
-    public boolean canReadDocumentProgram(
-            CdsExportActorDto actor, CdsExportCommand command, int patient, String program) {
+    static final java.util.Set<CdsCategory> RESTRICTED_PROGRAM_CATEGORIES =
+            java.util.Set.of(CdsCategory.REPORTS, CdsCategory.IMMUNIZATIONS, CdsCategory.PAST_HEALTH);
+
+    /**
+     * Fresh program check for a record restricted to a program: a document, or a legacy
+     * prevention row carrying OSCAR 19/CAISI {@code restrictToProgram}/{@code programNo}. The
+     * chart shows a document restricted to a program only to a provider who works in it, and the
+     * same rule is applied to such a prevention, so every current identity (the effective
+     * provider and any operator) must work in the program; the category's ordinary chart rights
+     * are required as well. A false answer holds the patient; nothing here grants a record the
+     * chart would not show.
+     */
+    public boolean canReadRestrictedProgram(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            int patient,
+            String program) {
         if (program == null
                 || !program.matches("-?[0-9]{1,10}")
                 || command == null
-                || !command.categories().contains(CdsCategory.REPORTS)) deny();
+                || category == null
+                || !RESTRICTED_PROGRAM_CATEGORIES.contains(category)
+                || !command.categories().contains(category)) deny();
         long value = Long.parseLong(program);
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) deny();
-        CurrentIdentity current = chartIdentity(actor, command, patient, CdsCategory.REPORTS);
-        return notes.canReadDocumentProgram(
+        CurrentIdentity current = chartIdentity(actor, command, patient, category);
+        return notes.canReadRestrictedProgram(
                         current.effective().getLoggedInProviderNo(), (int) value)
                 && (current.operator() == null
-                        || notes.canReadDocumentProgram(
+                        || notes.canReadRestrictedProgram(
                                 current.operator().getLoggedInProviderNo(), (int) value));
     }
 

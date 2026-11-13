@@ -381,12 +381,12 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                 () -> {
                     // The chart's document list asks only whether the provider works in the
                     // program; the role and the patient domain do not matter to it.
-                    assertThat(notes.canReadDocumentProgram(provider, id)).isFalse();
+                    assertThat(notes.canReadRestrictedProgram(provider, id)).isFalse();
                     membership(id, id + 1);
-                    assertThat(notes.canReadDocumentProgram(provider, id)).isTrue();
-                    assertThat(notes.canReadDocumentProgram(provider, id + 1)).isFalse();
-                    assertThat(notes.canReadDocumentProgram("", id)).isFalse();
-                    assertThat(notes.canReadDocumentProgram(null, id)).isFalse();
+                    assertThat(notes.canReadRestrictedProgram(provider, id)).isTrue();
+                    assertThat(notes.canReadRestrictedProgram(provider, id + 1)).isFalse();
+                    assertThat(notes.canReadRestrictedProgram("", id)).isFalse();
+                    assertThat(notes.canReadRestrictedProgram(null, id)).isFalse();
                 });
     }
 

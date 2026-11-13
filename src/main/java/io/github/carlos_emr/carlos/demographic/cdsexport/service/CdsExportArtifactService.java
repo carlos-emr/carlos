@@ -188,10 +188,11 @@ public class CdsExportArtifactService {
                     }
 
                     @Override
-                    public boolean documentProgramReadable(int patient, String program) {
+                    public boolean restrictedProgramReadable(
+                            int patient, CdsCategory category, String program) {
                         probe();
-                        return access.canReadDocumentProgram(
-                                actor, lease.document().command(), patient, program);
+                        return access.canReadRestrictedProgram(
+                                actor, lease.document().command(), category, patient, program);
                     }
 
                     @Override

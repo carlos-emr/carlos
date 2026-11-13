@@ -112,7 +112,8 @@ public class CdsExportDocumentSourceReader extends CdsExportPatientTableSourceRe
             throw new SecurityException("CDS_EXPORT_DOCUMENT_CAPTURE_SCOPE_INVALID");
         for (int program : new TreeSet<>(restrictions.values())) {
             control.checkpoint();
-            if (!control.documentProgramReadable(patient, Integer.toString(program)))
+            if (!control.restrictedProgramReadable(
+                    patient, CdsCategory.REPORTS, Integer.toString(program)))
                 throw programHold();
         }
     }
