@@ -242,6 +242,40 @@ public class CdsExportAccessService {
     }
 
     /**
+     * Whether both identities work in the program that owns a patient issue, under the program
+     * part of the note rule (patient domain, facility boundary, one unambiguous membership).
+     * Issues have no reporter role. A false answer is a review condition for the caller, not an
+     * access failure; the ordinary category and chart gates still throw.
+     */
+    public boolean canReadIssueProgram(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            int patient,
+            String program) {
+        if (program == null
+                || category == null
+                || command == null
+                || !CdsExportNoteSourceReader.CATEGORIES.contains(category)
+                || !command.categories().contains(category)) deny();
+        CurrentIdentity current = chartIdentity(actor, command, patient, category);
+        boolean filter = configuration.filterNotesOnFacility();
+        return notes.canReadProgram(
+                        current.effective().getLoggedInProviderNo(),
+                        patient,
+                        program,
+                        command.facilityId(),
+                        filter)
+                && (current.operator() == null
+                        || notes.canReadProgram(
+                                current.operator().getLoggedInProviderNo(),
+                                patient,
+                                program,
+                                command.facilityId(),
+                                filter));
+    }
+
+    /**
      * Complete issue/catalogue reads use the live chart gate even for a patient with no native
      * notes.
      */

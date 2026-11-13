@@ -452,6 +452,160 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
     }
 
+    /** A patient issue as the encounter editor writes it (prepareCaseIssue): the chart's program. */
+    static CdsExportHistoryFieldReconciler.Row uiIssue(long id, long issueId, String program) {
+        return row(
+                Plan.CASE_ISSUES,
+                id,
+                Map.of(
+                        "demographic_no", "27",
+                        "issue_id", Long.toString(issueId),
+                        "acute", "0",
+                        "certain", "0",
+                        "major", "0",
+                        "resolved", "0",
+                        "program_id", program,
+                        "type", "doctor",
+                        "update_date", "2026-07-10 12:30:00"));
+    }
+
+    static CdsExportHistoryFieldReconciler.Row catalogue(long id, String code, String type) {
+        return row(
+                Plan.ISSUE_CATALOGUE,
+                id,
+                Map.of(
+                        "code", code,
+                        "description", code.equals("250") ? "DIABETES MELLITUS" : code + " entry",
+                        "role", "doctor",
+                        "type", type,
+                        "sortOrderId", "0",
+                        "update_date", "2026-01-01 00:00:00"));
+    }
+
+    /** A saved, signed note stamped with the provider's program and role, linked to issues. */
+    static CdsExportHistoryFieldReconciler.Current uiNote(
+            long id,
+            String body,
+            String program,
+            List<CdsExportHistoryFieldReconciler.Row> issues,
+            List<CdsExportHistoryFieldReconciler.Row> definitions) {
+        var fields = new LinkedHashMap<>(note(id, body, null, List.of()).note().value().fields());
+        fields.put("program_no", program);
+        fields.put("reporter_caisi_role", "2");
+        fields.put("reporter_program_team", "0");
+        fields.put("position", "0");
+        fields.put("locked", "0");
+        fields.put("include_issue_innote", "0");
+        var links = new ArrayList<CdsExportCapturedTextRowDto>();
+        var patientIssues = new LinkedHashMap<String, CdsExportHistoryFieldReconciler.Row>();
+        for (var issue : issues) {
+            String issueId = issue.value().fields().get("id");
+            patientIssues.put(issueId, issue);
+            links.add(
+                    new CdsExportCapturedTextRowDto(
+                            "casemgmt_issue_notes",
+                            CdsExportPatientTableSourceReader.key(id)
+                                    + CdsExportPatientTableSourceReader.key(
+                                            Long.parseLong(issueId)),
+                            Map.of("id", issueId, "note_id", Long.toString(id))));
+        }
+        var catalogue = new LinkedHashMap<String, CdsExportHistoryFieldReconciler.Row>();
+        for (var definition : definitions)
+            catalogue.put(definition.value().fields().get("issue_id"), definition);
+        return new CdsExportHistoryFieldReconciler.Current(
+                row(Plan.CASE_NOTES, id, fields), List.of(), links, patientIssues, catalogue);
+    }
+
+    @Test
+    void shouldExportAProgramStampedDiagnosis_whenItIsTheProgramOfEveryLinkedNote()
+            throws Exception {
+        var issue = uiIssue(41, 51, "10034");
+        var definition = catalogue(51, "250", "icd9");
+        var encounter =
+                uiNote(91, "Follow-up for diabetes", "10034", List.of(issue), List.of(definition));
+        var result =
+                mapper.mapIssue(
+                        27,
+                        issue,
+                        definition,
+                        List.of(encounter),
+                        program -> {
+                            throw new AssertionError("linked note program already qualifies");
+                        });
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(result.rows(), result.fields(), 10000, () -> {});
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("DIABETES MELLITUS", "250", "Active");
+        // The same issue, linked to a note of another program, needs the exporter's own check.
+        var foreign =
+                uiNote(91, "Follow-up for diabetes", "10035", List.of(issue), List.of(definition));
+        assertThatThrownBy(
+                        () -> mapper.mapIssue(27, issue, definition, List.of(foreign), p -> false))
+                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        assertThat(mapper.mapIssue(27, issue, definition, List.of(foreign), p -> true).value())
+                .isNotNull();
+    }
+
+    @Test
+    void shouldAcceptAnIssueOfAProgramTheExporterWorksIn_andHoldOnlyAForeignProgram()
+            throws Exception {
+        // An issue picked in the encounter editor and never saved with a note keeps the program.
+        var unlinked = uiIssue(41, 51, "10034");
+        var definition = catalogue(51, "250", "icd9");
+        var asked = new ArrayList<String>();
+        var result =
+                mapper.mapIssue(
+                        27,
+                        unlinked,
+                        definition,
+                        List.of(),
+                        program -> asked.add(program) && program.equals("10034"));
+        assertThat(asked).containsExactly("10034");
+        assertThat(result.value().code().value()).isEqualTo("250");
+        assertThatThrownBy(
+                        () ->
+                                mapper.mapIssue(
+                                        27,
+                                        uiIssue(42, 51, "10016"),
+                                        definition,
+                                        List.of(),
+                                        program -> program.equals("10034")))
+                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        // A CPP issue created in one program and written to by a provider of another program
+        // follows the same rule inside the note mapper.
+        var concerns = uiIssue(43, 68, "10034");
+        var concernsDefinition = catalogue(68, "Concerns", "system");
+        var item =
+                uiNote(
+                        92,
+                        "Hypertension",
+                        "10035",
+                        List.of(concerns),
+                        List.of(concernsDefinition));
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        CdsCategory.PROBLEM_LIST,
+                                        List.of(item),
+                                        providers(),
+                                        ZONE,
+                                        program -> false))
+                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        var mapped =
+                mapper.map(
+                        27,
+                        CdsCategory.PROBLEM_LIST,
+                        List.of(item),
+                        providers(),
+                        ZONE,
+                        program -> program.equals("10034"));
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        assertThat(new String(render(mapped.value()), StandardCharsets.UTF_8))
+                .contains("Hypertension");
+    }
+
     @Test
     void shouldRefuseUnqualifiedIssueProgramOwnership_andSqlNullNoteBodies() throws Exception {
         var issue =

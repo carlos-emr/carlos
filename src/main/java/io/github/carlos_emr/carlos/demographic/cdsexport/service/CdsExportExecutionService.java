@@ -370,6 +370,14 @@ public class CdsExportExecutionService {
         }
 
         @Override
+        public boolean issueProgramReadable(int patient, CdsCategory category, String program) {
+            outsideCapture();
+            return access.canReadIssueProgram(
+                    lease.document().actor(), lease.document().command(), category, patient,
+                    program);
+        }
+
+        @Override
         public void authorizeNotes(
                 CdsCategory category,
                 java.util.List<

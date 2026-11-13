@@ -51,6 +51,15 @@ public interface CdsExportRunControl {
         throw new SecurityException("CDS_EXPORT_NOTE_AUTHORIZATION_REQUIRED");
     }
 
+    /**
+     * Fresh program check for a patient issue owned by a program: true when every current identity
+     * works in that program under the program part of the note rule. False holds the issue for
+     * review; it never grants anything, so an adapter without this check stays fail-closed.
+     */
+    default boolean issueProgramReadable(int patient, CdsCategory category, String program) {
+        return false;
+    }
+
     /** One bounded patient batch; adapters may share only this fresh authorization transaction. */
     default void authorizeNotes(
             CdsCategory category,

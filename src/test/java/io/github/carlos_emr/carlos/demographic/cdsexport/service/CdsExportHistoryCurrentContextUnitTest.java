@@ -369,6 +369,24 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
+    void shouldCarryTheLinkedNoteRevisions_withAnEncounterDiagnosisOccurrence() throws Exception {
+        edit("issue", "code", "250");
+        edit("issue", "type", "icd9");
+        prepare();
+        var index =
+                new CdsExportRetainedIndexDto(HASH, 0, 0, Map.of(), Set.of(), Map.of(), Map.of());
+        var planned =
+                CdsExportHistoryOccurrenceService.plan(
+                        index, inventory(91), read(1L << 20), () -> {});
+        assertThat(planned)
+                .extracting(CdsExportHistoryOccurrenceService.Occurrence::category)
+                .containsExactly(CdsCategory.PROBLEM_LIST, CdsCategory.CLINICAL_NOTES);
+        // The issue's program is judged against these notes, whose access is checked with it.
+        assertThat(planned.getFirst().issueId()).isEqualTo("41");
+        assertThat(planned.getFirst().revisions()).containsExactly(91L);
+    }
+
+    @Test
     void shouldPlanOneCurrentOccurrence_withEveryOriginalAndEditedRevision()
             throws Exception {
         add(

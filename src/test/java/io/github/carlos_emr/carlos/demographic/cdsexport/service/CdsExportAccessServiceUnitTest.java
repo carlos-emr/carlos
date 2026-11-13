@@ -254,6 +254,29 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldAnswerAnIssueProgramCheck_withoutTurningAForeignProgramIntoAnAccessFailure() {
+        var command = noteCommand("100");
+        var actor = access.webActor(session, command);
+        when(notes.canReadProgram("100", 27, "10034", null, true)).thenReturn(true);
+        assertThat(
+                        access.canReadIssueProgram(
+                                actor, command, CdsCategory.CLINICAL_NOTES, 27, "10034"))
+                .isTrue();
+        // A program the provider does not work in is a review condition for the caller.
+        assertThat(
+                        access.canReadIssueProgram(
+                                actor, command, CdsCategory.CLINICAL_NOTES, 27, "10016"))
+                .isFalse();
+        verify(notes).canReadProgram("100", 27, "10016", null, true);
+        // An unselected category is still an access failure, never a review answer.
+        assertThatThrownBy(
+                        () ->
+                                access.canReadIssueProgram(
+                                        actor, command, CdsCategory.PROBLEM_LIST, 27, "10034"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldAuthorizeAll8192ExactNoteScopes_withOneIdentityAndOneSharedProgramGrant() {
         var command = noteCommand("100");
         var actor = access.webActor(session, command);

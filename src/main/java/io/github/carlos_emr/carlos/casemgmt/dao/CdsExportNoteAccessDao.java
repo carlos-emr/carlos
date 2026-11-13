@@ -172,33 +172,9 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                 || !inPatientDomain(provider, scope.patient())) return false;
         if (scope.program().isEmpty() || scope.program().equals("0")) return true;
         long program = Long.parseLong(scope.program());
-        if (filterOnFacility) {
-            if (facility == null) return false;
-            List<Integer> locations =
-                    entityManager()
-                            .createNativeQuery(
-                                    "SELECT facilityId FROM program WHERE id = :program",
-                                    Integer.class)
-                            .setParameter("program", program)
-                            .setMaxResults(2)
-                            .getResultList();
-            if (locations.size() != 1 || !facility.equals(locations.getFirst())) return false;
-        }
-        List<Long> memberships =
-                entityManager()
-                        .createNativeQuery(
-                                "SELECT DISTINCT role_id FROM program_provider WHERE provider_no ="
-                                    + " :provider AND program_id = :program",
-                                Long.class)
-                        .setParameter("provider", provider)
-                        .setParameter("program", program)
-                        .setMaxResults(2)
-                        .getResultList();
-        // The live reader takes its first membership. Ambiguous different roles cannot grant export
-        // by arbitrary row order.
-        if (memberships.size() != 1 || memberships.getFirst() == null || memberships.getFirst() < 1)
-            return false;
-        long role = memberships.getFirst();
+        Long membership = programRole(provider, program, facility, filterOnFacility);
+        if (membership == null) return false;
+        long role = membership;
         List<String> reporter =
                 entityManager()
                         .createNativeQuery(
@@ -256,6 +232,65 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                 selected = grant;
             }
         return selected != null && (truth(selected[2]) || truth(selected[3]));
+    }
+
+    /**
+     * The program part of {@link #canRead} for a patient case-management record that carries a
+     * program but no reporter role: a patient issue ({@code casemgmt_issue.program_id}). The
+     * chart lists every patient issue, so this is not a stricter issue filter; it decides whether
+     * the program is one the provider works in (the same patient domain, configured facility
+     * boundary and single unambiguous membership a scoped note requires), as opposed to a
+     * foreign program whose issue the exporter must hold for review. An unscoped value ({@code ""}
+     * or {@code "0"}) needs only the patient domain, as an unscoped note does.
+     */
+    public boolean canReadProgram(
+            String provider,
+            int patient,
+            String program,
+            Integer facility,
+            boolean filterOnFacility) {
+        if (provider == null
+                || provider.isEmpty()
+                || patient < 1
+                || program == null
+                || !program.isEmpty() && !program.matches("0|[1-9][0-9]{0,9}")
+                || !program.isEmpty() && Long.parseLong(program) > Integer.MAX_VALUE
+                || !inPatientDomain(provider, patient)) return false;
+        if (program.isEmpty() || program.equals("0")) return true;
+        return programRole(provider, Long.parseLong(program), facility, filterOnFacility) != null;
+    }
+
+    /** The provider's one membership role in a program inside the facility boundary, or null. */
+    @SuppressWarnings("unchecked")
+    private Long programRole(
+            String provider, long program, Integer facility, boolean filterOnFacility) {
+        if (filterOnFacility) {
+            if (facility == null) return null;
+            List<Integer> locations =
+                    entityManager()
+                            .createNativeQuery(
+                                    "SELECT facilityId FROM program WHERE id = :program",
+                                    Integer.class)
+                            .setParameter("program", program)
+                            .setMaxResults(2)
+                            .getResultList();
+            if (locations.size() != 1 || !facility.equals(locations.getFirst())) return null;
+        }
+        List<Long> memberships =
+                entityManager()
+                        .createNativeQuery(
+                                "SELECT DISTINCT role_id FROM program_provider WHERE provider_no ="
+                                    + " :provider AND program_id = :program",
+                                Long.class)
+                        .setParameter("provider", provider)
+                        .setParameter("program", program)
+                        .setMaxResults(2)
+                        .getResultList();
+        // The live reader takes its first membership. Ambiguous different roles cannot grant export
+        // by arbitrary row order.
+        if (memberships.size() != 1 || memberships.getFirst() == null || memberships.getFirst() < 1)
+            return null;
+        return memberships.getFirst();
     }
 
     /**

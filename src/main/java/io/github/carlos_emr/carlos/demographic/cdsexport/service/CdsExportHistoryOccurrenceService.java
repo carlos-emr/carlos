@@ -38,6 +38,11 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class CdsExportHistoryOccurrenceService {
+    /**
+     * One wire occurrence. For a note chain, {@code revisions} are its note revisions in order; for
+     * a standalone patient issue ({@code issueId} set), they are the note revisions linked to that
+     * issue, whose live access is rechecked with it.
+     */
     record Occurrence(
             CdsCategory category,
             String address,
@@ -402,6 +407,17 @@ public class CdsExportHistoryOccurrenceService {
                         control.checkpoint();
                         streams.requireActive();
                         var access = context.scope(occurrence.noteId());
+                        // Issue programs accepted by a fresh program check are checked again
+                        // after emission, as note scopes are.
+                        var granted = new LinkedHashSet<String>();
+                        java.util.function.Predicate<String> readable =
+                                program -> {
+                                    boolean allowed =
+                                            control.issueProgramReadable(
+                                                    patient.patient(), category, program);
+                                    if (allowed) granted.add(program);
+                                    return allowed;
+                                };
                         if (occurrence.address() == null) {
                             var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
                             for (long id : occurrence.revisions()) {
@@ -417,7 +433,8 @@ public class CdsExportHistoryOccurrenceService {
                                                         category,
                                                         current,
                                                         providers,
-                                                        zone);
+                                                        zone,
+                                                        readable);
                             } else {
                                 var issue =
                                         context.original("casemgmt_issue", occurrence.issueId());
@@ -425,9 +442,15 @@ public class CdsExportHistoryOccurrenceService {
                                 var definition =
                                         context.original(
                                                 "issue", issue.value().fields().get("issue_id"));
+                                // For an issue, revisions() are the note revisions linked to it.
                                 mapped =
                                         new CdsExportNativeHistoryMapper()
-                                                .mapIssue(patient.patient(), issue, definition);
+                                                .mapIssue(
+                                                        patient.patient(),
+                                                        issue,
+                                                        definition,
+                                                        current,
+                                                        readable);
                             }
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
@@ -452,6 +475,7 @@ public class CdsExportHistoryOccurrenceService {
                                                             .write(mapped.value(), body)));
                             for (long id : occurrence.revisions())
                                 control.authorizeNote(category, context.scope(id));
+                            reauthorizePrograms(control, patient.patient(), category, granted);
                             streams.requireActive();
                             output.accept(
                                     new CdsExportClinicalOccurrenceService.Receipt(
@@ -483,7 +507,8 @@ public class CdsExportHistoryOccurrenceService {
                                                     category,
                                                     current,
                                                     providers,
-                                                    zone);
+                                                    zone,
+                                                    readable);
                         }
                         try {
                             decision =
@@ -554,6 +579,7 @@ public class CdsExportHistoryOccurrenceService {
                         streams.requireActive();
                         for (long id : occurrence.revisions())
                             control.authorizeNote(category, context.scope(id));
+                        reauthorizePrograms(control, patient.patient(), category, granted);
                         output.accept(
                                 new CdsExportClinicalOccurrenceService.Receipt(
                                         identity,
@@ -612,6 +638,13 @@ public class CdsExportHistoryOccurrenceService {
         }
     }
 
+    private static void reauthorizePrograms(
+            CdsExportRunControl control, int patient, CdsCategory category, Set<String> programs) {
+        for (String program : programs)
+            if (!control.issueProgramReadable(patient, category, program))
+                throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+    }
+
     /** Every captured note and every patient-issue relation must have an explicit disposition. */
     static List<Occurrence> plan(
             CdsExportRetainedIndexDto index,
@@ -654,6 +687,8 @@ public class CdsExportHistoryOccurrenceService {
         var result = new ArrayList<Occurrence>();
         var issueIds = new HashSet<String>();
         var definitions = new HashSet<String>();
+        // Patient issue id -> every captured note revision that links it.
+        var linkedRevisions = new HashMap<String, TreeSet<Long>>();
         for (var chain : inventory.chains()) {
             checkpoint.run();
             var parents = new ArrayList<Occurrence>();
@@ -677,6 +712,7 @@ public class CdsExportHistoryOccurrenceService {
                 for (var link : note.links()) {
                     String id = link.fields().get("id");
                     issueIds.add(id);
+                    linkedRevisions.computeIfAbsent(id, ignored -> new TreeSet<>()).add(revision);
                     var issue = note.patientIssues().get(id);
                     if (issue == null) invalid();
                     definitions.add(issue.value().fields().get("issue_id"));
@@ -697,7 +733,7 @@ public class CdsExportHistoryOccurrenceService {
                             CdsExportNativeHistoryMapper.issueCategory(definition),
                             null,
                             0,
-                            List.of(),
+                            List.copyOf(linkedRevisions.getOrDefault(id, new TreeSet<>())),
                             id));
         }
         if (!definitions.equals(context.definitionIds())) review();

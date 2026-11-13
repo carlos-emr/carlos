@@ -100,6 +100,23 @@ public final class CdsExportNativeHistoryMapper {
             Map<String, CdsExportCapturedTextRowDto> providers,
             ZoneId zone)
             throws IOException {
+        return map(patient, category, revisions, providers, zone, program -> false);
+    }
+
+    /**
+     * @param readableProgram fresh answer to whether the exporting identities work in a program
+     *     that owns a linked patient issue (see {@link #mapIssue}); it is consulted only for an
+     *     issue whose program differs from its note's own program
+     */
+    public Result map(
+            int patient,
+            CdsCategory category,
+            List<CdsExportHistoryFieldReconciler.Current> revisions,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        Objects.requireNonNull(readableProgram);
         if (patient < 1
                 || revisions.isEmpty()
                 || revisions.size() > 8192
@@ -257,10 +274,9 @@ public final class CdsExportNativeHistoryMapper {
                 if (definition == null) invalid();
                 CdsExportCaseManagementProjectionEvidence.verify(linked.value(), linked.witness());
                 String issueProgram = linked.value().fields().get("program_id");
-                if (issueProgram != null
-                        && !issueProgram.isEmpty()
-                        && !issueProgram.equals("0")
-                        && !issueProgram.equals(note.fields().get("program_no")))
+                if (scopedProgram(issueProgram)
+                        && !issueProgram.equals(note.fields().get("program_no"))
+                        && !readableProgram.test(issueProgram))
                     review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
                 CdsExportCaseManagementProjectionEvidence.verify(
                         definition.value(), definition.witness());
@@ -384,7 +400,30 @@ public final class CdsExportNativeHistoryMapper {
             CdsExportHistoryFieldReconciler.Row issue,
             CdsExportHistoryFieldReconciler.Row definition)
             throws IOException {
-        if (issue == null || definition == null || patient < 1) invalid();
+        return mapIssue(patient, issue, definition, List.of(), program -> false);
+    }
+
+    /**
+     * Maps one standalone patient issue. Its {@code program_id} follows the same rule as an issue
+     * linked to a note in {@link #map}: no program, the program of every note revision linked to
+     * it (each of those notes is itself authorized under its program), or a program the exporting
+     * identities work in ({@code readableProgram}, a fresh check). Only a genuinely foreign
+     * program is held for review; CARLOS stamps the chart's program on ordinary issues.
+     *
+     * @param linked every captured note revision that links this patient issue
+     */
+    public Result mapIssue(
+            int patient,
+            CdsExportHistoryFieldReconciler.Row issue,
+            CdsExportHistoryFieldReconciler.Row definition,
+            List<CdsExportHistoryFieldReconciler.Current> linked,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
+        if (issue == null
+                || definition == null
+                || patient < 1
+                || linked == null
+                || readableProgram == null) invalid();
         CdsExportCaseManagementProjectionEvidence.verify(issue.value(), issue.witness());
         CdsExportCaseManagementProjectionEvidence.verify(definition.value(), definition.witness());
         if (!Integer.toString(patient).equals(issue.value().fields().get("demographic_no"))
@@ -394,7 +433,21 @@ public final class CdsExportNativeHistoryMapper {
                         .get("issue_id")
                         .equals(issue.value().fields().get("issue_id"))) invalid();
         String program = issue.value().fields().get("program_id");
-        if (program != null && !program.isEmpty() && !program.equals("0"))
+        boolean linkedProgram = !linked.isEmpty();
+        for (var revision : linked) {
+            var note = revision.note().value();
+            CdsExportCaseManagementProjectionEvidence.verify(note, revision.note().witness());
+            if (!Integer.toString(patient).equals(note.fields().get("demographic_no"))
+                    || revision.links().stream()
+                            .noneMatch(
+                                    link ->
+                                            issue.value()
+                                                    .fields()
+                                                    .get("id")
+                                                    .equals(link.fields().get("id")))) invalid();
+            if (!Objects.equals(program, note.fields().get("program_no"))) linkedProgram = false;
+        }
+        if (scopedProgram(program) && !linkedProgram && !readableProgram.test(program))
             review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
         var category = issueCategory(definition);
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
@@ -476,6 +529,11 @@ public final class CdsExportNativeHistoryMapper {
                 new CdsExportNativeHistoryDto(category, text, Map.of(), coding, List.of(), json),
                 fields,
                 List.of(issue.value(), definition.value()));
+    }
+
+    /** A program value that scopes a record; SQL NULL, empty and {@code 0} carry no program. */
+    private static boolean scopedProgram(String program) {
+        return program != null && !program.isEmpty() && !program.equals("0");
     }
 
     private static CdsExportPublicProviderDto provider(

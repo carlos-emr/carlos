@@ -333,6 +333,43 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldReadAnIssueProgram_onlyThroughOneMembershipInsideTheFacilityBoundary() {
+        fixture(
+                () -> {
+                    String program = Integer.toString(id);
+                    // Issues carry no reporter role; the patient domain alone admits no program.
+                    assertThat(read(program, null, false)).isFalse();
+                    assertThat(read("", null, false)).isTrue();
+                    assertThat(read("0", null, false)).isTrue();
+                    assertThat(read("not-a-program", null, false)).isFalse();
+                    membership(id, id);
+                    assertThat(read(program, null, false)).isTrue();
+                    assertThat(read(program, null, true)).isFalse();
+                    sql.update(
+                            "insert into"
+                                + " program(id,name,ageMax,ageMin,alcohol,exclusiveView,facilityId,firstNation,housing,maxAllowed,mentalHealth,physicalHealth,programStatus,transgender)"
+                                + " values(?,?,0,0,0,'',?,0,0,100,0,0,'active',0)",
+                            id,
+                            "Cds" + id,
+                            id);
+                    assertThat(read(program, id, true)).isTrue();
+                    assertThat(read(program, id + 1, true)).isFalse();
+                    sql.update(
+                            "insert into program_provider(id,program_id,provider_no,role_id)"
+                                + " values(?,?,?,?)",
+                            id + 1,
+                            id,
+                            provider,
+                            id + 1);
+                    assertThat(read(program, null, false)).isFalse();
+                });
+    }
+
+    private boolean read(String program, Integer facility, boolean filter) {
+        return notes.canReadProgram(provider, id, program, facility, filter);
+    }
+
+    @Test
     void shouldDenyAmbiguousMembershipRoles_insteadOfDependingOnRowOrder() {
         fixture(
                 () -> {
