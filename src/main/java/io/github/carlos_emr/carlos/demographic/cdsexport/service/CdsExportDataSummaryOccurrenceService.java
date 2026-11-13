@@ -305,6 +305,14 @@ public class CdsExportDataSummaryOccurrenceService {
             this(groups, patient, List.of(), Map.of(), demographic);
         }
 
+        Plan(
+                List<CdsExportDataSummaryPlanner.Group> groups,
+                CdsExportDataSummaryHtmlComposer.Patient patient,
+                List<Hidden> withheld,
+                Map<String, CdsExportEformRenderings.Rendering> renderings) {
+            this(groups, patient, withheld, renderings, Map.of());
+        }
+
         @Override
         public String toString() {
             return "CdsExportDataSummaryOccurrenceService.Plan[protected]";
