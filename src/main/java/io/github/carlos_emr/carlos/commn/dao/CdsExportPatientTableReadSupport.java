@@ -1515,12 +1515,19 @@ public final class CdsExportPatientTableReadSupport {
     public static void requireLocalMeasurementAssociations(EntityManager em, int patient) {
         patient(patient);
         if (measurementAssociationsVerified(patient)) return;
+        // One branch for each side the patient can own, so each is driven by a patient index
+        // (measurements, idx_measurementsDeleted_demographicNo) and probes the other side by
+        // id (PRIMARY, idx_measurementsDeleted_originalId_demographicNo). A single OR across
+        // the two tables scanned all of measurementsDeleted for every patient (#6200, CARE-4).
         var shared =
                 query(
                                 em,
                                 """
                                 select 1,1 from measurements m join measurementsDeleted d on d.originalId=m.id
-                                where (m.demographicNo=:patient or d.demographicNo=:patient) and m.demographicNo<>d.demographicNo
+                                where m.demographicNo=:patient and d.demographicNo<>:patient
+                                union all
+                                select 1,1 from measurementsDeleted d join measurements m on m.id=d.originalId
+                                where d.demographicNo=:patient and m.demographicNo<>:patient
                                 """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)
@@ -1554,11 +1561,12 @@ public final class CdsExportPatientTableReadSupport {
     private static final Object DRUG_REASON_ASSOCIATIONS = new Object();
 
     /**
-     * The association check scans measurementsDeleted, which has no index on originalId or
-     * demographicNo, and every count, page and chunk call of the four measurement DAOs runs it.
-     * Inside one read-only REPEATABLE READ (or SERIALIZABLE) transaction every read sees the same
-     * snapshot, so a proof for a patient stays true until the transaction ends; it is remembered
-     * for that transaction only. Any other transaction checks on every call, as before.
+     * Every count, page and chunk call of the four measurement DAOs runs the association check.
+     * It reads measurementsDeleted by patient and by original id through the indexes of
+     * migration V1.0.59.44 (before them, it scanned the table). Inside one read-only REPEATABLE
+     * READ (or SERIALIZABLE) transaction every read sees the same snapshot, so a proof for a
+     * patient stays true until the transaction ends; it is remembered for that transaction only.
+     * Any other transaction checks on every call, as before.
      */
     private static boolean measurementAssociationsVerified(int patient) {
         return associationsVerified(MEASUREMENT_ASSOCIATIONS, patient);

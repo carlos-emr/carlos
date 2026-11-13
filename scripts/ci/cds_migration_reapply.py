@@ -12,7 +12,8 @@ def verify_export_migration_reapply(repository: Path, query):
              'V1.0.59.39__cds_export_ledger.sql',
              'V1.0.59.40__cds_export_artifact_attempts.sql',
              'V1.0.59.42__index_cds_hrm_patient_scope.sql',
-             'V1.0.59.43__cds_export_held_patients.sql')
+             'V1.0.59.43__cds_export_held_patients.sql',
+             'V1.0.59.44__index_measurements_deleted_owners.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -93,11 +94,40 @@ def verify_export_migration_reapply(repository: Path, query):
         execute(migrations[4])
         if execute('SELECT COUNT(*) FROM cds_export_held_patient') != ['1']:
             raise RuntimeError('Held-patient DDL replay changed recorded held patients')
+        # measurementsDeleted indexes (#6200): crash after the first ALTER committed; the replay
+        # adds only the other one, changes no row and refuses a same-name index of another shape.
+        execute('CREATE TABLE measurementsDeleted (id INT UNSIGNED PRIMARY KEY, '
+                'demographicNo INT NOT NULL DEFAULT 0, originalId INT UNSIGNED NOT NULL, '
+                'dataField MEDIUMTEXT NOT NULL);'
+                "INSERT INTO measurementsDeleted VALUES (1,27,7,'75'),(2,28,7,'76'),(3,27,8,'170');")
+        rows = 'SELECT id,demographicNo,originalId,HEX(dataField) FROM measurementsDeleted ORDER BY id'
+        deleted = execute(rows)
+        execute('ALTER TABLE measurementsDeleted ADD INDEX idx_measurementsDeleted_demographicNo (demographicNo)')
+        execute(migrations[5]); execute(migrations[5])
+        indexes = ("SELECT index_name,GROUP_CONCAT(column_name ORDER BY seq_in_index) "
+                   "FROM information_schema.statistics WHERE table_schema=DATABASE() "
+                   "AND table_name='measurementsDeleted' AND index_name<>'PRIMARY' "
+                   "GROUP BY index_name ORDER BY index_name")
+        if execute(indexes) != ['idx_measurementsDeleted_demographicNo\tdemographicNo',
+                                'idx_measurementsDeleted_originalId_demographicNo\toriginalId,demographicNo']:
+            raise RuntimeError('Partial measurementsDeleted index DDL did not recover exactly')
+        if execute(rows) != deleted:
+            raise RuntimeError('measurementsDeleted index replay changed a deleted version')
+        execute('ALTER TABLE measurementsDeleted DROP INDEX idx_measurementsDeleted_demographicNo, '
+                'ADD INDEX idx_measurementsDeleted_demographicNo (originalId)')
+        try:
+            execute(migrations[5])
+            refused = False
+        except Exception:
+            refused = True
+        if not refused:
+            raise RuntimeError('A same-name measurementsDeleted index of another shape was accepted')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
                 'hrmSourceOwnersPreserved': True, 'hrmPatientIndexRecovered': True,
                 'hrmLegacyInsertCompatible': True, 'heldPatientsPreserved': True,
+                'measurementsDeletedIndexesRecovered': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)
