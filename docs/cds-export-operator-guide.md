@@ -186,6 +186,14 @@ or review those charts and export them in a new job. A failure that concerns the
 whole job (storage, recipient policy, audit arrangement, limits, runtime change)
 still stops it, and a job in which every patient was held produces no package.
 
+Every chart the export read is in the normal chart audit (`log`): an `EXPORT`
+row for each patient of a prepared package, and a `read` row marked
+`CDS_EXPORT_CHART_ACCESS ... outcome=HELD` for a held patient or `outcome=STOPPED`
+for a job that stopped after reading the chart. The job outcome itself stays in
+the export ledger. A failed, refused or cancelled job's staged files are released
+to the retention sweep at once (within about a minute while the online worker
+runs), not kept for the attempt's seven-day ceiling.
+
 Populated tables that this release does not know (another tool's bookkeeping
 table, a local backup copy) do not block an export. They are listed by name and
 estimated row count in the package ReadMe and in a protected log line

@@ -1179,6 +1179,9 @@ public class CdsExportLedgerService {
                     if (run.isCancelRequested())
                         finish(run, CdsExportState.CANCELLED, "CDS_EXPORT_CANCELLED", now);
                     else {
+                        // The next claim starts a new generation that captures again; this
+                        // generation's partial staging is no longer needed.
+                        attempts.expireForRun(run.getId(), now);
                         run.setState(CdsExportState.ACCEPTED.name());
                         run.setOwnerToken(null);
                         run.setLeaseUntil(null);
@@ -1238,6 +1241,12 @@ public class CdsExportLedgerService {
     }
 
     private void finish(CdsExportRun run, CdsExportState outcome, String code, Instant now) {
+        // A failed, refused or cancelled job has no package to keep: its staged selection,
+        // captures and partial outputs become eligible for the next retention sweep at once,
+        // instead of holding private data and disk reserve for the attempt's 7-day ceiling.
+        if (outcome == CdsExportState.FAILED
+                || outcome == CdsExportState.REVIEW_REQUIRED
+                || outcome == CdsExportState.CANCELLED) attempts.expireForRun(run.getId(), now);
         run.setState(outcome.name());
         run.setSafeCode(code);
         run.setUpdatedAt(now);

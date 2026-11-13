@@ -149,6 +149,9 @@ public class CdsExportClinicalPackageService {
         var owned = new ArrayList<CdsExportStagedFileDto>();
         var files = new TreeMap<String, PatientFile>();
         var held = new TreeMap<Integer, CdsExportHeldPatientDto>();
+        // Charts whose capture began (the export read them), and those already in the audit.
+        var read = new java.util.LinkedHashSet<Integer>();
+        var audited = new HashSet<Integer>();
         var physicians = new TreeMap<String, CdsExportPhysicianSummaryDto>();
         var billingNames = new HashMap<String, String>();
         var tables = captures.requiredTables(lease.document().command());
@@ -168,6 +171,7 @@ public class CdsExportClinicalPackageService {
                     int ownedMark = owned.size();
                     long metadataMark = metadataBytes[0];
                     Captured captured;
+                    read.add(patient.patient());
                     try {
                         captured =
                                 capturePatient(
@@ -233,6 +237,7 @@ public class CdsExportClinicalPackageService {
                         || patients != initial.totalPatients()
                         || patients != files.size() + held.size()) invalid();
             }
+            auditReads(lease, held.keySet(), CdsExportAuditPersister.ReadOutcome.HELD, audited);
             // Every selected patient held back: there is no package to publish.
             if (files.isEmpty()) {
                 var refusal = allHeld(held.values());
@@ -247,7 +252,7 @@ public class CdsExportClinicalPackageService {
                         lease.runId(),
                         localSources.stream().map(CdsExportLocalSourceDto::table).toList());
             ledger.phase(lease, CdsExportState.RECONCILING);
-            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false, audited);
             policy = disclosure.resolveAccepted(lease.document(), Instant.now());
             var metadata =
                     new CdsExportPackageMetadataDto(
@@ -413,7 +418,7 @@ public class CdsExportClinicalPackageService {
                                     control::checkpoint);
             owned.add(archive.archive());
             if (archive.entries() != expectedMembers) invalid();
-            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false, audited);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var descriptors =
@@ -458,7 +463,7 @@ public class CdsExportClinicalPackageService {
                 if (!same(new OwnershipEnd("END", descriptors.size()), lines.next())
                         || lines.next() != null) invalid();
             }
-            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, true);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, true, audited);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var result =
@@ -480,7 +485,7 @@ public class CdsExportClinicalPackageService {
             primary = failure;
             throw failure;
         } finally {
-            if (!complete)
+            if (!complete) {
                 for (var member : owned.reversed())
                     try {
                         store.discardUnpublished(member);
@@ -488,6 +493,42 @@ public class CdsExportClinicalPackageService {
                         if (primary != null) primary.addSuppressed(cleanup);
                         else throw cleanup;
                     }
+                // Charts read by a job that stopped are still chart reads (census D11).
+                var unaudited = new java.util.LinkedHashSet<>(read);
+                unaudited.removeAll(audited);
+                try {
+                    auditReads(
+                            lease,
+                            unaudited,
+                            CdsExportAuditPersister.ReadOutcome.STOPPED,
+                            audited);
+                } catch (RuntimeException cleanup) {
+                    if (primary == null) throw cleanup;
+                    // The audit store may fail again with the very same failure.
+                    if (cleanup != primary) primary.addSuppressed(cleanup);
+                }
+            }
+        }
+    }
+
+    private void auditReads(
+            CdsExportLeaseDto lease,
+            Collection<Integer> patients,
+            CdsExportAuditPersister.ReadOutcome outcome,
+            Set<Integer> audited) {
+        var batch = new ArrayList<Integer>(100);
+        for (int patient : patients) {
+            if (audited.contains(patient)) continue;
+            batch.add(patient);
+            if (batch.size() == 100) {
+                audit.read(lease, batch, outcome);
+                audited.addAll(batch);
+                batch.clear();
+            }
+        }
+        if (!batch.isEmpty()) {
+            audit.read(lease, batch, outcome);
+            audited.addAll(batch);
         }
     }
 
@@ -623,7 +664,8 @@ public class CdsExportClinicalPackageService {
             Set<Integer> held,
             CdsExportRunControl control,
             long expected,
-            boolean auditPrepared)
+            boolean auditPrepared,
+            Set<Integer> audited)
             throws IOException {
         var byPatient = new HashMap<Integer, PatientFile>();
         for (var file : files)
@@ -650,13 +692,17 @@ public class CdsExportClinicalPackageService {
                     auditBatch.add(patient.patient());
                     if (auditBatch.size() == 100) {
                         audit.prepared(lease, auditBatch);
+                        audited.addAll(auditBatch);
                         auditBatch.clear();
                     }
                 }
                 count++;
             }
             if (!cursor.complete() || count != expected) invalid();
-            if (!auditBatch.isEmpty()) audit.prepared(lease, auditBatch);
+            if (!auditBatch.isEmpty()) {
+                audit.prepared(lease, auditBatch);
+                audited.addAll(auditBatch);
+            }
         }
     }
 

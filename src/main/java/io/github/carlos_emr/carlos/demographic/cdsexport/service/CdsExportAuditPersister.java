@@ -80,4 +80,57 @@ public class CdsExportAuditPersister {
         // No asynchronous or best-effort audit path may authorize a publishable package.
         logs.flush();
     }
+
+    /** Why a chart the export read is not in a prepared package. */
+    public enum ReadOutcome {
+        /** Held back from an otherwise prepared package; named in its ReadMe. */
+        HELD,
+        /** The job stopped (refused, failed, cancelled or fenced) after reading the chart. */
+        STOPPED
+    }
+
+    /**
+     * Chart access that did not become a prepared package still belongs in the normal chart
+     * audit: the export read (or began to read) the patient's record even though nothing was
+     * disclosed. One read row per patient, bound to the run and generation; the job outcome
+     * itself stays in cds_export_event.
+     */
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            rollbackFor = Exception.class,
+            timeout = 15)
+    public void read(CdsExportLeaseDto lease, List<Integer> patients, ReadOutcome outcome) {
+        Objects.requireNonNull(lease);
+        Objects.requireNonNull(outcome);
+        var batch = List.copyOf(patients);
+        if (batch.isEmpty()
+                || batch.size() > 100
+                || new HashSet<>(batch).size() != batch.size()
+                || batch.stream().anyMatch(patient -> patient < 1))
+            throw new IllegalArgumentException("CDS_EXPORT_AUDIT_PATIENT_SCOPE_INVALID");
+        var actor = lease.document().actor();
+        String data =
+                "CDS_EXPORT_CHART_ACCESS run="
+                        + lease.runId()
+                        + " epoch="
+                        + lease.epoch()
+                        + " operator="
+                        + actor.operatorKey()
+                        + " outcome="
+                        + outcome.name()
+                        + "; outcomes=cds_export_event";
+        for (int patient : batch) {
+            var entry = new OscarLog();
+            entry.setProviderNo(actor.providerNo());
+            entry.setSecurityId(actor.securityNo());
+            // The same action the chart's own read audit uses.
+            entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
+            entry.setContent("demographic");
+            entry.setContentId(Integer.toString(patient));
+            entry.setDemographicId(patient);
+            entry.setData(data);
+            logs.persist(entry);
+        }
+        logs.flush();
+    }
 }

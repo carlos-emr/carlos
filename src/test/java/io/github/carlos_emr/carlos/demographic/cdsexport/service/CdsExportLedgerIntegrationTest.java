@@ -281,6 +281,19 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldReleaseAbandonedAttemptStagingForRetention_whenAJobFailsOrIsReleased() {
+        var job = ledger.accept(document("recipient"));
+        var first = ledger.claim(job.id(), COMPATIBLE);
+        ledger.release(first);
+        var second = ledger.claim(job.id(), COMPATIBLE);
+        ledger.stop(second, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_UNMAPPED_DATA");
+        // Both generations are due for the next retention sweep, not in seven days.
+        assertThat(ledger.expiredArtifacts(16)).contains(job.id());
+        assertThat(ledger.artifactEpochs(job.id(), 0, 16))
+                .containsExactly(first.epoch(), second.epoch());
+    }
+
+    @Test
     void shouldRollbackAttemptCreation_whenItsClaimAuditFails() {
         var job = ledger.accept(document("recipient"));
         audit.failNext();

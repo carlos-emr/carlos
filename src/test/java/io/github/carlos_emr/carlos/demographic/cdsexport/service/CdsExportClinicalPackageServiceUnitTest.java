@@ -280,6 +280,22 @@ class CdsExportClinicalPackageServiceUnitTest {
     }
 
     @Test
+    void shouldAuditTheChartRead_whenTheJobStopsBeforeAnyPackage() throws Exception {
+        doThrow(new SecurityException("REVOKED"))
+                .when(fixture.captures)
+                .authorizeSources(any(), any(), anySet(), any());
+        assertThatThrownBy(this::compose).hasMessage("REVOKED");
+        var entries =
+                org.mockito.ArgumentCaptor.forClass(
+                        io.github.carlos_emr.carlos.commn.model.OscarLog.class);
+        verify(auditLogs).persist(entries.capture());
+        assertThat(entries.getValue().getAction()).isEqualTo("read");
+        assertThat(entries.getValue().getDemographicId()).isEqualTo(27);
+        assertThat(entries.getValue().getData())
+                .contains("CDS_EXPORT_CHART_ACCESS", "outcome=STOPPED", "outcomes=cds_export_event");
+    }
+
+    @Test
     void shouldDeleteTheFinishedZip_whenFinalCohortAuthorityIsRevoked() throws Exception {
         doNothing()
                 .doThrow(new SecurityException("REVOKED"))
@@ -389,15 +405,24 @@ class CdsExportClinicalPackageServiceUnitTest {
             assertThat(lines.next()).isNull();
         }
         // The held chart's own captures are discarded and it is never authorized or audited
-        // as disclosed.
+        // as disclosed; its chart read is still audited, as held.
         verify(fixture.captures, never()).authorizeSources(any(), eq(second), anySet(), any());
         var entries =
                 org.mockito.ArgumentCaptor.forClass(
                         io.github.carlos_emr.carlos.commn.model.OscarLog.class);
-        verify(auditLogs).persist(entries.capture());
+        verify(auditLogs, times(2)).persist(entries.capture());
         assertThat(entries.getAllValues())
-                .extracting(io.github.carlos_emr.carlos.commn.model.OscarLog::getDemographicId)
-                .containsExactly(27);
+                .extracting(
+                        io.github.carlos_emr.carlos.commn.model.OscarLog::getDemographicId,
+                        io.github.carlos_emr.carlos.commn.model.OscarLog::getAction)
+                .containsExactlyInAnyOrder(tuple(27, "EXPORT"), tuple(28, "read"));
+        assertThat(
+                        entries.getAllValues().stream()
+                                .filter(entry -> entry.getDemographicId() == 28)
+                                .findFirst()
+                                .orElseThrow()
+                                .getData())
+                .contains("CDS_EXPORT_CHART_ACCESS", "outcome=HELD", fixture.lease.runId());
     }
 
     @Test
