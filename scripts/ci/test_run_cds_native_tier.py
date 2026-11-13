@@ -221,6 +221,21 @@ class CoordinatedInventoryTest(unittest.TestCase):
             for second in range(first + 1, len(partitions)):
                 self.assertFalse(partitions[first] & partitions[second])
 
+    def test_real_inventory_names_every_cds_and_database_gated_test_class(self):
+        # A CDS suite missing from the reviewed inventory never runs in the native lanes and its
+        # MariaDB-gated cases are skipped everywhere else (review CI-5).
+        import json
+        import re
+        repository = MODULE_PATH.resolve().parents[2]
+        listed = {item.rsplit('.', 1)[-1] for item in
+                  json.loads((repository / 'scripts/ci/cds-coordinated-test-classes.json').read_text())}
+        required = set()
+        for source in (repository / 'src/test/java').rglob('*Test.java'):
+            text = source.read_text(encoding='utf-8', errors='replace')
+            if source.stem.startswith('Cds') or re.search(r'cds\.(?:export\.)?test\.properties', text):
+                required.add(source.stem)
+        self.assertEqual(sorted(required - listed), [])
+
     def test_exact_source_resolution_keeps_owning_dao_and_simple_export_selectors(self):
         self.source('example.commn.dao.CdsExportPhysicalTest')
         self.source('example.cdsexport.service.ClinicalTest')
