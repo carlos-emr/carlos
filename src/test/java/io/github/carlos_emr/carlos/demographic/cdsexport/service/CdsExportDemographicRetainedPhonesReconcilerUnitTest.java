@@ -119,12 +119,28 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyChangingAMobile_withAnUnprojectedExtensionRequiresReview() throws Exception {
+    void shouldWriteTheEditedMobile_whenTheImportedMobileHadAnExtensionCarlosCannotKeep()
+            throws Exception {
+        // Updated: editing an imported mobile whose source extension CARLOS cannot store used to
+        // hold the chart. The edited number is written; the source mobile, extension included,
+        // is superseded and listed as replaced.
         change(1, "value", "613-555-0111");
         var result = reconcile();
-        assertThat(result.phonesRepresentable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONES_REQUIRES_REVIEW");
+        assertThat(result.phonesRepresentable()).isTrue();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicExt",
+                                                CdsExportPatientTableSourceReader.key(2),
+                                                "value"))
+                                .rule())
+                .isEqualTo("EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_EXTENSION");
+        var document = render(result);
+        assertThat(text(document, "phoneNumber")).containsExactly("6135550000", "613-555-0111");
+        assertThat(text(document, "extension")).containsExactly("0012");
+        assertThat(text(document, "areaCode")).isEmpty();
+        assertThat(result.changes().getFirst().expectedPriorFields()).hasSize(5);
     }
 
     @Test
@@ -236,8 +252,46 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
                         source.put(path.replace("PhoneNumber[1]", "PhoneNumber[3]"), value);
                 });
         assertThat(reconcile().changes()).isEmpty();
+        // Updated: a later edit used to hold the chart. The current number and extension
+        // replace the first source home phone and the repeated one is superseded.
         change(0, "value", "0023");
-        assertThat(reconcile().phonesRepresentable()).isFalse();
+        var result = reconcile();
+        assertThat(result.phonesRepresentable()).isTrue();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographic",
+                                                String.format(java.util.Locale.ROOT, "%010d", 27),
+                                                "phone"))
+                                .rule())
+                .isEqualTo("EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES");
+        var document = render(result);
+        assertThat(text(document, "phoneNumber")).containsExactly("6135550000");
+        assertThat(text(document, "extension")).containsExactly("0023", "009");
+    }
+
+    @Test
+    void shouldReplaceBothSourceHomePhones_whenTheImporterProjectedNeitherAndTheUserEntersOne()
+            throws Exception {
+        // Two different source home numbers: the importer projects neither and leaves the
+        // column empty, so both are kept; a number the user then enters replaces both.
+        source.put("PhoneNumber[3]/@phoneNumberType", "R");
+        source.put("PhoneNumber[3]/phoneNumber[1]", "6135550001");
+        fixture.preparedPhones(
+                null, null, new CdsDemographicNativeDto.Phone("613-555-0105", "009"));
+        old.removeFirst();
+        current.removeFirst();
+        var kept = reconcile();
+        assertThat(kept.phonesRepresentable()).isTrue();
+        assertThat(kept.changes()).isEmpty();
+        assertThat(text(render(kept), "phoneNumber")).containsExactly("6135550000", "6135550001");
+        fixture.currentField("phone", "613-555-0199");
+        var edited = reconcile();
+        assertThat(edited.phonesRepresentable()).isTrue();
+        var document = render(edited);
+        assertThat(text(document, "phoneNumber")).containsExactly("613-555-0199");
+        assertThat(text(document, "extension")).containsExactly("009");
     }
 
     @Test

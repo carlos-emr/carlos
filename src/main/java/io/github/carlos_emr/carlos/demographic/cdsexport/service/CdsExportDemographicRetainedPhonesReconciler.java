@@ -35,7 +35,11 @@ import java.util.*;
 import java.util.regex.Pattern;
 
 /**
- * Retained phone occurrences plus original/current extension and mobile witnesses. Every other
+ * Retained phone occurrences plus original/current extension and mobile witnesses. After a
+ * CARLOS edit the current number is the truth: it replaces the source phone of its type (all of
+ * them when the source had several, or the importer projected none), and a source mobile
+ * extension CARLOS cannot keep is superseded with it. The replaced source fields stay in the
+ * import's retained source and are listed as replaced, under the rule named here. Every other
  * captured property row receives the same native property disposition as on a native chart
  * (an empty row's key is operational, a populated unsupported value requires review), so an
  * imported chart later saved through the Master Record form is never left with undecided
@@ -217,24 +221,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                             Outcome.MAPPED,
                             "PhoneNumber[" + kind + "]",
                             "VERIFIED_UNCHANGED_SOURCE_PHONE_PROPERTY");
-            } else if (occurrences.size() > 1 || prepared == null && !occurrences.isEmpty()) {
-                rule = "EDITED_AMBIGUOUS_SOURCE_PHONE_REQUIRES_REVIEW";
-                review = true;
             } else {
-                String prefix =
-                        occurrences.isEmpty()
-                                ? null
-                                : "PhoneNumber[" + occurrences.getFirst() + "]";
-                var priorFields =
-                        occurrences.isEmpty()
-                                ? Map.<String, CdsExportRetainedFieldDto>of()
-                                : sourceGroups.get(occurrences.getFirst());
-                String sourceExtension =
-                        priorFields.containsKey("extension[1]")
-                                ? read(values, priorFields.get("extension[1]"), 5, checkpoint)
-                                : null;
-                boolean unprojectedCellExtension =
-                        kind.equals("C") && sourceExtension != null && !sourceExtension.isEmpty();
                 var phone =
                         mapping.phones().stream()
                                 .filter(candidate -> candidate.type().equals(kind))
@@ -253,37 +240,76 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                         && mapping.fields().get(column).outcome()
                                                 == CdsExportDemographicMappingDto.Outcome
                                                         .REQUIRES_REVIEW;
-                if (unprojectedCellExtension && numberChanged || invalidNative) {
-                    rule = "EDITED_UNPROJECTED_OR_UNREPRESENTABLE_PHONE_REQUIRES_REVIEW";
+                if (invalidNative) {
+                    // Only a current number no PhoneNumber element can carry still holds.
+                    rule = "CURRENT_NATIVE_PHONE_REQUIRES_REVIEW";
                     review = true;
-                } else if (prefix == null && phone == null)
-                    rule = "EXPLICIT_CURRENT_NATIVE_PHONE_ABSENCE";
-                else if (numberChanged || prefix == null) {
-                    String target = prefix == null ? "PhoneNumber[" + (++maximum) + "]" : prefix;
-                    CdsExportXmlComposer.Content content =
-                            phone == null
-                                    ? null
-                                    : xml -> {
-                                        xml.attribute("", "phoneNumberType", kind);
-                                        xml.element("cds_dt", "phoneNumber", phone.number());
-                                        String extension = phone.extension();
-                                        if (extension == null
-                                                && sourceExtension != null
-                                                && sourceExtension.isEmpty()) extension = "";
-                                        if (extension != null)
-                                            xml.element("cds_dt", "extension", extension);
-                                    };
-                    replace(priorFields, target, "", content, changes);
-                    rule = "EXACT_CURRENT_NATIVE_PHONE";
+                } else if (occurrences.size() > 1 || prepared == null && !occurrences.isEmpty()) {
+                    // Two or more source phones of this type, or one the importer never
+                    // projected: after a CARLOS edit the current number replaces the first and
+                    // the others are superseded. Each replaced source field stays in the
+                    // import's retained source and is listed as replaced. A column the importer
+                    // left empty and a save wrote empty records no number: the source is kept.
+                    if (phone == null && prepared == null)
+                        rule = "UNPROJECTED_SOURCE_PHONE_KEPT_WITHOUT_A_CURRENT_PHONE";
+                    else {
+                        for (int n = 0; n < occurrences.size(); n++)
+                            replace(
+                                    sourceGroups.get(occurrences.get(n)),
+                                    "PhoneNumber[" + occurrences.get(n) + "]",
+                                    "",
+                                    n == 0 && phone != null ? content(kind, phone, null) : null,
+                                    changes);
+                        rule =
+                                phone == null
+                                        ? "CLEARED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES"
+                                        : "EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES";
+                    }
                 } else {
-                    String extension = phone == null ? null : phone.extension();
-                    replace(
-                            priorFields,
-                            prefix,
-                            "extension[1]",
-                            extension == null ? null : xml -> xml.text(extension),
-                            changes);
-                    rule = "EXACT_CURRENT_NATIVE_PHONE_EXTENSION";
+                    String prefix =
+                            occurrences.isEmpty()
+                                    ? null
+                                    : "PhoneNumber[" + occurrences.getFirst() + "]";
+                    var priorFields =
+                            occurrences.isEmpty()
+                                    ? Map.<String, CdsExportRetainedFieldDto>of()
+                                    : sourceGroups.get(occurrences.getFirst());
+                    String sourceExtension =
+                            priorFields.containsKey("extension[1]")
+                                    ? read(values, priorFields.get("extension[1]"), 5, checkpoint)
+                                    : null;
+                    // CARLOS keeps no mobile extension, so a source mobile extension was never
+                    // projected. An edited mobile number supersedes it with the rest of the
+                    // source phone; the source extension stays in the retained source.
+                    boolean unprojectedCellExtension =
+                            kind.equals("C")
+                                    && sourceExtension != null
+                                    && !sourceExtension.isEmpty();
+                    if (prefix == null && phone == null)
+                        rule = "EXPLICIT_CURRENT_NATIVE_PHONE_ABSENCE";
+                    else if (numberChanged || prefix == null) {
+                        String target =
+                                prefix == null ? "PhoneNumber[" + (++maximum) + "]" : prefix;
+                        replace(
+                                priorFields,
+                                target,
+                                "",
+                                phone == null ? null : content(kind, phone, sourceExtension),
+                                changes);
+                        rule =
+                                unprojectedCellExtension && numberChanged
+                                        ? "EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_EXTENSION"
+                                        : "EXACT_CURRENT_NATIVE_PHONE";
+                    } else {
+                        String extension = phone == null ? null : phone.extension();
+                        replace(
+                                priorFields,
+                                prefix,
+                                "extension[1]",
+                                extension == null ? null : xml -> xml.text(extension),
+                                changes);
+                        rule = "EXACT_CURRENT_NATIVE_PHONE_EXTENSION";
+                    }
                 }
             }
             if (!kind.equals("C")) {
@@ -298,6 +324,18 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                 "PhoneNumber[" + kind + "]",
                                 rule));
             }
+            // The mobile number has no base-row column: its property row names the rule under
+            // which the current number superseded the source phone (unless the number itself
+            // travels in the native demographic record).
+            if (!review
+                    && kind.equals("C")
+                    && property != null
+                    && rule.contains("SUPERSEDE")
+                    && !CdsExportDemographicSupportingMapper.carries(
+                            fields.get(
+                                    new CdsExportNativeFieldKeyDto(
+                                            property.table(), property.recordKey(), "value"))))
+                markProperty(property, fields, Outcome.MAPPED, "PhoneNumber[C]", rule);
             if (review)
                 for (var row : properties)
                     markProperty(
@@ -306,9 +344,11 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                             Outcome.REQUIRES_REVIEW,
                             "PhoneNumber[" + kind + "]",
                             rule);
-            // A source-only mobile occurrence can require review without a current mobile row.
+            // A source-only mobile occurrence can require review without a current mobile row
+            // to mark (an unproven projection). It holds this patient, never the whole job.
             if (review && kind.equals("C") && properties.isEmpty())
-                throw new IOException(
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException(
                         "CDS_EXPORT_DEMOGRAPHIC_MOBILE_RECONCILIATION_REQUIRES_REVIEW");
         }
         values.requireActive();
@@ -567,6 +607,22 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                     new CdsExportFieldAssessmentDto(
                             fields.get(key).presence(), outcome, path, rule));
         }
+    }
+
+    /**
+     * The current phone's PhoneNumber content. An empty source extension a CARLOS save kept as
+     * an empty extension row stays an empty element.
+     */
+    private static CdsExportXmlComposer.Content content(
+            String kind, CdsExportDemographicMappingDto.Phone phone, String sourceExtension) {
+        return xml -> {
+            xml.attribute("", "phoneNumberType", kind);
+            xml.element("cds_dt", "phoneNumber", phone.number());
+            String extension = phone.extension();
+            if (extension == null && sourceExtension != null && sourceExtension.isEmpty())
+                extension = "";
+            if (extension != null) xml.element("cds_dt", "extension", extension);
+        };
     }
 
     private static void replace(
