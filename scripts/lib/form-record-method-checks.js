@@ -56,9 +56,12 @@ function assertNativeFormPost(result, { patient, previousId, baseUrl, submit = '
   return { parameters: sent, id: redirected.searchParams.get('formId') };
 }
 
-function assertFormRefusal(result, { status, tokens = [] }) {
+function assertFormRefusal(result, { status, tokens = [], label = '' }) {
   h.assert(result.status === status && Object.hasOwn(result.headers, h.APPLICATION_HEADER)
-    && !h.isWafPage(result.status, result.body), 'The form refusal was not the exact application response');
+    && !h.isWafPage(result.status, result.body),
+  `The form refusal was not the exact application response${label ? ` (${label})` : ''}: HTTP ${result.status}, expected ${status}; `
+    + `application header ${Object.hasOwn(result.headers, h.APPLICATION_HEADER) ? 'present' : 'absent'}; `
+    + `firewall page ${h.isWafPage(result.status, result.body) ? 'yes' : 'no'}; allow=${result.headers.allow || '-'}`);
   if (status === 405) h.assert(result.headers.allow === 'POST', 'SubmitForm did not advertise its POST-only contract');
   h.assert(!tokens.some(token => result.body.includes(token)) && !/name=["']value\(ExerValue\)["']/.test(result.body),
     'A refused form request exposed its clinical form');
@@ -71,10 +74,16 @@ async function requestFormRefusal(context, baseUrl, parameters, { method, status
   const options = { method, maxRedirects: 0, failOnStatusCode: false };
   if (method === 'GET' || method === 'HEAD') address.search = values.toString();
   else options.form = Object.fromEntries(values);
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'POST') {
+    // Tomcat reads a form body only for POST, so CSRFGuard (which runs before HttpMethodGuardFilter) never sees a
+    // token sent in a PUT body and refuses with 403 first. The valid form authority this boundary is meant to carry
+    // reaches CSRFGuard only as its Ajax header pair, so the method guard's own 405 is what the request then meets.
+    options.headers = { 'X-Requested-With': 'XMLHttpRequest', 'CSRF-TOKEN': values.get('CSRF-TOKEN') };
+  }
   const response = await context.request.fetch(address.href, options);
   try {
     const result = { status: response.status(), headers: response.headers(), body: await response.text() };
-    assertFormRefusal(result, { status, tokens });
+    assertFormRefusal(result, { status, tokens, label: `${method} ${setup ? 'SetupForm' : 'SubmitForm'}` });
     return result;
   } finally { await response.dispose(); }
 }

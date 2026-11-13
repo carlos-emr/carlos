@@ -109,6 +109,13 @@ for (const method of ['GET', 'HEAD', 'PUT', 'POST']) {
       assert.equal(sent.get('value(formId)'), '0');
       assert.equal(sent.get('value(ExerComments)'), 'FAKE clinical sentinel');
       if (method === 'GET' || method === 'HEAD') assert.equal(options.form, undefined);
+      // A PUT body is never parsed for CSRFGuard, so its authority travels as the Ajax header pair.
+      if (method === 'PUT') {
+        assert.equal(options.headers['X-Requested-With'], 'XMLHttpRequest');
+        assert.equal(options.headers['CSRF-TOKEN'], 'owned-form-token');
+      } else {
+        assert.equal(options.headers, undefined);
+      }
       return { status: () => expectedStatus, headers: () => ({ ...headers, allow: 'POST' }),
         text: async () => '', dispose: async () => { disposed++; } };
     } } };
@@ -116,6 +123,11 @@ for (const method of ['GET', 'HEAD', 'PUT', 'POST']) {
     assert.equal(disposed, 1);
   });
 }
+
+test('a refusal names the request and the response it got', () => {
+  assert.throws(() => assertFormRefusal({ status: 403, headers, body: '' }, { status: 405, label: 'PUT SubmitForm' }),
+    /\(PUT SubmitForm\): HTTP 403, expected 405; application header present; firewall page no/);
+});
 
 for (const failure of ['wrong-status', 'body-read']) {
   test(`a ${failure} failure still disposes its exact API response`, async () => {
