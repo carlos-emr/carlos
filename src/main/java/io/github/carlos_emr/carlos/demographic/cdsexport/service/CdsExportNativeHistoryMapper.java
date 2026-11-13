@@ -223,9 +223,13 @@ public final class CdsExportNativeHistoryMapper {
                 detail.put("author", publicName(author));
                 if (category == CdsCategory.CLINICAL_NOTES) {
                     if (updated == null) review("CDS_EXPORT_NATIVE_NOTE_AUTHOR_TIME_REQUIRED");
-                    participants.add(
-                            new CdsExportNativeHistoryDto.Participant(
-                                    author, clock(updated, zone)));
+                    var time = clock(updated, zone);
+                    // One participant per distinct author, at that author's first revision. Every
+                    // revision's author and time stay in the note details. A repeated entry for
+                    // the same author made a receiving CARLOS treat the note as multi-author and
+                    // store it with no author at all.
+                    if (participants.stream().noneMatch(p -> p.provider().equals(author)))
+                        participants.add(new CdsExportNativeHistoryDto.Participant(author, time));
                 }
             }
             String encounter = state.raw("encounter_type");

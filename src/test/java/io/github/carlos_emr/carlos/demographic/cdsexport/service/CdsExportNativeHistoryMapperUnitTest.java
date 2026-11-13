@@ -234,8 +234,11 @@ class CdsExportNativeHistoryMapperUnitTest {
         var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(bytes));
         assertThat(document.getElementsByTagNameNS("cds", "ClinicalNotes").getLength())
                 .isEqualTo(1);
+        // Both revisions are by provider 17: one participant (this used to repeat it per
+        // revision); each revision's author and time remain in the note details.
         assertThat(document.getElementsByTagNameNS("cds", "ParticipatingProviders").getLength())
-                .isEqualTo(2);
+                .isEqualTo(1);
+        assertThat(result.value().metadata()).contains("2026-07-10 12:30:00");
         assertThat(result.rows().stream().filter(r -> r.table().equals("casemgmt_note")))
                 .hasSize(2);
     }

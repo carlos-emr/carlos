@@ -247,6 +247,75 @@ class CdsExportHistoryInteroperabilityUnitTest {
     }
 
     @Test
+    void shouldKeepTheAuthorOfARevisedNote_andLeaveTwoAuthorsUnresolved() throws Exception {
+        var original = note(91, "Seen for cough.", null, List.of());
+        var fields = new LinkedHashMap<>(original.note().value().fields());
+        fields.put("note_id", "92");
+        fields.put("note", "Seen for cough. Plan: fluids.");
+        fields.put("update_date", "2026-07-11 09:00:00");
+        var edit =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(
+                                io.github.carlos_emr.carlos.commn.dao
+                                        .CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
+                                92,
+                                fields),
+                        List.of(),
+                        List.of(),
+                        Map.of(),
+                        Map.of());
+        var mapper = new CdsExportNativeHistoryMapper();
+        var zone = ZoneId.of("America/Toronto");
+        var sameAuthor =
+                roundTrip(
+                        mapper.map(
+                                        27,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(original, edit),
+                                        providers(),
+                                        zone)
+                                .value(),
+                        null);
+        assertThat(sameAuthor.note().getProviderNo()).isEqualTo("17");
+        // A colleague's revision makes two genuine participants; the importer keeps its
+        // multi-author policy (source-only, no single local author).
+        fields.put("provider_no", "18");
+        var colleague =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(
+                                io.github.carlos_emr.carlos.commn.dao
+                                        .CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
+                                92,
+                                fields),
+                        List.of(),
+                        List.of(),
+                        Map.of(),
+                        Map.of());
+        var providers = new HashMap<>(providers());
+        var other = new LinkedHashMap<>(providers.get("17").fields());
+        other.put("provider_no", "18");
+        other.put("first_name", "Colleague");
+        other.put("ohip_no", "004321");
+        providers.put(
+                "18",
+                new CdsExportCapturedTextRowDto(
+                        "provider", CdsExportPublicProviderSourceReader.key("18"), other));
+        var twoAuthors =
+                roundTrip(
+                        mapper.map(
+                                        27,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(original, colleague),
+                                        providers,
+                                        zone)
+                                .value(),
+                        null);
+        assertThat(twoAuthors.note().getProviderNo()).isEmpty();
+        assertThat(twoAuthors.notices())
+                .anyMatch(n -> n.code().equals("CDS_MULTIPLE_NOTE_PARTICIPANTS_SOURCE_ONLY"));
+    }
+
+    @Test
     void shouldReceiveAnArchivedEncounterNote_asAStatedArchivedNoteRatherThanALiveOne()
             throws Exception {
         var original = note(91, "Seen for cough. Plan: fluids.", null, List.of());
