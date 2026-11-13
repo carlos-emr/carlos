@@ -1565,7 +1565,10 @@ reads. SHA-256 result IDs remain strings through keyset paging and large-value r
 The shared occurrence service binds unchanged native receipts to the sealed preparation
 and complete retained fields, preserves blocked results under sensitive-lab authority,
 and applies original shifts to collection, requisition and every reviewer date.
-Native-only or changed HL7 requires explicit review. Focused verification passed
+Native-only or changed HL7 requires explicit review. A DOC route, which the inbox writes for
+every document assigned to a patient, is a document link owned by the Reports path and does not
+affect laboratory export; an older MDS, CML or BCP route, or an unknown one, still holds the
+patient. Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.

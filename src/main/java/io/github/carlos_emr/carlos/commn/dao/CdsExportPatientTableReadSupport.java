@@ -1183,13 +1183,17 @@ public final class CdsExportPatientTableReadSupport {
         patient(patient);
         // A projection limited to HL7 must prove that it is not hiding this patient's
         // older MDS/CML/BCP or unknown routing. Numeric lab IDs are local to each type;
-        // interpreting a legacy route as HL7 would bind an unrelated result body.
+        // interpreting a legacy route as HL7 would bind an unrelated result body. A DOC route is
+        // the inbox's link to a document (DocumentManagerImpl, ManageDocument2Action), written
+        // for every document assigned to a patient; the document itself belongs to the Reports
+        // path, so it is not a laboratory result this projection could be hiding.
         var unsupported =
                 query(
                                 em,
                                 """
                                 select 1,1 from patientLabRouting r where r.demographic_no=:patient
-                                and (r.lab_type is null or CAST(r.lab_type AS BINARY)<>CAST('HL7' AS BINARY))
+                                and (r.lab_type is null or (CAST(r.lab_type AS BINARY)<>CAST('HL7' AS BINARY)
+                                and CAST(r.lab_type AS BINARY)<>CAST('DOC' AS BINARY)))
                                 """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)

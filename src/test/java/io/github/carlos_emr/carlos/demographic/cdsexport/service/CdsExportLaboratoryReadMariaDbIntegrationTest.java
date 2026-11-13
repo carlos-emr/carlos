@@ -296,7 +296,7 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.EmptySource
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP", "DOC", "hl7"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP", "doc", "hl7"})
     void shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(
             String type) {
         sql.update(
@@ -331,6 +331,24 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                                                 context.getBean(PatientLabRoutingDao.class)
                                                         .countCdsExportRows(patient)))
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldReadTheLaboratoryResults_whenTheInboxHasRoutedADocumentToThePatient() {
+        // Every document assigned to a patient writes a DOC route; it is not a lab (review LAB-09).
+        sql.update(
+                "insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,'DOC')",
+                patient + 2,
+                patient,
+                patient + 1);
+        Long resultRows = read.execute(status -> results.countCdsExportRows(patient));
+        Long routes =
+                read.execute(
+                        status ->
+                                context.getBean(PatientLabRoutingDao.class)
+                                        .countCdsExportRows(patient));
+        assertThat(resultRows).isEqualTo(36L);
+        assertThat(routes).isEqualTo(1L);
     }
 
     @Test
