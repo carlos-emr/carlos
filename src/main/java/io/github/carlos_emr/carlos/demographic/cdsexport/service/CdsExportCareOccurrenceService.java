@@ -157,9 +157,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                     1_000_000,
                                     control);
                     var dependencies = retainedDependencies(index, bounds, control);
-                    var units = dependencies.units();
                     var parents = dependencies.parents();
-                    var children = dependencies.children();
                     var expectedChildren = dependencies.expectedChildren();
                     var owned = new HashSet<String>();
                     var consumed = new HashSet<String>();
@@ -168,182 +166,25 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                     for (var parent : parents.entrySet()) {
                         control.checkpoint();
                         String address = parent.getKey();
-                        var metadata = parent.getValue().fields();
-                        requireParentEvidence(patient, address, index, checked, exact);
-                        var fields =
-                                new CdsExportRetainedOccurrenceFields()
-                                        .fieldsFor(
-                                                patient.patient(),
-                                                category(),
-                                                address,
-                                                index,
-                                                checked,
-                                                retained,
-                                                control::checkpoint);
-                        String
-                                root =
-                                        CdsExportRetainedOccurrencePath.root(
-                                                fields.getFirst(), category()),
-                                lineage = metadata.get("lineage_key");
-                        if (!address.substring(37)
-                                .equals(CdsImportKeys.hash(lineage, root, "NATIVE", "0")))
-                            invalid();
-                        var roots = new HashSet<String>();
-                        for (var field : fields) {
-                            if (!root.equals(
-                                    CdsExportRetainedOccurrencePath.root(field, category())))
-                                invalid();
-                            String path =
-                                    field.sourcePath().length() == root.length()
-                                            ? ""
-                                            : field.sourcePath().substring(root.length() + 1);
-                            if (path.isEmpty()) continue;
-                            var match = CHILD.matcher(path);
-                            if (!match.find()
-                                    || !CdsCareScalarContract.ELEMENTS.contains(match.group(1)))
-                                invalid();
-                            roots.add(match.group());
-                        }
-                        var prepared = new TreeMap<String, CdsCareElementDto>();
-                        var assessments =
-                                new LinkedHashMap<
-                                        CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
-                        var actualRows = new ArrayList<CdsExportCapturedTextRowDto>();
-                        for (var child : children.entrySet())
-                            if (child.getValue().getFirst().equals(address)) {
-                                control.checkpoint();
-                                if (!childDone.add(child.getKey())) review();
-                                if (!checked.unchangedUnits().contains(child.getKey())) {
-                                    // No UI edits a measurement in place; a clinician corrects
-                                    // an imported one by deleting it. Its retained source would
-                                    // present the deleted value as current, so the chart is held
-                                    // with a code that says why.
-                                    if (importedObservationDeleted(
-                                            index.references().get(child.getKey()), current))
-                                        throw new CdsExportMappingReviewException(
-                                                "CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED");
-                                    review();
-                                }
-                                var unit = units.get(child.getKey());
-                                var info = unit.fields();
-                                if (!Objects.equals(
-                                                metadata.get("patient_key"),
-                                                info.get("patient_key"))
-                                        || !Objects.equals(lineage, info.get("lineage_key")))
-                                    invalid();
-                                String ordinal = info.get("ordinal");
-                                try {
-                                    long n = Long.parseLong(ordinal);
-                                    if (n < 1 || !Long.toString(n).equals(ordinal)) invalid();
-                                } catch (NumberFormatException malformed) {
-                                    invalid();
-                                }
-                                var candidate =
-                                        new CdsExportRetainedPreparationReader()
-                                                .care(index, child.getKey())
-                                                .value();
-                                var matching = new ArrayList<String>();
-                                for (String childRoot : roots)
-                                    if (childRoot.startsWith(candidate.element() + "[")
-                                            && child.getKey()
-                                                    .substring(37)
-                                                    .equals(
-                                                            CdsImportKeys.hash(
-                                                                    lineage,
-                                                                    root + "/" + childRoot,
-                                                                    "_CARE",
-                                                                    ordinal)))
-                                        matching.add(childRoot);
-                                if (matching.size() != 1
-                                        || prepared.putIfAbsent(matching.getFirst(), candidate)
-                                                != null) review();
-                                String childRoot = matching.getFirst();
-                                var refs = index.references().get(child.getKey());
-                                var compared = checked.units().get(child.getKey());
-                                if (refs == null
-                                        || compared == null
-                                        || !refs.equals(
-                                                compared.stream()
-                                                        .map(
-                                                                CdsExportRetainedReceiptVerificationDto
-                                                                                .CheckedReference
-                                                                        ::expected)
-                                                        .toList())) invalid();
-                                var primary =
-                                        refs.stream()
-                                                .filter(ref -> ref.table().equals("measurements"))
-                                                .toList();
-                                if (primary.size() != 1) review();
-                                String nativeId = primary.getFirst().id();
-                                var observation = current.get(key("measurements", nativeId));
-                                if (observation == null) review();
-                                var extensions = new ArrayList<CdsExportCapturedTextRowDto>();
-                                for (var ref : refs) {
-                                    String nativeKey = key(ref.table(), ref.id());
-                                    if (!Set.of("measurements", "measurementsExt")
-                                                    .contains(ref.table())
-                                            || !owned.add(nativeKey)
-                                            || !current.containsKey(nativeKey)
-                                            || !ref.digest().equals(exact.get(nativeKey).digest()))
-                                        review();
-                                    if (ref.table().equals("measurementsExt"))
-                                        extensions.add(current.get(nativeKey));
-                                }
-                                bind(
+                        requireParentEvidence(patient.patient(), address, index, checked, exact);
+                        var assembled =
+                                importedParent(
                                         patient.patient(),
-                                        observation,
-                                        extensions,
-                                        candidate,
-                                        root + "/" + childRoot);
-                                assess(observation, extensions, candidate.element(), assessments);
-                                actualRows.add(observation);
-                                actualRows.addAll(extensions);
-                                for (var definition : current.values())
-                                    if (definition.table().equals("measurementType")
-                                            && Objects.equals(
-                                                    definition.fields().get("type"),
-                                                    observation.fields().get("type"))
-                                            && Objects.equals(
-                                                    definition.fields().get("measuringInstruction"),
-                                                    observation
-                                                            .fields()
-                                                            .get("measuringInstruction"))
-                                            && dictionary.add(
-                                                    key(definition.table(), id(definition)))) {
-                                        var scoped =
-                                                new CdsExportNativeFieldAssessments(
-                                                        definition, assessments);
-                                        for (String column : definition.fields().keySet())
-                                            scoped.operational(
-                                                    column,
-                                                    "LOCAL_VOCABULARY_WITH_FROZEN_PATIENT_CODE_VALUE_AND_INSTRUCTIONS");
-                                        actualRows.add(definition);
-                                    }
-                            }
-                        if (!prepared.keySet().equals(roots)) review();
-                        var options =
-                                new CdsExportRetainedImportOptionsReader()
-                                        .fromCaptured(index, address.substring(0, 36));
-                        var sourceValues =
-                                new CdsExportCareRetainedSource()
-                                        .readVerified(
-                                                fields,
-                                                options,
-                                                prepared,
-                                                streams,
-                                                control::checkpoint);
-                        var content =
-                                new CdsExportRetainedSectionWriter()
-                                        .prepareChanges(
-                                                fields,
-                                                streams,
-                                                sourceValues.changes(),
-                                                control::checkpoint);
-                        new CdsExportNativeFieldAssessmentValidator()
-                                .requireRepresentable(
-                                        actualRows, assessments, 1_000_000, control::checkpoint);
-                        for (String field : sourceValues.sourceFields())
-                            if (!consumed.add(field)) invalid();
+                                        address,
+                                        parent.getValue(),
+                                        dependencies,
+                                        index,
+                                        checked,
+                                        retained,
+                                        current,
+                                        exact,
+                                        new Claims(owned, consumed, childDone, dictionary),
+                                        streams,
+                                        control::checkpoint);
+                        // Every observation of it was deleted in CARLOS: nothing to export.
+                        if (assembled.content() == null) continue;
+                        var content = assembled.content();
+                        var assessments = assembled.assessments();
                         var identity =
                                 new CdsExportIdentityDto(
                                         patientKey,
@@ -365,7 +206,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                         content.replacedFields()));
                         control.authorizeCategory(patient.patient(), category(), false);
                         totals[0]++;
-                        totals[1] = Math.addExact(totals[1], sourceValues.sourceFields().size());
+                        totals[1] = Math.addExact(totals[1], assembled.sourceFields());
                     }
                     for (var nativeSource :
                             new CdsExportNativeCarePlanner()
@@ -475,6 +316,292 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 totals[1]);
     }
 
+    /** Claims shared by every imported parent and the native passes of one patient's assembly. */
+    record Claims(
+            Set<String> owned, Set<String> consumed, Set<String> childDone, Set<String> dictionary) {
+        @Override
+        public String toString() {
+            return "Claims[protected]";
+        }
+    }
+
+    /**
+     * @param content the retained element with its changes, or null when every observation of the
+     *     parent was deleted in CARLOS and the element is not exported
+     * @param sourceFields retained source fields read and verified for the exported element
+     */
+    record ImportedParent(
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            CdsExportRetainedSectionWriter.Prepared content,
+            long sourceFields) {
+        @Override
+        public String toString() {
+            return "ImportedParent[protected]";
+        }
+    }
+
+    /**
+     * One applied imported CareElements parent. Each child is bound to its unchanged sealed
+     * observation, or, when CARLOS deleted that observation (the only way a clinician corrects an
+     * imported care value), its element is removed and the receipt lists its source fields as
+     * replaced. A parent whose every observation was deleted is not exported and its source fields
+     * are claimed as removed ({@link #removedImportedParents} gives the inventory the same answer).
+     */
+    static ImportedParent importedParent(
+            int patient,
+            String address,
+            CdsExportCapturedTextRowDto parentRow,
+            Dependencies dependencies,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            List<CdsExportRetainedFieldDto> retained,
+            Map<String, CdsExportCapturedTextRowDto> current,
+            Map<String, CdsExportNativeRowReceiptDto> exact,
+            Claims claims,
+            CdsExportRetainedSectionWriter.Values streams,
+            Runnable checkpoint)
+            throws IOException {
+        var metadata = parentRow.fields();
+        var units = dependencies.units();
+        var children = dependencies.children();
+        var owned = claims.owned();
+        var consumed = claims.consumed();
+        var childDone = claims.childDone();
+        var dictionary = claims.dictionary();
+        var fields =
+                new CdsExportRetainedOccurrenceFields()
+                        .fieldsFor(
+                                patient,
+                                CdsCategory.CARE_ELEMENTS,
+                                address,
+                                index,
+                                checked,
+                                retained,
+                                checkpoint);
+        String
+                root =
+                        CdsExportRetainedOccurrencePath.root(
+                                fields.getFirst(), CdsCategory.CARE_ELEMENTS),
+                lineage = metadata.get("lineage_key");
+        if (!address.substring(37)
+                .equals(CdsImportKeys.hash(lineage, root, "NATIVE", "0")))
+            invalid();
+        var roots = new HashSet<String>();
+        for (var field : fields) {
+            if (!root.equals(
+                    CdsExportRetainedOccurrencePath.root(field, CdsCategory.CARE_ELEMENTS)))
+                invalid();
+            String path =
+                    field.sourcePath().length() == root.length()
+                            ? ""
+                            : field.sourcePath().substring(root.length() + 1);
+            if (path.isEmpty()) continue;
+            var match = CHILD.matcher(path);
+            if (!match.find()
+                    || !CdsCareScalarContract.ELEMENTS.contains(match.group(1)))
+                invalid();
+            roots.add(match.group());
+        }
+        var prepared = new TreeMap<String, CdsCareElementDto>();
+        var assessments =
+                new LinkedHashMap<
+                        CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var actualRows = new ArrayList<CdsExportCapturedTextRowDto>();
+        // Child elements whose imported observation was deleted in CARLOS.
+        var removedRoots = new TreeSet<String>();
+        for (var child : children.entrySet())
+            if (child.getValue().getFirst().equals(address)) {
+                checkpoint.run();
+                if (!childDone.add(child.getKey())) review();
+                // No UI edits a measurement in place; a clinician corrects an
+                // imported one by deleting it (EctDeleteData2Action moves the row
+                // to measurementsDeleted) and records a new value. The deleted
+                // value is not exported, as a deleted native one is not; any
+                // other change to an imported observation is still unexplained.
+                boolean deleted =
+                        !checked.unchangedUnits().contains(child.getKey());
+                if (deleted
+                        && !importedObservationDeleted(
+                                index.references().get(child.getKey()), current))
+                    review();
+                var unit = units.get(child.getKey());
+                var info = unit.fields();
+                if (!Objects.equals(
+                                metadata.get("patient_key"),
+                                info.get("patient_key"))
+                        || !Objects.equals(lineage, info.get("lineage_key")))
+                    invalid();
+                String ordinal = info.get("ordinal");
+                try {
+                    long n = Long.parseLong(ordinal);
+                    if (n < 1 || !Long.toString(n).equals(ordinal)) invalid();
+                } catch (NumberFormatException malformed) {
+                    invalid();
+                }
+                var candidate =
+                        new CdsExportRetainedPreparationReader()
+                                .care(index, child.getKey())
+                                .value();
+                var matching = new ArrayList<String>();
+                for (String childRoot : roots)
+                    if (childRoot.startsWith(candidate.element() + "[")
+                            && child.getKey()
+                                    .substring(37)
+                                    .equals(
+                                            CdsImportKeys.hash(
+                                                    lineage,
+                                                    root + "/" + childRoot,
+                                                    "_CARE",
+                                                    ordinal)))
+                        matching.add(childRoot);
+                if (matching.size() != 1
+                        || removedRoots.contains(matching.getFirst())
+                        || prepared.containsKey(matching.getFirst())) review();
+                String childRoot = matching.getFirst();
+                if (deleted) {
+                    // Its element is removed from the retained parent below and
+                    // the receipt lists its source fields as replaced; the
+                    // deleted row and the extensions it left behind are
+                    // accounted by the deleted-version pass.
+                    if (index.references().get(child.getKey()).stream()
+                                    .filter(ref -> ref.table().equals("measurements"))
+                                    .count()
+                            != 1) review();
+                    removedRoots.add(childRoot);
+                    continue;
+                }
+                prepared.put(childRoot, candidate);
+                var refs = index.references().get(child.getKey());
+                var compared = checked.units().get(child.getKey());
+                if (refs == null
+                        || compared == null
+                        || !refs.equals(
+                                compared.stream()
+                                        .map(
+                                                CdsExportRetainedReceiptVerificationDto
+                                                                .CheckedReference
+                                                        ::expected)
+                                        .toList())) invalid();
+                var primary =
+                        refs.stream()
+                                .filter(ref -> ref.table().equals("measurements"))
+                                .toList();
+                if (primary.size() != 1) review();
+                String nativeId = primary.getFirst().id();
+                var observation = current.get(key("measurements", nativeId));
+                if (observation == null) review();
+                var extensions = new ArrayList<CdsExportCapturedTextRowDto>();
+                for (var ref : refs) {
+                    String nativeKey = key(ref.table(), ref.id());
+                    if (!Set.of("measurements", "measurementsExt")
+                                    .contains(ref.table())
+                            || !owned.add(nativeKey)
+                            || !current.containsKey(nativeKey)
+                            || !ref.digest().equals(exact.get(nativeKey).digest()))
+                        review();
+                    if (ref.table().equals("measurementsExt"))
+                        extensions.add(current.get(nativeKey));
+                }
+                bind(
+                        patient,
+                        observation,
+                        extensions,
+                        candidate,
+                        root + "/" + childRoot);
+                assess(observation, extensions, candidate.element(), assessments);
+                actualRows.add(observation);
+                actualRows.addAll(extensions);
+                for (var definition : current.values())
+                    if (definition.table().equals("measurementType")
+                            && Objects.equals(
+                                    definition.fields().get("type"),
+                                    observation.fields().get("type"))
+                            && Objects.equals(
+                                    definition.fields().get("measuringInstruction"),
+                                    observation
+                                            .fields()
+                                            .get("measuringInstruction"))
+                            && dictionary.add(
+                                    key(definition.table(), id(definition)))) {
+                        var scoped =
+                                new CdsExportNativeFieldAssessments(
+                                        definition, assessments);
+                        for (String column : definition.fields().keySet())
+                            scoped.operational(
+                                    column,
+                                    "LOCAL_VOCABULARY_WITH_FROZEN_PATIENT_CODE_VALUE_AND_INSTRUCTIONS");
+                        actualRows.add(definition);
+                    }
+            }
+        var planned = new HashSet<>(prepared.keySet());
+        planned.addAll(removedRoots);
+        if (!planned.equals(roots)
+                || planned.size() != prepared.size() + removedRoots.size())
+            review();
+        var removedFields = new HashMap<String, Set<String>>();
+        var keptFields = new ArrayList<CdsExportRetainedFieldDto>();
+        for (var field : fields) {
+            String path =
+                    field.sourcePath().length() == root.length()
+                            ? ""
+                            : field.sourcePath().substring(root.length() + 1);
+            var match = CHILD.matcher(path);
+            String childRoot = match.find() ? match.group() : null;
+            if (childRoot != null && removedRoots.contains(childRoot))
+                removedFields
+                        .computeIfAbsent(childRoot, ignored -> new HashSet<>())
+                        .add(field.id());
+            else keptFields.add(field);
+        }
+        if (!removedFields.keySet().equals(removedRoots)) invalid();
+        if (prepared.isEmpty() && !removedRoots.isEmpty()) {
+            // Every observation of this imported CareElements was deleted: the
+            // element is not exported, and its source fields are accounted as
+            // removed (the inventory leaves this occurrence out the same way).
+            if (!keptFields.isEmpty()
+                    && keptFields.stream()
+                            .anyMatch(
+                                    field ->
+                                            field.sourcePath().length()
+                                                    != root.length())) invalid();
+            for (var field : fields)
+                if (!consumed.add(field.id())) invalid();
+            return new ImportedParent(Map.of(), null, 0);
+        }
+        var options =
+                new CdsExportRetainedImportOptionsReader()
+                        .fromCaptured(index, address.substring(0, 36));
+        var sourceValues =
+                new CdsExportCareRetainedSource()
+                        .readVerified(
+                                keptFields,
+                                options,
+                                prepared,
+                                streams,
+                                checkpoint);
+        var changes = new ArrayList<>(sourceValues.changes());
+        for (var removed : removedFields.entrySet())
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            removed.getKey(), removed.getValue(), null));
+        var content =
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(
+                                fields,
+                                streams,
+                                changes,
+                                checkpoint);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(
+                        actualRows, assessments, 1_000_000, checkpoint);
+        for (String field : sourceValues.sourceFields())
+            if (!consumed.add(field)) invalid();
+        for (var removed : removedFields.values())
+            for (String field : removed) if (!consumed.add(field)) invalid();
+        return new ImportedParent(
+                assessments, content, sourceValues.sourceFields().size());
+    }
+
     static void bind(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -525,8 +652,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         if (!expected.equals(actual)) review();
     }
 
-    private void requireParentEvidence(
-            CdsExportCohortService.Patient patient,
+    static void requireParentEvidence(
+            int patient,
             String address,
             CdsExportRetainedIndexDto index,
             CdsExportRetainedReceiptVerificationDto checked,
@@ -537,7 +664,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         if (parentRefs == null
                 || parentRefs.size() != 1
                 || !"demographic".equals(parentRefs.getFirst().table())
-                || !Integer.toString(patient.patient()).equals(parentRefs.getFirst().id())
+                || !Integer.toString(patient).equals(parentRefs.getFirst().id())
                 || parentProof == null
                 || parentProof.size() != 1
                 || !parentRefs.equals(
@@ -546,12 +673,12 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                         CdsExportRetainedReceiptVerificationDto.CheckedReference
                                                 ::expected)
                                 .toList())
-                || !exact.get(key("demographic", Integer.toString(patient.patient())))
+                || !exact.get(key("demographic", Integer.toString(patient)))
                         .digest()
                         .equals(parentProof.getFirst().currentDigest())) invalid();
     }
 
-    private record Dependencies(
+    record Dependencies(
             Map<String, CdsExportCapturedTextRowDto> units,
             Map<String, CdsExportCapturedTextRowDto> parents,
             Map<String, List<String>> children,
@@ -600,6 +727,52 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 expectedChildren.add(entry.getKey());
         if (!children.keySet().equals(expectedChildren)) review();
         return new Dependencies(units, parents, children, expectedChildren);
+    }
+
+    /**
+     * Applied imported CareElements parents whose every observation was deleted in CARLOS. They
+     * are not exported and their retained source fields are accounted as removed by the assembly
+     * ({@link #importedParent}); the inventory expects neither the occurrence nor those fields.
+     */
+    Set<String> removedImportedParents(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!lease.document().command().categories().contains(CdsCategory.CARE_ELEMENTS))
+            return Set.of();
+        if (!tables.containsAll(TABLES)) invalid();
+        if (source.capture().tables().get("measurementsDeleted").rows() == 0) return Set.of();
+        control.authorizeCategory(patient.patient(), category(), false);
+        var captured = captureCareRows(lease, patient, tables, source, bounds, control);
+        var result =
+                removedImportedParents(
+                        retainedDependencies(index, bounds, control), index, captured.current());
+        control.authorizeCategory(patient.patient(), category(), false);
+        return result;
+    }
+
+    static Set<String> removedImportedParents(
+            Dependencies dependencies,
+            CdsExportRetainedIndexDto index,
+            Map<String, CdsExportCapturedTextRowDto> current) {
+        var result = new TreeSet<String>();
+        for (String parent : dependencies.parents().keySet()) {
+            boolean any = false, all = true;
+            for (var child : dependencies.children().entrySet())
+                if (child.getValue().getFirst().equals(parent)) {
+                    any = true;
+                    all &=
+                            importedObservationDeleted(
+                                    index.references().get(child.getKey()), current);
+                }
+            if (any && all) result.add(parent);
+        }
+        return Set.copyOf(result);
     }
 
     /** Complete source membership for inventory/supporting data, without reading mapper output. */

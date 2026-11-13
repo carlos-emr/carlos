@@ -82,6 +82,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportArtifactServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAuthenticatedRangeInputStreamUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCapturedNoteScopeValidatorUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareImportedDeletionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCareRetainedSourceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportCaseManagementProjectionEvidenceUnitTest",

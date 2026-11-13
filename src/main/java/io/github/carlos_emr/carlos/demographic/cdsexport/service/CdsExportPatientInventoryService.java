@@ -249,6 +249,10 @@ public class CdsExportPatientInventoryService {
                             }
                         });
         if (!actual.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
+        // An imported CareElements whose every observation was deleted in CARLOS is not in the
+        // chart: its retained source fields are accounted as removed by the care assembly.
+        var removedCare =
+                care.removedImportedParents(lease, patient, tables, source, index, bounds, control);
         for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
             control.checkpoint();
             String wire = unit.fields().get("category");
@@ -257,6 +261,7 @@ public class CdsExportPatientInventoryService {
             String address = unit.fields().get("run_id") + ":" + unit.fields().get("unit_key");
             if (!index.appliedUnits().contains(address)) continue;
             if (!lease.document().command().categories().contains(category)) invalid();
+            if (category == CdsCategory.CARE_ELEMENTS && removedCare.contains(address)) continue;
             if (RETAINED.contains(category)) {
                 add(
                         expected,
@@ -473,7 +478,9 @@ public class CdsExportPatientInventoryService {
             control.checkpoint();
             var field = mapper.map(patient.patient(), lease.document().command().categories(), row);
             if (field.category() == CdsCategory.APPOINTMENTS
-                    && removedAppointments.contains(index.nativeParents().get(field.id()))) {
+                            && removedAppointments.contains(index.nativeParents().get(field.id()))
+                    || field.category() == CdsCategory.CARE_ELEMENTS
+                            && removedCare.contains(index.nativeParents().get(field.id()))) {
                 budget.add();
                 continue;
             }
