@@ -232,7 +232,7 @@
 
 
     Appointment appt = null;
-    String demono = "", chartno = "", phone = "", rosterstatus = "", patientStatus = "", alert = "", doctorNo = "";
+    String demono = "", chartno = "", phone = "", rosterstatus = "", rosterstatusDisplay = "", patientStatus = "", alert = "", doctorNo = "";
     String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
 
     if (bFirstDisp) {
@@ -266,6 +266,7 @@
             chartno = d.getChartNo();
             phone = d.getPhone();
             rosterstatus = d.getRosterStatus();
+            rosterstatusDisplay = d.getRosterStatusDisplay(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
             patientStatus = StringUtils.defaultString(d.getPatientStatus());
         }
 
@@ -953,14 +954,18 @@
     <%
         String editRosterStatus = StringUtils.defaultString(rosterstatus);
         boolean editDisplayRoster = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+        String editRosterStatusDisplay = StringUtils.equalsIgnoreCase("NR", StringUtils.trimToEmpty(editRosterStatus))
+                ? rosterstatusDisplay : editRosterStatus;
         String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
         boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
     %>
     <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
+    <fmt:message key="demographic.enrollementhistory.notrostered" var="rosterNotRosteredLabel"/>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
          data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
+         data-roster-not-rostered="${carlos:forHtmlAttribute(rosterNotRosteredLabel)}"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
+        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatusDisplay : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
@@ -1484,14 +1489,32 @@
             	<input type="checkbox" class="form-check-input" name="urgency" id="urgency" value="critical" <%=urgencyChecked%> >
                     </td>
                 </tr>
-                <% String emailReminder = pros.getProperty("emailApptReminder");
-                    if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                <%-- #5887: the same switch as the reminder job (yes, true or on). --%>
+                <% if (pros.isPropertyActive("emailApptReminder")) { %>
+                <%-- #5887: the box shows the stored choice, or the posted one when a draft is shown again.
+                     emailPtShown tells the action the box was on this form, so a form without it never
+                     withdraws a reminder. --%>
+                <% boolean emailReminderTicked = io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isOnForm(request)
+                        ? io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request)
+                        : apptFromRequest != null
+                          && io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isRequested(apptFromRequest.getId()); %>
                 <tr>
                     <td>
-                        <label><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                        <label for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                     </td>
                     <td>
-                <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder" <%= emailReminderTicked ? "checked" : "" %>>
+                <input type="hidden" name="emailPtShown" value="1">
+                <%-- #5887: what happened to the reminder for this start, or when it will go. --%>
+                <% io.github.carlos_emr.carlos.appointment.reminder.ReminderStatusLine emailReminderStatus = apptFromRequest == null ? null
+                        : io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.statusLine(loggedInInfo,
+                                apptFromRequest, (java.util.Locale) pageContext.getAttribute("appointmentLocale"));
+                    if (emailReminderStatus != null) {
+                        pageContext.setAttribute("emailReminderStatusKey", emailReminderStatus.messageKey());
+                        pageContext.setAttribute("emailReminderStatusArgument", emailReminderStatus.argument()); %>
+                <fmt:message key="${emailReminderStatusKey}" var="emailReminderStatusText"><fmt:param value="${emailReminderStatusArgument}"/></fmt:message>
+                <div class="form-text" id="emailReminderStatus"><carlos:encode value="${emailReminderStatusText}"/></div>
+                <% } %>
                     </td>
                 </tr>
                 <% } else { %>
@@ -1567,7 +1590,7 @@
             <tr>
                 <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(phone) %>' context="html"/>
                     <br>
-                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(rosterstatus) %>' context="html"/>
+                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.equalsIgnoreCase("NR", StringUtils.trimToEmpty(rosterstatus)) ? rosterstatusDisplay : rosterstatus) %>' context="html"/>
                 </td>
             </tr>
         </table>

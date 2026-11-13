@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
@@ -46,6 +49,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
     private final LoggedInInfo user = mock(LoggedInInfo.class);
     private final SecurityInfoManager security = mock(SecurityInfoManager.class);
     private final LookupListDao lookupLists = mock(LookupListDao.class);
+    private final AppointmentReminderService reminders = mock(AppointmentReminderService.class);
     private RecurringAppointmentService service;
     private Map<String, String> values;
 
@@ -63,7 +67,7 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
 
     private RecurringAppointmentService proxied(OscarAppointmentDao dao) {
         ProxyFactory factory = new ProxyFactory(new RecurringAppointmentService(dao, archives, security,
-                new AppointmentLocationResolver(lookupLists)));
+                new AppointmentLocationResolver(lookupLists), reminders));
         factory.addAdvice(new TransactionInterceptor(transactions, new AnnotationTransactionAttributeSource()));
         return (RecurringAppointmentService) factory.getProxy();
     }
@@ -172,6 +176,55 @@ class RecurringAppointmentServiceIntegrationTest extends CarlosTestBase {
         em.flush();
         em.clear();
         assertThat(rows()).hasSize(3).allSatisfy(a -> assertThat(a.getReason()).isEqualTo("Updated\nreason"));
+    }
+
+    /** #5887: Add's Repeat Booking carries the Email Reminder box; every appointment it books gets the choice. */
+    @Test
+    void shouldRecordTheTickedReminderBox_forEveryRepeatItBooks() {
+        values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+        values.put(AppointmentReminderChoice.PARAMETER, "on");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+
+        for (Appointment booked : rows()) {
+            verify(reminders).recordRequest(user, booked.getId(), 1, ReminderChannel.EMAIL, true);
+        }
+        verify(reminders, times(3)).recordRequest(any(), anyInt(), anyInt(), any(), anyBoolean());
+    }
+
+    @Test
+    void shouldRecordAnUntickedBox_andLeaveChoicesAlone_whenTheFormHadNoBox() {
+        values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        verify(reminders, times(3)).recordRequest(eq(user), anyInt(), eq(1), eq(ReminderChannel.EMAIL), eq(false));
+
+        values.remove(AppointmentReminderChoice.SHOWN_PARAMETER);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put("endDate", "28/02/2027");
+        assertThat(service.apply(user, values, 10016)).isEqualTo(2);
+        verify(reminders, times(3)).recordRequest(any(), anyInt(), anyInt(), any(), anyBoolean());
+    }
+
+    /** A series Group Update applies the box to every member; Cancel and Delete leave the choices alone. */
+    @Test
+    void shouldApplyTheBox_toEverySeriesMemberOnGroupUpdate_butNotOnCancelOrDelete() {
+        service.apply(user, values, 10016);
+        verifyNoInteractions(reminders);
+        values.put("appointment_no", rows().getFirst().getId().toString());
+        values.put(AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+        values.put(AppointmentReminderChoice.PARAMETER, "on");
+        values.put("groupappt", "Group Update");
+
+        assertThat(service.apply(user, values, 10016)).isEqualTo(3);
+        for (Appointment member : rows()) {
+            verify(reminders).recordRequest(user, member.getId(), 1, ReminderChannel.EMAIL, true);
+        }
+
+        values.put("groupappt", "Group Cancel");
+        service.apply(user, values, 10016);
+        values.put("groupappt", "Group Delete");
+        service.apply(user, values, 10016);
+        verify(reminders, times(3)).recordRequest(any(), anyInt(), anyInt(), any(), anyBoolean());
     }
 
     @Test void updatesCancelsAndArchivesEveryMatchingDate() {

@@ -169,6 +169,8 @@ public class ManageEmails2Action extends ActionSupport {
      */
     public String showEmailManager() {
         request.setAttribute("emailStatusList", EmailStatus.values());
+        // The Type filter's one choice (#5887): its value is the name fetchEmails compares against.
+        request.setAttribute("emailReminderType", TransactionType.APPOINTMENT_REMINDER);
         request.setAttribute("senderAccountList", emailComposeManager.getAllSenderAccounts());
         return "show";
     }
@@ -217,7 +219,12 @@ public class ManageEmails2Action extends ActionSupport {
         }
 
         try {
-            List<EmailStatusResult> emailStatusResults = emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus);
+            // The Type filter (#5887) offers appointment reminders only; any other value means every type.
+            EmailLog.TransactionType emailType = EmailLog.TransactionType.APPOINTMENT_REMINDER.name()
+                    .equals(request.getParameter("emailType")) ? EmailLog.TransactionType.APPOINTMENT_REMINDER : null;
+            List<EmailStatusResult> emailStatusResults = emailType == null
+                    ? emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus)
+                    : emailManager.getEmailStatusByDateDemographicSenderStatus(loggedInInfo, dateBeginStr, dateEndStr, demographic_no, senderEmailAddress, emailStatus, emailType);
             request.setAttribute("emailStatusResults", emailStatusResults);
         } catch (IllegalArgumentException e) {
             logger.warn("Invalid email search filters", e);

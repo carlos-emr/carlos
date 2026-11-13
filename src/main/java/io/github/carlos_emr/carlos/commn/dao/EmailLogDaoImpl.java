@@ -195,6 +195,37 @@ public class EmailLogDaoImpl extends AbstractDaoImpl<EmailLog> implements EmailL
         return query.getResultList();
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<EmailLog> getEmailStatusByDateDemographicSenderStatusType(Date dateBegin, Date dateEnd, String demographicNo,
+            String senderEmailAddress, String emailStatus, EmailLog.TransactionType transactionType) {
+        if (transactionType == null) {
+            return getEmailStatusByDateDemographicSenderStatus(dateBegin, dateEnd, demographicNo, senderEmailAddress, emailStatus);
+        }
+        String hql = "SELECT el FROM EmailLog el LEFT JOIN el.emailConfig ec LEFT JOIN el.demographic d LEFT JOIN el.provider p " +
+                "WHERE 1=1 " +
+                "AND (?1 IS NULL OR d.demographicNo = ?1) " +
+                "AND (?2 IS NULL OR el.status = ?2) " +
+                "AND (?3 IS NULL OR el.fromEmail = ?3) " +
+                "AND el.timestamp >= ?4 AND el.timestamp < ?5 " +
+                "AND el.transactionType = ?6 " +
+                "ORDER BY el.timestamp DESC";
+
+        Date startDate = org.apache.commons.lang3.time.DateUtils.truncate(dateBegin, Calendar.DAY_OF_MONTH);
+        Date exclusiveEndDate = org.apache.commons.lang3.time.DateUtils.addDays(
+                org.apache.commons.lang3.time.DateUtils.truncate(dateEnd, Calendar.DAY_OF_MONTH), 1);
+
+        Query query = entityManager.createQuery(hql);
+        query.setParameter(1, parseDemographicNo(demographicNo));
+        query.setParameter(2, parseEmailStatus(emailStatus));
+        query.setParameter(3, senderEmailAddress);
+        query.setParameter(4, startDate);
+        query.setParameter(5, exclusiveEndDate);
+        query.setParameter(6, transactionType);
+
+        return query.getResultList();
+    }
+
     private Integer parseDemographicNo(String demographicNo) {
         if (demographicNo == null || demographicNo.isBlank()) {
             return null;

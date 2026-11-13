@@ -28,6 +28,7 @@
 
 package io.github.carlos_emr.carlos.appointment.pageUtil;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationUnavailableException;
 import java.io.IOException;
@@ -138,6 +139,10 @@ public final class AppointmentUpdateRecord2Action extends ActionSupport {
                         : AppointmentLocationResolver.resolvePostedLocation(appt, request);
                 appointmentArchiveDao.archiveAppointment(appt);
                 saved[0] = updateLockedAppointment(request, appt, text, statusOnly, updateuser, apptNoStr, location);
+                if (!statusOnly) {
+                    // The Email Reminder box commits with the edit (#5887); Cancel and No Show leave it as it is.
+                    AppointmentReminderChoice.record(request, loggedInInfo, appt);
+                }
                 return saved[0];
             });
             if (completion[0] != TransactionSynchronization.STATUS_COMMITTED || result == null) {

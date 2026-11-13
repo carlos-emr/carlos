@@ -135,6 +135,8 @@ Ontario, Canada
 <%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<% pageContext.setAttribute("appointmentLocale", io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request)); %>
+<fmt:setLocale value="${appointmentLocale}"/>
 <fmt:setBundle basename="oscarResources"/>
 <fmt:message key="Appointment.textTooLong" var="appointmentTextTooLong"/>
 <fmt:message key="Appointment.textInvalidUnicode" var="appointmentTextInvalidUnicode"/>
@@ -1151,7 +1153,9 @@ Ontario, Canada
                     }
 
                     rosterStatus = d.getRosterStatus();
-                    if (rosterStatus == null || rosterStatus.equalsIgnoreCase("RO")) {
+                    if ("NR".equalsIgnoreCase(rosterStatus == null ? "" : rosterStatus.trim())) {
+                        rosterStatus = d.getRosterStatusDisplay(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
+                    } else if (rosterStatus == null || rosterStatus.equalsIgnoreCase("RO")) {
                         rosterStatus = "";
                     }
                 }
@@ -1159,12 +1163,15 @@ Ontario, Canada
         %>
         <%-- Patient status banner: always rendered so JavaScript can show/hide when patient is selected via autocomplete --%>
         <%
-            String statusExp = " null-undefined\n IN-inactive ID-deceased OP-out patient\n NR-not signed\n FS-fee for service\n TE-terminated\n SP-self pay\n TP-third party";
+            String statusExp = "Patient status codes: null-undefined, IN-inactive, ID-deceased, OP-out patient, NR-not signed, FS-fee for service, TE-terminated, SP-self pay, TP-third party.\nEnrolment status codes: RO-rostered, NR-not rostered, TE-terminated, FS-fee for service.";
             boolean showStatusBanner = !patientStatus.equals("") || !rosterStatus.equals("");
         %>
+        <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
+        <fmt:message key="demographic.enrollementhistory.notrostered" var="rosterNotRosteredLabel"/>
         <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
              title='<carlos:encode value='<%= statusExp %>' context="htmlAttribute"/>'
-             data-roster-label="<fmt:message key="Appointment.msgRosterStatus"/>"
+             data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
+             data-roster-not-rostered="${carlos:forHtmlAttribute(rosterNotRosteredLabel)}"
              style="<%= showStatusBanner ? "" : "display:none" %>" role="alert">
             <span id="patientStatusText"><carlos:encode value='<%= patientStatus %>' context="html"/>&nbsp;<fmt:message key="Appointment.msgRosterStatus"/>:&nbsp;<carlos:encode value='<%= rosterStatus %>' context="html"/></span>
             <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
@@ -1531,13 +1538,16 @@ Ontario, Canada
                                 </div>
                             </div>
                         </div>
-                        <% String emailReminder = pros.getProperty("emailApptReminder");
-                            if ((emailReminder != null) && emailReminder.equalsIgnoreCase("yes")) { %>
+                        <%-- #5887: the same switch as the reminder job (yes, true or on). --%>
+                        <% if (pros.isPropertyActive("emailApptReminder")) { %>
                         <div class="mb-2 row">
-                            <label class="col-sm-4 col-form-label"><fmt:message key="Appointment.formEmailReminder"/>:</label>
+                            <label class="col-sm-4 col-form-label" for="emailPt"><fmt:message key="Appointment.formEmailReminder"/>:</label>
                             <div class="col-sm-8">
                                 <div class="form-check mt-1">
-                                    <input type="checkbox" class="form-check-input" name="emailPt" value="email reminder">
+                                    <%-- #5887: emailPtShown tells the action the box was on this form. --%>
+                                    <input type="checkbox" class="form-check-input" name="emailPt" id="emailPt" value="email reminder"
+                                           <%= io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request) ? "checked" : "" %>>
+                                    <input type="hidden" name="emailPtShown" value="1">
                                 </div>
                             </div>
                         </div>

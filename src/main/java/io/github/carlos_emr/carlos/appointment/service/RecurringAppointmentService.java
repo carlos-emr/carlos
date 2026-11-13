@@ -1,6 +1,9 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 package io.github.carlos_emr.carlos.appointment.service;
 
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice;
+import io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderService;
+import io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel;
 import io.github.carlos_emr.carlos.appt.location.AppointmentLocationResolver;
 import io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDao;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
@@ -29,13 +32,16 @@ public class RecurringAppointmentService {
     private final AppointmentArchiveDao archives;
     private final SecurityInfoManager security;
     private final AppointmentLocationResolver locations;
+    private final AppointmentReminderService reminders;
 
     public RecurringAppointmentService(OscarAppointmentDao appointments, AppointmentArchiveDao archives,
-                                       SecurityInfoManager security, AppointmentLocationResolver locations) {
+                                       SecurityInfoManager security, AppointmentLocationResolver locations,
+                                       AppointmentReminderService reminders) {
         this.appointments = appointments;
         this.archives = archives;
         this.security = security;
         this.locations = locations;
+        this.reminders = reminders;
     }
 
     /** All validation and series discovery precede writes; a failure rolls back the entire operation. */
@@ -117,6 +123,7 @@ public class RecurringAppointmentService {
                 Appointment occurrence = copy(identity);
                 occurrence.setAppointmentDate(Date.valueOf(date));
                 appointments.persist(occurrence);
+                recordReminderChoice(user, values, occurrence);
             }
             return missing.size();
         }
@@ -135,9 +142,22 @@ public class RecurringAppointmentService {
                 occurrence.setUpdateDateTime(updated);
                 occurrence.setLastUpdateUser(user.getLoggedInProviderNo());
                 appointments.merge(occurrence);
+                if (operation.equals("Group Update")) recordReminderChoice(user, values, occurrence);
             }
         }
         return existing.size();
+    }
+
+    /**
+     * The Email Reminder box travels with the form to this page (#5887). Each appointment this action books or
+     * updates gets the box's choice, in this transaction, so a ticked box is never dropped. A form without the box
+     * (reminders off) leaves every stored choice as it is.
+     */
+    private void recordReminderChoice(LoggedInInfo user, Map<String, String> values, Appointment appointment) {
+        if (AppointmentReminderChoice.isOnCopiedForm(values)) {
+            reminders.recordRequest(user, appointment.getId(), appointment.getDemographicNo(), ReminderChannel.EMAIL,
+                    AppointmentReminderChoice.isTickedOnCopiedForm(values));
+        }
     }
 
     /** Preflights every new occurrence before writing any member of the series. */
