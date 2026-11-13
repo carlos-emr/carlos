@@ -707,6 +707,66 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
+    void shouldExportASpecialistAndADietician_asContactsWithTheirRoleAsPurpose() throws Exception {
+        // procontact.jsp offers Specialist and Dietician, which ReferredPhysician and
+        // FamilyPhysician do not mean: each external contact is a Demographics/Contact whose
+        // ContactPurpose is the role as plain text, instead of only travelling in the record.
+        rows.get("Contact").add(CdsExportProfessionalContactMapperUnitTest.contact(9));
+        rows.get("Contact").add(CdsExportProfessionalContactMapperUnitTest.contact(10));
+        rows.get("Contact").add(CdsExportProfessionalContactMapperUnitTest.contact(11));
+        rows.get("DemographicContact")
+                .add(CdsExportProfessionalContactMapperUnitTest.association(1, 9, "Specialist"));
+        rows.get("DemographicContact")
+                .add(CdsExportProfessionalContactMapperUnitTest.association(2, 10, "Dietician"));
+        rows.get("DemographicContact")
+                .add(
+                        CdsExportProfessionalContactMapperUnitTest.association(
+                                3, 11, "Family Doctor"));
+        var result = assemble();
+        assertThat(result.contacts().mapping().contacts()).hasSize(2);
+        assertThat(result.professional().physicians()).hasSize(1);
+        var role =
+                result.fields()
+                        .get(
+                                new CdsExportNativeFieldKeyDto(
+                                        "DemographicContact",
+                                        CdsExportPatientTableSourceReader.key(1),
+                                        "role"));
+        assertThat(role.rule()).isEqualTo("HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE");
+        assertThat(role.destination()).isEqualTo("Contact[1]/ContactPurpose");
+        String xml = validatedXml(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:PurposeAsPlainText>Specialist</cdsd:PurposeAsPlainText>",
+                        "<cdsd:PurposeAsPlainText>Dietician</cdsd:PurposeAsPlainText>",
+                        "<FamilyPhysician>");
+    }
+
+    @Test
+    void shouldKeepCarryingASpecialistRole_whenItsContactIsAlsoTheFamilyPhysician()
+            throws Exception {
+        rows.get("Contact").add(CdsExportProfessionalContactMapperUnitTest.contact(9));
+        rows.get("DemographicContact")
+                .add(CdsExportProfessionalContactMapperUnitTest.association(1, 9, "Specialist"));
+        rows.get("DemographicContact")
+                .add(
+                        CdsExportProfessionalContactMapperUnitTest.association(
+                                2, 9, "Family Doctor"));
+        var result = assemble(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY));
+        assertThat(result.contacts().mapping().contacts()).isEmpty();
+        assertThat(result.professional().physicians()).hasSize(1);
+        assertThat(
+                        CdsExportDemographicSupportingMapper.carries(
+                                result.fields()
+                                        .get(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        "DemographicContact",
+                                                        CdsExportPatientTableSourceReader.key(1),
+                                                        "role"))))
+                .isTrue();
+    }
+
+    @Test
     void shouldCloseAnImportedChartAgainstItsOwnProviderSlice_whenAnotherCategoryCapturedItsAuthor()
             throws Exception {
         // D2: an allergy recorded by Dr 17 puts provider 17 in the capture. The retained path

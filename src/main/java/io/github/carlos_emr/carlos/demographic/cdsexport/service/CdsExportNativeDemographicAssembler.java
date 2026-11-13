@@ -273,9 +273,17 @@ public final class CdsExportNativeDemographicAssembler {
                                 maximumRows,
                                 maximumBytes,
                                 checkpoint);
+        // A specialist or dietician external contact is a Demographics/Contact, decided with the
+        // personal contacts; the other professional associations are decided as physicians.
+        var contactRoles =
+                CdsExportProfessionalContactMapper.contactRoleAssociations(
+                        rows.get("DemographicContact"));
         var professionalLinks =
                 rows.get("DemographicContact").stream()
-                        .filter(row -> "professional".equals(row.fields().get("category")))
+                        .filter(
+                                row ->
+                                        "professional".equals(row.fields().get("category"))
+                                                && !contactRoles.contains(row))
                         .toList();
         var professionalIds = new HashSet<String>();
         for (var link : professionalLinks)
@@ -283,7 +291,10 @@ public final class CdsExportNativeDemographicAssembler {
                 professionalIds.add(link.fields().get("contactId"));
         var personalLinks =
                 rows.get("DemographicContact").stream()
-                        .filter(row -> !"professional".equals(row.fields().get("category")))
+                        .filter(
+                                row ->
+                                        !"professional".equals(row.fields().get("category"))
+                                                || contactRoles.contains(row))
                         .toList();
         var personalIds = new HashSet<String>();
         for (var link : personalLinks) personalIds.add(link.fields().get("contactId"));

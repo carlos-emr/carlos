@@ -100,6 +100,59 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
+    void shouldAppendASpecialistAddedAfterImport_asAContactWithItsRoleAsPurpose()
+            throws Exception {
+        // A specialist added to an imported chart's health-care team (procontact.jsp, an
+        // external professional contact) is a Demographics/Contact appended after the imported
+        // contacts, its role the plain-text ContactPurpose.
+        var contact =
+                copy(
+                        graph.contact(),
+                        8,
+                        Map.of(
+                                "type",
+                                "ProfessionalContact",
+                                "firstName",
+                                "Grace",
+                                "lastName",
+                                "Specialist family"));
+        var link =
+                copy(
+                        graph.association(),
+                        10,
+                        Map.of(
+                                "contactId",
+                                "8",
+                                "role",
+                                "Specialist",
+                                "category",
+                                "professional"));
+        contacts.add(contact);
+        associations.add(link);
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(contact));
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(link));
+        var result = prepare();
+        assertThat(result.currentContacts()).isEqualTo(2);
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Contact[2]");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "DemographicContact",
+                                                CdsExportPatientTableSourceReader.key(10),
+                                                "role"))
+                                .rule())
+                .isEqualTo("HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE");
+        String xml = render(result);
+        assertThat(xml)
+                .contains(
+                        "<cdsd:PurposeAsPlainText>Specialist</cdsd:PurposeAsPlainText>",
+                        "Specialist family");
+    }
+
+    @Test
     void shouldVerifyAMissingNativeChildCannotLeaveItsOriginalSourceContactUnaccounted_forContactRetainedAssemblerContract() {
         removeChildren();
         assertThatThrownBy(this::prepare)

@@ -30,7 +30,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** External personal contacts with exact identities, unioned purposes and independently accounted fields. No chart/provider lookup or guessing. */
+/**
+ * External personal contacts, and specialist or dietician external contacts of the health-care
+ * team, with exact identities, unioned purposes and independently accounted fields. A team role
+ * is the ContactPurpose as plain text. No chart/provider lookup or guessing.
+ */
 public final class CdsExportPersonalContactMapper {
     private static final Map<String, String> ROLES =
             Map.of(
@@ -220,8 +224,14 @@ public final class CdsExportPersonalContactMapper {
             // their names live in tables this export does not read), a relationship of another
             // category, or an association marked Inactive: the stored association travels
             // exactly in the native demographic NewCategory record.
+            // A specialist or dietician external contact is a Contact too: its role is the
+            // purpose (CdsExportProfessionalContactMapper#contactRoleAssociations routes it here).
+            boolean contactRole =
+                    "professional".equals(state.raw("category"))
+                            && CdsExportProfessionalContactMapper.CONTACT_ROLES.contains(
+                                    state.raw("role"));
             if (!"2".equals(state.raw("type"))
-                    || !"personal".equals(state.raw("category"))
+                    || !"personal".equals(state.raw("category")) && !contactRole
                     || !"0".equals(state.raw("deleted"))
                     || !"1".equals(state.raw("active"))) {
                 state.carryRemaining(identity);
@@ -261,8 +271,14 @@ public final class CdsExportPersonalContactMapper {
             }
             var state = states.get(row);
             String root = "Contact[" + (mapped.size() + 1) + "]";
+            boolean professionalGroup =
+                    group.stream()
+                            .allMatch(
+                                    link -> "professional".equals(link.fields().get("category")));
             if ("Contact".equals(state.raw("type")))
                 state.operational("type", "EXACT_NATIVE_PERSONAL_CONTACT_TYPE");
+            else if (professionalGroup && "ProfessionalContact".equals(state.raw("type")))
+                state.operational("type", "EXACT_NATIVE_PROFESSIONAL_CONTACT_TYPE");
             else state.review("type", root, "UNEXPECTED_NATIVE_CONTACT_SUBTYPE_REQUIRES_REVIEW");
             if ("0".equals(state.raw("deleted")))
                 state.operational("deleted", "EXACT_CURRENT_NATIVE_CONTACT");
@@ -307,9 +323,11 @@ public final class CdsExportPersonalContactMapper {
                                 "role",
                                 Outcome.MAPPED,
                                 root + "/ContactPurpose",
-                                code == null
-                                        ? "EXACT_NATIVE_FREE_TEXT_PURPOSE"
-                                        : "EXACT_NATIVE_CONTACT_PURPOSE_LABEL");
+                                code != null
+                                        ? "EXACT_NATIVE_CONTACT_PURPOSE_LABEL"
+                                        : "professional".equals(linkState.raw("category"))
+                                                ? "HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE"
+                                                : "EXACT_NATIVE_FREE_TEXT_PURPOSE");
                     }
                 }
                 purposeFlag(linkState, "ec", "EC", root, purposes);

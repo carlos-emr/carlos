@@ -49,6 +49,39 @@ public final class CdsExportProfessionalContactMapper {
         }
     }
 
+    /**
+     * Health-care-team roles procontact.jsp offers that ReferredPhysician and FamilyPhysician do
+     * not mean. An active external contact in such a role is a Demographics/Contact whose
+     * ContactPurpose is the role as plain text (CdsExportPersonalContactMapper).
+     */
+    static final Set<String> CONTACT_ROLES = Set.of("Specialist", "Dietician");
+
+    /**
+     * The professional associations exported as Demographics/Contact rather than decided here:
+     * an active, current external contact (type 2) in a {@link #CONTACT_ROLES} role whose contact
+     * no other professional association names. A contact also named as a family or referring
+     * physician, an inactive or removed association, and types 0, 1 and 3 (names in tables this
+     * export does not read) stay with this mapper, which carries them.
+     */
+    static Set<CdsExportCapturedTextRowDto> contactRoleAssociations(
+            List<CdsExportCapturedTextRowDto> associations) {
+        var candidates = new ArrayList<CdsExportCapturedTextRowDto>();
+        var others = new HashSet<String>();
+        for (var row : associations) {
+            if (!"professional".equals(row.fields().get("category"))
+                    || !"2".equals(row.fields().get("type"))) continue;
+            if ("0".equals(row.fields().get("deleted"))
+                    && "1".equals(row.fields().get("active"))
+                    && CONTACT_ROLES.contains(row.fields().get("role"))
+                    && row.fields().get("contactId") != null) candidates.add(row);
+            else others.add(row.fields().get("contactId"));
+        }
+        var result = new HashSet<CdsExportCapturedTextRowDto>();
+        for (var row : candidates)
+            if (!others.contains(row.fields().get("contactId"))) result.add(row);
+        return Set.copyOf(result);
+    }
+
     public record Physician(
             Role role,
             String associationRecordKey,
@@ -254,8 +287,9 @@ public final class CdsExportProfessionalContactMapper {
                             .findFirst()
                             .orElse(null);
             // A provider or specialist from another table (type 0, 1, 3), an inactive member,
-            // and roles ReferredPhysician/FamilyPhysician do not mean (Specialist, Dietician...):
-            // the stored association and its contact travel in the native demographic record.
+            // and roles ReferredPhysician/FamilyPhysician do not mean (Specialist, Dietician...)
+            // that callers did not route to Demographics/Contact (contactRoleAssociations): the
+            // stored association and its contact travel in the native demographic record.
             if (!"2".equals(state.raw("type"))
                     || !"professional".equals(state.raw("category"))
                     || !"0".equals(state.raw("deleted"))
