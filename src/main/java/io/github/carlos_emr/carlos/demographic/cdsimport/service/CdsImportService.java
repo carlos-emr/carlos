@@ -379,7 +379,14 @@ public class CdsImportService {
     public void authorizeAbandon(CdsImportActorDto actor, String run) throws IOException {
         if (actor == null || actor.securityNo() != null)
             throw new SecurityException("IMPORT_ACCESS_DENIED");
-        var context = jobs.loadContext(jobs.binding(run));
+        // The provider and the operator's root delegation are checked before the run's private
+        // job document is read.
+        var binding = jobs.binding(run);
+        if (!java.util.Objects.equals(binding.job().providerNo(), actor.providerNo()))
+            throw new SecurityException("IMPORT_ACCESS_DENIED");
+        configuration.requireDelegation(
+                actor.operator(), actor.providerNo(), actor.facilityId(), actor.programId());
+        var context = jobs.loadContext(binding);
         var started = context.document().actor();
         if (!java.util.Objects.equals(started.providerNo(), actor.providerNo())
                 || !java.util.Objects.equals(started.facilityId(), actor.facilityId())
@@ -425,8 +432,13 @@ public class CdsImportService {
     private static final java.util.Set<String> DELEGABLE =
             java.util.Set.of("status", "cancel", "report", "abandon");
 
+    /**
+     * Whether {@code actor} is the run's own operator, read from the ledger row alone: no private
+     * job document is read before the caller's identity or delegation has been checked.
+     */
     private boolean startedBy(CdsImportActorDto actor, String run) throws IOException {
-        return actor != null && jobs.loadContext(jobs.binding(run)).document().actor().equals(actor);
+        return actor != null
+                && java.util.Objects.equals(jobs.binding(run).job().operator(), actor.operator());
     }
 
     /**

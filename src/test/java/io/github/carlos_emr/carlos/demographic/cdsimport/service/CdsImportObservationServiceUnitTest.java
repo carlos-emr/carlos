@@ -156,6 +156,10 @@ class CdsImportObservationServiceUnitTest {
 
     @Test void shouldDenyWrongActorOrProvider_beforeAnyPrivateFileRead() throws Exception {
         Files.delete(metadata);
+        // Another operator may read a run only under a root delegation for its provider; this one
+        // has none, and is refused before the private job document is read.
+        doThrow(new SecurityException("Import operator delegation denied")).when(configuration)
+                .requireDelegation(eq("another-operator"), any(), any(), any());
         for (CdsImportActorDto denied : java.util.Arrays.asList(null,
                 new CdsImportActorDto("another-operator", "1", null, null, null, null),
                 new CdsImportActorDto("operator", "2", null, null, null, null))) {
