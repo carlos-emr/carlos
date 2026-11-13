@@ -358,14 +358,68 @@ class CdsExportHistoryCurrentContextUnitTest {
     }
 
     @Test
-    void shouldAccountForAnUnlinkedPatientIssue_asItsOwnClinicalOccurrence() throws Exception {
-        add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "51"));
+    void shouldAccountForAnUnlinkedDiagnosis_asItsOwnProblemListOccurrence() throws Exception {
+        add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "52"));
+        add(Plan.ISSUE_CATALOGUE, 52, Map.of("code", "250", "type", "icd9"));
         prepare();
         var current = read(1L << 20);
         var result = CdsExportHistoryOccurrenceService.plan(
                 index(HASH, "91", false), inventory(91), current, () -> {});
         assertThat(result).hasSize(2);
-        assertThat(result.stream().filter(o -> "42".equals(o.issueId()))).hasSize(1);
+        var issue = result.stream().filter(o -> "42".equals(o.issueId())).toList();
+        assertThat(issue).hasSize(1);
+        assertThat(issue.getFirst().category()).isEqualTo(CdsCategory.PROBLEM_LIST);
+        assertThat(issue.getFirst().revisions()).isEmpty();
+    }
+
+    @Test
+    void shouldHoldAnUnlinkedCppTag_insteadOfInventingAProblem() throws Exception {
+        // This patient issue used to become a "Family History as part of cpp" ProblemList entry
+        // coded system:FamHistory. A filing marker with no note has nothing clinical to carry.
+        add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "51"));
+        prepare();
+        var current = read(1L << 20);
+        assertThatThrownBy(
+                        () ->
+                                CdsExportHistoryOccurrenceService.plan(
+                                        index(HASH, "91", false), inventory(91), current, () -> {}))
+                .hasMessage("CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldLeaveLinkedSystemMarkersAndCppDiagnoses_toTheirNotes() throws Exception {
+        // Note 91 is a Family History item that also carries an ICD-9 diagnosis (the relative's)
+        // and an "Other Meds" system marker: none of them is a standalone patient problem.
+        add(Plan.CASE_ISSUES, 42, Map.of("demographic_no", "27", "issue_id", "52"));
+        add(Plan.ISSUE_CATALOGUE, 52, Map.of("code", "250", "type", "icd9"));
+        add(Plan.CASE_ISSUES, 43, Map.of("demographic_no", "27", "issue_id", "65"));
+        add(Plan.ISSUE_CATALOGUE, 65, Map.of("code", "OMeds", "type", "system"));
+        rows.get("casemgmt_issue_notes").add(link("91", "42"));
+        rows.get("casemgmt_issue_notes").add(link("91", "43"));
+        prepare();
+        var current = read(1L << 20);
+        var planned =
+                CdsExportHistoryOccurrenceService.plan(
+                        index(HASH, "91", false), inventory(91), current, () -> {});
+        assertThat(planned).hasSize(1);
+        assertThat(planned.getFirst().category()).isEqualTo(CdsCategory.FAMILY_HISTORY);
+        assertThat(planned.getFirst().issueId()).isNull();
+    }
+
+    @Test
+    void shouldNotTurnATicklerMarker_intoAProblem() throws Exception {
+        // A tickler note (DbTicklerAdd2Action) links the TicklerNote system issue; the note is a
+        // clinical note and the marker travels in its native context only.
+        edit("issue", "code", "TicklerNote");
+        edit("issue", "type", "system");
+        prepare();
+        var index =
+                new CdsExportRetainedIndexDto(HASH, 0, 0, Map.of(), Set.of(), Map.of(), Map.of());
+        var planned =
+                CdsExportHistoryOccurrenceService.plan(
+                        index, inventory(91), read(1L << 20), () -> {});
+        assertThat(planned).hasSize(1);
+        assertThat(planned.getFirst().category()).isEqualTo(CdsCategory.CLINICAL_NOTES);
     }
 
     @Test

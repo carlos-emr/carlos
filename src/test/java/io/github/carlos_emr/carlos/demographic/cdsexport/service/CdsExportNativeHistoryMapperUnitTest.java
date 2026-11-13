@@ -607,6 +607,33 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
+    void shouldCodeACppItemOnlyWithItsDiagnosis_neverWithASystemMarker() throws Exception {
+        var concerns = uiIssue(41, 68, "10034");
+        var otherMeds = uiIssue(42, 65, "10034");
+        var diabetes = uiIssue(43, 51, "10034");
+        var item =
+                uiNote(
+                        91,
+                        "Type 2 diabetes, diet controlled",
+                        "10034",
+                        List.of(concerns, otherMeds, diabetes),
+                        List.of(
+                                catalogue(68, "Concerns", "system"),
+                                catalogue(65, "OMeds", "system"),
+                                catalogue(51, "250", "icd9")));
+        var result = map(CdsCategory.PROBLEM_LIST, List.of(item));
+        assertThat(result.value().code().system()).isEqualTo("icd9");
+        assertThat(result.value().code().value()).isEqualTo("250");
+        String xml = new String(render(result.value()), StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<cdsd:StandardCodingSystem>system<");
+        // The marker is not lost: its patient issue and catalogue facts stay in the context.
+        assertThat(result.value().metadata()).contains("OMeds");
+        var marker = catalogue(65, "OMeds", "system");
+        assertThatThrownBy(() -> mapper.mapIssue(27, otherMeds, marker))
+                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
+    }
+
+    @Test
     void shouldRefuseUnqualifiedIssueProgramOwnership_andSqlNullNoteBodies() throws Exception {
         var issue =
                 row(

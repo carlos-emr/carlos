@@ -394,6 +394,15 @@ public final class CdsExportNativeHistoryMapper {
         return code != null && TAGS.containsKey(code);
     }
 
+    /**
+     * A catalogue entry that files notes rather than coding a diagnosis: one of the six CPP tags,
+     * or any {@code issue.type = 'system'} marker (OMeds, TicklerNote, eyeform*, PatientLog, ...).
+     */
+    static boolean systemDefinition(CdsExportHistoryFieldReconciler.Row definition) {
+        return cppDefinition(definition)
+                || "system".equals(definition.value().fields().get("type"));
+    }
+
     /** A patient diagnosis need not have a linked narrative note to be part of the chart. */
     public Result mapIssue(
             int patient,
@@ -431,7 +440,9 @@ public final class CdsExportNativeHistoryMapper {
                         .value()
                         .fields()
                         .get("issue_id")
-                        .equals(issue.value().fields().get("issue_id"))) invalid();
+                        .equals(issue.value().fields().get("issue_id"))
+                // System markers are carried by their notes, never as a standalone problem.
+                || systemDefinition(definition)) invalid();
         String program = issue.value().fields().get("program_id");
         boolean linkedProgram = !linked.isEmpty();
         for (var revision : linked) {
@@ -604,7 +615,12 @@ public final class CdsExportNativeHistoryMapper {
                             .value()
                             .fields();
             String value = definition.get("code");
-            if (value == null || value.isEmpty() || TAGS.containsKey(value)) continue;
+            // A system marker (a CPP tag, OMeds, TicklerNote, ...) is not a diagnosis code; its
+            // complete facts stay in the revision context.
+            if (value == null
+                    || value.isEmpty()
+                    || TAGS.containsKey(value)
+                    || "system".equals(definition.get("type"))) continue;
             String system = definition.get("type");
             if (system == null
                     || !token(value, 20)

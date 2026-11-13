@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -685,10 +686,10 @@ public class CdsExportHistoryOccurrenceService {
             if (byNote.putIfAbsent(id, new Occurrence(category, address, id)) != null) ambiguous();
         }
         var result = new ArrayList<Occurrence>();
-        var issueIds = new HashSet<String>();
         var definitions = new HashSet<String>();
-        // Patient issue id -> every captured note revision that links it.
+        // Patient issue id -> every captured note revision that links it, and their categories.
         var linkedRevisions = new HashMap<String, TreeSet<Long>>();
+        var linkedCategories = new HashMap<String, EnumSet<CdsCategory>>();
         for (var chain : inventory.chains()) {
             checkpoint.run();
             var parents = new ArrayList<Occurrence>();
@@ -711,8 +712,10 @@ public class CdsExportHistoryOccurrenceService {
                 var note = context.note(revision);
                 for (var link : note.links()) {
                     String id = link.fields().get("id");
-                    issueIds.add(id);
                     linkedRevisions.computeIfAbsent(id, ignored -> new TreeSet<>()).add(revision);
+                    linkedCategories
+                            .computeIfAbsent(id, ignored -> EnumSet.noneOf(CdsCategory.class))
+                            .add(occurrence.category());
                     var issue = note.patientIssues().get(id);
                     if (issue == null) invalid();
                     definitions.add(issue.value().fields().get("issue_id"));
@@ -725,7 +728,26 @@ public class CdsExportHistoryOccurrenceService {
             var issue = context.original("casemgmt_issue", id);
             var definition = context.original("issue", issue.value().fields().get("issue_id"));
             if (definition == null) invalid();
-            if (issueIds.contains(id) && CdsExportNativeHistoryMapper.cppDefinition(definition))
+            var categories =
+                    linkedCategories.getOrDefault(id, EnumSet.noneOf(CdsCategory.class));
+            if (CdsExportNativeHistoryMapper.systemDefinition(definition)) {
+                // A CPP tag or another system marker (OMeds, TicklerNote, eyeform*, PatientLog,
+                // CurrentHistory, ...) files notes; it is not a diagnosis. Each linked note
+                // carries it: as its CPP category, and with the complete issue and catalogue
+                // facts in every revision's native context. The legacy exporter excluded these
+                // and never exported a bare issue.
+                if (!categories.isEmpty()) continue;
+                // Without a note there is nothing clinical to carry and no honest wire home.
+                throw new CdsExportMappingReviewException(
+                        "CDS_EXPORT_NATIVE_SYSTEM_ISSUE_WITHOUT_NOTE_REQUIRES_REVIEW");
+            }
+            // A diagnosis linked to a CPP item is that item's coded diagnosis (FamilyHistory,
+            // PastHealth, ProblemList) or part of its native issue context: a standalone problem
+            // would write it twice or assert a relative's diagnosis as the patient's own. A
+            // diagnosis that is unlinked, or linked only to encounter notes, is the patient's
+            // own issue (the chart lists it with its own status) and ClinicalNotes has no coded
+            // element, so it is exported once, as a ProblemList entry.
+            if (categories.stream().anyMatch(category -> category != CdsCategory.CLINICAL_NOTES))
                 continue;
             definitions.add(definition.value().fields().get("issue_id"));
             result.add(
