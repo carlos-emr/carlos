@@ -493,13 +493,28 @@ public class OscarChartPrinter implements java.io.Closeable {
             String emergencyContact = r.get("emergency_contact");
             String notes = r.get("notes");
 
-            PdfFonts.addText(phrase, orBlank(relation) + " - " + relationDemographic.getFormattedName() + " - "
+            PdfFonts.addText(phrase, orBlank(relation) + " - " + relatedName(relationDemographic) + " - "
                     + orBlank(subDecisionMaker) + " - " + orBlank(emergencyContact) + " - " + orBlank(notes) + "\n", phrase.getFont());
         }
         PdfFonts.addText(phrase, "\n", phrase.getFont());
         p.add(phrase);
         document.add(p);
 
+    }
+
+    /** Preserve the relative's usual last/first name and alias without printing missing name parts. */
+    private static String relatedName(Demographic relative) {
+        String last = orBlank(relative.getLastName());
+        String first = orBlank(relative.getFirstName());
+        String name = last;
+        if (!first.isEmpty()) {
+            name += (name.isEmpty() ? "" : ", ") + first;
+        }
+        String alias = relative.getAlias();
+        if (alias != null && !alias.isEmpty()) {
+            name += (name.isEmpty() ? "" : " ") + "(" + alias + ")";
+        }
+        return name;
     }
 
     /** A record value as printed: empty when the field is empty, never the word "null". */

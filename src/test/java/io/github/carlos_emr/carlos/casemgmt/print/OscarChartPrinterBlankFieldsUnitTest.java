@@ -20,6 +20,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import java.io.ByteArrayOutputStream;
@@ -121,6 +123,7 @@ class OscarChartPrinterBlankFieldsUnitTest extends CarlosUnitTestBase {
         Demographic relative = new Demographic();
         relative.setFirstName("FAKE-Bo");
         relative.setLastName("FAKE-Relative");
+        relative.setAlias("FAKE-RelativeAlias");
         when(demographics.getClientByDemographicNo(RELATIVE)).thenReturn(relative);
         ByteArrayOutputStream output = new ByteArrayOutputStream();
 
@@ -130,11 +133,43 @@ class OscarChartPrinterBlankFieldsUnitTest extends CarlosUnitTestBase {
         }
 
         String printed = text(output);
-        assertThat(printed).contains("FAKE-Relative, FAKE-Bo");
+        assertThat(printed).contains("FAKE-Relative, FAKE-Bo (FAKE-RelativeAlias)");
         assertThat(printed).doesNotContain("null").doesNotContain("Notes:");
         // Each empty field prints its bare label, so a placeholder after it ("N/A", "-") fails too.
         assertThat(printed.lines().map(String::strip)).contains("Title:", "Last Name:", "Health Insurance #:",
                 "HC Type:", "Work Phone:", "Alerts:");
+    }
+
+    @ParameterizedTest(name = "first={0}, last={1}")
+    @CsvSource(nullValues = "NULL", value = {
+            "NULL, FAKE-Relative, FAKE-Relative",
+            "FAKE-Bo, NULL, FAKE-Bo",
+            "NULL, NULL, ''"})
+    @DisplayName("should omit missing parts of a related patient's printed name")
+    void shouldPrintRelatedName_withoutMissingParts(String first, String last, String expectedName) throws Exception {
+        DemographicCust cust = new DemographicCust();
+        cust.setId(PATIENT);
+        when(custs.find((Object) Integer.valueOf(PATIENT))).thenReturn(cust);
+        Relationships relation = new Relationships();
+        relation.setId(1);
+        relation.setRelationDemographicNo(RELATIVE);
+        relation.setNotes("FAKE-relation-note");
+        when(relationships.findByDemographicNumber(PATIENT)).thenReturn(List.of(relation));
+        Demographic relative = new Demographic();
+        relative.setFirstName(first);
+        relative.setLastName(last);
+        when(demographics.getClientByDemographicNo(RELATIVE)).thenReturn(relative);
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+        try (OscarChartPrinter printer = new OscarChartPrinter(new MockHttpServletRequest(), output)) {
+            printer.setDemographic(emptyPatient());
+            printer.printMasterRecord();
+        }
+
+        String printed = text(output);
+        assertThat(printed).doesNotContain("null");
+        assertThat(printed.lines().map(String::strip))
+                .contains(("- " + expectedName + " -  -  - FAKE-relation-note").strip());
     }
 
     @Test
