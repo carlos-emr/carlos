@@ -158,6 +158,79 @@ class CdsExportPatientInventoryServiceUnitTest {
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
     }
 
+    private static CdsExportNativeRowReceiptDto screening(String table, int id) {
+        return new CdsExportNativeRowReceiptDto(
+                table,
+                Integer.toString(id),
+                CdsExportPatientTableSourceReader.key(id),
+                CdsExportPatientPipelineFixture.HASH);
+    }
+
+    @Test
+    void shouldGiveEveryCapturedScreeningExactlyOnePastHealthIdentity_forPatientInventory()
+            throws Exception {
+        var f = fixture(CdsExportNoteSourceReader.CATEGORIES.toArray(CdsCategory[]::new));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 32));
+        // Extension and precision witnesses belong to their parent's occurrence.
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENING_EXTENSIONS, 41));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENING_PRECISION, 51));
+        var screenings =
+                capture(f).identities().stream()
+                        .filter(identity -> identity.category() == CdsCategory.PAST_HEALTH)
+                        .toList();
+        assertThat(screenings)
+                .containsExactlyInAnyOrder(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.PAST_HEALTH,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "31")),
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.PAST_HEALTH,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "32")));
+    }
+
+    @Test
+    void shouldRefuseADuplicatedScreeningWitness_insteadOfCountingItOnce() throws Exception {
+        var f = fixture(CdsExportNoteSourceReader.CATEGORIES.toArray(CdsCategory[]::new));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31));
+        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
+    }
+
+    @Test
+    void shouldRefuseCapturedScreenings_whenPastHealthWasNotRequested() throws Exception {
+        var f = fixture(CdsCategory.IMMUNIZATIONS);
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31));
+        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
+    }
+
+    @Test
+    void shouldKeepAScreeningAndAVaccine_inTheirOwnCategories() throws Exception {
+        var categories = new ArrayList<>(CdsExportNoteSourceReader.CATEGORIES);
+        categories.add(CdsCategory.IMMUNIZATIONS);
+        var f = fixture(categories.toArray(CdsCategory[]::new));
+        f.nativeRows.add(screening("preventions", 30));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31));
+        var identities = capture(f).identities();
+        assertThat(identities)
+                .contains(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.IMMUNIZATIONS,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "30")),
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.PAST_HEALTH,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "31")));
+        assertThat(identities).hasSize(3);
+    }
+
     @Test
     void shouldRequireTheCurrentDemographic_forPatientInventoryServiceContract() throws Exception {
         var f = fixture();

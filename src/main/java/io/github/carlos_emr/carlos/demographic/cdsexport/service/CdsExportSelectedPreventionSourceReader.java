@@ -27,17 +27,47 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.util.*;
 
-/** Reuses the bounded streaming reader with a typed, immutable snapshot selection adapter. */
+/**
+ * Reuses the bounded streaming reader with a typed, immutable snapshot selection adapter. One
+ * reader reads either the vaccine selection (Immunizations) or the screening selection
+ * (PastHealth) of the same frozen partition; the two never share a logical table.
+ */
 abstract class CdsExportSelectedPreventionSourceReader extends CdsExportPatientTableSourceReader {
+    /** Which frozen partition of the patient's prevention rows a reader may read. */
+    enum Partition {
+        IMMUNIZATIONS(CdsCategory.IMMUNIZATIONS),
+        SCREENINGS(CdsCategory.PAST_HEALTH);
+
+        private final CdsCategory category;
+
+        Partition(CdsCategory category) {
+            this.category = category;
+        }
+    }
+
     private final CdsExportPreventionAccessService access;
+    private final Partition partition;
 
     CdsExportSelectedPreventionSourceReader(
             CdsExportPreventionDataReadDao source,
             CdsExportPatientTableReadSupport.Plan plan,
             CdsExportPreventionSnapshotService snapshots,
             CdsExportPreventionAccessService access) {
-        super(new Selected(source, plan, snapshots), plan, Set.of(CdsCategory.IMMUNIZATIONS));
+        this(source, plan, snapshots, access, Partition.IMMUNIZATIONS);
+    }
+
+    CdsExportSelectedPreventionSourceReader(
+            CdsExportPreventionDataReadDao source,
+            CdsExportPatientTableReadSupport.Plan plan,
+            CdsExportPreventionSnapshotService snapshots,
+            CdsExportPreventionAccessService access,
+            Partition partition) {
+        super(
+                new Selected(source, plan, snapshots, partition),
+                plan,
+                Set.of(partition.category));
         this.access = Objects.requireNonNull(access);
+        this.partition = partition;
     }
 
     @Override
@@ -48,20 +78,18 @@ abstract class CdsExportSelectedPreventionSourceReader extends CdsExportPatientT
 
     @Override
     public Set<String> requiredTables() {
-        return Set.of(
-                "prevention_configuration",
-                "preventions_scope",
-                "CVCImmunization",
-                "CVCMapping",
-                "preventions",
-                "preventionsExt",
-                "prevention_precision");
+        return partition == Partition.IMMUNIZATIONS
+                ? CdsExportPreventionSources.union(
+                        CdsExportPreventionSources.SHARED,
+                        CdsExportPreventionSources.IMMUNIZATION_TABLES)
+                : CdsExportPreventionSources.SCREENING_REQUIRED;
     }
 
     private record Selected(
             CdsExportPreventionDataReadDao source,
             CdsExportPatientTableReadSupport.Plan plan,
-            CdsExportPreventionSnapshotService snapshots)
+            CdsExportPreventionSnapshotService snapshots,
+            Partition partition)
             implements CdsExportPatientTableReadDao {
         @Override
         public CdsExportTableSchemaDto readCdsExportSourceSchema() {
@@ -74,7 +102,10 @@ abstract class CdsExportSelectedPreventionSourceReader extends CdsExportPatientT
         }
 
         private Set<Integer> ids(int patient) {
-            return snapshots.current(patient).clinicalIds();
+            var state = snapshots.current(patient);
+            return partition == Partition.IMMUNIZATIONS
+                    ? state.clinicalIds()
+                    : state.screeningIds();
         }
 
         @Override

@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
-import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.*;
@@ -277,7 +276,10 @@ public class CdsExportPreventionConfigurationService {
                 || requiredTables == null
                 || !requiredTables.containsAll(TABLES)
                 || !requiredTables.equals(source.capture().tables().keySet())
-                || !lease.document().command().categories().contains(CdsCategory.IMMUNIZATIONS)
+                // Vaccines (Immunizations) and screenings (PastHealth) share this classification.
+                || java.util.Collections.disjoint(
+                        lease.document().command().categories(),
+                        CdsExportPreventionSources.CATEGORIES)
                 || !"SOURCE_MANIFEST".equals(source.manifest().purpose())) invalid();
     }
 

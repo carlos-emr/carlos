@@ -82,7 +82,12 @@ public class CdsExportNativeRowReceiptReader {
                     Map.entry("casemgmt_note_ext", "id"),
                     Map.entry("preventions", "id"),
                     Map.entry("preventionsExt", "id"),
-                    Map.entry("prevention_precision", "id"));
+                    Map.entry("prevention_precision", "id"),
+                    // Screening aliases keep their logical names as witnesses, so a screening row
+                    // can never be counted as, or matched to, a vaccine row of the same table.
+                    Map.entry(CdsExportPreventionSources.SCREENINGS, "id"),
+                    Map.entry(CdsExportPreventionSources.SCREENING_EXTENSIONS, "id"),
+                    Map.entry(CdsExportPreventionSources.SCREENING_PRECISION, "id"));
     private final CdsExportNativeCaptureService captures;
 
     public CdsExportNativeRowReceiptReader(CdsExportNativeCaptureService captures) {

@@ -43,6 +43,8 @@ public class CdsExportPatientInventoryService {
                     "allergies", CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
                     "drugs", CdsCategory.MEDICATIONS_AND_TREATMENTS,
                     "preventions", CdsCategory.IMMUNIZATIONS,
+                    // Every captured screening row is one PastHealth procedure occurrence.
+                    CdsExportPreventionSources.SCREENINGS, CdsCategory.PAST_HEALTH,
                     "cds_laboratory_result", CdsCategory.LABORATORY_RESULTS,
                     "appointment", CdsCategory.APPOINTMENTS);
     private static final Set<CdsCategory> RETAINED =
@@ -115,9 +117,16 @@ public class CdsExportPatientInventoryService {
                             if (category != null) {
                                 if (!lease.document().command().categories().contains(category))
                                     invalid();
+                                // A screening's identity names its physical prevention row.
                                 add(
                                         expected,
-                                        nativeIdentity(patientKey, category, row.table(), row.id()),
+                                        nativeIdentity(
+                                                patientKey,
+                                                category,
+                                                row.table().equals(CdsExportPreventionSources.SCREENINGS)
+                                                        ? "preventions"
+                                                        : row.table(),
+                                                row.id()),
                                         budget);
                             } else if (row.table().equals("document")) {
                                 if (!documents.add(row.id())) invalid();

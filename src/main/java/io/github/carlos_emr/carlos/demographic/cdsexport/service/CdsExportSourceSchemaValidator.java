@@ -63,6 +63,9 @@ public final class CdsExportSourceSchemaValidator {
                     "prevention_configuration",
                     "preventions",
                     "preventions_scope",
+                    CdsExportPreventionSources.SCREENINGS,
+                    CdsExportPreventionSources.SCREENING_EXTENSIONS,
+                    CdsExportPreventionSources.SCREENING_PRECISION,
                     "CVCImmunization",
                     "CVCMapping",
                     "demographic_merged",
@@ -160,11 +163,9 @@ public final class CdsExportSourceSchemaValidator {
     }
 
     private static String physical(String scope) {
-        return switch (scope) {
-            case "preventions_scope" -> "preventions";
-            case "prevention_precision" -> "partial_date";
-            default -> scope;
-        };
+        return scope.equals("preventions_scope")
+                ? "preventions"
+                : CdsExportPreventionSources.schemaTable(scope);
     }
 
     private static void invalid() throws IOException {

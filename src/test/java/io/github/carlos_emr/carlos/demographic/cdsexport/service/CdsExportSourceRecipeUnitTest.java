@@ -24,8 +24,12 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import io.github.carlos_emr.carlos.commn.dao.CVCImmunizationDao;
+import io.github.carlos_emr.carlos.commn.dao.CVCMappingDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportRunDao;
 import io.github.carlos_emr.carlos.commn.dao.PartialDateDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
+import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
 import java.util.*;
@@ -84,6 +88,70 @@ class CdsExportSourceRecipeUnitTest {
                                                 CdsCategory.MEDICATIONS_AND_TREATMENTS)));
         assertThat(selected).containsExactlyInAnyOrder("demographic", "partial_date");
         verifyNoInteractions(stores);
+    }
+
+    private CdsExportNativeCaptureService preventionService() {
+        var snapshots = mock(CdsExportPreventionSnapshotService.class);
+        var access = mock(CdsExportPreventionAccessService.class);
+        var preventions = mock(PreventionDao.class);
+        var extensions = mock(PreventionExtDao.class);
+        var dates = mock(PartialDateDao.class);
+        return service(
+                reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of()),
+                new CdsExportPreventionConfigurationSourceReader(snapshots),
+                new CdsExportPreventionScopeSourceReader(preventions, access),
+                new CdsExportCvcImmunizationSourceReader(mock(CVCImmunizationDao.class)),
+                new CdsExportCvcMappingSourceReader(mock(CVCMappingDao.class)),
+                new CdsExportImmunizationSourceReader(preventions, snapshots, access),
+                new CdsExportImmunizationExtSourceReader(extensions, snapshots, access),
+                new CdsExportImmunizationPrecisionSourceReader(dates, snapshots, access),
+                new CdsExportScreeningSourceReader(preventions, snapshots, access),
+                new CdsExportScreeningExtSourceReader(extensions, snapshots, access),
+                new CdsExportScreeningPrecisionSourceReader(dates, snapshots, access));
+    }
+
+    @Test
+    void shouldCaptureScreeningsWithTheSharedClassification_forPastHealthWithoutVaccines() {
+        var categories = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PAST_HEALTH);
+        var service = preventionService();
+        var selected = service.requiredTables(command(categories));
+        var expected = new HashSet<>(CdsExportPreventionSources.SCREENING_REQUIRED);
+        expected.add("demographic");
+        assertThat(selected).isEqualTo(expected);
+        var control =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+                                .class);
+        service.authorizeScope(command(categories), 27, selected, control);
+        verify(control).authorizeCategory(27, CdsCategory.PAST_HEALTH, false);
+        verify(control, never()).authorizeCategory(27, CdsCategory.IMMUNIZATIONS, false);
+    }
+
+    @Test
+    void shouldKeepScreeningsOutOfAnImmunizationOnlyCapture_forSourceRecipeContract() {
+        var selected =
+                preventionService()
+                        .requiredTables(
+                                command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS)));
+        assertThat(selected)
+                .containsAll(CdsExportImmunizationCaptureValidator.REQUIRED)
+                .doesNotContainAnyElementsOf(CdsExportPreventionSources.SCREENING_TABLES);
+    }
+
+    @Test
+    void shouldCaptureBothPartitionsSeparately_whenBothCategoriesAreSelected() {
+        var selected =
+                preventionService()
+                        .requiredTables(
+                                command(
+                                        Set.of(
+                                                CdsCategory.DEMOGRAPHICS,
+                                                CdsCategory.IMMUNIZATIONS,
+                                                CdsCategory.PAST_HEALTH)));
+        assertThat(selected)
+                .containsAll(CdsExportImmunizationCaptureValidator.REQUIRED)
+                .containsAll(CdsExportPreventionSources.SCREENING_TABLES)
+                .hasSize(11);
     }
 
     @Test

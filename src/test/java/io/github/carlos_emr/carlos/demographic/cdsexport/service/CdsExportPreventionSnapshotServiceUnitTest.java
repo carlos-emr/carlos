@@ -118,6 +118,9 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                     saved[0] = state;
                     assertThat(state.selection().immunizations()).containsExactly(1);
                     assertThat(state.selection().otherPreventions()).containsExactly(2);
+                    // The screening partition is no longer only metadata: PastHealth captures it.
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
                     Files.writeString(
                             file,
                             "<preventions><item name='Td' layout='PAPMAM'/><item name='PAP' layout='injection' healthCanadaType='Td'/></preventions>");
@@ -261,6 +264,9 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                     assertThat(state.selection().reviews())
                             .containsEntry(1, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE);
                     assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    // An unclassifiable row may be a screening: PastHealth is held as well.
+                    assertThatThrownBy(state::screeningIds)
+                            .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
                     return null;
                 });
     }

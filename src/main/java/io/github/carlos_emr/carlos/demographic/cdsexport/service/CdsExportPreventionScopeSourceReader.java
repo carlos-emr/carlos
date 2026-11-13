@@ -33,14 +33,32 @@ public class CdsExportPreventionScopeSourceReader extends CdsExportPatientTableS
     private final CdsExportPreventionAccessService access;
     private final PreventionDao source;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionScopeSourceReader(
             PreventionDao source, CdsExportPreventionAccessService access) {
-        super(
-                source,
-                CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE,
-                Set.of(CdsCategory.IMMUNIZATIONS));
+        this(source, access, CdsExportPreventionSources.CATEGORIES);
+    }
+
+    private CdsExportPreventionScopeSourceReader(
+            PreventionDao source,
+            CdsExportPreventionAccessService access,
+            Set<CdsCategory> selected) {
+        super(source, CdsExportPatientTableReadSupport.Plan.PREVENTION_SCOPE, selected);
         this.access = java.util.Objects.requireNonNull(access);
         this.source = java.util.Objects.requireNonNull(source);
+    }
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return CdsExportPreventionSources.CATEGORIES;
+    }
+
+    /** Vaccines and screenings share one classification; only the selected categories are authorized. */
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return new CdsExportPreventionScopeSourceReader(
+                source, access, CdsExportPreventionSources.selected(command));
     }
 
     @Override

@@ -46,6 +46,8 @@ class CdsExportPreventionScopePlannerUnitTest {
         return new CdsExportPreventionScopePlanner().plan(27, classifier(), rows);
     }
 
+    // otherPreventions is the PastHealth screening selection, captured and exported as PastHealth
+    // procedures; it is not an excluded remainder (review findings F1/P1).
     @Test
     void shouldVerifyPartitionsEveryNativeMetadataOccurrenceIncludingH1n1AndUnknownTypes_forPreventionScopePlannerContract() throws Exception {
         var result =
@@ -63,6 +65,27 @@ class CdsExportPreventionScopePlannerUnitTest {
                         Map.of(3, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE));
         assertThat(result.rows()).isEqualTo(5);
         assertThat(result.representable()).isFalse();
+    }
+
+    @Test
+    void shouldSelectEveryBundledScreeningType_forPastHealthCapture() throws Exception {
+        byte[] xml;
+        try (var input = getClass().getResourceAsStream("/oscar/prevention/PreventionItems.xml")) {
+            assertThat(input).isNotNull();
+            xml = input.readAllBytes();
+        }
+        var bundled = CdsExportPreventionClassifier.fromCaptured("a".repeat(64), xml, List.of());
+        var names =
+                List.of(
+                        "Tuberculosis", "PAP", "HPV-CERVIX", "MAM", "PSA", "FOBT", "AAA",
+                        "COLONOSCOPY", "LDCT", "BMD", "HIV", "HepB screen", "HepC screen", "VDRL",
+                        "chlamydia", "ghonorrhea PCR", "PHV", "Smoking", "OtherB");
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int i = 0; i < names.size(); i++) rows.add(row(i + 1, names.get(i), "0", null));
+        var result = new CdsExportPreventionScopePlanner().plan(27, bundled, rows);
+        assertThat(result.otherPreventions()).hasSize(19);
+        assertThat(result.immunizations()).isEmpty();
+        assertThat(result.representable()).isTrue();
     }
 
     @Test

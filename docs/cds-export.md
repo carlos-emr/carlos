@@ -15,6 +15,28 @@ Patient membership is written synchronously to the normal chart audit in bounded
 batches before a private package is returned; PREPARED and actual publication/download
 outcomes are explicitly distinct and remain linked by run and attempt generation.
 
+Native prevention screenings (the bundled Screenings types and `OtherB`, which the frozen
+prevention classification puts in the non-immunization partition) are exported as PastHealth
+procedures when PastHealth is selected, as the legacy exporter wrote them. The description is
+the prevention type, its Refused, Ineligible or Completed externally status and the
+`Result:`/`Reason:` extension lines; a description longer than 250 characters keeps the type
+and status and moves those lines whole to Notes. ProcedureDate is the recorded calendar date at
+its recorded year, year-month or full-date precision (a native clock time stays in the
+residual), and Notes are the comments. The complete parent, extension and precision rows travel
+in the `CARLOS.Prevention.Source.v1` residual as JSON with SQL NULL and empty text distinct and
+spaces escaped, so `xs:token` normalization cannot change them. Screenings are captured through
+their own logical tables (`preventions_screening`, `preventionsExt_screening`,
+`prevention_precision_screening`) beside the classification inputs shared with Immunizations,
+so every screening has its own expected PastHealth identity and row witnesses; a missing,
+duplicated or unwitnessed row refuses the patient. As on the vaccine path, deleted (including
+superseded edited) rows, program-restricted rows, rows whose type is not a proven screening,
+unknown status codes, duplicate result/reason/comments extensions and unsupported date
+precision hold the patient for review, and any unclassifiable prevention row also holds a
+PastHealth export because it may be a screening. Without PastHealth, screenings are an explicit
+scope exclusion. The CARLOS importer files each entry as a Past Health (MedHistory) note
+whose text is the description and whose observation date is the ProcedureDate; Notes and the
+residual stay in the retained CDS source fields.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture

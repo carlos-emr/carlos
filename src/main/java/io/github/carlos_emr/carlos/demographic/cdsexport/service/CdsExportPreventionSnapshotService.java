@@ -274,6 +274,18 @@ public class CdsExportPreventionSnapshotService {
             return selection.immunizations();
         }
 
+        /**
+         * Non-immunization (screening) rows, captured only for PastHealth. An unclassifiable or
+         * program-restricted row could be a screening, so it holds the patient for review here
+         * too rather than letting a PastHealth-only export pass without it.
+         */
+        Set<Integer> screeningIds() {
+            require(patient);
+            if (!selection.representable())
+                throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+            return selection.otherPreventions();
+        }
+
         private void close() {
             closed = true;
             Arrays.fill(xml, (byte) 0);

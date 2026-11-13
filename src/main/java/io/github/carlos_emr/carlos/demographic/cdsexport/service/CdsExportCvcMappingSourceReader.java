@@ -30,7 +30,27 @@ import org.springframework.stereotype.Service;
 /** Frozen public CVC vocabulary definitions; these are not patient immunization occurrences or proof of code equivalence. */
 @Service
 public class CdsExportCvcMappingSourceReader extends CdsExportPatientTableSourceReader {
+    private final CVCMappingDao source;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportCvcMappingSourceReader(CVCMappingDao source) {
-        super(source, CdsExportPatientTableReadSupport.Plan.CVC_MAPPING, Set.of(CdsCategory.IMMUNIZATIONS));
+        this(source, CdsExportPreventionSources.CATEGORIES);
+    }
+
+    private CdsExportCvcMappingSourceReader(CVCMappingDao source, Set<CdsCategory> selected) {
+        super(source, CdsExportPatientTableReadSupport.Plan.CVC_MAPPING, selected);
+        this.source = source;
+    }
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return CdsExportPreventionSources.CATEGORIES;
+    }
+
+    /** Vaccines and screenings share one classification; only the selected categories are authorized. */
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return new CdsExportCvcMappingSourceReader(source, CdsExportPreventionSources.selected(command));
     }
 }

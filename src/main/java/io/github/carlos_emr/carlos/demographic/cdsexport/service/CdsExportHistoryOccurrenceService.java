@@ -33,6 +33,8 @@ import org.springframework.stereotype.Service;
 /**
  * Emits current native and imported history through one occurrence boundary. Every revision,
  * linked issue and retained source field has a disposition before private output can succeed.
+ * PastHealth also carries the patient's native screenings (non-immunization preventions), as
+ * the legacy exporter did; they are emitted at the same wire position after the notes.
  */
 @Service
 public class CdsExportHistoryOccurrenceService {
@@ -73,18 +75,32 @@ public class CdsExportHistoryOccurrenceService {
     private final CdsExportNoteRevisionInventoryService revisions;
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
+    private final CdsExportScreeningOccurrenceService screenings;
 
+    /** Without a screening assembler; a capture that holds screening rows is then refused. */
     public CdsExportHistoryOccurrenceService(
             CdsExportNativeCaptureService captures,
             CdsExportNativeRowReceiptReader witnesses,
             CdsExportNoteRevisionInventoryService revisions,
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification) {
+        this(captures, witnesses, revisions, values, verification, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportHistoryOccurrenceService(
+            CdsExportNativeCaptureService captures,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNoteRevisionInventoryService revisions,
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportScreeningOccurrenceService screenings) {
         this.captures = Objects.requireNonNull(captures);
         this.witnesses = Objects.requireNonNull(witnesses);
         this.revisions = Objects.requireNonNull(revisions);
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
+        this.screenings = screenings;
     }
 
     @FunctionalInterface
@@ -180,6 +196,12 @@ public class CdsExportHistoryOccurrenceService {
                             || !patientKey.matches("[0-9a-f]{64}")) invalid();
                     var tables = Set.copyOf(requiredTables);
                     if (!tables.equals(source.capture().tables().keySet())) invalid();
+                    // The source catalogue makes PastHealth capture the screening rows; a
+                    // catalogued capture without them must not export PastHealth without them.
+                    if (selected.contains(CdsCategory.PAST_HEALTH)
+                            && tables.contains("clinical_source_catalogue")
+                            && !tables.containsAll(CdsExportPreventionSources.SCREENING_REQUIRED))
+                        invalid();
                     new CdsExportMergeScopeValidator(captures)
                             .requireUnmerged(
                                     lease,
@@ -262,6 +284,10 @@ public class CdsExportHistoryOccurrenceService {
                                                 lease,
                                                 patient,
                                                 patientKey,
+                                                tables,
+                                                source,
+                                                bounds,
+                                                screenings,
                                                 inventory,
                                                 context,
                                                 index,
@@ -298,6 +324,10 @@ public class CdsExportHistoryOccurrenceService {
         private final CdsExportLeaseDto lease;
         private final CdsExportCohortService.Patient patient;
         private final String patientKey;
+        private final Set<String> tables;
+        private final CdsExportPatientCaptureDto source;
+        private final CdsExportClinicalOccurrenceService.Bounds bounds;
+        private final CdsExportScreeningOccurrenceService screenings;
         private final CdsExportNoteRevisionPlanner.Result inventory;
         private final CdsExportHistoryCurrentContext context;
         private final CdsExportRetainedIndexDto index;
@@ -316,6 +346,10 @@ public class CdsExportHistoryOccurrenceService {
                 CdsExportLeaseDto lease,
                 CdsExportCohortService.Patient patient,
                 String patientKey,
+                Set<String> tables,
+                CdsExportPatientCaptureDto source,
+                CdsExportClinicalOccurrenceService.Bounds bounds,
+                CdsExportScreeningOccurrenceService screenings,
                 CdsExportNoteRevisionPlanner.Result inventory,
                 CdsExportHistoryCurrentContext context,
                 CdsExportRetainedIndexDto index,
@@ -331,6 +365,10 @@ public class CdsExportHistoryOccurrenceService {
             this.lease = lease;
             this.patient = patient;
             this.patientKey = patientKey;
+            this.tables = tables;
+            this.source = source;
+            this.bounds = bounds;
+            this.screenings = screenings;
             this.inventory = inventory;
             this.context = context;
             this.index = index;
@@ -529,6 +567,25 @@ public class CdsExportHistoryOccurrenceService {
                         count++;
                         fields = Math.addExact(fields, accounted.size());
                     }
+                if (category == CdsCategory.PAST_HEALTH
+                        && !Collections.disjoint(
+                                tables, CdsExportPreventionSources.SCREENING_TABLES)) {
+                    if (screenings == null) invalid();
+                    long screened =
+                            screenings.append(
+                                    lease,
+                                    patient,
+                                    patientKey,
+                                    tables,
+                                    source,
+                                    index,
+                                    bounds,
+                                    control,
+                                    xml,
+                                    output);
+                    count = Math.addExact(count, screened);
+                    nativeOnly = Math.addExact(nativeOnly, screened);
+                }
                 var expectedFields = new HashSet<String>();
                 for (var field : retained)
                     if (field.category() == category) expectedFields.add(field.id());

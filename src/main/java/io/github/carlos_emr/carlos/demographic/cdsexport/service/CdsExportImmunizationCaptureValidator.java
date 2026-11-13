@@ -36,32 +36,33 @@ import org.springframework.stereotype.Service;
  * recomputed from authenticated captured configuration/vocabulary/metadata. Every selected
  * parent must match its complete metadata row; every extension and precision row must belong
  * to a selected parent. Large values stream to discard while both source EOFs remain mandatory.
+ * Vaccine rows (Immunizations) and screening rows (PastHealth) are separate logical tables of
+ * the same partition: each captured group must hold exactly its own partition, never the other's.
  */
 @Service
 public class CdsExportImmunizationCaptureValidator {
+    /** The vaccine closure; screenings use {@link CdsExportPreventionSources#SCREENING_REQUIRED}. */
     static final Set<String> REQUIRED =
-            Set.of(
-                    "prevention_configuration",
-                    "CVCImmunization",
-                    "CVCMapping",
-                    "preventions_scope",
-                    "preventions",
-                    "preventionsExt",
-                    "prevention_precision");
+            CdsExportPreventionSources.union(
+                    CdsExportPreventionSources.SHARED,
+                    CdsExportPreventionSources.IMMUNIZATION_TABLES);
+    private static final Set<String> PARENTS =
+            Set.of("preventions", CdsExportPreventionSources.SCREENINGS);
+    private static final Set<String> EXTENSIONS =
+            Set.of("preventionsExt", CdsExportPreventionSources.SCREENING_EXTENSIONS);
+    private static final Set<String> PARENT =
+            Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL.columns()),
+            EXTENSION = Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT.columns()),
+            PRECISION =
+                    Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION.columns());
     private static final Map<String, Set<String>> COLUMNS =
             Map.of(
-                    "preventions",
-                            Set.copyOf(
-                                    CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL
-                                            .columns()),
-                    "preventionsExt",
-                            Set.copyOf(
-                                    CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT
-                                            .columns()),
-                    "prevention_precision",
-                            Set.copyOf(
-                                    CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION
-                                            .columns()));
+                    "preventions", PARENT,
+                    "preventionsExt", EXTENSION,
+                    "prevention_precision", PRECISION,
+                    CdsExportPreventionSources.SCREENINGS, PARENT,
+                    CdsExportPreventionSources.SCREENING_EXTENSIONS, EXTENSION,
+                    CdsExportPreventionSources.SCREENING_PRECISION, PRECISION);
     private final CdsExportNativeCaptureService captures;
     private final CdsExportPreventionClassificationService classifications;
     private final CdsExportCapturedTextRowsReader rows;
@@ -130,11 +131,19 @@ public class CdsExportImmunizationCaptureValidator {
             throws IOException {
         patient.require(lease);
         control.checkpoint();
-        if (!tables.equals(source.capture().tables().keySet()) || !tables.containsAll(REQUIRED))
-            invalid();
+        if (!tables.equals(source.capture().tables().keySet())
+                || !tables.containsAll(CdsExportPreventionSources.SHARED)) invalid();
+        // A selected category captures its whole group; an unselected one captures none of it.
+        boolean vaccines = group(tables, CdsExportPreventionSources.IMMUNIZATION_TABLES),
+                screenings = group(tables, CdsExportPreventionSources.SCREENING_TABLES);
+        if (!vaccines && !screenings) invalid();
         for (var entry : COLUMNS.entrySet())
-            if (!source.capture().tables().get(entry.getKey()).columns().equals(entry.getValue()))
-                invalid();
+            if (tables.contains(entry.getKey())
+                    && !source.capture()
+                            .tables()
+                            .get(entry.getKey())
+                            .columns()
+                            .equals(entry.getValue())) invalid();
         var selection =
                 embedded
                         ? classifications.classifyEmbedded(
@@ -190,7 +199,8 @@ public class CdsExportImmunizationCaptureValidator {
         partition.addAll(selection.otherPreventions());
         partition.addAll(selection.reviews().keySet());
         if (!partition.equals(metadata.keySet())) invalid();
-        try (var fields = new Fields(selection.immunizations(), metadata)) {
+        try (var fields =
+                new Fields(selection.immunizations(), selection.otherPreventions(), metadata)) {
             actual =
                     captures.scan(
                             lease,
@@ -203,10 +213,13 @@ public class CdsExportImmunizationCaptureValidator {
                             fields);
             fields.finishRow();
             if (!actual.equals(source.capture())
-                    || !fields.parents.equals(selection.immunizations())) invalid();
+                    || vaccines && !fields.parents.equals(selection.immunizations())
+                    || screenings && !fields.screeningParents.equals(selection.otherPreventions()))
+                invalid();
             for (String table : COLUMNS.keySet())
-                if (fields.counts.getOrDefault(table, 0L) != actual.tables().get(table).rows())
-                    invalid();
+                if (tables.contains(table)
+                        && fields.counts.getOrDefault(table, 0L)
+                                != actual.tables().get(table).rows()) invalid();
         }
         captures.authorizeSources(lease, patient, tables, control);
         patient.require(lease);
@@ -218,11 +231,19 @@ public class CdsExportImmunizationCaptureValidator {
         return selection;
     }
 
+    private static boolean group(Set<String> tables, Set<String> group) throws IOException {
+        if (tables.containsAll(group)) return true;
+        if (!Collections.disjoint(tables, group)) invalid();
+        return false;
+    }
+
     private static final class Fields
             implements CdsExportNativeCaptureReader.Fields, AutoCloseable {
-        private final Set<Integer> selected;
+        private final Set<Integer> selected, screenings;
         private final Map<Integer, Map<String, String>> metadata;
-        private final Set<Integer> parents = new HashSet<>(), precisionIds = new HashSet<>();
+        private final Set<Integer> parents = new HashSet<>(),
+                screeningParents = new HashSet<>(),
+                precisionIds = new HashSet<>();
         private final Map<String, Long> counts = new HashMap<>();
         private final Map<String, String> values = new HashMap<>();
         private final Set<String> headers = new HashSet<>();
@@ -231,8 +252,12 @@ public class CdsExportImmunizationCaptureValidator {
         private ByteArrayOutputStream bytes;
         private boolean closed;
 
-        Fields(Set<Integer> selected, Map<Integer, Map<String, String>> metadata) {
+        Fields(
+                Set<Integer> selected,
+                Set<Integer> screenings,
+                Map<Integer, Map<String, String>> metadata) {
             this.selected = selected;
+            this.screenings = screenings;
             this.metadata = metadata;
         }
 
@@ -249,7 +274,7 @@ public class CdsExportImmunizationCaptureValidator {
             if (!headers.add(field.column()) || field.exactNumeric() != null) invalid();
             pending = field;
             boolean small =
-                    table.equals("preventions")
+                    PARENTS.contains(table)
                             ? CdsExportPreventionScopePlanner.COLUMNS.contains(field.column())
                             : Set.of("id", "prevention_id", "table_id", "table_name")
                                     .contains(field.column());
@@ -315,19 +340,17 @@ public class CdsExportImmunizationCaptureValidator {
                         || !precisionIds.add(id)) invalid();
             } else {
                 if (!headers.equals(COLUMNS.get(table))) invalid();
-                if (table.equals("preventions")) {
-                    if (!selected.contains(id)
-                            || !parents.add(id)
+                boolean screening = CdsExportPreventionSources.SCREENING_TABLES.contains(table);
+                var owners = screening ? screenings : selected;
+                if (PARENTS.contains(table)) {
+                    if (!owners.contains(id)
+                            || !(screening ? screeningParents : parents).add(id)
                             || !values.equals(metadata.get(id))) invalid();
                 } else {
-                    int parent =
-                            integer(
-                                    values.get(
-                                            table.equals("preventionsExt")
-                                                    ? "prevention_id"
-                                                    : "table_id"));
-                    if (!selected.contains(parent)) invalid();
-                    if (table.equals("prevention_precision")
+                    boolean extension = EXTENSIONS.contains(table);
+                    int parent = integer(values.get(extension ? "prevention_id" : "table_id"));
+                    if (!owners.contains(parent)) invalid();
+                    if (!extension
                             && (!"4".equals(values.get("table_name")) || !precisionIds.add(id)))
                         invalid();
                 }
@@ -345,6 +368,7 @@ public class CdsExportImmunizationCaptureValidator {
             values.clear();
             headers.clear();
             parents.clear();
+            screeningParents.clear();
             precisionIds.clear();
             bytes = null;
             pending = null;

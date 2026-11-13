@@ -32,10 +32,31 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportPreventionConfigurationSourceReader implements CdsExportNativeSourceReader {
     private final CdsExportPreventionSnapshotService snapshots;
+    private final Set<CdsCategory> selected;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionConfigurationSourceReader(
             CdsExportPreventionSnapshotService snapshots) {
+        this(snapshots, CdsExportPreventionSources.CATEGORIES);
+    }
+
+    private CdsExportPreventionConfigurationSourceReader(
+            CdsExportPreventionSnapshotService snapshots, Set<CdsCategory> selected) {
         this.snapshots = java.util.Objects.requireNonNull(snapshots);
+        this.selected = Set.copyOf(selected);
+    }
+
+    @Override
+    public Set<CdsCategory> supportedCategories() {
+        return CdsExportPreventionSources.CATEGORIES;
+    }
+
+    /** Vaccines and screenings share one classification; only the selected categories are authorized. */
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        return new CdsExportPreventionConfigurationSourceReader(
+                snapshots, CdsExportPreventionSources.selected(command));
     }
 
     @Override
@@ -50,7 +71,7 @@ public class CdsExportPreventionConfigurationSourceReader implements CdsExportNa
 
     @Override
     public Set<CdsCategory> categories() {
-        return Set.of(CdsCategory.IMMUNIZATIONS);
+        return selected;
     }
 
     @Override

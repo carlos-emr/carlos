@@ -53,6 +53,7 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
     private CdsExportPreventionConfigurationDto config;
     private CdsExportImmunizationCaptureValidator validator;
     private boolean lateFailure, foreignGeneration, review, embedded;
+    private Set<Integer> screenings = Set.of();
 
     @BeforeEach
     void prepare() throws Exception {
@@ -160,14 +161,14 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
                                         HASH,
                                         HASH,
                                         review ? Set.of() : Set.of(1),
-                                        Set.of(),
+                                        screenings,
                                         review
                                                 ? Map.of(
                                                         1,
                                                         CdsExportPreventionScopePlanner.Review
                                                                 .UNKNOWN_TYPE)
                                                 : Map.of(),
-                                        1));
+                                        1 + screenings.size()));
         when(rows.forEach(
                         eq(lease),
                         eq(patient),
@@ -312,6 +313,8 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
         refused();
     }
 
+    // Screenings are captured in their own logical tables for PastHealth (see the screening tests
+    // below); a screening row in the vaccine table is still a wrong selection, not an export.
     @Test
     void shouldVerifyAnUnselectedScreeningParentCannotBecomeAnImmunization_forImmunizationCaptureValidatorContract() {
         var extra = new TreeMap<>(data.get("preventions").getFirst());
@@ -466,6 +469,126 @@ class CdsExportImmunizationCaptureValidatorUnitTest {
                                 27, HASH, HASH, HASH, HASH, Set.of(1), Set.of(), Map.of(), 1));
         assertThatThrownBy(this::verifyCapture).hasMessage("LATE_AUTHENTICATED_EOF_FAILURE");
         verify(captures, never()).authorizeSources(any(), any(), anySet(), any());
+    }
+
+    /** Adds a PAP screening (id 2) with one extension and one precision row in its own tables. */
+    private void screening(boolean metadataRow) {
+        screenings = Set.of(2);
+        columns.put(
+                CdsExportPreventionSources.SCREENINGS,
+                Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL.columns()));
+        columns.put(
+                CdsExportPreventionSources.SCREENING_EXTENSIONS,
+                Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT.columns()));
+        columns.put(
+                CdsExportPreventionSources.SCREENING_PRECISION,
+                Set.copyOf(CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION.columns()));
+        var parent = blank(columns.get("preventions"));
+        parent.putAll(
+                Map.of("id", "2", "demographic_no", "27", "prevention_type", "PAP", "deleted", "0"));
+        data.put(CdsExportPreventionSources.SCREENINGS, new ArrayList<>(List.of(parent)));
+        data.put(
+                CdsExportPreventionSources.SCREENING_EXTENSIONS,
+                new ArrayList<>(
+                        List.of(
+                                new TreeMap<>(
+                                        Map.of(
+                                                "id", "13", "prevention_id", "2", "keyval",
+                                                "result", "val", "abnormal")))));
+        data.put(
+                CdsExportPreventionSources.SCREENING_PRECISION,
+                new ArrayList<>(
+                        List.of(
+                                new TreeMap<>(
+                                        Map.of(
+                                                "id", "22", "table_id", "2", "table_name", "4",
+                                                "field_name", "7", "format", "YYYY-MM")))));
+        if (metadataRow) {
+            var meta = blank(CdsExportPreventionScopePlanner.COLUMNS);
+            for (String key : meta.keySet()) meta.put(key, parent.get(key));
+            metadata.add(
+                    new CdsExportCapturedTextRowDto(
+                            "preventions_scope", CdsExportPatientTableSourceReader.key(2), meta));
+            data.get("preventions_scope").add(meta);
+        }
+    }
+
+    private void withoutVaccineTables() {
+        for (String table : List.of("preventions", "preventionsExt", "prevention_precision")) {
+            columns.remove(table);
+            data.remove(table);
+        }
+    }
+
+    @Test
+    void shouldVerifyScreeningsAsTheirOwnCapturedPartition_besideTheVaccines() throws Exception {
+        screening(true);
+        var selection = verifyCapture();
+        assertThat(selection.immunizations()).containsExactly(1);
+        assertThat(selection.otherPreventions()).containsExactly(2);
+        verify(captures).authorizeSources(eq(lease), eq(patient), anySet(), eq(control));
+    }
+
+    @Test
+    void shouldVerifyAScreeningOnlyCapture_whenImmunizationsWereNotRequested() throws Exception {
+        screening(true);
+        withoutVaccineTables();
+        assertThat(verifyCapture().otherPreventions()).containsExactly(2);
+    }
+
+    @Test
+    void shouldRefuseAMissingCapturedScreening_insteadOfExportingPastHealthWithoutIt() {
+        screening(true);
+        data.get(CdsExportPreventionSources.SCREENINGS).clear();
+        data.get(CdsExportPreventionSources.SCREENING_EXTENSIONS).clear();
+        data.get(CdsExportPreventionSources.SCREENING_PRECISION).clear();
+        refused();
+    }
+
+    @Test
+    void shouldRefuseAVaccineParent_inTheScreeningTable() {
+        screening(true);
+        var vaccine = new TreeMap<>(data.get("preventions").getFirst());
+        data.get(CdsExportPreventionSources.SCREENINGS).addFirst(vaccine);
+        refused();
+    }
+
+    @Test
+    void shouldRefuseAScreeningParent_inTheVaccineTable() {
+        screening(true);
+        data.get("preventions").add(new TreeMap<>(data.get(CdsExportPreventionSources.SCREENINGS).getFirst()));
+        refused();
+    }
+
+    @Test
+    void shouldRefuseAScreeningExtension_attachedToAVaccine() {
+        screening(true);
+        data.get(CdsExportPreventionSources.SCREENING_EXTENSIONS).getFirst().put("prevention_id", "1");
+        refused();
+    }
+
+    @Test
+    void shouldRefuseOnePhysicalPrecisionRow_inBothPreventionAliases() {
+        screening(true);
+        var precision = data.get(CdsExportPreventionSources.SCREENING_PRECISION).getFirst();
+        precision.put("id", "21");
+        refused();
+    }
+
+    @Test
+    void shouldRefuseAPartialScreeningGroup_insteadOfReadingItsParentsAlone() {
+        screening(true);
+        columns.remove(CdsExportPreventionSources.SCREENING_EXTENSIONS);
+        data.remove(CdsExportPreventionSources.SCREENING_EXTENSIONS);
+        refused();
+        verifyNoInteractions(classifications, rows);
+    }
+
+    @Test
+    void shouldRefuseAScreeningParentWhoseMetadataDisagrees_withItsFrozenClassification() {
+        screening(true);
+        data.get(CdsExportPreventionSources.SCREENINGS).getFirst().put("prevention_type", "Td");
+        refused();
     }
 
     private void refused() {

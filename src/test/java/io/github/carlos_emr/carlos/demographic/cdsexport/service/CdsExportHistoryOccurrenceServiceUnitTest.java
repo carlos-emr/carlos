@@ -75,8 +75,46 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
         service =
                 new CdsExportHistoryOccurrenceService(
                         captures, receipts, revisions, values, verification);
+        prepareCapture(Map.of());
+        when(revisions.inventory(
+                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyLong(), any()))
+                .thenReturn(
+                        new CdsExportNoteRevisionPlanner.Result(27, HASH, List.of(), Map.of(), 0));
+        var index =
+                new CdsExportRetainedIndexDto(
+                        HASH,
+                        0,
+                        0,
+                        Map.of("cds_import_unit", Map.of(), "cds_import_field", Map.of()),
+                        Set.of(),
+                        Map.of(),
+                        Map.of());
+        when(verification.verify(
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
+                        any()))
+                .thenReturn(
+                        new CdsExportRetainedReceiptVerificationDto(
+                                HASH, Map.of(), Set.of(), Set.of()));
+        doAnswer(
+                        call -> {
+                            call.<CdsExportRetainedValuesService.Work>getArgument(10)
+                                    .use(index, List.of(), streams);
+                            return null;
+                        })
+                .when(values)
+                .withValues(
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
+                        anyLong(), any(), any());
+    }
+
+    /** An empty capture of the history tables plus any extra (empty) captured tables. */
+    private void prepareCapture(Map<String, Set<String>> extra) throws Exception {
         var expected = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
         var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
+        for (var entry : extra.entrySet()) {
+            expected.put(entry.getKey(), new CdsExportNativeCaptureReader.Table(entry.getValue(), 0));
+            scopes.put(entry.getKey(), new CdsExportCapturedTableDto(entry.getValue(), 0, HASH));
+        }
         for (var plan :
                 List.of(
                         Plan.CASE_NOTES,
@@ -117,8 +155,7 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                                 writer.endTable();
                             }
                         });
-        when(captures.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
-                .thenAnswer(
+        doAnswer(
                         call -> {
                             new CdsExportNativeCaptureReader()
                                     .scan(
@@ -130,40 +167,22 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                                             () -> {},
                                             call.getArgument(7));
                             return capture;
-                        });
+                        })
+                .when(captures)
+                .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
         var counts = new HashMap<String, Long>();
         for (String table : tables) if (!table.equals("demographic_merged")) counts.put(table, 0L);
-        when(receipts.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
-                .thenReturn(new CdsExportNativeRowReceiptsDto(HASH, counts, 0, 0, Set.of()));
-        when(revisions.inventory(
-                        any(), any(), anySet(), any(), anyLong(), anyLong(), anyLong(), any()))
-                .thenReturn(
-                        new CdsExportNoteRevisionPlanner.Result(27, HASH, List.of(), Map.of(), 0));
-        var index =
-                new CdsExportRetainedIndexDto(
-                        HASH,
-                        0,
-                        0,
-                        Map.of("cds_import_unit", Map.of(), "cds_import_field", Map.of()),
-                        Set.of(),
-                        Map.of(),
-                        Map.of());
-        when(verification.verify(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        any()))
-                .thenReturn(
-                        new CdsExportRetainedReceiptVerificationDto(
-                                HASH, Map.of(), Set.of(), Set.of()));
-        doAnswer(
-                        call -> {
-                            call.<CdsExportRetainedValuesService.Work>getArgument(10)
-                                    .use(index, List.of(), streams);
-                            return null;
-                        })
-                .when(values)
-                .withValues(
-                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
-                        anyLong(), any(), any());
+        doReturn(new CdsExportNativeRowReceiptsDto(HASH, counts, 0, 0, Set.of()))
+                .when(receipts)
+                .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+    }
+
+    private static Map<String, Set<String>> screeningTables(boolean catalogue) {
+        var result = new TreeMap<String, Set<String>>();
+        for (String table : CdsExportPreventionSources.SCREENING_REQUIRED)
+            result.put(table, Set.of("id"));
+        if (catalogue) result.put("clinical_source_catalogue", Set.of("catalogueSha256"));
+        return result;
     }
 
     private CdsExportXmlComposer.Result compose(
@@ -215,6 +234,49 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                         anyLong(), any(), any());
         verify(captures, times(2))
                 .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+    }
+
+    @Test
+    void shouldEmitCapturedScreenings_atThePastHealthWirePosition() throws Exception {
+        var screenings = mock(CdsExportScreeningOccurrenceService.class);
+        when(screenings.append(
+                        any(), any(), anyString(), anySet(), any(), any(), any(), any(), any(),
+                        any()))
+                .thenReturn(2L);
+        service =
+                new CdsExportHistoryOccurrenceService(
+                        captures, receipts, revisions, values, verification, screenings);
+        prepareCapture(screeningTables(true));
+        var results = new EnumMap<CdsCategory, CdsExportClinicalOccurrenceService.Result>(
+                CdsCategory.class);
+        compose(
+                source -> {
+                    for (var category : CdsCategory.values())
+                        if (CdsExportNoteSourceReader.CATEGORIES.contains(category))
+                            results.put(category, source.append(category, ignored -> {}));
+                },
+                false);
+        assertThat(results.get(CdsCategory.PAST_HEALTH).nativeRows()).isEqualTo(2);
+        assertThat(results.get(CdsCategory.PAST_HEALTH).nativeOnlyRows()).isEqualTo(2);
+        assertThat(results.get(CdsCategory.PROBLEM_LIST).nativeRows()).isZero();
+        verify(screenings, times(1))
+                .append(
+                        eq(lease), eq(patient), eq(PATIENT), eq(tables), eq(source), any(),
+                        eq(bounds), eq(control), any(), any());
+    }
+
+    @Test
+    void shouldRefuseCapturedScreenings_withoutAScreeningAssembler() throws Exception {
+        prepareCapture(screeningTables(false));
+        assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .hasMessage("CDS_EXPORT_HISTORY_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseACataloguedPastHealthCapture_thatLeftOutTheScreenings() throws Exception {
+        prepareCapture(Map.of("clinical_source_catalogue", Set.of("catalogueSha256")));
+        assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .hasMessage("CDS_EXPORT_HISTORY_OCCURRENCE_SCOPE_INVALID");
     }
 
     @Test

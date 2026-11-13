@@ -79,7 +79,10 @@ final class CdsExportImmunizationProjectionEvidence {
                                                         .digest(bytes)));
     }
 
-    /** Receipt identity stays physical partial_date; source-field identity keeps its explicit prevention alias. */
+    /**
+     * Receipt identity stays physical partial_date; source-field identity keeps its explicit
+     * prevention alias. Screening aliases are witnessed under their own logical names.
+     */
     static void verifyCurrent(CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto receipt)
             throws IOException {
         if (row == null
@@ -88,11 +91,11 @@ final class CdsExportImmunizationProjectionEvidence {
                 || !row.exactNumbers().isEmpty()) scope();
         var columns =
                 switch (row.table()) {
-                    case "preventions" ->
+                    case "preventions", CdsExportPreventionSources.SCREENINGS ->
                             CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL.columns();
-                    case "preventionsExt" ->
+                    case "preventionsExt", CdsExportPreventionSources.SCREENING_EXTENSIONS ->
                             CdsExportPatientTableReadSupport.Plan.PREVENTIONS_EXT.columns();
-                    case "prevention_precision" ->
+                    case "prevention_precision", CdsExportPreventionSources.SCREENING_PRECISION ->
                             CdsExportPatientTableReadSupport.Plan.PREVENTION_PRECISION.columns();
                     default ->
                             throw new IOException(

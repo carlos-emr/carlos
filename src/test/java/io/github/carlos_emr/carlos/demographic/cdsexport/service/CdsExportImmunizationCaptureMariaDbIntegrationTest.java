@@ -294,6 +294,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
     }
 
+    // The vaccine selection still excludes the screening row; that row is no longer dropped: the
+    // PastHealth screening selection reads it with its children (see the next test).
     @Test
     void
             shouldVerifySelectedOwningDaosIncludeEveryVaccineColumnAndChildWhileExcludingScreeningAndForeignValues_forImmunizationCaptureContract() {
@@ -334,6 +336,43 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                                             .getFirst()
                                             .id())
                             .isEqualTo(first + 2);
+                });
+    }
+
+    @Test
+    void shouldReadTheScreeningRowAndItsChildren_throughTheSeparatePastHealthSelection() {
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        var state = snapshots.prepare(patient, () -> {});
+                        assertThat(state.screeningIds()).containsExactly(first + 1);
+                        var parents = new CdsExportScreeningSourceReader(dao, snapshots, access);
+                        var children =
+                                new CdsExportScreeningExtSourceReader(extensions, snapshots, access);
+                        var dates =
+                                new CdsExportScreeningPrecisionSourceReader(
+                                        precision, snapshots, access);
+                        assertThat(parents.table()).isEqualTo("preventions_screening");
+                        assertThat(parents.count(patient)).isEqualTo(1);
+                        assertThat(children.count(patient)).isEqualTo(1);
+                        assertThat(dates.count(patient)).isEqualTo(1);
+                        var screening = Set.of(first + 1);
+                        assertThat(dao.findCdsExportPreventionRowsAfter(patient, screening, null, 32))
+                                .singleElement()
+                                .satisfies(row -> assertThat(row.cells()).hasSize(16));
+                        assertThat(
+                                        extensions.findCdsExportPreventionRowsAfter(
+                                                patient, screening, null, 32))
+                                .singleElement()
+                                .satisfies(row -> assertThat(row.id()).isEqualTo(first - 14));
+                        assertThat(
+                                        precision.findCdsExportPreventionRowsAfter(
+                                                patient, screening, null, 32))
+                                .singleElement()
+                                .satisfies(row -> assertThat(row.id()).isEqualTo(first - 32));
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
                 });
     }
 

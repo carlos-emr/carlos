@@ -619,7 +619,14 @@
       "casemgmt_issue_notes",
       "issue",
       "provider",
-      "clinical_timezone"
+      "clinical_timezone",
+      "preventions_screening",
+      "preventionsExt_screening",
+      "prevention_precision_screening",
+      "prevention_configuration",
+      "CVCImmunization",
+      "CVCMapping",
+      "preventions_scope"
     ],
     "ProblemList": [
       "casemgmt_note",
