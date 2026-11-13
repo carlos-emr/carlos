@@ -314,6 +314,12 @@ def publish_upgrade_proof(path, proof):
         pending.unlink(missing_ok=True)
 
 
+def head_migrations(repository, province):
+    """Versioned migrations of the checked-out tree that a fresh install of the province applies."""
+    root = Path(repository) / 'database/mysql/migration'
+    return sum(1 for folder in ('common', province) for _ in (root / folder).glob('V*.sql'))
+
+
 def usage_error(message):
     """Refuse an invalid evidence destination as argparse refuses an invalid option (exit status 2).
 
@@ -460,7 +466,7 @@ def main():
                     proof = json.loads((output / ('upgrade-' + province + '.json')).read_text())
                     expected = {'status': 'CLI_AND_RETENTION_PASSED', 'baseCommit': RELEASE_UPGRADE_BASE, 'province': province,
                                 'baseMigrations': 78 if province == 'on' else 77,
-                                'headMigrations': 84 if province == 'on' else 83, 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1,
+                                'headMigrations': head_migrations(repository, province), 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1,
                                 'appliedHistoryUnchanged': True, 'cliMigrate': True, 'cliValidate': True,
                                 'bootValidate': True, 'pending': 0}
                     if proof != expected:

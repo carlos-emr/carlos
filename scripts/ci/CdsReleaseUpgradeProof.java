@@ -98,7 +98,9 @@ public final class CdsReleaseUpgradeProof {
         upgraded.validate();
         require(upgraded.info().pending().length == 0, "PENDING_REMAINS");
         int applied = upgraded.info().applied().length;
-        require(applied == (province.equals("on") ? 84 : 83), "HEAD_HISTORY_COUNT");
+        // Exactly the checked-out migration set, counted from the packaged classpath rather than a
+        // number that the next merged migration would silently invalidate (review CI-10).
+        require(applied == packagedMigrations(locations), "HEAD_HISTORY_COUNT");
         verifyRetained(source, before);
         removeSyntheticFixture(source);
         Files.writeString(
@@ -311,5 +313,16 @@ public final class CdsReleaseUpgradeProof {
 
     private static void require(boolean condition, String code) {
         if (!condition) throw new IllegalStateException("CDS_UPGRADE_" + code);
+    }
+
+    private static int packagedMigrations(String locations) throws java.io.IOException {
+        var resolver = new org.springframework.core.io.support.PathMatchingResourcePatternResolver();
+        int count = 0;
+        for (String location : locations.split(",")) {
+            String folder = location.substring("classpath:".length());
+            count += resolver.getResources("classpath*:" + folder + "/V*.sql").length;
+        }
+        require(count > 0, "HEAD_MIGRATIONS_UNRESOLVED");
+        return count;
     }
 }
