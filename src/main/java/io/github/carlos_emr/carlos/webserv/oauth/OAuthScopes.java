@@ -134,11 +134,10 @@ public final class OAuthScopes {
     /**
      * Path roots whose entire non-safe-method surface is read-only (no create/update/delete operations), so a
      * {@code POST} under them resolves to {@code .read}. Only {@code POST} qualifies (every read-only operation
-     * on these services is a {@code POST}); a {@code PUT}/{@code DELETE} stays a write. Revisit if a mutating
-     * endpoint is ever added to one of these services.
+     * on these services is a {@code POST}); a {@code PUT}/{@code DELETE} stays a write.
      */
     private static final Set<String> NONSAFE_READ_ROOTS = Set.of(
-        "measurements", "recordux", "rxlookup", "patientdetailstatusservice"
+        "recordux", "rxlookup", "patientdetailstatusservice"
     );
 
     /**
@@ -151,6 +150,7 @@ public final class OAuthScopes {
      * is a {@code POST}, so a {@code PUT}/{@code DELETE} to a matching path is never a read.
      */
     private static final Map<String, List<List<String>>> READ_OP_TEMPLATES_BY_ROOT = Map.ofEntries(
+        Map.entry("measurements", List.of(seg("*"))),
         Map.entry("schedule", List.of(seg("getappointment"), seg("*", "appointmenthistory"))),
         Map.entry("tickler", List.of(seg("search"))),
         Map.entry("demographics", List.of(seg("search"))),
