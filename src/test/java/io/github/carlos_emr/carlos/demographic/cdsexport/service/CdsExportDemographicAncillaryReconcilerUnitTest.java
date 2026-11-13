@@ -72,21 +72,29 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
             assertThat(result.demographicComplete()).isFalse(); assertThat(result.coreChanges()).hasSize(1);
         }
     }
-    @Test void shouldBlockEveryPopulatedAncillaryValue_includingWhitespaceAndFalseLookingCodes() throws Exception {
+    @Test void shouldCarryEveryPopulatedAncillaryValue_includingWhitespaceAndFalseLookingCodes() throws Exception {
+        // Values the demographic screens write that CDS 5.2 Demographics has no element for travel in the native
+        // demographic NewCategory record; they never hold the chart or withhold the retained XML changes.
         for (String column : List.of("alias", "anonymous", "children", "citizenship", "consentToUseEmailForCare", "country_of_origin",
                 "end_date", "family_doctor", "gender", "genderId", "myOscarUserName", "newsletter", "pcn_indicator",
                 "pref_name", "previousAddress", "pronoun", "pronounId", "sourceOfIncome")) {
             for (String value : List.of("0", "false", " ", "Clinical 😀 & value")) {
                 var result = reconcile(row(column, value));
-                assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
-                assertThat(result.coreRepresentable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
-                assertThatThrownBy(result::coreChanges).hasMessage("CDS_EXPORT_DEMOGRAPHIC_CORE_REQUIRES_REVIEW");
+                assertThat(result.fields().get(key(column))).isEqualTo(new CdsExportFieldAssessmentDto(Presence.VALUE,
+                        Outcome.MAPPED, CdsExportDemographicSupportingMapper.DESTINATION, CdsExportDemographicSupportingMapper.CARRIED_RULE));
+                assertThat(result.coreRepresentable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
             }
         }
     }
+    @Test void shouldHoldOnlyAnAncillaryValueNoXmlDocumentCanCarry_forAncillaryReconcilerContract() throws Exception {
+        var result = reconcile(row("pronoun", "she\uFFFF"));
+        assertThat(result.fields().get(key("pronoun")).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+        assertThat(result.coreRepresentable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+        assertThatThrownBy(result::coreChanges).hasMessage("CDS_EXPORT_DEMOGRAPHIC_CORE_REQUIRES_REVIEW");
+    }
     @Test void shouldAccountForMasterRecordPlaceholders_whileStillHoldingAChosenValue() throws Exception {
         // D5: add-form-personal.jsp preselects newsletter "Unknown" and offers country of origin "-1" ("Not set");
-        // every save writes them. They are not patient facts; a chosen value has no CDS home and still holds the chart.
+        // every save writes them. They are not patient facts; a chosen value has no CDS element and is carried.
         for (var placeholder : List.of(Map.entry("newsletter", "Unknown"), Map.entry("country_of_origin", "-1"))) {
             var result = reconcile(row(placeholder.getKey(), placeholder.getValue()));
             assertThat(result.fields().get(key(placeholder.getKey())).outcome()).isEqualTo(Outcome.OPERATIONAL);
@@ -95,7 +103,8 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
         }
         for (var chosen : List.of(Map.entry("newsletter", "Paper"), Map.entry("country_of_origin", "CA"))) {
             var result = reconcile(row(chosen.getKey(), chosen.getValue()));
-            assertThat(result.fields().get(key(chosen.getKey())).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+            assertThat(result.fields().get(key(chosen.getKey())).outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(result.fields().get(key(chosen.getKey())).destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         }
     }
     @Test void shouldDecidePracticeAdministrativeDates_asNotExportedWithoutHoldingTheChart() throws Exception {

@@ -130,6 +130,17 @@ the page does not cancel an accepted export.
 Run as an authorized Unix operator through sudo. Root-issued delegation is bound
 to the exact arguments, and the provider still needs current clinical permissions.
 
+Every value the demographic screens write is exported; none holds the patient. The patient
+alert (the Alert box) is exported as an AlertsAndSpecialNeeds item when that category is
+selected. Details CDS 5.2 Demographics has no place for (preferred name, alias, pronoun, gender
+identity, the referral doctor, the nurse, resident and midwife, ethnicity, consents, paper-chart
+status, First Nations details, a site's own extra fields, and a phone extension or mobile number
+too long for the CDS phone element) travel exactly in one NewCategory record per patient,
+`CARLOS.NativeDemographic.v1`. Select NewCategory to send them; without it they are not
+exported and the ReadMe says so. A care-team provider is sent with the provider number and the
+provider's public name. Only a value containing a character no XML file can hold still holds the
+patient; correct it on the demographic page and export again.
+
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported
 HL7 ORU results, and document reports with their attachments. A document is exported as

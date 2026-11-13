@@ -120,10 +120,19 @@ class CdsExportPatientNoteMapperUnitTest {
                             DEMOGRAPHICS,
                             new CdsExportCapturedTextRowDto(
                                     original.table(), original.recordKey(), fields));
-            assertThat(mapped.representable()).isFalse();
+            // The nurse, resident or midwife travels in the native demographic NewCategory
+            // record; it is neither note text nor a primary physician, and never holds the chart.
+            assertThat(mapped.representable()).isTrue();
             assertThat(mapped.text()).isEqualTo("Patient note");
-            assertThatThrownBy(() -> compose(mapped))
-                    .hasMessage("CDS_EXPORT_PATIENT_NOTE_MAPPING_REQUIRES_REVIEW");
+            assertThat(
+                            mapped.fields().entrySet().stream()
+                                    .filter(entry -> entry.getKey().column().equals(column))
+                                    .findFirst()
+                                    .orElseThrow()
+                                    .getValue()
+                                    .destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+            compose(mapped);
         }
     }
 

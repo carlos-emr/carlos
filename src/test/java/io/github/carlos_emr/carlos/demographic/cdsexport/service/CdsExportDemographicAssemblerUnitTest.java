@@ -177,7 +177,7 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldBlockAPopulatedCareTeamCarrier_andWithholdEarlierXmlChanges() throws Exception {
+    void shouldCarryAPopulatedCareTeamCarrier_andKeepEarlierXmlChanges() throws Exception {
         var values =
                 Map.of(
                         "demographic_no",
@@ -206,15 +206,60 @@ class CdsExportDemographicAssemblerUnitTest {
                                 new CdsExportRetainedSectionWriter.Change(
                                         "ChartNumber[1]", Set.of(), xml -> xml.text("fixture"))));
         var result = CdsExportDemographicAssembler.accountCareCarriers(prior, custom, () -> {});
-        assertThat(result.coreRepresentable()).isFalse();
-        assertThat(result.proposedChanges()).isEmpty();
+        assertThat(result.coreRepresentable()).isTrue();
+        assertThat(result.proposedChanges()).hasSize(1);
+        var nurse = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust1");
+        assertThat(result.fields().get(nurse))
+                .isEqualTo(
+                        new CdsExportFieldAssessmentDto(
+                                CdsExportFieldAssessmentDto.Presence.VALUE,
+                                CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                                CdsExportDemographicSupportingMapper.DESTINATION,
+                                CdsExportDemographicSupportingMapper.CARRIED_RULE));
+        // Without NewCategory the same value is accounted for as not selected, never held.
+        var unselected = CdsExportDemographicAssembler.withSelection(result, false);
+        assertThat(unselected.fields().get(nurse).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+        assertThat(unselected.fields().get(nurse).rule())
+                .isEqualTo(CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE);
+        assertThat(unselected.coreRepresentable()).isTrue();
+        assertThat(CdsExportDemographicAssembler.withSelection(result, true)).isSameAs(result);
+    }
+
+    @Test
+    void shouldAccountForTheCareTeamPublicProvider_besideItsPrimaryPhysicianUse() throws Exception {
+        var custom =
+                new CdsExportCapturedTextRowDto(
+                        "demographiccust",
+                        "0000000027",
+                        Map.of("demographic_no", "27", "cust1", "101", "cust2", "", "cust4", ""));
+        var provider = CdsExportDemographicSupportingMapperUnitTest.provider("101", "Nora", "Nurse");
+        var last = new CdsExportNativeFieldKeyDto("provider", provider.recordKey(), "last_name");
+        var primary =
+                new CdsExportFieldAssessmentDto(
+                        CdsExportFieldAssessmentDto.Presence.VALUE,
+                        CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                        "PrimaryPhysician",
+                        "EXACT_CAPTURED_PUBLIC_PROVIDER");
+        var prior =
+                new CdsExportDemographicRetainedCoreReconciler.Result(
+                        HASH, "parent", Set.of(), Set.of(), Map.of(last, primary), Set.of(),
+                        Set.of(), List.of());
+        var careTeam =
+                CdsExportDemographicSupportingMapper.careTeamProviders(
+                        custom, Map.of("101", provider), true);
+        assertThat(careTeam).hasSize(6);
+        var result =
+                CdsExportDemographicRetainedCoreReconciler.withCareTeamProviders(prior, careTeam);
+        assertThat(result.providerUses().get(last)).containsExactly(primary, careTeam.get(last));
+        assertThat(result.fields().get(last).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(result.coreRepresentable()).isTrue();
+        // A collation-only candidate is not this patient's provider and is never named.
         assertThat(
-                        result.fields()
-                                .get(
-                                        new CdsExportNativeFieldKeyDto(
-                                                custom.table(), custom.recordKey(), "cust1"))
-                                .outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+                        CdsExportDemographicSupportingMapper.careTeamProviders(
+                                custom, Map.of("101 ", provider), true))
+                .isEmpty();
     }
 
     @Test
@@ -271,7 +316,8 @@ class CdsExportDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldWithholdXml_forAnyPopulatedLegacyAlertCarrier() throws Exception {
+    void shouldExportEveryLegibleLegacyAlert_asAnAlertDescriptionWithoutWithholdingXml()
+            throws Exception {
         for (String value : List.of("Legacy patient alert", " ", "<unotes>café 😀</unotes>")) {
             var custom =
                     new CdsExportCapturedTextRowDto(
@@ -297,11 +343,31 @@ class CdsExportDemographicAssemblerUnitTest {
                             custom,
                             Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS),
                             () -> {});
-            assertThat(result.demographicComplete()).isFalse();
-            assertThat(result.proposedChanges()).isEmpty();
+            assertThat(result.demographicComplete()).isTrue();
+            assertThat(result.proposedChanges()).hasSize(1);
             assertThat(result.fields().get(key).outcome())
-                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(result.fields().get(key).destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.ALERT_DESTINATION);
         }
+        // Text no XML document can hold is genuinely malformed and still withholds the XML.
+        var custom =
+                new CdsExportCapturedTextRowDto(
+                        "demographiccust", "0000000027", Map.of("cust3", "bell\u0007"));
+        var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), "cust3");
+        var prior =
+                new CdsExportDemographicRetainedCoreReconciler.Result(
+                        HASH, "parent", Set.of(), Set.of(), Map.of(), Set.of(key), Set.of(),
+                        List.of());
+        var malformed =
+                CdsExportDemographicAssembler.accountAlertCarrier(
+                        prior,
+                        custom,
+                        Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS),
+                        () -> {});
+        assertThat(malformed.fields().get(key).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        assertThat(malformed.proposedChanges()).isEmpty();
     }
 
     @Test

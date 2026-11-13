@@ -609,22 +609,50 @@ public final class CdsExportDemographicRetainedCoreReconciler {
     static Result withArchivedPrimaryPhysicians(
             Result core, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> archived)
             throws IOException {
+        return withProviderUses(
+                core,
+                archived,
+                Set.of(Outcome.OPERATIONAL),
+                "CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+    }
+
+    /**
+     * Adds the use of each public provider row that the patient's nurse, resident or midwife
+     * names ({@link CdsExportDemographicSupportingMapper#careTeamProviders}): carried in the native
+     * demographic NewCategory record, or accounted for as not selected. A carried use never hides
+     * another use's review and adds no XML change to the retained Demographics section.
+     */
+    static Result withCareTeamProviders(
+            Result core, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> careTeam)
+            throws IOException {
+        return withProviderUses(
+                core,
+                careTeam,
+                Set.of(Outcome.MAPPED, Outcome.OPERATIONAL),
+                "CDS_EXPORT_DEMOGRAPHIC_CARE_TEAM_PROVIDER_SCOPE_INVALID");
+    }
+
+    private static Result withProviderUses(
+            Result core,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> added,
+            Set<Outcome> allowed,
+            String invalid)
+            throws IOException {
         var fields = new LinkedHashMap<>(core.fields());
         var uses =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>>(
                         core.providerUses());
-        for (var entry : archived.entrySet()) {
+        for (var entry : added.entrySet()) {
             if (!publicProviderField(entry.getKey())
-                    || entry.getValue().outcome() != Outcome.OPERATIONAL)
-                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+                    || !allowed.contains(entry.getValue().outcome()))
+                throw new IOException(invalid);
             var old = fields.get(entry.getKey());
             if (old == null) {
                 fields.put(entry.getKey(), entry.getValue());
                 uses.put(entry.getKey(), List.of(entry.getValue()));
                 continue;
             }
-            if (old.presence() != entry.getValue().presence())
-                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+            if (old.presence() != entry.getValue().presence()) throw new IOException(invalid);
             var items = new ArrayList<>(uses.get(entry.getKey()));
             if (!items.contains(entry.getValue())) items.add(entry.getValue());
             if (items.size() > 16)
@@ -633,7 +661,7 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             fields.put(entry.getKey(), summarizeProviderUses(items));
         }
         var nativeDeferred = new HashSet<>(core.deferredNativeFields());
-        nativeDeferred.removeAll(archived.keySet());
+        nativeDeferred.removeAll(added.keySet());
         return new Result(
                 core.sourceManifestSha256(),
                 core.unitAddress(),

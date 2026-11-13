@@ -217,6 +217,46 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[1] = Math.addExact(counts[1], all.size());
                     }
+                    // Demographic values with no Demographics element (preferred name, pronoun,
+                    // care team, extension properties...): one record per patient that has any.
+                    var demographicRecord =
+                            CdsExportDemographicSupportingMapper.map(
+                                    new CdsExportDemographicSupportingReader(captures)
+                                            .rows(lease, patient, tables, source, bounds, control),
+                                    control::checkpoint);
+                    if (demographicRecord != null) {
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1",
+                                                "demographic",
+                                                Integer.toString(patient.patient())));
+                        streams.requireActive();
+                        control.authorizeCategory(patient.patient(), CdsCategory.DEMOGRAPHICS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                CdsExportDemographicSupportingMapper.write(
+                                                        demographicRecord.json(), body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        "demographic",
+                                        Integer.toString(patient.patient()),
+                                        null,
+                                        demographicRecord.fields(),
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(patient.patient(), CdsCategory.DEMOGRAPHICS, false);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
                     for (var nativeSource :
                             care.nativeSources(
                                     lease, patient, tables, source, index, bounds, control)) {

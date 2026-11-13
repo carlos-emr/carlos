@@ -62,6 +62,7 @@ public class CdsExportPatientInventoryService {
     private final CdsExportPrescriptionOccurrenceService prescriptions;
     private final CdsExportDataSummaryOccurrenceService dataSummaries;
     private final CdsExportHospitalReportOccurrenceService hospitalReports;
+    private final CdsExportNativeCaptureService captures;
 
     /**
      * Without data summaries or HRM reports: a capture that holds data-summary or HRM tables is
@@ -74,7 +75,7 @@ public class CdsExportPatientInventoryService {
             CdsExportCareOccurrenceService care,
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions) {
-        this(indices, rows, histories, care, laboratories, prescriptions, null, null);
+        this(indices, rows, histories, care, laboratories, prescriptions, null, null, null);
     }
 
     /** Without HRM reports: a capture that holds the HRM tables is refused. */
@@ -86,7 +87,42 @@ public class CdsExportPatientInventoryService {
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions,
             CdsExportDataSummaryOccurrenceService dataSummaries) {
-        this(indices, rows, histories, care, laboratories, prescriptions, dataSummaries, null);
+        this(
+                indices,
+                rows,
+                histories,
+                care,
+                laboratories,
+                prescriptions,
+                dataSummaries,
+                null,
+                null);
+    }
+
+    /**
+     * Without demographic capture access: the native demographic NewCategory record and the
+     * patient alert occurrence are not predicted, so a capture whose patient has either is
+     * refused when the occurrence is emitted. Test fixtures without those rows only.
+     */
+    public CdsExportPatientInventoryService(
+            CdsExportRetainedIndexService indices,
+            CdsExportNativeRowReceiptReader rows,
+            CdsExportHistoryInventoryService histories,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportDataSummaryOccurrenceService dataSummaries,
+            CdsExportHospitalReportOccurrenceService hospitalReports) {
+        this(
+                indices,
+                rows,
+                histories,
+                care,
+                laboratories,
+                prescriptions,
+                dataSummaries,
+                hospitalReports,
+                null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -98,7 +134,9 @@ public class CdsExportPatientInventoryService {
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions,
             CdsExportDataSummaryOccurrenceService dataSummaries,
-            CdsExportHospitalReportOccurrenceService hospitalReports) {
+            CdsExportHospitalReportOccurrenceService hospitalReports,
+            CdsExportNativeCaptureService captures) {
+        this.captures = captures;
         this.dataSummaries = dataSummaries;
         this.hospitalReports = hospitalReports;
         this.indices = Objects.requireNonNull(indices);
@@ -255,6 +293,40 @@ public class CdsExportPatientInventoryService {
             }
             if (!notes.equals(classified)) review();
         } else if (!notes.isEmpty()) invalid();
+        // The native demographic NewCategory record and the patient alert: each is one
+        // occurrence when the patient has a value it carries (CdsExportDemographicSupportingMapper,
+        // CdsExportPatientAlertMapper), decided from the same captured rows the emitters read.
+        if (captures != null) {
+            var demographic = new CdsExportDemographicSupportingReader(captures);
+            String id = Integer.toString(patient.patient());
+            if (lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY)
+                    && CdsExportDemographicSupportingMapper.map(
+                                    demographic.rows(
+                                            lease, patient, tables, source, bounds, control),
+                                    control::checkpoint)
+                            != null)
+                add(
+                        expected,
+                        nativeIdentity(patientKey, CdsCategory.NEW_CATEGORY, "demographic", id),
+                        budget);
+            if (lease.document()
+                            .command()
+                            .categories()
+                            .contains(CdsCategory.ALERTS_AND_SPECIAL_NEEDS)
+                    && CdsExportPatientAlertMapper.map(
+                                    patient.patient(),
+                                    demographic.custom(
+                                            lease, patient, tables, source, bounds, control))
+                            != null)
+                add(
+                        expected,
+                        nativeIdentity(
+                                patientKey,
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                CdsExportPatientAlertMapper.TABLE,
+                                id),
+                        budget);
+        }
         for (var observation :
                 care.nativeSources(lease, patient, tables, source, index, bounds, control)) {
             // A deleted or superseded version is accounted, never an expected occurrence.

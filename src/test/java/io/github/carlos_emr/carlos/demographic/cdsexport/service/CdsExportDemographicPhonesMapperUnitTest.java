@@ -126,12 +126,18 @@ class CdsExportDemographicPhonesMapperUnitTest {
                 List.of(
                         changed(property(1, "hPhoneExt", "12"), "hidden", "1"),
                         changed(property(1, "hPhoneExt", "12"), "hidden", null),
-                        property(1, "unknownPhonePurpose", "Additional value"),
-                        property(1, null, "Additional value"))) {
+                        property(1, null, "Additional value"),
+                        property(1, "", "Additional value"))) {
             var result = map(List.of(row));
             assertThat(result.baseRowRepresentable()).isFalse();
             assertThat(result.relatedFields()).hasSize(8);
         }
+        // A visible property with a key and no Demographics element travels in the native
+        // demographic NewCategory record instead of holding the chart.
+        var carried = map(List.of(property(1, "unknownPhonePurpose", "Additional value")));
+        assertThat(carried.baseRowRepresentable()).isTrue();
+        assertThat(value(carried, 1).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         var hidden =
                 map(
                         List.of(
@@ -141,7 +147,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
-    void shouldAccountForTheRowsAMasterRecordSaveWrites_whileHoldingAPopulatedUnsupportedValue()
+    void shouldAccountForTheRowsAMasterRecordSaveWrites_andCarryAPopulatedUnsupportedValue()
             throws Exception {
         // D5: DemographicUpdate2Action saves one demographicExt row per key the form lists, with a
         // NULL or empty value for each blank field, and edit-form-clinical.jsp posts
@@ -180,13 +186,22 @@ class CdsExportDemographicPhonesMapperUnitTest {
                                 .rule())
                 .isEqualTo("PROPERTY_KEY_OF_AN_EMPTY_EXTENSION");
         assertThat(value(result, id).rule()).isEqualTo("UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
-        // A value somebody chose has no CDS home and still holds the chart for review.
+        // A value somebody chose has no Demographics element and is carried, never held.
         for (var chosen :
                 List.of(
                         property(1, "aboriginal", "Yes"),
                         property(1, "rxInteractionWarningLevel", "3"),
-                        property(1, "cytolNum", "12345")))
-            assertThat(map(List.of(chosen)).baseRowRepresentable()).isFalse();
+                        property(1, "cytolNum", "12345"))) {
+            var mapped = map(List.of(chosen));
+            assertThat(mapped.baseRowRepresentable()).isTrue();
+            assertThat(value(mapped, 1))
+                    .isEqualTo(
+                            new CdsExportFieldAssessmentDto(
+                                    Presence.VALUE,
+                                    Outcome.MAPPED,
+                                    CdsExportDemographicSupportingMapper.DESTINATION,
+                                    CdsExportDemographicSupportingMapper.CARRIED_RULE));
+        }
     }
 
     @Test
@@ -206,7 +221,10 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         100,
                         1L << 20,
                         () -> {});
-        assertThat(result.baseRowRepresentable()).isFalse();
+        // The extension left after its number was cleared is carried, never a phone of its own.
+        assertThat(result.baseRowRepresentable()).isTrue();
+        assertThat(value(result, 1).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         assertThat(result.phones())
                 .extracting(CdsExportDemographicMappingDto.Phone::type)
                 .containsExactly("W");
@@ -245,6 +263,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
                                 property(2, "demo_cell", "😀".repeat(25))));
         assertThat(result.baseRowRepresentable()).isTrue();
         parse(result);
+        // A value the CDS phone token cannot hold is carried exactly, never truncated or held.
         for (var row :
                 List.of(
                         property(1, "hPhoneExt", "😀".repeat(6)),
@@ -252,9 +271,18 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         property(1, "hPhoneExt", "12  3"),
                         property(1, "demo_cell", " leading"),
                         property(1, "hPhoneExt", "1\t2"),
-                        property(1, "demo_cell", "bad\u0001XML"),
-                        property(1, "demo_cell", "bad\ud800surrogate")))
-            assertThat(map(List.of(row)).baseRowRepresentable()).isFalse();
+                        property(1, "demo_cell", "bad\u0001XML"))) {
+            var mapped = map(List.of(row));
+            assertThat(mapped.baseRowRepresentable()).isTrue();
+            assertThat(value(mapped, 1).destination())
+                    .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+            assertThat(mapped.phones()).noneMatch(phone -> row.fields().get("value").equals(phone.extension()) || row.fields().get("value").equals(phone.number()));
+        }
+        // Only a character no XML document can hold still requires review.
+        assertThat(
+                        map(List.of(property(1, "demo_cell", "bad\ud800surrogate")))
+                                .baseRowRepresentable())
+                .isFalse();
     }
 
     @Test
@@ -324,7 +352,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
                 mapper.map(
                         base,
                         nativeRow,
-                        List.of(property(1, "unmapped", "Extra")),
+                        List.of(property(1, "unmapped", "Extra\uFFFF")),
                         100,
                         1L << 20,
                         () -> {});

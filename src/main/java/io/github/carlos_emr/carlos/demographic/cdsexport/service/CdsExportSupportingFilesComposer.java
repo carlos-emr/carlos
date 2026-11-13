@@ -46,6 +46,14 @@ public final class CdsExportSupportingFilesComposer {
     /** ReadMe field naming where CARLOS prevention screenings travel in a CDS package. */
     public static final String SCREENINGS = "Prevention screenings (exported only as PastHealth)";
 
+    /** Where demographic values without a Demographics element travel. */
+    public static final String DEMOGRAPHIC_RECORD_NOTICE =
+            "Demographic details that CDS 5.2 Demographics has no element for (preferred name,"
+                    + " alias, pronoun, gender identity, referral doctor, nurse, resident, midwife,"
+                    + " extension properties and similar) travel in the NewCategory record"
+                    + " CARLOS.NativeDemographic.v1; when NewCategory is not selected they are not"
+                    + " exported.";
+
     /** How the receiver reads the per-patient data-summary counts. */
     public static final String DATA_SUMMARY_NOTICE =
             "Patient data summary records count CARLOS records that CDS 5.2 cannot represent"
@@ -145,6 +153,7 @@ public final class CdsExportSupportingFilesComposer {
         // demographic mapper decides them ADMINISTRATIVE_NOT_EXPORTED; the receiver is told here.
         readMe.write(
                 "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.\n");
+        readMe.write(DEMOGRAPHIC_RECORD_NOTICE + "\n");
         readMe.write(DATA_SUMMARY_NOTICE + "\n");
         readMe.write(LISTED_NOTICE + "\n");
         line(

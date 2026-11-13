@@ -148,7 +148,11 @@ public final class CdsExportProviderReadSupport {
                         + " (p.provider_no=d.provider_no or p.roster_enrolled_to=d.provider_no)) or"
                         + " exists (select 1 from demographicArchive p where"
                         + " p.demographic_no=:patient and (p.provider_no=d.provider_no or"
-                        + " p.roster_enrolled_to=d.provider_no)))");
+                        + " p.roster_enrolled_to=d.provider_no)) or"
+                        // The nurse, resident and midwife selects of the demographic forms.
+                        + " exists (select 1 from demographiccust p where"
+                        + " p.demographic_no=:patient and (p.cust1=d.provider_no or"
+                        + " p.cust2=d.provider_no or p.cust4=d.provider_no)))");
         if (categories.contains("AllergiesAndAdverseReactions"))
             selected.add(
                     "exists (select 1 from allergies a where a.demographic_no=:patient and"

@@ -207,15 +207,19 @@ class CdsExportDemographicPhoneProjectionServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyUnrelatedPopulatedPropertiesRemainVisibleReviewDecisions_forDemographicPhoneProjectionServiceContract() throws Exception {
+    void shouldVerifyUnrelatedPopulatedPropertiesRemainVisibleCarriedDecisions_forDemographicPhoneProjectionServiceContract() throws Exception {
         properties.clear();
         properties.add(
                 CdsExportDemographicPhonesMapperUnitTest.property(
                         1, "UnmappedProperty", "Additional value"));
         count(1);
         var result = project();
-        assertThat(result.demographic().baseRowRepresentable()).isFalse();
+        // Carried in the native demographic NewCategory record, never dropped or held.
+        assertThat(result.demographic().baseRowRepresentable()).isTrue();
         assertThat(result.demographic().relatedFields()).hasSize(8);
+        assertThat(result.demographic().relatedFields().values())
+                .filteredOn(field -> CdsExportDemographicSupportingMapper.DESTINATION.equals(field.destination()))
+                .hasSize(2);
         verify(captures).authorizeSources(lease, patient, TABLES, control);
     }
 

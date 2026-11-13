@@ -306,6 +306,18 @@ public class CdsExportHistoryOccurrenceService {
                                                                 control)
                                                         .zone()
                                                 : null;
+                                // The demographic forms' patient alert is one more
+                                // AlertsAndSpecialNeeds occurrence (CdsExportPatientAlertMapper).
+                                var alert =
+                                        selected.contains(CdsCategory.ALERTS_AND_SPECIAL_NEEDS)
+                                                ? CdsExportPatientAlertMapper.map(
+                                                        patient.patient(),
+                                                        new CdsExportDemographicSupportingReader(
+                                                                        captures)
+                                                                .custom(
+                                                                        lease, patient, tables,
+                                                                        source, bounds, control))
+                                                : null;
                                 var session =
                                         new Source(
                                                 selected,
@@ -326,6 +338,7 @@ public class CdsExportHistoryOccurrenceService {
                                                 occurrences,
                                                 providers,
                                                 zone,
+                                                alert,
                                                 control,
                                                 emitter);
                                 try {
@@ -367,6 +380,7 @@ public class CdsExportHistoryOccurrenceService {
         private final List<Occurrence> occurrences;
         private final Map<String, CdsExportCapturedTextRowDto> providers;
         private final java.time.ZoneId zone;
+        private final CdsExportPatientAlertMapper.Alert alert;
         private final CdsExportRunControl control;
         private final CdsExportXmlComposer.SectionEmitter xml;
         private volatile boolean active = true, failed;
@@ -390,6 +404,7 @@ public class CdsExportHistoryOccurrenceService {
                 List<Occurrence> occurrences,
                 Map<String, CdsExportCapturedTextRowDto> providers,
                 java.time.ZoneId zone,
+                CdsExportPatientAlertMapper.Alert alert,
                 CdsExportRunControl control,
                 CdsExportXmlComposer.SectionEmitter xml) {
             this.expected = expected;
@@ -410,6 +425,7 @@ public class CdsExportHistoryOccurrenceService {
             this.occurrences = occurrences;
             this.providers = providers;
             this.zone = zone;
+            this.alert = alert;
             this.control = control;
             this.xml = xml;
         }
@@ -620,6 +636,34 @@ public class CdsExportHistoryOccurrenceService {
                         count++;
                         fields = Math.addExact(fields, accounted.size());
                     }
+                if (category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS && alert != null) {
+                    var identity =
+                            new CdsExportIdentityDto(
+                                    patientKey,
+                                    category,
+                                    CdsImportKeys.hash(
+                                            "carlos-native-occurrence-v1",
+                                            CdsExportPatientAlertMapper.TABLE,
+                                            Integer.toString(patient.patient())));
+                    streams.requireActive();
+                    control.authorizeCategory(patient.patient(), category, false);
+                    xml.emit(
+                            new CdsExportXmlComposer.Section(
+                                    identity, body -> CdsExportPatientAlertMapper.write(alert, body)));
+                    output.accept(
+                            new CdsExportClinicalOccurrenceService.Receipt(
+                                    identity,
+                                    index.sourceManifestSha256(),
+                                    CdsExportPatientAlertMapper.TABLE,
+                                    Integer.toString(patient.patient()),
+                                    null,
+                                    CdsExportPatientAlertMapper.fields(alert),
+                                    Set.of(),
+                                    Set.of()));
+                    control.authorizeCategory(patient.patient(), category, false);
+                    count++;
+                    nativeOnly++;
+                }
                 if (category == CdsCategory.PROBLEM_LIST
                         && !Collections.disjoint(tables, CdsExportProblemRegistrySources.TABLES)) {
                     if (registries == null) invalid();

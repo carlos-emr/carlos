@@ -141,12 +141,22 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
     void shouldVerifyUnknownPropertiesAreDecidedAndCareTeamValuesStayExplicitlyDeferred_forDemographicAdjunctAssemblyContract() throws Exception {
         // Updated for D5: a non-phone property row used to stay a native hand-off that nothing on
         // the imported-chart path ever closed, so the job failed its closure. It now receives the
-        // native property disposition: a populated unsupported value holds the chart for review,
-        // and an empty row (what DemographicUpdate2Action writes for a blank field) is accounted for.
+        // native property disposition: a populated value with no Demographics element is carried
+        // in the native demographic NewCategory record, and an empty row (what
+        // DemographicUpdate2Action writes for a blank field) is accounted for. Neither holds.
         current.add(property(2, "anotherKey", "Do not discard"));
         change("cust1", "Care team reference");
         var result = reconcile();
-        assertThat(result.coreRepresentable()).isFalse();
+        assertThat(result.coreRepresentable()).isTrue();
+        assertThat(
+                        result.fields().entrySet().stream()
+                                .filter(entry -> entry.getKey().table().equals("demographicExt"))
+                                .filter(
+                                        entry ->
+                                                CdsExportDemographicSupportingMapper.DESTINATION
+                                                        .equals(entry.getValue().destination()))
+                                .map(entry -> entry.getKey().column()))
+                .containsExactlyInAnyOrder("key_val", "value");
         assertThat(result.demographicComplete()).isFalse();
         assertThat(result.deferredNativeFields()).hasSize(33);
         assertThat(result.fields()).hasSize(47);

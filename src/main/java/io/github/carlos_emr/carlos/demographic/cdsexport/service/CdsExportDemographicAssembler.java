@@ -162,14 +162,50 @@ public final class CdsExportDemographicAssembler {
                                 rows.current(),
                                 rows.witness(),
                                 checkpoint);
-        var careCarriers = accountCareCarriers(completeBaseRow, rows.custom(), checkpoint);
-        var accounted = accountAlertCarrier(careCarriers, rows.custom(), selected, checkpoint);
+        boolean newCategory = selected.contains(CdsCategory.NEW_CATEGORY);
+        var careCarriers =
+                CdsExportDemographicRetainedCoreReconciler.withCareTeamProviders(
+                        accountCareCarriers(completeBaseRow, rows.custom(), checkpoint),
+                        CdsExportDemographicSupportingMapper.careTeamProviders(
+                                rows.custom(), rows.lookups().providers(), newCategory));
+        var accounted =
+                withSelection(
+                        accountAlertCarrier(careCarriers, rows.custom(), selected, checkpoint),
+                        newCategory);
         values.requireActive();
         checkpoint.run();
         return new CdsExportDemographicCareAssembler.Result(accounted, care.professionalNameUses());
     }
 
-    /** Close the selected legacy alert carrier only after the note reconciler authenticated its exact row. */
+    /**
+     * Without NewCategory every value decided for the native demographic record is accounted for
+     * as not selected (the ReadMe says so). Provider rows already carry the selection.
+     */
+    static CdsExportDemographicRetainedCoreReconciler.Result withSelection(
+            CdsExportDemographicRetainedCoreReconciler.Result prior, boolean newCategory) {
+        if (newCategory) return prior;
+        var fields = new LinkedHashMap<>(prior.fields());
+        fields.replaceAll(
+                (key, value) ->
+                        key.table().equals("provider")
+                                ? value
+                                : CdsExportDemographicSupportingMapper.withSelection(value, false));
+        return new CdsExportDemographicRetainedCoreReconciler.Result(
+                prior.sourceManifestSha256(),
+                prior.unitAddress(),
+                prior.decidedSourceFields(),
+                prior.deferredSourceFields(),
+                fields,
+                prior.deferredNativeFields(),
+                prior.blockers(),
+                prior.proposedChanges(),
+                prior.providerUses());
+    }
+
+    /**
+     * Close the selected legacy alert carrier only after the note reconciler authenticated its
+     * exact row. A populated alert is exported as AlertsAndSpecialNeeds/AlertDescription.
+     */
     static CdsExportDemographicRetainedCoreReconciler.Result accountAlertCarrier(
             CdsExportDemographicRetainedCoreReconciler.Result prior,
             CdsExportCapturedTextRowDto custom,
@@ -188,26 +224,13 @@ public final class CdsExportDemographicAssembler {
                 || !deferred.remove(key)) {
             throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_ALERT_SCOPE_INVALID");
         }
-        String value = custom.fields().get("cust3");
-        var presence =
-                value == null
-                        ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
-                        : value.isEmpty()
-                                ? CdsExportFieldAssessmentDto.Presence.EMPTY
-                                : CdsExportFieldAssessmentDto.Presence.VALUE;
-        boolean absent = presence != CdsExportFieldAssessmentDto.Presence.VALUE;
-        fields.put(
-                key,
-                new CdsExportFieldAssessmentDto(
-                        presence,
-                        absent
-                                ? CdsExportFieldAssessmentDto.Outcome.ABSENT
-                                : CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
-                        "",
-                        absent
-                                ? "ABSENT_LEGACY_PATIENT_ALERT_CARRIER"
-                                : "LEGACY_PATIENT_ALERT_CARRIER_REQUIRES_REVIEW"));
-        boolean ready = prior.coreRepresentable() && absent;
+        // The alert is exported natively as AlertsAndSpecialNeeds/AlertDescription; it is never
+        // an imported Demographics element, so no retained element changes.
+        var decision = CdsExportNativeDemographicAssembler.alert(custom.fields().get("cust3"));
+        fields.put(key, decision);
+        boolean ready =
+                prior.coreRepresentable()
+                        && decision.outcome() != CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW;
         return new CdsExportDemographicRetainedCoreReconciler.Result(
                 prior.sourceManifestSha256(),
                 prior.unitAddress(),
@@ -220,7 +243,11 @@ public final class CdsExportDemographicAssembler {
                 prior.providerUses());
     }
 
-    /** The note reconciler already verified this exact row and witness; close only its three explicit care-team hand-offs. */
+    /**
+     * The note reconciler already verified this exact row and witness; close only its three
+     * explicit care-team hand-offs. A populated nurse, resident or midwife is carried in the
+     * native demographic NewCategory record, never held.
+     */
     static CdsExportDemographicRetainedCoreReconciler.Result accountCareCarriers(
             CdsExportDemographicRetainedCoreReconciler.Result prior,
             CdsExportCapturedTextRowDto custom,
@@ -231,7 +258,7 @@ public final class CdsExportDemographicAssembler {
             throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
         var fields = new LinkedHashMap<>(prior.fields());
         var deferred = new HashSet<>(prior.deferredNativeFields());
-        for (String column : Set.of("cust1", "cust2", "cust4")) {
+        for (String column : CdsExportDemographicSupportingMapper.CARE_TEAM.keySet()) {
             checkpoint.run();
             var key = new CdsExportNativeFieldKeyDto(custom.table(), custom.recordKey(), column);
             if (!custom.fields().containsKey(column)
@@ -240,24 +267,16 @@ public final class CdsExportDemographicAssembler {
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_CARE_SCOPE_INVALID");
             }
             String value = custom.fields().get(column);
-            var presence =
-                    value == null
-                            ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
-                            : value.isEmpty()
-                                    ? CdsExportFieldAssessmentDto.Presence.EMPTY
-                                    : CdsExportFieldAssessmentDto.Presence.VALUE;
-            boolean absent = presence != CdsExportFieldAssessmentDto.Presence.VALUE;
+            var presence = CdsExportDemographicSupportingMapper.presence(value);
             fields.put(
                     key,
-                    new CdsExportFieldAssessmentDto(
-                            presence,
-                            absent
-                                    ? CdsExportFieldAssessmentDto.Outcome.ABSENT
-                                    : CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
-                            "",
-                            absent
-                                    ? "ABSENT_DEMOGRAPHIC_CARE_TEAM_CARRIER"
-                                    : "DEMOGRAPHIC_CARE_TEAM_CARRIER_REQUIRES_REVIEW"));
+                    presence == CdsExportFieldAssessmentDto.Presence.VALUE
+                            ? CdsExportDemographicSupportingMapper.carried(value)
+                            : new CdsExportFieldAssessmentDto(
+                                    presence,
+                                    CdsExportFieldAssessmentDto.Outcome.ABSENT,
+                                    "",
+                                    "ABSENT_DEMOGRAPHIC_CARE_TEAM_CARRIER"));
         }
         boolean ready =
                 prior.coreRepresentable()

@@ -79,6 +79,7 @@ public final class CdsExportNativeDemographicAssembler {
                                         "demographicPharmacy"))
                 || rows.get("demographic").size() != 1
                 || rows.get("demographiccust").size() > 1) invalid();
+        boolean newCategory = selected.contains(CdsCategory.NEW_CATEGORY);
         var current = rows.get("demographic").getFirst();
         if (!"demographic".equals(current.table())
                 || !String.format(Locale.ROOT, "%010d", patient).equals(current.recordKey())
@@ -193,22 +194,12 @@ public final class CdsExportNativeDemographicAssembler {
             var custom = rows.get("demographiccust").getFirst();
             note = new CdsExportPatientNoteMapper().map(patient, selected, custom);
             merge(fields, note.fields());
-            for (var key : note.delegatedFields()) {
-                String value = custom.fields().get(key.column());
-                fields.put(
-                        key,
-                        new CdsExportFieldAssessmentDto(
-                                value == null
-                                        ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
-                                        : value.isEmpty()
-                                                ? CdsExportFieldAssessmentDto.Presence.EMPTY
-                                                : CdsExportFieldAssessmentDto.Presence.VALUE,
-                                value == null || value.isEmpty()
-                                        ? CdsExportFieldAssessmentDto.Outcome.ABSENT
-                                        : CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
-                                "",
-                                "NATIVE_LEGACY_ALERT_CARRIER_REQUIRES_REVIEW_UNLESS_ABSENT"));
-            }
+            for (var key : note.delegatedFields())
+                fields.put(key, alert(custom.fields().get(key.column())));
+            merge(
+                    fields,
+                    CdsExportDemographicSupportingMapper.careTeamProviders(
+                            custom, providers, newCategory));
         }
         var pharmacy =
                 new CdsExportPharmacyMapper()
@@ -278,6 +269,11 @@ public final class CdsExportNativeDemographicAssembler {
                 || !pharmacy.nativeRepresentable()
                 || !contacts.nativeRepresentable()
                 || !professional.representable()) review();
+        // Values with no Demographics element are decided for the NewCategory record; without
+        // NewCategory they are accounted for as not selected, never held.
+        fields.replaceAll(
+                (key, value) ->
+                        CdsExportDemographicSupportingMapper.withSelection(value, newCategory));
         var expected = new ArrayList<CdsExportCapturedTextRowDto>();
         rows.values().forEach(expected::addAll);
         var closure =
@@ -291,6 +287,33 @@ public final class CdsExportNativeDemographicAssembler {
                 new CdsExportPersonalContactProjectionService.Result(captureDigest, contacts),
                 professional,
                 fields);
+    }
+
+    /**
+     * The legacy patient alert ({@code demographiccust.cust3}, the Alert box of the demographic
+     * forms) is exported as AlertsAndSpecialNeeds/AlertDescription when that category is selected
+     * (CdsExportPatientAlertMapper). Only text no XML document can hold requires review; the
+     * 255-character column always fits the 1,024-character element.
+     */
+    static CdsExportFieldAssessmentDto alert(String value) {
+        var presence = CdsExportDemographicSupportingMapper.presence(value);
+        if (presence != CdsExportFieldAssessmentDto.Presence.VALUE)
+            return new CdsExportFieldAssessmentDto(
+                    presence,
+                    CdsExportFieldAssessmentDto.Outcome.ABSENT,
+                    "",
+                    "ABSENT_LEGACY_PATIENT_ALERT_CARRIER");
+        return CdsExportPatientAlertMapper.legal(value)
+                ? new CdsExportFieldAssessmentDto(
+                        presence,
+                        CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
+                        "NATIVE_PATIENT_ALERT_AS_ALERT_DESCRIPTION")
+                : new CdsExportFieldAssessmentDto(
+                        presence,
+                        CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
+                        CdsExportDemographicSupportingMapper.ALERT_DESTINATION,
+                        "PATIENT_ALERT_WIRE_TEXT_REQUIRES_REVIEW");
     }
 
     private static CdsExportDemographicMappingDto.Assessment baseAssessment(

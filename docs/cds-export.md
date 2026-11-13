@@ -34,6 +34,41 @@ unsupported date precision hold the patient for review, and any unclassifiable p
 also holds a PastHealth export because it may be a screening.
 also holds a PastHealth export because it may be a screening.
 
+Every value the demographic add and edit screens write is exported, never held. Values with a
+Demographics element map to it. The patient alert (`demographiccust.cust3`, the forms' Alert
+box) is one AlertsAndSpecialNeeds occurrence whose AlertDescription is the exact text (a carriage
+return is a character reference); the CARLOS importer files it as a Reminders note. Values that
+CDS 5.2 Demographics has no element for travel together in one NewCategory record per patient,
+`CARLOS.NativeDemographic.v1` (`CdsExportDemographicSupportingMapper`): its single
+`CARLOS.Demographic.v1` residual is a versioned JSON object in a fixed key order (`version`,
+`demographic`, `careTeam`, `properties`) with every space escaped, holding the populated
+base-row columns `alias`, `anonymous`, `children`, `citizenship`, `consentToUseEmailForCare`,
+`country_of_origin`, `end_date`, `family_doctor` (the referral-doctor wrapper, verbatim),
+`gender`, `genderId`, `myOscarUserName`, `newsletter`, `pcn_indicator`, `pref_name`,
+`previousAddress`, `pronoun`, `pronounId` and `sourceOfIncome`; the nurse, resident and midwife
+(`cust1`, `cust2`, `cust4`) with the stored provider number and, when the captured public
+provider row matches it exactly, that row's six public lookup columns (as the printed-prescription
+record carries its author); and every visible `demographicExt` property other than the mapped
+phone values (ethnicity, consents, paper-chart status, First Nations details, a site's configured
+keys, and an extension or mobile number the CDS phone element cannot hold), by row id, key and
+value. Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
+native supporting context, so the record goes there; Names/OtherNames is not used for `alias` or
+`pref_name` because the pinned schema lists the name-purpose codes without their meanings, parts
+must be typed FAMC or GIV, and the CARLOS importer keeps OtherNames source-only. The importer
+keeps the record as protected source fields. A value is in the record only when populated; SQL
+NULL and empty values stay ABSENT with their presence, and the form placeholders (newsletter
+"Unknown", country of origin "-1", the empty referral-doctor wrapper, interaction warning level
+"0") are accounted for as operational. When the job does not select NewCategory these values are
+decided `NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED`, no record is written, the ReadMe says so, and
+the patient is not held. The record and the alert are predicted by the patient inventory from
+the same captured rows (the inventory reads them through `CdsExportDemographicSupportingReader`),
+and the public provider capture now includes the providers the care-team columns name. Only text
+no XML document can hold (a lone surrogate, U+FFFE or U+FFFF in a carried value; a control
+character in the alert), a populated property with no key, a hidden property row (written only
+through the REST API) and duplicate phone keys still hold the patient. Imported charts follow the
+same rules: these columns are never imported Demographics elements, so the retained
+reconcilers' protected elements are unchanged.
+
 A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
 "Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
 FI; a clinic-defined status is exported as stored. The primary physician's practitioner number
@@ -1961,8 +1996,9 @@ qualified. The exact artifact identity is in the task's `cds-appointment-zone-pa
 
 Home and work extensions (`hPhoneExt`, `wPhoneExt`) and the mobile number (`demo_cell`)
 now join the base demographic values from the same frozen capture. Exact NULL and empty
-extension values remain distinct. Hidden history, duplicate keys, orphaned nonempty
-extensions and unknown populated properties require review; no latest-row heuristic,
+extension values remain distinct. Hidden history and duplicate keys require review; an orphaned
+nonempty extension, an extension or mobile number the phone element cannot hold and every other
+populated property travel in the native demographic NewCategory record; no latest-row heuristic,
 phone concatenation or truncation supplies a replacement. The typed phone DTO enforces
 the dictionary's 25-character number and five-character extension limits before writing.
 All eight native property columns receive independently checked field dispositions.
@@ -2227,7 +2263,7 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 
 ### Coordinated demographic assembly and ancillary hand-offs
 
-`CdsExportDemographicAssembler` composes the existing scalar, phone, patient-note, enrolment, primary-physician, contact and pharmacy reconcilers before closing the explicitly reviewed ancillary base-row fields. The final pass requires the captured row witness and exact earlier field ownership. Null and empty ancillary values stay distinct; populated values without a qualified mapping require review and withhold every proposed XML change. Operational identity, local chart-registration and update metadata are captured without being presented as clinical history. The importer creates `date_joined` from its execution time; it is not the patient’s enrolment date. The enclosing pass also accounts for empty care-team carriers and blocks populated carriers until their physician relationships are reconciled. Missing or duplicated field hand-offs, substituted row keys, changed captured bytes and false presence claims are rejected. Remaining retained-source and associated-row hand-offs remain visible and prevent a demographic-complete result. This component does not qualify a clinical profile or enable publication.
+`CdsExportDemographicAssembler` composes the existing scalar, phone, patient-note, enrolment, primary-physician, contact and pharmacy reconcilers before closing the explicitly reviewed ancillary base-row fields. The final pass requires the captured row witness and exact earlier field ownership. Null and empty ancillary values stay distinct; a populated value with no Demographics element is decided for the native demographic NewCategory record (or as not selected), and only a value no XML document can carry withholds the proposed XML changes. Operational identity, local chart-registration and update metadata are captured without being presented as clinical history. The importer creates `date_joined` from its execution time; it is not the patient’s enrolment date. The enclosing pass also accounts for the care-team carriers: a populated nurse, resident or midwife is carried with its exactly matching public provider row, whose use is combined with any primary, enrolled or archived use of the same row, and a populated selected alert is decided for AlertsAndSpecialNeeds. Missing or duplicated field hand-offs, substituted row keys, changed captured bytes and false presence claims are rejected. Remaining retained-source and associated-row hand-offs remain visible and prevent a demographic-complete result. This component does not qualify a clinical profile or enable publication.
 
 
 ### Sender patient identity reconciliation
@@ -2242,7 +2278,7 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 
 ### Scoped demographic occurrence service
 
-`CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics, multiple applied demographic parents, nonempty unrepresented ancillary values and unresolved archive/care facts still require dedicated reconciliation; they cannot produce a partial demographic fallback.
+`CdsExportDemographicOccurrenceService` connects the coordinated demographic mapper, registered sender identity and independent field closure to the same synchronous scoped XML emitter used by the clinical occurrence services. It loads bounded authenticated rows, rejects active merge scope, verifies retained parent receipts, requires every captured demographic field and source ID to be accounted for, and checks final source authority before returning. XML and receipt callbacks stay private until the complete enclosing operation succeeds. Native-only demographics use the same typed components; populated ancillary, care-team and property values are carried in the native demographic NewCategory record and the selected patient alert is an AlertsAndSpecialNeeds occurrence, so neither holds the chart. Multiple applied demographic parents still require dedicated reconciliation; they cannot produce a partial demographic fallback.
 
 
 ### Historical note preparation evidence

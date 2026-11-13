@@ -37,9 +37,11 @@ import static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFie
 
 /**
  * Closes the explicitly reviewed ancillary base-row field identities after demographic
- * reconcilers. Absent values remain absent; populated values without a qualified mapping
- * require review. Operational identity metadata is never presented as clinical history.
- * This boundary does not claim associated-row or retained-source completeness.
+ * reconcilers. Absent values remain absent; a populated value that CDS 5.2 Demographics has no
+ * element for is carried in the native demographic NewCategory record
+ * ({@link CdsExportDemographicSupportingMapper}) and never holds the chart. Form placeholders
+ * and operational identity metadata are never presented as clinical history. This boundary does
+ * not claim associated-row or retained-source completeness.
  */
 public final class CdsExportDemographicAncillaryReconciler {
     private static final Set<String> OPERATIONAL =
@@ -49,26 +51,9 @@ public final class CdsExportDemographicAncillaryReconciler {
                     "lastUpdateUser",
                     "cds_identity_hin",
                     "cds_identity_issuer");
+    /** The base-row columns with no Demographics element; the carrier owns their order. */
     private static final Set<String> ANCILLARY =
-            Set.of(
-                    "alias",
-                    "anonymous",
-                    "children",
-                    "citizenship",
-                    "consentToUseEmailForCare",
-                    "country_of_origin",
-                    "end_date",
-                    "family_doctor",
-                    "gender",
-                    "genderId",
-                    "myOscarUserName",
-                    "newsletter",
-                    "pcn_indicator",
-                    "pref_name",
-                    "previousAddress",
-                    "pronoun",
-                    "pronounId",
-                    "sourceOfIncome");
+            Set.copyOf(CdsExportDemographicSupportingMapper.COLUMNS);
     /**
      * Practice-administrative dates a user may enter that CDS 5.2 Demographics has no element for:
      * "Date Joined" the practice (add-form-clinical.jsp:325-337, DemographicUpdate2Action) and the
@@ -77,14 +62,12 @@ public final class CdsExportDemographicAncillaryReconciler {
      * package ReadMe states that they are not exported (CdsExportSupportingFilesComposer).
      */
     private static final Set<String> ADMINISTRATIVE = Set.of("date_joined", "eff_date");
-    private static final Map<String, String> UI_PLACEHOLDERS =
-            Map.of("newsletter", "Unknown", "country_of_origin", "-1");
 
     /**
      * Requires the exact captured row witness and disjoint prior ownership. Every base-row
      * field must already be decided or explicitly deferred; missing fields cannot be added
      * silently by this final base-row pass. Other tables and source IDs remain mandatory
-     * hand-offs. Populated ancillary values withhold every proposed XML change.
+     * hand-offs. Only a carried value no XML document can hold withholds the proposed XML changes.
      */
     public CdsExportDemographicRetainedCoreReconciler.Result reconcile(
             CdsExportDemographicRetainedCoreReconciler.Result prior,
@@ -186,38 +169,45 @@ public final class CdsExportDemographicAncillaryReconciler {
                                         presence, Outcome.ABSENT, "", "ABSENT_ADMINISTRATIVE_VALUE"));
                 continue;
             }
-            Outcome outcome =
-                    OPERATIONAL.contains(column)
-                            ? Outcome.OPERATIONAL
-                            : presence == Presence.VALUE ? Outcome.REQUIRES_REVIEW : Outcome.ABSENT;
-            String rule =
-                    OPERATIONAL.contains(column)
-                            ? "CAPTURED_OPERATIONAL_OR_DERIVED_IDENTITY"
-                            : presence == Presence.VALUE
-                                    ? "ANCILLARY_NATIVE_VALUE_REQUIRES_REVIEW"
-                                    : "ABSENT_ANCILLARY_NATIVE_VALUE";
-            if (column.equals("family_doctor")
-                    && ("<rdohip></rdohip><rd></rd>".equals(value)
-                            || "<rdohip></rdohip><rd></rd><family_doc></family_doc>"
-                                    .equals(value))) {
-                outcome = Outcome.OPERATIONAL;
-                rule = "NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER";
+            var key = new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column);
+            if (OPERATIONAL.contains(column)) {
+                fields.put(
+                        key,
+                        new CdsExportFieldAssessmentDto(
+                                presence,
+                                Outcome.OPERATIONAL,
+                                "",
+                                "CAPTURED_OPERATIONAL_OR_DERIVED_IDENTITY"));
+                continue;
             }
             // Form placeholders, not patient facts: add-form-personal.jsp:738-739 preselects
             // newsletter "Unknown" and edit-form-personal.jsp:994-999 re-posts it for an empty
             // value; both forms offer country of origin "-1" ("Not set") as the first option
             // (add-form-personal.jsp:969-970, edit-form-personal.jsp:1426). Each save writes
-            // them through DemographicAddRecord2Action/DemographicUpdate2Action. The value
-            // stays in the protected capture with this explicit disposition. Any other value
-            // remains a populated ancillary fact that requires review.
-            String placeholder = UI_PLACEHOLDERS.get(column);
-            if (placeholder != null && placeholder.equals(value)) {
-                outcome = Outcome.OPERATIONAL;
-                rule = "UI_PLACEHOLDER_NOT_A_PATIENT_FACT";
+            // them through DemographicAddRecord2Action/DemographicUpdate2Action, and
+            // DemographicManagerImpl writes the referral-doctor wrapper with nothing inside. The
+            // value stays in the protected capture with this explicit disposition.
+            if (CdsExportDemographicSupportingMapper.placeholder(column, value)) {
+                fields.put(
+                        key,
+                        new CdsExportFieldAssessmentDto(
+                                presence,
+                                Outcome.OPERATIONAL,
+                                "",
+                                column.equals("family_doctor")
+                                        ? "NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER"
+                                        : "UI_PLACEHOLDER_NOT_A_PATIENT_FACT"));
+                continue;
             }
+            // Any other populated value has no CDS 5.2 Demographics element and travels in the
+            // native demographic NewCategory record (CdsExportDemographicSupportingMapper); it
+            // never holds the chart.
             fields.put(
-                    new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column),
-                    new CdsExportFieldAssessmentDto(presence, outcome, "", rule));
+                    key,
+                    presence == Presence.VALUE
+                            ? CdsExportDemographicSupportingMapper.carried(value)
+                            : new CdsExportFieldAssessmentDto(
+                                    presence, Outcome.ABSENT, "", "ABSENT_ANCILLARY_NATIVE_VALUE"));
         }
         checkpoint.run();
         return Map.copyOf(fields);

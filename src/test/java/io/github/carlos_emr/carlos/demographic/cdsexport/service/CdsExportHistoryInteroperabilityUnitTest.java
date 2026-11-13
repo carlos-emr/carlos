@@ -53,12 +53,16 @@ class CdsExportHistoryInteroperabilityUnitTest {
 
     /** Parses actual exporter bytes and runs the native history persister on the record. */
     Imported roundTrip(CdsExportNativeHistoryDto output, String tag) throws Exception {
-        var category = output.category();
+        return roundTrip(output.category(), render(output), tag);
+    }
+
+    /** Parses actual exporter bytes of one category and runs the native history persister. */
+    Imported roundTrip(CdsCategory category, byte[] xml, String tag) throws Exception {
         Path directory = Files.createTempDirectory(root, "roundtrip-");
         var records = new ArrayList<CdsRecordDto>();
         new CdsXmlParser()
                 .parse(
-                        Files.write(directory.resolve("patient.xml"), render(output)),
+                        Files.write(directory.resolve("patient.xml"), xml),
                         directory.resolve("parsed"),
                         CdsInputLimitsDto.defaults(),
                         () -> false,
@@ -163,6 +167,31 @@ class CdsExportHistoryInteroperabilityUnitTest {
         var notices = new ArrayList<CdsClinicalDiagnosticDto>();
         writer.write("run", 1, "unit", 28, record, command, notices::add);
         return new Imported(written.get(), prepared.get(), notices);
+    }
+
+    @Test
+    void shouldImportTheDemographicPatientAlert_asTheExactReminderNoteText() throws Exception {
+        // The Alert box of the demographic forms (demographiccust.cust3), with a carriage return
+        // and repeated spaces, through the pinned schema, the receiving parser and persister.
+        String text = "Latex allergy\r\nUses a wheelchair  (call ahead) café 😀";
+        var values = new LinkedHashMap<String, String>();
+        values.put("demographic_no", "27");
+        values.put("cust3", text);
+        var alert =
+                CdsExportPatientAlertMapper.map(
+                        27,
+                        new CdsExportCapturedTextRowDto(
+                                "demographiccust",
+                                CdsExportPatientTableSourceReader.key(27),
+                                values));
+        var imported =
+                roundTrip(
+                        CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                        render(
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                xml -> CdsExportPatientAlertMapper.write(alert, xml)),
+                        "Reminders");
+        assertThat(imported.note().getNote()).isEqualTo(text);
     }
 
     @Test

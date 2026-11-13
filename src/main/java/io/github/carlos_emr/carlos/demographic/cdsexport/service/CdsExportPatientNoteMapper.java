@@ -54,10 +54,16 @@ public final class CdsExportPatientNoteMapper {
             decisions.remove(field);
             delegated.add(field);
         }
-        for (String column : Set.of("cust1", "cust2", "cust4")) {
+        // The nurse, resident and midwife selects (add-form-clinical.jsp, edit-form-clinical.jsp)
+        // have no Demographics element; the provider number and its public name travel in the
+        // native demographic NewCategory record (CdsExportDemographicSupportingMapper).
+        for (String column : CdsExportDemographicSupportingMapper.CARE_TEAM.keySet()) {
             String value = assess.raw(column);
             if (value != null && !value.isEmpty())
-                assess.review(column, "", "DEMOGRAPHIC_CARE_TEAM_CARRIER_REQUIRES_REVIEW");
+                decisions.put(
+                        new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column),
+                        CdsExportDemographicSupportingMapper.carried(value));
+            else assess.set(column, Outcome.ABSENT, "", "ABSENT_DEMOGRAPHIC_CARE_TEAM_CARRIER");
         }
         String raw = assess.raw("content"), text = raw;
         if (raw != null) {

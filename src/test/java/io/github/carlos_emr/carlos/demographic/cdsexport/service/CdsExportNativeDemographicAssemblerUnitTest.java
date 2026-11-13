@@ -175,25 +175,38 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     }
 
     @Test
-    void shouldRefusePopulatedAncillaryClinicalData_insteadOfPublishingOnlyTheSimpleBaseFields() {
+    void shouldCarryPopulatedAncillaryData_insteadOfHoldingOrDroppingIt() throws Exception {
         var row = rows.get("demographic").getFirst();
         var values = new LinkedHashMap<>(row.fields());
         values.put("children", "Unrepresented family information");
         rows.get("demographic")
                 .set(0, new CdsExportCapturedTextRowDto(row.table(), row.recordKey(), values));
-        assertThatThrownBy(this::assemble).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var children = new CdsExportNativeFieldKeyDto("demographic", "0000000027", "children");
+        assertThat(
+                        assemble(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY))
+                                .fields()
+                                .get(children)
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(assemble().fields().get(children).rule())
+                .isEqualTo(CdsExportDemographicSupportingMapper.NOT_SELECTED_RULE);
     }
 
     @Test
-    void shouldRefusePopulatedLegacyAlerts_evenIfTheCurrentNativeNoteIsRepresentable() {
+    void shouldExportPopulatedLegacyAlerts_asAlertsAndSpecialNeedsOccurrences() throws Exception {
         custom("Native note", "Legacy alert", true);
-        assertThatThrownBy(
-                        () ->
-                                assemble(
-                                        Set.of(
-                                                CdsCategory.DEMOGRAPHICS,
-                                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var result =
+                assemble(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALERTS_AND_SPECIAL_NEEDS));
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographiccust",
+                                                CdsExportPatientTableSourceReader.key(27),
+                                                "cust3"))
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.ALERT_DESTINATION);
+        assertThat(result.demographic().note().text()).isEqualTo("Native note");
     }
 
     @Test

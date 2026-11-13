@@ -141,9 +141,22 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyClearingANumber_withAnUnclearedExtensionRequiresReview() throws Exception {
+    void shouldVerifyClearingANumber_withAnUnclearedExtensionCarriesTheExtension() throws Exception {
         fixture.currentField("phone", "");
-        assertThat(reconcile().phonesRepresentable()).isFalse();
+        // The extension left behind travels in the native demographic NewCategory record; the
+        // imported home PhoneNumber, extension included, is removed as the native edit says.
+        var cleared = reconcile();
+        assertThat(cleared.phonesRepresentable()).isTrue();
+        assertThat(
+                        cleared.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicExt",
+                                                CdsExportPatientTableSourceReader.key(1),
+                                                "value"))
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(text(render(cleared), "extension")).containsExactly("009");
         change(0, "value", null);
         assertThat(text(render(reconcile()), "phoneNumber")).isEmpty();
         assertThat(text(render(reconcile()), "extension")).containsExactly("009");
@@ -172,11 +185,12 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
         setup();
         // Updated for D5: another property row used to be deferred to an enclosing assembly that
         // never decided it, so an imported chart edited through the Master Record failed its
-        // closure. It now receives the native property disposition and stays visible as review.
+        // closure. It now receives the native property disposition: carried in the native
+        // demographic NewCategory record, outside every phone decision, and never a hold.
         current.add(property(3, "otherProperty", "Keep outside phone decisions"));
         var result = reconcile();
         assertThat(result.deferredPropertyRows()).isEmpty();
-        assertThat(result.phonesRepresentable()).isFalse();
+        assertThat(result.phonesRepresentable()).isTrue();
         assertThat(
                         result.fields()
                                 .get(
@@ -184,8 +198,8 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
                                                 "demographicExt",
                                                 CdsExportPatientTableSourceReader.key(3),
                                                 "value"))
-                                .outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         setup();
         current.add(property(3, "otherProperty", ""));
         var empty = reconcile();

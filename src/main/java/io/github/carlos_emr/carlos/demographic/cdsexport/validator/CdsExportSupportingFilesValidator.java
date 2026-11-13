@@ -180,6 +180,7 @@ public final class CdsExportSupportingFilesValidator {
                 "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.");
         text.exact(
                 "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.");
+        text.exact(CdsExportSupportingFilesComposer.DEMOGRAPHIC_RECORD_NOTICE);
         text.exact(CdsExportSupportingFilesComposer.DATA_SUMMARY_NOTICE);
         text.exact(CdsExportSupportingFilesComposer.LISTED_NOTICE);
         text.field(

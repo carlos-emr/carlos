@@ -66,6 +66,7 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
     private final List<Integer> mergePatients = new ArrayList<>();
     private final List<String> providers = new ArrayList<>();
     private boolean patientInserted;
+    private boolean customInserted;
     private final String address = "é😀".repeat(80);
 
     @BeforeEach
@@ -193,6 +194,10 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
                         firstId + 40,
                         patient,
                         patient + 1);
+                if (customInserted)
+                    sql.update(
+                            "delete from demographiccust where demographic_no=? and content='CareTeamFixture'",
+                            patient);
                 if (patientInserted)
                     sql.update(
                             "delete from demographic where demographic_no=? and first_name='Synthetic' and last_name='ArchiveFixture'",
@@ -411,6 +416,62 @@ class CdsExportDemographicArchiveMariaDbIntegrationTest {
                                             null,
                                             32))
                             .isEmpty();
+                });
+    }
+
+    @Test
+    void shouldCaptureTheNurseResidentAndMidwifeProviders_withOnlyPublicFields() {
+        // The demographic forms' care-team selects (demographiccust cust1, cust2, cust4) name
+        // providers whose public name travels in the native demographic NewCategory record.
+        var careTeam = List.of(prefix + "5", prefix + "6");
+        for (String id : careTeam) {
+            assertThat(
+                            sql.queryForObject(
+                                    "select count(*) from provider where provider_no=?",
+                                    Integer.class,
+                                    id))
+                    .isZero();
+            sql.update(
+                    "insert into provider(provider_no,first_name,last_name,ohip_no,comments,status,lastUpdateDate) values(?,'Synthetic','Archived clinician','001234','PRIVATE_PROVIDER_SENTINEL','1',CURRENT_TIMESTAMP)",
+                    id);
+            providers.add(id);
+        }
+        assertThat(
+                        sql.queryForObject(
+                                "select count(*) from demographiccust where demographic_no=?",
+                                Integer.class,
+                                patient))
+                .isZero();
+        sql.update(
+                "insert into demographiccust(demographic_no,cust1,cust2,cust3,cust4,content) values(?,?,'','Fixture alert',?,'CareTeamFixture')",
+                patient,
+                careTeam.get(0),
+                careTeam.get(1));
+        customInserted = true;
+        var dao = context.getBean(io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class);
+        read.executeWithoutResult(
+                status -> {
+                    var rows =
+                            dao.findCdsExportPublicProvidersAfter(
+                                    patient, Set.of("Demographics"), null, 32);
+                    var expected = new ArrayList<>(providers.subList(0, 4));
+                    expected.addAll(careTeam);
+                    assertThat(rows.stream().map(row -> row.id()).toList())
+                            .containsExactlyInAnyOrderElementsOf(expected);
+                    assertThat(rows)
+                            .allSatisfy(
+                                    row ->
+                                            assertThat(row.cells())
+                                                    .hasSize(6)
+                                                    .doesNotContainKeys("comments", "dob"));
+                    assertThat(dao.countCdsExportPublicProviders(patient, Set.of("Demographics")))
+                            .isEqualTo(6);
+                    // Another patient's care team is never this patient's provider.
+                    assertThat(
+                                    dao.findCdsExportPublicProvidersAfter(
+                                            patient + 1, Set.of("Demographics"), null, 32))
+                            .extracting(row -> row.id())
+                            .doesNotContainAnyElementsOf(careTeam);
                 });
     }
 

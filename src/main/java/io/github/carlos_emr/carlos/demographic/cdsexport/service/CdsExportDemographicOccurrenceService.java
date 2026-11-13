@@ -583,7 +583,9 @@ public class CdsExportDemographicOccurrenceService {
     /**
      * The demographic occurrence owns exactly the public provider rows that its own columns
      * name byte-for-byte: the current and every archived most-responsible physician
-     * ({@code provider_no}) and enrolled physician ({@code roster_enrolled_to}). The slice is
+     * ({@code provider_no}) and enrolled physician ({@code roster_enrolled_to}), and the nurse,
+     * resident and midwife of {@code demographiccust} ({@code cust1}, {@code cust2},
+     * {@code cust4}). The slice is
      * the same whichever categories are selected. Providers captured only for another selected
      * category belong to that category's receipt. A collation-only lookup candidate that no
      * demographic column names exactly is not a demographic fact: the referencing column's own
@@ -605,6 +607,9 @@ public class CdsExportDemographicOccurrenceService {
                 String id = archive.fields().get(column);
                 if (id != null && !id.isEmpty()) references.add(id);
             }
+        // The nurse, resident and midwife the demographic forms record (cust1, cust2, cust4).
+        for (var custom : rows.getOrDefault("demographiccust", List.of()))
+            references.addAll(CdsExportDemographicSupportingMapper.careTeamReferences(custom));
         var result = new LinkedHashMap<>(rows);
         result.put(
                 "provider",

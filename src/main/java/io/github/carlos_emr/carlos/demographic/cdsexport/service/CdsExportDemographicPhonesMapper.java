@@ -30,7 +30,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Exact native phone extensions/mobile values. Hidden history, duplicate keys and unknown populated properties need review. */
+/**
+ * Exact native phone extensions/mobile values. Every other visible populated property, and a
+ * phone value the CDS phone element cannot hold, is carried in the native demographic NewCategory
+ * record ({@link CdsExportDemographicSupportingMapper}). Hidden rows (written only through the
+ * REST API), duplicate phone keys and a populated value without a key still need review.
+ */
 public final class CdsExportDemographicPhonesMapper {
     private static final Map<String, String> KEYS =
             Map.of("hPhoneExt", "R", "wPhoneExt", "W", "demo_cell", "C");
@@ -144,6 +149,12 @@ public final class CdsExportDemographicPhonesMapper {
                             "",
                             "UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
                 }
+                // Every other visible property the Master Record form or a site's configured
+                // extension writes (ethnicity, consents, paper-chart status, First Nations
+                // details...) has no Demographics element: the key and value travel in the
+                // native demographic NewCategory record. A populated value without a key states
+                // nothing a receiver could name and still requires review.
+                else if (present(key)) carry(row, fields);
                 continue;
             }
             String path = path(key);
@@ -185,13 +196,9 @@ public final class CdsExportDemographicPhonesMapper {
                                 path(key),
                                 "EXACT_CURRENT_PHONE_EXTENSION");
                     } catch (IllegalArgumentException review) {
-                        mark(
-                                row,
-                                fields,
-                                "value",
-                                Outcome.REQUIRES_REVIEW,
-                                path(key),
-                                "PHONE_EXTENSION_VALUES_REQUIRES_REVIEW");
+                        // The form's extension box has no length limit; an extension the CDS
+                        // five-character token cannot hold travels exactly in the record.
+                        carry(row, fields);
                     }
             }
             phones.add(
@@ -203,13 +210,17 @@ public final class CdsExportDemographicPhonesMapper {
             if (row == null || duplicate.contains(key)) continue;
             if (base.phones().stream().noneMatch(phone -> phone.type().equals(KEYS.get(key)))) {
                 String value = row.fields().get("value");
-                mark(
-                        row,
-                        fields,
-                        "value",
-                        present(value) ? Outcome.REQUIRES_REVIEW : Outcome.ABSENT,
-                        path(key),
-                        "EXTENSION_WITHOUT_A_NATIVE_NUMBER");
+                // An extension left behind after its number was cleared has no PhoneNumber to
+                // join; it travels in the record instead of being dropped.
+                if (present(value)) carry(row, fields);
+                else
+                    mark(
+                            row,
+                            fields,
+                            "value",
+                            Outcome.ABSENT,
+                            path(key),
+                            "EXTENSION_WITHOUT_A_NATIVE_NUMBER");
                 if (!present(value))
                     mark(
                             row,
@@ -249,13 +260,9 @@ public final class CdsExportDemographicPhonesMapper {
                             path("demo_cell"),
                             "EXACT_CURRENT_MOBILE_NUMBER");
                 } catch (IllegalArgumentException review) {
-                    mark(
-                            mobile,
-                            fields,
-                            "value",
-                            Outcome.REQUIRES_REVIEW,
-                            path("demo_cell"),
-                            "MOBILE_NUMBER_VALUES_REQUIRES_REVIEW");
+                    // The mobile box has no length limit; a number the CDS 25-character token
+                    // cannot hold travels exactly in the record.
+                    carry(mobile, fields);
                 }
         }
         for (var row : properties)
@@ -319,6 +326,16 @@ public final class CdsExportDemographicPhonesMapper {
 
     private static boolean present(String value) {
         return value != null && !value.isEmpty();
+    }
+
+    /** Key and value of a property carried by the native demographic NewCategory record. */
+    private static void carry(
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        for (String column : List.of("key_val", "value"))
+            fields.put(
+                    new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column),
+                    CdsExportDemographicSupportingMapper.carried(row.fields().get(column)));
     }
 
     private static void mark(
