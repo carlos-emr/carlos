@@ -131,6 +131,15 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     static CdsExportLaboratoryOccurrenceService.NativeSource source(String text) throws Exception {
+        return source(text, null);
+    }
+
+    /**
+     * @param obrDate the report date the upload stored ({@code hl7TextInfo.obr_date}, as
+     *     MessageUploader writes it), or null
+     */
+    static CdsExportLaboratoryOccurrenceService.NativeSource source(String text, String obrDate)
+            throws Exception {
         var message =
                 row(
                         Plan.LABORATORY_MESSAGES,
@@ -156,6 +165,11 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                                 "Native Lab",
                                 "accessionNum",
                                 "ACC-1"));
+        if (obrDate != null) {
+            var values = new LinkedHashMap<>(information.fields());
+            values.put("obr_date", obrDate);
+            information = new CdsExportCapturedTextRowDto(information.table(), information.recordKey(), values);
+        }
         var routing =
                 row(
                         Plan.LABORATORY_ROUTING,

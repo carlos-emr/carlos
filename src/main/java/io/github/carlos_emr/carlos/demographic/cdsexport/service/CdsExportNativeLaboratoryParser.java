@@ -80,6 +80,7 @@ final class CdsExportNativeLaboratoryParser {
     static final class Raw {
         final char field, component, repetition, escape, subcomponent;
         private final Map<Segment, String[]> fields = new IdentityHashMap<>();
+        private final List<Segment> orders = new ArrayList<>();
 
         private Raw(char field, char component, char repetition, char escape, char subcomponent) {
             this.field = field;
@@ -87,6 +88,11 @@ final class CdsExportNativeLaboratoryParser {
             this.repetition = repetition;
             this.escape = escape;
             this.subcomponent = subcomponent;
+        }
+
+        /** Every OBR segment in message order, including orders without results. */
+        List<Segment> orders() {
+            return Collections.unmodifiableList(orders);
         }
 
         /** The raw repetitions of one field, or an empty list when the field is absent. */
@@ -324,6 +330,7 @@ final class CdsExportNativeLaboratoryParser {
                     review("CDS_EXPORT_NATIVE_LAB_SEGMENT_ALIGNMENT");
             }
             raw.fields.put(segment, fields);
+            if (name.equals("OBR")) raw.orders.add(segment);
         }
         for (var queue : lines.values())
             if (!queue.isEmpty()) review("CDS_EXPORT_NATIVE_LAB_SEGMENT_ALIGNMENT");

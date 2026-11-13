@@ -153,6 +153,85 @@ class CdsExportNativeLaboratoryFeedUnitTest {
     }
 
     @Test
+    void shouldExportTheChartsReportDate_whenTheEpsilonSampleSendsNoCollectionTime()
+            throws Exception {
+        // OBR-7 and OBX-14 are empty. MessageUploader stored EpsilonHandler.getServiceDate()
+        // (OBR-6, "2012-04-03 00:04") as hl7TextInfo.obr_date, the date the chart lists.
+        String text = patient(fixture("HL7-Epsilon/medhealth-general.hl7").getFirst(), 3);
+        var source = CdsExportNativeLaboratoryMapperUnitTest.source(text, "2012-04-03 00:04:00");
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        var values = mapper.map(source, TORONTO);
+        assertThat(values).hasSize(8);
+        for (var value : values)
+            // OBR-6 has minute precision: its date, with no invented seconds.
+            assertThat(value.dates().get("CollectionDateTime"))
+                    .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2012-04-03"));
+        assertThat(CdsExportNativeLaboratoryMapper.chartDateSource(source))
+                .isEqualTo("OBR[1]-6");
+        String supporting =
+                new String(
+                        render(
+                                CdsCategory.NEW_CATEGORY,
+                                xml -> mapper.writeSupporting(source, xml)),
+                        StandardCharsets.UTF_8);
+        assertThat(supporting)
+                .contains(
+                        "CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME",
+                        "\"source\":\"OBR[1]-6\"",
+                        "\"observations\":[\"1:1:0\"");
+        var assessments = CdsExportNativeLaboratoryMapper.assessments(source);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(source.rows(), assessments, 100000, () -> {});
+        assertThat(
+                        assessments.get(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportNativeFieldKeyDto(
+                                        "hl7TextInfo", source.information().recordKey(), "obr_date")))
+                .satisfies(
+                        decision -> {
+                            assertThat(decision.rule())
+                                    .isEqualTo("CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME");
+                            assertThat(decision.destination())
+                                    .isEqualTo("LaboratoryResults/CollectionDateTime");
+                        });
+    }
+
+    @Test
+    void shouldUseTheStoredReportDate_whenNoHl7FieldGivesTheChartsDate() throws Exception {
+        // A handler that formatted its service date from a field this exporter does not name:
+        // the date the chart lists, whose time the upload may have padded, is exported as a date.
+        String text = patient(fixture("HL7-Epsilon/medhealth-general.hl7").getFirst(), 3);
+        var source = CdsExportNativeLaboratoryMapperUnitTest.source(text, "2012-04-05 09:30:00");
+        var values = new CdsExportNativeLaboratoryMapper().map(source, TORONTO);
+        assertThat(values.getFirst().dates().get("CollectionDateTime"))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2012-04-05"));
+        assertThat(CdsExportNativeLaboratoryMapper.chartDateSource(source))
+                .isEqualTo("hl7TextInfo.obr_date");
+        // Only a report the chart has no date for at all is still held.
+        var undated = CdsExportNativeLaboratoryMapperUnitTest.source(text, null);
+        assertThatThrownBy(() -> new CdsExportNativeLaboratoryMapper().map(undated, TORONTO))
+                .hasMessage("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
+    }
+
+    @Test
+    void shouldKeepTheSentCollectionTime_andAnUnchangedSupportingRecord() throws Exception {
+        // OBX-14 and OBR-7 present: the report date is never consulted and nothing is marked.
+        var source = CdsExportNativeLaboratoryMapperUnitTest.source(message(), "2026-07-10 12:30:00");
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        assertThat(mapper.map(source, TORONTO).getFirst().dates().get("CollectionDateTime").lexical())
+                .isEqualTo("2026-07-09T14:35:00-04:00");
+        String supporting =
+                new String(
+                        render(CdsCategory.NEW_CATEGORY, xml -> mapper.writeSupporting(source, xml)),
+                        StandardCharsets.UTF_8);
+        assertThat(supporting).doesNotContain("CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME");
+        assertThat(
+                        CdsExportNativeLaboratoryMapper.assessments(source).values().stream()
+                                .map(decision -> decision.rule()))
+                .doesNotContain("CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME");
+    }
+
+    @Test
     void shouldStillHoldAMalformedStructuredNumeric_withItsNamedCode() {
         for (String malformed : List.of("^abc", "^1^:^2^3^4", "approximately 5"))
             assertThatThrownBy(

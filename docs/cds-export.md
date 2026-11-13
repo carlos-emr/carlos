@@ -2777,7 +2777,19 @@ document (`hl7TextMessage` + `lab:ordinal`) and requests review when Reports is 
 time with hour or minute precision (`YYYYMMDDHH[MM]`, with or without an offset) is exported as
 its FullDate; seconds are never invented. An OBR without OBX (a pending, cancelled or fee order)
 adds no observation; a message with no order or not one patient still requires review
-(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). An "ORU" message without its R01 trigger cannot be
+(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). An observation with neither OBX-14 nor OBR-7 is
+given the report date the chart lists: `hl7TextInfo.obr_date`, which `MessageUploader` stores
+from the handler's `getServiceDate()` (OBR-6 for `EpsilonHandler`) or, when that is empty,
+`getMsgDate()` (MSH-7), reformatted to `yyyy-MM-dd HH:mm:ss` (an unparseable date fails the
+upload, so every uploaded report has one). `CdsExportNativeLaboratoryMapper.chartDateSource`
+names the first OBR-7, OBR-6, OBR-14 or OBR-22 (message order), then MSH-7, whose wall clock
+equals that stored value, and `CollectionDateTime` takes that field at its own precision
+(minute precision is a FullDate); when no field matches, the stored value's day is written,
+since the upload may have padded its time. The obr_date field is then `MAPPED` to
+`LaboratoryResults/CollectionDateTime` under `CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME`,
+and `CARLOS.NativeLaboratory.v1` gains a `collection` entry (rule, source field, observation
+ordinals) after `rows`; a report that sent its collection times keeps its residual bytes. Only
+an empty or unreadable stored date still holds (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`). An "ORU" message without its R01 trigger cannot be
 parsed by HAPI (`Can't determine message structure`), so no CARLOS handler stored one; the
 parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`). Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine

@@ -308,10 +308,15 @@ and the report's inbox acknowledgements as its reviewers; select Reports with
 LaboratoryResults, or the patient is held. A time the laboratory sent only to the minute or
 hour is exported as its date (CDS requires seconds, which are never invented); the exact time
 is in the NewCategory record. An ordered test with no result yet (a pending, cancelled or fee
-line) adds no result and travels only in that record. A malformed structured numeric still
-holds the patient (`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`), as does a result
-with no collection time at all (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`) and a message
-CARLOS's own lab handlers could not have stored (for example "ORU" without its R01 trigger:
+line) adds no result and travels only in that record. A result the laboratory sent without a
+collection time (no OBX-14 or OBR-7, as in Epsilon's general results) is exported with the
+report date the chart lists for that lab, at the precision the laboratory sent it, and the
+NewCategory record says that the message carried no collection time and which field the date
+came from. Only a report the chart has no date for at all would still hold
+(`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`); CARLOS's lab upload never stores one. A
+malformed structured numeric still holds the patient
+(`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`), as does a message CARLOS's own lab
+handlers could not have stored (for example "ORU" without its R01 trigger:
 `CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
 
 Vaccines export under Immunizations. Prevention screenings (the Screenings types and

@@ -187,8 +187,13 @@ final class CdsExportNativeLaboratoryMapper {
                     dates.put("LabRequisitionDateTime", temporal(requested, zone));
                 String collected = scalar(obx, 14, 0, 1);
                 if (collected.isEmpty()) collected = scalar(obr, 7, 0, 1);
-                if (collected.isEmpty()) review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
-                dates.put("CollectionDateTime", temporal(collected, zone));
+                // No collection time was sent: the report date the chart lists for this report
+                // (CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME, recorded in the residual).
+                dates.put(
+                        "CollectionDateTime",
+                        collected.isEmpty()
+                                ? chartDate(source, zone)
+                                : temporal(collected, zone));
                 String flag = scalar(obx, 8, 0, 1);
                 if (obx.getField(8).length > 1) {
                     var flags = new ArrayList<String>();
@@ -250,12 +255,23 @@ final class CdsExportNativeLaboratoryMapper {
             throws IOException {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         result.putAll(reviews.fields());
+        boolean chartDated = !undated(source).isEmpty();
         for (var row : source.rows()) {
             var assessed = new CdsExportNativeFieldAssessments(row, result);
             for (var entry : row.fields().entrySet()) {
                 if (entry.getValue() != null
                         && !CdsExportNativeFieldAssessments.legal(entry.getValue(), 1 << 24))
                     review("CDS_EXPORT_NATIVE_LAB_CONTEXT_CAPACITY");
+                if (chartDated
+                        && row == source.information()
+                        && entry.getKey().equals("obr_date")) {
+                    assessed.set(
+                            entry.getKey(),
+                            CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                            "LaboratoryResults/CollectionDateTime",
+                            CHART_REPORT_DATE);
+                    continue;
+                }
                 assessed.set(
                         entry.getKey(),
                         CdsExportFieldAssessmentDto.Outcome.MAPPED,
@@ -264,6 +280,117 @@ final class CdsExportNativeLaboratoryMapper {
             }
         }
         return result;
+    }
+
+    /** Rule of a collection date taken from the report date the chart lists. */
+    static final String CHART_REPORT_DATE = "CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME";
+
+    /** The report date as MessageUploader stores it: always a full clock, padded when needed. */
+    private static final java.util.regex.Pattern STORED_REPORT_DATE =
+            java.util.regex.Pattern.compile("([0-9]{4}-[0-9]{2}-[0-9]{2}) [0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.0)?");
+
+    /** An HL7 TS: its wall-clock digits, then any fraction and offset the stored date drops. */
+    private static final java.util.regex.Pattern HL7_TIMESTAMP =
+            java.util.regex.Pattern.compile(
+                    "([0-9]{4})([0-9]{2})?([0-9]{2})?([0-9]{2})?([0-9]{2})?([0-9]{2})?(?:\\.[0-9]{1,9})?(?:[+-][0-9]{4})?");
+
+    /**
+     * The ordinals of the observations whose OBX-14 and OBR-7 are both empty: the laboratory sent
+     * no collection time for them, so they carry the report date the chart lists.
+     */
+    static List<String> undated(CdsExportLaboratoryOccurrenceService.NativeSource source)
+            throws IOException {
+        var result = new ArrayList<String>();
+        try {
+            for (var observation : source.parsed().observations())
+                if (scalar(observation.result(), 14, 0, 1).isEmpty()
+                        && scalar(observation.order(), 7, 0, 1).isEmpty())
+                    result.add(observation.ordinal());
+        } catch (HL7Exception failure) {
+            review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
+        }
+        return List.copyOf(result);
+    }
+
+    /**
+     * Where the report date the chart lists came from. MessageUploader stores the handler's
+     * service date (EpsilonHandler.getServiceDate is OBR-6), or the message date (MSH-7) when
+     * that is empty, as {@code hl7TextInfo.obr_date}, reformatted to a full clock. The first
+     * OBR-7, OBR-6, OBR-14 or OBR-22 (in message order), then MSH-7, whose wall clock equals the
+     * stored date names its field, so the date keeps the precision the laboratory sent; when none
+     * does, the stored date itself is the source.
+     *
+     * @return the field name, such as {@code OBR[1]-6} or {@code MSH-7}, or {@code
+     *     hl7TextInfo.obr_date}; null when the chart has no date for the report
+     */
+    static String chartDateSource(CdsExportLaboratoryOccurrenceService.NativeSource source)
+            throws IOException {
+        var candidate = chartDateCandidate(source);
+        return candidate == null ? null : candidate.getKey();
+    }
+
+    private static Map.Entry<String, String> chartDateCandidate(
+            CdsExportLaboratoryOccurrenceService.NativeSource source) throws IOException {
+        String stored = source.information() == null ? null : source.information().fields().get("obr_date");
+        var match = stored == null ? null : STORED_REPORT_DATE.matcher(stored);
+        if (match == null || !match.matches()) return null;
+        String wall = stored.substring(0, 19);
+        try {
+            int order = 0;
+            for (var segment : source.parsed().raw().orders()) {
+                order++;
+                for (int field : new int[] {7, 6, 14, 22}) {
+                    String value = scalar(segment, field, 0, 1);
+                    if (wall.equals(wallClock(value)))
+                        return Map.entry("OBR[" + order + "]-" + field, value);
+                }
+            }
+            String sent = new Terser(source.parsed().message()).get("/MSH-7-1");
+            if (wall.equals(wallClock(literal(sent)))) return Map.entry("MSH-7", literal(sent));
+        } catch (HL7Exception failure) {
+            review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
+        }
+        return Map.entry("hl7TextInfo.obr_date", stored);
+    }
+
+    /** An HL7 TS as the upload stores it, {@code yyyy-MM-dd HH:mm:ss}, or null. */
+    private static String wallClock(String value) {
+        if (value == null || value.isEmpty()) return null;
+        var parts = HL7_TIMESTAMP.matcher(value);
+        if (!parts.matches()) return null;
+        return parts.group(1)
+                + "-"
+                + (parts.group(2) == null ? "01" : parts.group(2))
+                + "-"
+                + (parts.group(3) == null ? "01" : parts.group(3))
+                + " "
+                + (parts.group(4) == null ? "00" : parts.group(4))
+                + ":"
+                + (parts.group(5) == null ? "00" : parts.group(5))
+                + ":"
+                + (parts.group(6) == null ? "00" : parts.group(6));
+    }
+
+    /**
+     * The collection date of an observation the laboratory sent no collection time for: the
+     * report date the chart lists, at the precision of the HL7 field it came from, or the stored
+     * date's day when no field gives it (the upload pads the time). Held only when the chart has
+     * no date for the report at all.
+     */
+    static CdsExportDateDto chartDate(
+            CdsExportLaboratoryOccurrenceService.NativeSource source, ZoneId zone)
+            throws IOException {
+        var candidate = chartDateCandidate(source);
+        if (candidate == null) review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
+        if (candidate.getKey().equals("hl7TextInfo.obr_date"))
+            try {
+                return new CdsExportDateDto(
+                        CdsExportDateDto.Precision.DATE,
+                        LocalDate.parse(candidate.getValue().substring(0, 10)).toString());
+            } catch (DateTimeException invalid) {
+                review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
+            }
+        return temporal(candidate.getValue(), zone);
     }
 
     void write(Value value, CdsExportXmlComposer.ContentWriter xml) throws IOException {
@@ -364,6 +491,17 @@ final class CdsExportNativeLaboratoryMapper {
         var context = new LinkedHashMap<String, Object>();
         context.put("version", 1);
         context.put("rows", rows);
+        // Only a report whose laboratory sent no collection time gains this entry, so every
+        // other report keeps its residual bytes.
+        var undated = undated(source);
+        if (!undated.isEmpty()) {
+            var collection = new LinkedHashMap<String, Object>();
+            collection.put("rule", CHART_REPORT_DATE);
+            String field = chartDateSource(source);
+            collection.put("source", field == null ? "" : field);
+            collection.put("observations", undated);
+            context.put("collection", collection);
+        }
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,
                 "CARLOS.Laboratory.v1",
