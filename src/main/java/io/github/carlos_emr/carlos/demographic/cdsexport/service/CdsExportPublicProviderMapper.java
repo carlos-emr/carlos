@@ -86,7 +86,20 @@ public final class CdsExportPublicProviderMapper {
                         Outcome.MAPPED,
                         "PrimaryPhysician/PrimaryPhysicianCPSO",
                         "EXPLICIT_CPSO_AUTHORITY");
-        } else state.operational("practitionerNo", "CAPTURED_PUBLIC_REGISTRATION_LOOKUP_METADATA");
+        } else if (target == Target.PRIMARY_PHYSICIAN
+                && state.raw("practitionerNo") != null
+                && !state.raw("practitionerNo").isBlank()
+                && (state.raw("practitionerNoType") == null
+                        || state.raw("practitionerNoType").isBlank()))
+            // A registration number with no recorded authority (provider rows created before the
+            // type was recorded) may be the MRP's CPSO number, which receivers use to match the
+            // physician, or a BC MSP or nursing number. It is neither asserted as CPSO nor
+            // dropped: the provider record needs its practitioner number type set.
+            state.review(
+                    "practitionerNo",
+                    "PrimaryPhysician/PrimaryPhysicianCPSO",
+                    "PRACTITIONER_NUMBER_AUTHORITY_REQUIRED");
+        else state.operational("practitionerNo", "CAPTURED_PUBLIC_REGISTRATION_LOOKUP_METADATA");
         CdsExportPublicProviderDto value = null;
         try {
             value = new CdsExportPublicProviderDto(first, last, ohip, cpso);

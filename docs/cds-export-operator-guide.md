@@ -223,6 +223,13 @@ or review those charts and export them in a new job. A failure that concerns the
 whole job (storage, recipient policy, audit arrangement, limits, runtime change)
 still stops it, and a job in which every patient was held produces no package.
 
+Some holds are fixed once in Administration rather than chart by chart. A patient whose
+most responsible physician has a practitioner number but no "Practitioner No. Type"
+(provider records created before the type was recorded, often after a migration) is held:
+the number may be the physician's CPSO number, which receivers use to match the physician,
+or a BC MSP or nursing number, so it is neither labelled CPSO nor dropped. Set the type on
+the provider record (Administration > Providers) and export those patients again.
+
 Every chart the export read is in the normal chart audit (`log`): an `EXPORT`
 row for each patient of a prepared package, and a `read` row marked
 `CDS_EXPORT_CHART_ACCESS ... outcome=HELD` for a held patient or `outcome=STOPPED`

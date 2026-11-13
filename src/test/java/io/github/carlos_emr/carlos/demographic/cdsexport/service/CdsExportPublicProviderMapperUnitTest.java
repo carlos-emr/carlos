@@ -50,7 +50,7 @@ class CdsExportPublicProviderMapperUnitTest {
 
     @Test
     void shouldNeverRelabelAnotherOrMissingRegistrationAuthorityAsCpso_forPublicProviderMapperContract() throws Exception {
-        for (String authority : Arrays.asList(null, "", "MSP", "cpso")) {
+        for (String authority : Arrays.asList("MSP", "cpso")) {
             var mapped =
                     new CdsExportPublicProviderMapper()
                             .map(
@@ -58,6 +58,17 @@ class CdsExportPublicProviderMapperUnitTest {
                                     CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
             assertThat(mapped.value().cpsoNumber()).isNull();
             assertThat(mapped.value().ohipNumber()).isEqualTo("001234");
+        }
+        // A missing authority is never relabelled either, and is no longer silently dropped:
+        // the patient is held until the provider record names it (review P4).
+        for (String authority : Arrays.asList(null, "")) {
+            var mapped =
+                    new CdsExportPublicProviderMapper()
+                            .map(
+                                    provider(authority, "000123"),
+                                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+            assertThat(mapped.representable()).isFalse();
+            assertThat(mapped.value()).isNull();
         }
     }
 
@@ -118,6 +129,46 @@ class CdsExportPublicProviderMapperUnitTest {
                                                 CdsExportPublicProviderMapper.Target
                                                         .PRIMARY_PHYSICIAN))
                 .hasMessage("CDS_EXPORT_PUBLIC_PROVIDER_CAPTURE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldHoldAnUntypedRegistrationNumber_ofThePrimaryPhysicianInsteadOfDroppingIt()
+            throws Exception {
+        // Review P4: it may be the MRP's CPSO number or another authority's; neither asserted
+        // nor silently lost.
+        for (String authority : Arrays.asList(null, "")) {
+            var mapped =
+                    new CdsExportPublicProviderMapper()
+                            .map(
+                                    provider(authority, "12345"),
+                                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+            assertThat(mapped.representable()).isFalse();
+            assertThat(mapped.fields().get(key("practitionerNo")).rule())
+                    .isEqualTo("PRACTITIONER_NUMBER_AUTHORITY_REQUIRED");
+        }
+        assertThat(
+                        new CdsExportPublicProviderMapper()
+                                .map(
+                                        provider("CPSO", "12345"),
+                                        CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN)
+                                .value()
+                                .cpsoNumber())
+                .isEqualTo("12345");
+        // Without a number, or for an appointment provider, nothing is held.
+        assertThat(
+                        new CdsExportPublicProviderMapper()
+                                .map(
+                                        provider(null, null),
+                                        CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN)
+                                .representable())
+                .isTrue();
+        assertThat(
+                        new CdsExportPublicProviderMapper()
+                                .map(
+                                        provider(null, "12345"),
+                                        CdsExportPublicProviderMapper.Target.APPOINTMENT)
+                                .representable())
+                .isTrue();
     }
 
     static CdsExportCapturedTextRowDto provider(String authority, String number) {
