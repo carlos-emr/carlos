@@ -213,3 +213,44 @@ when the tickler has a patient. New patientless ticklers are still refused.
 
 `concurrency-tickler-edit` and `concurrency-tickler-list-status` pin both refusals.
 
+
+## Stale Security Records edits: `SecurityEditVersion`
+
+Administration, Search/Edit/Delete Security Records, Update Record posts every control the edit
+page shows (user name, provider, expiry flag and date, both PIN-lock flags, password, PIN, Force
+password reset, Enable MFA), and the save, then a scriptlet in `securityupdate.jsp`, copied all of
+them onto the `security` row. An administrator whose page was opened before another
+administrator's save put that save back without a warning: a forced password reset, an expiry,
+a lock flag or the MFA switch was silently undone (ledger finding 355).
+
+- `securityupdatesecurity.jsp` renders `securityVersion` (`SecurityEditVersion.of`): a SHA-256
+  over the values the form shows and writes and the row's `lastUpdateDate`, `passwordUpdateDate`
+  and `pinUpdateDate`. The password hash, the PIN, the MFA secret and the ONE ID values never enter
+  it, and none of them is logged. Because the credential change times are in it, a password or PIN
+  changed elsewhere after the page was opened (the user's own change, a forced reset at sign-in,
+  a hash upgrade at sign-in) also makes the page stale, as does Reset MFA, whose save stamps
+  `lastUpdateDate`.
+- `SecurityUpdate2Action` validates the user name and password as before (a refused value writes
+  nothing and shows its message) and then calls `SecurityRecordUpdateService.update()`. In one
+  transaction it locks the row (`SecurityDao.findForUpdate()`, a locking read that is refreshed),
+  compares the version and writes. The write is the one the scriptlet made: the password is hashed
+  only when it is not the unchanged marker, the PIN goes through `SecurityUpdatePinHandler`, the
+  lock flags change only when the form says they were editable, `lastUpdateDate` is stamped, and
+  no archive row is written. The action writes the same `LogAction` row after a save;
+  `securityupdate.jsp` now only reports the outcome.
+- A mismatch writes nothing, the new password and PIN included: HTTP 409, `Cache-Control:
+  no-store`, and the result page's `#securityEditConflict` block
+  (`admin.securityupdate.editConflict.*`), which says that nothing was saved and links to the edit
+  page of the record as it is now (`#securityEditConflictReopen`).
+- A stale form whose every value the login already holds, and which changes neither credential,
+  is not a conflict: it is most often the second click of a form whose first click saved. It
+  writes nothing (and no audit row) and shows the normal success message. A stale form that posts
+  a new password or PIN is always refused, even on a second click: telling whether the stored
+  hash already is that password would mean testing it against the hash, which the save must never
+  offer. The first click's password stands, and the administrator can reopen the record to check.
+- A post with no version (an older page or a hand-built request) is saved as before, under the
+  same lock but without the check.
+
+`concurrency-security-record` pins the refusal: session A's stale Update Record is answered 409,
+stores none of its fields and leaves session B's Force password reset in place; reopened, the
+record shows that reset and session A's change saves.
