@@ -6430,7 +6430,7 @@
       "script": "scripts/form-catalog-smoke-playwright-checks.js",
       "envSet": {
         "FORM_CATALOG_ONLY": "",
-        "FORM_CATALOG_EXCEPT": "alpha,cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore,cesd.redisplay,letterhead.restore,rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys,positionhazard.open,rourke2006.reopen,rourke2006.print,adfv2.redisplay,selfmanagement.restore,positionhazard.bare,healthpassport.bare"
+        "FORM_CATALOG_EXCEPT": "alpha,cesd.restore,caregiver.restore,sf36caregiver.restore,sf36.restore,costquestionnaire.restore,falls.restore,homefast.restore,intakeinfo.restore,fdidisability.restore,fdifunction.restore,riskassessment.restore,treatmentpref.restore,cesd.redisplay,letterhead.restore,rourke2006.keys,intakeinfo.keys,positionhazard.keys,selfefficacy.keys,positionhazard.open,rourke2006.reopen,rourke2006.print,adfv2.redisplay,selfmanagement.restore,positionhazard.bare,healthpassport.bare,bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn"
       },
       "tiers": [
         "core"
@@ -6619,6 +6619,31 @@
         "finding": 235,
         "step": "Position Hazard: opens from the Forms menu with no error page, script error or failed asset"
       }
+    },
+    {
+      "name": "form-catalog-smoke-bc",
+      "script": "scripts/form-catalog-smoke-playwright-checks.js",
+      "envSet": {
+        "FORM_CATALOG_ONLY": "bcar,bcar2007,bclabourbirth,bcbirthsum2008,bcinr,bcchecklist,bcnewborn",
+        "FORM_CATALOG_EXCEPT": ""
+      },
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "BC"
+      ],
+      "timeoutSec": 600,
+      "env": [
+        "FORM_CATALOG_ONLY",
+        "FORM_CATALOG_EXCEPT"
+      ],
+      "mutates": [
+        "encounterForm"
+      ],
+      "notes": "NOTES_PLACEHOLDER",
+      "fixtures": "Owned synthetic patient (given an address, phone, health-card and roster record before the forms open, after the bare concern) and one marker-named encounterForm registration per form under test; cleanup deletes the owned patient's rows from the form tables the entry uses and the registrations, and asserts both gone. The registrations are clinic-wide, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1)."
     },
     {
       "name": "form-catalog-smoke-rourke2006-reopen",
