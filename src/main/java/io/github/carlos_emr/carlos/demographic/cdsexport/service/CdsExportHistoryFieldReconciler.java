@@ -274,38 +274,6 @@ public final class CdsExportHistoryFieldReconciler {
                                 checked,
                                 retained,
                                 control::checkpoint);
-        if (nativeHistory != null) {
-            // Native revision context qualifies audit and narrative changes, but must not bypass
-            // retained-source date precision or coded issue reconciliation.
-            var guard =
-                    choose(
-                            patient,
-                            category,
-                            prepared,
-                            oldNote,
-                            current,
-                            references,
-                            baseline,
-                            fields,
-                            source.changes(),
-                            source.sourceFields(),
-                            index.sourceManifestSha256(),
-                            address,
-                            control::checkpoint);
-            var nativeRules =
-                    Set.of(
-                            "ARCHIVED_CLINICAL_CONTEXT_REQUIRES_REVIEW",
-                            "CLINICAL_OR_AUDIT_CARRIER_REQUIRED",
-                            "CHANGED_AUTHOR_OR_SIGNATURE_REQUIRES_RECONCILIATION",
-                            "STRUCTURED_PERSONAL_HISTORY_EDIT_REQUIRES_REVIEW",
-                            "CURRENT_NARRATIVE_NOT_REPRESENTABLE");
-            if (guard.fields().values().stream()
-                    .anyMatch(
-                            f ->
-                                    f.outcome() == Outcome.REQUIRES_REVIEW
-                                            && !nativeRules.contains(f.rule())))
-                review("CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED");
-        }
         var result =
                 nativeHistory == null
                         ? choose(
@@ -322,20 +290,21 @@ public final class CdsExportHistoryFieldReconciler {
                                 index.sourceManifestSha256(),
                                 address,
                                 control::checkpoint)
-                        : new CdsExportHistoryNativeReconciler()
-                                .reconcile(
-                                        patient,
-                                        category,
-                                        address,
-                                        index.sourceManifestSha256(),
-                                        prepared,
-                                        oldNote,
-                                        current,
-                                        fields,
-                                        source,
-                                        nativeHistory,
-                                        values,
-                                        control::checkpoint);
+                        : reconcileNative(
+                                patient,
+                                category,
+                                address,
+                                index.sourceManifestSha256(),
+                                prepared,
+                                oldNote,
+                                current,
+                                references,
+                                baseline,
+                                fields,
+                                source,
+                                nativeHistory,
+                                values,
+                                control::checkpoint);
         if (result.representable())
             new CdsExportRetainedSectionWriter()
                     .prepareChanges(fields, values, result.changes(), control::checkpoint);
@@ -343,6 +312,99 @@ public final class CdsExportHistoryFieldReconciler {
         control.authorizeNote(category, access);
         control.checkpoint();
         return result;
+    }
+
+    /**
+     * Rules the native revision context accounts for on an imported item that was edited in
+     * CARLOS. Its {@code CARLOS.NativeHistory.v1} context carries every revision's note, extension,
+     * issue and link rows exactly, and the native reconciler writes the current standard values
+     * over the retained source:
+     *
+     * <ul>
+     *   <li>archive state, audit columns, authors and signatures, the editing provider's program
+     *       team (operational on every native note), and a PersonalHistory edit (which has no
+     *       standard narrative element);
+     *   <li>a CPP extension added or changed in the CPP editor (Start Date, Age at Onset, ...),
+     *       written as its standard element or, when it does not fit, in Notes (B5);
+     *   <li>a changed observation date of an encounter note, written as EventDateTime (B5);
+     *   <li>an issue assigned to or removed from the item (B5): see {@link #checkIssues}.
+     * </ul>
+     */
+    static final Set<String> NATIVE_CONTEXT_RULES =
+            Set.of(
+                    "ARCHIVED_CLINICAL_CONTEXT_REQUIRES_REVIEW",
+                    "CLINICAL_OR_AUDIT_CARRIER_REQUIRED",
+                    "CHANGED_AUTHOR_OR_SIGNATURE_REQUIRES_RECONCILIATION",
+                    "STRUCTURED_PERSONAL_HISTORY_EDIT_REQUIRES_REVIEW",
+                    "CURRENT_NARRATIVE_NOT_REPRESENTABLE",
+                    "CLINICAL_TEAM_RECONCILIATION_REQUIRED",
+                    "NEW_OR_CHANGED_CLINICAL_EXTENSION_REQUIRES_RECONCILIATION",
+                    "CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT");
+
+    /**
+     * An imported item with CARLOS revisions: the strict guard first proves the item is still the
+     * imported one (same preparation, baseline, category tag and import date metadata), tolerating
+     * only {@link #NATIVE_CONTEXT_RULES}; the native reconciler then writes the current revision
+     * over the retained source.
+     */
+    Result reconcileNative(
+            int patient,
+            CdsCategory category,
+            String address,
+            String manifest,
+            CdsHistoryNativeDto prepared,
+            CdsNativeRowState original,
+            Current current,
+            List<CdsExportRetainedIndexDto.Reference> references,
+            Map<String, CdsNativeRowState> baseline,
+            List<CdsExportRetainedFieldDto> fields,
+            CdsExportHistoryRetainedSource.Result source,
+            CdsExportNativeHistoryMapper.Result nativeHistory,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        // Native revision context qualifies audit, narrative, extension and issue changes, but
+        // must not bypass the import's own date precision on a CPP item.
+        var guard =
+                choose(
+                        patient,
+                        category,
+                        prepared,
+                        original,
+                        current,
+                        references,
+                        baseline,
+                        fields,
+                        source.changes(),
+                        source.sourceFields(),
+                        manifest,
+                        address,
+                        checkpoint,
+                        true);
+        if (guard.fields().values().stream()
+                .anyMatch(
+                        f ->
+                                f.outcome() == Outcome.REQUIRES_REVIEW
+                                        && !NATIVE_CONTEXT_RULES.contains(f.rule())
+                                        && !(category == CdsCategory.CLINICAL_NOTES
+                                                && f.rule()
+                                                        .equals(
+                                                                "CHANGED_OBSERVATION_AND_PRECISION_REQUIRE_RECONCILIATION"))))
+            review("CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED");
+        return new CdsExportHistoryNativeReconciler()
+                .reconcile(
+                        patient,
+                        category,
+                        address,
+                        manifest,
+                        prepared,
+                        original,
+                        current,
+                        fields,
+                        source,
+                        nativeHistory,
+                        values,
+                        checkpoint);
     }
 
     Result choose(
@@ -359,6 +421,39 @@ public final class CdsExportHistoryFieldReconciler {
             String manifest,
             String address,
             Runnable checkpoint)
+            throws IOException {
+        return choose(
+                patient,
+                category,
+                prepared,
+                original,
+                current,
+                references,
+                baseline,
+                sourceFields,
+                initialChanges,
+                completeSourceFields,
+                manifest,
+                address,
+                checkpoint,
+                false);
+    }
+
+    private Result choose(
+            int patient,
+            CdsCategory category,
+            CdsHistoryNativeDto prepared,
+            CdsNativeRowState original,
+            Current current,
+            List<CdsExportRetainedIndexDto.Reference> references,
+            Map<String, CdsNativeRowState> baseline,
+            List<CdsExportRetainedFieldDto> sourceFields,
+            List<CdsExportRetainedSectionWriter.Change> initialChanges,
+            Set<String> completeSourceFields,
+            String manifest,
+            String address,
+            Runnable checkpoint,
+            boolean nativeContext)
             throws IOException {
         checkpoint.run();
         var note = current.note().value();
@@ -483,18 +578,39 @@ public final class CdsExportHistoryFieldReconciler {
                         ? "CHANGED_OBSERVATION_AND_PRECISION_REQUIRE_RECONCILIATION"
                         : "UNCHANGED_ORIGINAL_SOURCE_TEMPORAL_PRECISION_PRESERVED");
         checkExtensions(
-                prepared, current, references, baseline, dateChanged, decisions, checkpoint);
-        checkIssues(patient, prepared, current, references, baseline, decisions, checkpoint);
+                prepared,
+                current,
+                references,
+                baseline,
+                dateChanged,
+                nativeContext && category == CdsCategory.CLINICAL_NOTES,
+                decisions,
+                checkpoint);
+        checkIssues(
+                patient,
+                prepared,
+                current,
+                references,
+                baseline,
+                nativeContext,
+                decisions,
+                checkpoint);
         checkpoint.run();
         return new Result(manifest, address, category, decisions, changes, completeSourceFields);
     }
 
+    /**
+     * @param nativeDate an encounter note in native context: a changed observation date is
+     *     written as EventDateTime from the current revision, and the import's date metadata rows
+     *     travel, exactly, in the revision context, so they need not survive unchanged
+     */
     private static void checkExtensions(
             CdsHistoryNativeDto prepared,
             Current current,
             List<CdsExportRetainedIndexDto.Reference> references,
             Map<String, CdsNativeRowState> baseline,
             boolean dateChanged,
+            boolean nativeDate,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions,
             Runnable checkpoint)
             throws IOException {
@@ -567,16 +683,25 @@ public final class CdsExportHistoryFieldReconciler {
                                 ? "VERIFIED_ORIGINAL_SOURCE_DATE_METADATA"
                                 : "NEW_OR_CHANGED_CLINICAL_EXTENSION_REQUIRES_RECONCILIATION");
         }
-        if (!seen.equals(expected.keySet()))
+        if (!seen.equals(expected.keySet()) && !nativeDate)
             review("CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW");
     }
 
+    /**
+     * The imported item's category tag (the only issue the CARLOS importer links) must be the
+     * unchanged imported one. In native context (B5), an issue a clinician assigned to or removed
+     * from the item since the import is accepted: the native revision context carries every
+     * revision's links, patient issues and catalogue rows exactly, and the native reconciler
+     * writes the current diagnosis codes. A removed or changed category tag is decided by the
+     * native mapper's category check.
+     */
     private static void checkIssues(
             int patient,
             CdsHistoryNativeDto prepared,
             Current current,
             List<CdsExportRetainedIndexDto.Reference> references,
             Map<String, CdsNativeRowState> baseline,
+            boolean nativeContext,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions,
             Runnable checkpoint)
             throws IOException {
@@ -587,10 +712,33 @@ public final class CdsExportHistoryFieldReconciler {
                         .filter(ref -> ref.table().equals("casemgmt_issue_notes"))
                         .toList();
         if (prepared.issueCode() == null
-                ? !expected.isEmpty() || !expectedLinks.isEmpty() || !current.links().isEmpty()
-                : expected.size() != 1 || expectedLinks.size() != 1 || current.links().size() != 1)
+                ? !expected.isEmpty() || !expectedLinks.isEmpty()
+                : expected.size() != 1 || expectedLinks.size() != 1)
             review("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
-        for (var link : current.links()) {
+        var importedLinks =
+                current.links().stream()
+                        .filter(
+                                link ->
+                                        !expected.isEmpty()
+                                                && expected.getFirst()
+                                                        .id()
+                                                        .equals(link.fields().get("id")))
+                        .toList();
+        if (prepared.issueCode() == null
+                ? !current.links().isEmpty()
+                : importedLinks.size() != 1 || current.links().size() != 1) {
+            if (!nativeContext) review("CDS_EXPORT_HISTORY_ISSUE_ASSOCIATION_REQUIRES_REVIEW");
+            for (var link : current.links())
+                if (!importedLinks.contains(link)) {
+                    var fields = new CdsExportNativeFieldAssessments(link, decisions);
+                    for (String column : link.fields().keySet())
+                        fields.review(
+                                column,
+                                "ResidualInfo",
+                                "CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT");
+                }
+        }
+        for (var link : importedLinks) {
             checkpoint.run();
             if (!link.table().equals("casemgmt_issue_notes")
                     || !link.fields().keySet().equals(Set.of("id", "note_id"))
@@ -635,8 +783,11 @@ public final class CdsExportHistoryFieldReconciler {
                     || !old.digest().equals(expected.getFirst().digest())
                     || difference.schemaChanged()
                     || !difference.unqualifiedColumns().isEmpty()
-                    || difference.changedColumns().stream()
-                            .anyMatch(column -> !column.equals("update_date"))
+                    // In native context a changed flag of the patient issue (acute, certain,
+                    // major, resolved) travels exactly in the revision context.
+                    || !nativeContext
+                            && difference.changedColumns().stream()
+                                    .anyMatch(column -> !column.equals("update_date"))
                     || !Objects.equals(
                             prepared.issueCode(), definition.value().fields().get("code")))
                 review("CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION");

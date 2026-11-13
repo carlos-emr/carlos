@@ -137,10 +137,20 @@ final class CdsExportHistoryNativeReconciler {
             }
             // The final Notes text, when this reconciliation changes it.
             String[] notes = {null};
+            String codeRoot = CdsExportRetainedOccurrencePath.root(sourceFields.getFirst(), category);
+            // Statements the current revision adds to Notes: CPP extension values its elements
+            // cannot hold and several coded diagnoses (CdsExportNativeHistoryMapper), and a
+            // diagnosis assigned in CARLOS to an item whose imported record already has a code.
+            var statements = new ArrayList<String>();
+            // An edited item's native Notes already holds the mapper's statements.
+            if (nativeValue.text().containsKey(CdsExportNativeHistoryMapper.STATEMENTS)
+                    && !(edited && nativeValue.text().containsKey("Notes")))
+                statements.add(nativeValue.text().get(CdsExportNativeHistoryMapper.STATEMENTS));
             for (var entry : nativeValue.text().entrySet()) {
                 String name = entry.getKey(), value = entry.getValue();
-                if (name.equals("NativePersonalNarrative") || name.equals("NativeNarrative"))
-                    continue;
+                if (name.equals("NativePersonalNarrative")
+                        || name.equals("NativeNarrative")
+                        || name.equals(CdsExportNativeHistoryMapper.STATEMENTS)) continue;
                 if (!edited
                         && Set.of(
                                         "ProblemDiagnosisProcedureDescription",
@@ -175,11 +185,22 @@ final class CdsExportHistoryNativeReconciler {
                         sourceFields,
                         entry.getKey() + "[1]",
                         xml -> CdsExportNativeHistoryXmlWriter.dateContents(xml, entry.getValue()));
-            if (nativeValue.code() != null) {
-                String name =
-                        category == CdsCategory.PROBLEM_LIST
-                                ? "DiagnosisCode"
-                                : "DiagnosisProcedureCode";
+            String codeName =
+                    category == CdsCategory.PROBLEM_LIST ? "DiagnosisCode" : "DiagnosisProcedureCode";
+            boolean importedCode =
+                    sourceFields.stream()
+                            .anyMatch(
+                                    f ->
+                                            f.sourcePath()
+                                                    .startsWith(
+                                                            codeRoot + "/" + codeName + "[1]/"));
+            if (nativeValue.code() != null && importedCode)
+                // The imported record's own code stays the coded element; the code assigned in
+                // CARLOS is named in Notes rather than replacing it (B5).
+                statements.add(
+                        CdsExportNativeHistoryMapper.codedDiagnoses(List.of(nativeValue.code())));
+            else if (nativeValue.code() != null) {
+                String name = codeName;
                 replace(
                         changes,
                         sourceFields,
@@ -287,12 +308,27 @@ final class CdsExportHistoryNativeReconciler {
                     String previous = read(sourceFields, "Notes[1]", values, 64000, checkpoint);
                     if (previous != null) {
                         String labelled = "[Superseded imported narrative]\n" + previous;
+                        // The current revision's own Notes statements (A24, A25) follow it.
+                        if (nativeValue.text().containsKey("Notes"))
+                            labelled += "\n\n" + nativeValue.text().get("Notes");
                         if (!CdsExportNativeFieldAssessments.legal(
                                 labelled, category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000))
                             review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
                         notes[0] = labelled;
                     }
                 }
+            }
+            // Statements not already in the Notes written above follow the item's Notes.
+            if (!statements.isEmpty()) {
+                String base =
+                        notes[0] != null
+                                ? notes[0]
+                                : read(sourceFields, "Notes[1]", values, 64000, checkpoint);
+                String added = String.join("\n\n", statements);
+                notes[0] = base == null || base.isEmpty() ? added : base + "\n\n" + added;
+                if (!CdsExportNativeFieldAssessments.legal(
+                        notes[0], CdsExportNativeHistoryMapper.notesLimit(category)))
+                    review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
             }
             // An item archived in CARLOS says so first in Notes, as a native item does: the
             // archive marker in the residual is read only by CARLOS.

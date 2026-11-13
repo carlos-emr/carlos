@@ -137,6 +137,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportFreshAuthorizationIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryCurrentContextUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryFieldReconcilerUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryImportedEditUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryInteroperabilityUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryNativeReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryOccurrenceServiceUnitTest",
