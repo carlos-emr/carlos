@@ -133,8 +133,6 @@ public final class CdsExportNativeMedicationMapper {
                     instructions, Field.PrescriptionInstructions.maximum())) review();
             values.put(Field.PrescriptionInstructions, instructions);
         }
-        String frequency = source.get("freqcode");
-        if ("OD".equals(frequency)) values.put(Field.Frequency, "QD");
         String doseUnit =
                 doseUnit(source.get("unit"), source.get("dosage"), source.get("drug_form"));
         values.remove(Field.DosageUnitOfMeasure);
@@ -191,15 +189,27 @@ public final class CdsExportNativeMedicationMapper {
             values.put(Field.Frequency, qualified);
             prnResolved = true;
         }
-        // A flag saying the start date is unknown takes precedence over a stored anchor.
+        // A flag saying the start date is unknown takes precedence over a stored anchor. The
+        // start date's precision rows are then not a StartDate: they travel, exactly, in the
+        // residual with the drug row (below), so a year-only start is not read as a full date.
         var start = candidate.start();
-        if ("1".equals(source.get("start_date_unknown")))
-            start = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
+        boolean startUnknown = "1".equals(source.get("start_date_unknown"));
+        if (startUnknown) start = new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null);
         for (var entry : new ArrayList<>(fields.entrySet())) {
             var key = entry.getKey();
             var assessment = entry.getValue();
             if (!key.table().equals("drugs")) {
                 if (assessment.outcome() == Outcome.REQUIRES_REVIEW) review();
+                if (startUnknown
+                        && key.table().equals("partial_date")
+                        && "StartDate".equals(assessment.destination()))
+                    fields.put(
+                            key,
+                            new CdsExportFieldAssessmentDto(
+                                    assessment.presence(),
+                                    Outcome.MAPPED,
+                                    "MedicationsAndTreatments/ResidualInfo",
+                                    "UNKNOWN_START_DATE_PRECISION_CARRIED"));
                 continue;
             }
             if (assessment.outcome() == Outcome.REQUIRES_REVIEW
@@ -237,6 +247,13 @@ public final class CdsExportNativeMedicationMapper {
         details.put("version", 1);
         details.put("fields", source);
         details.put("exactNumbers", row.exactNumbers());
+        // The date-precision rows (year-only or year-month dates) behind this drug's dates.
+        details.put(
+                "precision",
+                precision.stream()
+                        .sorted(java.util.Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
+                        .map(CdsExportCapturedTextRowDto::fields)
+                        .toList());
         details.put(
                 "regionalIdentifierAuthority",
                 reference == null ? "UNQUALIFIED" : reference.authority());

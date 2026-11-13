@@ -34,6 +34,15 @@ unsupported date precision hold the patient for review, and any unclassifiable p
 also holds a PastHealth export because it may be a screening.
 also holds a PastHealth export because it may be a screening.
 
+A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
+"Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
+FI; a clinic-defined status is exported as stored. The primary physician's practitioner number
+becomes PrimaryPhysicianCPSO only when its recorded authority is CPSO; a number with no
+recorded authority holds the patient (see the operator guide). Once-daily "OD" is written as
+CT-024 "QD" on both the native and reconciled paths, and when a prescription's start date is
+marked unknown its date-precision rows travel in the medication residual instead of being
+counted as a StartDate.
+
 Native vaccines are exported as Immunizations exactly as the prevention form records them. The
 name is the recorded brand name, or the configured prevention type when the name is blank;
 ImmunizationType is the configured Health Canada type when it is one of the CT-020 values, and

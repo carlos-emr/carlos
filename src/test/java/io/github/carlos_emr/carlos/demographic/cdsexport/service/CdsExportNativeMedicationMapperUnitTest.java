@@ -56,6 +56,50 @@ class CdsExportNativeMedicationMapperUnitTest {
         return fields;
     }
 
+    @Test
+    void shouldCarryAnUnknownStartDatesPrecision_inTheResidualInsteadOfAsAStartDate()
+            throws Exception {
+        // Review M10: the start-date-unknown flag suppresses StartDate, so its year-only
+        // precision row must not stay "MAPPED to StartDate"; it travels with the drug row.
+        var fields = source();
+        fields.put("start_date_unknown", "1");
+        fields.put("rx_date", "2019-01-01");
+        var result =
+                mapper.map(
+                        27,
+                        CdsExportMedicationMapperUnitTest.medication(fields),
+                        List.of(CdsExportMedicationMapperUnitTest.precision(12, 51, 5, "YYYY")),
+                        Map.of());
+        assertThat(result.value().start().precision())
+                .isEqualTo(io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto.Precision.ABSENT);
+        var format =
+                result.fields()
+                        .get(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportNativeFieldKeyDto(
+                                        "partial_date",
+                                        CdsExportPatientTableSourceReader.key(12),
+                                        "format"));
+        assertThat(format.destination()).isEqualTo("MedicationsAndTreatments/ResidualInfo");
+        assertThat(result.metadata()).contains("\"precision\"", "\"format\":\"YYYY\"");
+    }
+
+    @Test
+    void shouldWriteOnceDaily_asQdOnBothTheNativeAndReconciledPaths() throws Exception {
+        // Review M8: the shared candidate normalizes it, so provenance cannot change the value.
+        var fields = source();
+        fields.put("freqcode", "OD");
+        assertThat(
+                        new CdsExportMedicationMapper()
+                                .candidate(
+                                        27,
+                                        CdsExportMedicationMapperUnitTest.medication(fields),
+                                        List.of(),
+                                        Map.of())
+                                .values())
+                .containsEntry(Field.Frequency, "QD");
+    }
+
     private static CdsExportCapturedTextRowDto publicReference(Map<String, String> source)
             throws Exception {
         return new CdsExportCapturedTextRowDto(

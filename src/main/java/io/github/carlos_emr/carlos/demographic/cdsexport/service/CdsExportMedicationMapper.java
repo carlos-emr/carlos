@@ -112,6 +112,9 @@ public final class CdsExportMedicationMapper {
         text(source, values, "drug_form", Field.Form);
         text(source, values, "route", Field.Route);
         text(source, values, "freqcode", Field.Frequency);
+        // CARLOS's "OD" (once daily) is CT-024 "QD"; exported as "OD" it reads as "right eye".
+        // Shared by the native and the reconciled paths so one value never exports two ways.
+        if ("OD".equals(values.get(Field.Frequency))) values.put(Field.Frequency, "QD");
         text(source, values, "quantity", Field.Quantity);
         text(source, values, "refill_quantity", Field.RefillQuantity);
         text(source, values, "refill_duration", Field.RefillDuration);
