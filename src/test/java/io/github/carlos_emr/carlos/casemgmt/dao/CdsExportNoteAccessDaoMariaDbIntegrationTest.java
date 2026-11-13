@@ -347,6 +347,12 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
                     assertThat(read(program, null, true)).isFalse();
                     sql.update(
                             "insert into"
+                                + " Facility(id,name,disabled,displayAllVacancies,enableAnonymous,enableCbiForm,enableDigitalSignatures,enableEncounterTime,enableEncounterTransportationTime,enableHealthNumberRegistry,enableOcanForms,enablePhoneEncounter,hic,lastUpdated,orgId,rxInteractionWarningLevel,sectorId)"
+                                + " values(?,?,0,0,0,0,0,0,0,0,0,0,0,CURRENT_TIMESTAMP,0,0,0)",
+                            id,
+                            "Cds" + id);
+                    sql.update(
+                            "insert into"
                                 + " program(id,name,ageMax,ageMin,alcohol,exclusiveView,facilityId,firstNation,housing,maxAllowed,mentalHealth,physicalHealth,programStatus,transgender)"
                                 + " values(?,?,0,0,0,'',?,0,0,100,0,0,'active',0)",
                             id,
