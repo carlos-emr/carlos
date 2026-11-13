@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.admin.service.SecurityRecordUpdateService;
 import io.github.carlos_emr.carlos.app.HttpMethodGuardFilter;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
@@ -1281,7 +1282,9 @@ class MutatorActionGetRejectionContractUnitTest {
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
-            return new SecurityUpdate2Action(methodSecurity);
+            SecurityRecordUpdateService securityRecords = (SecurityRecordUpdateService)
+                    autoMocks.computeIfAbsent(SecurityRecordUpdateService.class, Mockito::mock);
+            return new SecurityUpdate2Action(methodSecurity, securityRecords);
         }
         if (METHOD_MAP_DISPATCHERS.contains(actionClass.getName())) {
             // Spring runs the @PostConstruct init() that fills methodMap; without it every dispatch falls back to view.

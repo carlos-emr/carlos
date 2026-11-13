@@ -55,4 +55,19 @@ public interface SecurityDao extends AbstractDao<Security> {
     List<Object[]> findProviders();
 
     List<Security> findByProviderSite(String providerNo);
+
+    /**
+     * Locks the login row and returns it as currently committed, for a read-compare-write that
+     * must not let another save slip in between (the Security Records edit). The row is read with
+     * a locking read, so the returned state is not the transaction's earlier snapshot, and it
+     * cannot change again before the transaction ends. Must be called inside a transaction, before
+     * the transaction modifies the row: an instance the persistence context already holds is read
+     * again and loses unsaved changes.
+     *
+     * @param securityNo Integer the {@code security_no} of the login
+     * @return Security the locked row, or {@code null} when there is no such login (or the
+     *         identifier is {@code null})
+     * @since 2026-11-13
+     */
+    Security findForUpdate(Integer securityNo);
 }
