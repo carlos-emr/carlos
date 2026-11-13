@@ -70,7 +70,7 @@ public class CdsExportReport2Action extends ActionSupport {
                     "Content-Disposition", "attachment; filename=\"cds-export-diagnostic.json\"");
             web.json(response, 200, Map.of("ok", true, "report", report));
         } catch (Exception failed) {
-            web.failure(response, failed);
+            web.navigationFailure(request, response, failed);
         }
         return NONE;
     }

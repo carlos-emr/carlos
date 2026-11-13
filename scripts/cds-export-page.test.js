@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay} = require('../src/main/webapp/js/demographic/cds-export.js');
+const {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay} = require('../src/main/webapp/js/demographic/cds-export.js');
 const id = 'a8fe0033-468d-468c-ae0e-b11d372b533a';
 function job(values = {}) {
     return {id, state: 'ACCEPTED', revision: 0, epoch: 0, totalPatients: null, processedPatients: 0, blockedPatients: 0,
@@ -85,7 +85,7 @@ for (const controlSucceeds of [true, false]) {
             }};
         const window = {document, location: {search: '?runId=' + id},
             sessionStorage: {getItem() { return ''; }, setItem() {}},
-            crypto: require('node:crypto'), addEventListener() {}};
+            crypto: require('node:crypto'), confirm: () => true, addEventListener() {}};
         vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/webapp/js/demographic/cds-export.js'), 'utf8'), {
             window, document, URLSearchParams, AbortController,
             setTimeout(callback, delay) { const token = ++serial; timers.set(token, {callback, delay}); return token; },
@@ -170,4 +170,96 @@ test('page text replaces the English defaults and fills its markers', () => {
         'Non confirmée (CDS_EXPORT_RESPONSE_UNCONFIRMED); clé key-1');
     // The shared module still speaks English.
     assert.equal(presentation(held).count, '3 of 3 patients processed.');
+});
+
+test('a fixed-code 4xx refusal says nothing was submitted; other failures stay unconfirmed', () => {
+    const invalid = responseFailure({code: 'CDS_EXPORT_SELECTION_INVALID'}, 400);
+    assert.match(submissionNotice(invalid, 'k'), /refused \(CDS_EXPORT_SELECTION_INVALID\).*Nothing was submitted/);
+    assert.match(submissionNotice(responseFailure({code: 'CDS_EXPORT_RECIPIENT_UNAVAILABLE'}, 409), 'k'),
+        /refused \(CDS_EXPORT_RECIPIENT_UNAVAILABLE\)\. Nothing was submitted/);
+    assert.match(submissionNotice(responseFailure({code: 'CDS_EXPORT_SUBMISSION_CONFLICT'}, 409), 'key-9'),
+        /key-9 was already used for a different export/);
+    assert.match(submissionNotice(responseFailure({code: 'CDS_EXPORT_CLIENT_REFRESH_REQUIRED'}, 409), 'k'), /out of date/);
+    // Rights of the signed-in account cannot be avoided by leaving out categories.
+    assert.match(submissionNotice(responseFailure({code: 'CDS_EXPORT_ACCESS_DENIED', missingRight: '_cds_export'}, 403), 'k'),
+        /your account lacks _cds_export/);
+    for (const unknown of [responseFailure({code: 'CDS_EXPORT_REQUEST_UNAVAILABLE'}, 503),
+        responseFailure({code: 'CDS_EXPORT_REQUEST_UNAVAILABLE'}, 429), responseFailure({}, 400), new Error('Failed to fetch')])
+        assert.match(submissionNotice(unknown, 'key-1'), /could not be confirmed .*key-1/);
+});
+
+test('an unknown, foreign or outdated job lookup ends, a failure that may pass does not', () => {
+    assert.match(lookupNotice(responseFailure({code: 'CDS_EXPORT_RUN_NOT_FOUND'}, 404)), /No export job/);
+    assert.match(lookupNotice(responseFailure({code: 'CDS_EXPORT_ACCESS_DENIED'}, 403)), /cannot view/);
+    assert.match(lookupNotice(responseFailure({code: 'CDS_EXPORT_CLIENT_REFRESH_REQUIRED'}, 409)), /out of date/);
+    assert.match(lookupNotice(responseFailure({code: 'CDS_EXPORT_PARAMETERS_INVALID'}, 400)), /valid job ID/);
+    assert.equal(lookupNotice(responseFailure({code: 'CDS_EXPORT_REQUEST_UNAVAILABLE'}, 503)), null);
+    assert.equal(lookupNotice(new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED')), null);
+});
+
+test('a submission key is a version 4 UUID even where randomUUID is withheld', () => {
+    const key = randomKey({getRandomValues: bytes => require('node:crypto').getRandomValues(bytes)});
+    assert.match(key, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    assert.equal(randomKey({randomUUID: () => 'from-randomUUID'}), 'from-randomUUID');
+    assert.equal(randomKey(undefined), null);
+    assert.equal(randomKey({}), null);
+});
+
+function pageHarness(search) {
+    const vm = require('node:vm'), fs = require('node:fs');
+    const nodes = new Map(), timers = new Map(), pending = [];
+    let initialize, serial = 0;
+    function node(nodeId) {
+        if (!nodes.has(nodeId)) nodes.set(nodeId, {value: '', textContent: '', dataset: {}, events: {},
+            addEventListener(event, handler) { this.events[event] = handler; },
+            removeAttribute() {}, setAttribute() {}, replaceChildren() {}, querySelectorAll() { return []; }});
+        return nodes.get(nodeId);
+    }
+    node('cdsExport').dataset = {context: '', owner: 'web-7', canResume: 'true'};
+    const document = {getElementById: node, createElement: () => node('created-' + serial++),
+        querySelector: () => ({value: 'synthetic-csrf'}), addEventListener(event, handler) {
+            if (event === 'DOMContentLoaded') initialize = handler;
+        }};
+    const window = {document, location: {search}, sessionStorage: {getItem() { return ''; }, setItem() {}},
+        crypto: require('node:crypto'), confirm: () => true, addEventListener() {}};
+    vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/webapp/js/demographic/cds-export.js'), 'utf8'), {
+        window, document, URLSearchParams, AbortController,
+        setTimeout(callback, delay) { const token = ++serial; timers.set(token, {callback, delay}); return token; },
+        clearTimeout(token) { timers.delete(token); },
+        fetch(url, options) { return new Promise(resolve => pending.push({url, options, resolve})); }
+    });
+    function answer(call, data, status = 200) {
+        call.resolve({ok: status < 300, status, headers: {get(name) {
+            return name === 'Content-Type' ? 'application/json' : '1';
+        }}, async json() { return {apiVersion: 1, ok: status < 300, ...data}; }});
+    }
+    return {node, timers, pending, answer, initialize: () => initialize(),
+        settle: () => new Promise(resolve => setImmediate(resolve))};
+}
+
+test('opening an unknown job says so at once instead of retrying for minutes', async () => {
+    const page = pageHarness('?runId=' + id);
+    page.initialize();
+    page.answer(page.pending.shift(), {jobs: [], nextAfter: '', mayHaveMore: false});
+    page.answer(page.pending.shift(), {code: 'CDS_EXPORT_RUN_NOT_FOUND'}, 404);
+    await page.settle();
+    assert.equal(page.timers.size, 0);
+    assert.equal(page.node('exportState').textContent, 'No export job with this ID was found.');
+    assert.equal(page.node('runId').value, id);
+});
+
+test('a failed submission lookup leaves the shown job refreshing', async () => {
+    const page = pageHarness('?runId=' + id);
+    page.initialize();
+    page.answer(page.pending.shift(), {jobs: [], nextAfter: '', mayHaveMore: false});
+    page.answer(page.pending.shift(), {job: job({state: 'CAPTURING', workerOwned: true, waiting: false})});
+    await page.settle();
+    assert.equal([...page.timers.values()].filter(value => value.delay === 5000).length, 1);
+    page.node('savedSubmission').value = 'never-used-key';
+    const lookup = page.node('findSubmission').events.click();
+    page.answer(page.pending.shift(), {code: 'CDS_EXPORT_RUN_NOT_FOUND'}, 404);
+    await lookup;
+    assert.equal([...page.timers.values()].filter(value => value.delay === 5000).length, 1);
+    assert.equal(page.node('reportExport').disabled, false);
+    assert.match(page.node('exportNotice').textContent, /No job uses submission key never-used-key/);
 });

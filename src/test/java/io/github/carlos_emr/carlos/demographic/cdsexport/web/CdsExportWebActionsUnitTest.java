@@ -673,6 +673,54 @@ class CdsExportWebActionsUnitTest {
         assertThat(response.getContentAsString()).contains("CDS_EXPORT_REQUEST_UNAVAILABLE");
     }
 
+    @Test
+    void shouldAnswerADownloadWindowWithAPageInTheViewersLanguage_whenThePackageIsUnavailable()
+            throws Exception {
+        request.addPreferredLocale(java.util.Locale.CANADA_FRENCH);
+
+        web.navigationFailure(
+                request,
+                response,
+                new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportArtifactUnavailableException(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportArtifactUnavailableException.Kind.PACKAGE));
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentType()).startsWith("text/html");
+        assertThat(response.getContentAsString())
+                .contains("<html lang=\"fr\">")
+                .contains("Le paquet de transfert n'est pas disponible")
+                .contains("CDS_EXPORT_ARTIFACT_UNAVAILABLE")
+                .doesNotContain("\"ok\"");
+    }
+
+    @Test
+    void shouldKeepTheJsonAnswer_forAScriptCallerOfAWindowRoute() throws Exception {
+        request.addHeader("X-Requested-With", "XMLHttpRequest");
+
+        web.navigationFailure(
+                request, response, new IllegalStateException("CDS_EXPORT_ARTIFACT_BUSY"));
+
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("\"code\":\"CDS_EXPORT_ARTIFACT_BUSY\"");
+    }
+
+    @Test
+    void shouldNameTheParsersFixedCode_withoutEchoingFreeText() throws Exception {
+        web.failure(response, new IllegalArgumentException("CDS_EXPORT_SELECTION_INVALID"));
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString()).contains("\"code\":\"CDS_EXPORT_SELECTION_INVALID\"");
+
+        response = new MockHttpServletResponse();
+        web.failure(response, new NumberFormatException("For input string: \"FAKE-42\""));
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getContentAsString())
+                .contains("\"code\":\"CDS_EXPORT_PARAMETERS_INVALID\"")
+                .doesNotContain("FAKE-42");
+    }
+
     private SubmitCdsExport2Action submission() {
         var action =
                 new SubmitCdsExport2Action(web, new CdsExportWebCommandParser(), exports, security);

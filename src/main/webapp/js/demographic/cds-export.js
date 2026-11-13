@@ -47,7 +47,17 @@
         confirmNew: 'Start a separate export? Check the saved submission first if its outcome is unknown.',
         newKey: 'New submission key created. Earlier jobs remain saved.',
         storageUnavailable: 'Browser recovery storage is unavailable. Keep the submission key shown on this page.',
-        noRandomUuid: 'This browser cannot safely create a submission key. Use a current browser.'
+        noRandomUuid: 'This browser cannot create a submission key. Use a current browser.',
+        missingOperatorRight: 'Export refused: your account lacks {0}. Ask an administrator to grant that right, then submit again.',
+        submissionConflict: 'Submission key {0} was already used for a different export. Open that job with Check submission, or start another submission.',
+        requestInvalid: 'The export request was refused ({0}): check the patient selection, categories and recipient. Nothing was submitted.',
+        submissionRefused: 'The export request was refused ({0}). Nothing was submitted.',
+        clientRefresh: 'This page is out of date. Reload it, then try again.',
+        jobNotFound: 'No export job with this ID was found.',
+        jobAccessDenied: 'You cannot view this export job.',
+        submissionNotFound: 'No job uses submission key {0}. Submitting with this key is safe: the server accepts it only once.',
+        downloadStarted: 'The transfer opened in a new window. Check the browser\'s downloads; this button is available again in a few seconds.',
+        confirmCancel: 'Cancel this export? It cannot be resumed, and a ready package is withdrawn.'
     };
     /** Replaces known keys with page text; unknown keys and non-text values are ignored. */
     function useMessages(messages) {
@@ -97,11 +107,24 @@
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
-    /** The page error for a refused or unconfirmed response; only a fixed right name is kept. */
-    function responseFailure(data) {
+    /**
+     * The page error for a refused or unconfirmed response; only a fixed code, a fixed right name
+     * and the HTTP status are kept.
+     */
+    function responseFailure(data, status) {
         const failure = new Error(/^CDS_EXPORT_[A-Z0-9_]+$/.test(data && data.code || '') ? data.code : 'CDS_EXPORT_RESPONSE_UNCONFIRMED');
         if (/^_[A-Za-z0-9_.]{1,64}$/.test(data && data.missingRight || '')) failure.missingRight = data.missingRight;
+        if (Number.isInteger(status)) failure.status = status;
         return failure;
+    }
+    /**
+     * A fixed-code 4xx answer is the server refusing before anything was accepted (408 and 429
+     * are not answers); every other failure leaves the outcome unknown.
+     */
+    function refusedBeforeAcceptance(error) {
+        return !!error && Number.isInteger(error.status) && error.status >= 400 && error.status < 500
+            && error.status !== 408 && error.status !== 429 && /^CDS_EXPORT_[A-Z0-9_]+$/.test(error.message)
+            && error.message !== 'CDS_EXPORT_RESPONSE_UNCONFIRMED';
     }
     /** Poll every 5 s; back off after failures and stop after six consecutive ones (review W7). */
     function pollDelay(failures) {
@@ -122,14 +145,41 @@
         const key = error && Object.hasOwn(CONTROL_REFUSALS, error.message) ? CONTROL_REFUSALS[error.message] : null;
         return key ? text(key) : text('controlUnconfirmed');
     }
+    /** Rights of the signed-in account itself, which leaving out categories cannot avoid. */
+    const OPERATOR_RIGHTS = new Set(['_cds_export', '_admin']);
     function submissionNotice(error, key) {
         if (error && error.missingRight)
-            return text('missingRight', error.missingRight);
-        if (error && (error.message === 'CDS_EXPORT_ADMISSION_DISABLED' || error.message === 'CDS_EXPORT_PROFILE_NOT_QUALIFIED'))
-            return text(CONTROL_REFUSALS[error.message]);
-        return text('submissionUnconfirmed', error.message, key);
+            return text(OPERATOR_RIGHTS.has(error.missingRight) ? 'missingOperatorRight' : 'missingRight', error.missingRight);
+        const code = error && error.message;
+        if (code === 'CDS_EXPORT_ADMISSION_DISABLED' || code === 'CDS_EXPORT_PROFILE_NOT_QUALIFIED')
+            return text(CONTROL_REFUSALS[code]);
+        if (code === 'CDS_EXPORT_SUBMISSION_CONFLICT') return text('submissionConflict', key);
+        if (code === 'CDS_EXPORT_CLIENT_REFRESH_REQUIRED') return text('clientRefresh');
+        if (refusedBeforeAcceptance(error)) return text(error.status === 400 ? 'requestInvalid' : 'submissionRefused', code);
+        return text('submissionUnconfirmed', code, key);
     }
-    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay, useMessages};
+    /**
+     * The answer that ends a job lookup for good (an unknown or foreign job, an outdated page), or
+     * null for a failure worth retrying.
+     */
+    function lookupNotice(error) {
+        const code = error && error.message;
+        if (code === 'CDS_EXPORT_RUN_NOT_FOUND') return text('jobNotFound');
+        if (code === 'CDS_EXPORT_ACCESS_DENIED') return text('jobAccessDenied');
+        if (code === 'CDS_EXPORT_CLIENT_REFRESH_REQUIRED') return text('clientRefresh');
+        if (refusedBeforeAcceptance(error) && error.status === 400) return text('invalidJobId');
+        return null;
+    }
+    /** An RFC 4122 version 4 identifier, also where randomUUID is withheld (plain HTTP). */
+    function randomKey(crypto) {
+        if (crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+        if (!crypto || typeof crypto.getRandomValues !== 'function') return null;
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40; bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
+        return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay, useMessages};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CdsExportPage = api;
     if (!global.document) return;
@@ -141,6 +191,8 @@
         const byId = id => document.getElementById(id), context = root.dataset.context;
         if (!/^(?:\/[A-Za-z0-9_.-]+)*$/.test(context) || context.split('/').some(v => ['.', '..'].includes(v))) return;
         let current = null, view = 0, timer = null, fresh = false, busy = false, cursor = '', historyGeneration = 0;
+        // An artifact request runs in its own window; the page cannot see it finish.
+        let transferring = false, transferWindows = 0, lookupGeneration = 0;
         const storageKey = 'carlos.cds.export.submission.' + root.dataset.owner;
         function notice(message, failure = false) {
             // A failure is announced at once (role=alert); progress notes stay polite.
@@ -174,21 +226,21 @@
                         || !response.headers.get('Content-Type')?.startsWith('application/json')) throw new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED');
                 const data = await response.json();
                 if (data.apiVersion !== API_VERSION || !response.ok || data.ok !== true) {
-                    throw responseFailure(data);
+                    throw responseFailure(data, response.status);
                 }
                 return data;
             } finally { clearTimeout(timeout); }
         }
         function controls() {
             const shown = current ? presentation(current) : null;
-            byId('reportExport').disabled = !fresh || busy || !current;
-            byId('downloadExport').disabled = !fresh || busy || !shown?.downloadable;
+            byId('reportExport').disabled = !fresh || busy || transferring || !current;
+            byId('downloadExport').disabled = !fresh || busy || transferring || !shown?.downloadable;
             byId('cancelExport').disabled = !fresh || busy || !shown?.canCancel;
             byId('resumeExport').disabled = !fresh || busy || !shown?.canResume || root.dataset.canResume !== 'true';
         }
         function render(job) {
             current = newest(current, job); const shown = presentation(current); fresh = true;
-            byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('runId').value = current.id; byId('exportStatus').hidden = false;
+            byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('exportStatus').hidden = false;
             byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' '
                 + text(current.blockedPatients > 0 ? 'heldListed' : 'heldNone', current.blockedPatients);
             byId('exportConnection').textContent = current.waiting ? text('waiting') : text('confirmed');
@@ -209,7 +261,17 @@
                     const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
                     if (!token) throw new Error('CDS_EXPORT_CSRF_UNAVAILABLE');
                     byId(csrfId).value = token;
+                    // A second request into the same named window would abort a transfer still being
+                    // prepared, so each request gets its own window.
+                    this.target = this.dataset.window + '-' + (++transferWindows);
                     HTMLFormElement.prototype.submit.call(this);
+                    transferring = true; controls(); notice(text('downloadStarted'));
+                    const id = current.id;
+                    setTimeout(() => {
+                        transferring = false; controls();
+                        // The package may have expired or been withdrawn meanwhile.
+                        if (current && current.id === id) poll(id, view);
+                    }, 10000);
                 } catch (_) { notice(text('downloadFailed'), true); }
             });
         }
@@ -225,8 +287,16 @@
             try {
                 const data = await request('cdsExportStatus', {runId: id, ...(background ? {autoRefresh: true} : {})});
                 if (generation !== view) return; failures = 0; render(data.job);
-            } catch (_) {
-                if (generation !== view) return; stale(); failures++;
+            } catch (error) {
+                if (generation !== view) return;
+                const ended = lookupNotice(error);
+                if (ended) {
+                    fresh = false; controls();
+                    if (!current) byId('exportState').textContent = ended;
+                    byId('exportConnection').textContent = ended; notice(ended, true);
+                    return;
+                }
+                stale(); failures++;
             }
             if (generation !== view || current && FINAL.has(current.state) && fresh) return;
             const delay = pollDelay(failures);
@@ -239,7 +309,8 @@
         }
         async function open(id) {
             if (!UUID.test(id || '')) { notice(text('invalidJobId'), true); return; }
-            clearTimeout(timer); const generation = ++view; current = null; fresh = false; controls();
+            clearTimeout(timer); const generation = ++view; current = null; fresh = false; failures = 0; controls();
+            byId('runId').value = id;
             byId('exportStatus').hidden = false; byId('exportState').textContent = text('checking');
             byId('exportCounts').textContent = ''; byId('exportCode').textContent = '';
             byId('exportProgress').removeAttribute('value'); await poll(id, generation);
@@ -260,6 +331,7 @@
         function selection() {
             const roster = byId('selection').value === 'PHYSICIAN_ROSTER';
             byId('physicianNos').disabled = !roster; byId('patientNos').disabled = roster;
+            byId('physicianNos').required = roster; byId('patientNos').required = !roster;
         }
         byId('selection').addEventListener('change', selection);
         byId('exportForm').addEventListener('submit', async event => {
@@ -277,11 +349,15 @@
             } finally { busy = false; byId('submitExport').disabled = false; controls(); }
         });
         byId('findSubmission').addEventListener('click', async () => {
-            const generation = ++view; clearTimeout(timer); fresh = false; controls();
+            // The job on screen keeps refreshing until a job is found: open() replaces it then.
+            const lookup = ++lookupGeneration, key = byId('savedSubmission').value;
             try {
-                const data = await request('cdsExportStatus', {submissionKey: byId('savedSubmission').value});
-                if (generation === view) await open(checkedJob(data.job).id);
-            } catch (_) { if (generation === view) notice(text('savedUnconfirmed'), true); }
+                const data = await request('cdsExportStatus', {submissionKey: key});
+                if (lookup === lookupGeneration) await open(checkedJob(data.job).id);
+            } catch (error) {
+                if (lookup !== lookupGeneration) return;
+                notice(error && error.message === 'CDS_EXPORT_RUN_NOT_FOUND' ? text('submissionNotFound', key) : text('savedUnconfirmed'), true);
+            }
         });
         async function control(operation) {
             if (!fresh || busy || !current) return;
@@ -299,22 +375,24 @@
                 if (generation === view) { clearTimeout(timer); await poll(id, generation); }
             }
         }
-        byId('cancelExport').addEventListener('click', () => control('cancel'));
+        byId('cancelExport').addEventListener('click', () => global.confirm(text('confirmCancel')) ? control('cancel') : undefined);
         byId('resumeExport').addEventListener('click', () => control('resume'));
         byId('openExport').addEventListener('click', () => open(byId('runId').value));
         byId('refreshExports').addEventListener('click', () => history());
         byId('nextExports').addEventListener('click', () => history(true));
         byId('newSubmission').addEventListener('click', () => {
-            if (busy || !global.crypto?.randomUUID) return;
+            const key = busy ? null : randomKey(global.crypto);
+            if (!key) return;
             if (!global.confirm(text('confirmNew'))) return;
-            store(global.crypto.randomUUID()); notice(text('newKey'));
+            store(key); notice(text('newKey'));
         });
         let saved = '';
         try { saved = global.sessionStorage.getItem(storageKey) || ''; }
         catch (_) { notice(text('storageUnavailable')); }
-        if (!global.crypto?.randomUUID) {
+        const generated = randomKey(global.crypto);
+        if (!generated) {
             byId('exportOptions').disabled = true; notice(text('noRandomUuid'), true);
-        } else store(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(saved) ? saved : global.crypto.randomUUID());
+        } else store(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(saved) ? saved : generated);
         selection(); history();
         const initial = new URLSearchParams(global.location.search).get('runId'); if (initial) open(initial);
         global.addEventListener('pagehide', () => { view++; historyGeneration++; clearTimeout(timer); });

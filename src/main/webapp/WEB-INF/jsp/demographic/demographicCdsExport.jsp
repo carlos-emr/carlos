@@ -39,7 +39,7 @@
     <noscript><div class="alert alert-danger"><fmt:message key="javascript" bundle="${cdsx}"/></div></noscript>
     <%-- Script text in the page's language; cds-export.js keeps its English defaults for any entry missing here. --%>
     <div id="cdsExportText" hidden>
-        <c:forTokens items="stateAccepted,stateDiscovering,stateCapturing,stateReconciling,stateSerializing,stateValidating,statePackaging,stateEncrypting,stateReady,stateReviewRequired,stateFailed,stateCancelled,stateExpired,heldBack,readyUnavailable,countUnknown,countProgress,heldListed,heldNone,workerBusy,resumeInvalid,cancelInvalid,runtimeChangedControl,statusChanged,admissionDisabled,profileNotQualified,controlUnconfirmed,missingRight,submissionUnconfirmed,keepKey,waiting,confirmed,runtimeChanged,refreshBeforeDownload,downloadFailed,stale,sessionEnded,invalidJobId,checking,historyFailed,confirming,accepted,savedUnconfirmed,cancelRecorded,resumeRequested,confirmNew,newKey,storageUnavailable,noRandomUuid" delims="," var="textKey"><fmt:message key="js.${textKey}" bundle="${cdsx}" var="textValue"/><span data-key="${carlos:forHtmlAttribute(textKey)}" data-value="${carlos:forHtmlAttribute(textValue)}"></span></c:forTokens>
+        <c:forTokens items="stateAccepted,stateDiscovering,stateCapturing,stateReconciling,stateSerializing,stateValidating,statePackaging,stateEncrypting,stateReady,stateReviewRequired,stateFailed,stateCancelled,stateExpired,heldBack,readyUnavailable,countUnknown,countProgress,heldListed,heldNone,workerBusy,resumeInvalid,cancelInvalid,runtimeChangedControl,statusChanged,admissionDisabled,profileNotQualified,controlUnconfirmed,missingRight,submissionUnconfirmed,keepKey,waiting,confirmed,runtimeChanged,refreshBeforeDownload,downloadFailed,stale,sessionEnded,invalidJobId,checking,historyFailed,confirming,accepted,savedUnconfirmed,cancelRecorded,resumeRequested,confirmNew,newKey,storageUnavailable,noRandomUuid,missingOperatorRight,submissionConflict,requestInvalid,submissionRefused,clientRefresh,jobNotFound,jobAccessDenied,submissionNotFound,downloadStarted,confirmCancel" delims="," var="textKey"><fmt:message key="js.${textKey}" bundle="${cdsx}" var="textValue"/><span data-key="${carlos:forHtmlAttribute(textKey)}" data-value="${carlos:forHtmlAttribute(textValue)}"></span></c:forTokens>
     </div>
     <div id="exportNotice" class="alert alert-info" role="status" aria-live="polite" hidden></div>
     <form id="exportForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportSubmit">
@@ -73,7 +73,7 @@
                 <c:forEach items="${model.categories}" var="category">
                     <label for="exportCategory-${carlos:forHtmlAttribute(category.value)}" class="form-check"><input id="exportCategory-${carlos:forHtmlAttribute(category.value)}" type="checkbox" class="form-check-input export-category" checked
                         value="${carlos:forHtmlAttribute(category.value)}" <c:if test="${category.value eq 'Demographics'}">disabled</c:if>>
-                        <span class="visually-hidden"><fmt:message key="categoryPrefix" bundle="${cdsx}"/></span><span class="form-check-label"><carlos:encode value="${category.label}"/></span></label>
+                        <span class="visually-hidden"><fmt:message key="categoryPrefix" bundle="${cdsx}"/></span><fmt:message key="category.${category.value}" bundle="${cdsx}" var="categoryLabel"/><span class="form-check-label"><carlos:encode value="${categoryLabel}"/></span></label>
                 </c:forEach>
             </fieldset>
             <div class="row g-3 mb-3">
@@ -97,13 +97,13 @@
             <p id="exportCounts"></p>
             <progress id="exportProgress" max="1" class="w-100" aria-labelledby="exportState"></progress>
             <p id="exportCode"></p>
-            <form id="exportReportForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportReport" target="cdsExportDiagnostic">
+            <form id="exportReportForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportReport" target="cdsExportDiagnostic" data-window="cdsExportDiagnostic">
                 <input type="hidden" name="apiVersion" value="1">
                 <input type="hidden" id="reportRunId" name="runId">
                 <input type="hidden" id="reportCsrf" name="CSRF-TOKEN">
                 <button id="reportExport" type="submit" class="btn btn-outline-secondary" disabled><fmt:message key="report" bundle="${cdsx}"/></button>
             </form>
-            <form id="exportDownloadForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportDownload" target="cdsExportDelivery">
+            <form id="exportDownloadForm" method="POST" action="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExportDownload" target="cdsExportDelivery" data-window="cdsExportDelivery">
                 <input type="hidden" name="apiVersion" value="1">
                 <input type="hidden" name="artifact" value="package">
                 <input type="hidden" id="downloadRunId" name="runId">

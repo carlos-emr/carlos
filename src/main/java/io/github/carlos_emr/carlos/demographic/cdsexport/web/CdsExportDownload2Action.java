@@ -80,7 +80,7 @@ public class CdsExportDownload2Action extends ActionSupport {
                 download.complete();
             }
         } catch (Exception failed) {
-            web.failure(response, failed);
+            web.navigationFailure(request, response, failed);
         }
         return NONE;
     }
