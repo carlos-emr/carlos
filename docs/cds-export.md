@@ -53,6 +53,19 @@ flowsheet and prevention-report settings, letter templates, WCB code lists) are 
 no longer hold a patient. Each table's reason is its ruling note in
 `src/main/resources/cds-export/source-catalogue.json`.
 
+Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 94
+tables ruled `DOCUMENT` (every encounter-form table, eForms and their values, consultation
+requests and responses with their extensions and attachment references, ticklers with their
+comments, updates and attachment references, e-mails with their attachment references, faxes,
+patient-linked messages, digital signatures, consents, the cumulative patient profile, the patient
+photo, the waiting list, workflows and the CAISI referral, queue, restriction and joint-admission
+records) are captured whole when Reports is selected and exported as one Reports entry per record:
+a PDF "CARLOS data summary" that lists every stored field of the record and its related rows with
+the exact value. The 37 tables ruled `LISTED` belong to removed features: they are never read or
+exported and never hold a patient; the encrypted ReadMe names each table and the number of the
+patient's rows in it (and, for listed tables with no patient link, the number of rows for the whole
+job). See [Data summaries and listed tables](#data-summaries-and-listed-tables).
+
 Native vaccines are exported as Immunizations exactly as the prevention form records them. The
 name is the recorded brand name, or the configured prevention type when the name is blank;
 ImmunizationType is the configured Health Canada type when it is one of the CT-020 values, and
@@ -298,6 +311,84 @@ native gate exercises this on its own MariaDB fixture, preserving existing nativ
 witnesses, attempt rows and explicit privilege denials. Shared prevention readers
 also preserve a legacy row with a null demographic association. An unavailable
 source still fails explicitly instead of presenting an empty or incomplete chart.
+
+## Data summaries and listed tables
+
+**Catalogue.** `CdsExportSourceCatalogue.Disposition` has two dispositions beside
+`MAPPED_SOURCE`, `OPERATIONAL`, `REFERENCE`, `ACCESS_CONTROL` and `REQUIRE_EMPTY`:
+
+- `DOCUMENT`: the table must be named in the Reports capture scope (`requiredScopes.Reports`) and
+  nowhere else, keeps a reviewed patient scope (a direct owner in `patientScopes`, or a parent
+  chain in `CdsExportIndirectPatientScopeReadSupport`), and has no separate source-schema
+  descriptor: it is read through the pinned physical contract itself.
+- `LISTED`: never read for values, never exported, never holds a patient.
+
+Both need a ruling note. `scripts/verify-cds-export-source-catalogue.py` and the catalogue loader
+enforce these rules; `scripts/ci/test_verify_cds_export_source_catalogue.py` covers them. The
+source-presence check (`CdsExportSourceCatalogueDao.requireUnclassifiedSourcesEmpty`) checks only
+`REQUIRE_EMPTY` and `ACCESS_CONTROL` tables, so a data-summary or listed row no longer holds a
+chart. With Reports unselected the data-summary tables are neither read nor exported, exactly like
+a mapped table of an unselected category. Parent chains added for this: `form_boolean_value`
+through the Rourke 2017/2020 revision its `form_name` and `form_id` name, `emailAttachment`
+through `emailLog`, `formBCAR2020Data`/`Text` through `formBCAR2020`, `messagetbl` through
+`msgDemoMap` (a message belongs to every chart it is linked to), and for listed counts
+`caisi_form_data`, `mdsZFR` and `mdsZLB`.
+
+**Capture.** `CdsExportDataSummarySourceReader.readers` builds one reader per `DOCUMENT` table
+from the pinned contract (`CdsExportDataSummaryReadDao.plan`): every physical column, the primary
+key (or, for the BC antenatal record 2020 tables, their reviewed NOT NULL unique key) as row
+identity and paging order, and the patient scope. Values are read as exact bytes in the same
+authenticated, encrypted per-patient capture as the mapped tables: text, numbers and dates as UTF-8
+text (`CAST(.. AS BINARY)`), binary columns as raw bytes, SQL NULL distinct from empty; large
+values in byte ranges verified against the page's SHA-256; wide legacy forms in column groups whose
+row keys must agree. A table of the other province's profile reads as absent and its schema
+digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only under
+`CdsExportSourceReadLock`. A table's rows for one patient over 20,000 rows or 400,000 fields hold
+that patient (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`), as does a row identity that proves not unique
+(`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`). `CdsExportListedSourceReader` captures, as
+the synthetic `listed_sources` scope of every export, only each listed table's name and the
+patient's row count.
+
+**Grouping.** `CdsExportDataSummaryRegistry` is the one reviewed rule list: every `DOCUMENT` table
+is a root (one record per row) or a child linked to a root by named columns. Each saved row of a
+form table is one revision, labelled "revision n of m" in row-identity order within its table for
+the patient; `form_boolean_value` joins its Rourke revision, `formBCAR2020Data`/`Text` their BC
+antenatal record, `desannualreviewplan` the Annual/AnnualV2/ADF revision and `desaprisk` the BC
+antenatal record revision its `form_no` names. A child whose parent is not in the chart, or whose
+link names more than one candidate record, becomes its own record rather than being guessed into
+one. `CdsExportDataSummaryPlanner` applies the rules deterministically.
+
+**Rendering.** `CdsExportDataSummaryHtmlComposer` writes a deterministic HTML document: the title
+"CARLOS data summary: <record kind>", the patient's name, date of birth, sex, health card, chart
+number and CARLOS patient number, the statement that it is a data summary of CARLOS records and not
+an original document, then each source row with its table and every column with its exact value,
+HTML-encoded with `SafeEncode`. SQL NULL, empty and a value are labelled outside the value, long
+text is printed whole and wraps, and a binary value shows its size and SHA-256 and is embedded when
+its bytes (or their strict Base64 decoding) are a PNG, JPEG or GIF; e-mail bodies stored as Base64
+are decoded when they are UTF-8 text. `CdsExportDataSummaryPdfService` renders it through
+`HtmlPdfRenderService` (bundled fonts only) and checks the `%PDF-` header, that PDFBox loads it and
+that it has a page. A render that fails, prints replacement glyphs, or loses an embedded photo or
+signature holds the patient (`CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED` /
+`CDS_EXPORT_DATA_SUMMARY_RENDER_INCOMPLETE`). `CdsExportDataSummaryOccurrenceService.Renderer` is
+the per-kind seam for a faithful rendering (eForm, consultation letter, Rourke chart) that can
+replace the data summary of one kind without changing capture or emission.
+
+**Emission.** `CdsExportDataSummaryOccurrenceService` emits each record after the native and
+imported documents, in the Reports source scope: Media `Download`, Format `Binary`,
+FileExtensionAndVersion `pdf`, FilePath of the encrypted attachment (staged as
+`REPORT_ATTACHMENT`, the path native documents use), Class of the record kind, SubClass naming the
+kind (or the form table and "revision n of m"), EventDateTime from the record's own date column at
+its true precision (a date stays a date; a local date-time becomes an offset date-time in the
+clinic zone, or stays a date when that local time is ambiguous or skipped; a missing or zero date
+gives none) and Notes stating that it is a CARLOS data summary. Every captured field of the record
+is assessed `MAPPED` to `Reports/FilePath` and checked by `CdsExportNativeFieldAssessmentValidator`;
+the patient inventory expects one Reports identity per planned record. The package ReadMe counts
+the data summaries of each patient by record kind and lists the patient's listed tables and the
+job's unlinked listed tables.
+
+Report classes chosen (a maintainer decision, recorded per kind in the registry): Consultant Report
+for consultation responses; Other Letter for consultation requests, e-mails, faxes and messages;
+Medical Records Report for every other kind.
 
 ## Historical implementation and qualification log
 

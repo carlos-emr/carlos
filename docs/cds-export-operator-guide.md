@@ -287,6 +287,24 @@ row in a patient-linked must-be-empty table holds only that patient
 are printed on the technical channel (CLI standard error, web application log)
 as `CDS_EXPORT_SOURCE: {"code":...,"tables":[...]}`, with no row values.
 
+Chart records that CDS 5.2 has no element for (encounter forms, eForms,
+consultations, ticklers, e-mails, faxes, messages, consents, the cumulative
+patient profile, the patient photo and similar) do not hold a patient. When
+Reports is selected, each record is exported as a Reports entry holding a PDF
+"CARLOS data summary": every stored field of the record and its related rows
+with the exact value, clearly marked as not an original document. Each saved
+encounter form is one record, labelled "revision n of m". The ReadMe counts each
+patient's data summaries by kind. When Reports is not selected these records are
+not exported, like any other unselected category. A patient whose records exceed
+the per-patient bound, or whose summary cannot be printed completely, is held
+with a `CDS_EXPORT_DATA_SUMMARY_*` code.
+
+Records of removed CARLOS features (the old study, survey, CAISI form and HSFO
+modules and similar) are never exported and never hold a patient. The encrypted
+ReadMe lists, for each patient, each such table holding the patient's rows and
+how many, and, for the whole job, each such table with no patient link that holds
+rows.
+
 Populated tables that this release does not know (another tool's bookkeeping
 table, a local backup copy) do not block an export. They are listed by name and
 estimated row count in the package ReadMe and in a protected log line
