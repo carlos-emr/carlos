@@ -72,6 +72,35 @@ class PdfFontsUnitTest {
     }
 
     @Test
+    void shouldKeepTheSharedClinicalFontSubset_whenAFormFieldUsesItsOwnCopy() throws Exception {
+        // OpenPDF's AcroFields.setFieldProperty("textfont") turns subsetting off on the font it is
+        // given; the form-field copy must absorb that, or every later PDF in the JVM embeds the
+        // whole face.
+        ByteArrayOutputStream form = new ByteArrayOutputStream();
+        Document document = new Document();
+        PdfWriter writer = PdfWriter.getInstance(document, form);
+        document.open();
+        writer.addAnnotation(new org.openpdf.text.pdf.TextField(
+                writer, new org.openpdf.text.Rectangle(36, 700, 236, 720), "field").getTextField());
+        document.add(new Paragraph("FAKE form"));
+        document.close();
+
+        BaseFont field = PdfFonts.formFieldFont(BaseFont.HELVETICA);
+        BaseFont shared = PdfFonts.getFont(BaseFont.HELVETICA, 10).getBaseFont();
+        assertThat(field).isNotSameAs(shared);
+        var stamper = new org.openpdf.text.pdf.PdfStamper(
+                new org.openpdf.text.pdf.PdfReader(form.toByteArray()), new ByteArrayOutputStream());
+        assertThat(stamper.getAcroFields().setFieldProperty("field", "textfont", field, null)).isTrue();
+        stamper.close();
+
+        assertThat(field.isSubset()).isFalse();
+        assertThat(PdfFonts.getFont(BaseFont.HELVETICA, 10).getBaseFont().isSubset()).isTrue();
+        assertThat(PdfFonts.formFieldFont(BaseFont.HELVETICA)).isNotSameAs(field);
+        assertThatThrownBy(() -> PdfFonts.formFieldFont("fonts/symbola/Symbola_hint.ttf"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void shouldAddNothing_whenTextIsNullOrEmpty() {
         var phrase = new Phrase();
         var font = PdfFonts.getFont(BaseFont.HELVETICA, 10);

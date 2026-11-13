@@ -341,7 +341,14 @@ public class PDFController {
         if (!continueInstructions || !(data instanceof BpmhForm2Bean form) || form.getDrugs() == null) {
             return notes;
         }
-        BaseFont font = PdfFonts.getFont(BaseFont.HELVETICA, 7.2f).getBaseFont();
+        // A form field's appearance turns subsetting off on its font, so it gets its own uncached
+        // copy; the shared clinical font would then embed whole in every later PDF of the JVM.
+        BaseFont font;
+        try {
+            font = PdfFonts.formFieldFont(BaseFont.HELVETICA);
+        } catch (IOException | DocumentException error) {
+            throw new IllegalStateException("BPMH form field font could not be loaded", error);
+        }
         for (int i = 0; i < form.getDrugs().size(); i++) {
             BpmhDrug drug = form.getDrugs().get(i);
             if (drug == null || drug.getInstruction() == null || drug.getInstruction().isEmpty()) continue;

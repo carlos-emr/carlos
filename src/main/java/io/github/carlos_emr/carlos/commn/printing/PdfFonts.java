@@ -45,6 +45,37 @@ public final class PdfFonts {
      */
     public static BaseFont createFont(String name, String encoding, boolean embedded)
             throws IOException, DocumentException {
+        String face = face(name);
+        return face == null ? BaseFont.createFont(name, encoding, embedded)
+                : BaseFont.createFont(face, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+    }
+
+    /**
+     * A private, uncached copy of an embedded standard Latin face, for an AcroForm field's
+     * appearance ({@code AcroFields.setFieldProperty(key, "textfont", ...)}).
+     *
+     * <p>OpenPDF caches every {@link BaseFont} it creates JVM-wide, and
+     * {@code PdfAppearance.setFontAndSize} turns subsetting off on the font it is given, because an
+     * editable field needs every glyph. A cached clinical font passed to a form field would make
+     * every later PDF in the JVM (prescriptions, consultation letters, CDS export summaries) embed
+     * the whole face instead of a subset. Never give a form field
+     * {@code getFont(...).getBaseFont()}; use this instead.
+     *
+     * @param name a standard Latin font name, such as {@link BaseFont#HELVETICA}
+     * @return an embedded Unicode face that no other caller shares
+     * @throws IllegalArgumentException if the name is not a standard Latin font
+     * @throws IOException if the font resource cannot be read
+     * @throws DocumentException if the font cannot be loaded
+     * @since 2026-11-13
+     */
+    public static BaseFont formFieldFont(String name) throws IOException, DocumentException {
+        String face = face(name);
+        if (face == null) throw new IllegalArgumentException("Not a standard Latin font: " + name);
+        return BaseFont.createFont(face, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, null, null);
+    }
+
+    /** The bundled resource for a standard Latin font name, or {@code null} for any other name. */
+    private static String face(String name) {
         String face = switch (name) {
             case BaseFont.HELVETICA -> "DejaVuSans";
             case BaseFont.HELVETICA_BOLD -> "DejaVuSans-Bold";
@@ -61,9 +92,8 @@ public final class PdfFonts {
             case BaseFont.COURIER_BOLDOBLIQUE -> "LiberationMono-BoldItalic";
             default -> null;
         };
-        return face == null ? BaseFont.createFont(name, encoding, embedded)
-                : BaseFont.createFont((face.startsWith("Liberation") ? "fonts/liberation/" : DIRECTORY)
-                        + face + ".ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+        return face == null ? null
+                : (face.startsWith("Liberation") ? "fonts/liberation/" : DIRECTORY) + face + ".ttf";
     }
 
     /**
