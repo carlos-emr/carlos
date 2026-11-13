@@ -49,7 +49,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.ResourceBundle;
 import java.util.Set;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -68,6 +71,15 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>When used for fax transmission, an {@link EctConsultationFaxForm} can be provided to
  * include fax copy-to recipient information in the specialist section.</p>
+ *
+ * <p>Two paths share one layout. The request path reads the request named by the request
+ * ({@link #ConsultationPDFCreator(HttpServletRequest, OutputStream)}) and looks up the letterhead,
+ * clinic, specialist, providers, signature and logo as it always has. The request-free path
+ * ({@link #ConsultationPDFCreator(ConsultationLetterDto, OutputStream)}) prints a letter whose
+ * values the caller already resolved, with no request, session or lookup, and {@link
+ * #printLetter()} reports a requested signature or logo it could not include ({@link Omission})
+ * instead of leaving it out silently. Both build a {@link ConsultationLetterDto} and draw it the
+ * same way.</p>
  *
  * @see ImagePDFCreator
  * @see EctConsultationFormRequestUtil
@@ -97,6 +109,16 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     private ClinicData clinic;
     private ResourceBundle oscarR;
     private EctConsultationFaxForm ectConsultationFaxForm;
+    private ConsultationLetterDto letter;
+    private final Set<Omission> omissions = EnumSet.noneOf(Omission.class);
+
+    /** A part of the letter that was requested but could not be printed. */
+    public enum Omission {
+        /** The letter carries a signature, but its image was missing or unreadable. */
+        SIGNATURE,
+        /** The clinic prints a logo on consultation letters, but it was missing or unreadable. */
+        LOGO
+    }
 
     /**
      * Constructs a ConsultationPDFCreator for generating a consultation request PDF.
@@ -163,6 +185,47 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
     }
 
     /**
+     * Constructs a creator for a letter whose values are already resolved: no HTTP request,
+     * session, Spring bean or file is read. Use {@link #printLetter()} to print it.
+     *
+     * @param letter the letter to print, labels in its locale
+     * @param os     OutputStream where the generated PDF will be written
+     */
+    public ConsultationPDFCreator(ConsultationLetterDto letter, OutputStream os) {
+        try {
+            bf = PdfFonts.createFont(BaseFont.HELVETICA, BaseFont.CP1252, BaseFont.NOT_EMBEDDED);
+            font = new Font(bf, 10, Font.NORMAL);
+            heading = new Font(bf, 12, Font.NORMAL);
+            boldFontHeading = new Font(bf, 12, Font.BOLD);
+        } catch (DocumentException | IOException e) {
+            throw new RuntimeException("Cannot create consultation PDF fonts", e);
+        }
+        this.os = os;
+        this.letter = Objects.requireNonNull(letter);
+        oscarR = ResourceBundle.getBundle("oscarResources", letter.locale());
+    }
+
+    /**
+     * Prints a request-free letter.
+     *
+     * @return the requested parts that could not be printed (empty when the letter is complete)
+     * @throws DocumentException when OpenPDF cannot build the PDF
+     * @throws IllegalStateException when this creator was made from a request
+     */
+    public Set<Omission> printLetter() throws DocumentException {
+        if (reqFrm != null || letter == null) {
+            throw new IllegalStateException("A request letter is printed with printPdf");
+        }
+        printPdf(null);
+        return omissions();
+    }
+
+    /** The requested parts the last print could not include. */
+    public Set<Omission> omissions() {
+        return Collections.unmodifiableSet(EnumSet.copyOf(omissions));
+    }
+
+    /**
      * Generates the consultation request PDF and writes it to the configured output stream.
      *
      * <p>Creates a letter-sized PDF document containing the full consultation request layout:
@@ -174,6 +237,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     public void printPdf(LoggedInInfo loggedInInfo) throws DocumentException {
 
+        omissions.clear();
         // Create the document we are going to write to
         document = new Document();
         PdfWriter.getInstance(document, os);
@@ -199,6 +263,11 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     private PdfPTable createConsultationRequest(LoggedInInfo loggedInInfo) {
 
+        // The request path resolves its letter here, where it used to start its lookups.
+        if (reqFrm != null) {
+            letter = requestLetter(loggedInInfo);
+        }
+
         float[] tableWidths = {1f, 1f};
 
         PdfPTable border1, border2;
@@ -208,7 +277,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         border.setSplitLate(false);
         border.setWidthPercentage(100);
 
-        if (props.getProperty("faxLogoInConsultation") != null) {
+        if (letter.images().logoRequested()) {
             // Creating container for logo and clinic information table.
             border1 = new PdfPTable(tableWidths);
             border1.setSpacingAfter(5f);
@@ -255,14 +324,121 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         addTable(border, createConsultDetailTable());
 
         // Add the provider's signature.
-        if (shouldRenderSignature(suppressSignature, signatureImageOverride, reqFrm.signatureImg)) {
+        if (letter.images().signatureRequested()) {
             addSignature(border);
         }
 
         // Add referring practitioner and mrp details
-        addTable(border, createReferringPracAndMRPDetailTable(loggedInInfo));
+        addTable(border, createReferringPracAndMRPDetailTable());
 
         return border;
+    }
+
+    /**
+     * Resolves the request path's letter with exactly the lookups this creator always made while
+     * drawing: the letterhead name (program, provider or clinic), the clinic, the specialist and
+     * service, the configured titles, the signature (only when it will print), the logo file and
+     * the referring practitioner and family doctor with their billing numbers.
+     */
+    private ConsultationLetterDto requestLetter(LoggedInInfo loggedInInfo) {
+        boolean logoRequested = props.getProperty("faxLogoInConsultation") != null;
+        boolean signatureRequested = shouldRenderSignature(suppressSignature, signatureImageOverride, reqFrm.signatureImg);
+        byte[] signature = null;
+        if (signatureRequested) {
+            // Skip the stored-signature lookup when override bytes are already present.
+            DigitalSignatureManager digitalSignatureManager =
+                    signatureImageOverride != null && signatureImageOverride.length > 0
+                            ? null
+                            : SpringUtils.getBean(DigitalSignatureManager.class);
+            signature = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
+        }
+        ProfessionalSpecialist professionalSpecialist = reqFrm.getProfessionalSpecialist();
+        ConsultationLetterDto.Specialist specialist = professionalSpecialist == null ? null
+                : new ConsultationLetterDto.Specialist(professionalSpecialist.getFormattedTitle(),
+                        professionalSpecialist.getPhoneNumber(), professionalSpecialist.getFaxNumber(),
+                        professionalSpecialist.getStreetAddress());
+
+        ProviderDao proDAO = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
+        // providerNo is nullable on consultationRequests, and either provider number can
+        // reference a since-removed provider row. A missing provider must print without
+        // an OHIP suffix, not NPE the whole consultation PDF out of print/preview/fax.
+        io.github.carlos_emr.carlos.commn.model.Provider pro =
+                reqFrm.providerNo != null ? proDAO.getProvider(reqFrm.providerNo) : null;
+        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
+        Demographic demo = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(reqFrm.demoNo));
+        String ohipNo = pro != null ? pro.getOhipNo() : "";
+        String famDocOhipNo = "";
+        if (demo.getProviderNo() != null && !demo.getProviderNo().equals("")) {
+            pro = proDAO.getProvider(demo.getProviderNo());
+            famDocOhipNo = pro != null ? pro.getOhipNo() : "";
+        }
+        boolean printReferring = props.getBooleanProperty("printPDF_referring_prac", "yes");
+        boolean printFamilyDoctor = props.getBooleanProperty("mrp_model", "yes");
+
+        return new ConsultationLetterDto(
+                oscarR.getLocale(),
+                new ConsultationLetterDto.Letterhead(resolveLetterheadName(), reqFrm.letterheadAddress,
+                        reqFrm.letterheadPhone, reqFrm.letterheadFax, clinic.getClinicName(),
+                        clinic.getClinicAddress(), clinic.getClinicCity(), clinic.getClinicProvince(),
+                        clinic.getClinicPostal(), clinic.getClinicPhone(), clinic.getClinicFax()),
+                new ConsultationLetterDto.Request(reqFrm.pwb, reqFrm.referalDate, reqFrm.urgency,
+                        reqFrm.getServiceName(reqFrm.service), reqFrm.getAppointmentInstructionsLabel(),
+                        CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true"),
+                        IsPropertiesOn.isMultisitesEnable()),
+                specialist,
+                new ConsultationLetterDto.Patient(reqFrm.patientName, reqFrm.patientAddress, reqFrm.patientPhone,
+                        reqFrm.patientCellPhone, reqFrm.patientWPhone, reqFrm.patientEmail, reqFrm.patientDOB,
+                        reqFrm.patientSex, reqFrm.patientHealthCardType, reqFrm.patientHealthNum,
+                        reqFrm.patientHealthCardVersionCode, reqFrm.appointmentDate, reqFrm.appointmentHour,
+                        reqFrm.appointmentMinute, reqFrm.appointmentPm, reqFrm.patientChartNo),
+                new ConsultationLetterDto.Clinical(reqFrm.reasonForConsultation, reqFrm.clinicalInformation,
+                        reqFrm.concurrentProblems, reqFrm.currentMedications, reqFrm.allergies,
+                        props.getProperty("significantConcurrentProblemsTitle", ""),
+                        props.getProperty("currentMedicationsTitle", "")),
+                new ConsultationLetterDto.Footer(printReferring,
+                        printReferring ? reqFrm.getProviderName(reqFrm.providerNo) : null, ohipNo,
+                        printFamilyDoctor, printFamilyDoctor ? reqFrm.getFamilyDoctor() : null, famDocOhipNo),
+                new ConsultationLetterDto.Images(signatureRequested, signature, logoRequested,
+                        logoRequested ? ClinicLogoUtility.resolveConsultationLogo(reqFrm.siteName) : null, null));
+    }
+
+    /** The request path's letterhead name: a program, a provider or the clinic. */
+    private String resolveLetterheadName() {
+        String letterheadName = null;
+        if (reqFrm.letterheadName != null && reqFrm.letterheadName.startsWith("prog_")) {
+
+            ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
+            Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
+            letterheadName = programDao.getProgramName(programNo);
+
+        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
+
+            Provider letterheadNameProvider = null;
+
+            if (reqFrm.letterheadName != null) {
+                letterheadNameProvider = new RxProviderData().getProvider(reqFrm.letterheadName);
+            }
+
+            if (letterheadNameProvider != null && letterheadNameProvider.getSurname() != null) {
+
+                String firstName = "";
+
+                if (reqFrm.letterheadTitle != null && reqFrm.letterheadTitle.equals("Dr")) {
+                    firstName = letterheadNameProvider.getFirstName();
+                } else {
+                    firstName = letterheadNameProvider.getFirstName().replace("Dr. ", "");
+                }
+
+                letterheadName = firstName + " " + letterheadNameProvider.getSurname();
+
+            } else {
+                letterheadName = clinic.getClinicName();
+            }
+
+        } else {
+            letterheadName = clinic.getClinicName();
+        }
+        return letterheadName;
     }
 
     /**
@@ -339,7 +515,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPTable datelineborder = new PdfPTable(1);
         datelineborder.setWidthPercentage(100f);
         PdfPCell datecell = new PdfPCell();
-        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.referalDate), heading));
+        datecell.setPhrase(PdfFonts.phrase(String.format("%s %s", getResource("msgDate"), letter.request().patientWillBook().equals("1") ? getResource("pwb") : letter.request().referralDate()), heading));
         datecell.setBorder(0);
         datecell.setColspan(1);
         datecell.setPaddingTop(5f);
@@ -394,12 +570,39 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // The consultation form stores a site NAME, not its numeric database ID.
         // Resolve that explicit contract without changing this letter's existing
         // 50pt/padding-zero logo geometry to the fax cover's different layout.
-        File imageFile = ClinicLogoUtility.resolveConsultationLogo(reqFrm.siteName);
+        File imageFile = letter.images().logoFile();
+        byte[] logo = letter.images().logo();
         if (imageFile != null) {
             addImage(infoTable, imageFile.getPath(), PageSize.LETTER.getWidth() * 0.5f, 50f);
+        } else if (logo == null || !addImage(infoTable, logo, PageSize.LETTER.getWidth() * 0.5f, 50f)) {
+            omissions.add(Omission.LOGO);
         }
         return infoTable;
 
+    }
+
+    /**
+     * Adds supplied logo bytes as a scaled image cell, as {@link #addImage(PdfPTable, String,
+     * float, float)} adds a logo file.
+     *
+     * @return false when the bytes are not an image OpenPDF can print (nothing is added)
+     */
+    private static boolean addImage(PdfPTable pdfPTable, byte[] bytes, float width, float height) {
+        try {
+            Image image = Image.getInstance(bytes);
+            image.scaleToFit(width, height);
+            image.setBorder(0);
+            PdfPCell cell = new PdfPCell();
+            cell.addElement(image);
+            cell.setPadding(0);
+            cell.setBorder(0);
+            pdfPTable.addCell(cell);
+            return true;
+        } catch (IOException | RuntimeException e) {
+            // BadElementException is unchecked in OpenPDF; any unreadable image is reported.
+            logger.warn("Consultation letter logo could not be printed: {}", e.getClass().getSimpleName());
+            return false;
+        }
     }
 
     /**
@@ -462,19 +665,19 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         cell.setPhrase(PdfFonts.phrase(getResource("msgConsReq"), boldFontHeading));
 
-        if ("1".equals(reqFrm.pwb)) {
+        if ("1".equals(letter.request().patientWillBook())) {
             cell.setPhrase(PdfFonts.phrase(getResource("msgPleaseReplyPatient"), boldFontHeading));
         }
 
         // If not set to Patient Will Book then maybe a Custom Appointment Instruction is used.
-        else if (CarlosProperties.getInstance().getBooleanProperty("CONSULTATION_APPOINTMENT_INSTRUCTIONS_LOOKUP", "true")) {
-            cell.setPhrase(PdfFonts.phrase(reqFrm.getAppointmentInstructionsLabel(), boldFontHeading));
-        } else if (IsPropertiesOn.isMultisitesEnable()) {
+        else if (letter.request().appointmentInstructionsLookup()) {
+            cell.setPhrase(PdfFonts.phrase(letter.request().appointmentInstructionsLabel(), boldFontHeading));
+        } else if (letter.request().multisites()) {
             cell.setPhrase(PdfFonts.phrase("Please reply", boldFontHeading));
         } else {
             cell.setPhrase(PdfFonts.phrase(
                     String.format("%s %s %s", getResource("msgPleaseReplyPart1"),
-                            clinic.getClinicName(),
+                            letter.letterhead().clinicName(),
                             getResource("msgPleaseReplyPart2")), boldFontHeading));
         }
         infoTable.addCell(cell);
@@ -491,40 +694,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     private PdfPTable createClinicInfoHeader() {
 
-        String letterheadName = null;
-        if (reqFrm.letterheadName != null && reqFrm.letterheadName.startsWith("prog_")) {
-
-            ProgramDao programDao = SpringUtils.getBean(ProgramDao.class);
-            Integer programNo = Integer.parseInt(reqFrm.letterheadName.substring(5));
-            letterheadName = programDao.getProgramName(programNo);
-
-        } else if (!"-1".equals(reqFrm.letterheadName) && !reqFrm.letterheadName.equals(clinic.getClinicName())) {
-
-            Provider letterheadNameProvider = null;
-
-            if (reqFrm.letterheadName != null) {
-                letterheadNameProvider = new RxProviderData().getProvider(reqFrm.letterheadName);
-            }
-
-            if (letterheadNameProvider != null && letterheadNameProvider.getSurname() != null) {
-
-                String firstName = "";
-
-                if (reqFrm.letterheadTitle != null && reqFrm.letterheadTitle.equals("Dr")) {
-                    firstName = letterheadNameProvider.getFirstName();
-                } else {
-                    firstName = letterheadNameProvider.getFirstName().replace("Dr. ", "");
-                }
-
-                letterheadName = firstName + " " + letterheadNameProvider.getSurname();
-
-            } else {
-                letterheadName = clinic.getClinicName();
-            }
-
-        } else {
-            letterheadName = clinic.getClinicName();
-        }
+        ConsultationLetterDto.Letterhead letterhead = letter.letterhead();
+        String letterheadName = letterhead.name();
 
         PdfPTable infoTable = new PdfPTable(1);
         PdfPCell cell = new PdfPCell(PdfFonts.phrase(letterheadName, heading));
@@ -534,14 +705,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         // add the address details
         Phrase addressPhrase = new Phrase("", heading);
-        if (reqFrm.letterheadAddress != null && reqFrm.letterheadAddress.trim().length() > 0) {
-            PdfFonts.addText(addressPhrase, reqFrm.getLetterheadAddress(), heading);
+        if (letterhead.address() != null && letterhead.address().trim().length() > 0) {
+            PdfFonts.addText(addressPhrase, letterhead.address(), heading);
         } else {
-            PdfFonts.addText(addressPhrase, clinic.getClinicAddress(), heading);
+            PdfFonts.addText(addressPhrase, letterhead.clinicAddress(), heading);
 
-            PdfFonts.addText(addressPhrase, String.format("%s, %s. %s", clinic.getClinicCity(),
-                    clinic.getClinicProvince(),
-                    clinic.getClinicPostal()), heading);
+            PdfFonts.addText(addressPhrase, String.format("%s, %s. %s", letterhead.clinicCity(),
+                    letterhead.clinicProvince(),
+                    letterhead.clinicPostal()), heading);
         }
 
         cell.setPhrase(addressPhrase);
@@ -549,16 +720,16 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
 
         // add the telecom info
         Phrase telecomPhrase = new Phrase("", heading);
-        if (reqFrm.letterheadPhone != null && reqFrm.letterheadPhone.trim().length() > 0) {
-            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", reqFrm.getLetterheadPhone()), heading);
+        if (letterhead.phone() != null && letterhead.phone().trim().length() > 0) {
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", letterhead.phone()), heading);
         } else {
-            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", clinic.getClinicPhone()), heading);
+            PdfFonts.addText(telecomPhrase, String.format("Phone: %s", letterhead.clinicPhone()), heading);
         }
 
-        if (reqFrm.letterheadFax != null && reqFrm.letterheadFax.trim().length() > 0) {
-            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", reqFrm.getLetterheadFax()), heading);
+        if (letterhead.fax() != null && letterhead.fax().trim().length() > 0) {
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", letterhead.fax()), heading);
         } else {
-            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", clinic.getClinicFax()), heading);
+            PdfFonts.addText(telecomPhrase, String.format(" Fax: %s", letterhead.clinicFax()), heading);
         }
 
         cell.setPhrase(telecomPhrase);
@@ -578,13 +749,14 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         PdfPCell cell = new PdfPCell();
         cell.setPadding(0);
         PdfPTable infoTable = new PdfPTable(tableWidths);
-        ProfessionalSpecialist professionalSpecialist = reqFrm.getProfessionalSpecialist();
+        ConsultationLetterDto.Specialist professionalSpecialist = letter.specialist();
+        String urgency = letter.request().urgency();
 
         infoTable.addCell(setInfoCell(cell, getResource("msgConsultant")));
 
         // specialist name
         if (professionalSpecialist != null) {
-            infoTable.addCell(setDataCell(cell, professionalSpecialist.getFormattedTitle()));
+            infoTable.addCell(setDataCell(cell, professionalSpecialist.name()));
         } else {
             infoTable.addCell(setDataCell(cell, ""));
         }
@@ -593,17 +765,17 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         // urgency is nullable on consultationRequests (legacy/imported rows, partial
         // integration updates); a missing urgency must print blank, not NPE the whole
         // consultation PDF out of print/preview/fax.
-        infoTable.addCell(setDataCell(cell, ("1".equals(reqFrm.urgency) ? getResource("msgUrgent") :
-                ("2".equals(reqFrm.urgency) ? getResource("msgNUrgent") :
-                        ("3".equals(reqFrm.urgency)) ? getResource("msgReturn")
+        infoTable.addCell(setDataCell(cell, ("1".equals(urgency) ? getResource("msgUrgent") :
+                ("2".equals(urgency) ? getResource("msgNUrgent") :
+                        ("3".equals(urgency)) ? getResource("msgReturn")
                                 : "  "))));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgService")));
-        infoTable.addCell(setDataCell(cell, reqFrm.getServiceName(reqFrm.service)));
+        infoTable.addCell(setDataCell(cell, letter.request().serviceName()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgPhone")));
         if (professionalSpecialist != null) {
-            infoTable.addCell(setDataCell(cell, professionalSpecialist.getPhoneNumber()));
+            infoTable.addCell(setDataCell(cell, professionalSpecialist.phone()));
         } else {
             infoTable.addCell(setDataCell(cell, ""));
         }
@@ -611,7 +783,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         infoTable.addCell(setInfoCell(cell, getResource("msgFax")));
 
         if (professionalSpecialist != null) {
-            infoTable.addCell(setDataCell(cell, professionalSpecialist.getFaxNumber()));
+            infoTable.addCell(setDataCell(cell, professionalSpecialist.fax()));
         } else {
             infoTable.addCell(setDataCell(cell, ""));
         }
@@ -619,7 +791,7 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         infoTable.addCell(setInfoCell(cell, getResource("msgAddr")));
 
         if (professionalSpecialist != null) {
-            infoTable.addCell(setDataCell(cell, divy(professionalSpecialist.getStreetAddress())));
+            infoTable.addCell(setDataCell(cell, divy(professionalSpecialist.address())));
         } else {
             infoTable.addCell(setDataCell(cell, ""));
         }
@@ -651,6 +823,8 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      */
     private PdfPTable createPatientTable() {
 
+        ConsultationLetterDto.Patient patient = letter.patient();
+        String pwb = letter.request().patientWillBook();
         float[] tableWidths = new float[]{2, 2.5f};
         PdfPTable infoTable = new PdfPTable(tableWidths);
         PdfPCell cell = new PdfPCell();
@@ -658,44 +832,44 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         cell.setPaddingLeft(10f);
 
         infoTable.addCell(setInfoCell(cell, getResource("msgPat")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientName));
+        infoTable.addCell(setDataCell(cell, patient.name()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgAddr")));
-        infoTable.addCell(setDataCell(cell, divy(reqFrm.patientAddress)));
+        infoTable.addCell(setDataCell(cell, divy(patient.address())));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgPhone")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientPhone));
+        infoTable.addCell(setDataCell(cell, patient.phone()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgCellPhone")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientCellPhone));
+        infoTable.addCell(setDataCell(cell, patient.cellPhone()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgWPhone")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientWPhone));
+        infoTable.addCell(setDataCell(cell, patient.workPhone()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgEmail")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientEmail));
+        infoTable.addCell(setDataCell(cell, patient.email()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgBirth")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientDOB + " (y/m/d)"));
+        infoTable.addCell(setDataCell(cell, patient.dateOfBirth() + " (y/m/d)"));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgSex")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientSex));
+        infoTable.addCell(setDataCell(cell, patient.sex()));
 
         infoTable.addCell(setInfoCell(cell, getResource("msgCard")));
-        infoTable.addCell(setDataCell(cell, String.format("(%s) %s %s", reqFrm.patientHealthCardType,
-                reqFrm.patientHealthNum,
-                reqFrm.patientHealthCardVersionCode)));
+        infoTable.addCell(setDataCell(cell, String.format("(%s) %s %s", patient.healthCardType(),
+                patient.healthNumber(),
+                patient.healthCardVersion())));
 
-        if (!reqFrm.pwb.equals("1")) {
+        if (!pwb.equals("1")) {
             infoTable.addCell(setInfoCell(cell, getResource("msgappDate")));
-            infoTable.addCell(setDataCell(cell, reqFrm.pwb.equals("1") ? getResource("pwb") : reqFrm.appointmentDate));
+            infoTable.addCell(setDataCell(cell, pwb.equals("1") ? getResource("pwb") : patient.appointmentDate()));
             infoTable.addCell(setInfoCell(cell, getResource("msgTime")));
-            infoTable.addCell(setDataCell(cell, formatAppointmentTime(reqFrm.appointmentHour,
-                    reqFrm.appointmentMinute, reqFrm.appointmentPm)));
+            infoTable.addCell(setDataCell(cell, formatAppointmentTime(patient.appointmentHour(),
+                    patient.appointmentMinute(), patient.appointmentPm())));
         }
 
         infoTable.addCell(setInfoCell(cell, getResource("msgChart")));
-        infoTable.addCell(setDataCell(cell, reqFrm.patientChartNo));
+        infoTable.addCell(setDataCell(cell, patient.chartNumber()));
 
         return infoTable;
     }
@@ -707,41 +881,41 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @return the table produced
      */
     private PdfPTable createConsultDetailTable() {
+        ConsultationLetterDto.Clinical clinical = letter.clinical();
         PdfPTable infoTable = new PdfPTable(1);
         PdfPCell cell = new PdfPCell();
         cell.setPadding(0);
         cell.setPaddingTop(10f);
         cell.setPaddingBottom(5f);
 
-        infoTable.addCell(setDataCell(cell, reqFrm.reasonForConsultation));
+        infoTable.addCell(setDataCell(cell, clinical.reason()));
 
-        if (getlen(reqFrm.clinicalInformation) > 1) {
+        if (getlen(clinical.clinicalInformation()) > 1) {
             infoTable.addCell(setInfoCell(cell, getResource("msgClinicalInfom"), boldFontHeading));
-            infoTable.addCell(setDataCell(cell, divy(reqFrm.clinicalInformation)));
+            infoTable.addCell(setDataCell(cell, divy(clinical.clinicalInformation())));
         }
 
-        if (getlen(reqFrm.concurrentProblems) > 0) {
-            if (props.getProperty("significantConcurrentProblemsTitle", "")
-                    .length() > 1) {
-                infoTable.addCell(setInfoCell(cell, props.getProperty("significantConcurrentProblemsTitle", ""), boldFontHeading));
+        if (getlen(clinical.concurrentProblems()) > 0) {
+            if (getlen(clinical.concurrentProblemsTitle()) > 1) {
+                infoTable.addCell(setInfoCell(cell, clinical.concurrentProblemsTitle(), boldFontHeading));
             } else {
                 infoTable.addCell(setInfoCell(cell, getResource("msgSigProb"), boldFontHeading));
             }
-            infoTable.addCell(setDataCell(cell, divy(reqFrm.concurrentProblems)));
+            infoTable.addCell(setDataCell(cell, divy(clinical.concurrentProblems())));
         }
 
-        if (getlen(reqFrm.currentMedications) > 1) {
-            if (props.getProperty("currentMedicationsTitle", "").length() > 1) {
-                infoTable.addCell(setInfoCell(cell, props.getProperty("currentMedicationsTitle", ""), boldFontHeading));
+        if (getlen(clinical.currentMedications()) > 1) {
+            if (getlen(clinical.currentMedicationsTitle()) > 1) {
+                infoTable.addCell(setInfoCell(cell, clinical.currentMedicationsTitle(), boldFontHeading));
             } else {
                 infoTable.addCell(setInfoCell(cell, getResource("msgCurrMed"), boldFontHeading));
             }
-            infoTable.addCell(setDataCell(cell, divy(reqFrm.currentMedications)));
+            infoTable.addCell(setDataCell(cell, divy(clinical.currentMedications())));
         }
 
-        if (getlen(reqFrm.allergies) > 1) {
+        if (getlen(clinical.allergies()) > 1) {
             infoTable.addCell(setInfoCell(cell, getResource("msgAllergies"), boldFontHeading));
-            infoTable.addCell(setDataCell(cell, divy(reqFrm.allergies)));
+            infoTable.addCell(setDataCell(cell, divy(clinical.allergies())));
         }
 
         return infoTable;
@@ -756,20 +930,18 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param pdfPTable PdfPTable the main consultation request table to append the signature to
      */
     private void addSignature(PdfPTable pdfPTable) {
-        // Skip the stored-signature lookup when override bytes are already present.
-        DigitalSignatureManager digitalSignatureManager =
-                signatureImageOverride != null && signatureImageOverride.length > 0
-                        ? null
-                        : SpringUtils.getBean(DigitalSignatureManager.class);
-        byte[] signatureImage = resolveSignatureBytes(signatureImageOverride, reqFrm.getSignatureImg(), digitalSignatureManager);
+        byte[] signatureImage = letter.images().signature();
 
         if (signatureImage != null && signatureImage.length > 0) {
             try {
                 Image image = createScaledSignatureImage(signatureImage);
                 addTable(pdfPTable, createRightAlignedSignatureTable(getResource("msgSignature"), image, font));
             } catch (BadElementException | IOException e) {
+                omissions.add(Omission.SIGNATURE);
                 logger.error("An error occurred while trying to create an image from the signature: {}", LogSafe.exceptionTrace(e));
             }
+        } else {
+            omissions.add(Omission.SIGNATURE);
         }
     }
 
@@ -937,32 +1109,21 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
      * @param loggedInInfo LoggedInInfo the authenticated session context for demographic lookup
      * @return PdfPTable a two-column table with referring practitioner and family doctor details
      */
-    private PdfPTable createReferringPracAndMRPDetailTable(LoggedInInfo loggedInInfo) {
-        ProviderDao proDAO = (ProviderDao) SpringUtils.getBean(ProviderDao.class);
-        // providerNo is nullable on consultationRequests, and either provider number can
-        // reference a since-removed provider row. A missing provider must print without
-        // an OHIP suffix, not NPE the whole consultation PDF out of print/preview/fax.
-        io.github.carlos_emr.carlos.commn.model.Provider pro =
-                reqFrm.providerNo != null ? proDAO.getProvider(reqFrm.providerNo) : null;
-        DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-        Demographic demo = demographicManager.getDemographic(loggedInInfo, Integer.parseInt(reqFrm.demoNo));
-        String ohipNo = pro != null ? pro.getOhipNo() : "";
-        String famDocOhipNo = "";
-        if (demo.getProviderNo() != null && !demo.getProviderNo().equals("")) {
-            pro = proDAO.getProvider(demo.getProviderNo());
-            famDocOhipNo = pro != null ? pro.getOhipNo() : "";
-        }
+    private PdfPTable createReferringPracAndMRPDetailTable() {
+        ConsultationLetterDto.Footer footer = letter.footer();
+        String ohipNo = footer.referringNumber();
+        String famDocOhipNo = footer.familyDoctorNumber();
 
         PdfPTable table = new PdfPTable(new float[]{1.0f, 1.0f});
         PdfPCell cell = new PdfPCell();
-        if (props.getBooleanProperty("printPDF_referring_prac", "yes")) {
-            table.addCell(setFooterCell(cell, getResource("msgAssociated2"), reqFrm.getProviderName(reqFrm.providerNo) + ((getlen(ohipNo) > 0) ? " (" + ohipNo + ")" : "")));
+        if (footer.printReferringPractitioner()) {
+            table.addCell(setFooterCell(cell, getResource("msgAssociated2"), footer.referringPractitioner() + ((getlen(ohipNo) > 0) ? " (" + ohipNo + ")" : "")));
         } else {
             table.addCell(setFooterCell(cell, "", ""));
         }
 
-        if (props.getBooleanProperty("mrp_model", "yes")) {
-            table.addCell(setFooterCell(cell, getResource("msgFamilyDoc2"), reqFrm.getFamilyDoctor() + ((getlen(famDocOhipNo) > 0) ? " (" + famDocOhipNo + ")" : "")));
+        if (footer.printFamilyDoctor()) {
+            table.addCell(setFooterCell(cell, getResource("msgFamilyDoc2"), footer.familyDoctor() + ((getlen(famDocOhipNo) > 0) ? " (" + famDocOhipNo + ")" : "")));
         } else {
             table.addCell(setFooterCell(cell, "", ""));
         }

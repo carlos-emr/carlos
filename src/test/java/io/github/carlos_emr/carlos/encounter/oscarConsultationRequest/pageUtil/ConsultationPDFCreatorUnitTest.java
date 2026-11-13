@@ -229,14 +229,19 @@ class ConsultationPDFCreatorUnitTest {
     @Test
     void shouldPreserveUnicodeLetterhead_whenRenderingClinicHeader() throws Exception {
         var creator = mock(ConsultationPDFCreator.class, org.mockito.Mockito.CALLS_REAL_METHODS);
-        var form = mock(EctConsultationFormRequestUtil.class);
-        form.letterheadName = "-1";
-        form.letterheadAddress = "İstanbul";
-        org.mockito.Mockito.when(form.getLetterheadAddress()).thenReturn("İstanbul");
-        var clinic = mock(io.github.carlos_emr.carlos.clinic.ClinicData.class);
-        org.mockito.Mockito.when(clinic.getClinicName()).thenReturn("Nguyễn Łukasz");
-        org.springframework.test.util.ReflectionTestUtils.setField(creator, "reqFrm", form);
-        org.springframework.test.util.ReflectionTestUtils.setField(creator, "clinic", clinic);
+        // The header draws the resolved letter: a clinic letterhead ("-1") resolves to the clinic name.
+        var letter = new ConsultationLetterDto(
+                java.util.Locale.ENGLISH,
+                new ConsultationLetterDto.Letterhead("Nguyễn Łukasz", "İstanbul", "", "", "Nguyễn Łukasz",
+                        null, null, null, null, null, null),
+                new ConsultationLetterDto.Request("0", "", "", "", "", true, false),
+                null,
+                new ConsultationLetterDto.Patient(null, null, null, null, null, null, null, null, null, null,
+                        null, null, null, null, null, null),
+                new ConsultationLetterDto.Clinical(null, null, null, null, null, "", ""),
+                new ConsultationLetterDto.Footer(false, null, "", false, null, ""),
+                new ConsultationLetterDto.Images(false, null, false, null, null));
+        org.springframework.test.util.ReflectionTestUtils.setField(creator, "letter", letter);
         org.springframework.test.util.ReflectionTestUtils.setField(creator, "heading",
                 io.github.carlos_emr.carlos.commn.printing.PdfFonts.getFont("Helvetica", 12));
         org.openpdf.text.pdf.PdfPTable table = org.springframework.test.util.ReflectionTestUtils.invokeMethod(
