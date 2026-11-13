@@ -40,7 +40,7 @@
     "FlowSheetUserCreated": "REFERENCE",
     "Flowsheet": "REFERENCE",
     "FunctionalCentre": "REFERENCE",
-    "GroupNoteLink": "REQUIRE_EMPTY",
+    "GroupNoteLink": "OPERATIONAL",
     "HL7HandlerMSHMapping": "REFERENCE",
     "HRMCategory": "REFERENCE",
     "HRMDocument": "MAPPED_SOURCE",
@@ -150,7 +150,7 @@
     "casemgmt_issue_notes": "MAPPED_SOURCE",
     "casemgmt_note": "MAPPED_SOURCE",
     "casemgmt_note_ext": "MAPPED_SOURCE",
-    "casemgmt_note_link": "REQUIRE_EMPTY",
+    "casemgmt_note_link": "MAPPED_SOURCE",
     "casemgmt_note_lock": "OPERATIONAL",
     "casemgmt_tmpsave": "OPERATIONAL",
     "cds_export_attempt": "OPERATIONAL",
@@ -728,6 +728,7 @@
     "PersonalHistory": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -737,6 +738,7 @@
     "FamilyHistory": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -746,6 +748,7 @@
     "PastHealth": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -762,6 +765,7 @@
     "ProblemList": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -775,6 +779,7 @@
     "RiskFactors": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -784,6 +789,7 @@
     "AlertsAndSpecialNeeds": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -793,6 +799,7 @@
     "ClinicalNotes": [
       "casemgmt_note",
       "casemgmt_note_ext",
+      "casemgmt_note_link",
       "casemgmt_issue",
       "casemgmt_issue_notes",
       "issue",
@@ -815,9 +822,6 @@
     ],
     "DigitalSignature": [
       "demographicId"
-    ],
-    "GroupNoteLink": [
-      "demographicNo"
     ],
     "RemoteReferral": [
       "demographicId"
@@ -1477,6 +1481,8 @@
     "hl7_obr": "Exported as a CARLOS data-summary Report (PathNet laboratory report): every column of each patient row is rendered with its exact value. The observation request of the PathNet report it names (pid_id). The chart is the patientLabRouting row of type BCP whose lab_no is the message_id, as the chart lab list reads it (hl7_link.demographic_no is a copy the chart never reads).",
     "labRequestReportLink": "Exported as a CARLOS data-summary Report (laboratory requisition link): every column of each patient row is rendered with its exact value. The requisition (formLabReq07/10 or an eForm) a lab report was linked to (lab/ViewLinkReq; shown on the HL7 and CML report displays). It belongs to the chart of the report it names: a CML report's CML route or an HL7 report's HL7 route. A link naming another table belongs to no chart.",
     "labReportInformation": "Exported as a CARLOS data-summary Report (CML laboratory report): every column of each patient row is rendered with its exact value. Header of one CML upload (location, print date and time, line totals), shown on each CML report of the upload. Exported with each report of the chart that names it, or as its own record when several reports of one chart name it. The chart is the patientLabRouting row of type CML whose lab_no is the report id, as the chart lab list reads it.",
-    "hl7_link": "Exported as a CARLOS data-summary Report (PathNet laboratory report): every column of each patient row is rendered with its exact value. The legacy patient link and acknowledgement of the PathNet report it names (pid_id). The chart is the patientLabRouting row of type BCP whose lab_no is the message_id, as the chart lab list reads it (hl7_link.demographic_no is a copy the chart never reads)."
+    "hl7_link": "Exported as a CARLOS data-summary Report (PathNet laboratory report): every column of each patient row is rendered with its exact value. The legacy patient link and acknowledgement of the PathNet report it names (pid_id). The chart is the patientLabRouting row of type BCP whose lab_no is the message_id, as the chart lab list reads it (hl7_link.demographic_no is a copy the chart never reads).",
+    "casemgmt_note_link": "Exported with the note it belongs to (decision recorded with the note-link change): each row says which record a note is attached to (table_name, table_id, other_id: a document, prescription, eForm, tickler, e-mail, another note, an allergy, a lab, a prevention, the patient record or an appointment). The note itself is exported once, as the chart shows it, in its own ClinicalNotes or CPP occurrence under its per-note authorization; every link row of every revision travels exactly in that occurrence's source context (the note details of a ClinicalNotes entry, which also opens with a statement naming the records, or the CARLOS.NativeHistory.v1 residual of a CPP item). Captured with the seven history categories and scoped through the parent note (CdsExportIndirectPatientScopeReadSupport); a link whose note is missing or names no existing patient still holds every chart.",
+    "GroupNoteLink": "Operational, rule GROUP_NOTE_RECIPIENT_LINK: a CAISI group note is written in one chart (casemgmt_note.demographic_no) and shown read-only in each recipient chart this row names (GroupNoteAction, GroupNoteSelect2Action; CaseManagementView2Action shows it only in a facility with group notes enabled and to a provider holding the note's reporter role). The row carries only that linkage: note id, recipient, created time, whether the recipient is an anonymous client generated for the session and whether the share is still active. The note itself is exported once, with the chart that wrote it, under its per-note authorization. Copying it into a recipient's package would disclose a note of another chart (group notes commonly name the other members) without that chart's authorization, and a data summary of the row would show only another chart's note number. No longer holds the recipient chart."
   }
 }

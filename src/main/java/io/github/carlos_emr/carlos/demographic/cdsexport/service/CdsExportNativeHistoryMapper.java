@@ -173,6 +173,7 @@ public final class CdsExportNativeHistoryMapper {
         var bodies = new ArrayList<String>();
         long previous = 0;
         String uuid = null;
+        List<Map<String, String>> attachedTo = List.of();
         for (var revision : revisions) {
             var note = revision.note().value();
             CdsExportCaseManagementProjectionEvidence.verify(note, revision.note().witness());
@@ -361,6 +362,9 @@ public final class CdsExportNativeHistoryMapper {
                 issues.add(facts);
             }
             if (!issues.isEmpty()) detail.put("issues", issues);
+            var attached = attachments(revision, note, category, rows, decisions);
+            if (!attached.isEmpty()) detail.put("attachedTo", attached);
+            if (revision == current) attachedTo = attached;
             // ClinicalNotes text already carries every revision's body verbatim under its own
             // "[Revision n]" heading; repeating it in the details only doubled the note.
             if (category != CdsCategory.CLINICAL_NOTES
@@ -385,6 +389,10 @@ public final class CdsExportNativeHistoryMapper {
                                 "MyClinicalNotesContent",
                                 "EXPLICIT_ARCHIVED_NOTE_STATEMENT"));
             }
+            // Says what the note is attached to before its text; the details below carry every
+            // revision's links exactly.
+            if (!attachedTo.isEmpty())
+                full.append(attachmentStatement(attachedTo)).append("\n\n");
             for (int i = 0; i < bodies.size(); i++) {
                 if (bodies.size() > 1)
                     full.append(i == 0 ? "[Original note]\n" : "\n\n[Revision " + (i + 1) + "]\n");
@@ -437,6 +445,90 @@ public final class CdsExportNativeHistoryMapper {
                         archived),
                 decisions,
                 new ArrayList<>(rows.values()));
+    }
+
+    /**
+     * The record kinds a note link ({@code casemgmt_note_link.table_name}) can name, as {@code
+     * CaseManagementNoteLink} numbers them. A number CARLOS does not define is still carried
+     * exactly; only its label is generic.
+     */
+    private static final Map<String, String> LINKED_RECORDS =
+            Map.ofEntries(
+                    Map.entry("1", "clinical note"),
+                    Map.entry("2", "prescription"),
+                    Map.entry("3", "allergy"),
+                    Map.entry("4", "lab result"),
+                    Map.entry("5", "document"),
+                    Map.entry("6", "eForm"),
+                    Map.entry("7", "patient record"),
+                    Map.entry("8", "prevention"),
+                    Map.entry("9", "lab result"),
+                    Map.entry("10", "tickler"),
+                    Map.entry("11", "appointment"),
+                    Map.entry("12", "e-mail"));
+
+    /**
+     * The records one revision is attached to ({@code casemgmt_note_link}), every column of every
+     * link row accounted: the link and parent identities are operational, and the record type,
+     * record id and secondary id travel exactly in the revision's source context (the note
+     * details of a ClinicalNotes entry, the {@code CARLOS.NativeHistory.v1} residual of a CPP
+     * item). Nothing of the linked record itself is read here.
+     */
+    private static List<Map<String, String>> attachments(
+            CdsExportHistoryFieldReconciler.Current revision,
+            CdsExportCapturedTextRowDto note,
+            CdsCategory category,
+            Map<String, CdsExportCapturedTextRowDto> rows,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            throws IOException {
+        var result = new ArrayList<Map<String, String>>();
+        for (var link : revision.noteLinks()) {
+            CdsExportCaseManagementProjectionEvidence.verify(link.value(), link.witness());
+            var row = link.value();
+            if (!note.fields().get("note_id").equals(row.fields().get("note_id"))) invalid();
+            add(rows, row);
+            var state = new CdsExportNativeFieldAssessments(row, decisions);
+            state.operational("id", "NATIVE_NOTE_LINK_IDENTITY");
+            state.operational("note_id", "VERIFIED_NATIVE_NOTE_LINK_PARENT");
+            String type = state.raw("table_name"),
+                    record = state.raw("table_id"),
+                    part = state.raw("other_id");
+            // Both are NOT NULL integer columns; anything else is not a row CARLOS wrote.
+            if (type == null
+                    || !type.matches("-?[0-9]{1,11}")
+                    || record == null
+                    || !record.matches("-?[0-9]{1,11}")) invalid();
+            if (part != null && !CdsExportNativeFieldAssessments.legal(part, 25))
+                review("CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID");
+            var facts = new LinkedHashMap<String, String>();
+            facts.put("record", LINKED_RECORDS.getOrDefault(type, "record type " + type));
+            facts.put("table_name", type);
+            facts.put("table_id", record);
+            // SQL NULL stays distinct from an empty secondary id.
+            facts.put("other_id", part);
+            for (String field : List.of("table_name", "table_id", "other_id"))
+                state.set(field, Outcome.MAPPED, metadataPath(category), "EXACT_NATIVE_NOTE_LINK");
+            result.add(facts);
+        }
+        return result;
+    }
+
+    /** Names, at the head of a ClinicalNotes text, the records its current revision is attached to. */
+    static String attachmentStatement(List<Map<String, String>> attached) {
+        var names = new ArrayList<String>();
+        for (var facts : attached) {
+            String name = facts.get("record") + " " + facts.get("table_id");
+            String part = facts.get("other_id");
+            if (part != null && !part.isEmpty()) name += " (part " + part + ")";
+            names.add(name);
+        }
+        return attached.size() == 1
+                ? "[CARLOS: this note is attached to another record in the sending system: "
+                        + names.getFirst()
+                        + ".]"
+                : "[CARLOS: this note is attached to other records in the sending system: "
+                        + String.join("; ", names)
+                        + ".]";
     }
 
     static CdsCategory issueCategory(CdsExportHistoryFieldReconciler.Row definition)

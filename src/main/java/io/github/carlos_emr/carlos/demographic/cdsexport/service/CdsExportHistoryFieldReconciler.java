@@ -51,19 +51,36 @@ public final class CdsExportHistoryFieldReconciler {
         }
     }
 
-    /** Caller supplies every extension and link for the current note, from the same completely scanned source generation. */
+    /**
+     * Caller supplies every extension, issue link and note link of the current note, from
+     * the same completely scanned source generation. {@code links} are the note's patient-issue
+     * relations ({@code casemgmt_issue_notes}); {@code noteLinks} are the records the note is
+     * attached to ({@code casemgmt_note_link}), each with its full-row witness.
+     */
     record Current(
             Row note,
             List<Row> extensions,
             List<CdsExportCapturedTextRowDto> links,
             Map<String, Row> patientIssues,
-            Map<String, Row> definitions) {
+            Map<String, Row> definitions,
+            List<Row> noteLinks) {
         Current {
             Objects.requireNonNull(note);
             extensions = List.copyOf(extensions);
             links = List.copyOf(links);
             patientIssues = Map.copyOf(patientIssues);
             definitions = Map.copyOf(definitions);
+            noteLinks = List.copyOf(noteLinks);
+        }
+
+        /** A note attached to no other record. */
+        Current(
+                Row note,
+                List<Row> extensions,
+                List<CdsExportCapturedTextRowDto> links,
+                Map<String, Row> patientIssues,
+                Map<String, Row> definitions) {
+            this(note, extensions, links, patientIssues, definitions, List.of());
         }
 
         @Override

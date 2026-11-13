@@ -52,6 +52,7 @@ public final class CdsExportNativeMetadataReadSupport {
         PHARMACY("pharmacyInfo"),
         CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes"),
         CASE_NOTE_EXT("casemgmt_note_ext"),
+        CASE_NOTE_LINK("casemgmt_note_link"),
         CASE_NOTES("casemgmt_note"),
         PREVENTIONS_EXT("preventionsExt"),
         PREVENTIONS("preventions"),

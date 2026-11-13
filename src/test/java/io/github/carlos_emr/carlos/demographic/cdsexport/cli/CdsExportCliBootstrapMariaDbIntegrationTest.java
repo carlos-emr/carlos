@@ -145,6 +145,12 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service
                                             .CdsExportNoteExtensionSourceReader.class))
                     .isNotNull();
+            // Every history category captures the records its notes are attached to.
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportNoteLinkSourceReader.class))
+                    .isNotNull();
             assertThat(
                             context.getBean(
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service

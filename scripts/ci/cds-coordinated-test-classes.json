@@ -176,6 +176,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeReportMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNewCategoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteIssueLinkReceiptUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteLinkMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionInventoryServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionPlannerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNoteRevisionReaderUnitTest",

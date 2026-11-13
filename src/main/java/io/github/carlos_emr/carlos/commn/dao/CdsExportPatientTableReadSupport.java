@@ -414,6 +414,16 @@ public final class CdsExportPatientTableReadSupport {
                 "id",
                 null,
                 List.of("date_value", "id", "key_val", "note_id", "value")),
+        /**
+         * The records a note is attached to (casemgmt_note_link: a document, prescription, eForm,
+         * tickler, e-mail, another note, ...), owned by the chart of the note that carries them.
+         * Every row of every revision is kept, whatever record type it names.
+         */
+        CASE_NOTE_LINK(
+                "casemgmt_note_link",
+                "id",
+                null,
+                List.of("id", "note_id", "other_id", "table_id", "table_name")),
         CASE_NOTES(
                 "casemgmt_note",
                 "note_id",
@@ -1264,7 +1274,9 @@ public final class CdsExportPatientTableReadSupport {
             if (this == ISSUE_CATALOGUE)
                 return "exists (select 1 from `casemgmt_issue` i where i.`issue_id`=d.`issue_id`"
                         + " and i.`demographic_no`=:patient)";
-            if (this == CASE_NOTE_EXT)
+            // A note link belongs to the chart of the note it attaches, exactly as the presence
+            // scope (CdsExportIndirectPatientScopeReadSupport) reaches that chart.
+            if (this == CASE_NOTE_EXT || this == CASE_NOTE_LINK)
                 return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and"
                         + " n.`demographic_no`=:patient)";
             // PartialDate.DXRESEARCH (3): every precision row of the patient's own registry entries,

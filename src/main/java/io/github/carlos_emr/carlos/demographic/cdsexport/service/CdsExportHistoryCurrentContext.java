@@ -36,11 +36,21 @@ public final class CdsExportHistoryCurrentContext {
                     "casemgmt_issue_notes",
                     "casemgmt_issue",
                     "issue");
+
+    /**
+     * The records each note is attached to. The source catalogue requires it in every history
+     * capture; a capture made without the catalogue (a fixture, or a reader set predating the
+     * links) has none to read.
+     */
+    static final String NOTE_LINKS = "casemgmt_note_link";
+
     private final String manifest;
     private final int patient;
     private final Map<String, Map<String, CdsExportHistoryFieldReconciler.Row>> records;
     private final List<CdsExportCapturedTextRowDto> links;
     private final Map<Long, CdsExportNoteAccessDto> scopes;
+    /** Each note's links, in link-row order, so an unchanged chart writes the same context. */
+    private final Map<String, List<CdsExportHistoryFieldReconciler.Row>> noteLinks;
 
     private CdsExportHistoryCurrentContext(
             String manifest,
@@ -55,9 +65,24 @@ public final class CdsExportHistoryCurrentContext {
         this.records = Map.copyOf(copied);
         this.links = List.copyOf(links);
         this.scopes = Map.copyOf(scopes);
+        var grouped = new HashMap<String, List<CdsExportHistoryFieldReconciler.Row>>();
+        this.records.getOrDefault(NOTE_LINKS, Map.of()).values().stream()
+                .sorted(Comparator.comparing(row -> row.value().recordKey()))
+                .forEach(
+                        row ->
+                                grouped.computeIfAbsent(
+                                                row.value().fields().get("note_id"),
+                                                ignored -> new ArrayList<>())
+                                        .add(row));
+        var frozen = new HashMap<String, List<CdsExportHistoryFieldReconciler.Row>>();
+        grouped.forEach((note, rows) -> frozen.put(note, List.copyOf(rows)));
+        this.noteLinks = Map.copyOf(frozen);
     }
 
-    /** Reads all five domains and their independent full-row witnesses under the same verified captured manifest. */
+    /**
+     * Reads all five domains, and the note links when they were captured, with their independent
+     * full-row witnesses under the same verified captured manifest.
+     */
     public static CdsExportHistoryCurrentContext read(
             CdsExportNativeCaptureService captures,
             CdsExportNativeRowReceiptReader receipts,
@@ -76,11 +101,18 @@ public final class CdsExportHistoryCurrentContext {
         if (source == null
                 || !requiredTables.containsAll(TABLES)
                 || !source.capture().tables().keySet().equals(requiredTables)) invalid();
+        // The catalogue requires the note links with every history category; a catalogued
+        // capture without them could export an attached note without naming what it is
+        // attached to.
+        if (requiredTables.contains("clinical_source_catalogue")
+                && !requiredTables.contains(NOTE_LINKS)) invalid();
+        var tables = new HashSet<>(TABLES);
+        if (requiredTables.contains(NOTE_LINKS)) tables.add(NOTE_LINKS);
         var states = new HashMap<String, CdsExportNativeRowReceiptDto>();
         var records = new HashMap<String, Map<String, CdsExportHistoryFieldReconciler.Row>>();
         var links = new ArrayList<CdsExportCapturedTextRowDto>();
         long[] memory = {0};
-        for (String table : TABLES) {
+        for (String table : tables) {
             long rows = source.capture().tables().get(table).rows();
             if (rows > (table.equals("issue") ? bounds.lookupRows() : bounds.nativeRows())) limit();
             records.put(table, new HashMap<>());
@@ -95,7 +127,7 @@ public final class CdsExportHistoryCurrentContext {
                         bounds.bytes(),
                         control,
                         row -> {
-                            if (!TABLES.contains(row.table())) return;
+                            if (!tables.contains(row.table())) return;
                             if (row.state() == null
                                     || row.partial()
                                     || row.digest() == null
@@ -107,7 +139,7 @@ public final class CdsExportHistoryCurrentContext {
                             if (memory[0] > bounds.indexBytes()) limit();
                         });
         if (!closed.sourceManifestSha256().equals(source.manifest().plaintextSha256())) invalid();
-        for (String table : TABLES)
+        for (String table : tables)
             if ((!Objects.equals(
                             closed.rows().get(table), source.capture().tables().get(table).rows())
                     || closed.unavailableTables().contains(table))) invalid();
@@ -118,7 +150,7 @@ public final class CdsExportHistoryCurrentContext {
                                 lease,
                                 patient,
                                 requiredTables,
-                                TABLES,
+                                Set.copyOf(tables),
                                 source.manifest(),
                                 bounds.fields(),
                                 bounds.bytes(),
@@ -164,7 +196,7 @@ public final class CdsExportHistoryCurrentContext {
                                             != null) invalid();
                                 });
         if (!actual.equals(source.capture()) || !states.isEmpty()) invalid();
-        for (String table : TABLES)
+        for (String table : tables)
             if (count.getOrDefault(table, 0L) != actual.tables().get(table).rows()) invalid();
         var scopes = new HashMap<Long, CdsExportNoteAccessDto>();
         for (var scope : actual.tables().get("casemgmt_note").noteAccess())
@@ -184,6 +216,11 @@ public final class CdsExportHistoryCurrentContext {
         for (var extension : records.get("casemgmt_note_ext").values())
             if (!records.get("casemgmt_note")
                     .containsKey(extension.value().fields().get("note_id"))) invalid();
+        // A link travels with the note it attaches; capture reads exactly the links of the
+        // patient's own notes, so a link naming no captured note is not this chart's.
+        for (var link : records.getOrDefault(NOTE_LINKS, Map.of()).values())
+            if (!records.get("casemgmt_note").containsKey(link.value().fields().get("note_id")))
+                invalid();
 
         var pairs = new HashSet<String>();
         for (var link : links) {
@@ -256,7 +293,8 @@ public final class CdsExportHistoryCurrentContext {
                 extensions,
                 selectedLinks,
                 records.get("casemgmt_issue"),
-                records.get("issue"));
+                records.get("issue"),
+                noteLinks.getOrDefault(Long.toString(id), List.of()));
     }
 
     CdsExportHistoryFieldReconciler.Row original(String table, String id) {

@@ -90,6 +90,7 @@ class CdsExportHistoryCurrentContextUnitTest {
         return switch (plan) {
             case CASE_NOTES -> "casemgmt_note";
             case CASE_NOTE_EXT -> "casemgmt_note_ext";
+            case CASE_NOTE_LINK -> "casemgmt_note_link";
             case CASE_ISSUES -> "casemgmt_issue";
             case ISSUE_CATALOGUE -> "issue";
             default -> throw new IllegalArgumentException();
@@ -331,6 +332,44 @@ class CdsExportHistoryCurrentContextUnitTest {
         assertThat(planned).hasSize(1);
         assertThat(planned.getFirst().category()).isEqualTo(CdsCategory.FAMILY_HISTORY);
         assertThat(planned.getFirst().address()).isNull();
+    }
+
+    @Test
+    void shouldGiveEachNoteItsOwnLinks_inLinkRowOrder() throws Exception {
+        // A note may carry many links (a dump note gains one per revision of the note it
+        // annotates). The context indexes rows by id, so their order is restored explicitly.
+        rows.put("casemgmt_note_link", new ArrayList<>());
+        var expected = new ArrayList<String>();
+        for (int id = 301; id <= 340; id++) {
+            add(
+                    Plan.CASE_NOTE_LINK,
+                    id,
+                    Map.of("note_id", "91", "table_name", "1", "table_id", Integer.toString(id)));
+            expected.add(Integer.toString(id));
+        }
+        prepare();
+        var current = read(1L << 20).note(91);
+        assertThat(current.noteLinks())
+                .extracting(link -> link.value().fields().get("id"))
+                .containsExactlyElementsOf(expected);
+        assertThat(current.noteLinks().getFirst().witness().id()).isEqualTo("301");
+        // The planner classifies the note by its issues, never by what it is attached to.
+        var planned =
+                CdsExportHistoryOccurrenceService.plan(
+                        index(HASH, "91", false), inventory(91), read(1L << 20), () -> {});
+        assertThat(planned).singleElement().satisfies(o -> assertThat(o.noteId()).isEqualTo(91));
+    }
+
+    @Test
+    void shouldRefuseANoteLink_ofANoteOutsideTheCapture() throws Exception {
+        rows.put("casemgmt_note_link", new ArrayList<>());
+        add(
+                Plan.CASE_NOTE_LINK,
+                301,
+                Map.of("note_id", "92", "table_name", "5", "table_id", "12"));
+        prepare();
+        assertThatThrownBy(() -> read(1L << 20))
+                .hasMessage("CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID");
     }
 
     @Test

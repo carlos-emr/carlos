@@ -1,0 +1,49 @@
+{
+  "table": "casemgmt_note_link",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "id",
+      "type": "int(10)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "note_id",
+      "type": "int(10)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "other_id",
+      "type": "varchar(25)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "table_id",
+      "type": "int(10)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "table_name",
+      "type": "int(6)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

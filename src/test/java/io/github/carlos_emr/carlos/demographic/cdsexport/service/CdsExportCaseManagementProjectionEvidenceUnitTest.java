@@ -78,6 +78,7 @@ class CdsExportCaseManagementProjectionEvidenceUnitTest {
                 List.of(
                         CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
                         CdsExportPatientTableReadSupport.Plan.CASE_NOTE_EXT,
+                        CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK,
                         CdsExportPatientTableReadSupport.Plan.CASE_ISSUES,
                         CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE)) {
             var row = row(plan);

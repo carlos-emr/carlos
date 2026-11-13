@@ -109,6 +109,11 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
 
     /** An empty capture of the history tables plus any extra (empty) captured tables. */
     private void prepareCapture(Map<String, Set<String>> extra) throws Exception {
+        prepareCapture(extra, true);
+    }
+
+    private void prepareCapture(Map<String, Set<String>> extra, boolean noteLinks)
+            throws Exception {
         var expected = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
         var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
         for (var entry : extra.entrySet()) {
@@ -119,10 +124,12 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                 List.of(
                         Plan.CASE_NOTES,
                         Plan.CASE_NOTE_EXT,
+                        Plan.CASE_NOTE_LINK,
                         Plan.CASE_NOTE_ISSUE_LINK,
                         Plan.CASE_ISSUES,
                         Plan.ISSUE_CATALOGUE,
                         Plan.DEMOGRAPHIC_MERGES)) {
+            if (plan == Plan.CASE_NOTE_LINK && !noteLinks) continue;
             var columns = Set.copyOf(plan.columns());
             expected.put(plan.table(), new CdsExportNativeCaptureReader.Table(columns, 0));
             scopes.put(plan.table(), new CdsExportCapturedTableDto(columns, 0, HASH));
@@ -331,6 +338,27 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
         prepareCapture(extra);
         assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
                 .hasMessage("CDS_EXPORT_HISTORY_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseACataloguedHistoryCapture_thatLeftOutTheNoteLinks() throws Exception {
+        // The catalogue requires casemgmt_note_link with every history category: without it an
+        // attached note would be exported without naming the record it is attached to.
+        service =
+                new CdsExportHistoryOccurrenceService(
+                        captures,
+                        receipts,
+                        revisions,
+                        values,
+                        verification,
+                        mock(CdsExportScreeningOccurrenceService.class),
+                        mock(CdsExportProblemRegistryOccurrenceService.class));
+        prepareCapture(screeningTables(true), false);
+        assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .hasMessage("CDS_EXPORT_HISTORY_CURRENT_CONTEXT_INVALID");
+        prepareCapture(screeningTables(true), true);
+        assertThatCode(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .doesNotThrowAnyException();
     }
 
     @Test

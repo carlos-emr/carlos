@@ -816,6 +816,7 @@ public class CdsExportHistoryOccurrenceService {
         var rows = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         add(rows, current.note().value());
         for (var extension : current.extensions()) add(rows, extension.value());
+        for (var link : current.noteLinks()) add(rows, link.value());
         for (var link : current.links()) {
             add(rows, link);
             var issue = current.patientIssues().get(link.fields().get("id"));
@@ -839,6 +840,10 @@ public class CdsExportHistoryOccurrenceService {
             Occurrence occurrence, CdsExportHistoryCurrentContext context) throws IOException {
         if (occurrence.issueId() != null) return false;
         if (occurrence.address() == null || occurrence.revisions().size() > 1) return true;
+        // The retained import source has no place for what a note is attached to; only the
+        // native revision context carries it. (The CARLOS importer writes no note links, so an
+        // imported note has one only if CARLOS attached it to a record later.)
+        if (!context.note(occurrence.noteId()).noteLinks().isEmpty()) return true;
         // A single imported revision can acquire archive, signature or encounter context too.
         // Route it through the same qualified native carrier used for complete revision chains.
         var fields = context.note(occurrence.noteId()).note().value().fields();

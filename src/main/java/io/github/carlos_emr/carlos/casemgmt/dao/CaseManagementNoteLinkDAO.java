@@ -35,7 +35,13 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.casemgmt.model.CaseManagementNoteLink;
 
-public interface CaseManagementNoteLinkDAO {
+/**
+ * Note links ("this note is attached to that record"). It also owns the read-only CDS export
+ * projection of the links of one patient's notes ({@link
+ * io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan#CASE_NOTE_LINK}).
+ */
+public interface CaseManagementNoteLinkDAO
+        extends io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadDao {
 
     public CaseManagementNoteLink getNoteLink(Long id);
 

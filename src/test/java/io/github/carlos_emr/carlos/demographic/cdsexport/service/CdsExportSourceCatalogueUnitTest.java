@@ -203,6 +203,34 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
+    void shouldExportNoteLinksWithTheirNotes_andNoLongerHoldGroupNoteRecipients()
+            throws Exception {
+        // Before: both were REQUIRE_EMPTY, so every chart with a document, e-mail, tickler or
+        // eForm note (casemgmt_note_link) or a shared CAISI group note (GroupNoteLink) was held.
+        var catalogue = CdsExportSourceCatalogue.current();
+        assertThat(catalogue.tables().get("casemgmt_note_link"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
+        for (var category : CdsExportNoteSourceReader.CATEGORIES)
+            assertThat(catalogue.required(Set.of(category)))
+                    .contains("casemgmt_note", "casemgmt_note_link");
+        assertThat(catalogue.required(Set.of(CdsCategory.REPORTS)))
+                .doesNotContain("casemgmt_note_link");
+        assertThat(catalogue.tables().get("GroupNoteLink"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.OPERATIONAL);
+        assertThat(catalogue.patientScopes())
+                .doesNotContainKeys("GroupNoteLink", "casemgmt_note_link");
+        try (var input = getClass().getResourceAsStream("/cds-export/source-catalogue.json")) {
+            var notes =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(input)
+                            .path("rulingNotes");
+            assertThat(notes.path("GroupNoteLink").asText())
+                    .contains("GROUP_NOTE_RECIPIENT_LINK");
+            assertThat(notes.path("casemgmt_note_link").asText()).contains("source context");
+        }
+    }
+
+    @Test
     void shouldRefuseTheUnclassifiedSourcePresence_atBothIndependentCountAndValueBoundaries() {
         doThrow(
                         new CdsExportReviewException(

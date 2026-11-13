@@ -61,6 +61,7 @@ public final class CdsExportSourceSchemaValidator {
                     "issue",
                     "casemgmt_issue_notes",
                     "casemgmt_note_ext",
+                    "casemgmt_note_link",
                     "casemgmt_note",
                     CdsExportProblemRegistrySources.REGISTRY,
                     CdsExportProblemRegistrySources.PRECISION,

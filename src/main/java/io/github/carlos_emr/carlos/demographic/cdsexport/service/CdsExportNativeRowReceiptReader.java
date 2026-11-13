@@ -80,6 +80,7 @@ public class CdsExportNativeRowReceiptReader {
                     Map.entry("issue", "issue_id"),
                     Map.entry("casemgmt_note", "note_id"),
                     Map.entry("casemgmt_note_ext", "id"),
+                    Map.entry("casemgmt_note_link", "id"),
                     // Registry precision rows keep their logical name as witnesses, like the
                     // screening aliases, so they never match another domain's partial_date row.
                     Map.entry(CdsExportProblemRegistrySources.REGISTRY, "dxresearch_no"),

@@ -49,6 +49,8 @@ final class CdsExportCaseManagementProjectionEvidence {
                     case "casemgmt_issue_notes" ->
                             CdsExportPatientTableReadSupport.Plan.CASE_NOTE_ISSUE_LINK;
                     case "casemgmt_note_ext" -> CdsExportPatientTableReadSupport.Plan.CASE_NOTE_EXT;
+                    case "casemgmt_note_link" ->
+                            CdsExportPatientTableReadSupport.Plan.CASE_NOTE_LINK;
                     case "casemgmt_issue" -> CdsExportPatientTableReadSupport.Plan.CASE_ISSUES;
                     case "issue" -> CdsExportPatientTableReadSupport.Plan.ISSUE_CATALOGUE;
                     default ->

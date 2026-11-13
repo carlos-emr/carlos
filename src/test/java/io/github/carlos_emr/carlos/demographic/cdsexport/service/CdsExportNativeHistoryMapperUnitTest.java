@@ -692,4 +692,171 @@ class CdsExportNativeHistoryMapperUnitTest {
                             () -> CdsExportNativeHistoryMapper.instant(invalid, zone))
                     .hasMessage("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
     }
+
+    /** A casemgmt_note_link row of note {@code note}, as CARLOS writes it. */
+    private static CdsExportHistoryFieldReconciler.Row noteLink(
+            long id, long note, String type, String record, String part) {
+        var fields = new LinkedHashMap<String, String>();
+        fields.put("note_id", Long.toString(note));
+        fields.put("table_name", type);
+        fields.put("table_id", record);
+        fields.put("other_id", part);
+        return row(Plan.CASE_NOTE_LINK, id, fields);
+    }
+
+    private static CdsExportHistoryFieldReconciler.Current linked(
+            CdsExportHistoryFieldReconciler.Current note,
+            CdsExportHistoryFieldReconciler.Row... links) {
+        return new CdsExportHistoryFieldReconciler.Current(
+                note.note(),
+                note.extensions(),
+                note.links(),
+                note.patientIssues(),
+                note.definitions(),
+                List.of(links));
+    }
+
+    @Test
+    void shouldNameTheAttachedDocument_atTheHeadOfTheClinicalNote_andCarryTheLinkExactly()
+            throws Exception {
+        // ManageDocument2Action.saveDocNote: the note recording a filed document and its link.
+        var result =
+                map(
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(
+                                linked(
+                                        note(91, "Document Lab letter created.", null, List.of()),
+                                        noteLink(301, 91, "5", "12", null))));
+        String text = result.value().text().get("MyClinicalNotesContent");
+        assertThat(text)
+                .startsWith(
+                        "[CARLOS: this note is attached to another record in the sending system:"
+                                + " document 12.]\n\nDocument Lab letter created.");
+        assertThat(result.value().metadata())
+                .contains(
+                        "\"attachedTo\":[{\"record\":\"document\",\"table_name\":\"5\","
+                                + "\"table_id\":\"12\",\"other_id\":null}]");
+        assertThat(text).endsWith(result.value().metadata());
+        String key = CdsExportPatientTableSourceReader.key(301);
+        assertThat(result.rows())
+                .filteredOn(r -> r.table().equals("casemgmt_note_link"))
+                .singleElement()
+                .satisfies(r -> assertThat(r.recordKey()).isEqualTo(key));
+        for (String column : List.of("table_name", "table_id", "other_id"))
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "casemgmt_note_link", key, column)))
+                    .satisfies(
+                            decision -> {
+                                assertThat(decision.outcome())
+                                        .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+                                assertThat(decision.destination())
+                                        .isEqualTo("MyClinicalNotesContent");
+                                assertThat(decision.rule()).isEqualTo("EXACT_NATIVE_NOTE_LINK");
+                            });
+        for (String column : List.of("id", "note_id"))
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "casemgmt_note_link", key, column))
+                                    .outcome())
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("this note is attached to another record in the sending system");
+    }
+
+    @Test
+    void shouldCarryTheCopiedLinkOfEveryRevision_andNameTheRecordOnce() throws Exception {
+        // copyRevisionMetadata copies a discontinuation note's drug link to each revision.
+        var result =
+                map(
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(
+                                linked(
+                                        note(91, "Stopped: rash", null, List.of()),
+                                        noteLink(301, 91, "2", "46", null)),
+                                linked(
+                                        note(92, "Stopped: rash and hives", null, List.of()),
+                                        noteLink(302, 92, "2", "46", null))));
+        String text = result.value().text().get("MyClinicalNotesContent");
+        assertThat(text.split("attached to another record", -1)).hasSize(2);
+        assertThat(text)
+                .startsWith(
+                        "[CARLOS: this note is attached to another record in the sending system:"
+                                + " prescription 46.]\n\n[Original note]\nStopped: rash");
+        assertThat(result.value().metadata().split("\"attachedTo\"", -1)).hasSize(3);
+        assertThat(result.rows().stream().filter(r -> r.table().equals("casemgmt_note_link")))
+                .hasSize(2);
+    }
+
+    @Test
+    void shouldCarryTheLinkOfACppItem_inItsResidualContextOnly() throws Exception {
+        // EFormUtil.saveCMNote: an eForm that writes to a CPP section links its note to the form.
+        var result =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(
+                                linked(
+                                        note(91, "Mother: breast cancer", "FamHistory", List.of()),
+                                        noteLink(301, 91, "6", "77", null))));
+        assertThat(result.value().text())
+                .containsEntry("ProblemDiagnosisProcedureDescription", "Mother: breast cancer")
+                .doesNotContainKey("Notes");
+        assertThat(result.value().metadata()).contains("\"record\":\"eForm\"");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "casemgmt_note_link",
+                                                CdsExportPatientTableSourceReader.key(301),
+                                                "table_id"))
+                                .destination())
+                .isEqualTo("ResidualInfo");
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("CARLOS.NativeHistory.v1", "eForm")
+                .doesNotContain("[CARLOS: this note is attached");
+    }
+
+    @Test
+    void shouldNameSeveralRecordsAndAnUnknownType_keepingTheSecondaryIdExact() throws Exception {
+        var result =
+                map(
+                        CdsCategory.CLINICAL_NOTES,
+                        List.of(
+                                linked(
+                                        note(91, "Reviewed", null, List.of()),
+                                        noteLink(301, 91, "4", "7001", "0-1"),
+                                        noteLink(302, 91, "99", "5", ""))));
+        assertThat(result.value().text().get("MyClinicalNotesContent"))
+                .startsWith(
+                        "[CARLOS: this note is attached to other records in the sending system:"
+                                + " lab result 7001 (part 0-1); record type 99 5.]");
+        assertThat(result.value().metadata())
+                .contains("\"other_id\":\"0-1\"", "\"other_id\":\"\"");
+    }
+
+    @Test
+    void shouldRefuseALinkOfAnotherNote_andHoldASecondaryIdItCannotWrite() {
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(
+                                                linked(
+                                                        note(91, "Body", null, List.of()),
+                                                        noteLink(301, 92, "5", "12", null)))))
+                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_SCOPE_INVALID");
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        CdsCategory.CLINICAL_NOTES,
+                                        List.of(
+                                                linked(
+                                                        note(91, "Body", null, List.of()),
+                                                        noteLink(301, 91, "5", "12", "a\u0001")))))
+                .hasMessage("CDS_EXPORT_NATIVE_NOTE_LINK_TEXT_INVALID");
+    }
 }
