@@ -36,7 +36,7 @@ io.github.carlos_emr.carlos.documentManager.htmlpdf
 ├── support/   Static markup rules and printed text (domain nouns, no suffix, private constructor)
 │              XhtmlCleanup, EngineExtensions, PrintFormControls, RtlTextShaping, FallbackFontRuns,
 │              SystemColors, LegacyBodyMargins, SafeModeMarkup, HiddenContent, PlainTextDocument,
-│              ImageBox, SvgReferences, SvgViewBox, PrintStylesheet, PrintMessages;
+│              ImageBox, SvgReferences, SvgViewBox, XhtmlDom, PrintStylesheet, PrintMessages;
 │              package-private: InlineStyle, HtmlAttributeNumbers
 └── engine/    Flying Saucer and OpenPDF extensions, one set per render
                LocalOnlyUserAgent, BoundedOutputDevice, AllowedDirectories, DataUris, ImageDecoding,
@@ -117,9 +117,10 @@ Rules, as in [billing-ontario-module.md](billing-ontario-module.md) §3 and
    - `PrintImageService`: step j, the only step with side effects (temporary files in a per-attempt
      directory that is deleted whatever happens);
    - `PrintDocumentComposer.finish`: steps k to m;
-   - `PrintLayoutService`: layout pass 1 (a 765 x 990 pt page, which the 0.8 zoom turns into Letter
-     with 10 mm margins), pass 2 on a page sized to the content when it is wider, placement of each
-     page on Letter;
+   - `PrintLayoutService`: each pass parses the XHTML with `XhtmlDom` (section 5, "XML limits") and
+     gives Flying Saucer the DOM; layout pass 1 (a 765 x 990 pt page, which the 0.8 zoom turns into
+     Letter with 10 mm margins), pass 2 on a page sized to the content when it is wider, placement of
+     each page on Letter;
    - `RenderedPdfValidator`: the output checks (the bytes start with `%PDF-`, PDFBox loads them and
      finds a page, every page is 612 x 792 pt, there is no AcroForm). An invalid PDF fails the attempt.
 
@@ -178,6 +179,7 @@ it out.
 | SVG bitmap | One per SVG, at most `clamp(maxMemory / 256, 1, 8)` million pixels (1.05 million at a 256 MB heap, 8 million from 2 GB), kept in proportion and stretched to the box | Flying Saucer rasterises an SVG with a gradient, pattern, filter, mask or translucency at its box in device dots (20 to a CSS pixel): 400 times the pixels of the CSS box, again at every draw. A 500 x 500 px chart is 400 MB |
 | Picture inside an SVG | A base64 PNG, JPEG or GIF whose header declares at most 4 million pixels | Batik decodes it in full; a 100 KB PNG can declare 900 million pixels |
 | Spans | `rowspan`/`colspan` clamped; `-fs-table-cell-*` properties removed; form control sizes capped (200 columns, 100 rows) | A span of 99,999,999,999 exhausts a 512 MB heap |
+| XML limits of the serialised document | Element depth 1,024; 10,000 attributes on an element; 50,000,000 characters of entity references; no document type at all | The JDK's defaults (100; 200; 100,000) refuse ordinary documents. See "XML limits" below |
 
 **Measured text-only limit** (Flying Saucer 10.7.0, JDK 25, 4 cores of a 2.1 GHz Xeon, 2 GB heap, a
 four-column table of 77 characters a row): a normal-mode layout takes 0.6 s at 153,000 characters
@@ -194,6 +196,42 @@ The time is **quadratic in the number of rows** (Flying Saucer walks the sibling
 collapses margins; found by profiling), so characters are only a proxy: a document of very short
 rows reaches the same time with fewer characters. A tag or row count would bound it better; it is a
 follow-up.
+
+### XML limits
+
+Flying Saucer can load the XHTML string itself (`setDocumentFromString`), but it does so through
+`SAXParserFactory.newInstance()` with only its own entity resolver set. Since standalone Xerces left
+the class path (#5466) that is the JDK's parser with the limits of `$JAVA_HOME/conf/jaxp.properties`,
+which in JDK 25 are element depth 100, 200 attributes on an element, and 100,000 characters of
+entity references, where **every `&amp;`, `&lt;` and `&gt;` of ordinary text counts as one**. A form,
+HRM report, Messenger message or letter nested more than about 98 levels failed the normal and the
+safe attempt and printed as plain text, without its layout, tables, signatures and logos; one with
+more than 100,000 escaped characters failed every rung and did not print at all.
+
+`PrintLayoutService` therefore never calls `setDocumentFromString`. `XhtmlDom.parse` reads the string
+with `DocumentBuilderFactory.newDefaultInstance()` (the JDK's parser, chosen explicitly) and the
+service calls `ITextRenderer.setDocument(Document, baseUrl)`, the method the string loader ends in,
+so the base URL and every resource lookup are as before. The limits it states, and why:
+
+| JDK property | Value | Why this number |
+|---|---|---|
+| `jdk.xml.maxElementDepth` | 1,024 | Jsoup, the stage before, builds no tree deeper than 513 elements and flattens what is deeper, so a document of the pipeline cannot reach it (`HtmlPdfXmlLimitsUnitTest` pins that with 5,000 levels); twice that is head room for the wrappers the rules add. It still stops a string that did not come from the pipeline |
+| `jdk.xml.elementAttributeLimit` | 10,000 | The JDK's own default in JDK 21. Word and form-builder exports put dozens of attributes on an element, never thousands |
+| `jdk.xml.maxGeneralEntitySizeLimit`, `jdk.xml.totalEntitySizeLimit` | 50,000,000 | With no document type the only references are the five predefined ones, one character each, so this is the number of escaped `& < > " '` in the text and nothing can expand. The value is the JDK's total-entity-size default in JDK 21; reaching it takes more than 200 MB of markup, far more than a render holds |
+
+The other limits keep the JDK's defaults (entity expansions, parameter entities, a 1,000-character
+name): with no document type nothing can declare or expand an entity. **Depth is not the only bound
+on a nested document:** Flying Saucer's layout recurses, and on a thread with a small stack a very
+deep document can still overflow it; that is an attempt failure and the ladder handles it (section 6).
+
+`XhtmlDom` allows no document type (`disallow-doctype-decl`), so there is no internal subset, no
+entity declaration and no external DTD. The serialiser still writes the author's `<!DOCTYPE html>` (or
+a legacy XHTML one) at the head of the string; `XhtmlDom` takes it off before the parse. Flying Saucer
+has no quirks mode and the DOM its own loader built never held a document type node, so nothing in the
+layout read it. What a legacy XHTML document type did bring was the attribute defaults of the DTD
+bundled with Flying Saucer (`colspan="1"`, `shape="rect"`, the XHTML namespace on `<html>`); they are
+no longer added, and none changes how a page is laid out. A declaration with an internal subset is
+left in place and fails the parse: Jsoup never writes one.
 
 ## 6 — The resilience ladder
 
@@ -322,7 +360,11 @@ checks parity); the French, Spanish, Polish and Brazilian Portuguese values carr
   it reads and the pixels it decodes.
 - **XML.** Standalone SVG is parsed with external entities, external DTDs and XInclude disabled; its
   parser features, access properties and entity resolver overlap on purpose, and removing all of them
-  is caught by the XXE test. The service's own XHTML loader is strict and namespace-aware.
+  is caught by the XXE test. The service's own XHTML is parsed by `XhtmlDom`, which is strict and
+  namespace-aware and refuses any document type, so it has no entity declarations, no external DTD or
+  entity and no XInclude; its limits are raised on purpose and are finite (section 5, "XML limits").
+  An HTML document that declares entities never gets that far: Jsoup does not read the subset as
+  declarations, and the references print as the text they are.
 - **Form controls print what a person typed, never what the page hid.** Hidden inputs, submit and
   image buttons, `<button>` and file inputs are removed; a password prints eight bullets whatever its
   length; a `<select>` prints the chosen option's text, a multi-select the chosen options joined by
@@ -403,6 +445,7 @@ Run the module's tests with the `htmlpdf` tag (`mvn -q test -Dgroups=htmlpdf`) o
 | `HtmlPdfSpringWiringUnitTest` | The module's package scan alone wires the six beans, all singletons, and renders |
 | `HtmlPdfFixturesUnitTest`, `HtmlPdfFormsUnitTest` | The Annual forms, an every-control page, HRM reports (demo, table-heavy, Word-style, images), email, Messenger, 14 geometry pages, scripts and edge markup, through the production beans. The central assertion: **a real document renders with no WARN- or ERROR-level degradation** |
 | `HtmlPdfSsrfUnitTest` | No network request and no read outside the allowed directories, whichever way the document asks, in every mode |
+| `HtmlPdfXmlLimitsUnitTest`, `XhtmlDomUnitTest` | A document nested 150 and 500 levels deep, one with more than 100,000 escaped characters and one with 300 attributes on an element print in normal mode with tables and images; the limits are finite; a document type with a subset, an external entity, an entity expansion attack and XInclude are refused or inert, with no request made |
 | `HtmlPdfImageOrientationUnitTest` | A picture of four colours stored with each of the eight EXIF orientations prints as a viewer shows it; a 12-megapixel phone photo, stored sideways, prints upright in portrait proportions; the images grid's scene has the sun at the top right |
 | `HtmlPdfConcurrencyUnitTest`, `HtmlPdfMemoryUnitTest` | Concurrent renders give identical bytes; the image memory share holds under a 256 MB heap in a child JVM |
 | `HtmlPdfLibraryLoggingUnitTest` | The library's logger stays at WARN, its SVG logger at ERROR, and a document's values never reach either |
@@ -468,9 +511,17 @@ every cell, so assert on phrases and glyph positions (`TestPdfs.glyphs`), not on
 
 ## 14 — Notes on the libraries (facts learned the hard way)
 
-- Flying Saucer 10.7.0's XML loader is **strict and namespace-aware**: an undeclared prefix
-  (`<o:p>` from Word), `--` in a comment or a control character in a style sheet throws. `serialize`
-  folds undeclared prefixes into names and strips XML-invalid characters.
+- The XML parse is **strict and namespace-aware** (Flying Saucer 10.7.0's own loader was too): an
+  undeclared prefix (`<o:p>` from Word), `--` in a comment or a control character in a style sheet
+  throws. `serialize` folds undeclared prefixes into names and strips XML-invalid characters.
+- Flying Saucer 10.7.0's own loader (`XMLResource`, behind `setDocumentFromString`) takes whatever
+  `SAXParserFactory.newInstance()` finds and sets no limit: on JDK 25 that means depth 100,
+  200 attributes and 100,000 characters of entity references, predefined ones included. It also
+  loads a DTD for any `html` root (its bundled HTML5 entity set, or the XHTML DTD a legacy document
+  type names), builds the DOM with whatever `TransformerFactory.newInstance()` finds (Saxon, which
+  is on CARLOS's class path, registers itself as one) and gives the parser an error handler that
+  only logs. Hence `XhtmlDom` (section 5).
+  **Do not call `setDocumentFromString` in production code.**
 - It **drops a whole declaration that uses a CSS2 system colour** (`border: solid windowtext 1.0pt`
   is what Word writes for every table border), hence `SystemColors`.
 - It supports `word-wrap`, not `overflow-wrap`, and `word-wrap: break-word` on the whole body makes

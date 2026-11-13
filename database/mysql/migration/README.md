@@ -75,9 +75,11 @@ migration/
            V1.0.59.30__one_live_consent_per_type.sql
            V1.0.59.32__preserve_native_archive_capacity.sql
            V1.0.59.33__audit_imported_billing_filenames.sql
-           V1.0.59.35__rx_favorite_groups.sql
-           V1.0.59.36__rx_submission_receipts.sql
-           V1.0.59.37__rx_original_versions.sql
+           V1.0.59.34__preserve_unassigned_digital_signatures.sql
+           V1.0.59.35__freeze_imported_signature_ownership.sql
+           V1.0.59.37__rx_favorite_groups.sql
+           V1.0.59.38__rx_submission_receipts.sql
+           V1.0.59.39__rx_original_versions.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -99,7 +101,7 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.37`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.39`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
@@ -284,4 +286,10 @@ shipping it. The coordination table contains no clinical data and does not
 rewrite legacy memberships. All application instances must run the serialized
 membership writer before relying on cross-instance duplicate prevention.
 
-Published beta7 owns common `V1.0.59.33`. The unpublished BC history amount migration is `V1.0.59.34`; RX groups, durable receipts and original versions follow at `V1.0.59.35`–`V1.0.59.37`.
+Published beta7 owns common `V1.0.59.33`. Main's unpublished signature-ownership migrations own common
+`V1.0.59.34` and `V1.0.59.35`. The release line independently allocated those two numbers before main was
+merged back, so its unpublished migrations were renumbered behind them: the BC history amount migration is
+`bc/V1.0.59.36`, and RX groups, durable receipts and original versions follow at common
+`V1.0.59.37`–`V1.0.59.39`. A database migrated by an unpublished release-branch build that recorded the old
+numbers (`bc/V1.0.59.34`, common `V1.0.59.35`–`V1.0.59.37`) fails Flyway validation against this set and
+must be rebuilt; no published package ever carried them.

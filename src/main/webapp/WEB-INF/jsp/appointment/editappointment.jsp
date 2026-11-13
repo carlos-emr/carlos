@@ -92,6 +92,7 @@
 <%@ page import="io.github.carlos_emr.carlos.billings.ca.on.support.BillingOnConstants" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.dao.AppointmentTypeDao" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
 <%@ page import="io.github.carlos_emr.carlos.appt.ApptData" %>
 <%@ page import="io.github.carlos_emr.carlos.demographic.data.DemographicData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.ConversionUtils" %>
@@ -1410,6 +1411,12 @@
                                value="<carlos:encode value='<%= userlastname+", "+userfirstname %>' context="htmlAttribute"/>">
                         <input type="hidden" name="remarks" value="<carlos:encode value='<%= remarks %>' context="htmlAttribute"/>">
                         <input type="hidden" name="appointment_no" value="<carlos:encode value='<%= appointment_no %>' context="htmlAttribute"/>">
+                        <%-- The version of the appointment this form was rendered from. Every write route the form
+                             posts to compares it with the locked row and refuses a form another user's change has
+                             overtaken (AppointmentEditConflict). A redisplay (patient search, a text-length retry)
+                             shows the posted fields again, so it must keep the version those fields came from. --%>
+                        <input type="hidden" name="<%= AppointmentEditConflict.PARAMETER %>"
+                               value="<carlos:encode value='<%= bFirstDisp ? appt.getEditVersion() : StringUtils.defaultString(request.getParameter(AppointmentEditConflict.PARAMETER)) %>' context="htmlAttribute"/>">
                     </div>
                 </div>
                     </td>

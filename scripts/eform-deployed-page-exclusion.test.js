@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later. */
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {verify}=require('./eform-deployed-page-exclusion-playwright-checks');
+const {verify,producerOf,rendererConfirmed}=require('./eform-deployed-page-exclusion-playwright-checks');
 
 // A handwritten recipient view, independent of the HTML fixture/producer. Each
 // mutation represents output a broken deployed renderer must never certify.
@@ -37,3 +37,27 @@ for(const [name,mutate,pattern] of [
 ])test('reject renderer output with '+name,()=>{
   const view=recipientView();mutate(view);assert.throws(()=>verify(view.pages,view.images),pattern);
 });
+
+// Renderer proof. A default install logs at WARN, so the INFO receipts are absent rather than negative;
+// the PDF's own Producer (Chromium's print pipeline) is required everywhere.
+const SKIA='Skia/PDF m149';
+const started=fdid=>`INFO EFormBrowserPdfService - Browser eForm renderer starting: fdid=${fdid} baseUrl=http://127.0.0.1`;
+const completed=(fdid,pages)=>`INFO EFormBrowserPdfService - Browser eForm renderer completed: fdid=${fdid} pages=${pages} bytes=2048 elapsedMs=900`;
+test('read the Producer line of pdfinfo output',()=>{
+  assert.equal(producerOf('Title:          x\nProducer:       Skia/PDF m149\nPages:          2\n'),SKIA);
+  assert.equal(producerOf('Pages:          2\n'),'');
+});
+test('accept a browser-rendered PDF from an install that logs at WARN',()=>{
+  assert.equal(rendererConfirmed({producer:SKIA,log:'',fdid:'41'}),true);
+  assert.equal(rendererConfirmed({producer:SKIA,log:started('7')+'\n'+completed('7',2),fdid:'41'}),true);
+});
+test('require the completion receipt once the renderer logged this instance at INFO',()=>{
+  assert.equal(rendererConfirmed({producer:SKIA,log:started('41'),fdid:'41'}),false);
+  assert.equal(rendererConfirmed({producer:SKIA,log:started('41')+'\n'+completed('41',2),fdid:'41'}),true);
+  assert.equal(rendererConfirmed({producer:SKIA,log:started('41')+'\n'+completed('41',3),fdid:'41'}),false);
+  assert.equal(rendererConfirmed({producer:SKIA,log:started('41')+'\n'+completed('41',2)+'\n'+completed('41',2),fdid:'41'}),false);
+});
+for(const producer of ['','OpenPDF 2.0.3','iText 2.1.7','openhtmltopdf.com','Skia/PDF','Skia/PDF m0','Skia/PDF m149 (forged)'])
+  test('reject a PDF whose Producer is '+JSON.stringify(producer),()=>{
+    assert.equal(rendererConfirmed({producer,log:'',fdid:'41'}),false);
+  });

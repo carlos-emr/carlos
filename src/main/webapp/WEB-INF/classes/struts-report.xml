@@ -140,7 +140,9 @@
             <result name="deleted">/WEB-INF/jsp/oscarReport/reportByTemplate/homePage.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/generateOutFilesAction" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action">
-            <result name="success">/WEB-INF/jsp/oscarReport/reportByTemplate/resultReport.jsp</result>
+            <!-- Downloads are written directly (NONE). A result token this session no longer holds, or a
+                 pre-upgrade page that posts its CSV, gets the 410 "run the report again" page. -->
+            <result name="unavailable">/WEB-INF/jsp/oscarReport/reportByTemplate/resultUnavailable.jsp</result>
         </action>
         <action name="oscarReport/reportByTemplate/uploadTemplates" class="io.github.carlos_emr.carlos.report.reportByTemplate.actions.UploadTemplates2Action">
             <!-- "input": where the workflow interceptor lands when the multipart layer

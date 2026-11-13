@@ -202,9 +202,7 @@ public class ScheduleWs extends AbstractWs {
 
     private <T> T invokeSync(java.util.function.Supplier<T> read) {
         try { return read.get(); }
-        catch (io.github.carlos_emr.carlos.managers.ScheduleSyncBoundaryException boundary) {
-            throw new org.apache.cxf.binding.soap.SoapFault(boundary.getMessage(), org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_CLIENT);
-        } catch (RuntimeException failure) {
+        catch (RuntimeException failure) {
             logger.error("Schedule synchronization failed: {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
             throw new org.apache.cxf.binding.soap.SoapFault("Schedule synchronization failed", org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
         }

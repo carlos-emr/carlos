@@ -73,8 +73,20 @@ default `SAXBuilder` reader or a library calling `DocumentBuilderFactory.newInst
 previously reached Xerces and now reaches the JDK, so it also inherits the JDK's
 `jaxp.properties` limits: 100,000 predefined references per document, 200 attributes
 per element and element depth 100. The bundled data files read this way (for example
-the ODB formulary extract) are far below those limits. A caller that must accept larger
-untrusted input should set its own limits beside the parse, as the CDS readers do.
+the ODB formulary extract) are far below those limits.
+
+Not every default-discovery caller reads small bundled files, and a library can be one
+without saying so. Flying Saucer's string loader (`ITextRenderer.setDocumentFromString`)
+calls `SAXParserFactory.newInstance()`, and the HTML-to-PDF service used it for every
+form, HRM report, Messenger message and letter it prints: clinical documents of any
+size. Under the JDK's limits a document nested more than about 98 levels lost its
+layout, tables and images (the service fell back to plain text), and one with more than
+100,000 escaped `&`, `<` and `>` did not print at all. The service now parses that XHTML
+itself (`XhtmlDom`, `DocumentBuilderFactory.newDefaultInstance()`), refuses any document
+type, and states finite limits of its own; see "XML limits" in
+[`html-pdf-rendering.md`](html-pdf-rendering.md). A caller that must accept larger input
+should likewise set its own limits beside the parse, as the CDS readers do, and a
+library that parses on the caller's behalf should be given a document, not a string.
 
 ## Verification
 

@@ -127,10 +127,12 @@ async function workflow(s) {
     h.assert(rows() === '1', 'Save did not write exactly one initial version');
     h.assert(!form.isClosed(), 'Ordinary Save closed the form');
     h.assert(await draft.inputValue() === s.marker + ' unsaved encounter draft', 'Save changed the encounter draft');
+    // The chart's autocomplete actions are template closures and, for modules such as Forms, legacy
+    // expression strings (menuAction dispatches on the type, since #6103): only a string can name the form.
     await chart.waitForFunction(() => autoCompList.some(key =>
-      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')));
+      typeof autoCompleted[key] === 'string' && autoCompleted[key].includes('forwardshortcutname?formname=Rourke2017')));
     firstSavedCompletion = await chart.evaluate(() => autoCompList.find(key =>
-      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')));
+      typeof autoCompleted[key] === 'string' && autoCompleted[key].includes('forwardshortcutname?formname=Rourke2017')));
   });
 
   // Saving must refresh the chart through its tracked popup handle.
@@ -155,9 +157,9 @@ async function workflow(s) {
       `The chart's Forms module never listed the saved form (the form popup's window.opener was ${state}; `
       + `form documents: ${chain.describe(form)})`);
     await chart.waitForFunction(oldKey => autoCompList.some(key => key !== oldKey &&
-      (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')), firstSavedCompletion);
+      typeof autoCompleted[key] === 'string' && autoCompleted[key].includes('forwardshortcutname?formname=Rourke2017')), firstSavedCompletion);
     const completionState = await chart.evaluate(oldKey => ({
-      current: autoCompList.filter(key => (autoCompleted[key] || '').includes('forwardshortcutname?formname=Rourke2017')),
+      current: autoCompList.filter(key => typeof autoCompleted[key] === 'string' && autoCompleted[key].includes('forwardshortcutname?formname=Rourke2017')),
       stale: autoCompList.includes(oldKey) || Object.hasOwn(autoCompleted, oldKey) || Object.hasOwn(itemColours, oldKey),
     }), firstSavedCompletion);
     h.assert(completionState.current.length === 1 && !completionState.stale,

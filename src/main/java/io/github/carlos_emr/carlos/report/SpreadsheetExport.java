@@ -22,6 +22,8 @@ import javax.xml.stream.XMLStreamWriter;
  */
 public final class SpreadsheetExport {
     public static final String CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    /** Rows one worksheet holds. */
+    public static final int MAX_ROWS = 1_048_576;
     private static final String NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     /**
      * A literal underscore that a reader could take as the start of an {@code _xHHHH_} escape.
@@ -37,11 +39,31 @@ public final class SpreadsheetExport {
 
     /** Writes one sheet; the caller owns the response stream. Cells are Strings or finite Doubles. */
     public static void write(OutputStream output, Object[][] rows) throws IOException {
-        if (rows.length > 1_048_576) throw new IllegalArgumentException("Too many spreadsheet rows");
+        if (rows.length > MAX_ROWS) throw new IllegalArgumentException("Too many spreadsheet rows");
         for (Object[] row : rows) {
             validateRow(row);
         }
         writeSheet(output, java.util.Arrays.asList(rows), "OSCAR_Report", null);
+    }
+
+    /**
+     * Streams the same sheet as {@link #write(OutputStream, Object[][])} from rows read as they are written,
+     * so the caller never holds the whole table. Each row is checked as it is read, and an invalid row abandons
+     * the package part-way, as described on the class; a caller that must not send a partial workbook checks
+     * every row with {@link #checkRow} first.
+     */
+    public static void writeRows(OutputStream output, Iterable<Object[]> rows) throws IOException {
+        writeSheet(output, rows, "OSCAR_Report", null);
+    }
+
+    /**
+     * Checks that a row can be written: at most 16,384 cells, each a String of at most 32,767 characters, a
+     * finite Double or null.
+     *
+     * @throws IllegalArgumentException naming what the row breaks
+     */
+    public static void checkRow(Object[] row) {
+        validateRow(row);
     }
 
     /**
@@ -133,7 +155,7 @@ public final class SpreadsheetExport {
         int rowNumber = 0;
         if (headers != null) writeRow(xml, headers, ++rowNumber);
         for (Object[] row : rows) {
-            if (rowNumber >= 1_048_576) throw new IOException("Export exceeds worksheet row limit");
+            if (rowNumber >= MAX_ROWS) throw new IOException("Export exceeds worksheet row limit");
             validateRow(row);
             writeRow(xml, row, ++rowNumber);
         }
