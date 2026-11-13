@@ -346,6 +346,41 @@ public class CdsExportImmunizationOccurrenceService
                             || exact.size()
                                     != source.capture().tables().get("preventions").rows()
                                             + auxiliaryKeys.size()) scope();
+                    // CARLOS never edits a vaccine in place (CdsExportPreventionVersions): an
+                    // imported vaccine edited in CARLOS is a superseded row and a current native
+                    // version that records it as previousId; one removed in CARLOS is a
+                    // superseded row with no current version. The current version is exported
+                    // natively and its receipt lists the imported source fields as replaced; a
+                    // removed one is not exported and its source fields are accounted as removed
+                    // (the inventory leaves them out the same way).
+                    var versions =
+                            CdsExportPreventionVersions.currentVersions(
+                                    imported.keySet(),
+                                    exact.values(),
+                                    "preventions",
+                                    "preventionsExt");
+                    var inherited = new HashMap<String, String>();
+                    var removedUnits = new HashSet<String>();
+                    for (var version : versions.entrySet()) {
+                        String unit = imported.get(version.getKey());
+                        if (version.getValue() == null) removedUnits.add(unit);
+                        else if (imported.containsKey(version.getValue())
+                                || inherited.putIfAbsent(version.getValue(), unit) != null)
+                            ambiguous();
+                    }
+                    var removedFields = new HashSet<String>();
+                    for (String unit : removedUnits)
+                        for (var field :
+                                new CdsExportRetainedOccurrenceFields()
+                                        .fieldsFor(
+                                                patient.patient(),
+                                                category,
+                                                unit,
+                                                index,
+                                                checked,
+                                                retained,
+                                                control::checkpoint))
+                            if (!removedFields.add(field.id())) scope();
                     var usedFields = new HashSet<String>();
                     var seen = new HashSet<Integer>();
                     // A vaccine shown only inside a program is written when a fresh check says
@@ -402,10 +437,13 @@ public class CdsExportImmunizationOccurrenceService
                                             receiptRows.add(witness);
                                         }
                                         String importedUnit = imported.remove(id);
-                                        if (importedUnit == null
-                                                && CdsExportPreventionVersions.superseded(row)) {
-                                            // An edited or deleted native version: accounted,
-                                            // never exported, and no reason to hold the patient.
+                                        if (CdsExportPreventionVersions.superseded(row)) {
+                                            // An edited or deleted version, native or imported:
+                                            // accounted, never exported, and no reason to hold
+                                            // the patient. An imported one's source fields go
+                                            // with its current version or are removed (above).
+                                            if (importedUnit != null && !versions.containsKey(id))
+                                                scope();
                                             var retired =
                                                     CdsExportPreventionVersions.dispositions(
                                                             current);
@@ -427,6 +465,7 @@ public class CdsExportImmunizationOccurrenceService
                                                 fields;
                                         CdsExportXmlComposer.Content content;
                                         Set<String> kept = Set.of(), replaced = Set.of();
+                                        String receiptUnit = importedUnit;
                                         if (importedUnit == null) {
                                             var mapping =
                                                     new CdsExportImmunizationMapper(
@@ -446,6 +485,25 @@ public class CdsExportImmunizationOccurrenceService
                                                     writer ->
                                                             new CdsExportImmunizationXmlWriter()
                                                                     .write(mapping.value(), writer);
+                                            // The current version of an imported vaccine edited
+                                            // in CARLOS: the edit supersedes the imported elements,
+                                            // which stay in the import's retained source.
+                                            receiptUnit = inherited.remove(id);
+                                            if (receiptUnit != null) {
+                                                var ids = new HashSet<String>();
+                                                for (var field :
+                                                        new CdsExportRetainedOccurrenceFields()
+                                                                .fieldsFor(
+                                                                        patient.patient(),
+                                                                        category,
+                                                                        receiptUnit,
+                                                                        index,
+                                                                        checked,
+                                                                        retained,
+                                                                        control::checkpoint))
+                                                    if (!ids.add(field.id())) scope();
+                                                replaced = ids;
+                                            }
                                         } else {
                                             var decision =
                                                     new CdsExportImmunizationFieldReconciler(
@@ -510,7 +568,7 @@ public class CdsExportImmunizationOccurrenceService
                                                         index.sourceManifestSha256(),
                                                         "preventions",
                                                         id,
-                                                        importedUnit,
+                                                        receiptUnit,
                                                         fields,
                                                         kept,
                                                         replaced));
@@ -535,11 +593,13 @@ public class CdsExportImmunizationOccurrenceService
                             || Math.addExact(counts[0], counts[5])
                                     != source.capture().tables().get("preventions").rows()
                             || counts[4] != expected) scope();
-                    if (!imported.isEmpty()) review();
+                    if (!imported.isEmpty() || !inherited.isEmpty()) review();
                     var expectedFields = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category && !expectedFields.add(field.id()))
                             scope();
+                    if (!Collections.disjoint(usedFields, removedFields)) scope();
+                    usedFields.addAll(removedFields);
                     if (!usedFields.equals(expectedFields)) scope();
                     for (String program : granted)
                         if (!control.restrictedProgramReadable(

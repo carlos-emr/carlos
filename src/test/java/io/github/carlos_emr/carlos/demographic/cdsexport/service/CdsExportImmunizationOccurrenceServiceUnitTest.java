@@ -97,6 +97,102 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         verify(f.captures).authorizeSources(f.lease, f.patient, f.tables, f.control);
     }
 
+    // An imported vaccine edited in CARLOS: AddPrevention2Action never edits in place, it
+    // soft-deletes the imported row and saves a new version that records it as previousId. The
+    // current version is exported through the native path; the imported elements stay in the
+    // import's retained source and its receipt lists them as replaced.
+    @Test
+    void shouldExportTheCurrentVersion_whenAnImportedVaccineIsEditedInCarlos() throws Exception {
+        var f = fixture(true, "Current note");
+        editImported(f, true);
+        var records = parse(compose(f, false));
+        var immunizations =
+                records.stream().filter(r -> r.section().equals("Immunizations")).toList();
+        assertThat(immunizations).hasSize(1);
+        var value =
+                new CdsClinicalNormalizationService(new CdsFieldParser())
+                        .immunization(immunizations.getFirst());
+        assertThat(value.lot()).isEqualTo("EDITED-LOT");
+        assertThat(value.type()).isEqualTo("Td");
+        var all =
+                f.retained.stream()
+                        .map(CdsExportRetainedFieldDto::id)
+                        .collect(java.util.stream.Collectors.toSet());
+        assertThat(f.receipts)
+                .singleElement()
+                .satisfies(
+                        receipt -> {
+                            assertThat(receipt.nativeId()).isEqualTo("18");
+                            assertThat(receipt.importedUnit()).isNotNull();
+                            assertThat(receipt.retainedFields()).isEmpty();
+                            assertThat(receipt.replacedFields()).isEqualTo(all);
+                        });
+        assertThat(f.result.retainedSourceFields()).isEqualTo(f.retained.size());
+    }
+
+    // An imported vaccine deleted in CARLOS (the row soft-deleted, no new version): not exported,
+    // like a deleted native vaccine, and its retained source fields are accounted as removed.
+    @Test
+    void shouldLeaveARemovedImportedVaccineOut_withoutHoldingThePatient() throws Exception {
+        var f = fixture(true, "Current note");
+        editImported(f, false);
+        var records = parse(compose(f, false));
+        assertThat(records.stream().filter(r -> r.section().equals("Immunizations"))).isEmpty();
+        assertThat(f.receipts).isEmpty();
+        assertThat(f.result.nativeRows()).isZero();
+        verify(f.captures).authorizeSources(f.lease, f.patient, f.tables, f.control);
+    }
+
+    /**
+     * The imported row soft-deleted as {@code PreventionData.deletePreventionData} leaves it, and
+     * for an edit the new version {@code PreventionData.updatetPreventionData} inserts, with the
+     * previousId extension and the edited lot.
+     */
+    private static void editImported(Fixture f, boolean edited) {
+        var imported = f.parents.getFirst();
+        var fields = new TreeMap<>(imported.fields());
+        fields.put("deleted", "1");
+        var superseded = row("preventions", fields);
+        var parents = new ArrayList<>(List.of(superseded));
+        var auxiliary = new ArrayList<>(f.auxiliary);
+        var witnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
+        for (var witness : f.witnesses)
+            if (!witness.table().equals("preventions")) witnesses.add(witness);
+        witnesses.add(witness(superseded));
+        var selection = new HashSet<>(f.selection);
+        if (edited) {
+            var current = new TreeMap<>(imported.fields());
+            current.put("id", "18");
+            current.put("deleted", "0");
+            current.put("creator", null);
+            var version = row("preventions", current);
+            parents.add(version);
+            witnesses.add(witness(version));
+            int id = 60;
+            for (var entry : List.of(Map.entry("previousId", "17"), Map.entry("lot", "EDITED-LOT"))) {
+                var child = new TreeMap<String, String>();
+                child.put("id", Integer.toString(id++));
+                child.put("prevention_id", "18");
+                child.put("keyval", entry.getKey());
+                child.put("val", entry.getValue());
+                var extension = row("preventionsExt", child);
+                auxiliary.add(extension);
+                witnesses.add(witness(extension));
+            }
+            selection.add(18);
+        }
+        f.parents = parents;
+        f.auxiliary = auxiliary;
+        f.witnesses = witnesses;
+        f.selection = Set.copyOf(selection);
+        f.scopes.put("preventions", table("preventions", parents.size()));
+        f.scopes.put(
+                "preventionsExt",
+                table(
+                        "preventionsExt",
+                        auxiliary.stream().filter(row -> row.table().equals("preventionsExt")).count()));
+    }
+
     /** The fixture's native vaccine, restricted to program 57. */
     private static void restrict(Fixture f) {
         var fields = new TreeMap<>(f.parents.getFirst().fields());

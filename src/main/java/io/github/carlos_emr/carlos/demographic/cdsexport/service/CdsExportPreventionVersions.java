@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.io.IOException;
 import java.util.*;
 
@@ -55,6 +56,92 @@ final class CdsExportPreventionVersions {
         if (witness.state() == null)
             throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
         return CdsExportImmunizationProjectionEvidence.matches(witness.state(), "deleted", "1");
+    }
+
+    /**
+     * The current version an edit chain leads to from each superseded starting row. An edit of a
+     * prevention records the version it replaced in a {@code previousId} extension of the new
+     * version ({@code AddPrevention2Action}); a removal records nothing. The relation is read from
+     * the row witnesses alone, so the inventory and the vaccine assembly reach the same answer
+     * before any clinical value is read.
+     *
+     * @param starts prevention row ids to follow (the rows of imported vaccines)
+     * @param witnesses captured witnesses; rows of {@code table} and of {@code extensions} are used
+     * @param table the logical prevention table of the starting rows
+     * @param extensions the logical extension table of those rows
+     * @return for each start whose row is superseded, the id of the current version that replaced
+     *     it, or null when the chain ends in a removal; a start that is still current is absent
+     * @throws CdsExportReviewException when one version was replaced twice, which no CARLOS screen
+     *     records (an edit requires the edited version to be current)
+     */
+    static Map<String, String> currentVersions(
+            Set<String> starts,
+            Collection<CdsExportNativeRowReceiptDto> witnesses,
+            String table,
+            String extensions)
+            throws IOException {
+        var rows = new HashMap<String, CdsExportNativeRowReceiptDto>();
+        var ids = new HashMap<String, String>();
+        for (var witness : witnesses)
+            if (witness.table().equals(table)) {
+                if (rows.putIfAbsent(witness.id(), witness) != null)
+                    throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
+                ids.put(text(witness.id()), witness.id());
+            }
+        var replacedBy = new HashMap<String, List<String>>();
+        for (var witness : witnesses) {
+            if (!witness.table().equals(extensions)) continue;
+            if (witness.state() == null)
+                throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
+            if (!CdsExportCapturedTextWitness.matches(witness.state(), "keyval", "previousId"))
+                continue;
+            String owner = ids.get(cell(witness, "prevention_id")),
+                    previous = ids.get(cell(witness, "val"));
+            if (owner == null || previous == null || owner.equals(previous)) continue;
+            replacedBy.computeIfAbsent(previous, ignored -> new ArrayList<>()).add(owner);
+        }
+        var result = new HashMap<String, String>();
+        for (String start : starts) {
+            var witness = rows.get(start);
+            if (witness == null || !superseded(witness)) continue;
+            String at = start, found = null;
+            var seen = new HashSet<String>();
+            while (seen.add(at)) {
+                var next = replacedBy.getOrDefault(at, List.of());
+                if (next.isEmpty()) break;
+                if (next.size() > 1)
+                    throw new CdsExportReviewException(
+                            CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+                at = next.getFirst();
+                if (!superseded(rows.get(at))) {
+                    found = at;
+                    break;
+                }
+            }
+            result.put(start, found);
+        }
+        return result;
+    }
+
+    private static String cell(CdsExportNativeRowReceiptDto witness, String column)
+            throws IOException {
+        var state = witness.state();
+        for (int n = 0; n < state.columns().size(); n++)
+            if (state.columns().get(n).name().equals(column)) {
+                var cell = state.cells().get(n);
+                return cell.sqlNull() ? null : cell.bytes() + ":" + cell.sha256();
+            }
+        throw new IOException("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
+    }
+
+    private static String text(String value) {
+        byte[] bytes = value.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return bytes.length
+                + ":"
+                + java.util.HexFormat.of()
+                        .formatHex(
+                                io.github.carlos_emr.carlos.utility.CdsImportKeys.digest()
+                                        .digest(bytes));
     }
 
     /** One explicit not-exported disposition for every captured field of a superseded version. */

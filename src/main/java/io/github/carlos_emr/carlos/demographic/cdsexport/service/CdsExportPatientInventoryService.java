@@ -182,6 +182,9 @@ public class CdsExportPatientInventoryService {
         var sourceFields = new HashSet<String>();
         var superseded = new HashSet<String>();
         var appointments = new HashSet<String>();
+        // Vaccine rows and their extensions: an imported vaccine removed in CARLOS is found by
+        // its edit chain (CdsExportPreventionVersions.currentVersions).
+        var vaccineWitnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
         var documentDigests = new HashMap<String, String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
@@ -195,6 +198,9 @@ public class CdsExportPatientInventoryService {
                         control,
                         row -> {
                             control.checkpoint();
+                            if (row.table().equals("preventions")
+                                    || row.table().equals("preventionsExt"))
+                                vaccineWitnesses.add(row);
                             var category = NATIVE.get(row.table());
                             if (category != null) {
                                 if (!lease.document().command().categories().contains(category))
@@ -473,6 +479,30 @@ public class CdsExportPatientInventoryService {
                 if (reference.table().equals("appointment")
                         && !appointments.contains(reference.id())) removedAppointments.add(address);
         }
+        // An imported vaccine removed in CARLOS (its row superseded with no current version) is
+        // not in the chart: its retained source fields are accounted as removed by the vaccine
+        // assembly. An edited one's fields travel as replaced with its current version.
+        var vaccineUnits = new HashMap<String, String>();
+        for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
+            control.checkpoint();
+            if (!CdsCategory.IMMUNIZATIONS.wireName().equals(unit.fields().get("category")))
+                continue;
+            String address = unit.fields().get("run_id") + ":" + unit.fields().get("unit_key");
+            if (!index.appliedUnits().contains(address)) continue;
+            var rows =
+                    index.references().getOrDefault(address, List.of()).stream()
+                            .filter(reference -> reference.table().equals("preventions"))
+                            .toList();
+            if (rows.size() == 1) vaccineUnits.putIfAbsent(rows.getFirst().id(), address);
+        }
+        var removedVaccines = new HashSet<String>();
+        if (!vaccineUnits.isEmpty())
+            CdsExportPreventionVersions.currentVersions(
+                            vaccineUnits.keySet(), vaccineWitnesses, "preventions", "preventionsExt")
+                    .forEach(
+                            (row, current) -> {
+                                if (current == null) removedVaccines.add(vaccineUnits.get(row));
+                            });
         var mapper = new CdsExportRetainedFieldMapper();
         for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {
             control.checkpoint();
@@ -480,7 +510,9 @@ public class CdsExportPatientInventoryService {
             if (field.category() == CdsCategory.APPOINTMENTS
                             && removedAppointments.contains(index.nativeParents().get(field.id()))
                     || field.category() == CdsCategory.CARE_ELEMENTS
-                            && removedCare.contains(index.nativeParents().get(field.id()))) {
+                            && removedCare.contains(index.nativeParents().get(field.id()))
+                    || field.category() == CdsCategory.IMMUNIZATIONS
+                            && removedVaccines.contains(index.nativeParents().get(field.id()))) {
                 budget.add();
                 continue;
             }

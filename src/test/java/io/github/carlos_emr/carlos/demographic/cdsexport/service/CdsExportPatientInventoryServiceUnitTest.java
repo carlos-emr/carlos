@@ -504,6 +504,87 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldNotExpectTheRetainedFields_ofAnImportedVaccineRemovedInCarlos() throws Exception {
+        // The imported vaccine row 77 is superseded in every case. Removed: no version records it
+        // as previousId, so its retained fields are accounted as removed by the vaccine assembly.
+        // Edited: version 78 records previousId 77 and carries the fields as replaced.
+        for (boolean edited : List.of(false, true)) {
+            var f = fixture(CdsCategory.IMMUNIZATIONS);
+            String key = "e".repeat(64);
+            f.unit(
+                    CdsCategory.IMMUNIZATIONS,
+                    key,
+                    List.of(new CdsExportRetainedIndexDto.Reference("preventions", "77", "f".repeat(64))));
+            f.nativeRows.add(screening("preventions", 77, "1"));
+            if (edited) {
+                f.nativeRows.add(screening("preventions", 78, "0"));
+                f.nativeRows.add(
+                        textWitness(
+                                "preventionsExt",
+                                90,
+                                Map.of("id", "90", "prevention_id", "78", "keyval", "previousId", "val", "77")));
+            }
+            var values =
+                    new TreeMap<>(
+                            CdsExportRetainedFieldMapperUnitTest.row(1, "Td", "Td", null).fields());
+            values.put("category", "Immunizations");
+            values.put("source_path", "/OmdCds[1]/PatientRecord[1]/Immunizations[1]/ImmunizationName[1]");
+            values.put("value_type", "{cds_dt}text120");
+            values.put(
+                    "id",
+                    CdsImportKeys.hash(
+                            values.get("unit_key"),
+                            values.get("source_namespace"),
+                            values.get("source_path"),
+                            values.get("occurrence")));
+            var field = new CdsExportCapturedTextRowDto("cds_import_field", values.get("id"), values);
+            f.metadata.computeIfAbsent("cds_import_field", ignored -> new HashMap<>())
+                    .put(values.get("id"), field);
+            f.parents.put(values.get("id"), f.applied.iterator().next());
+            var result = capture(f);
+            if (edited) {
+                assertThat(result.retainedFields()).containsExactly(values.get("id"));
+                assertThat(result.identities())
+                        .contains(
+                                new CdsExportIdentityDto(
+                                        "c".repeat(64),
+                                        CdsCategory.IMMUNIZATIONS,
+                                        CdsImportKeys.hash(
+                                                "carlos-native-occurrence-v1", "preventions", "78")));
+            } else assertThat(result.retainedFields()).isEmpty();
+        }
+    }
+
+    /** A witness whose authenticated state carries exactly the given text columns. */
+    private static CdsExportNativeRowReceiptDto textWitness(
+            String table, int id, Map<String, String> values) {
+        var columns =
+                new ArrayList<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column>();
+        var cells =
+                new ArrayList<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell>();
+        for (var entry : new TreeMap<>(values).entrySet()) {
+            columns.add(
+                    new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                            .Column(entry.getKey(), "VARCHAR", 255, 0));
+            byte[] bytes = entry.getValue().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            cells.add(
+                    new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell(
+                            false,
+                            bytes.length,
+                            HexFormat.of().formatHex(CdsImportKeys.digest().digest(bytes))));
+        }
+        var state =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        table, Integer.toString(id), columns, cells);
+        return new CdsExportNativeRowReceiptDto(
+                table,
+                Integer.toString(id),
+                CdsExportPatientTableSourceReader.key(id),
+                state.digest(),
+                state);
+    }
+
+    @Test
     void shouldExpectANewCategoryRecord_forCarlosCommentsOnAnImportedLabResult() throws Exception {
         String result = "d".repeat(64);
         var commented =
