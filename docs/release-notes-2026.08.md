@@ -214,6 +214,10 @@ counts the rows that are shown, and a list that cannot be loaded says so
 - A chart module that refreshes itself after a form or other window is closed no longer
   lengthens its own reload address by one copy of the chart context on every refresh. The
   address, and the links the module prints, stay the same for the life of the chart window.
+- Saving a chart note no longer changes the update time of every issue of the patient. An
+  issue's update time moves again only when the issue itself changes, so the issue lists that
+  show what changed since a given time, and the issues the REST API returns, no longer report
+  every issue of the patient as changed by each note save.
 
 ### Security and access
 
