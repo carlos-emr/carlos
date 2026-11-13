@@ -15,8 +15,17 @@
         rejected: 'The document change was not accepted. Check the selection and try again.',
         uncertain: 'The document change could not be confirmed. Check the document before trying again.',
         queueRejected: 'The document queue update was not accepted. Try the action again.',
-        queueUncertain: 'The document queue update could not be confirmed. Check the queue before trying again.'
+        queueUncertain: 'The document queue update could not be confirmed. Check the queue before trying again.',
+        descriptionTooLong: 'The description is too long: a document description can hold at most 255 characters. Shorten it and save again.'
     }[name];
+    // document.docdesc is a utf8mb4 VARCHAR(255): it counts code points, as Array.from does, so an
+    // emoji is one character. The server stores the trimmed description and refuses a longer one
+    // (ManageDocument2Action); this check only spares the round trip and keeps the typed text.
+    function descriptionTooLong(form) {
+        const field = form.elements && form.elements['documentDescription'];
+        const limit = Number(root.CarlosDocumentDescriptionMaxLength) || 255;
+        return !!field && typeof field.value === 'string' && Array.from(field.value.trim()).length > limit;
+    }
     function csrf(form) {
         const input = form.querySelector('input[name="CSRF-TOKEN"]') || document.querySelector('input[name="CSRF-TOKEN"]');
         return input ? input.value : '';
@@ -124,7 +133,7 @@
             if (response.redirected || !/^application\/json(?:\s*;|$)/i.test(response.headers.get('Content-Type') || '')) throw new Error('Unconfirmed response');
             const body = await response.json();
             if (!current(entry)) throw new Error('Document context changed');
-            if (rejected(body, entry) && !response.ok) { show(entry, 'rejected'); return; }
+            if (rejected(body, entry) && !response.ok) { show(entry, body.descriptionTooLong === true ? 'descriptionTooLong' : 'rejected'); return; }
             if (!response.ok || (!options.acknowledgement && !accepted(body, entry)) || !validate(body)) throw new Error('Unconfirmed response');
             entry.metadataAccepted = options.metadata === true;
             show(entry, 'saved');
@@ -158,6 +167,11 @@
         const entry = begin(form, id, null, true);
         if (!entry) return false;
         entry.kind = 'metadata';
+        if (descriptionTooLong(form)) {
+            show(entry, 'descriptionTooLong');
+            if (typeof form.elements['documentDescription'].focus === 'function') form.elements['documentDescription'].focus();
+            return false;
+        }
         const data = new URLSearchParams(new FormData(form));
         const methods = data.getAll('method'), demographics = data.getAll('demog');
         if (methods.length !== 1 || !['documentUpdate', 'documentUpdateAjax'].includes(methods[0]) || demographics.length > 1) {

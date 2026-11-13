@@ -66,7 +66,7 @@ function fixture(host = 'inbox') {
         [Symbol.iterator]() { return this.entries[Symbol.iterator](); }
         forEach(callback) { this.entries.forEach(([key, value]) => callback(value, key)); }
     }
-    const messages = Object.fromEntries(['pending', 'rejected', 'uncertain', 'saved', 'queueRejected', 'queueUncertain'].map(key => [key, 'Localized ' + key]));
+    const messages = Object.fromEntries(['pending', 'rejected', 'uncertain', 'saved', 'queueRejected', 'queueUncertain', 'descriptionTooLong'].map(key => [key, 'Localized ' + key]));
     const context = {URLSearchParams, FormData: FormDataStub, console, contextpath: '/carlos', _in_window: host === 'popup',
         alert(message) { calls.push(['alert', message]); }, confirm() { return true; },
         jQuery(selector) { const item = nodes.get(selector.slice(1)); return {length: item ? 1 : 0, val: () => item && item.value}; },
@@ -144,6 +144,30 @@ for (const host of ['inbox', 'queue', 'multipage', 'popup']) {
         await flush(); assert.equal(f.requests.length, 1); f.save(); assert.equal(f.requests.length, 2);
     });
 }
+// document.docdesc holds 255 characters, counted in code points (utf8mb4): an emoji is one.
+const EMOJI = '\u{1F600}';
+for (const host of ['inbox', 'queue', 'multipage', 'popup']) {
+    test(host + ': a description one character longer than document.docdesc is refused before transport', () => {
+        const f = fixture(host); f.form.elements.documentDescription.value = EMOJI.repeat(256);
+        assert.equal(f.save(), false); assert.equal(f.requests.length, 0);
+        assert.equal(f.status(), f.messages.descriptionTooLong); assert.equal(f.nodes.get('save42').disabled, false);
+        assert.equal(f.form.elements.documentDescription.value, EMOJI.repeat(256), 'The typed text is kept to shorten');
+        f.form.elements.documentDescription.value = ' ' + EMOJI.repeat(255) + ' ';
+        f.save(); assert.equal(f.requests.length, 1, 'A description that fills the column, surrounding blanks aside, is sent');
+        assert.equal(new URLSearchParams(f.requests[0].options.body).get('documentDescription'), ' ' + EMOJI.repeat(255) + ' ');
+    });
+}
+test('a server refusal of an over-long description shows the description message and allows a corrected save', async () => {
+    const f = fixture(); f.save();
+    await f.answer(0, {status: 400, body: {...refused, descriptionTooLong: true, error: 'Server text'}}); unchanged(f);
+    assert.equal(f.status(), f.messages.descriptionTooLong); assert.equal(f.nodes.get('save42').disabled, false);
+    f.save(); assert.equal(f.requests.length, 2);
+});
+test('the shared include publishes the localized description message and the column length', () => {
+    const include = read('documentManager/documentMutationScripts.jspf');
+    assert.match(include, /descriptionTooLong:[^\n]*SafeEncode\.forJavaScriptBlock\(documentMutationBundle\.getString\("dms\.error\.descriptionTooLong"\)\)/);
+    assert.match(include, /CarlosDocumentDescriptionMaxLength = <%= io\.github\.carlos_emr\.carlos\.commn\.model\.Document\.DESCRIPTION_MAX_LENGTH %>/);
+});
 for (const [name, response] of [
     ['HTML', {contentType: 'text/html'}], ['malformed JSON', {malformed: true}],
     ['untyped 403', {status: 403, body: {error: 'Denied'}}], ['500', {status: 500}],

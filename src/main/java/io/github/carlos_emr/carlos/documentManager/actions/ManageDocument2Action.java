@@ -313,6 +313,13 @@ public class ManageDocument2Action extends ActionSupport {
                 && !IncomingDocumentCapacityResponse.positiveId(destination)) throw new SecurityException("Invalid patient selection");
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
         IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+        // Stored trimmed, as every other description writer (EDoc) stores it. document.docdesc
+        // holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database cuts a longer
+        // description off without an error, so the whole save is refused before the transaction:
+        // no routing, audit row, metadata or patient link is written.
+        String typedDescription = request.getParameter("documentDescription");
+        String description = typedDescription == null ? null : typedDescription.trim();
+        if (!Document.descriptionFits(description)) throw new DescriptionTooLongException();
         String sourceId = documentId;
         String requestedPatient = destination;
         return metadataTransaction(() -> {
@@ -333,7 +340,7 @@ public class ManageDocument2Action extends ActionSupport {
                     throw new IllegalStateException("Unassigned provider cleanup was not confirmed");
                 }
             }
-            document.setDocdesc(request.getParameter("documentDescription"));
+            document.setDocdesc(description);
             document.setDoctype(request.getParameter("docType"));
             Date observation = UtilDateUtilities.StringToDate(request.getParameter("observationDate"));
             if (observation != null) document.setObservationdate(observation);
@@ -401,6 +408,16 @@ public class ManageDocument2Action extends ActionSupport {
 
     private record MetadataUpdate(String documentId, String patient) { }
 
+    /**
+     * A typed description longer than {@code document.docdesc}. Thrown before the metadata
+     * transaction starts, so the refusal is never an accepted write; answered with 400 and the
+     * localized {@code dms.error.descriptionTooLong} text the viewer and inbox pages show.
+     */
+    private static final class DescriptionTooLongException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        DescriptionTooLongException() { super("Document description is longer than its column"); }
+    }
+
     private static final class MetadataWriteFailure extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final boolean accepted;
@@ -434,6 +451,11 @@ public class ManageDocument2Action extends ActionSupport {
         int status = accepted ? 500 : cause instanceof SecurityException ? 403 : cause instanceof IllegalArgumentException ? 400 : 500;
         ObjectNode data = objectMapper.createObjectNode().put("success", false).put("accepted", accepted).put("retryable", false)
                 .put("error", accepted ? "Document outcome is unconfirmed; do not submit again" : "Document update was refused");
+        if (cause instanceof DescriptionTooLongException) {
+            // The one refusal the user can correct in the form: say so in their language.
+            data.put("descriptionTooLong", true).put("error", ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("dms.error.descriptionTooLong"));
+        }
         if (IncomingDocumentCapacityResponse.positiveId(documentId)) data.put("document", Integer.parseInt(documentId));
         try {
             response.setStatus(status); response.setContentType("application/json;charset=UTF-8");

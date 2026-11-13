@@ -316,6 +316,49 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(mapper.readTree(response.getContentAsString()).path("accepted").asBoolean()).isTrue();
     }
 
+    /**
+     * document.docdesc is a utf8mb4 VARCHAR(255): the packaged database cut a longer description
+     * typed in the document viewer or inbox to 255 characters without a word. The save is refused
+     * before the transaction, routing or audit row. "😀" is one character, two Java chars.
+     */
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "fallback,d", "ajax,😀", "legacy,😀"})
+    void shouldRefuseTheWholeMetadataSave_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String route, String character)
+            throws Exception {
+        prepareMetadata();
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertNoMetadataWrites();
+        verify(documentDao, Mockito.never()).findForPageMutation(anyInt());
+        assertThat(metadataTransactions.commits + metadataTransactions.rollbacks).isZero();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("success").asBoolean(true)).isFalse();
+        assertThat(json.path("accepted").asBoolean(true)).isFalse();
+        assertThat(json.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(json.path("document").asInt()).isEqualTo(42);
+        assertThat(json.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "ajax,😀", "legacy,😀"})
+    void shouldStoreTheWholeTrimmedDescription_whenItFillsTheColumnExactly(String route, String character) {
+        Document document = prepareMetadata();
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        // The surrounding blanks are not stored, as every other description writer (EDoc) trims.
+        request.setParameter("documentDescription", "  " + description + " ");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(document.getDocdesc()).isEqualTo(description);
+        assertThat(metadataTransactions.commits).isEqualTo(1);
+    }
+
     @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
     void providerUnlinkRequiresPost(String verb) {
         prepareMetadata(); request.setMethod(verb); action.removeLinkFromDocument();
