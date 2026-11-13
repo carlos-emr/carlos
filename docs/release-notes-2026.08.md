@@ -6,6 +6,18 @@ Single-point and constant-value measurement charts now draw useful markers and a
 Point labels retain Java HALF_EVEN rounding and the server's locale/date conventions.
 Graph failures return explicit 422, 500 or 503 responses; embedded lab and medication
 graphs provide a visible retry control.
+Graphs opened in their own window (measurement history, Health Tracker, flowsheets) say
+what went wrong: the drawing service is busy or not running, or an unexpected problem was
+logged (each with a Retry button); or which stored values cannot be drawn and why, naming
+the measurement type or lab test, such as a blood pressure not in the form 120/80 or a
+value with no date (without Retry). The page is styled like the CARLOS error page.
+The medication-profile graph keeps its default height up to 20 drugs, then grows 30 px per
+drug; 11 to 19 drugs no longer draw a shorter chart than 10.
+Measurement, lab and medication graphs are drawn by the bundled render browser that eForm
+print and fax use. Graphs have one browser of their own beside the two they share with
+eForm PDFs, so a graph no longer waits behind PDF renders while its own browser is free;
+while every browser is busy, or the service is down, graphs ask to be retried. A standalone
+WAR without the render-browser service shows no graphs.
 
 Qualified bounds such as `<5` continue to plot as 5 pending the clinical decision in
 [#6118](https://github.com/carlos-emr/carlos/issues/6118). The parser reads left to right in one pass. It accepts one
@@ -166,6 +178,9 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
   when rendering is unavailable. Check that service in standalone deployments.
   Restored upstream Chart.js defaults also show gridlines on Dashboard, Growth
   Chart and Health Tracker charts.
+- Graphs use a third render browser of their own, so the packaged render-browser
+  unit's memory ceiling rises by one browser's peak, 300 MiB (`MemoryHigh=1324M`,
+  `MemoryMax=1836M`). Raise any local override of those limits to match.
 - displaytag, JFreeChart, production POI and Selenium are removed from the WAR.
   `/taglibs.jsp` no longer declares `display` or `display-el` prefixes.
   Table paging/sorting is client-side, so old displaytag `d-…-p/s/o` bookmarks

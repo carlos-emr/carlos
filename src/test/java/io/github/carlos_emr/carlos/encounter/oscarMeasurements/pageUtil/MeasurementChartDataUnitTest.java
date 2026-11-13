@@ -21,9 +21,9 @@ class MeasurementChartDataUnitTest {
         var previous = java.util.TimeZone.getDefault();
         try {
             java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("America/Toronto"));
-            var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+            var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class, String.class);
             method.setAccessible(true);
-            var actual = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+            var actual = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source), "FAKE test");
             String date = source.substring(0, 10);
             assertThat(actual.getStart()).isEqualTo(new MeasurementChart.Day(java.time.LocalDate.parse(date)
                     .atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()).getStart());
@@ -39,19 +39,24 @@ class MeasurementChartDataUnitTest {
             "2024-03-10 02:30-05:00,2024-03-10T07:30:00Z",
             "2024-03-10 02:30:00.123456789-05:00,2024-03-10T07:30:00.123456789Z"})
     void shouldPreserveTimestampInstant_whenCdsCollectionDateHasOffset(String source, String instant) throws Exception {
-        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class, String.class);
         method.setAccessible(true);
-        var day = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source));
+        var day = (MeasurementChart.Day) method.invoke(null, Map.of("collDate", source), "FAKE test");
         assertThat(day.getStart()).isEqualTo(new MeasurementChart.Day(Instant.parse(instant)).getStart());
     }
 
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"2024-02-30 02:30:00-05:00", "2024-03-10 02:30:00+25:00", "2024-03-10 02:30:00-05:00 extra"})
     void shouldRejectInvalidCollectionTimestamp_withoutDiscardingOffsetOrTrailingText(String source) throws Exception {
-        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class);
+        var method = MeasurementGraphAction22Action.class.getDeclaredMethod("collectionDay", Map.class, String.class);
         method.setAccessible(true);
-        org.assertj.core.api.Assertions.assertThatThrownBy(() -> method.invoke(null, Map.of("collDate", source)))
-                .hasCauseInstanceOf(java.text.ParseException.class);
+        // #5853: an unreadable date names the test it belongs to, so the graph window can say which.
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> method.invoke(null, Map.of("collDate", source), "FAKE test"))
+                .cause().isInstanceOfSatisfying(GraphDataException.class, problem -> {
+                    org.assertj.core.api.Assertions.assertThat(problem.problem())
+                            .isEqualTo(GraphDataException.Problem.UNREADABLE_DATE);
+                    org.assertj.core.api.Assertions.assertThat(problem.subject()).isEqualTo("FAKE test");
+                });
     }
 
     @Test

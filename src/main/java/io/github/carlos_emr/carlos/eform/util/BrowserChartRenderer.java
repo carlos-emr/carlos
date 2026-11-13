@@ -17,8 +17,9 @@ import org.apache.logging.log4j.Logger;
  * Renders the bundled Chart.js to the existing PNG/JPEG endpoint contract, including print views.
  *
  * <p>Each image is drawn in a fresh headless Chromium session from the renderer service shared
- * with eForm PDFs, so a chart costs a browser start. Class-aware admission shares a two-browser
- * ceiling while preventing either work class from repeatedly overtaking the other.
+ * with eForm PDFs, so a chart costs a browser start. Charts have one browser of their own and take it
+ * first, so a chart does not wait behind eForm PDFs while it is free (#5853). When it is busy they share
+ * the two-browser budget with PDFs, and class-aware admission keeps either from repeatedly overtaking the other.
  * The bundled scripts are read from the WAR once and reused; chart requests queue for a slot for
  * {@link EFormBrowserPdfService}'s slot wait rather than failing while the slots are merely busy.
  */
@@ -29,7 +30,7 @@ public final class BrowserChartRenderer {
 
     private static volatile String bundledScripts;
     /**
-     * The tallest image: ChartMeds grows 30px per drug past ten, and JFreeChart drew any count, so allow
+     * The tallest image: ChartMeds grows 30px per drug past twenty (#6165), and JFreeChart drew any count, so allow
      * hundreds of rows while staying inside Chromium's canvas limits.
      */
     static final int MAX_HEIGHT = 16_000;
