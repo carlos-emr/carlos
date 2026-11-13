@@ -251,7 +251,7 @@
             var ans = true;
             // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditHtml2Action
             // refuses a longer description too, and that is the check that holds.
-            if (Array.from(object.docDesc.value.trim()).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
                 alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
                 object.docDesc.focus();
                 ans = false;
@@ -372,9 +372,11 @@
         </tr>
         <tr>
             <td><label for="docDesc">Description:</label></td>
-            <%-- maxlength is twice the column: it counts UTF-16 units, the column code points. --%>
+            <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                 runs. submitUpload and the action refuse a description longer than
+                 Document.DESCRIPTION_MAX_LENGTH code points. --%>
             <td><input <% if (linkhtmlerrors.containsKey("descmissing") || linkhtmlerrors.containsKey("desctoolong")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30" maxlength="<%= Document.DESCRIPTION_MAX_LENGTH * 2 %>"
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30"
                     onfocus="checkDefaultValue(this)" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"></td>
         </tr>
         <tr>

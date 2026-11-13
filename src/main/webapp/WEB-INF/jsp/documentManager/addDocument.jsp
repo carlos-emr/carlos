@@ -255,7 +255,7 @@
      * server refuses a longer description too; this only saves the upload round trip.
      */
     function descriptionTooLong(field, limit) {
-        if (!field || Array.from(field.value.trim()).length <= limit) {
+        if (!field || Array.from(field.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length <= limit) {
             return false;
         }
         field.classList.add('is-invalid');
@@ -370,12 +370,13 @@
 
             <div class="mb-3">
                 <label for="docDesc"><fmt:message key="dms.addDocument.labelDescription"/></label>
-                <%-- maxlength counts UTF-16 units and the column counts code points, so it is twice the
-                     column and never cuts a description that fits; submitUpload and AddEditDocument2Action
-                     refuse one longer than Document.DESCRIPTION_MAX_LENGTH. --%>
+                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                     runs, which could drop the end of an emoji-heavy description without a word.
+                     submitUpload and AddEditDocument2Action refuse one longer than
+                     Document.DESCRIPTION_MAX_LENGTH code points. --%>
                 <input type="text"
                        class="form-control<c:if test='${ docerrors["descmissing"] != null || docerrors["desctoolong"] != null}'> is-invalid</c:if>"
-                       id="docDesc" name="docDesc" maxlength="<%= descriptionMaxLength * 2 %>" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"
+                       id="docDesc" name="docDesc" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>"/>
             </div>

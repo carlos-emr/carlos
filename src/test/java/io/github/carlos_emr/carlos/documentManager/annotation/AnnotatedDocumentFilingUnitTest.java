@@ -78,6 +78,26 @@ class AnnotatedDocumentFilingUnitTest extends CarlosUnitTestBase {
         }
     }
 
+    /**
+     * The annotated copy is described as the source's description plus " (annotated)". A source
+     * description that fills document.docdesc (255 characters) pushed the suffix past the column,
+     * and the database cut it off without a word, so the copy read exactly like its source. The
+     * source part is shortened instead, so the suffix always survives. "\uD83D\uDE00" is one character.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"r", "\uD83D\uDE00"})
+    @DisplayName("should keep \" (annotated)\" whole when the source description fills the column")
+    void shouldKeepTheAnnotatedSuffix_whenTheSourceDescriptionFillsTheColumn(String character) {
+        int max = io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH;
+
+        String described = AnnotatedDocumentService.annotatedDescription(character.repeat(max));
+
+        assertThat(described).isEqualTo(character.repeat(max - " (annotated)".length()) + " (annotated)");
+        assertThat(described.codePointCount(0, described.length())).isEqualTo(max);
+        assertThat(AnnotatedDocumentService.annotatedDescription("  Echo report ")).isEqualTo("Echo report (annotated)");
+        assertThat(AnnotatedDocumentService.annotatedDescription(null)).isEqualTo(" (annotated)");
+    }
+
     @Test
     @DisplayName("should roll back and remove the copy when audit persistence fails")
     void shouldRollBack_whenAuditFails(@TempDir Path dir) throws Exception {

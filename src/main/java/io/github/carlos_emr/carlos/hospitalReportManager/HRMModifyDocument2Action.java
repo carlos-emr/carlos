@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.ResourceBundle;
 import java.util.function.Supplier;
 
 import org.springframework.transaction.PlatformTransactionManager;
@@ -867,6 +868,14 @@ public class HRMModifyDocument2Action extends ActionSupport {
 
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_hrm", "w", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
+        }
+
+        // The description is stored as typed, and the packaged database would cut one longer than
+        // the column without an error. Refused before the report is read, in the viewer's status
+        // line beside the box (this route's success:false reply), so the clinician can shorten it.
+        if (!HRMDocument.descriptionFits(descriptionString)) {
+            return writeResult(false, ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("dms.error.descriptionTooLong"));
         }
 
         try {

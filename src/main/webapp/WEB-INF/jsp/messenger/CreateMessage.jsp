@@ -365,7 +365,7 @@ function validateFields() {
     }
     // Refused here, before Send and Archive archives the original, rather than cut by the database.
     var subjectBox = document.getElementById('subject');
-    if (subjectBox && Array.from(subjectBox.value.trim()).length > subjectMaxLength) {
+    if (subjectBox && Array.from(subjectBox.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > subjectMaxLength) {
         showAlert(msgSubjectTooLong, 'warning');
         subjectBox.focus();
         return false;
@@ -641,10 +641,11 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<%-- maxlength counts UTF-16 units and the column counts code points, so it is twice the column
-					     (an emoji is two units, one character) and never cuts a subject that fits; validateFields
-					     and MsgCreateMessage2Action refuse one longer than MessageTbl.SUBJECT_MAX_LENGTH. --%>
-					<input type="text" name="subject" id="subject" class="form-control w-75" maxlength="<%= MessageTbl.SUBJECT_MAX_LENGTH * 2 %>" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
+					<%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units (an emoji is two
+					     units, one character) before any check runs, which could drop the end of a subject
+					     without a word. validateFields and MsgCreateMessage2Action refuse one longer than
+					     MessageTbl.SUBJECT_MAX_LENGTH characters. --%>
+					<input type="text" name="subject" id="subject" class="form-control w-75" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
 					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>
 							<table>

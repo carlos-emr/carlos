@@ -220,6 +220,53 @@ class HRMModifyDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("{\"success\":false,\"message\":\"Error encountered\"}");
     }
 
+    /**
+     * HRMDocument.description is a utf8mb4 VARCHAR(255), like document.docdesc: the packaged
+     * database cut a longer description to 255 characters without a word. "😀" is one
+     * character in the column and two Java chars.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"d", "😀"})
+    @DisplayName("should refuse a description one character longer than the column, storing nothing")
+    void shouldRefuseTheDescriptionWithoutWriting_whenItIsOneCharacterLongerThanTheColumn(String character) throws Exception {
+        HRMDocument document = new HRMDocument();
+        document.setDescription("Earlier description");
+        when(hrmDocumentDao.find(7)).thenReturn(document);
+        request.addParameter("method", "setDescription");
+        request.addParameter("reportId", "7");
+        request.addParameter("description", character.repeat(HRMDocument.DESCRIPTION_MAX_LENGTH + 1));
+
+        String result = new HRMModifyDocument2Action().execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentType()).startsWith("application/json");
+        String message = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale())
+                .getString("dms.error.descriptionTooLong");
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString()))
+                .isEqualTo(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode()
+                        .put("success", false).put("message", message));
+        verify(hrmDocumentDao, never()).merge(any());
+        assertThat(document.getDescription()).isEqualTo("Earlier description");
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"d", "😀"})
+    @DisplayName("should store a description that fills the column exactly")
+    void shouldStoreTheWholeDescription_whenItFillsTheColumnExactly(String character) throws Exception {
+        HRMDocument document = new HRMDocument();
+        when(hrmDocumentDao.find(7)).thenReturn(document);
+        String description = character.repeat(HRMDocument.DESCRIPTION_MAX_LENGTH);
+        request.addParameter("method", "setDescription");
+        request.addParameter("reportId", "7");
+        request.addParameter("description", description);
+
+        new HRMModifyDocument2Action().execute();
+
+        assertThat(response.getContentAsString()).isEqualTo("{\"success\":true,\"message\":\"Success\"}");
+        verify(hrmDocumentDao).merge(document);
+        assertThat(document.getDescription()).isEqualTo(description);
+    }
+
     @Test
     @DisplayName("should reject a sign-off that names no report")
     void shouldRejectSignOff_whenNoReportIsNamed() throws Exception {
