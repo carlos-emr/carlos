@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.admin.service.SecurityRecordUpdateService;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.carlos.www.admin.SecurityEditVersion;
@@ -170,7 +171,7 @@ public class SecurityUpdate2Action extends ActionSupport {
                 // Another save changed the login after this form was opened: refused whole, before
                 // anything (password and PIN included) was written. Only the login number is passed
                 // on, for the page's offer to reopen the record as it is now.
-                logger.info("Refused a stale Security Records edit: securityNo={}", securityNo);
+                logger.info("Refused a stale Security Records edit: securityNo={}", LogSafe.sanitizeObject(securityNo));
                 response.setStatus(HttpServletResponse.SC_CONFLICT);
                 response.setHeader("Cache-Control", "no-store");
                 request.setAttribute(CONFLICT_NO_ATTRIBUTE, String.valueOf(securityNo));
