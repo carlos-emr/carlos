@@ -289,6 +289,7 @@ public final class IncomingDocumentCapacityResponse {
         String back = readOnlyUrl(request, request.getParameter("queueId"), request.getParameter("pdfDir"),
                 request.getParameter("pdfNo"), "1");
         response.setContentType("text/html;charset=UTF-8");
+        // nosemgrep: java.servlets.security.servletresponse-writer-xss.servletresponse-writer-xss, java.servlets.security.servletresponse-writer-xss-deepsemgrep.servletresponse-writer-xss-deepsemgrep, java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer -- writes only fixed oscarResources messages and the readOnlyUrl link (positive-integer ids, allow-listed queue, server context path), each encoded with SafeEncode (null-safe OWASP Encode), which Semgrep does not model
         response.getWriter().write("<!DOCTYPE html><html><body><p role=\"alert\">" + SafeEncode.forHtml(message)
                 + "</p><a href=\"" + SafeEncode.forHtmlAttribute(back) + "\">"
                 + SafeEncode.forHtml(messages.getString("global.btnContinue")) + "</a></body></html>");
