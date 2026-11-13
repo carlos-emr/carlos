@@ -136,9 +136,19 @@ public class CdsExportSourceCatalogueDao {
                         .setHint("org.hibernate.timeout", 120)
                         .getResultList()
                         .isEmpty()) {
-                    // A name from the pinned physical catalogue, with no clinical values or row
-                    // identifiers.
-                    LOG.warn("CDS_EXPORT_SOURCE_CATALOGUE_REQUIRES_REVIEW table={}", table);
+                    // A row in a patient-linked table holds only this patient; a populated
+                    // table with no patient link blocks every patient and stops the job.
+                    boolean patientLinked =
+                            catalogue.patientScopes().containsKey(table)
+                                    || CdsExportIndirectPatientScopeReadSupport.supports(table);
+                    sourceNotice(
+                            patientLinked
+                                    ? CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED
+                                    : CdsExportReviewException.Reason.CLINIC_SOURCE_UNREVIEWED,
+                            List.of(table));
+                    if (patientLinked)
+                        throw new CdsExportReviewException(
+                                CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
                     review();
                 }
             }
@@ -326,6 +336,9 @@ public class CdsExportSourceCatalogueDao {
                     closestMissing.size() > 20
                             ? List.copyOf(closestMissing).subList(0, 20) + " +" + (closestMissing.size() - 20)
                             : closestMissing);
+            sourceNotice(
+                    CdsExportReviewException.Reason.CLINIC_SOURCE_UNREVIEWED,
+                    List.copyOf(closestMissing));
             review();
         }
         if (tied) {
@@ -354,8 +367,30 @@ public class CdsExportSourceCatalogueDao {
             throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
     }
 
+    /** Schema-level problems concern every patient, so they stop the job rather than hold one. */
     private static void review() {
         throw new CdsExportReviewException(
-                CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
+                CdsExportReviewException.Reason.CLINIC_SOURCE_UNREVIEWED);
+    }
+
+    private static final org.apache.logging.log4j.Logger SAFE =
+            org.apache.logging.log4j.LogManager.getLogger("carlos.cds.safeTechnical");
+
+    /**
+     * Names the blocking tables on the safe technical channel, which the CLI prints to stderr
+     * and the web application writes to its log (census D5: nothing named the table). Only table
+     * names from the pinned catalogue or information_schema are written; never values or rows.
+     */
+    private static void sourceNotice(CdsExportReviewException.Reason reason, List<String> tables) {
+        var names = new ArrayList<String>();
+        for (String table : tables) {
+            if (names.size() == 20) break;
+            if (table != null && table.matches("[A-Za-z0-9_$]{1,64}")) names.add('"' + table + '"');
+        }
+        SAFE.error(
+                "CDS_EXPORT_SOURCE: {\"code\":\"{}\",\"tables\":[{}],\"more\":{}}",
+                reason.code(),
+                String.join(",", names),
+                Math.max(0, tables.size() - names.size()));
     }
 }

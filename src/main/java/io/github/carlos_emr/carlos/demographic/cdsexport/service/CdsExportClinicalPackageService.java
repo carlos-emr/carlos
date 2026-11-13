@@ -618,7 +618,8 @@ public class CdsExportClinicalPackageService {
                         RESOURCE_LIMIT,
                         RUNTIME_CHANGED,
                         NO_PATIENTS_SELECTED,
-                        PATIENTS_HELD -> null;
+                        PATIENTS_HELD,
+                        CLINIC_SOURCE_UNREVIEWED -> null;
             };
         return null;
     }

@@ -194,6 +194,14 @@ the export ledger. A failed, refused or cancelled job's staged files are release
 to the retention sweep at once (within about a minute while the online worker
 runs), not kept for the attempt's seven-day ceiling.
 
+A source the export cannot close for any patient (a changed pinned table, or a
+populated must-be-empty table with no patient link) stops the whole job with
+`CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`, once, instead of holding every patient. A
+row in a patient-linked must-be-empty table holds only that patient
+(`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Either way the blocking table names
+are printed on the technical channel (CLI standard error, web application log)
+as `CDS_EXPORT_SOURCE: {"code":...,"tables":[...]}`, with no row values.
+
 Populated tables that this release does not know (another tool's bookkeeping
 table, a local backup copy) do not block an export. They are listed by name and
 estimated row count in the package ReadMe and in a protected log line

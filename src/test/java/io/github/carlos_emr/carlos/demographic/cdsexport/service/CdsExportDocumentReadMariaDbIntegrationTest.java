@@ -818,19 +818,74 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseAnUnknownPhysicalSourceTable_evenWhenItIsEmpty() {
+    void shouldListAnUnknownLocalTableOnlyWhenPopulated_withoutRefusingTheExport() {
+        // Decision 20: a local table the release does not know (another tool's bookkeeping, a
+        // DBA's copy) neither blocks nor is exported; a populated one is listed by name.
         String table = "cds_export_coverage_probe_" + patient;
         sql.execute("create table `" + table + "` (id int primary key) engine=InnoDB");
         try {
+            stableLegacy(
+                    () -> {
+                        read.executeWithoutResult(status -> catalogue.readSourceSchema());
+                        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto>
+                                empty = read.execute(status -> catalogue.unreviewedLocalSources());
+                        assertThat(empty)
+                                .extracting(
+                                        io.github.carlos_emr.carlos.commn.dto
+                                                        .CdsExportLocalSourceDto
+                                                ::table)
+                                .doesNotContain(table);
+                    });
+            sql.update("insert into `" + table + "` values (1)");
+            stableLegacy(
+                    () -> {
+                        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto>
+                                listed = read.execute(status -> catalogue.unreviewedLocalSources());
+                        assertThat(listed)
+                                    .anySatisfy(
+                                            local -> {
+                                                assertThat(local.table()).isEqualTo(table);
+                                                assertThat(local.estimatedRows()).isPositive();
+                                            });
+                    });
+        } finally {
+            sql.execute("drop table `" + table + "`");
+        }
+    }
+
+    @Test
+    void shouldStopTheJobAndNameTheTable_whenAClinicWideMustBeEmptySourceIsPopulated() {
+        // recyclebin has no patient link: a row there concerns every patient, so the job
+        // stops once with the clinic code instead of holding every patient one by one, and the
+        // table is named on the channel the CLI prints (census D5).
+        sql.update(
+                "insert into recyclebin(provider_no,updatedatetime,table_name,keyword,table_content)"
+                        + " values('999998',now(),'demographic','synthetic','synthetic')");
+        try (var log =
+                io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                        "carlos.cds.safeTechnical")) {
             stableLegacy(
                     () ->
                             assertThatThrownBy(
                                             () ->
                                                     read.executeWithoutResult(
-                                                            status -> catalogue.readSourceSchema()))
-                                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+                                                            status ->
+                                                                    catalogue
+                                                                            .requireUnclassifiedSourcesEmpty(
+                                                                                    patient,
+                                                                                    () -> {})))
+                                    .hasMessage("CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED"));
+            assertThat(log.messages())
+                    .anySatisfy(
+                            message ->
+                                    assertThat(message)
+                                            .contains(
+                                                    "CDS_EXPORT_SOURCE:",
+                                                    "CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED",
+                                                    "\"recyclebin\"")
+                                            .doesNotContain("synthetic", "999998"));
         } finally {
-            sql.execute("drop table `" + table + "`");
+            sql.update("delete from recyclebin where keyword='synthetic'");
         }
     }
 
@@ -839,13 +894,14 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         String column = "cds_export_probe_" + patient;
         sql.execute("alter table AppDefinition add column `" + column + "` varchar(8) null");
         try {
+            // A changed pinned table concerns every patient, so the whole job stops.
             stableLegacy(
                     () ->
                             assertThatThrownBy(
                                             () ->
                                                     read.executeWithoutResult(
                                                             status -> catalogue.readSourceSchema()))
-                                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+                                    .hasMessage("CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED"));
         } finally {
             sql.execute("alter table AppDefinition drop column `" + column + "`");
         }

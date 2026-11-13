@@ -38,7 +38,12 @@ public final class CdsExportReviewException extends RuntimeException {
         RUNTIME_CHANGED,
         NO_PATIENTS_SELECTED,
         CLINICAL_SOURCE_UNREVIEWED,
-        PATIENTS_HELD;
+        PATIENTS_HELD,
+        /**
+         * The installed schema, or a clinic-wide table with no patient link, cannot be closed for
+         * any patient; the whole job stops instead of holding every patient one by one.
+         */
+        CLINIC_SOURCE_UNREVIEWED;
 
         public String code() {
             return "CDS_EXPORT_" + name();
