@@ -40,9 +40,13 @@
  *   body.encounter-layout          (flex column: header + navigation-layout)
  *     #header                      (sticky header bar, natural height ~50px)
  *     #navigation-layout           (flex row filling remaining height, scrollable)
- *       #leftNavBar   (order:1)    (left sidebar — CPP boxes, 20%)
- *       #content      (order:2)    (center column — notes area, 60%, sticky)
- *       #rightNavBar  (order:3)    (right sidebar — issues/eforms, 20%)
+ *       #leftNavBar   (order:1)    (left sidebar — CPP boxes, fixed 20%)
+ *       #content      (order:2)    (center column — notes area, the rest, sticky)
+ *       #rightNavBar  (order:3)    (right sidebar — issues/eforms, fixed 20%)
+ *
+ * The two sidebars are the same width whatever they hold, as in OSCAR 19 (20% / 60% / 20%):
+ * they neither grow nor shrink, and min-width:0 lets a long row truncate instead of widening
+ * its column. The centre column takes what is left after the gaps.
  *
  * The body owns viewport height; #navigation-layout fills the space below the header
  * via flex:1. The center column uses position:sticky so it stays pinned while the
@@ -367,8 +371,8 @@ div#leftNavBar {
     order: 1;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
-    flex-basis: 20%;
+    flex: 0 0 20%;
+    min-width: 0;
     padding-bottom: 20px;
 }
 
@@ -377,8 +381,8 @@ div#leftNavBar {
     order: 3;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
-    flex-basis: 20%;
+    flex: 0 0 20%;
+    min-width: 0;
     padding-bottom: 20px;
 }
 
@@ -399,15 +403,14 @@ div#notCPP {
     order: 2;
     display: flex;
     flex-direction: column;
-    flex-grow: 1;
     height: 100%;       /* relative to #navigation-layout */
     box-sizing: border-box;
     min-height: 0;
     position: sticky;   /* pins center column while sidebars scroll */
     top: 0;
-    flex-basis: 60%;
+    flex: 1 1 0;        /* the width the fixed sidebars and gaps leave */
+    min-width: 0;
     align-content: end;
-    width: 100%;
     gap: 3px;
     padding-bottom: 20px;
 }
@@ -428,11 +431,10 @@ div#divR2, div#divR1 {
 }
 
 div#divR1I1, div#divR1I2, div#divR2I1, div#divR2I2 {
-    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    width: 100%;
-    flex-basis: 50%;
+    flex: 1 1 0;        /* the two CPP boxes of a row share it equally, whatever they hold */
+    min-width: 0;
 }
 
 #topContent {
@@ -514,12 +516,14 @@ div.topBox-notes ul li, div.topBox-notes ul li a {
     white-space: wrap;
     background-color: inherit !important;
 }
-div.topBox-notes ul li.cpp-empty-state {
-    color: #666666;
-    font-style: italic;
-    padding: 4px 5px;
-}
 
+
+/* CDS source links in the notes toolbar: inline, so they add no height to the row. */
+span.cds-chart-source-links {
+    display: inline-block;
+    margin-left: 12px;
+    white-space: nowrap;
+}
 
 div#encMainDiv {
     display: flex;

@@ -210,11 +210,15 @@ class EncounterPrintPatientIsolationUnitTest extends CarlosUnitTestBase {
         }
 
         @Test
-        void shouldOfferHistoricalRecords_fromModernChartWithReportPermission() throws IOException {
+        @DisplayName("should not link the historical legacy chart from the modern chart header")
+        void shouldNotLinkHistoricalRecords_fromModernChartHeader() throws IOException {
+            // The header once carried a "Historical legacy chart (read only)" link. It was removed on
+            // request: the report route and its own authorization are unchanged, but the chart no
+            // longer advertises it.
             assertThat(Files.readString(Path.of("src/main/webapp/WEB-INF/jsp/casemgmt/newEncounterHeader.jsp")))
-                    .contains("hasPrivilege(loggedInInfo, \"_report\", \"r\", null)")
-                    .contains("id=\"chartHistoricalRecordsLink\"")
-                    .contains("/report/ViewReportecharthistory?demographic_no=${carlos:forUriComponent(popupDemographicNo)}");
+                    .doesNotContain("chartHistoricalRecordsLink")
+                    .doesNotContain("ViewReportecharthistory")
+                    .doesNotContain("encounter.historicalChart.title");
         }
 
         @ParameterizedTest(name = "{0}")

@@ -123,9 +123,10 @@
         </c:choose>
 
 <ul>
-<c:if test="${empty Notes}">
-    <li class="cpp-empty-state"><fmt:message key="casemgmt.viewNotes.msgNoNotes"/></li>
-</c:if>
+<%-- A section without notes stays blank. It gets the same empty row the navbar modules print
+     (LeftNavBarDisplay.jsp), so an empty section keeps the spacing of its neighbours; it carries
+     no placeholder sentence. --%>
+<c:if test="${empty Notes}"><li>&nbsp;</li></c:if>
 <%
     List<CaseManagementNoteExt> noteExts = (List<CaseManagementNoteExt>)request.getAttribute("NoteExts");
     List<CaseManagementNote> notes = (List<CaseManagementNote>) request.getAttribute("Notes");
