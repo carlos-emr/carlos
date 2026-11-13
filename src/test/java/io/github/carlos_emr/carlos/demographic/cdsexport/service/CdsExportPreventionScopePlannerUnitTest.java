@@ -304,35 +304,32 @@ class CdsExportPreventionScopePlannerUnitTest {
     }
 
     @Test
-    void shouldRefuseAReceiptProofForARowThatWasNotACandidate_forPreventionScopePlannerContract() {
+    void shouldRefuseAReceiptProofForARowThatWasNotACandidate_forPreventionScopePlannerContract()
+            throws IOException {
+        var classifier = withCatchAll();
+        var rows = List.of(row(1, "OtherA", "0", null), row(2, "OtherB", "0", null));
         assertThatThrownBy(
                         () ->
                                 new CdsExportPreventionScopePlanner()
-                                        .plan(
-                                                27,
-                                                withCatchAll(),
-                                                List.of(
-                                                        row(1, "OtherA", "0", null),
-                                                        row(2, "OtherB", "0", null)),
-                                                candidates -> Set.of(1, 2)))
+                                        .plan(27, classifier, rows, candidates -> Set.of(1, 2)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
     }
 
     @Test
-    void shouldRefuseACorruptLaterRow_beforeAnyReceiptIsConsulted() {
+    void shouldRefuseACorruptLaterRow_beforeAnyReceiptIsConsulted() throws IOException {
+        var classifier = withCatchAll();
+        var rows =
+                List.of(
+                        row(1, "OtherA", "0", null),
+                        changed(row(2, "Td", "0", null), "demographic_no", "28"));
         assertThatThrownBy(
                         () ->
                                 new CdsExportPreventionScopePlanner()
                                         .plan(
                                                 27,
-                                                withCatchAll(),
-                                                List.of(
-                                                        row(1, "OtherA", "0", null),
-                                                        changed(
-                                                                row(2, "Td", "0", null),
-                                                                "demographic_no",
-                                                                "28")),
+                                                classifier,
+                                                rows,
                                                 candidates -> {
                                                     throw new AssertionError("Consulted early");
                                                 }))

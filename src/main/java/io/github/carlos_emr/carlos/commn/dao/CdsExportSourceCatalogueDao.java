@@ -444,9 +444,6 @@ public class CdsExportSourceCatalogueDao {
                 CdsExportReviewException.Reason.CLINIC_SOURCE_UNREVIEWED);
     }
 
-    private static final org.apache.logging.log4j.Logger SAFE =
-            org.apache.logging.log4j.LogManager.getLogger("carlos.cds.safeTechnical");
-
     /**
      * Names the blocking tables on the safe technical channel, which the CLI prints to stderr
      * and the web application writes to its log (census D5: nothing named the table). Only table
@@ -458,10 +455,12 @@ public class CdsExportSourceCatalogueDao {
             if (names.size() == 20) break;
             if (table != null && table.matches("[A-Za-z0-9_$]{1,64}")) names.add('"' + table + '"');
         }
-        SAFE.error(
-                "CDS_EXPORT_SOURCE: {\"code\":\"{}\",\"tables\":[{}],\"more\":{}}",
-                reason.code(),
-                String.join(",", names),
-                Math.max(0, tables.size() - names.size()));
+        // The named safe technical channel, as CdsExportExecutionService writes it.
+        org.apache.logging.log4j.LogManager.getLogger("carlos.cds.safeTechnical")
+                .error(
+                        "CDS_EXPORT_SOURCE: {\"code\":\"{}\",\"tables\":[{}],\"more\":{}}",
+                        reason.code(),
+                        String.join(",", names),
+                        Math.max(0, tables.size() - names.size()));
     }
 }

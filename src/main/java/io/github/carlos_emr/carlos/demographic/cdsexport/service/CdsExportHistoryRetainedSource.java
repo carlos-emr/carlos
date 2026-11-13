@@ -339,7 +339,7 @@ public final class CdsExportHistoryRetainedSource {
                 invalid();
         } else if (carrier) {
             // The importer decoded the carrier's whitespace-free encoding before preparing it.
-            if (structured) invalid();
+            // A structured carrier was decided by the first branch.
             String decoded;
             try {
                 decoded =

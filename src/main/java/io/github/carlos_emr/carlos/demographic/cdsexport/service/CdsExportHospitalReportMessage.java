@@ -112,6 +112,51 @@ final class CdsExportHospitalReportMessage {
             observations = List.copyOf(observations);
         }
 
+        // Records compare arrays by identity; a report is equal by its decoded bytes.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Report that
+                    && content == that.content
+                    && java.util.Objects.equals(media, that.media)
+                    && java.util.Objects.equals(format, that.format)
+                    && java.util.Objects.equals(extension, that.extension)
+                    && java.util.Objects.equals(text, that.text)
+                    && java.util.Arrays.equals(binary, that.binary)
+                    && java.util.Objects.equals(reportClass, that.reportClass)
+                    && java.util.Objects.equals(subClass, that.subClass)
+                    && java.util.Objects.equals(event, that.event)
+                    && java.util.Objects.equals(received, that.received)
+                    && java.util.Objects.equals(reviewed, that.reviewed)
+                    && java.util.Objects.equals(author, that.author)
+                    && java.util.Objects.equals(reviewingOhip, that.reviewingOhip)
+                    && java.util.Objects.equals(sendingFacility, that.sendingFacility)
+                    && java.util.Objects.equals(sendingFacilityReport, that.sendingFacilityReport)
+                    && observations.equals(that.observations)
+                    && java.util.Objects.equals(resultStatus, that.resultStatus);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(
+                    media,
+                    format,
+                    extension,
+                    content,
+                    text,
+                    java.util.Arrays.hashCode(binary),
+                    reportClass,
+                    subClass,
+                    event,
+                    received,
+                    reviewed,
+                    author,
+                    reviewingOhip,
+                    sendingFacility,
+                    sendingFacilityReport,
+                    observations,
+                    resultStatus);
+        }
+
         @Override
         public String toString() {
             return "Report[protected]";

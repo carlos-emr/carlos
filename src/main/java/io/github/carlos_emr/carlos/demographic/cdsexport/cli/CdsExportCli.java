@@ -334,7 +334,10 @@ public final class CdsExportCli {
                             // has released its lease and closed the runtime, so a stopped
                             // foreground export can be resumed at once (review W4).
                             try {
-                                retired.await(30, TimeUnit.SECONDS);
+                                if (!retired.await(30, TimeUnit.SECONDS))
+                                    err.println(
+                                            "CDS_EXPORT_STOP_WAIT_EXPIRED: the export had not"
+                                                    + " released its lease after 30 seconds");
                             } catch (InterruptedException halted) {
                                 Thread.currentThread().interrupt();
                             }

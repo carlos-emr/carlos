@@ -66,7 +66,13 @@ public class CdsExportDataSummaryPdfService {
             CdsExportDataSummaryPlanner.Group group, CdsExportDataSummaryHtmlComposer.Patient patient)
             throws IOException {
         String html = composer.compose(group, patient);
-        Path empty = Files.createTempDirectory("cds-data-summary");
+        // Owner-only, so nobody else can place a resource in the directory the renderer allows.
+        Path empty =
+                Files.createTempDirectory(
+                        "cds-data-summary",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rwx------")));
         try {
             io.github.carlos_emr.carlos.documentManager.htmlpdf.dto.HtmlPdfRenderResult result;
             try {

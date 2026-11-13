@@ -128,23 +128,27 @@ public class HRMReportParser {
      * A failure to build either is reported to the caller and retried on the next message.
      */
     private static final class Model {
-        private static volatile JAXBContext context;
-        private static volatile Schema schema;
+        private static final java.util.concurrent.atomic.AtomicReference<JAXBContext> CONTEXT =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        private static final java.util.concurrent.atomic.AtomicReference<Schema> SCHEMA =
+                new java.util.concurrent.atomic.AtomicReference<>();
 
         static JAXBContext context() throws JAXBException {
-            JAXBContext current = context;
+            JAXBContext current = CONTEXT.get();
             if (current != null) return current;
             synchronized (Model.class) {
-                if (context == null) context = JAXBContext.newInstance(OmdCds.class);
-                return context;
+                if (CONTEXT.get() == null) CONTEXT.set(JAXBContext.newInstance(OmdCds.class));
+                return CONTEXT.get();
             }
         }
 
+        // FindSecBugs XXE_SCHEMA_FACTORY: the factory is XmlUtils.createSecureSchemaFactory (secure processing, no external DTD or schema access) and imports resolve only from the bundled classpath schemas; the same code was excluded for parseReport before it moved here.
+        @SuppressFBWarnings(value = "XXE_SCHEMA_FACTORY", justification = "factory from XmlUtils.createSecureSchemaFactory with external DTD and schema access disabled; imports resolve only from bundled classpath schemas")
         static Schema schema() throws IOException, SAXException {
-            Schema current = schema;
+            Schema current = SCHEMA.get();
             if (current != null) return current;
             synchronized (Model.class) {
-                if (schema == null) {
+                if (SCHEMA.get() == null) {
                     SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
                         XMLConstants.W3C_XML_SCHEMA_NS_URI);
                     factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
@@ -155,10 +159,10 @@ public class HRMReportParser {
                     try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
                         Source schemaSource = new StreamSource(schemaInputStream);
                         schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
-                        schema = factory.newSchema(schemaSource);
+                        SCHEMA.set(factory.newSchema(schemaSource));
                     }
                 }
-                return schema;
+                return SCHEMA.get();
             }
         }
     }

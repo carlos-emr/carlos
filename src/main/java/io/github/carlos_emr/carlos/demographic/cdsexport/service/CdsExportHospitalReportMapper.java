@@ -178,6 +178,33 @@ final class CdsExportHospitalReportMapper {
             rows = List.copyOf(rows);
         }
 
+        // Records compare arrays by identity; a result is equal by the names it carries.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Result that
+                    && text.equals(that.text)
+                    && dates.equals(that.dates)
+                    && java.util.Arrays.equals(author, that.author)
+                    && java.util.Arrays.equals(recipient, that.recipient)
+                    && reviewers.equals(that.reviewers)
+                    && observations.equals(that.observations)
+                    && fields.equals(that.fields)
+                    && rows.equals(that.rows);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(
+                    text,
+                    dates,
+                    java.util.Arrays.hashCode(author),
+                    java.util.Arrays.hashCode(recipient),
+                    reviewers,
+                    observations,
+                    fields,
+                    rows);
+        }
+
         @Override
         public String toString() {
             return "CdsExportHospitalReportMapper.Result[protected]";

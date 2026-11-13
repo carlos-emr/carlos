@@ -189,7 +189,7 @@ final class CdsExportDataSummaryHtmlComposer {
                 html.append("binary, ")
                         .append(value.bytes())
                         .append(" bytes, SHA-256 ")
-                        .append(value.sha256())
+                        .append(SafeEncode.forHtmlContent(value.sha256()))
                         .append("</span>");
                 binary(html, value.content(), presentation);
             }
@@ -216,7 +216,7 @@ final class CdsExportDataSummaryHtmlComposer {
                 html.append("<div class=\"state\">")
                         .append(decoded ? "Image (decoded from the stored Base64):" : "Image:")
                         .append("</div><div><img alt=\"stored image\" src=\"data:")
-                        .append(type)
+                        .append(SafeEncode.forHtmlAttribute(type))
                         .append(";base64,")
                         .append(Base64.getEncoder().encodeToString(image))
                         .append("\"/></div>");

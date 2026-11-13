@@ -884,12 +884,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         read.executeWithoutResult(status -> catalogue.readSourceSchema());
                         java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto>
                                 empty = read.execute(status -> catalogue.unreviewedLocalSources());
-                        assertThat(empty)
-                                .extracting(
-                                        io.github.carlos_emr.carlos.commn.dto
-                                                        .CdsExportLocalSourceDto
-                                                ::table)
-                                .doesNotContain(table);
+                        // The list may be empty: no unreviewed source is the expected state.
+                        assertThat(
+                                        empty.stream()
+                                                .map(
+                                                        io.github.carlos_emr.carlos.commn.dto
+                                                                        .CdsExportLocalSourceDto
+                                                                ::table)
+                                                .anyMatch(table::equals))
+                                .isFalse();
                     });
             sql.update("insert into `" + table + "` values (1)");
             stableLegacy(

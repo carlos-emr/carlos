@@ -64,7 +64,8 @@ final class CdsExportDataSummaryPlanner {
         Value {
             Objects.requireNonNull(storage);
             if ((storage == Storage.TEXT) != (text != null)
-                    || storage == Storage.BINARY && (sha256 == null || bytes < 0)
+                    || storage == Storage.BINARY
+                            && (sha256 == null || !sha256.matches("[0-9a-f]{64}") || bytes < 0)
                     || content != null && (storage != Storage.BINARY || content.length != bytes))
                 throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_VALUE_INVALID");
         }
@@ -75,6 +76,22 @@ final class CdsExportDataSummaryPlanner {
 
         static Value text(String text) {
             return new Value(Storage.TEXT, Objects.requireNonNull(text), 0, null, null);
+        }
+
+        // Records compare arrays by identity; a value is equal by its bytes.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Value that
+                    && storage == that.storage
+                    && bytes == that.bytes
+                    && Objects.equals(text, that.text)
+                    && Objects.equals(sha256, that.sha256)
+                    && java.util.Arrays.equals(content, that.content);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(storage, text, bytes, sha256, java.util.Arrays.hashCode(content));
         }
 
         @Override

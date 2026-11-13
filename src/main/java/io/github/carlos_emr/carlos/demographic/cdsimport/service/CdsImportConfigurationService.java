@@ -52,8 +52,10 @@ public class CdsImportConfigurationService {
         this.properties.putAll(properties);
     }
 
-    private volatile io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
-            nativeBaselineKeys;
+    // Built once from the immutable properties; a lost race builds an equal value.
+    private final java.util.concurrent.atomic.AtomicReference<
+                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys>
+            nativeBaselineKeys = new java.util.concurrent.atomic.AtomicReference<>();
 
     public boolean enabled() { return Boolean.parseBoolean(value("cds.import.enabled", "false")); }
 
@@ -75,12 +77,12 @@ public class CdsImportConfigurationService {
     /** Installation keys that seal native-baseline witnesses; files are read only when needed. */
     public io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
             nativeBaselineKeys() {
-        var keys = nativeBaselineKeys;
+        var keys = nativeBaselineKeys.get();
         if (keys == null) {
             keys =
                     io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
                             .fromProperties(properties);
-            nativeBaselineKeys = keys;
+            if (!nativeBaselineKeys.compareAndSet(null, keys)) keys = nativeBaselineKeys.get();
         }
         return keys;
     }
