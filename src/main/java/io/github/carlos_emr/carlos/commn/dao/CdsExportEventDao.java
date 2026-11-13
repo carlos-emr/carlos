@@ -33,4 +33,10 @@ public class CdsExportEventDao extends AbstractDaoImpl<CdsExportEvent> {
         return entityManager.createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto(e.eventType,e.epoch,e.safeCode,e.createdAt) from CdsExportEvent e where e.runId=:run order by e.createdAt desc,e.id desc",
                 io.github.carlos_emr.carlos.commn.dto.CdsExportAuditRowDto.class).setParameter("run", run).setMaxResults(limit).getResultList();
     }
+
+    /** Safe codes of one generation's events of one type, oldest first; no actor or payload. */
+    public java.util.List<String> safeCodes(String run, long epoch, String type, int limit) {
+        return entityManager.createQuery("select e.safeCode from CdsExportEvent e where e.runId=:run and e.epoch=:epoch and e.eventType=:type order by e.createdAt asc,e.id asc",
+                String.class).setParameter("run", run).setParameter("epoch", epoch).setParameter("type", type).setMaxResults(limit).getResultList();
+    }
 }

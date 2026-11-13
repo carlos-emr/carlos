@@ -119,6 +119,16 @@ public final class CdsExportSupportingFilesComposer {
             line(readMe, "Unreviewed local table", local.table());
             line(readMe, "Unreviewed local table estimated rows", Long.toString(local.estimatedRows()));
         }
+        // Inbox rows linked to no patient (an unmatched lab or HRM report, an incoming document
+        // not yet filed) are in no chart; say how many were left out so none is lost silently.
+        line(
+                readMe,
+                "Unlinked inbox tables not exported",
+                Long.toString(metadata.unlinkedSources().size()));
+        for (var unlinked : metadata.unlinkedSources()) {
+            line(readMe, "Unlinked inbox table", unlinked.table());
+            line(readMe, "Unlinked inbox table rows", Long.toString(unlinked.rows()));
+        }
         readMe.write("Patient file paths below are complete within the named export container.\n");
         readMe.write(
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");

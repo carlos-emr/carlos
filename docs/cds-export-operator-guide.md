@@ -349,6 +349,24 @@ ReadMe lists, for each patient, each such table holding the patient's rows and
 how many, and, for the whole job, each such table with no patient link that holds
 rows.
 
+Inbox items that are linked to no patient yet are not part of any chart and no longer
+hold every patient: an HL7 lab or HRM report the inbox has not matched to a chart (or
+a lab unlinked from its chart), and the routing, acknowledgement and reviewer rows of
+an incoming document (fax, scan, upload) not yet filed to a chart. They are not
+exported. Each job counts them per table (`providerLabRouting`, `document_review`,
+`DocumentExtraReviewer`, `HRMDocument`, `HRMDocumentComment`, `HRMDocumentSubClass`,
+`HRMDocumentToProvider`) when its capture begins: the counts are recorded in the
+export ledger as `UNLINKED_SOURCE_ROWS` events, listed as `unlinkedSourceRows` in the
+diagnostic report (`--report`, or the browser's report download), written to the
+package ReadMe ("Unlinked inbox tables not exported", one table and row count each)
+and to the application log as `CDS_EXPORT_UNLINKED_SOURCE_ROWS`. Table names and
+counts only, never identifiers. File or match those items in the inbox before the
+transfer if the receiving clinic needs them. A row whose link is broken rather than
+absent (a link to a chart number that does not exist, a document filed under another
+module, a lab type spelled differently from its patient link, a parent row that is
+missing) could belong to any chart, so it still holds every patient
+(`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`, naming the table).
+
 Populated tables that this release does not know (another tool's bookkeeping
 table, a local backup copy) do not block an export. They are listed by name and
 estimated row count in the package ReadMe and in a protected log line

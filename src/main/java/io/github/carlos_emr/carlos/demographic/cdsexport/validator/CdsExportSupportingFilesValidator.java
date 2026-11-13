@@ -152,6 +152,13 @@ public final class CdsExportSupportingFilesValidator {
             text.field(
                     "Unreviewed local table estimated rows", Long.toString(local.estimatedRows()));
         }
+        text.field(
+                "Unlinked inbox tables not exported",
+                Long.toString(metadata.unlinkedSources().size()));
+        for (var unlinked : metadata.unlinkedSources()) {
+            text.field("Unlinked inbox table", unlinked.table());
+            text.field("Unlinked inbox table rows", Long.toString(unlinked.rows()));
+        }
         text.exact("Patient file paths below are complete within the named export container.");
         text.exact(
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.");

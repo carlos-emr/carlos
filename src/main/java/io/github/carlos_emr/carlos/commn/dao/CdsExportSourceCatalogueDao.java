@@ -20,6 +20,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.*;
 
 import jakarta.persistence.*;
@@ -154,9 +155,74 @@ public class CdsExportSourceCatalogueDao {
                                 CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
                     review();
                 }
+            } else if (disposition == CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE
+                    && CdsExportIndirectPatientScopeReadSupport.supports(table)) {
+                // A mapped inbox table is captured through the chart its rows are linked to, and
+                // its unlinked inbox rows belong to no chart (counted by unlinkedSourceRows). A row
+                // that is neither may belong to any chart, so it still holds this one.
+                String statement =
+                        "select 1,1 from `"
+                                + table
+                                + "` d where "
+                                + CdsExportIndirectPatientScopeReadSupport.unattributable(
+                                        table, profile);
+                // Identifiers only from the pinned catalogue and the compiled parent scopes.
+                // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+                if (!entityManager
+                        .createNativeQuery(statement)
+                        .setMaxResults(1)
+                        .setHint("org.hibernate.timeout", 120)
+                        .getResultList()
+                        .isEmpty()) {
+                    sourceNotice(
+                            CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED,
+                            List.of(table));
+                    throw new CdsExportReviewException(
+                            CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
+                }
             }
         }
         checkpoint.run();
+    }
+
+    /**
+     * Rows of the reviewed inbox tables that are linked to no patient: a lab or HRM report the
+     * inbox has not matched to a chart yet, or the routing and reviewers of an incoming document
+     * not yet filed. They are part of no chart, so no patient is held for them; the job counts
+     * them per table so their exclusion is visible to the operator instead of silent. Counts
+     * only, never identifiers or values.
+     */
+    // Identifiers come only from the immutable pinned catalogue and the compiled parent scopes.
+    @SuppressWarnings("java:S2077")
+    public List<CdsExportUnlinkedSourceDto> unlinkedSourceRows() {
+        snapshot();
+        var catalogue = CdsExportSourceCatalogue.current();
+        int caseMode = tableNameCaseMode();
+        var profile = profile(catalogue, engines(caseMode).keySet(), caseMode).profile();
+        var result = new ArrayList<CdsExportUnlinkedSourceDto>();
+        for (String table : CdsExportIndirectPatientScopeReadSupport.unlinkedTables()) {
+            if (!profile.tables().containsKey(table)) continue;
+            if (!profile.tables().get(table).engine().equals("InnoDB")) review();
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+            Object value =
+                    entityManager
+                            .createNativeQuery(
+                                    "select count(*) from `"
+                                            + table
+                                            + "` d where "
+                                            + CdsExportIndirectPatientScopeReadSupport.unlinked(
+                                                    table, profile))
+                            .setHint("org.hibernate.timeout", 120)
+                            .getSingleResult();
+            if (!(value instanceof Number number)) {
+                review();
+                continue;
+            }
+            long rows = number.longValue();
+            if (rows < 0) review();
+            if (rows > 0) result.add(new CdsExportUnlinkedSourceDto(table, rows));
+        }
+        return List.copyOf(result);
     }
 
     /** Patient ownership is a reviewed read scope, never approval to omit a selected clinical row. */

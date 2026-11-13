@@ -1007,6 +1007,73 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                 }));
     }
 
+    private java.util.Map<String, Long> unlinkedCounts() {
+        var result = new java.util.TreeMap<String, Long>();
+        stableLegacy(
+                () ->
+                        read.executeWithoutResult(
+                                status -> {
+                                    catalogue.readSourceSchema();
+                                    for (var row : catalogue.unlinkedSourceRows())
+                                        result.put(row.table(), row.rows());
+                                }));
+        return result;
+    }
+
+    @Test
+    void shouldHoldNoChartForUnlinkedInboxRows_andCountThemForTheJob() {
+        int report = patient + 600, lab = patient + 700, route = patient + 800;
+        var before = unlinkedCounts();
+        try {
+            // An HRM report and an HL7 lab the inbox has not matched to any patient.
+            sql.update(
+                    "insert into HRMDocument(id,reportType,reportStatus,timeReceived)"
+                            + " values(?,'synthetic','S',CURRENT_TIMESTAMP)",
+                    report);
+            sql.update(
+                    "insert into"
+                        + " providerLabRouting(id,lab_no,lab_type,provider_no,status,timestamp)"
+                        + " values(?,?,'HL7','0','N',CURRENT_TIMESTAMP)",
+                    route,
+                    lab);
+            requireCatalogueScope();
+            var after = unlinkedCounts();
+            assertThat(after.get("HRMDocument"))
+                    .isGreaterThanOrEqualTo(before.getOrDefault("HRMDocument", 0L) + 1);
+            assertThat(after.get("providerLabRouting"))
+                    .isGreaterThanOrEqualTo(before.getOrDefault("providerLabRouting", 0L) + 1);
+            // A route whose patient link names no existing chart could be anyone's: it holds.
+            sql.update(
+                    "insert into"
+                        + " patientLabRouting(id,lab_no,lab_type,demographic_no,created,dateModified)"
+                        + " values(?,?,'HL7',?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                    route,
+                    lab,
+                    patient + 900);
+            stableLegacy(
+                    () ->
+                            assertThatThrownBy(
+                                            () ->
+                                                    read.executeWithoutResult(
+                                                            status ->
+                                                                    catalogue
+                                                                            .requireUnclassifiedSourcesEmpty(
+                                                                                    patient,
+                                                                                    () -> {})))
+                                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
+        } finally {
+            sql.update(
+                    "delete from patientLabRouting where id=? and lab_no=? and lab_type='HL7'",
+                    route,
+                    lab);
+            sql.update(
+                    "delete from providerLabRouting where id=? and lab_no=? and lab_type='HL7'",
+                    route,
+                    lab);
+            sql.update("delete from HRMDocument where id=? and reportType='synthetic'", report);
+        }
+    }
+
     @Test
     void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
         // Legacy pre-prevention immunization rows are still unreviewed; the CAISI hospitalisation

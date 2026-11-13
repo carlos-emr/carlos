@@ -205,6 +205,18 @@ public class CdsExportNativeCaptureService {
         return read.execute(status -> source.listedClinicSources());
     }
 
+    /**
+     * Rows of the reviewed inbox tables that name no patient, counted per table in one read-only
+     * snapshot. They hold no chart and are never read for values; the job reports the counts so
+     * their exclusion from every chart is visible to the operator.
+     */
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto>
+            unlinkedSourceRows() {
+        if (!(readers.get("clinical_source_catalogue") instanceof CdsExportSourceCatalogueReader catalogue))
+            throw new IllegalStateException("CDS_EXPORT_CAPTURE_DEPENDENCY_MISSING");
+        return read.execute(status -> catalogue.unlinkedSourceRows());
+    }
+
     /** A per-capture definition keeps concurrent jobs from mutating a shared transaction template. */
     private TransactionTemplate captureTransaction() {
         var transaction =

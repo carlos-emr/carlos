@@ -189,6 +189,19 @@ public class CdsExportClinicalPackageService {
         var physicians = new TreeMap<String, CdsExportPhysicianSummaryDto>();
         var billingNames = new HashMap<String, String>();
         var tables = captures.requiredTables(lease.document().command());
+        // Inbox rows linked to no patient hold no chart and are never read. Count them once for
+        // this generation, before any chart is captured, so their exclusion is recorded in the
+        // run's event ledger, the diagnostic report and the ReadMe instead of being silent.
+        var unlinked = captures.unlinkedSourceRows();
+        ledger.recordUnlinkedSources(lease, unlinked);
+        if (!unlinked.isEmpty())
+            // Table names and counts only; no row, identifier or value.
+            LOG.info(
+                    "CDS_EXPORT_UNLINKED_SOURCE_ROWS run={} counts={}",
+                    lease.runId(),
+                    unlinked.stream()
+                            .map(value -> value.table() + "=" + value.rows())
+                            .toList());
         long[] metadataBytes = {0};
         long patients = 0, expectedMembers = 2;
         boolean complete = false;
@@ -308,7 +321,8 @@ public class CdsExportClinicalPackageService {
                             policy.auditAccessDescription(),
                             List.copyOf(held.values()),
                             localSources,
-                            captures.listedClinicSources());
+                            captures.listedClinicSources(),
+                            unlinked);
             var byPatient = new TreeMap<Integer, PatientFile>();
             for (var file : files.values())
                 if (byPatient.putIfAbsent(file.document().patient(), file) != null

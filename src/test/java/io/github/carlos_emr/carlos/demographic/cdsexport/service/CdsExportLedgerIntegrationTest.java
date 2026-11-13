@@ -1025,6 +1025,48 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldRecordUnlinkedInboxCountsOnce_andListThemInTheDiagnosticReport() throws Exception {
+        var lease = boundLease(List.of(27));
+        var cohort = preparedCohort(lease, List.of(27));
+        ledger.sealSelection(lease, cohort.sealed());
+        var counts =
+                List.of(
+                        new io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto(
+                                "providerLabRouting", 43),
+                        new io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto(
+                                "HRMDocument", 4));
+        ledger.recordUnlinkedSources(lease, counts);
+        // A replay of the same generation records nothing new; different counts are refused.
+        ledger.recordUnlinkedSources(lease, counts);
+        assertThatThrownBy(() -> ledger.recordUnlinkedSources(lease, counts.subList(0, 1)))
+                .hasMessage("CDS_EXPORT_UNLINKED_SOURCE_CONFLICT");
+        assertThat(
+                        sql.queryForList(
+                                "select safe_code from cds_export_event where run_id=? and"
+                                        + " event_type='UNLINKED_SOURCE_ROWS' order by safe_code",
+                                String.class,
+                                lease.runId()))
+                .containsExactly(
+                        "CDS_EXPORT_UNLINKED_HRMDOCUMENT_ROWS_4",
+                        "CDS_EXPORT_UNLINKED_PROVIDERLABROUTING_ROWS_43");
+        var report = ledger.diagnostic(lease.runId());
+        assertThat(report.unlinkedSourceRows())
+                .containsExactly(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportDiagnosticDto.Unlinked("HRMDocument", 4),
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportDiagnosticDto.Unlinked("providerLabRouting", 43));
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report))
+                .contains(
+                        "\"unlinkedSourceRows\":[{\"table\":\"HRMDocument\",\"rows\":4},"
+                                + "{\"table\":\"providerLabRouting\",\"rows\":43}]");
+        ledger.phase(lease, CdsExportState.RECONCILING);
+        // Only while the generation is capturing.
+        assertThatThrownBy(() -> ledger.recordUnlinkedSources(lease, counts))
+                .hasMessage("CDS_EXPORT_PHASE_INVALID");
+    }
+
+    @Test
     void shouldRefuseAHeldListThatChanges_betweenPreparedAndEncryptedRetention() throws Exception {
         var f =
                 artifactFixture(

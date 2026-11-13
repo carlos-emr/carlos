@@ -233,6 +233,36 @@ public class CdsExportLedgerService {
                                         .CdsExportDiagnosticDto.Held(
                                         value.patient(), value.safeCode()));
                     }
+                    var unlinked =
+                            new java.util.ArrayList<
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportDiagnosticDto.Unlinked>();
+                    for (String code :
+                            events.safeCodes(
+                                    id,
+                                    row.epoch(),
+                                    io.github.carlos_emr.carlos.commn.dto
+                                            .CdsExportUnlinkedSourceDto.EVENT,
+                                    65)) {
+                        var value =
+                                io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto
+                                        .fromEventCode(code)
+                                        .orElseThrow(
+                                                () ->
+                                                        new IllegalStateException(
+                                                                "CDS_EXPORT_DIAGNOSTIC_INVALID"));
+                        unlinked.add(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportDiagnosticDto.Unlinked(
+                                        value.table(), value.rows()));
+                    }
+                    if (unlinked.size() > 64)
+                        throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+                    unlinked.sort(
+                            java.util.Comparator.comparing(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                    .CdsExportDiagnosticDto.Unlinked
+                                            ::table));
                     return new io.github.carlos_emr.carlos.demographic.cdsexport.dto
                             .CdsExportDiagnosticDto(
                             1,
@@ -252,7 +282,8 @@ public class CdsExportLedgerService {
                             recent.size() > 128,
                             audit,
                             heldRows.size() > MAX_REPORTED_HELD,
-                            held);
+                            held,
+                            unlinked);
                 });
     }
 
@@ -1068,6 +1099,50 @@ public class CdsExportLedgerService {
         public String toString() {
             return "CdsExportCleanup[protected]";
         }
+    }
+
+    /**
+     * Records, once for this attempt generation, how many rows of each reviewed inbox table named
+     * no patient when its capture began. Those rows hold no chart and are not exported, so the
+     * counts go into the run's event ledger, the audit trail of the export, from which the
+     * diagnostic report lists them. One {@code UNLINKED_SOURCE_ROWS} event per table with rows;
+     * its safe code carries only the table and the count. A replay of the same generation must
+     * record exactly the same counts.
+     */
+    public void recordUnlinkedSources(
+            CdsExportLeaseDto lease,
+            List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto> rows) {
+        var codes = new java.util.TreeSet<String>();
+        for (var row : List.copyOf(rows)) {
+            String code = Objects.requireNonNull(row).eventCode();
+            safeCode(code);
+            if (!codes.add(code)
+                    || rows.stream().filter(other -> other.table().equals(row.table())).count()
+                            != 1) throw new IllegalArgumentException("CDS_EXPORT_UNLINKED_SOURCE_INVALID");
+        }
+        transaction(
+                write,
+                () -> {
+                    var run = owned(lease);
+                    var now = runs.now();
+                    if (run.isCancelRequested())
+                        throw new CancellationException("CDS_EXPORT_CANCELLED");
+                    if (state(run) != CdsExportState.CAPTURING)
+                        throw new IllegalStateException("CDS_EXPORT_PHASE_INVALID");
+                    String event =
+                            io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto.EVENT;
+                    var recorded =
+                            events.safeCodes(run.getId(), lease.epoch(), event, codes.size() + 2);
+                    if (!recorded.isEmpty()) {
+                        if (!new java.util.TreeSet<>(recorded).equals(codes)
+                                || recorded.size() != codes.size())
+                            throw new IllegalStateException("CDS_EXPORT_UNLINKED_SOURCE_CONFLICT");
+                        return null;
+                    }
+                    for (String code : codes)
+                        event(run, event, lease.document().actor().operatorKey(), code, now);
+                    return null;
+                });
     }
 
     public void phase(CdsExportLeaseDto lease, CdsExportState next) {

@@ -35,6 +35,7 @@
   "io.github.carlos_emr.carlos.commn.dao.CdsHospitalisationDaysDaoIntegrationTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDaoUnitTest",
   "io.github.carlos_emr.carlos.commn.dao.CdsLaboratoryResultDaoUnitTest",
+  "io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDtoUnitTest",
   "io.github.carlos_emr.carlos.demographic.CdsTransferConstructorInjectionUnitTest",
   "io.github.carlos_emr.carlos.demographic.CdsTransferInjectionRegressionTest",
   "io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessProtocolUnitTest",

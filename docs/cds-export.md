@@ -304,6 +304,38 @@ encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
 patient's output is accepted.
 
+Inbox rows that name no patient hold no chart. The presence check of a must-be-empty table
+reached through a parent (`CdsExportIndirectPatientScopeReadSupport`) used to treat every
+row whose parent chain reached no patient as possibly anyone's, so an HL7 lab that the
+inbox had not matched yet (`MessageUploader` writes no `patientLabRouting` row, and the
+unlink action sets its `demographic_no` to `PatientLabRoutingDao.UNMATCHED`, 0), an
+incoming document not yet filed (its `ctl_document` link is `('demographic', -1)`) and an
+HRM report not matched to a patient (no `HRMDocumentToDemographic` row) held every
+selected chart. For the inbox tables (`providerLabRouting`, `document_review`,
+`DocumentExtraReviewer`, `HRMDocument`, `HRMDocumentComment`, `HRMDocumentSubClass`,
+`HRMDocumentToProvider`) one generic rule now sorts every row into one of three kinds:
+linked (its exact chain reaches an existing `demographic` row; it belongs to that chart
+only), unlinked (every parent before the patient link exists exactly, and no link row,
+matched as leniently as the column collation allows, names anything but the unmatched
+placeholder) and unattributable (anything else: a missing parent, a link to a chart that
+does not exist, another `ctl_document` module, a lab type equal to its link's type under
+the collation but not byte for byte, a routing row with no type). Unlinked rows are
+excluded from every chart; unattributable rows still hold every chart. A `DOC` routing
+row is scoped through the document's `ctl_document` chart link, like the document itself
+(a reassigned document keeps its earlier `patientLabRouting` row); every other routing
+type is scoped through `patientLabRouting` of exactly the same type, so an MDS lab never
+lends its number to an HL7 lab. `document_storage` and the other parent-scoped tables
+keep the earlier rule. The exclusion is visible, not silent:
+`CdsExportClinicalPackageService` counts the unlinked rows per table once per attempt
+generation before any chart is captured (`CdsExportSourceCatalogueDao.unlinkedSourceRows`,
+counts only) and `CdsExportLedgerService.recordUnlinkedSources` writes one
+`UNLINKED_SOURCE_ROWS` event per table to the run's event ledger, whose safe code carries
+only the table and count (`CDS_EXPORT_UNLINKED_PROVIDERLABROUTING_ROWS_43`,
+`CdsExportUnlinkedSourceDto`); a replay of the generation must record the same counts.
+The diagnostic report lists them as `unlinkedSourceRows`, the ReadMe as "Unlinked inbox
+tables not exported" (checked again by the supporting-files validator), and the log line
+`CDS_EXPORT_UNLINKED_SOURCE_ROWS` names tables and counts. No migration was needed.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). A download re-verifies

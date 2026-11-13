@@ -221,7 +221,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                         metadata.auditAccessDescription(),
                         List.of(),
                         List.of(),
-                        listedClinic);
+                        listedClinic,
+                        List.of());
         var summaries = new java.util.LinkedHashMap<String, Long>();
         summaries.put("Encounter form", 80L);
         summaries.put("Tickler", 1L);
@@ -275,6 +276,57 @@ class CdsExportSupportingFilesValidatorUnitTest {
         assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
         metadata = complete;
         actual = plain;
+    }
+
+    @Test
+    void shouldRefuseAReadmeWithADifferentUnlinkedInboxCount_thanTheMetadata() throws Exception {
+        var counted =
+                new CdsExportPackageMetadataDto(
+                        metadata.exportRoot(),
+                        metadata.physicianGroup(),
+                        metadata.groupContactInformation(),
+                        metadata.applicationVersion(),
+                        metadata.exportTime(),
+                        metadata.clinicalZone(),
+                        metadata.profile(),
+                        metadata.categories(),
+                        metadata.auditAccessDescription(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(
+                                new io.github.carlos_emr.carlos.commn.dto
+                                        .CdsExportUnlinkedSourceDto("providerLabRouting", 43)));
+        var complete = metadata;
+        metadata = counted;
+        // A ReadMe that says nothing was left out must not validate for a job that left rows out.
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        var text = new ByteArrayOutputStream();
+        new CdsExportSupportingFilesComposer()
+                .compose(
+                        text,
+                        new ByteArrayOutputStream(),
+                        counted,
+                        physicians.iterator(),
+                        List.of(
+                                        new CdsExportPatientSummaryDto(
+                                                actual.getFirst().naming(),
+                                                actual.getFirst().xml().occurrences(),
+                                                null,
+                                                null,
+                                                actual.getFirst().xml().xmlSha256(),
+                                                actual.getFirst().xml().xmlBytes()))
+                                .iterator(),
+                        () -> {});
+        readMe = text.toByteArray();
+        assertThat(validate().patientFiles()).isEqualTo(1);
+        readMe =
+                replace(
+                        readMe,
+                        "Unlinked inbox table rows: \"43\"",
+                        "Unlinked inbox table rows: \"42\"");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        metadata = complete;
     }
 
     @Test

@@ -115,6 +115,57 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
         }
     }
 
+    /** Whether one fixture row holds the patient; other rows of the shared database are ignored. */
+    private boolean blocked(String table, String key, int id, int patient) throws Exception {
+        return matches(
+                table,
+                key,
+                id,
+                CdsExportIndirectPatientScopeReadSupport.predicate(table, profile),
+                patient);
+    }
+
+    private boolean unlinked(String table, String key, int id) throws Exception {
+        return matches(
+                table,
+                key,
+                id,
+                CdsExportIndirectPatientScopeReadSupport.unlinked(table, profile),
+                null);
+    }
+
+    private boolean unattributable(String table, String key, int id) throws Exception {
+        return matches(
+                table,
+                key,
+                id,
+                CdsExportIndirectPatientScopeReadSupport.unattributable(table, profile),
+                null);
+    }
+
+    private boolean matches(String table, String key, int id, String predicate, Integer patient)
+            throws Exception {
+        String sql = "SELECT 1 FROM `" + table + "` d WHERE d.`" + key + "`=? AND " + predicate;
+        // A table with several reviewed chains names the patient once per chain.
+        int occurrences = sql.split(":patient", -1).length - 1;
+        try (var s = db.prepareStatement(sql.replace(":patient", "?"))) {
+            s.setInt(1, id);
+            for (int i = 0; i < occurrences; i++) s.setInt(i + 2, patient);
+            s.setMaxRows(1);
+            s.setQueryTimeout(20);
+            try (var rows = s.executeQuery()) {
+                return rows.next();
+            }
+        }
+    }
+
+    private int document() throws Exception {
+        return insert(
+                "INSERT INTO"
+                    + " document(doctype,docdesc,docxml,docfilename,doccreator,responsible,status,contenttype,public1,number_of_pages,restrictToProgram)"
+                    + " VALUES('scope','synthetic','','scope-unused.txt','999998','999998','A','text/plain',0,1,0)");
+    }
+
     @Test
     void shouldResolveFormChildOwnership_onActualMariaDbAndKeepOrphansBlocking() throws Exception {
         int parent =
@@ -241,7 +292,7 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldKeepLegacyLabTypesDistinct_onActualMariaDbAndRefuseAnOrphanProviderRoute()
+    void shouldKeepLegacyLabTypesDistinct_onActualMariaDbAndCountAnUnmatchedProviderRoute()
             throws Exception {
         int lab = 1_900_000_000 + selected;
         int patientRoute =
@@ -256,13 +307,116 @@ class CdsExportIndirectPatientScopeMariaDbIntegrationTest {
                         + " VALUES(?,'MDS',?,NOW(),NOW())",
                 lab,
                 selected);
-        insert(
-                "INSERT INTO providerLabRouting(lab_no,lab_type,provider_no,status,timestamp)"
-                        + " VALUES(?,'HL7','999998','N',NOW())",
-                lab);
-        assertThat(blocked("providerLabRouting", selected)).isFalse();
-        assertThat(blocked("providerLabRouting", other)).isTrue();
+        int route =
+                insert(
+                        "INSERT INTO"
+                            + " providerLabRouting(lab_no,lab_type,provider_no,status,timestamp)"
+                            + " VALUES(?,'HL7','999998','N',NOW())",
+                        lab);
+        assertThat(blocked("providerLabRouting", "id", route, selected)).isFalse();
+        assertThat(blocked("providerLabRouting", "id", route, other)).isTrue();
+        // The MDS lab with the same number is another report: the HL7 lab is now unmatched.
         update("DELETE FROM patientLabRouting WHERE id=?", patientRoute);
-        assertThat(blocked("providerLabRouting", selected)).isTrue();
+        assertThat(blocked("providerLabRouting", "id", route, selected)).isFalse();
+        assertThat(blocked("providerLabRouting", "id", route, other)).isFalse();
+        assertThat(unlinked("providerLabRouting", "id", route)).isTrue();
+    }
+
+    @Test
+    void shouldCountUnmatchedInboxLabs_onActualMariaDbAndHoldMalformedRoutes() throws Exception {
+        int lab = 1_910_000_000 + selected;
+        int route =
+                insert(
+                        "INSERT INTO"
+                            + " providerLabRouting(lab_no,lab_type,provider_no,status,timestamp)"
+                            + " VALUES(?,'HL7','0','N',NOW())",
+                        lab);
+        assertThat(unlinked("providerLabRouting", "id", route)).isTrue();
+        assertThat(blocked("providerLabRouting", "id", route, selected)).isFalse();
+        // Unlinked from a chart: PatientLabRoutingDao.UNMATCHED.
+        int patientRoute =
+                insert(
+                        "INSERT INTO"
+                            + " patientLabRouting(lab_no,lab_type,demographic_no,created,dateModified)"
+                            + " VALUES(?,'HL7',0,NOW(),NOW())",
+                        lab);
+        assertThat(unlinked("providerLabRouting", "id", route)).isTrue();
+        // The same type under the column collation but not byte for byte: never unlinked.
+        update(
+                "UPDATE patientLabRouting SET lab_type='hl7',demographic_no=? WHERE id=?",
+                selected,
+                patientRoute);
+        assertThat(unlinked("providerLabRouting", "id", route)).isFalse();
+        assertThat(unattributable("providerLabRouting", "id", route)).isTrue();
+        assertThat(blocked("providerLabRouting", "id", route, other)).isTrue();
+        // A link to a chart that does not exist could be anyone's.
+        update(
+                "UPDATE patientLabRouting SET lab_type='HL7',demographic_no=? WHERE id=?",
+                Integer.MAX_VALUE - 7,
+                patientRoute);
+        assertThat(unlinked("providerLabRouting", "id", route)).isFalse();
+        assertThat(blocked("providerLabRouting", "id", route, other)).isTrue();
+    }
+
+    @Test
+    void shouldCountIncomingDocumentRoutesAndReviewers_onActualMariaDbAsUnlinked() throws Exception {
+        int document = document();
+        update(
+                "INSERT INTO ctl_document(module,module_id,document_no,status)"
+                        + " VALUES('demographic',-1,?,'A')",
+                document);
+        int route =
+                insert(
+                        "INSERT INTO"
+                            + " providerLabRouting(lab_no,lab_type,provider_no,status,timestamp)"
+                            + " VALUES(?,'DOC','0','N',NOW())",
+                        document);
+        int extra =
+                insert(
+                        "INSERT INTO DocumentExtraReviewer(documentNo,reviewerProviderNo,reviewDateTime)"
+                                + " VALUES(?,'999998',NOW())",
+                        document);
+        int review =
+                insert(
+                        "INSERT INTO document_review(document_no,provider_no,date_reviewed)"
+                                + " VALUES(?,'999998',NOW())",
+                        document);
+        assertThat(unlinked("providerLabRouting", "id", route)).isTrue();
+        assertThat(unlinked("DocumentExtraReviewer", "id", extra)).isTrue();
+        assertThat(unlinked("document_review", "id", review)).isTrue();
+        assertThat(blocked("providerLabRouting", "id", route, selected)).isFalse();
+        assertThat(blocked("document_review", "id", review, selected)).isFalse();
+        // Filed to a chart, the same rows belong to that chart only.
+        update(
+                "UPDATE ctl_document SET module_id=? WHERE document_no=?", other, document);
+        assertThat(unlinked("providerLabRouting", "id", route)).isFalse();
+        assertThat(blocked("providerLabRouting", "id", route, other)).isTrue();
+        assertThat(blocked("providerLabRouting", "id", route, selected)).isFalse();
+        assertThat(blocked("DocumentExtraReviewer", "id", extra, other)).isTrue();
+        assertThat(blocked("DocumentExtraReviewer", "id", extra, selected)).isFalse();
+    }
+
+    @Test
+    void shouldCountAnHrmReportMatchedToNoPatient_onActualMariaDbAsUnlinked() throws Exception {
+        int report =
+                insert(
+                        "INSERT INTO HRMDocument(reportType,reportStatus,timeReceived)"
+                                + " VALUES('synthetic','S',NOW())");
+        int recipient =
+                insert(
+                        "INSERT INTO HRMDocumentToProvider(hrmDocumentId,providerNo,signedOff,viewed)"
+                                + " VALUES(?,'999998',0,0)",
+                        Integer.toString(report));
+        assertThat(unlinked("HRMDocument", "id", report)).isTrue();
+        assertThat(unlinked("HRMDocumentToProvider", "id", recipient)).isTrue();
+        assertThat(blocked("HRMDocumentToProvider", "id", recipient, selected)).isFalse();
+        insert(
+                "INSERT INTO HRMDocumentToDemographic(demographicNo,hrmDocumentId,timeAssigned)"
+                        + " VALUES(?,?,NOW())",
+                Integer.toString(other),
+                Integer.toString(report));
+        assertThat(unlinked("HRMDocumentToProvider", "id", recipient)).isFalse();
+        assertThat(blocked("HRMDocumentToProvider", "id", recipient, other)).isTrue();
+        assertThat(blocked("HRMDocumentToProvider", "id", recipient, selected)).isFalse();
     }
 }

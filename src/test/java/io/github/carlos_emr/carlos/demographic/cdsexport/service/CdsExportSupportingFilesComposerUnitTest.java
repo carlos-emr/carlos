@@ -189,12 +189,31 @@ class CdsExportSupportingFilesComposerUnitTest {
                         + "Unreviewed local table estimated rows: \"7\"\n");
     }
 
+    @Test void shouldListUnlinkedInboxCountsByTable_inTheReadMe() throws Exception {
+        var readMe = new ByteArrayOutputStream();
+        var base = metadata(Set.of(CdsCategory.DEMOGRAPHICS));
+        var counted = new CdsExportPackageMetadataDto(base.exportRoot(), base.physicianGroup(),
+                base.groupContactInformation(), base.applicationVersion(), base.exportTime(),
+                base.clinicalZone(), base.profile(), base.categories(), base.auditAccessDescription(),
+                List.of(), List.of(), List.of(),
+                List.of(new io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto("HRMDocument", 4),
+                        new io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto(
+                                "providerLabRouting", 43)));
+        composer.compose(readMe, new ByteArrayOutputStream(), counted, List.of(physician(1)).iterator(),
+                List.of(demographicSummary("C27", "First")).iterator(), () -> {});
+        assertThat(readMe.toString(StandardCharsets.UTF_8)).contains(
+                "Unlinked inbox tables not exported: \"2\"\nUnlinked inbox table: \"HRMDocument\"\n"
+                        + "Unlinked inbox table rows: \"4\"\nUnlinked inbox table: \"providerLabRouting\"\n"
+                        + "Unlinked inbox table rows: \"43\"\n");
+    }
+
     @Test void shouldStateNoHeldPatientsOrLocalTables_forACompletePackage() throws Exception {
         var readMe = new ByteArrayOutputStream();
         composer.compose(readMe, new ByteArrayOutputStream(), metadata(Set.of(CdsCategory.DEMOGRAPHICS)),
                 List.of(physician(1)).iterator(), List.of(demographicSummary("C27", "First")).iterator(), () -> {});
         assertThat(readMe.toString(StandardCharsets.UTF_8)).contains(
-                "Held patients not in this package: \"0\"\n", "Unreviewed local tables not exported: \"0\"\n");
+                "Held patients not in this package: \"0\"\n", "Unreviewed local tables not exported: \"0\"\n",
+                "Unlinked inbox tables not exported: \"0\"\n");
     }
 
     private CdsExportPackageMetadataDto metadata(Set<CdsCategory> categories) {

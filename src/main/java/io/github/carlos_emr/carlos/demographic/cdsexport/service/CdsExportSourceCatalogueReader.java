@@ -81,6 +81,12 @@ public class CdsExportSourceCatalogueReader implements CdsExportNativeSourceRead
         return source.unreviewedLocalSources();
     }
 
+    /** Requires the caller's read-only transaction; per-table counts only, never rows or values. */
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportUnlinkedSourceDto>
+            unlinkedSourceRows() {
+        return source.unlinkedSourceRows();
+    }
+
     @Override
     public long count(int patient) {
         return count(patient, () -> {});

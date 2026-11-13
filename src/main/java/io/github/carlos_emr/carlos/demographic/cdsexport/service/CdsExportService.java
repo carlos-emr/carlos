@@ -385,7 +385,8 @@ public class CdsExportService {
                 report.eventsTruncated(),
                 report.recentEvents(),
                 report.heldPatientsTruncated(),
-                report.heldPatients());
+                report.heldPatients(),
+                report.unlinkedSourceRows());
     }
 
     /** Retrieval reconstructs the observer in the exact accepted clinical provider/facility scope. */
