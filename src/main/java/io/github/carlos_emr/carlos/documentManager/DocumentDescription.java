@@ -65,7 +65,8 @@ public final class DocumentDescription {
         }
         int room = Document.DESCRIPTION_MAX_LENGTH - tail.codePointCount(0, tail.length());
         if (room <= 0) {
-            return fit(whole);
+            // The suffix alone fills the column: keep as much of it as fits rather than the base.
+            return fit(tail);
         }
         return firstCodePoints(head, room).stripTrailing() + tail;
     }

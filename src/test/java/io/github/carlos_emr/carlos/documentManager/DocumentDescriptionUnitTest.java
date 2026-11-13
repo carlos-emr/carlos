@@ -84,6 +84,23 @@ class DocumentDescriptionUnitTest {
         assertThat(hasLoneSurrogate(built)).isFalse();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"s", EMOJI})
+    void shouldKeepTheWholeSuffix_whenTheSuffixAloneFillsTheColumn(String character) {
+        String suffix = character.repeat(MAX);
+
+        assertThat(DocumentDescription.fitWithSuffix("A", suffix)).isEqualTo(suffix);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"s", EMOJI})
+    void shouldKeepTheStartOfTheSuffix_whenTheSuffixAloneIsLongerThanTheColumn(String character) {
+        String built = DocumentDescription.fitWithSuffix("A", character.repeat(MAX + 1));
+
+        assertThat(built).isEqualTo(character.repeat(MAX));
+        assertThat(hasLoneSurrogate(built)).isFalse();
+    }
+
     @Test
     void shouldAppendTheSuffixUntouched_whenTheWholeDescriptionFits() {
         assertThat(DocumentDescription.fitWithSuffix("Consult letter", " (annotated)")).isEqualTo("Consult letter (annotated)");
