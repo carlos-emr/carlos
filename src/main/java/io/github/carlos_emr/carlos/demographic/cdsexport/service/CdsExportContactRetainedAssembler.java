@@ -30,9 +30,13 @@ import java.util.regex.Pattern;
 
 /**
  * Whole-patient personal-contact changes for one retained demographic parent. Every source
- * occurrence, current row and field is accounted for; missing units/rows, aliases and new
- * associations to an imported contact require review. Other demographic fields need their
- * own reconciliation before the parent may be serialized or clinically published.
+ * occurrence, current row and field is accounted for; missing units/rows and aliases require
+ * review. An imported contact removed or made inactive in CARLOS loses its element, and when the
+ * person is added again its row is decided with the new association like any added contact. An
+ * imported contact a further current association names (picked again from the contact search
+ * with another relationship) is decided with all its current associations and appended, its
+ * element replaced. Other demographic fields need their own reconciliation before the parent may
+ * be serialized or clinically published.
  */
 public final class CdsExportContactRetainedAssembler {
     private static final Pattern CONTACT =
@@ -152,6 +156,9 @@ public final class CdsExportContactRetainedAssembler {
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         var claimed = new HashSet<String>();
         var importedIds = new HashSet<String>();
+        // Imported contacts whose association was removed or made inactive in CARLOS: the person
+        // may be added again later through Manage Contacts, as a new association to the same row.
+        var superseded = new HashMap<String, CdsExportContactFieldReconciler.Result>();
         var consumedOrdinals = new HashSet<Long>();
         long imported = 0;
         var units =
@@ -166,6 +173,25 @@ public final class CdsExportContactRetainedAssembler {
                                                         .equals(row.fields().get("category")))
                         .sorted(Comparator.comparing(row -> row.fields().get("unit_key")))
                         .toList();
+        // Imported contacts a further current association names (the person picked again from
+        // the contact search, with another relationship).
+        var importedLinks = new HashSet<String>();
+        var importedContacts = new HashSet<String>();
+        for (var child : units)
+            for (var reference :
+                    index.references()
+                            .getOrDefault(run + ":" + child.fields().get("unit_key"), List.of()))
+                (reference.table().equals("Contact") ? importedContacts : importedLinks)
+                        .add(reference.id());
+        var named = new HashSet<String>();
+        for (var row : associations)
+            if ("2".equals(row.fields().get("type"))
+                    && !importedLinks.contains(row.fields().get("id"))
+                    && current(row)
+                    && importedContacts.contains(row.fields().get("contactId")))
+                named.add(row.fields().get("contactId"));
+        var regrouped = new LinkedHashSet<String>();
+        var regroupedRows = new ArrayList<CdsExportCapturedTextRowDto>();
         for (var child : units) {
             checkpoint.run();
             String address = run + ":" + child.fields().get("unit_key");
@@ -200,8 +226,27 @@ public final class CdsExportContactRetainedAssembler {
             if (!parentAddress.equals(decision.binding().parentUnitAddress())
                     || !consumedOrdinals.add(decision.binding().ordinal())) scope();
             for (var field : decision.binding().fields()) if (!claimed.add(field.id())) scope();
+            if (named.contains(contactId) && !decision.superseded()) {
+                // The imported relationship is still current and a further one names the same
+                // person: the contact is decided with all its current associations, as on any
+                // chart (one Contact, every purpose), and appended. The imported element is
+                // removed; its source fields stay in the import's retained source, replaced.
+                var ids = new HashSet<String>();
+                for (var field : decision.binding().fields()) ids.add(field.id());
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "Contact[" + decision.binding().ordinal() + "]", ids, null));
+                regrouped.add(contactId);
+                regroupedRows.add(nativeRows.get("DemographicContact:" + linkId));
+                regroupedRows.add(nativeRows.get("Contact:" + contactId));
+                imported++;
+                if (remaining.remove("Contact:" + contactId) == null
+                        || remaining.remove("DemographicContact:" + linkId) == null) scope();
+                continue;
+            }
             merge(fields, decision.fields());
             changes.addAll(decision.changes());
+            if (decision.superseded()) superseded.put(contactId, decision);
             imported++;
             if (remaining.remove("Contact:" + contactId) == null
                     || remaining.remove("DemographicContact:" + linkId) == null) scope();
@@ -210,16 +255,43 @@ public final class CdsExportContactRetainedAssembler {
             throw new IOException("CDS_EXPORT_CONTACT_SOURCE_OCCURRENCE_MISSING");
         var newAssociations = new ArrayList<CdsExportCapturedTextRowDto>();
         var newContacts = new ArrayList<CdsExportCapturedTextRowDto>();
+        var reused = new LinkedHashSet<String>();
         for (var row : remaining.values()) {
             checkpoint.run();
             if (row.table().equals("Contact")) newContacts.add(row);
             else {
+                String contactId = row.fields().get("contactId");
                 if ("2".equals(row.fields().get("type"))
-                        && importedIds.contains(row.fields().get("contactId")))
-                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
-                            "CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW");
+                        && importedIds.contains(contactId)
+                        && !regrouped.contains(contactId)) {
+                    // The imported association was removed or made inactive: the contact row is
+                    // decided with the later associations. Otherwise a later association that is
+                    // itself removed or inactive names the person without being their Contact
+                    // (decided as removed or carried) and the imported contact stays as it is; a
+                    // current one was regrouped above.
+                    if (superseded.containsKey(contactId)) reused.add(contactId);
+                    else if (current(row))
+                        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
+                                "CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW");
+                }
                 newAssociations.add(row);
             }
+        }
+        for (var row : regroupedRows) {
+            if (row == null) scope();
+            (row.table().equals("Contact") ? newContacts : newAssociations).add(row);
+        }
+        // A person removed (or made inactive) and later added again is a new association to the
+        // imported contact row: that row now belongs to the current association and is decided
+        // with it, like any newly added contact. The imported element stays removed.
+        for (String contactId : reused) {
+            checkpoint.run();
+            var row = nativeRows.get("Contact:" + contactId);
+            if (row == null) scope();
+            for (String column : row.fields().keySet())
+                if (fields.remove(new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column))
+                        == null) scope();
+            newContacts.add(row);
         }
         var added =
                 new CdsExportPersonalContactMapper()
@@ -269,7 +341,11 @@ public final class CdsExportContactRetainedAssembler {
         if (changes.size() > 4096) throw new IOException("CDS_EXPORT_CONTACT_RESOURCE_LIMIT");
         new CdsExportNativeFieldAssessmentValidator()
                 .validate(concat(associations, contacts), fields, 1_000_000, checkpoint);
-        if (imported + added.contacts().size() != contacts.size()) scope();
+        // Every contact row is claimed once: by its imported unit, or by the current associations
+        // decided above. A new contact that is removed or inactive is decided, not emitted, so the
+        // count is of rows, never of emitted Contact elements.
+        if (imported - reused.size() - regroupedRows.size() / 2 + newContacts.size()
+                != contacts.size()) scope();
         values.requireActive();
         checkpoint.run();
         return new Result(
@@ -280,6 +356,12 @@ public final class CdsExportContactRetainedAssembler {
                 claimed,
                 fields,
                 changes);
+    }
+
+    /** An association Manage Contacts lists as current: not deleted and active. */
+    private static boolean current(CdsExportCapturedTextRowDto association) {
+        return "0".equals(association.fields().get("deleted"))
+                && "1".equals(association.fields().get("active"));
     }
 
     private static List<CdsExportCapturedTextRowDto> concat(

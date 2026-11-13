@@ -48,6 +48,9 @@ class CdsExportContactRetainedAssemblerUnitTest {
         fixture.directory = directory;
         fixture.setup();
         graph = fixture.snapshot();
+        contacts.clear();
+        associations.clear();
+        witnesses.clear();
         contacts.add(graph.contact());
         associations.add(graph.association());
         witnesses.addAll(graph.witnesses());
@@ -160,12 +163,110 @@ class CdsExportContactRetainedAssemblerUnitTest {
     }
 
     @Test
-    void shouldVerifyANewAssociation_toAnImportedContactRequiresReview() {
+    void shouldExportTheContactWithBothRelationships_whenTheImportedPersonIsAddedAgain()
+            throws Exception {
+        // Updated: a second current association to an imported contact used to hold the chart
+        // (CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW). The person picked again from the
+        // contact search with another relationship is now one Contact with both purposes,
+        // appended, and the imported element is replaced.
+        singlePurposeImport();
         var extra = copy(graph.association(), 10, Map.of("role", "Care Giver"));
         associations.add(extra);
         witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(extra));
+        var result = prepare();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactlyInAnyOrder("Contact[1]", "Contact[2]");
+        String xml = render(result);
+        assertThat(xml.split("<Contact>", -1)).hasSize(2);
+        assertThat(xml)
+                .contains(
+                        "Source family",
+                        "<cdsd:PurposeAsEnum>NK</cdsd:PurposeAsEnum>",
+                        "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>")
+                // The current contact row is exported; the imported element, with its separate
+                // MiddleName, is replaced.
+                .doesNotContain("<cdsd:MiddleName>");
+        // An imported contact whose source had several purposes keeps only a placeholder role
+        // in CARLOS: grouping it with a new relationship cannot recover them, so it still holds.
+        setup();
+        extra = copy(graph.association(), 10, Map.of("role", "Care Giver"));
+        associations.add(extra);
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(extra));
         assertThatThrownBy(this::prepare)
-                .hasMessage("CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW");
+                .hasMessage("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldKeepTheImportedContact_whenALaterDuplicateAssociationWasRemoved() throws Exception {
+        var extra = copy(graph.association(), 10, Map.of("role", "Care Giver", "deleted", "1"));
+        associations.add(extra);
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(extra));
+        var result = prepare();
+        assertThat(result.changes()).isEmpty();
+        assertThat(render(result)).contains("Middle😀");
+    }
+
+    @Test
+    void shouldLeaveTheRemovedImportedContactOut_andAppendANewContactAsBefore() throws Exception {
+        // Import, then Manage Contacts: "Delete" on the imported contact and a new contact added.
+        edited("deleted", "1");
+        addContact();
+        var result = prepare();
+        assertThat(result.sourceContacts()).isEqualTo(1);
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactlyInAnyOrder("Contact[1]", "Contact[2]");
+        String xml = render(result);
+        assertThat(xml.split("<Contact>", -1)).hasSize(2);
+        assertThat(xml).contains("Grace", "Added family").doesNotContain("Source family", "Middle😀");
+        assertThat(xml).doesNotContain("<cdsd:MiddleName>");
+    }
+
+    @Test
+    void shouldExportTheImportedPersonAddedAgain_asTheirCurrentAssociation() throws Exception {
+        // Removed, then picked again from the contact search: a new association to the imported
+        // contact row. The imported element stays removed and the current relationship is exported.
+        edited("deleted", "1");
+        var again = copy(graph.association(), 10, Map.of("deleted", "0", "role", "Care Giver"));
+        associations.add(again);
+        witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(again));
+        var result = prepare();
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactlyInAnyOrder("Contact[1]", "Contact[2]");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "Contact",
+                                                CdsExportPatientTableSourceReader.key(7),
+                                                "lastName"))
+                                .destination())
+                .isEqualTo("Contact[2]/Name/LastName");
+        String xml = render(result);
+        assertThat(xml.split("<Contact>", -1)).hasSize(2);
+        assertThat(xml)
+                .contains("Source family", "<cdsd:PurposeAsEnum>CG</cdsd:PurposeAsEnum>")
+                .doesNotContain("<cdsd:MiddleName>");
+    }
+
+    @Test
+    void shouldAccountANewContactRemovedOrMadeInactive_withoutFailingTheImportedChart()
+            throws Exception {
+        for (var state : List.of(Map.of("deleted", "1"), Map.of("active", "0"))) {
+            setup();
+            addContact();
+            var link = copy(associations.getLast(), 10, state);
+            associations.set(associations.size() - 1, link);
+            witnesses.set(
+                    witnesses.size() - 1,
+                    CdsExportContactFieldReconcilerUnitTest.capturedWitness(link));
+            var result = prepare();
+            assertThat(result.changes()).isEmpty();
+            assertThat(result.fields()).hasSize(80);
+            assertThat(render(result)).contains("Middle😀").doesNotContain("Grace");
+        }
     }
 
     @Test
@@ -312,6 +413,35 @@ class CdsExportContactRetainedAssemblerUnitTest {
         assertThat(render(result)).contains("Current native");
     }
 
+    /** Rebuilds the imported chart from a source contact with a single purpose (NK). */
+    private void singlePurposeImport() throws Exception {
+        var fixture = new CdsExportContactFieldReconcilerUnitTest();
+        fixture.directory = directory;
+        fixture.singlePurpose();
+        graph = fixture.snapshot();
+        contacts.clear();
+        associations.clear();
+        witnesses.clear();
+        contacts.add(graph.contact());
+        associations.add(graph.association());
+        witnesses.addAll(graph.witnesses());
+    }
+
+    /** Rebuilds the imported chart with one association column as Manage Contacts leaves it. */
+    private void edited(String column, String value) throws Exception {
+        var fixture = new CdsExportContactFieldReconcilerUnitTest();
+        fixture.directory = directory;
+        fixture.setup();
+        fixture.editAssociation(column, value);
+        graph = fixture.snapshot();
+        contacts.clear();
+        associations.clear();
+        witnesses.clear();
+        contacts.add(graph.contact());
+        associations.add(graph.association());
+        witnesses.addAll(graph.witnesses());
+    }
+
     private CdsExportContactRetainedAssembler.Result prepare() throws Exception {
         return new CdsExportContactRetainedAssembler()
                 .prepare(
@@ -341,7 +471,15 @@ class CdsExportContactRetainedAssemblerUnitTest {
                                 "Added family",
                                 "email",
                                 "new@example.test"));
-        var link = copy(graph.association(), 10, Map.of("contactId", "8", "role", "Care Giver"));
+        var link =
+                copy(
+                        graph.association(),
+                        10,
+                        Map.of(
+                                "contactId", "8",
+                                "role", "Care Giver",
+                                "deleted", "0",
+                                "active", "1"));
         contacts.add(contact);
         associations.add(link);
         witnesses.add(CdsExportContactFieldReconcilerUnitTest.capturedWitness(contact));

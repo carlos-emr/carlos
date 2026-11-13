@@ -236,8 +236,15 @@ class CdsExportContactFieldReconcilerUnitTest {
             throws Exception {
         // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
         // no longer holds the chart, and an explicit refusal ("0") is now carried in the native
-        // demographic record; an inactive or deleted imported association still requires review.
+        // demographic record. Updated again: an imported association removed in Manage Contacts or
+        // marked Inactive no longer holds the chart (see the removal tests below); only a state no
+        // CARLOS screen writes still requires review.
         for (var entry : List.of(Map.entry("active", "0"), Map.entry("deleted", "1"))) {
+            association = new LinkedHashMap<>(oldAssociation);
+            association.put(entry.getKey(), entry.getValue());
+            assertThat(invoke().representable()).isTrue();
+        }
+        for (var entry : List.of(Map.entry("active", "2"), Map.entry("deleted", "2"))) {
             association = new LinkedHashMap<>(oldAssociation);
             association.put(entry.getKey(), entry.getValue());
             assertThat(invoke().representable()).isFalse();
@@ -250,6 +257,75 @@ class CdsExportContactFieldReconcilerUnitTest {
         // demographic NewCategory record and no longer holds the imported chart.
         contact.put("address", "Unmapped contact address");
         assertThat(invoke().representable()).isTrue();
+    }
+
+    @Test
+    void shouldRemoveTheImportedContactElement_whenManageContactsDeletesItsAssociation()
+            throws Exception {
+        // Contact2Action.removeContact keeps the association with deleted=1 (merge stamps
+        // updateDate): the person is no longer a contact of the chart.
+        association.put("deleted", "1");
+        association.put("updateDate", "2026-02-02 00:00:00");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.superseded()).isTrue();
+        assertThat(result.changes()).hasSize(1);
+        var change = result.changes().getFirst();
+        assertThat(change.relativePath()).isEqualTo("Contact[1]");
+        assertThat(change.content()).isNull();
+        assertThat(change.expectedPriorFields()).isEqualTo(contactFieldIds());
+        assertThat(rule(result, "DemographicContact", "deleted"))
+                .isEqualTo("REMOVED_IMPORTED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        assertThat(rule(result, "DemographicContact", "role"))
+                .isEqualTo("REMOVED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        assertThat(rule(result, "Contact", "firstName"))
+                .isEqualTo("CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        var prepared =
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(fields, values(), result.changes(), () -> {});
+        assertThat(prepared.replacedFields()).isEqualTo(contactFieldIds());
+        assertThat(render(result))
+                .doesNotContain("<Contact>", "Source family", "old@example.test", "Middle😀")
+                .contains("Fixture");
+    }
+
+    @Test
+    void shouldCarryAnInactiveImportedContactInTheNativeRecord_insteadOfTheImportedElement()
+            throws Exception {
+        // The Manage Contacts editor's "Inactive" (active=0): as for a native association, the
+        // stored association and its contact travel in the native demographic NewCategory record.
+        association.put("active", "0");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.superseded()).isTrue();
+        assertThat(result.changes())
+                .singleElement()
+                .satisfies(
+                        change -> {
+                            assertThat(change.relativePath()).isEqualTo("Contact[1]");
+                            assertThat(change.content()).isNull();
+                            assertThat(change.expectedPriorFields())
+                                    .isEqualTo(contactFieldIds());
+                        });
+        for (var field :
+                List.of(
+                        key("Contact", "firstName"),
+                        key("Contact", "email"),
+                        key("DemographicContact", "role"),
+                        key("DemographicContact", "active")))
+            assertThat(CdsExportDemographicSupportingMapper.carries(result.fields().get(field)))
+                    .isTrue();
+        assertThat(render(result)).doesNotContain("<Contact>", "Source family");
+    }
+
+    @Test
+    void shouldExportAnUneditedImportedContactExactlyAsBefore_whenNoAssociationStateChanged()
+            throws Exception {
+        var result = invoke();
+        assertThat(result.superseded()).isFalse();
+        assertThat(result.changes()).isEmpty();
+        assertThat(render(result))
+                .contains("<Contact>", "Source family", "old@example.test", "Middle😀");
     }
 
     @Test
@@ -806,6 +882,24 @@ class CdsExportContactFieldReconcilerUnitTest {
     private static CdsExportNativeFieldKeyDto key(String table, String column) {
         return new CdsExportNativeFieldKeyDto(
                 table, nativeKey(table.equals("Contact") ? 7 : 9), column);
+    }
+
+    private Set<String> contactFieldIds() {
+        var ids = new HashSet<String>();
+        for (var field : fields)
+            if (field.sourcePath().startsWith(ROOT + "/Contact[1]/")) ids.add(field.id());
+        assertThat(ids).isNotEmpty();
+        return ids;
+    }
+
+    /** The fixture imported from a source contact with the single purpose NK. */
+    void singlePurpose() throws Exception {
+        fixture("Middle😀", "0012", false);
+    }
+
+    /** One association column as the Manage Contacts screen leaves it, before the graph is built. */
+    void editAssociation(String column, String value) {
+        association.put(column, value);
     }
 
     private static String rule(

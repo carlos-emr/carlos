@@ -37,8 +37,10 @@ import java.util.regex.Pattern;
  * Reconciles one imported external personal contact against its original native projection.
  * Unchanged dependencies retain the complete original subtree, including middle names,
  * purpose choices and telephone components. Unprojected meaning is never guessed after an
- * edit. Changes use the parent's original source coordinates and need full demographic
- * coverage, active authenticated values and final XML validation before publication.
+ * edit. An association removed or made inactive in CARLOS removes the imported element, as a
+ * native removed or inactive association is not a Contact. Changes use the parent's original
+ * source coordinates and need full demographic coverage, active authenticated values and final
+ * XML validation before publication.
  */
 public final class CdsExportContactFieldReconciler {
     private static final Pattern PHONE =
@@ -68,12 +70,22 @@ public final class CdsExportContactFieldReconciler {
         }
     }
 
+    /** Rule of the deleted flag of an imported association removed in Manage Contacts. */
+    static final String REMOVED_IMPORTED_CONTACT =
+            "REMOVED_IMPORTED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART";
+
+    /**
+     * @param superseded the imported association was removed or made inactive in CARLOS: its
+     *     Contact element is removed (the only change) and the native rows are decided as for
+     *     any removed or inactive association, so a later association may name the contact again
+     */
     public record Result(
             CdsExportRetainedContactBinding.Result binding,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
             Set<String> retainedPaths,
             Set<String> currentPaths,
-            List<CdsExportRetainedSectionWriter.Change> changes) {
+            List<CdsExportRetainedSectionWriter.Change> changes,
+            boolean superseded) {
         public Result {
             fields = Map.copyOf(fields);
             retainedPaths = Set.copyOf(retainedPaths);
@@ -198,9 +210,40 @@ public final class CdsExportContactFieldReconciler {
                                                         .substring("Contact[1]".length())
                                         : field.destination(),
                                 field.rule()));
-        // An imported contact the user removed or marked inactive is not a native Contact the
-        // retained element can follow yet; it stays an explicit review (class B), never a carry
-        // beside the still-retained imported element.
+        // Manage Contacts "Delete" (deleted=1) or the editor's "Inactive" (active=0) on an imported
+        // association: the chart no longer lists the person as a current contact. As for a native
+        // association, a removed one is not exported and an inactive one travels in the native
+        // demographic record, both decided by the personal-contact mapper above. The imported
+        // Contact element is removed; its source fields stay in the import's retained source and
+        // the receipt lists them as replaced.
+        String deleted = association.fields().get("deleted"),
+                activeState = association.fields().get("active");
+        if ("1".equals(deleted) || "0".equals(deleted) && "0".equals(activeState)) {
+            if (!candidate.contacts().isEmpty()) scope();
+            if ("1".equals(deleted))
+                decisions.put(
+                        key(association, "deleted"),
+                        new CdsExportFieldAssessmentDto(
+                                CdsExportFieldAssessmentDto.Presence.VALUE,
+                                Outcome.OPERATIONAL,
+                                "",
+                                REMOVED_IMPORTED_CONTACT));
+            var ids = new HashSet<String>();
+            for (var field : binding.fields()) if (!ids.add(field.id())) scope();
+            new CdsExportNativeFieldAssessmentValidator()
+                    .validate(List.of(contact, association), decisions, 1000, checkpoint);
+            values.requireActive();
+            checkpoint.run();
+            return new Result(
+                    binding,
+                    decisions,
+                    Set.of(),
+                    Set.of(),
+                    List.of(new CdsExportRetainedSectionWriter.Change(sourceContact, ids, null)),
+                    true);
+        }
+        // Any other association state (an unknown flag no CARLOS screen writes) stays an
+        // explicit review, never a carry beside the still-retained imported element.
         for (String column : List.of("deleted", "active"))
             if (!(column.equals("deleted") ? "0" : "1")
                     .equals(association.fields().get(column))) {
@@ -421,7 +464,7 @@ public final class CdsExportContactFieldReconciler {
                 .validate(List.of(contact, association), decisions, 1000, checkpoint);
         values.requireActive();
         checkpoint.run();
-        return new Result(binding, decisions, retained, current, changes);
+        return new Result(binding, decisions, retained, current, changes, false);
     }
 
     private static CdsNativeRowState qualify(
