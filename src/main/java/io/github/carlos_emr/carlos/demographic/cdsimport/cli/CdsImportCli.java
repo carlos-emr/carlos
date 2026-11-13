@@ -401,11 +401,74 @@ public final class CdsImportCli {
         try {
             var technical = runtime.failureEvidence(run);
             if (technical == null) return;
-            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(technical);
+            String json =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .writeValueAsString(technicalLine(technical));
             if (json.length() <= 65536) err.println("CDS_TECHNICAL: " + json);
         } catch (Exception unavailable) {
             err.println("CDS_DIAGNOSTIC: protected failure evidence of this run is unavailable");
         }
+    }
+
+    private static final java.util.regex.Pattern TECHNICAL_TYPE =
+            java.util.regex.Pattern.compile("[A-Za-z_$][A-Za-z0-9_.$]{0,511}");
+    private static final java.util.regex.Pattern TECHNICAL_FRAME =
+            java.util.regex.Pattern.compile("[A-Za-z_$][A-Za-z0-9_.$/]*#[A-Za-z0-9_$<>]+:-?[0-9]+");
+    private static final java.util.regex.Pattern TECHNICAL_CODE =
+            java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{0,95}");
+
+    /**
+     * The stopping diagnostic in the one {@code CDS_TECHNICAL} shape every CDS one-shot command
+     * prints and the installed qualification harness reads ({@code CdsProcessLogging}): {@code
+     * code=CDS_OPERATION_FAILED}, {@code clinicalAcceptance=RECONCILE_DURABLE_STATE} and at most
+     * 16 {@code causes} of exception type, SQLState, vendor code and at most 32 class/method
+     * frames in all. The diagnostic's own stable code and stage ride beside them as {@code
+     * diagnosticCode} and {@code stage}. A cause type or frame outside that grammar is replaced
+     * or left out rather than printed, so one unusual frame never costs the whole cause chain.
+     */
+    static Map<String, Object> technicalLine(Map<String, Object> technical) {
+        Map<String, Object> line = new LinkedHashMap<>();
+        line.put("code", "CDS_OPERATION_FAILED");
+        line.put("clinicalAcceptance", "RECONCILE_DURABLE_STATE");
+        if (technical.get("code") instanceof String code && TECHNICAL_CODE.matcher(code).matches())
+            line.put("diagnosticCode", code);
+        if (technical.get("stage") instanceof String stage && TECHNICAL_CODE.matcher(stage).matches())
+            line.put("stage", stage);
+        var causes = new java.util.ArrayList<Map<String, Object>>();
+        int frames = 0;
+        if (technical.get("evidence") instanceof Map<?, ?> evidence
+                && evidence.get("causes") instanceof java.util.List<?> sources) {
+            for (Object source : sources) {
+                if (causes.size() == 16) break;
+                if (!(source instanceof Map<?, ?> cause)) continue;
+                Map<String, Object> selected = new LinkedHashMap<>();
+                selected.put(
+                        "type",
+                        cause.get("type") instanceof String type
+                                        && TECHNICAL_TYPE.matcher(type).matches()
+                                ? type
+                                : "java.lang.Throwable");
+                if (cause.get("sqlState") instanceof String state && state.matches("[A-Z0-9]{5}"))
+                    selected.put("sqlState", state);
+                if (cause.get("vendorCode") instanceof Integer vendor)
+                    selected.put("vendorCode", vendor);
+                var kept = new java.util.ArrayList<String>();
+                if (cause.get("frames") instanceof java.util.List<?> listed)
+                    for (Object frame : listed) {
+                        if (frames == 32) break;
+                        if (frame instanceof String text
+                                && text.length() <= 1024
+                                && TECHNICAL_FRAME.matcher(text).matches()) {
+                            kept.add(text);
+                            frames++;
+                        }
+                    }
+                selected.put("frames", kept);
+                causes.add(selected);
+            }
+        }
+        line.put("causes", causes);
+        return line;
     }
 
     private static void line(PrintStream out, Map<String, Object> value) throws IOException {

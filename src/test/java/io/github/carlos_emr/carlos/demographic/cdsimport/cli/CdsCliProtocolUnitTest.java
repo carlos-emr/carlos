@@ -413,9 +413,50 @@ class CdsCliProtocolUnitTest {
         assertThat(lines).hasSize(1);
         var body =
                 new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
-        assertThat(body.path("code").asText()).isEqualTo("UNIT_DATABASE_WRITE_FAILED");
-        assertThat(body.at("/evidence/causes/0/type").asText()).isEqualTo("java.sql.SQLException");
+        // The shared CDS_TECHNICAL shape the installed qualification harness reads.
+        assertThat(body.path("code").asText()).isEqualTo("CDS_OPERATION_FAILED");
+        assertThat(body.path("clinicalAcceptance").asText()).isEqualTo("RECONCILE_DURABLE_STATE");
+        assertThat(body.path("diagnosticCode").asText()).isEqualTo("UNIT_DATABASE_WRITE_FAILED");
+        assertThat(body.path("stage").asText()).isEqualTo("EXECUTION");
+        assertThat(body.at("/causes/0/type").asText()).isEqualTo("java.sql.SQLException");
+        assertThat(body.at("/causes/0/sqlState").asText()).isEqualTo("HY000");
         assertThat(runtime.technicalReads).isEqualTo(1);
+    }
+
+    @Test
+    void shouldDropOnlyTheOffGrammarParts_whenTheStoppingCauseIsPrinted() {
+        var cause = new java.util.LinkedHashMap<String, Object>();
+        cause.put("type", "jdk.internal.Hidden$$Lambda/0x01");
+        cause.put("vendorCode", 1205);
+        cause.put("sqlState", "40001");
+        cause.put(
+                "frames",
+                List.of(
+                        "org.mariadb.jdbc.ClientPreparedStatement#executeInternal:254",
+                        "1bad.Frame#run:3",
+                        "a.B#c:d"));
+        var line =
+                CdsImportCli.technicalLine(
+                        Map.of(
+                                "code", "unit database write failed",
+                                "stage", "EXECUTION",
+                                "evidence", Map.of("causes", List.of(cause))));
+
+        assertThat(line)
+                .containsEntry("code", "CDS_OPERATION_FAILED")
+                .containsEntry("clinicalAcceptance", "RECONCILE_DURABLE_STATE")
+                .containsEntry("stage", "EXECUTION")
+                .doesNotContainKey("diagnosticCode");
+        @SuppressWarnings("unchecked")
+        var printed = (List<Map<String, Object>>) line.get("causes");
+        assertThat(printed).singleElement().satisfies(selected -> {
+            assertThat(selected)
+                    .containsEntry("type", "java.lang.Throwable")
+                    .containsEntry("sqlState", "40001")
+                    .containsEntry("vendorCode", 1205);
+            assertThat(selected.get("frames"))
+                    .isEqualTo(List.of("org.mariadb.jdbc.ClientPreparedStatement#executeInternal:254"));
+        });
     }
 
     @Test

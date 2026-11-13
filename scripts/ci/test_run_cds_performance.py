@@ -776,6 +776,32 @@ class PerformanceEvidenceTest(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 GATE.technical_failure_projection(changed)
 
+    def test_stopped_import_line_projects_its_cause_chain_beside_the_diagnostic_code(self):
+        # The one-shot import CLI prints this after an unclean RESULT (CdsImportCli.technicalLine).
+        value = {
+            "code": "CDS_OPERATION_FAILED",
+            "clinicalAcceptance": "RECONCILE_DURABLE_STATE",
+            "diagnosticCode": "UNIT_DATABASE_WRITE_FAILED",
+            "stage": "EXECUTION",
+            "causes": [
+                {
+                    "type": "java.sql.SQLTransactionRollbackException",
+                    "sqlState": "40001",
+                    "vendorCode": 1213,
+                    "frames": [
+                        "org.mariadb.jdbc.ClientPreparedStatement#executeInternal:254"
+                    ],
+                }
+            ],
+        }
+        log = self.root / "stopped.log"
+        log.write_text("CDS_TECHNICAL: " + json.dumps(value) + "\n")
+        actual = GATE.operator_projection(log)
+        self.assertEqual(actual["technicalEvidenceErrors"], [])
+        cause = actual["technicalFailureEvidence"][0]["causes"][0]
+        self.assertEqual(cause["sqlState"], "40001")
+        self.assertEqual(cause["vendorCode"], 1213)
+
     def test_startup_control_cannot_treat_an_acceptance_or_generic_error_as_readonly_baseline(
         self,
     ):
