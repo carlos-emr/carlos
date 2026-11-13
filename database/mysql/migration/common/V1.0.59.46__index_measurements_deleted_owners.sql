@@ -9,9 +9,9 @@
 -- A same-name index of another shape is an explicit upgrade blocker, never silently replaced.
 -- Every index is checked before the first one is added, so a replay after an interrupted
 -- upgrade (one ALTER committed) completes the other and changes nothing else.
-DROP PROCEDURE IF EXISTS carlos_measurements_deleted_index_1_0_59_44;
+DROP PROCEDURE IF EXISTS carlos_measurements_deleted_index_1_0_59_46;
 DELIMITER $$
-CREATE PROCEDURE carlos_measurements_deleted_index_1_0_59_44(
+CREATE PROCEDURE carlos_measurements_deleted_index_1_0_59_46(
     IN expected_index VARCHAR(64), IN required_columns TEXT, IN expected_signature TEXT,
     IN index_definition TEXT, IN apply_change BOOLEAN)
 SQL SECURITY INVOKER
@@ -45,13 +45,13 @@ END$$
 DELIMITER ;
 
 -- Check every index before the first DDL change.
-CALL carlos_measurements_deleted_index_1_0_59_44('idx_measurementsDeleted_demographicNo','demographicNo','1:BTREE:NO:64656D6F677261706869634E6F:0:A','(`demographicNo`) USING BTREE',0);
-CALL carlos_measurements_deleted_index_1_0_59_44('idx_measurementsDeleted_originalId_demographicNo','originalId,demographicNo','1:BTREE:NO:6F726967696E616C4964:0:A,64656D6F677261706869634E6F:0:A','(`originalId`,`demographicNo`) USING BTREE',0);
+CALL carlos_measurements_deleted_index_1_0_59_46('idx_measurementsDeleted_demographicNo','demographicNo','1:BTREE:NO:64656D6F677261706869634E6F:0:A','(`demographicNo`) USING BTREE',0);
+CALL carlos_measurements_deleted_index_1_0_59_46('idx_measurementsDeleted_originalId_demographicNo','originalId,demographicNo','1:BTREE:NO:6F726967696E616C4964:0:A,64656D6F677261706869634E6F:0:A','(`originalId`,`demographicNo`) USING BTREE',0);
 
 -- The patient's deleted versions in id order (capture pages: demographicNo, then the primary key).
-CALL carlos_measurements_deleted_index_1_0_59_44('idx_measurementsDeleted_demographicNo','demographicNo','1:BTREE:NO:64656D6F677261706869634E6F:0:A','(`demographicNo`) USING BTREE',1);
+CALL carlos_measurements_deleted_index_1_0_59_46('idx_measurementsDeleted_demographicNo','demographicNo','1:BTREE:NO:64656D6F677261706869634E6F:0:A','(`demographicNo`) USING BTREE',1);
 -- The versions of one original id, with their chart, read from the index alone.
-CALL carlos_measurements_deleted_index_1_0_59_44('idx_measurementsDeleted_originalId_demographicNo','originalId,demographicNo','1:BTREE:NO:6F726967696E616C4964:0:A,64656D6F677261706869634E6F:0:A','(`originalId`,`demographicNo`) USING BTREE',1);
+CALL carlos_measurements_deleted_index_1_0_59_46('idx_measurementsDeleted_originalId_demographicNo','originalId,demographicNo','1:BTREE:NO:6F726967696E616C4964:0:A,64656D6F677261706869634E6F:0:A','(`originalId`,`demographicNo`) USING BTREE',1);
 
-DROP PROCEDURE carlos_measurements_deleted_index_1_0_59_44;
+DROP PROCEDURE carlos_measurements_deleted_index_1_0_59_46;
 SET @carlos_measurements_deleted_index_ddl=NULL;

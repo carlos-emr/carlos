@@ -167,6 +167,14 @@ public class CdsImportLedgerService {
         return transaction.execute(status -> action.get());
     }
 
+    /** A check that must not write: the transaction itself refuses one. */
+    private <T> T readOnly(Supplier<T> action) {
+        requireNoTransaction();
+        TransactionTemplate read = template(observationTransactionManager());
+        read.setReadOnly(true);
+        return read.execute(status -> action.get());
+    }
+
     PlatformTransactionManager observationTransactionManager() {
         return Objects.requireNonNull(transaction.getTransactionManager());
     }
@@ -2802,7 +2810,7 @@ public class CdsImportLedgerService {
     public void requireAbandonable(
             String runId,
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor) {
-        write(
+        readOnly(
                 () -> {
                     requireAbandonable(requiredRun(runId, false), actor);
                     return null;

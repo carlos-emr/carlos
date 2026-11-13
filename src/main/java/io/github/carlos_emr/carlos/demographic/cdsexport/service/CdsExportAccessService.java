@@ -643,7 +643,25 @@ public class CdsExportAccessService {
                 && (only == null || only == CdsCategory.REPORTS)
                 && !security.hasPrivilegeReadOnly(context, EFORM_READ, "r", target))
             refuse(patient, EFORM_READ);
+        // Every chart's capture reads its preferred pharmacy under _rx (Demographics is always
+        // exported) and, with notes or history selected, its case management under _eChart,
+        // whether or not the chart holds such a row. Name a missing role-level right at admission
+        // and worker entry instead of stopping the job at its first patient as changed access.
+        if (patient == null && only == null) {
+            if (!security.hasPrivilegeReadOnly(context, PHARMACY_READ, "r", null))
+                refuse(null, PHARMACY_READ);
+            if (!java.util.Collections.disjoint(
+                            command.categories(), CdsExportNoteSourceReader.CATEGORIES)
+                    && !security.hasPrivilegeReadOnly(context, CHART_READ, "r", null))
+                refuse(null, CHART_READ);
+        }
     }
+
+    /** The prescription module's read object, which every chart's preferred pharmacy needs. */
+    static final String PHARMACY_READ = "_rx";
+
+    /** The chart's read object, which every chart's case management (notes, history) needs. */
+    static final String CHART_READ = "_eChart";
 
     /** The Disease Registry's own read object, required with ProblemList. */
     static final String DISEASE_REGISTRY_READ = "_dxresearch";

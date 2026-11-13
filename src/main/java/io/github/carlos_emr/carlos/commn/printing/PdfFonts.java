@@ -51,18 +51,19 @@ public final class PdfFonts {
     }
 
     /**
-     * A private, uncached copy of an embedded standard Latin face, for an AcroForm field's
-     * appearance ({@code AcroFields.setFieldProperty(key, "textfont", ...)}).
+     * An embedded standard Latin face reserved for AcroForm field appearances
+     * ({@code AcroFields.setFieldProperty(key, "textfont", ...)}), outside OpenPDF's own cache.
      *
      * <p>OpenPDF caches every {@link BaseFont} it creates JVM-wide, and
      * {@code PdfAppearance.setFontAndSize} turns subsetting off on the font it is given, because an
      * editable field needs every glyph. A cached clinical font passed to a form field would make
      * every later PDF in the JVM (prescriptions, consultation letters, CDS export summaries) embed
      * the whole face instead of a subset. Never give a form field
-     * {@code getFont(...).getBaseFont()}; use this instead.
+     * {@code getFont(...).getBaseFont()}; use this instead. The instance is shared only by form
+     * fields, which all want the whole face, so the face is read once rather than per print.
      *
      * @param name a standard Latin font name, such as {@link BaseFont#HELVETICA}
-     * @return an embedded Unicode face that no other caller shares
+     * @return an embedded Unicode face that only form fields share
      * @throws IllegalArgumentException if the name is not a standard Latin font
      * @throws IOException if the font resource cannot be read
      * @throws DocumentException if the font cannot be loaded
@@ -71,8 +72,17 @@ public final class PdfFonts {
     public static BaseFont formFieldFont(String name) throws IOException, DocumentException {
         String face = face(name);
         if (face == null) throw new IllegalArgumentException("Not a standard Latin font: " + name);
-        return BaseFont.createFont(face, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, null, null);
+        BaseFont cached = FORM_FIELD_FONTS.get(face);
+        if (cached != null) return cached;
+        BaseFont created =
+                BaseFont.createFont(face, BaseFont.IDENTITY_H, BaseFont.EMBEDDED, false, null, null);
+        BaseFont raced = FORM_FIELD_FONTS.putIfAbsent(face, created);
+        return raced == null ? created : raced;
     }
+
+    /** Form-field faces by resource, kept apart from OpenPDF's JVM-wide font cache. */
+    private static final java.util.concurrent.ConcurrentMap<String, BaseFont> FORM_FIELD_FONTS =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     /** The bundled resource for a standard Latin font name, or {@code null} for any other name. */
     private static String face(String name) {

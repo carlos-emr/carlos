@@ -495,8 +495,13 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                     ArrayList<File> files = new ArrayList<File>();
                     ArrayList<String> dirs = new ArrayList<String>();
+                    // Oversized documents copied beside their patient's XML. They join the archive
+                    // after schema validation and the ReadMe, which read only the patient files.
+                    ArrayList<File> carriedDocuments = new ArrayList<File>();
+                    ArrayList<String> carriedDirs = new ArrayList<String>();
                     exportError = new ArrayList<String>();
                     for (String demoNo : list) {
+                        ArrayList<File> patientCarriedDocuments = new ArrayList<File>();
                         if (StringUtils.empty(demoNo)) {
                             exportError.add("Error! No Demographic Number");
                             continue;
@@ -2167,8 +2172,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
                                 } else {
-                                    // #3968: a document above the embedding limit is not read into memory; the
-                                    // report names the file and the user is told to transfer it separately.
+                                    // #3968: a document above the embedding limit is not read into memory; it
+                                    // travels as its own file in the archive (see carryOversizedDocument).
                                     boolean embedded = f.length() <= maxEmbeddedDocumentBytes();
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
@@ -2181,11 +2186,9 @@ public class DemographicExportAction42Action extends ActionSupport {
 
                                     if (!embedded) {
                                         rpr.setFormat(cdsDt.ReportFormat.BINARY);
-                                        String reference = edoc.getFileName() == null ? f.getName() : edoc.getFileName();
-                                        rpr.setFilePath(reference.length() > 250 ? reference.substring(0, 250) : reference);
-                                        exportError.add("Document \"" + reference + "\" is larger than the "
-                                                + (maxEmbeddedDocumentBytes() >> 20) + " MB embedding limit; it is referenced by name"
-                                                + " and must be transferred separately.");
+                                        File carried = carryOversizedDocument(f, demoNo, edoc.getDocId(), exportDirectory);
+                                        if (!patientCarriedDocuments.contains(carried)) patientCarriedDocuments.add(carried);
+                                        rpr.setFilePath(carried.getName());
                                         addOneEntry(REPORTBINARY);
                                     } else {
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
@@ -2714,15 +2717,23 @@ public class DemographicExportAction42Action extends ActionSupport {
                         // Without this check, a validation failure would cause us to write
                         // this patient's data into the previous patient's export file (PHI leak).
                         if (files.size() <= fileCountBefore) {
+                            Util.cleanFiles(patientCarriedDocuments);
                             continue;
                         }
                         try {
                             saveExportFile(omdCdsDoc, options, files.get(files.size() - 1));
+                            // A carried document sits in its patient's directory: its FilePath is
+                            // relative to the XML that references it.
+                            for (File carried : patientCarriedDocuments) {
+                                carriedDocuments.add(carried);
+                                carriedDirs.add(dirs.get(dirs.size() - 1));
+                            }
 
                             //omdCdsDoc.save(files.get(files.size()-1), options);
 
                         } catch (IOException ex) {
                             logger.error("Error writing export file to directory: {}", LogSafe.exceptionTrace(ex));
+                            Util.cleanFiles(patientCarriedDocuments);
                             // Remove the file entry that could not be written so the list stays consistent
                             if (!files.isEmpty()) {
                                 files.remove(files.size() - 1);
@@ -2771,6 +2782,8 @@ public class DemographicExportAction42Action extends ActionSupport {
                     dirs.add("");
                     files.add(makeExportLog(files.get(0).getParentFile()));
                     dirs.add("");
+                    files.addAll(carriedDocuments);
+                    dirs.addAll(carriedDirs);
 
                     //zip all export files
                     String zipName = files.get(0).getName().replace(".xml", ".zip");
@@ -2866,7 +2879,6 @@ public class DemographicExportAction42Action extends ActionSupport {
                 throw new IllegalStateException("No export implementation for supported template " + template);
         }
         } catch (IllegalStateException failure) {
-            discardExportDirectory(tmpDir);
             if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(failure.getMessage())) {
                 auditFailure(loggedInInfo, list.size(), failure);
                 throw failure;
@@ -2880,10 +2892,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                 response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             }
             return NONE;
-        } catch (RuntimeException failure) {
-            discardExportDirectory(tmpDir);
+        } catch (Exception failure) {
+            // Checked failures too: the directory, the XML and archive I/O, a document copy.
             auditFailure(loggedInInfo, list.size(), failure);
             throw failure;
+        } finally {
+            // Nothing in this request's own directory is needed once the archive has been streamed
+            // or refused, and everything in it is patient data: XML written before a failure, or
+            // an oversized document's copy. This also covers errors such as running out of memory.
+            discardExportDirectory(tmpDir);
         }
 
         String exportedIds = null;
@@ -2987,6 +3004,35 @@ public class DemographicExportAction42Action extends ActionSupport {
             throw new IOException("Could not completely read file " + file.getName());
         }
         return bytes;
+    }
+
+    /**
+     * Copies a document above the embedding limit beside its patient's XML, for the report's
+     * FilePath (#3968). CDS carries a report as Content or as FilePath, a file in the package; the
+     * copy streams, so the document is never held in memory. The name is built from the numeric
+     * chart and document ids only, so it is unique in the export and carries no patient text.
+     *
+     * @return the copy, inside {@code exportDirectory}
+     * @throws IOException when the copy cannot be written: the export then fails rather than
+     *                     publishing a report whose file the package does not contain
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the source was validated against DOCUMENT_DIR; the target name is generated from numeric ids")
+    static File carryOversizedDocument(File document, String demographicNo, String documentNo, File exportDirectory)
+            throws IOException {
+        if (demographicNo == null || !demographicNo.trim().matches("[0-9]{1,18}")
+                || documentNo == null || !documentNo.trim().matches("[0-9]{1,18}")) {
+            throw new IOException("Document identifiers are not numeric");
+        }
+        String extension = org.apache.commons.io.FilenameUtils.getExtension(document.getName());
+        String name = "document_" + demographicNo.trim() + "_" + documentNo.trim()
+                + (extension.matches("[A-Za-z0-9]{1,16}") ? "." + extension : "");
+        File carried = PathValidationUtils.validateGeneratedChildPath(name, exportDirectory);
+        // The same document listed twice for a chart is carried once.
+        if (!carried.exists()) {
+            java.nio.file.Files.copy(document.toPath(), carried.toPath());
+        }
+        return carried;
     }
 
     /** Default largest document embedded in a legacy CDS export, in bytes (#3968). */
@@ -4347,6 +4393,18 @@ public class DemographicExportAction42Action extends ActionSupport {
     }
 
     /**
+     * Records a failed export without letting an audit write failure replace the export's own
+     * failure: the audit error is attached to it as suppressed, and the caller rethrows it.
+     */
+    private void auditFailure(LoggedInInfo loggedInInfo, int recordCount, Throwable failure) {
+        try {
+            writeExportAuditLog(loggedInInfo, recordCount, "error", "<unavailable>", failure.getClass().getSimpleName());
+        } catch (RuntimeException auditFailure) {
+            failure.addSuppressed(auditFailure);
+        }
+    }
+
+    /**
      * Writes the demographic export audit record.
      *
      * <p>Shared by the completed-export tail and the early validation rejection so both attempts
@@ -4359,18 +4417,6 @@ public class DemographicExportAction42Action extends ActionSupport {
      * @param exportedIds    pre-formatted, length-capped identifier list for the audit trail
      * @param exportException simple exception class name when the attempt threw, otherwise {@code null}
      */
-    /**
-     * Records a failed export without letting an audit write failure replace the export's own
-     * failure: the audit error is attached to it as suppressed, and the caller rethrows it.
-     */
-    private void auditFailure(LoggedInInfo loggedInInfo, int recordCount, RuntimeException failure) {
-        try {
-            writeExportAuditLog(loggedInInfo, recordCount, "error", "<unavailable>", failure.getClass().getSimpleName());
-        } catch (RuntimeException auditFailure) {
-            failure.addSuppressed(auditFailure);
-        }
-    }
-
     private void writeExportAuditLog(LoggedInInfo loggedInInfo, int recordCount, String outcome,
                                      String exportedIds, String exportException) {
         OscarLog exportAuditLog = new OscarLog();

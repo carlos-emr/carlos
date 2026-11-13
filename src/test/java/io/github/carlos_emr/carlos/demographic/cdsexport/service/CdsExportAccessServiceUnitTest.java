@@ -161,6 +161,9 @@ class CdsExportAccessServiceUnitTest {
     @Test
     void shouldVerifyPharmacyMatchesOwningRoutesGlobalAndPatientRxChecks_forBothIdentities() {
         for (String denied : List.of("100", "200")) {
+            // Admitted while both identities hold the right; it is revoked from one afterwards.
+            when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), isNull()))
+                    .thenReturn(true);
             var command = demographicCommand("200");
             var actor = access.webActor(session, command);
             when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), isNull()))
@@ -172,6 +175,30 @@ class CdsExportAccessServiceUnitTest {
             assertThatThrownBy(() -> access.requirePharmacyRead(actor, command, 27))
                     .hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
         }
+    }
+
+    @Test
+    void shouldNameThePharmacyAndChartRights_atAdmissionAndWorkerEntry() {
+        // Every chart reads its preferred pharmacy, so a Demographics-only job needs _rx too.
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, demographicCommand("100")))
+                .hasMessage("missing required sec object (_rx)");
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(true);
+
+        // Notes and history read every chart's case management under _eChart ...
+        var notesCommand = command("100");
+        var actor = access.webActor(session, notesCommand);
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_eChart"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, notesCommand))
+                .hasMessage("missing required sec object (_eChart)");
+        assertThatThrownBy(() -> access.requireScope(actor, notesCommand))
+                .hasMessage("missing required sec object (_eChart)");
+        // ... and a job without them does not need it.
+        assertThat(access.webActor(session, demographicCommand("100")).providerNo())
+                .isEqualTo("100");
     }
 
     @Test

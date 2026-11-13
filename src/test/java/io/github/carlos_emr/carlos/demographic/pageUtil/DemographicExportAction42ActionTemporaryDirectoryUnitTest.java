@@ -63,6 +63,40 @@ class DemographicExportAction42ActionTemporaryDirectoryUnitTest
     }
 
     @Test
+    @DisplayName("should carry an oversized document as a file named from numeric ids only")
+    void shouldCopyTheDocumentBesideThePatientXml_forAReportFilePath() throws Exception {
+        Path documents = Files.createDirectory(root.resolve("documents"));
+        Path export = Files.createDirectory(root.resolve("AbCdEfGh"));
+        Path document = Files.writeString(documents.resolve("FAKE Patient scan.PDF"), "%PDF-1.7 synthetic",
+                StandardCharsets.UTF_8);
+
+        var carried = DemographicExportAction42Action.carryOversizedDocument(
+                document.toFile(), "42", "7", export.toFile());
+
+        assertThat(carried.toPath()).isEqualTo(export.resolve("document_42_7.PDF"));
+        assertThat(carried.toPath()).hasSameBinaryContentAs(document);
+        assertThat(document).exists();
+        // A document listed twice for the chart is carried once, not refused as a duplicate.
+        assertThat(DemographicExportAction42Action.carryOversizedDocument(
+                document.toFile(), "42", "7", export.toFile())).isEqualTo(carried);
+    }
+
+    @Test
+    @DisplayName("should refuse to carry a document whose identifiers are not numeric")
+    void shouldRefuseTheCopy_whenAnIdentifierIsNotNumeric() throws Exception {
+        Path export = Files.createDirectory(root.resolve("AbCdEfGh"));
+        Path document = Files.writeString(root.resolve("scan.pdf"), "%PDF-1.7", StandardCharsets.UTF_8);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DemographicExportAction42Action
+                        .carryOversizedDocument(document.toFile(), "../42", "7", export.toFile()))
+                .isInstanceOf(java.io.IOException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> DemographicExportAction42Action
+                        .carryOversizedDocument(document.toFile(), "42", null, export.toFile()))
+                .isInstanceOf(java.io.IOException.class);
+        assertThat(export).isEmptyDirectory();
+    }
+
+    @Test
     @DisplayName("should do nothing when the export directory was never created")
     void shouldIgnoreAMissingDirectory_forAnExportThatFailedBeforeWriting() {
         DemographicExportAction42Action.discardExportDirectory(root.resolve("missing").toString());

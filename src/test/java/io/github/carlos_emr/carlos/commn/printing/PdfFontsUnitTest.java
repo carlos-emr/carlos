@@ -95,7 +95,9 @@ class PdfFontsUnitTest {
 
         assertThat(field.isSubset()).isFalse();
         assertThat(PdfFonts.getFont(BaseFont.HELVETICA, 10).getBaseFont().isSubset()).isTrue();
-        assertThat(PdfFonts.formFieldFont(BaseFont.HELVETICA)).isNotSameAs(field);
+        // Form fields share one face read once; it is never the clinical text's cached face.
+        assertThat(PdfFonts.formFieldFont(BaseFont.HELVETICA)).isSameAs(field);
+        assertThat(PdfFonts.formFieldFont(BaseFont.HELVETICA_BOLD)).isNotSameAs(field);
         assertThatThrownBy(() -> PdfFonts.formFieldFont("fonts/symbola/Symbola_hint.ttf"))
                 .isInstanceOf(IllegalArgumentException.class);
     }

@@ -659,6 +659,20 @@ class CdsExportWebActionsUnitTest {
         assertThat(response.getContentAsString()).contains("CDS_EXPORT_ARTIFACT_UNAVAILABLE");
     }
 
+    @Test
+    void shouldReplaceTheAttachmentHeader_whenADownloadFailsBeforeItsFirstByte() throws Exception {
+        response.setContentType("application/pkcs7-mime");
+        response.setHeader("Content-Disposition", "attachment; filename=\"cds-export.p7m\"");
+        response.setContentLengthLong(4096);
+
+        web.failure(response, new java.io.IOException("synthetic package read failure"));
+
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getHeader("Content-Disposition")).isEqualTo("inline");
+        assertThat(response.getContentType()).startsWith("application/json");
+        assertThat(response.getContentAsString()).contains("CDS_EXPORT_REQUEST_UNAVAILABLE");
+    }
+
     private SubmitCdsExport2Action submission() {
         var action =
                 new SubmitCdsExport2Action(web, new CdsExportWebCommandParser(), exports, security);

@@ -36,7 +36,11 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    which no role receives by default, selecting ProblemList requires read
    access to `_dxresearch` (the Disease Registry), and selecting Reports requires read
    access to `_eform` (Reports carry every eForm of the chart; the doctor role has it by
-   default). Admission checks every selected category's
+   default). Every export also requires read access to `_rx`, because each chart's preferred
+   pharmacy is read with its demographics, and selecting clinical notes, alerts and special
+   needs, ProblemList, risk factors, or personal, family or past health history requires read
+   access to `_eChart`, because each chart's case management is read whether or not it holds a
+   note. Admission checks every selected category's
    role-level right and refuses a missing one by name (CLI exit 3, browser
    "Export refused" notice naming the right) before anything is accepted.
 4. Configure `cds.export.clinicalZone` explicitly and consistently with the clinic
@@ -853,7 +857,9 @@ laboratory's test name as TestName when no other name was imported, exports weig
 text was edited ("kg", "Kilograms") and converts weights recorded in pounds to kilograms (to
 0.01 kg), and puts the patient alert first in NoteAboutPatient (#3959). A document larger than
 `cds.legacyExport.maxEmbeddedDocumentBytes` (bytes; default 64 MB, at most 1 GB) is not read
-into memory: its report names the file and the export lists a warning to transfer it
-separately (#3968). Each generated file is re-read with the JDK's predefined-entity ceilings
+into memory: it is copied into the archive beside its patient's XML, as
+`document_<chart>_<document>.<extension>`, and its report's FilePath names that file, as the CDS
+schema allows (#3968). Nothing has to be transferred separately, and an importer that resolves
+FilePath, as CARLOS does, finds the document in the package. Each generated file is re-read with the JDK's predefined-entity ceilings
 lifted, so a large chart's escaped notes are no longer reported as failing the schema, and a
 file that cannot be re-read is reported as such rather than as a schema failure (#5845).

@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "ae4eb5b1789b309f72c539bb089262966fea04d8a421be44e45143d8b418cdeb"
+      "physicalContractSha256": "924df2455522704b884f261a81033dcb2fa4a5b1643d36f34b4e3edaa52a2718"
     },
     "bc": {
-      "physicalContractSha256": "57613a54c95fee9b412e769e9ca368679f486300466b63246d8da538138d0c00"
+      "physicalContractSha256": "894b935dd43daac15880c93070e9757e4f853c6652dfbd56b2e9c6c95e117f4c"
     }
   },
   "tables": {

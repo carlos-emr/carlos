@@ -129,7 +129,12 @@ public class CdsExportWebService {
         if (response.isCommitted()) return;
         response.resetBuffer();
         response.setContentLengthLong(-1);
-        response.setHeader("Content-Disposition", null);
+        // A download that failed before its first byte has already named an attachment. Whether a
+        // null value removes a header differs between containers and servlet versions, so the
+        // error body explicitly replaces it rather than arriving as a saved file.
+        if (response.containsHeader("Content-Disposition")) {
+            response.setHeader("Content-Disposition", "inline");
+        }
         int status = 503;
         String code = "CDS_EXPORT_REQUEST_UNAVAILABLE";
         String missingRight = null;

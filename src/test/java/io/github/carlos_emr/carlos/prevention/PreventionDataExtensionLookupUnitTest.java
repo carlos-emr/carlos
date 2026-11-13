@@ -93,6 +93,21 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldPassTheDateReviewRefusalThrough_insteadOfReportingAnUnavailableSource() {
+        when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41)));
+        when(preventionDao.find(Integer.valueOf(41))).thenReturn(injection(41));
+        // A partial_date tag no reader understands makes the injection's date need review.
+        when(partialDateDao.getFormat(anyInt(), eq(41), anyInt())).thenReturn("unrecognised");
+        try (MockedStatic<ProviderData> providers = mockStatic(ProviderData.class)) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> PreventionData.getPreventionDataFromExt("workflowId", "17"))
+                    .isExactlyInstanceOf(
+                            io.github.carlos_emr.carlos.prevention.dto
+                                    .PreventionDatePrecisionException.class);
+        }
+    }
+
+    @Test
     void shouldReturnLinkedInjectionFields_withoutParsingOrLoggingClinicalEntityText() {
         Prevention injection = injection(41);
         when(extensionDao.findByKeyAndValue("workflowId", "17")).thenReturn(List.of(link(41)));

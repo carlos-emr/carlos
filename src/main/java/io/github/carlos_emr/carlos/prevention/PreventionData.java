@@ -289,6 +289,10 @@ public class PreventionData {
                     list.add(hash);
                 }
             }
+        } catch (PreventionDatePrecisionException unsafeDate) {
+            // A date that needs review is a refusal of its own, as in getPreventionById: it must
+            // reach callers that handle it, not be reported as an unavailable source.
+            throw unsafeDate;
         } catch (Exception e) {
             throw sourceUnavailable(e);
         }

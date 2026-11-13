@@ -1284,7 +1284,11 @@ table existed has no renderings and keeps the data summaries alone.
 **Authorization.** Reports now also require `_eform` read, by name at admission and for each
 patient, like `_dxresearch` with ProblemList (`CdsExportAccessService.EFORM_READ`): Reports carry
 every eForm's values and form, so a provider without the eForm screen's read right cannot export
-them.
+them. The two rights every chart's capture already checked for each patient are now also named at
+admission and worker entry: `_rx` for every export (`PHARMACY_READ`: the preferred pharmacy is
+read with Demographics, which every export carries) and `_eChart` whenever a note-backed category
+is selected (`CHART_READ`: case management is read for every chart). Without them a job was
+accepted and then stopped at its first patient as `CDS_EXPORT_ACCESS_CHANGED`.
 
 **Command line.** The CLI JVM has no Tomcat and no renderer: render tokens live in the web JVM's
 `EFormRenderTokenService`. A foreground `export` or `resume` of a job that selects Reports

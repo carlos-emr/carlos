@@ -71,9 +71,10 @@ public interface DemographicDao {
     /** Raw scalar row, without model/UI defaults. Caller supplies current authorization and the patient read snapshot. */
     io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto findCdsExportRawDemographic(int demographicNo);
 
-    /** Exact source metadata under the same read-only patient transaction, pinned until its completion. */
     /** Ordered actual JDBC column recipe for reproducing an existing native receipt; empty means unavailable. */
     default java.util.List<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.Column> readCdsExportReceiptColumns() { return java.util.List.of(); }
+
+    /** Exact source metadata under the same read-only patient transaction, pinned until its completion. */
     io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto readCdsExportDemographicSchema();
 
     /** Maximum number of patient search results returned in one request. */

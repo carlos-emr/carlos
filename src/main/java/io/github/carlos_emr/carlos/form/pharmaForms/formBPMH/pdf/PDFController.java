@@ -341,8 +341,8 @@ public class PDFController {
         if (!continueInstructions || !(data instanceof BpmhForm2Bean form) || form.getDrugs() == null) {
             return notes;
         }
-        // A form field's appearance turns subsetting off on its font, so it gets its own uncached
-        // copy; the shared clinical font would then embed whole in every later PDF of the JVM.
+        // A form field's appearance turns subsetting off on its font, so it gets a face reserved
+        // for form fields; the shared clinical font would then embed whole in every later PDF.
         BaseFont font;
         try {
             font = PdfFonts.formFieldFont(BaseFont.HELVETICA);
