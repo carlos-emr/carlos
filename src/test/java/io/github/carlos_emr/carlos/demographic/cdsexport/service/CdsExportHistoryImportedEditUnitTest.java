@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsTemporal;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -325,26 +324,77 @@ class CdsExportHistoryImportedEditUnitTest {
     }
 
     @Test
-    void shouldStillHoldAnImportedItemRefiledIntoAnotherCppSection() throws Exception {
-        // Re-filing changes the item's wire category; its imported elements belong to the old
-        // section, so the patient is still held (a maintainer decision).
+    void shouldExportAnImportedItemRefiledIntoAnotherCppSection_carryingItsImportedElements()
+            throws Exception {
+        // B5 re-filing: the clinician moves an imported family history item to Medical History
+        // (the CPP editor removes the FamHistory tag, adds MedHistory and notes the removal).
+        // The item is exported under its current section with its current values, and every
+        // element of its imported FamilyHistory record travels exactly in its native context
+        // (REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED); the imported section no longer claims it.
         imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);
         source("ProblemDiagnosisProcedureDescription[1]", "Imported narrative");
-        var refiled = edited(92, Map.of(), List.of(), Map.of());
-        var issues = Map.of("44", issue(44, 53));
+        source("StartDate[1]/YearOnly[1]", "2019");
+        source("Relationship[1]", "Mother");
+        source("Notes[1]", "Imported\nnotes");
+        var refiled =
+                edited(92, Map.of("note", "Imported narrative\nRemoved: Family History"), List.of(), Map.of());
         var moved =
                 new CdsExportHistoryFieldReconciler.Current(
                         refiled.note(),
                         refiled.extensions(),
                         List.of(link(92, 44).value()),
-                        issues,
+                        Map.of("44", issue(44, 53)),
                         Map.of("53", definition(53, "MedHistory", "system")));
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportNativeHistoryMapper()
-                                        .map(27, category, List.of(imported, moved), providers(), ZONE))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW");
+        assertThat(CdsExportNativeHistoryMapper.category(moved))
+                .isEqualTo(CdsCategory.PAST_HEALTH);
+        // The import shifted its dates; the carried element takes the shift it would have had.
+        var carried =
+                CdsExportHistoryFieldReconciler.refiledSource(
+                        CdsCategory.FAMILY_HISTORY,
+                        retained,
+                        Map.of(
+                                "StartDate[1]",
+                                new CdsExportDateDto(CdsExportDateDto.Precision.YEAR, "2020")),
+                        values,
+                        () -> {});
+        var mapped =
+                new CdsExportNativeHistoryMapper()
+                        .map(
+                                27,
+                                CdsCategory.PAST_HEALTH,
+                                List.of(imported, moved),
+                                providers(),
+                                ZONE,
+                                program -> false,
+                                carried);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        assertThat(mapped.value().text())
+                .containsEntry(
+                        "PastHealthProblemDescriptionOrProcedures",
+                        "Imported narrative\nRemoved: Family History");
+        var context =
+                com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                        .build()
+                        .readTree(mapped.value().metadata())
+                        .get("refiledImportedSource");
+        assertThat(context.get("rule").asText())
+                .isEqualTo("REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED");
+        assertThat(context.get("section").asText()).isEqualTo("FamilyHistory");
+        var elements = new LinkedHashMap<String, String>();
+        context.get("elements")
+                .forEach(e -> elements.put(e.get("path").asText(), e.get("value").asText()));
+        assertThat(elements)
+                .containsExactly(
+                        Map.entry("ProblemDiagnosisProcedureDescription[1]", "Imported narrative"),
+                        Map.entry("StartDate[1]/YearOnly[1]", "2020"),
+                        Map.entry("Relationship[1]", "Mother"),
+                        Map.entry("Notes[1]", "Imported\nnotes"));
+        String xml =
+                new String(render(mapped.value()), StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains("PastHealthProblemDescriptionOrProcedures", "refiledImportedSource")
+                .doesNotContain("<FamilyHistory");
     }
 
     private void source(String path, String value) throws Exception {

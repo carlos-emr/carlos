@@ -159,6 +159,24 @@ public final class CdsExportNativeHistoryMapper {
             ZoneId zone,
             java.util.function.Predicate<String> readableProgram)
             throws IOException {
+        return map(patient, category, revisions, providers, zone, readableProgram, null);
+    }
+
+    /**
+     * As {@link #map(int, CdsCategory, List, Map, ZoneId, java.util.function.Predicate)}, for an
+     * imported item re-filed into another CPP section: {@code refiledSource}
+     * ({@link CdsExportHistoryFieldReconciler#refiledSource}) travels in the item's native context
+     * under {@code refiledImportedSource}.
+     */
+    public Result map(
+            int patient,
+            CdsCategory category,
+            List<CdsExportHistoryFieldReconciler.Current> revisions,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            java.util.function.Predicate<String> readableProgram,
+            Map<String, Object> refiledSource)
+            throws IOException {
         Objects.requireNonNull(readableProgram);
         if (patient < 1
                 || revisions.isEmpty()
@@ -381,7 +399,9 @@ public final class CdsExportNativeHistoryMapper {
                 detail.put("narrative", body == null ? "" : body);
             metadata.add(detail);
         }
-        String json = JSON.writeValueAsString(versioned("revisions", metadata));
+        var context = versioned("revisions", metadata);
+        if (refiledSource != null) context.put("refiledImportedSource", refiledSource);
+        String json = JSON.writeValueAsString(context);
         var codes = codes(category, current);
         // DiagnosisProcedureCode and DiagnosisCode hold one code. An item with several assigned
         // diagnoses (A24) writes none of them there rather than choosing one: every code is

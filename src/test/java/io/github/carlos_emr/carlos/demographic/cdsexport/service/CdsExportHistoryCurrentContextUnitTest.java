@@ -319,6 +319,29 @@ class CdsExportHistoryCurrentContextUnitTest {
                         io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
                                 .FAMILY_HISTORY);
         assertThat(result.getFirst().noteId()).isEqualTo(91);
+        // An imported item still in its import's section is not a re-filed one.
+        assertThat(result.getFirst().sourceCategory()).isNull();
+    }
+
+    @Test
+    void shouldPlanARefiledImportedItem_underItsCurrentSectionWithItsImportSection()
+            throws Exception {
+        // B5 re-filing: the imported FamilyHistory item now carries the Medical History tag. It
+        // is planned under PastHealth, keeping its import unit and naming FamilyHistory as the
+        // section its retained elements belong to (an unmoved item: the test above).
+        edit("issue", "code", "MedHistory");
+        prepare();
+        var result =
+                CdsExportHistoryOccurrenceService.plan(
+                        index(HASH, "91", false), inventory(91), read(1L << 20), () -> {});
+        assertThat(result).singleElement()
+                .satisfies(
+                        occurrence -> {
+                            assertThat(occurrence.category()).isEqualTo(CdsCategory.PAST_HEALTH);
+                            assertThat(occurrence.sourceCategory())
+                                    .isEqualTo(CdsCategory.FAMILY_HISTORY);
+                            assertThat(occurrence.address()).isEqualTo(RUN + ":" + HASH);
+                        });
     }
 
     @Test

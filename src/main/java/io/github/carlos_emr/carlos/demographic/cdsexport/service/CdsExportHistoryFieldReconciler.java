@@ -407,6 +407,78 @@ public final class CdsExportHistoryFieldReconciler {
                         checkpoint);
     }
 
+    /** The rule that carries a re-filed imported item's original section elements. */
+    static final String REFILED_SOURCE_RULE = "REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED";
+
+    /**
+     * The retained elements of an imported item that a clinician re-filed into another CPP
+     * section (B5), for its native context. Each element keeps its path under the import's own
+     * section and its exact logical value, in source order; a date takes the verified import
+     * shift the item would have been exported with ({@code dates}, from
+     * {@link CdsExportHistoryRetainedSource}). Nothing is dropped or normalized; the receiving
+     * system sees the item's current section and text in standard elements, and the original
+     * record here.
+     */
+    static Map<String, Object> refiledSource(
+            CdsCategory sourceCategory,
+            List<CdsExportRetainedFieldDto> fields,
+            Map<String, CdsExportDateDto> dates,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        Objects.requireNonNull(values);
+        if (sourceCategory == null || fields == null || fields.isEmpty() || dates == null)
+            scope();
+        values.requireActive();
+        String root = CdsExportRetainedOccurrencePath.root(fields.getFirst(), sourceCategory);
+        var elements = new ArrayList<Map<String, String>>();
+        for (var field : fields) {
+            checkpoint.run();
+            if (!field.sourcePath().equals(root) && !field.sourcePath().startsWith(root + "/"))
+                scope();
+            String path =
+                    field.sourcePath().equals(root)
+                            ? ""
+                            : field.sourcePath().substring(root.length() + 1);
+            String value = null;
+            for (var date : dates.entrySet())
+                if (path.startsWith(date.getKey() + "/")) value = date.getValue().lexical();
+            if (value == null) value = text(values, field, checkpoint);
+            var element = new LinkedHashMap<String, String>();
+            element.put("path", path);
+            element.put("value", value);
+            elements.add(element);
+        }
+        var carried = new LinkedHashMap<String, Object>();
+        carried.put("rule", REFILED_SOURCE_RULE);
+        carried.put("section", sourceCategory.wireName());
+        carried.put("elements", elements);
+        return carried;
+    }
+
+    private static String text(
+            CdsExportRetainedSectionWriter.Values values,
+            CdsExportRetainedFieldDto field,
+            Runnable checkpoint)
+            throws IOException {
+        var result = new StringBuilder();
+        char[] block = new char[4096];
+        try (var input = values.text(field)) {
+            for (int count; (count = input.read(block)) != -1; ) {
+                checkpoint.run();
+                result.append(block, 0, count);
+                if (result.length() > 16_777_215)
+                    review("CDS_EXPORT_HISTORY_REFILED_SOURCE_CAPACITY");
+            }
+        } finally {
+            Arrays.fill(block, '\0');
+        }
+        String value = result.toString();
+        if (!CdsExportNativeFieldAssessments.legal(value, 16_777_215))
+            review("CDS_EXPORT_HISTORY_REFILED_SOURCE_CAPACITY");
+        return value;
+    }
+
     Result choose(
             int patient,
             CdsCategory category,
