@@ -221,6 +221,55 @@ public final class CdsExportDemographicAncillaryReconciler {
         return Map.copyOf(result);
     }
 
+    /**
+     * A former most-responsible physician is named only by a superseded archive snapshot's
+     * {@code provider_no}: {@code DemographicUpdate2Action} archives the patient row on every
+     * edit, so a change of physician leaves the previous physician in older archive rows. The
+     * captured public provider row belongs to the same approved audit arrangement as that
+     * snapshot column ({@link #assessArchive}) and is accounted for under it, instead of being
+     * left without a decision and failing the job's field closure. A physician who is also the
+     * current or an enrolled physician keeps that mapped use when the assemblers combine the
+     * uses of one shared provider row.
+     *
+     * @return one OPERATIONAL decision per captured column of each provider an archive snapshot
+     *     names exactly; nothing for an unmatched reference, which stays decided by the archive
+     *     column itself
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>
+            assessArchivedPrimaryPhysicians(
+                    int patient,
+                    List<CdsExportCapturedTextRowDto> archives,
+                    Map<String, CdsExportCapturedTextRowDto> providers,
+                    Runnable checkpoint)
+                    throws IOException {
+        Objects.requireNonNull(providers);
+        var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        for (var archive : archives) {
+            checkpoint.run();
+            CdsExportEnrolmentMapper.requireRow(patient, archive);
+            if (!archive.table().equals("demographicArchive")) scope();
+            String id = archive.fields().get("provider_no");
+            var provider = id == null || id.isEmpty() ? null : providers.get(id);
+            if (provider == null) continue;
+            if (!provider.table().equals("provider")
+                    || !id.equals(provider.fields().get("provider_no"))) scope();
+            for (var entry : provider.fields().entrySet()) {
+                String value = entry.getValue();
+                result.putIfAbsent(
+                        new CdsExportNativeFieldKeyDto(
+                                provider.table(), provider.recordKey(), entry.getKey()),
+                        new CdsExportFieldAssessmentDto(
+                                value == null
+                                        ? Presence.SQL_NULL
+                                        : value.isEmpty() ? Presence.EMPTY : Presence.VALUE,
+                                Outcome.OPERATIONAL,
+                                "",
+                                "SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT"));
+            }
+        }
+        return Map.copyOf(result);
+    }
+
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ANCILLARY_SCOPE_INVALID");
     }

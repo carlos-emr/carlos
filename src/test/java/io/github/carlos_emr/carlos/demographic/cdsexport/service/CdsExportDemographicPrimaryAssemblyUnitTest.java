@@ -51,4 +51,14 @@ class CdsExportDemographicPrimaryAssemblyUnitTest {
         assertThat(result.providerUses()).isEqualTo(combined.providerUses()); assertThat(result.providerUses().get(OHIP)).hasSize(2);
     }
 
+    @Test void shouldAccountForAFormerPhysicianNamedOnlyByAnArchive_withoutHidingAnotherUsesReview()throws Exception {
+        // D1: a physician named only by a superseded archive snapshot is accounted for under the audit ruling.
+        var former=new CdsExportNativeFieldKeyDto("provider", "0017", "last_name");
+        var audit=new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.OPERATIONAL, "", "SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT");
+        var only=CdsExportDemographicRetainedCoreReconciler.withArchivedPrimaryPhysicians(core(Map.of()), Map.of(former, audit));
+        assertThat(only.fields().get(former)).isEqualTo(audit); assertThat(only.providerUses().get(former)).containsExactly(audit); assertThat(only.coreChanges()).containsExactly(coreChange);
+        var shared=CdsExportDemographicRetainedCoreReconciler.withArchivedPrimaryPhysicians(core(Map.of(OHIP, assessment(Outcome.REQUIRES_REVIEW, "PrimaryPhysician"))), Map.of(OHIP, new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.OPERATIONAL, "", "SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT")));
+        assertThat(shared.fields().get(OHIP).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW); assertThat(shared.providerUses().get(OHIP)).hasSize(2); assertThat(shared.coreRepresentable()).isFalse();
+        assertThatThrownBy(()-> CdsExportDemographicRetainedCoreReconciler.withArchivedPrimaryPhysicians(core(Map.of()), Map.of(EMAIL, audit))).hasMessage("CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+    }
 }

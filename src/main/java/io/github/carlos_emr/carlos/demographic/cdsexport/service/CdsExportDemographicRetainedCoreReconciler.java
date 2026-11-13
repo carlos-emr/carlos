@@ -600,6 +600,52 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                 uses);
     }
 
+    /**
+     * Adds the audit-arrangement use of each former most-responsible physician named by an
+     * archive snapshot ({@link CdsExportDemographicAncillaryReconciler#assessArchivedPrimaryPhysicians})
+     * beside any primary or enrolled use of the same captured provider row. An OPERATIONAL use
+     * never hides another use's review and adds no XML change.
+     */
+    static Result withArchivedPrimaryPhysicians(
+            Result core, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> archived)
+            throws IOException {
+        var fields = new LinkedHashMap<>(core.fields());
+        var uses =
+                new LinkedHashMap<CdsExportNativeFieldKeyDto, List<CdsExportFieldAssessmentDto>>(
+                        core.providerUses());
+        for (var entry : archived.entrySet()) {
+            if (!publicProviderField(entry.getKey())
+                    || entry.getValue().outcome() != Outcome.OPERATIONAL)
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+            var old = fields.get(entry.getKey());
+            if (old == null) {
+                fields.put(entry.getKey(), entry.getValue());
+                uses.put(entry.getKey(), List.of(entry.getValue()));
+                continue;
+            }
+            if (old.presence() != entry.getValue().presence())
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_ARCHIVED_PHYSICIAN_SCOPE_INVALID");
+            var items = new ArrayList<>(uses.get(entry.getKey()));
+            if (!items.contains(entry.getValue())) items.add(entry.getValue());
+            if (items.size() > 16)
+                throw new IOException("CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT");
+            uses.put(entry.getKey(), List.copyOf(items));
+            fields.put(entry.getKey(), summarizeProviderUses(items));
+        }
+        var nativeDeferred = new HashSet<>(core.deferredNativeFields());
+        nativeDeferred.removeAll(archived.keySet());
+        return new Result(
+                core.sourceManifestSha256(),
+                core.unitAddress(),
+                core.decidedSourceFields(),
+                core.deferredSourceFields(),
+                fields,
+                nativeDeferred,
+                core.blockers(),
+                core.proposedChanges(),
+                uses);
+    }
+
     private static boolean publicProviderField(CdsExportNativeFieldKeyDto key) {
         return key.table().equals("provider")
                 && io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.contains(

@@ -184,6 +184,10 @@ public final class CdsExportNativeDemographicAssembler {
         relatedEnrolment.keySet().removeIf(key -> key.table().equals("demographic"));
         merge(fields, relatedEnrolment);
         merge(fields, archiveFields);
+        merge(
+                fields,
+                CdsExportDemographicAncillaryReconciler.assessArchivedPrimaryPhysicians(
+                        patient, rows.get("demographicArchive"), providers, checkpoint));
         CdsExportPatientNoteMappingDto note = null;
         if (!rows.get("demographiccust").isEmpty()) {
             var custom = rows.get("demographiccust").getFirst();

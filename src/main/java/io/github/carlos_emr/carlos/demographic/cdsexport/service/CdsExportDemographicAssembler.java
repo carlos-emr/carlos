@@ -133,6 +133,11 @@ public final class CdsExportDemographicAssembler {
                                 maximumBytes,
                                 values,
                                 checkpoint);
+        core =
+                CdsExportDemographicRetainedCoreReconciler.withArchivedPrimaryPhysicians(
+                        core,
+                        CdsExportDemographicAncillaryReconciler.assessArchivedPrimaryPhysicians(
+                                patient, rows.archives(), rows.lookups().providers(), checkpoint));
         var care =
                 new CdsExportDemographicCareAssembler()
                         .assemble(

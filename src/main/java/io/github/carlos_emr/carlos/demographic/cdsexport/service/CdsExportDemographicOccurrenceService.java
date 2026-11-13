@@ -277,11 +277,7 @@ public class CdsExportDemographicOccurrenceService {
                                                                         .command()
                                                                         .categories(),
                                                                 index.sourceManifestSha256(),
-                                                                demographicRows(
-                                                                        collected,
-                                                                        lease.document()
-                                                                                .command()
-                                                                                .categories()),
+                                                                demographicRows(collected),
                                                                 bounds.nativeRows(),
                                                                 Math.min(
                                                                         bounds.indexBytes(),
@@ -363,11 +359,7 @@ public class CdsExportDemographicOccurrenceService {
                                     var providers =
                                             new LinkedHashMap<
                                                     String, CdsExportCapturedTextRowDto>();
-                                    for (var provider :
-                                            demographicRows(
-                                                            collected,
-                                                            lease.document().command().categories())
-                                                    .get("provider"))
+                                    for (var provider : demographicRows(collected).get("provider"))
                                         if (providers.putIfAbsent(
                                                         provider.fields().get("provider_no"),
                                                         provider)
@@ -576,17 +568,19 @@ public class CdsExportDemographicOccurrenceService {
         return List.copyOf(result);
     }
 
-    /** Lookup rows belong to the selected native domains that reference them. The demographic
-     * assembler still receives its complete primary/roster slice and rejects unrelated rows. */
+    /**
+     * The demographic occurrence owns exactly the public provider rows that its own columns
+     * name byte-for-byte: the current and every archived most-responsible physician
+     * ({@code provider_no}) and enrolled physician ({@code roster_enrolled_to}). The slice is
+     * the same whichever categories are selected. Providers captured only for another selected
+     * category belong to that category's receipt. A collation-only lookup candidate that no
+     * demographic column names exactly is not a demographic fact: the referencing column's own
+     * exact-join rule already decides it (for example, PrimaryPhysician requires review when its
+     * exact reference is missing). The assemblers still reject any provider row they are given
+     * but cannot account for.
+     */
     static Map<String, List<CdsExportCapturedTextRowDto>> demographicRows(
-            Map<String, List<CdsExportCapturedTextRowDto>> rows, Set<CdsCategory> selected)
-            throws IOException {
-        var other = EnumSet.copyOf(CdsExportNoteSourceReader.CATEGORIES);
-        other.add(CdsCategory.MEDICATIONS_AND_TREATMENTS);
-        other.add(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
-        other.add(CdsCategory.APPOINTMENTS);
-        other.add(CdsCategory.REPORTS);
-        if (Collections.disjoint(selected, other)) return rows;
+            Map<String, List<CdsExportCapturedTextRowDto>> rows) throws IOException {
         if (rows.get("demographic").size() != 1) scope();
         var references = new HashSet<String>();
         var current = rows.get("demographic").getFirst();
@@ -594,10 +588,11 @@ public class CdsExportDemographicOccurrenceService {
             String id = current.fields().get(column);
             if (id != null && !id.isEmpty()) references.add(id);
         }
-        for (var archive : rows.get("demographicArchive")) {
-            String id = archive.fields().get("roster_enrolled_to");
-            if (id != null && !id.isEmpty()) references.add(id);
-        }
+        for (var archive : rows.get("demographicArchive"))
+            for (String column : List.of("provider_no", "roster_enrolled_to")) {
+                String id = archive.fields().get(column);
+                if (id != null && !id.isEmpty()) references.add(id);
+            }
         var result = new LinkedHashMap<>(rows);
         result.put(
                 "provider",

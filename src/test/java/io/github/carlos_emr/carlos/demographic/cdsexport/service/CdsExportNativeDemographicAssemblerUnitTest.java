@@ -552,20 +552,90 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                     CdsExportPublicProviderSourceReader.key(id),
                                     provider));
         }
+        // The assembler itself still refuses a provider row it is handed but cannot account for.
         assertThatThrownBy(this::assemble).hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
         var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.MEDICATIONS_AND_TREATMENTS);
-        var own = CdsExportDemographicOccurrenceService.demographicRows(rows, selected);
+        var own = CdsExportDemographicOccurrenceService.demographicRows(rows);
         assertThat(own.get("provider")).hasSize(1);
         var result =
                 new CdsExportNativeDemographicAssembler()
                         .assemble(27, selected, HASH, own, 100, 1L << 20, () -> {});
         assertThat(result.demographic().demographic().primaryPhysician().lastName())
                 .isEqualTo("99");
+        // Updated for D1: the demographic slice no longer depends on which other categories are
+        // selected. A Demographics-only job used to hand the assembler the unreferenced row and
+        // fail the whole job; the slice now keeps only rows a demographic column names exactly.
+        var demographicsOnly = Set.of(CdsCategory.DEMOGRAPHICS);
+        assertThat(own.get("provider")).hasSize(1);
         assertThat(
-                        CdsExportDemographicOccurrenceService.demographicRows(
-                                        rows, Set.of(CdsCategory.DEMOGRAPHICS))
-                                .get("provider"))
-                .hasSize(2);
+                        new CdsExportNativeDemographicAssembler()
+                                .assemble(27, demographicsOnly, HASH, own, 100, 1L << 20, () -> {})
+                                .demographic()
+                                .demographic()
+                                .primaryPhysician())
+                .isNotNull();
+    }
+
+    @Test
+    void shouldAccountForAFormerMostResponsiblePhysician_whenOnlyAnArchiveSnapshotNamesThem()
+            throws Exception {
+        // DemographicUpdate2Action archives the patient row on every save; after reception
+        // changes the physician from 17 to 99, older archive rows still name 17.
+        var current = rows.get("demographic").getFirst();
+        var values = new LinkedHashMap<>(current.fields());
+        values.put("provider_no", "99");
+        rows.get("demographic")
+                .set(0, new CdsExportCapturedTextRowDto(current.table(), current.recordKey(), values));
+        var old = new LinkedHashMap<String, String>();
+        Plan.DEMOGRAPHIC_ARCHIVE.columns().forEach(column -> old.put(column, null));
+        old.putAll(Map.of("id", "1", "demographic_no", "27", "provider_no", "17"));
+        rows.get("demographicArchive")
+                .add(
+                        new CdsExportCapturedTextRowDto(
+                                "demographicArchive", CdsExportPatientTableSourceReader.key(1), old));
+        for (String id : List.of("99", "17")) {
+            var provider = new LinkedHashMap<String, String>();
+            io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.forEach(
+                    c -> provider.put(c, null));
+            provider.putAll(
+                    Map.of("provider_no", id, "first_name", "Public", "last_name", "Dr" + id));
+            rows.get("provider")
+                    .add(
+                            new CdsExportCapturedTextRowDto(
+                                    "provider",
+                                    CdsExportPublicProviderSourceReader.key(id),
+                                    provider));
+        }
+        var own = CdsExportDemographicOccurrenceService.demographicRows(rows);
+        assertThat(own.get("provider")).hasSize(2);
+        var result =
+                new CdsExportNativeDemographicAssembler()
+                        .assemble(
+                                27,
+                                Set.of(CdsCategory.DEMOGRAPHICS),
+                                HASH,
+                                own,
+                                100,
+                                1L << 20,
+                                () -> {});
+        var former =
+                result.fields()
+                        .get(
+                                new CdsExportNativeFieldKeyDto(
+                                        "provider",
+                                        CdsExportPublicProviderSourceReader.key("17"),
+                                        "last_name"));
+        assertThat(former.outcome()).isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+        assertThat(former.rule()).isEqualTo("SUPERSEDED_PRIMARY_PHYSICIAN_IN_APPROVED_AUDIT");
+        assertThat(result.fields().keySet().stream().filter(key -> key.table().equals("provider")))
+                .hasSize(12);
+        assertThat(result.fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        String xml = validatedXml(result);
+        assertThat(xml).contains("<cdsd:LastName>Dr99</cdsd:LastName>").doesNotContain("Dr17");
     }
 
     @Test
@@ -621,5 +691,47 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                                 k.table().equals("Contact")
                                                         || k.table().equals("DemographicContact")))
                 .hasSize(40);
+    }
+
+    /** Renders through the real composer and pinned-schema validator, as the job does. */
+    private static String validatedXml(CdsExportNativeDemographicAssembler.Result result)
+            throws IOException {
+        var bytes = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        bytes,
+                        HASH,
+                        HASH,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        List.of(
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.DEMOGRAPHICS, HASH),
+                                                xml ->
+                                                        new CdsExportDemographicXmlWriter()
+                                                                .writeWithRelated(
+                                                                        result.demographic(),
+                                                                        result.pharmacy(),
+                                                                        result.contacts(),
+                                                                        result.professional(),
+                                                                        "C27",
+                                                                        xml)))
+                                .iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(bytes.toByteArray()),
+                        "C27",
+                        Set.of(CdsCategory.DEMOGRAPHICS),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+        return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);
     }
 }
