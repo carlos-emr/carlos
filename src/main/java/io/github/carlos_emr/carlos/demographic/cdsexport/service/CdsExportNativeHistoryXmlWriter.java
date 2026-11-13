@@ -64,9 +64,10 @@ public final class CdsExportNativeHistoryXmlWriter {
                 && value.text().containsKey("NativePersonalNarrative"))
             residualElement(
                     xml,
-                    CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
+                    CdsNativeExtensionContract.HISTORY_NARRATIVE,
                     "string",
-                    value.text().get("NativePersonalNarrative"));
+                    CdsNativeExtensionContract.encodeNarrative(
+                            value.text().get("NativePersonalNarrative")));
         if (value.category() != CdsCategory.PERSONAL_HISTORY
                 && value.text().containsKey("NativeNarrative"))
             residualElement(

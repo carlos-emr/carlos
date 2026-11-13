@@ -176,7 +176,9 @@ class CdsExportHistoryInteroperabilityUnitTest {
                                 "FamHistory")
                         .entrySet())
             for (boolean archived : List.of(false, true)) {
-                String narrative = "Exact native " + category.getValue() + " café 😀";
+                // Line breaks and repeated spaces typed into the CPP box must survive too.
+                String narrative =
+                        "Exact native " + category.getValue() + " café 😀\n  second   line";
                 var mapped =
                         new CdsExportNativeHistoryMapper()
                                 .map(

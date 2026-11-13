@@ -149,9 +149,14 @@ class CdsHistoryResidualReaderUnitTest {
     }
 
     @Test
-    void shouldRestoreALongCppNarrative_fromItsCarrierOnlyOutsidePersonalHistory()
-            throws Exception {
-        for (String category : List.of("FamilyHistory", "PastHealth", "ProblemList", "RiskFactors")) {
+    void shouldRestoreANarrative_fromTheEncodedCarrierInEveryCppCategory() throws Exception {
+        for (String category :
+                List.of(
+                        "PersonalHistory",
+                        "FamilyHistory",
+                        "PastHealth",
+                        "ProblemList",
+                        "RiskFactors")) {
             var record =
                     parsed(
                             category,
@@ -166,17 +171,6 @@ class CdsHistoryResidualReaderUnitTest {
                     .isEqualTo("Long native narrative café 😀");
             assertThat(result.personalNarrative()).isNull();
         }
-        var personal =
-                parsed(
-                        "PersonalHistory",
-                        "<ResidualInfo>"
-                                + element(
-                                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
-                                        "string",
-                                        "Wrong carrier")
-                                + "</ResidualInfo>");
-        assertThatThrownBy(() -> new CdsHistoryResidualReader(fields).read(personal))
-                .hasMessageContaining("CDS_HISTORY_NATIVE_STATE_REQUIRES_REVIEW");
     }
 
     @Test

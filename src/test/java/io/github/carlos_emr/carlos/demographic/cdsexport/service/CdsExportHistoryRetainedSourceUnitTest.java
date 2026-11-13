@@ -298,6 +298,39 @@ class CdsExportHistoryRetainedSourceUnitTest {
     }
 
     @Test
+    void shouldVerifyAnEncodedPersonalNarrative_inPreferenceToTheEarlierRawCarrier()
+            throws Exception {
+        String narrative = "Lives alone.\n  Walks   daily, café 😀";
+        fields.clear();
+        category = CdsCategory.PERSONAL_HISTORY;
+        add("ResidualInfo[1]/DataElement[1]/Name[1]", CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        add("ResidualInfo[1]/DataElement[1]/DataType[1]", "string");
+        add(
+                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                CdsNativeExtensionContract.encodeNarrative(narrative));
+        add(
+                "ResidualInfo[1]/DataElement[2]/Name[1]",
+                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE);
+        add("ResidualInfo[1]/DataElement[2]/DataType[1]", "string");
+        add("ResidualInfo[1]/DataElement[2]/Content[1]", "Lives alone. Walks daily, café 😀");
+        prepared =
+                new CdsHistoryNativeDto(
+                        narrative, "SocHistory", null, null, null, null, null, List.of());
+        assertThat(read().sourceFields()).hasSize(6);
+        prepared =
+                new CdsHistoryNativeDto(
+                        "Lives alone. Walks daily, café 😀",
+                        "SocHistory",
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        List.of());
+        assertThatThrownBy(this::read).hasMessage("CDS_EXPORT_HISTORY_SOURCE_INVALID");
+    }
+
+    @Test
     void shouldSupportPersonalHistoryResiduals_withoutInventingANativeNarrativeOrDate()
             throws Exception {
         fields.clear();

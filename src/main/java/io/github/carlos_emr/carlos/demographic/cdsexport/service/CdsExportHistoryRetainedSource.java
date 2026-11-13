@@ -150,21 +150,11 @@ public final class CdsExportHistoryRetainedSource {
             if (relative.putIfAbsent(path, field) != null) invalid();
         }
         String body = body(category);
-        var descriptor =
-                category == CdsCategory.PERSONAL_HISTORY
-                        ? marker(
-                                fields,
-                                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
-                                "string",
-                                values,
-                                checkpoint)
-                        : body == null ? null : relative.get(body + "[1]");
-        // A CARLOS export carries a narrative too long for the description element in a versioned
-        // residual instead; the importer read it only when the description element was absent.
+        // The importer's order: the description element, then the encoded narrative carrier,
+        // then (PersonalHistory only) the earlier raw carrier.
+        var descriptor = body == null ? null : relative.get(body + "[1]");
         boolean carrier = false;
-        if (descriptor == null
-                && category != CdsCategory.PERSONAL_HISTORY
-                && category != CdsCategory.CLINICAL_NOTES) {
+        if (descriptor == null && category != CdsCategory.CLINICAL_NOTES) {
             descriptor =
                     marker(
                             fields,
@@ -174,6 +164,14 @@ public final class CdsExportHistoryRetainedSource {
                             checkpoint);
             carrier = descriptor != null;
         }
+        if (descriptor == null && category == CdsCategory.PERSONAL_HISTORY)
+            descriptor =
+                    marker(
+                            fields,
+                            CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
+                            "string",
+                            values,
+                            checkpoint);
         if (category != CdsCategory.CLINICAL_NOTES) {
             var archive =
                     marker(

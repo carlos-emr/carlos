@@ -50,17 +50,22 @@ public final class CdsNativeExtensionContract {
     /** CPP categories have no standard record-archive field; this is independent of problem resolution. */
     public static final String HISTORY_ARCHIVED = "CARLOS.History.Archived.v1";
 
-    /** PersonalHistory permits only residual fields, so its native narrative has an explicit carrier. */
+    /**
+     * PersonalHistory's earlier raw narrative carrier, still read for files that carry it. Its
+     * raw content is {@code xs:token}, so line breaks and repeated spaces did not survive a
+     * schema-aware reader; the exporter now writes {@link #HISTORY_NARRATIVE} instead.
+     */
     public static final String HISTORY_PERSONAL_NARRATIVE = "CARLOS.History.PersonalNarrative.v1";
 
     /**
-     * The complete native narrative of a FamilyHistory, PastHealth, ProblemList or RiskFactors
-     * item too long for its description element (250 characters, 120 for RiskFactor). The
-     * exporter then writes no description, the same text in the standard Notes element for any
-     * receiver, and this carrier so a CARLOS importer restores the item's text exactly rather
-     * than a placeholder. A description element, when present, always wins. The content is
-     * {@link #encodeNarrative}: residual Content is {@code xs:token}, and a schema-aware reader
-     * (the CARLOS importer included) collapses the line breaks and repeated spaces of raw text.
+     * The complete native narrative of a PersonalHistory item (which permits only residual
+     * fields), or of a FamilyHistory, PastHealth, ProblemList or RiskFactors item too long for its
+     * description element (250 characters, 120 for RiskFactor). For the latter the exporter writes
+     * no description and the same text in the standard Notes element for any receiver; this
+     * carrier lets a CARLOS importer restore the item's text exactly rather than a placeholder. A
+     * description element, when present, always wins. The content is {@link #encodeNarrative}:
+     * residual Content is {@code xs:token}, and a schema-aware reader (the CARLOS importer
+     * included) collapses the line breaks and repeated spaces of raw text.
      */
     public static final String HISTORY_NARRATIVE = "CARLOS.History.Narrative.v1";
 

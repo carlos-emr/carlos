@@ -161,15 +161,16 @@ public class CdsHistoryPersister {
                         else if (!participant[0].equals(group)) repeated[0] = true;
                     }
                 });
-        if (descriptor[0] == null && nativeState.personalNarrative() != null)
-            descriptor[0] = nativeState.personalNarrative();
-        // A CARLOS export writes no description element for a narrative too long for it; its
-        // versioned carrier holds the exact text (Notes holds the same text for other readers).
+        // A CARLOS export carries PersonalHistory's narrative, or a narrative too long for the
+        // description element, in a versioned whitespace-free carrier (Notes holds the same long
+        // text for other readers). The earlier raw PersonalHistory carrier is still read.
         boolean encoded = false;
         if (descriptor[0] == null && nativeState.narrative() != null) {
             descriptor[0] = nativeState.narrative();
             encoded = true;
         }
+        if (descriptor[0] == null && nativeState.personalNarrative() != null)
+            descriptor[0] = nativeState.personalNarrative();
         if (nativeState.archived())
             notice.accept(new CdsClinicalDiagnosticDto(
                     "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION", "ResidualInfo"));

@@ -50,9 +50,10 @@ final class CdsHistoryResidualReader {
     }
 
     /**
-     * @param personalNarrative the PersonalHistory narrative carrier, or null
-     * @param narrative the narrative carrier of another CPP item whose text did not fit its
-     *     description element, or null; the persister uses it only when that element is absent
+     * @param personalNarrative the earlier raw PersonalHistory narrative carrier, or null
+     * @param narrative the encoded narrative carrier (PersonalHistory, or another CPP item whose
+     *     text did not fit its description element), or null; the persister uses it only when
+     *     the description element is absent, and in preference to the raw carrier
      */
     record NativeState(boolean archived, CdsFieldDto personalNarrative, CdsFieldDto narrative) {}
 
@@ -137,10 +138,7 @@ final class CdsHistoryResidualReader {
             } else if (name.equals(CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE)) {
                 if (!record.section().equals("PersonalHistory")) invalid();
                 personalNarrative = values.get("Content");
-            } else {
-                if (record.section().equals("PersonalHistory")) invalid();
-                narrative = values.get("Content");
-            }
+            } else narrative = values.get("Content");
             values.clear();
         }
     }

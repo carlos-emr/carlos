@@ -117,7 +117,9 @@ importer, CARLOS included, files it as an ordinary note carrying that statement.
 history item longer than its description element (250 characters, 120 for a risk
 factor) has no description; its complete text is in Notes, and also in the versioned
 `CARLOS.History.Narrative.v1` residual (whitespace escaped), from which a CARLOS
-importer restores the item's exact text.
+importer restores the item's exact text. Personal history, which CDS allows only as
+residual data, travels in the same carrier, so its line breaks survive; other
+schema-aware receivers collapse whitespace in residual content.
 
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select

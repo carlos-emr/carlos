@@ -285,6 +285,35 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     }
 
     @Test
+    void shouldReplaceTheRawPersonalCarrier_withTheEncodedCurrentNarrative() throws Exception {
+        String edited = "Lives alone.\n  Walks   daily";
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE),
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.PERSONAL_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                "Original imported narrative"));
+        var result = reconcile(CdsCategory.PERSONAL_HISTORY, "SocHistory", fields, edited, false);
+        String xml =
+                new String(
+                        render(CdsCategory.PERSONAL_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(CdsNativeExtensionContract.encodeNarrative(edited))
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE);
+        assertThat(result.replacedFields())
+                .containsExactlyInAnyOrderElementsOf(fields.stream().map(f -> f.id()).toList());
+    }
+
+    @Test
     void shouldRetainUnrelatedLongVendorNames_whileAddingKnownNativeHistoryMarkers()
             throws Exception {
         String vendorName = "Unrelated.Vendor." + "x".repeat(20000);

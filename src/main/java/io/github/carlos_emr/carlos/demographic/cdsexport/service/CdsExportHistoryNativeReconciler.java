@@ -229,8 +229,30 @@ final class CdsExportHistoryNativeReconciler {
                             && CdsExportCaseManagementProjectionEvidence.matches(
                                     original, "note", current.note().value().fields().get("note"))))
                 markers.put(
-                        CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
-                        nativeValue.text().get("NativePersonalNarrative"));
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                        CdsNativeExtensionContract.encodeNarrative(
+                                nativeValue.text().get("NativePersonalNarrative")));
+            // The earlier raw PersonalHistory carrier would otherwise keep the imported text
+            // beside the current one.
+            if (category == CdsCategory.PERSONAL_HISTORY
+                    && residual
+                    && markers.containsKey(CdsNativeExtensionContract.HISTORY_NARRATIVE)) {
+                var raw =
+                        CdsExportHistoryRetainedSource.marker(
+                                sourceFields,
+                                CdsNativeExtensionContract.HISTORY_PERSONAL_NARRATIVE,
+                                "string",
+                                values,
+                                checkpoint);
+                if (raw != null) {
+                    String element = raw.sourcePath().substring(root.length() + 1);
+                    replace(
+                            changes,
+                            sourceFields,
+                            element.substring(0, element.length() - "/Content[1]".length()),
+                            null);
+                }
+            }
             // An edit decides the item's text again: a long current narrative travels in the
             // narrative carrier, and a carrier left from the original import must not survive an
             // edit that now fits the description element.
