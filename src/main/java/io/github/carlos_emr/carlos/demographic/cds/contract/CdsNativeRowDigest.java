@@ -50,6 +50,19 @@ public final class CdsNativeRowDigest {
 
     private CdsNativeRowDigest() {}
 
+    /**
+     * {@code [0-9a-fA-F]{64}} without a regular expression: every captured cell of every receipt
+     * is checked, many times per exported chart.
+     */
+    static boolean hex64(String value) {
+        if (value.length() != 64) return false;
+        for (int i = 0; i < 64; i++) {
+            char c = value.charAt(i);
+            if (!(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F')) return false;
+        }
+        return true;
+    }
+
     public static Hasher hasher(List<Column> columns) {
         return new Hasher(columns);
     }
@@ -82,7 +95,7 @@ public final class CdsNativeRowDigest {
                 if (closed
                         || position >= columns.size()
                         || bytes < 0
-                        || !sqlNull && (sha256 == null || !sha256.matches("[0-9a-fA-F]{64}")))
+                        || !sqlNull && (sha256 == null || !hex64(sha256)))
                     invalid();
                 if (sqlNull
                         && (bytes != 0

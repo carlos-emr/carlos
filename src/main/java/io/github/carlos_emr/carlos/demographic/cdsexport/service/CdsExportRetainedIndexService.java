@@ -137,6 +137,26 @@ public class CdsExportRetainedIndexService {
                 || maximumIndexBytes > 64L << 20)
             throw new IllegalArgumentException("CDS_EXPORT_RETAINED_INDEX_SCOPE_INVALID");
         patient.require(lease);
+        // Every section of the chart asks for the same index, which unseals each unit's witness.
+        // Within the patient's session it is derived once from the checked capture; each later
+        // request still rechecks current authorization before it is given the index.
+        var session = control.verifiedCaptures(patient.patient());
+        var key =
+                new IndexKey(
+                        manifest,
+                        Set.copyOf(requiredTables),
+                        Set.copyOf(plans.keySet()),
+                        maximumFields,
+                        maximumBytes,
+                        maximumRows,
+                        maximumIndexBytes);
+        var known = session == null ? null : session.derived(key, CdsExportRetainedIndexDto.class);
+        if (known != null) {
+            captures.authorizeSources(lease, patient, requiredTables, control);
+            patient.require(lease);
+            control.checkpoint();
+            return known;
+        }
         var tables = new TreeMap<String, Map<String, CdsExportCapturedTextRowDto>>();
         plans.keySet().forEach(table -> tables.put(table, new TreeMap<>()));
         long[] count = new long[2];
@@ -239,9 +259,25 @@ public class CdsExportRetainedIndexService {
             captures.authorizeSources(lease, patient, requiredTables, control);
             patient.require(lease);
             control.checkpoint();
+            if (session != null) session.derived(key, result);
             return result;
         } catch (IllegalArgumentException | NullPointerException malformed) {
             throw new IOException("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
+        }
+    }
+
+    /** Everything a retained index depends on besides the job's command and keys. */
+    private record IndexKey(
+            CdsExportStagedFileDto manifest,
+            Set<String> requiredTables,
+            Set<String> indexed,
+            long maximumFields,
+            long maximumBytes,
+            int maximumRows,
+            long maximumIndexBytes) {
+        @Override
+        public String toString() {
+            return "CdsExportRetainedIndexService.IndexKey[protected]";
         }
     }
 

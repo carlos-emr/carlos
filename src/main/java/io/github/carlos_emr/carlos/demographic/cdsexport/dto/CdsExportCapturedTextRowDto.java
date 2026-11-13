@@ -28,12 +28,14 @@ import java.util.TreeMap;
 /** One bounded authenticated native text row; SQL null and empty text remain distinct. */
 public record CdsExportCapturedTextRowDto(String table, String recordKey, Map<String, String> fields,
         Map<String, io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric> exactNumbers) {
+    private static final java.util.regex.Pattern TABLE = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
+    private static final java.util.regex.Pattern COLUMN = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,128}");
     public CdsExportCapturedTextRowDto(String table, String recordKey, Map<String, String> fields) { this(table, recordKey, fields, Map.of()); }
     public CdsExportCapturedTextRowDto {
-        if (table == null || !table.matches("[A-Za-z0-9_]{1,64}") || recordKey == null || recordKey.isEmpty() || recordKey.length() > 2048
-                || recordKey.codePoints().anyMatch(code -> Character.isISOControl(code) || code >= 0xd800 && code <= 0xdfff)
+        if (table == null || !TABLE.matcher(table).matches() || recordKey == null || recordKey.isEmpty() || recordKey.length() > 2048
+                || !CdsExportCapturedFieldDto.safeKey(recordKey)
                 || fields == null || fields.isEmpty() || fields.size() > 4096
-                || fields.keySet().stream().anyMatch(column -> column == null || !column.matches("[A-Za-z0-9_]{1,128}"))) {
+                || fields.keySet().stream().anyMatch(column -> column == null || !COLUMN.matcher(column).matches())) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_INVALID");
         }
         // Sorted, like fields: both are serialized into residual JSON that must not change between runs.

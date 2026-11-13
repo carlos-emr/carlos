@@ -112,6 +112,18 @@ public interface CdsExportRunControl {
     default void discardPatient() {}
 
     /**
+     * The checked capture reads of the patient whose session is open, for the patient's later
+     * reads of the same sealed members to replay instead of decrypting and checking them again;
+     * null when no session is open for this patient or on another thread. It is zeroed when the
+     * session ends. An adapter without sessions returns null, and every read then reads and
+     * checks its members afresh, which is always correct.
+     */
+    default io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportVerifiedCaptures
+            verifiedCaptures(int patient) {
+        return null;
+    }
+
+    /**
      * Fresh Reports and eForm read check for one patient, outside any source transaction, returning
      * the job's effective provider identity an eForm of that patient is rendered as. Never a system
      * identity; an adapter without a renderer identity refuses, so it stays fail-closed.

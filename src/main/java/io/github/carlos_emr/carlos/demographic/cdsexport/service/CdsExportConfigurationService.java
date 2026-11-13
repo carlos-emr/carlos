@@ -35,10 +35,17 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportConfigurationService {
     private final Properties properties;
+    /**
+     * {@code cds.export.enabled} as configured, read once. The properties are this service's own
+     * copy and never change after construction, and every export checkpoint (several per captured
+     * value) asks whether export is still enabled; the answer and its validation are unchanged.
+     */
+    private final String enabled;
 
     public CdsExportConfigurationService(@Qualifier("cdsExportProperties") Properties supplied) {
         properties = new Properties();
         properties.putAll(supplied);
+        enabled = properties.getProperty("cds.export.enabled", "false").strip();
     }
 
     /** Same trusted server facility policy used by the active case-management note reader. */
@@ -50,10 +57,10 @@ public class CdsExportConfigurationService {
     }
 
     public boolean enabled() {
-        String value = properties.getProperty("cds.export.enabled", "false").strip();
-        if (!Set.of("true", "false").contains(value))
+        if (enabled.equals("true")) return true;
+        if (!enabled.equals("false"))
             throw new IllegalStateException("CDS_EXPORT_CONFIGURATION_INVALID");
-        return value.equals("true");
+        return false;
     }
 
     /** Status/control remain available when new disclosure admission is disabled. */

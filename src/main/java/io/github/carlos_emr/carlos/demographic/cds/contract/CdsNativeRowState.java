@@ -38,6 +38,10 @@ import java.util.Locale;
  */
 public record CdsNativeRowState(
         String table, String id, List<CdsNativeRowDigest.Column> columns, List<Cell> cells) {
+    private static final java.util.regex.Pattern TABLE =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
+    private static final java.util.regex.Pattern ID =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_-]{1,64}");
     public record Cell(
             boolean sqlNull, long bytes, String sha256, CdsExactNumeric.Witness exactNumeric) {
         public Cell(boolean sqlNull, long bytes, String sha256) {
@@ -47,7 +51,7 @@ public record CdsNativeRowState(
         public Cell {
             if (bytes < 0
                     || sqlNull && (bytes != 0 || sha256 != null || exactNumeric != null)
-                    || !sqlNull && (sha256 == null || !sha256.matches("[0-9a-fA-F]{64}")))
+                    || !sqlNull && (sha256 == null || !CdsNativeRowDigest.hex64(sha256)))
                 invalid();
             if (sha256 != null) sha256 = sha256.toLowerCase(Locale.ROOT);
         }
@@ -60,9 +64,9 @@ public record CdsNativeRowState(
 
     public CdsNativeRowState {
         if (table == null
-                || !table.matches("[A-Za-z0-9_]{1,64}")
+                || !TABLE.matcher(table).matches()
                 || id == null
-                || !id.matches("[A-Za-z0-9_-]{1,64}")) invalid();
+                || !ID.matcher(id).matches()) invalid();
         columns = List.copyOf(columns);
         cells = List.copyOf(cells);
         if (columns.isEmpty() || columns.size() > 512 || columns.size() != cells.size()) invalid();

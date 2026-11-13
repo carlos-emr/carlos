@@ -2867,6 +2867,26 @@ maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each
 text instead of parsing every repeated statement again on a new parser thread; refusals and text
 with quoted literals are never kept.
 
+**One checked read of the capture per patient.** Every reader of a chart (the inventory, each
+section, each receipt and witness check) reads the patient's whole sealed capture, and each read
+used to decrypt the members, parse every index line and hash every value again: dozens of complete
+reads per chart, about 52 s for an imported chart and 14 s for an ordinary native one in the
+installed census. Inside the patient's session (`CdsExportRunControl.verifiedCaptures`,
+`CdsExportVerifiedCaptures`) the first complete read of a capture's members (the read-back right
+after capture) is recorded once it has passed every check of `CdsExportNativeCaptureReader`
+(authenticated chunks, both end-of-stream checks, strict UTF-8, each value's SHA-256, sequence,
+offsets and counts); each later read of the identical members and plan replays those checked
+fields, in the same order and with the same bytes, to its consumer. The parsed manifest and its
+checked table plan, the retained import index (with its unsealed native-baseline witnesses) and the
+comparison of the captured rows with those witnesses are likewise derived once per session from
+the same checked members. Everything a read does around the transport still runs on every read:
+the manifest and scope checks, the authorization checks before and after, the note-scope binding
+and each consumer's own receipts. The record is the session's alone, is zeroed when the patient
+ends however it ends, and holds at most 32 MiB and 200,000 fields; a larger capture is read from
+its members every time, as before. Each read's own working buffers are reused across values and
+zeroed after each value, the export-enabled setting is read once, and the accepted schema digests
+of each reader's contract are derived once per application.
+
 The trusted server setting `FILTER_ON_FACILITY` defaults to true, as in the chart. A positive note program then requires the command’s verified facility to match the program; disabling the setting does not remove program-domain, membership, chart or category checks. Invalid settings refuse the operation. Locked notes, unknown lock flags and malformed or changed dependencies also refuse disclosure. The unused `filterNotesByAccess` helper’s legacy `ROLEnotes` and admission-interval rules are not used. Earlier component evidence used that helper; the current active-policy checks below supersede those authorization claims. History issue/revision reconciliation and complete clinical output remain separate work.
 
 

@@ -29,12 +29,14 @@ import java.util.UUID;
 public record CdsExportNativeCaptureDto(int protocol, String runId, long epoch, int patient,
         String cohortSha256, Instant readStartedAt, Instant readCompletedAt, Map<String, CdsExportCapturedTableDto> tables,
         long fieldCount, long valueBytes, CdsExportStagedFileDto values, CdsExportStagedFileDto index) {
+    private static final java.util.regex.Pattern SHA256 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
+    private static final java.util.regex.Pattern TABLE = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
     public CdsExportNativeCaptureDto {
         tables = Map.copyOf(tables);
         if (protocol != 2 || runId == null || !UUID.fromString(runId).toString().equals(runId) || epoch < 1 || patient < 1
-                || cohortSha256 == null || !cohortSha256.matches("[0-9a-f]{64}")
+                || cohortSha256 == null || !SHA256.matcher(cohortSha256).matches()
                 || readStartedAt == null || readCompletedAt == null || readCompletedAt.isBefore(readStartedAt)
-                || tables.isEmpty() || tables.size() > 256 || tables.keySet().stream().anyMatch(table -> !table.matches("[A-Za-z0-9_]{1,64}"))
+                || tables.isEmpty() || tables.size() > 256 || tables.keySet().stream().anyMatch(table -> !TABLE.matcher(table).matches())
                 || fieldCount < 1 || fieldCount > 100_000_000 || valueBytes < 0 || values == null || index == null
                 || !values.purpose().equals("SOURCE_VALUES") || !index.purpose().equals("SOURCE_INDEX")
                 || values.memberId().equals(index.memberId()) || values.plaintextBytes() != valueBytes) {

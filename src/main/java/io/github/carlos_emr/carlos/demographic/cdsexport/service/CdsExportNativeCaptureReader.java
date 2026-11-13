@@ -56,14 +56,20 @@ public final class CdsExportNativeCaptureReader {
                     .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
                     .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
 
+    /** The field members every captured field carries as JSON text, checked before it is built. */
+    private static final java.util.List<String> TEXT_MEMBERS =
+            java.util.List.of("table", "recordKey", "column", "kind", "sha256");
+
+    private static final java.util.regex.Pattern TABLE =
+            java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
+
     public record Table(Set<String> columns, long rows) {
         public Table {
             columns = Set.copyOf(columns);
             if (columns.isEmpty()
                     || columns.size() > 4096
                     || rows < 0
-                    || columns.stream()
-                            .anyMatch(column -> !column.matches("[A-Za-z0-9_]{1,128}"))) {
+                    || columns.stream().anyMatch(column -> !identifier(column, 128))) {
                 throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_PLAN_INVALID");
             }
         }
@@ -126,9 +132,28 @@ public final class CdsExportNativeCaptureReader {
                 || maximumFields < 1
                 || maximumFields > 100_000_000
                 || maximumBytes < 1
-                || plan.keySet().stream().anyMatch(table -> !table.matches("[A-Za-z0-9_]{1,64}")))
+                || plan.keySet().stream().anyMatch(table -> !TABLE.matcher(table).matches()))
             invalid();
         var lines = new CdsExportJsonLines(index, 1_048_576, checkpoint);
+        // One set of working buffers per read, zeroed after every value and released at the end.
+        var work = new Work();
+        try {
+            return scan(values, lines, plan, maximumFields, maximumBytes, checkpoint, output, work);
+        } finally {
+            work.clear();
+        }
+    }
+
+    private Result scan(
+            InputStream values,
+            CdsExportJsonLines lines,
+            Map<String, Table> plan,
+            long maximumFields,
+            long maximumBytes,
+            Runnable checkpoint,
+            Fields output,
+            Work work)
+            throws IOException {
         JsonNode header = lines.required();
         exact(header, "kind", "protocol");
         kind(header, "header");
@@ -161,11 +186,7 @@ public final class CdsExportNativeCaptureReader {
                 String key = text(node, "recordKey");
                 if (key.isEmpty()
                         || key.length() > 2048
-                        || key.codePoints()
-                                .anyMatch(
-                                        cp ->
-                                                Character.isISOControl(cp)
-                                                        || cp >= 0xd800 && cp <= 0xdfff)
+                        || !safeKey(key)
                         || previous != null && previous.compareTo(key) >= 0) invalid();
                 previous = key;
                 var seen = new HashSet<String>();
@@ -199,17 +220,10 @@ public final class CdsExportNativeCaptureReader {
                                 "offset",
                                 "bytes",
                                 "sha256");
-                    for (String name : Set.of("table", "recordKey", "column", "kind", "sha256"))
-                        text(fieldNode, name);
+                    for (String name : TEXT_MEMBERS) text(fieldNode, name);
                     number(fieldNode, "offset");
                     number(fieldNode, "bytes");
-                    CdsExportCapturedFieldDto field;
-                    try {
-                        field = JSON.treeToValue(fieldNode, CdsExportCapturedFieldDto.class);
-                    } catch (RuntimeException
-                            | com.fasterxml.jackson.core.JsonProcessingException malformed) {
-                        throw failure();
-                    }
+                    CdsExportCapturedFieldDto field = field(fieldNode);
                     if (!field.table().equals(table)
                             || !field.recordKey().equals(key)
                             || !scope.columns().contains(field.column())
@@ -222,7 +236,8 @@ public final class CdsExportNativeCaptureReader {
                             field,
                             checkpoint,
                             Objects.requireNonNull(
-                                    output.output(field), "CDS_EXPORT_FIELD_SINK_REQUIRED"));
+                                    output.output(field), "CDS_EXPORT_FIELD_SINK_REQUIRED"),
+                            work);
                     output.verified(field);
                     offset += field.bytes();
                     fields++;
@@ -254,31 +269,57 @@ public final class CdsExportNativeCaptureReader {
         return new Result(counts, fields, offset);
     }
 
-    private static void verifyValue(
-            InputStream input,
-            CdsExportCapturedFieldDto field,
-            Runnable checkpoint,
-            OutputStream target)
-            throws IOException {
-        MessageDigest digest = sha256();
-        long remaining = field.bytes();
-        byte[] bytes = new byte[65_540];
-        var decoder =
+    /**
+     * The working buffers of one read: the value chunk, the UTF-8 check's characters, the digest
+     * and the decoder. Reused for every value of the read instead of being allocated per value;
+     * the part a value used is zeroed as soon as that value is checked, and everything at the end.
+     */
+    private static final class Work {
+        private final byte[] bytes = new byte[65_540];
+        private final CharBuffer chars = CharBuffer.allocate(8_192);
+        private final MessageDigest digest = sha256();
+        private final java.nio.charset.CharsetDecoder decoder =
                 StandardCharsets.UTF_8
                         .newDecoder()
                         .onMalformedInput(CodingErrorAction.REPORT)
                         .onUnmappableCharacter(CodingErrorAction.REPORT);
-        CharBuffer chars = CharBuffer.allocate(65_536);
+
+        void clear() {
+            Arrays.fill(bytes, (byte) 0);
+            Arrays.fill(chars.array(), '\u0000');
+            digest.reset();
+        }
+    }
+
+    private static void verifyValue(
+            InputStream input,
+            CdsExportCapturedFieldDto field,
+            Runnable checkpoint,
+            OutputStream target,
+            Work work)
+            throws IOException {
+        MessageDigest digest = work.digest;
+        digest.reset();
+        long remaining = field.bytes();
+        byte[] bytes = work.bytes;
+        var decoder = work.decoder;
+        decoder.reset();
+        CharBuffer chars = work.chars;
         int carried = 0;
+        // The prefix of the working buffers this value wrote, zeroed in the finally block.
+        int usedBytes = 0;
+        boolean decoded = false;
         try {
             while (remaining > 0) {
                 checkpoint.run();
                 int count = input.read(bytes, carried, (int) Math.min(65_536, remaining));
                 if (count <= 0) invalid();
+                usedBytes = Math.max(usedBytes, carried + count);
                 digest.update(bytes, carried, count);
                 remaining -= count;
                 if (field.kind() == CdsExportCapturedFieldDto.Kind.UTF8) {
                     var buffer = ByteBuffer.wrap(bytes, 0, carried + count);
+                    decoded = true;
                     decode(decoder, buffer, chars, remaining == 0);
                     target.write(bytes, carried, count);
                     carried = buffer.remaining();
@@ -287,6 +328,7 @@ public final class CdsExportNativeCaptureReader {
                 } else target.write(bytes, 0, count);
             }
             if (field.kind() == CdsExportCapturedFieldDto.Kind.UTF8) {
+                decoded = true;
                 if (field.bytes() == 0) decode(decoder, ByteBuffer.wrap(bytes, 0, 0), chars, true);
                 while (true) {
                     chars.clear();
@@ -298,9 +340,58 @@ public final class CdsExportNativeCaptureReader {
             if (!MessageDigest.isEqual(digest.digest(), HexFormat.of().parseHex(field.sha256())))
                 invalid();
         } finally {
-            Arrays.fill(bytes, (byte) 0);
-            Arrays.fill(chars.array(), '\u0000');
+            digest.reset();
+            Arrays.fill(bytes, 0, usedBytes, (byte) 0);
+            // A UTF-8 value never decodes to more characters than it has bytes.
+            if (decoded) Arrays.fill(chars.array(), 0, Math.min(chars.capacity(), usedBytes), '\u0000');
         }
+    }
+
+    /**
+     * Builds the field from its already checked members. Only a field with an exact numeric value
+     * goes through JSON binding; every other field is built directly with the same validation.
+     */
+    private static CdsExportCapturedFieldDto field(JsonNode node) throws IOException {
+        try {
+            if (node.has("exactNumeric"))
+                return JSON.treeToValue(node, CdsExportCapturedFieldDto.class);
+            return new CdsExportCapturedFieldDto(
+                    node.get("table").textValue(),
+                    node.get("recordKey").textValue(),
+                    node.get("column").textValue(),
+                    CdsExportCapturedFieldDto.Kind.valueOf(node.get("kind").textValue()),
+                    node.get("offset").longValue(),
+                    node.get("bytes").longValue(),
+                    node.get("sha256").textValue());
+        } catch (RuntimeException
+                | com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            throw failure();
+        }
+    }
+
+    /**
+     * {@code [A-Za-z0-9_]{1,maximum}} without a regular expression: every read of a capture checks
+     * every column name of every table it plans.
+     */
+    static boolean identifier(String name, int maximum) {
+        int length = name.length();
+        if (length < 1 || length > maximum) return false;
+        for (int i = 0; i < length; i++) {
+            char c = name.charAt(i);
+            if (!(c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_'))
+                return false;
+        }
+        return true;
+    }
+
+    /** No ISO control character and no surrogate code point, as {@link CdsExportCapturedFieldDto}. */
+    private static boolean safeKey(String key) {
+        for (int i = 0; i < key.length(); ) {
+            int cp = key.codePointAt(i);
+            if (Character.isISOControl(cp) || cp >= 0xd800 && cp <= 0xdfff) return false;
+            i += Character.charCount(cp);
+        }
+        return true;
     }
 
     private static void decode(

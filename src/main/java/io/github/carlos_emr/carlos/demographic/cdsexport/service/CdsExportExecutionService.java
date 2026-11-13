@@ -295,6 +295,7 @@ public class CdsExportExecutionService {
         @Override
         public void close() {
             heartbeat.shutdownNow();
+            closeVerified();
         }
 
         @Override
@@ -340,16 +341,23 @@ public class CdsExportExecutionService {
             return current != null && current.patient() == patient ? current : null;
         }
 
+        /** The current patient's checked capture reads; zeroed when its session ends. */
+        private CdsExportVerifiedCaptures verified;
+
         @Override
         public void beginPatient(int patient) {
             outsideCapture();
+            closeVerified();
             session = new CdsExportPatientAuthorization(patient, new FreshChecks());
+            verified = new CdsExportVerifiedCaptures(patient);
         }
 
         @Override
         public void endPatient(int patient) {
             var current = session(patient);
             session = null;
+            // The patient's last read is done: nothing replays past this point.
+            closeVerified();
             if (current == null) throw new IllegalStateException("CDS_EXPORT_SESSION_NOT_STARTED");
             outsideCapture();
             current.finish();
@@ -358,6 +366,21 @@ public class CdsExportExecutionService {
         @Override
         public void discardPatient() {
             session = null;
+            closeVerified();
+        }
+
+        @Override
+        public CdsExportVerifiedCaptures verifiedCaptures(int patient) {
+            var current = verified;
+            return current != null && current.patient() == patient && current.usable()
+                    ? current
+                    : null;
+        }
+
+        private void closeVerified() {
+            var current = verified;
+            verified = null;
+            if (current != null) current.close();
         }
 
         /** The uncached checks the session falls back to and re-runs when it closes. */

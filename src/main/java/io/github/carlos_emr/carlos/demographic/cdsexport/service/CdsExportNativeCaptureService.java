@@ -510,8 +510,9 @@ public class CdsExportNativeCaptureService {
                                             table,
                                             new CdsExportNativeCaptureReader.Table(
                                                     scope.columns(), scope.rows())));
-            try (var values = store.open(captured.values());
-                    var index = store.open(captured.index())) {
+            {
+                // The first complete read-back of the new members; the patient's later reads of
+                // them replay what it checked (CdsExportVerifiedCaptures).
                 CdsExportNativeCaptureReader.Result proof;
                 if (captured.tables().containsKey("casemgmt_note")) {
                     try (var notes =
@@ -520,27 +521,26 @@ public class CdsExportNativeCaptureService {
                                     captured.tables().get("casemgmt_note").noteAccess(),
                                     field -> java.io.OutputStream.nullOutputStream())) {
                         proof =
-                                new CdsExportNativeCaptureReader()
-                                        .scan(
-                                                values,
-                                                index,
-                                                plan,
-                                                maximumFields,
-                                                maximumValueBytes,
-                                                control::checkpoint,
-                                                notes);
+                                read(
+                                        store,
+                                        captured,
+                                        plan,
+                                        maximumFields,
+                                        maximumValueBytes,
+                                        control,
+                                        notes);
                         notes.finish();
                     }
                 } else
                     proof =
-                            new CdsExportNativeCaptureReader()
-                                    .verify(
-                                            values,
-                                            index,
-                                            plan,
-                                            maximumFields,
-                                            maximumValueBytes,
-                                            control::checkpoint);
+                            read(
+                                    store,
+                                    captured,
+                                    plan,
+                                    maximumFields,
+                                    maximumValueBytes,
+                                    control,
+                                    field -> java.io.OutputStream.nullOutputStream());
                 if (proof.fields() != captured.fieldCount()
                         || proof.valueBytes() != captured.valueBytes())
                     throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
@@ -623,12 +623,19 @@ public class CdsExportNativeCaptureService {
                         lease.epoch(),
                         lease.document().storage(),
                         control::checkpoint);
-        CdsExportNativeCaptureDto captured;
-        try (var input = store.open(manifest)) {
-            byte[] bytes = input.readNBytes(MAX_MANIFEST_BYTES + 1);
-            if (bytes.length > MAX_MANIFEST_BYTES || input.read() != -1)
-                throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_LIMIT");
-            captured = JSON.readValue(bytes, CdsExportNativeCaptureDto.class);
+        var verified = control.verifiedCaptures(patientScope.patient());
+        CdsExportNativeCaptureDto captured =
+                verified == null ? null : verified.manifest(manifest, CdsExportNativeCaptureDto.class);
+        if (captured == null) {
+            try (var input = store.open(manifest)) {
+                byte[] bytes = input.readNBytes(MAX_MANIFEST_BYTES + 1);
+                if (bytes.length > MAX_MANIFEST_BYTES || input.read() != -1)
+                    throw new IOException("CDS_EXPORT_CAPTURE_MANIFEST_LIMIT");
+                captured = JSON.readValue(bytes, CdsExportNativeCaptureDto.class);
+            }
+            // Read to its end, so its authenticated digest was checked: the same member is the
+            // same manifest for the rest of this patient. Every check below still runs.
+            if (verified != null) verified.manifest(manifest, captured);
         }
         if (!captured.runId().equals(lease.runId())
                 || captured.epoch() != lease.epoch()
@@ -639,22 +646,28 @@ public class CdsExportNativeCaptureService {
                 || captured.valueBytes() > maximumValueBytes) {
             throw new IOException("CDS_EXPORT_CAPTURE_SCOPE_MISMATCH");
         }
-        var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
-        for (var reader : selected) {
-            var table = captured.tables().get(reader.table());
-            if (!reader.columns().equals(table.columns())
-                    || !new CdsExportSourceSchemaValidator()
-                            .acceptedSha256(reader.table(), reader.columns())
-                            .contains(table.schemaSha256()))
-                throw new IOException("CDS_EXPORT_CAPTURE_SCHEMA_MISMATCH");
-            verifyReceiptColumns(reader.table(), table.columns(), table.receiptColumns());
-            plan.put(
-                    reader.table(),
-                    new CdsExportNativeCaptureReader.Table(table.columns(), table.rows()));
+        // The manifest's tables checked against the installed readers' contracts: a pure function
+        // of this manifest and the job's readers, so checked once per member in the session.
+        var plan = verified == null ? null : verified.plan(manifest, tables);
+        if (plan == null) {
+            var checked = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
+            for (var reader : selected) {
+                var table = captured.tables().get(reader.table());
+                if (!reader.columns().equals(table.columns())
+                        || !new CdsExportSourceSchemaValidator()
+                                .acceptedSha256(reader.table(), reader.columns())
+                                .contains(table.schemaSha256()))
+                    throw new IOException("CDS_EXPORT_CAPTURE_SCHEMA_MISMATCH");
+                verifyReceiptColumns(reader.table(), table.columns(), table.receiptColumns());
+                checked.put(
+                        reader.table(),
+                        new CdsExportNativeCaptureReader.Table(table.columns(), table.rows()));
+            }
+            plan = Map.copyOf(checked);
+            if (verified != null) verified.plan(manifest, tables, plan);
         }
         authorizeCapturedNotes(captured, control);
-        try (var values = store.open(captured.values());
-                var index = store.open(captured.index())) {
+        {
             CdsExportNativeCaptureReader.Result proof;
             if (captured.tables().containsKey("casemgmt_note")) {
                 try (var notes =
@@ -663,28 +676,26 @@ public class CdsExportNativeCaptureService {
                                 captured.tables().get("casemgmt_note").noteAccess(),
                                 fields)) {
                     proof =
-                            new CdsExportNativeCaptureReader()
-                                    .scan(
-                                            values,
-                                            index,
-                                            plan,
-                                            maximumFields,
-                                            maximumValueBytes,
-                                            control::checkpoint,
-                                            notes);
+                            read(
+                                    store,
+                                    captured,
+                                    plan,
+                                    maximumFields,
+                                    maximumValueBytes,
+                                    control,
+                                    notes);
                     notes.finish();
                 }
             } else
                 proof =
-                        new CdsExportNativeCaptureReader()
-                                .scan(
-                                        values,
-                                        index,
-                                        plan,
-                                        maximumFields,
-                                        maximumValueBytes,
-                                        control::checkpoint,
-                                        fields);
+                        read(
+                                store,
+                                captured,
+                                plan,
+                                maximumFields,
+                                maximumValueBytes,
+                                control,
+                                fields);
             if (proof.fields() != captured.fieldCount()
                     || proof.valueBytes() != captured.valueBytes()) {
                 throw new IOException("CDS_EXPORT_CAPTURE_READBACK_INVALID");
@@ -695,6 +706,61 @@ public class CdsExportNativeCaptureService {
         authorizeCapturedNotes(captured, control);
         control.checkpoint();
         return captured;
+    }
+
+    /**
+     * One complete read of a capture's members into {@code fields}. Within the patient's session
+     * a read of members this worker already read back and checked replays that read
+     * ({@link CdsExportVerifiedCaptures}); otherwise the members are opened, decrypted and checked
+     * in full, and a read that passes every check is kept for the patient's later reads.
+     */
+    private static CdsExportNativeCaptureReader.Result read(
+            CdsExportStagingService store,
+            CdsExportNativeCaptureDto captured,
+            Map<String, CdsExportNativeCaptureReader.Table> plan,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control,
+            CdsExportNativeCaptureReader.Fields fields)
+            throws IOException {
+        var verified = control.verifiedCaptures(captured.patient());
+        if (verified != null) {
+            var replayed =
+                    verified.replay(
+                            captured.values(),
+                            captured.index(),
+                            plan,
+                            maximumFields,
+                            maximumValueBytes,
+                            control::checkpoint,
+                            fields);
+            if (replayed != null) return replayed;
+        }
+        var recording =
+                verified == null
+                        ? null
+                        : verified.record(captured.values(), captured.index(), plan);
+        try (var values = store.open(captured.values());
+                var index = store.open(captured.index())) {
+            var result =
+                    new CdsExportNativeCaptureReader()
+                            .scan(
+                                    values,
+                                    index,
+                                    plan,
+                                    maximumFields,
+                                    maximumValueBytes,
+                                    control::checkpoint,
+                                    recording == null ? fields : recording.tee(fields));
+            if (recording != null) {
+                verified.keep(recording, result);
+                recording = null;
+            }
+            return result;
+        } finally {
+            // A read that failed keeps nothing.
+            if (recording != null) recording.discard();
+        }
     }
 
     /** The existing receipt's SELECT * omits this specific reviewed virtual/invisible derived key. */

@@ -27,9 +27,12 @@ public record CdsExportNativeRowReceiptDto(String table, String id, String recor
     public CdsExportNativeRowReceiptDto(String table, String id, String recordKey, String digest) { this(table, id, recordKey, digest, null, false); }
     public CdsExportNativeRowReceiptDto(String table, String id, String recordKey, String digest,
             io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState state) { this(table, id, recordKey, digest, state, false); }
+    private static final java.util.regex.Pattern TABLE = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
+    private static final java.util.regex.Pattern ID = java.util.regex.Pattern.compile("[A-Za-z0-9_-]{1,64}");
+    private static final java.util.regex.Pattern SHA256 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
     public CdsExportNativeRowReceiptDto {
-        if (table == null || !table.matches("[A-Za-z0-9_]{1,64}") || id == null || !id.matches("[A-Za-z0-9_-]{1,64}")
-                || recordKey == null || recordKey.isEmpty() || recordKey.length() > 2048 || digest != null && !digest.matches("[0-9a-f]{64}")) {
+        if (table == null || !TABLE.matcher(table).matches() || id == null || !ID.matcher(id).matches()
+                || recordKey == null || recordKey.isEmpty() || recordKey.length() > 2048 || digest != null && !SHA256.matcher(digest).matches()) {
             throw new IllegalArgumentException("CDS_EXPORT_NATIVE_ROW_RECEIPT_INVALID");
         }
         boolean selectedCust = "demographiccust".equals(table) && state != null && java.util.Set.copyOf(state.columns().stream().map(column -> column.name()).toList())

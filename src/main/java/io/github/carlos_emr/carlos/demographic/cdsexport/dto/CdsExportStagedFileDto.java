@@ -23,10 +23,12 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 /** Opaque physical member and authenticated plaintext identity. No clinical filename is stored on disk. */
 public record CdsExportStagedFileDto(String memberId, String purpose, String plaintextSha256, long plaintextBytes) {
+    private static final java.util.regex.Pattern HEX64 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
+    private static final java.util.regex.Pattern PURPOSE = java.util.regex.Pattern.compile("[A-Z][A-Z0-9_]{0,63}");
     public CdsExportStagedFileDto {
-        if (memberId == null || !memberId.matches("[0-9a-f]{64}") || purpose == null
-                || !purpose.matches("[A-Z][A-Z0-9_]{0,63}") || plaintextSha256 == null
-                || !plaintextSha256.matches("[0-9a-f]{64}") || plaintextBytes < 0) {
+        if (memberId == null || !HEX64.matcher(memberId).matches() || purpose == null
+                || !PURPOSE.matcher(purpose).matches() || plaintextSha256 == null
+                || !HEX64.matcher(plaintextSha256).matches() || plaintextBytes < 0) {
             throw new IllegalArgumentException("CDS_EXPORT_STAGED_FILE_INVALID");
         }
     }

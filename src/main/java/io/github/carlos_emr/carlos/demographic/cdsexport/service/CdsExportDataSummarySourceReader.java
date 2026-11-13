@@ -66,6 +66,8 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
 
     private final CdsExportDataSummaryReadDao source;
     private final CdsExportDataSummaryReadDao.Plan plan;
+    /** The plan's columns as a set, built once: every read of a capture compares it. */
+    private final Set<String> columns;
 
     CdsExportDataSummaryReadDao.Plan plan() {
         return plan;
@@ -75,6 +77,7 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
             CdsExportDataSummaryReadDao source, CdsExportDataSummaryReadDao.Plan plan) {
         this.source = Objects.requireNonNull(source);
         this.plan = Objects.requireNonNull(plan);
+        this.columns = Set.copyOf(plan.columns());
     }
 
     /** One reader per DOCUMENT table of the pinned catalogue, in table order. */
@@ -96,7 +99,7 @@ final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceRea
 
     @Override
     public Set<String> columns() {
-        return Set.copyOf(plan.columns());
+        return columns;
     }
 
     @Override

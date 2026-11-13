@@ -179,11 +179,33 @@ public final class CdsExportSourceSchemaValidator {
     }
 
     /**
+     * Accepted digests already derived, by table and column set. They depend only on the packaged
+     * contract resources and the pinned source catalogue, which never change in a running
+     * application, so a derivation is reused by every later read of any capture. Only successful
+     * derivations are kept: a refused scope is refused again, every time.
+     */
+    private static final java.util.concurrent.ConcurrentHashMap<Scope, Set<String>> ACCEPTED =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** One table and its exact column set (set equality, so no ordering is needed). */
+    private record Scope(String table, Set<String> columns) {}
+
+    /**
      * Every schema digest a capture of this scope may legitimately carry. A data-summary table has
      * one per pinned profile that has it (the legacy formRourke2009 differs only by engine) and
      * one for its absence from a profile that lacks it; any other scope has exactly one.
      */
     public Set<String> acceptedSha256(String table, Set<String> columns) throws IOException {
+        if (table == null || columns == null) return deriveAcceptedSha256(table, columns);
+        var known = ACCEPTED.get(new Scope(table, columns));
+        if (known != null) return known;
+        var accepted = deriveAcceptedSha256(table, columns);
+        // Bounded by the pinned tables and their column sets; a stray key never grows it far.
+        if (ACCEPTED.size() < 4096) ACCEPTED.putIfAbsent(new Scope(table, Set.copyOf(columns)), accepted);
+        return accepted;
+    }
+
+    private Set<String> deriveAcceptedSha256(String table, Set<String> columns) throws IOException {
         if (!dataSummary(table)) return Set.of(expectedSha256(table, columns));
         var accepted = new java.util.TreeSet<String>();
         for (var candidate : dataSummaryCandidates(table))

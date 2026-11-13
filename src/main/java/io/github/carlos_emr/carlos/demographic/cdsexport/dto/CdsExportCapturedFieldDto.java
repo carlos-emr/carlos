@@ -26,18 +26,32 @@ public record CdsExportCapturedFieldDto(String table, String recordKey, String c
         long offset, long bytes, String sha256,
         @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
         io.github.carlos_emr.carlos.demographic.cds.contract.CdsExactNumeric exactNumeric) {
+    // Compiled once: every captured field of every read of a capture is validated here.
+    private static final java.util.regex.Pattern TABLE = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,64}");
+    private static final java.util.regex.Pattern COLUMN = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,128}");
+    private static final java.util.regex.Pattern SHA256 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
     public CdsExportCapturedFieldDto(String table, String recordKey, String column, Kind kind, long offset, long bytes, String sha256) {
         this(table, recordKey, column, kind, offset, bytes, sha256, null);
     }
     public enum Kind { SQL_NULL, UTF8, BINARY }
     public CdsExportCapturedFieldDto {
-        if (table == null || !table.matches("[A-Za-z0-9_]{1,64}") || recordKey == null || recordKey.isEmpty()
-                || recordKey.length() > 2048 || recordKey.codePoints().anyMatch(cp -> Character.isISOControl(cp) || cp >= 0xd800 && cp <= 0xdfff)
-                || column == null || !column.matches("[A-Za-z0-9_]{1,128}") || kind == null
+        if (table == null || !TABLE.matcher(table).matches() || recordKey == null || recordKey.isEmpty()
+                || recordKey.length() > 2048 || !safeKey(recordKey)
+                || column == null || !COLUMN.matcher(column).matches() || kind == null
                 || exactNumeric != null && kind != Kind.UTF8 || offset < 0 || bytes < 0 || bytes > Long.MAX_VALUE - offset || kind == Kind.SQL_NULL && bytes != 0
-                || sha256 == null || !sha256.matches("[0-9a-f]{64}")) {
+                || sha256 == null || !SHA256.matcher(sha256).matches()) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURED_FIELD_INVALID");
         }
+    }
+
+    /** No ISO control character and no surrogate code point (an unpaired surrogate included). */
+    static boolean safeKey(String key) {
+        for (int i = 0; i < key.length(); ) {
+            int cp = key.codePointAt(i);
+            if (Character.isISOControl(cp) || cp >= 0xd800 && cp <= 0xdfff) return false;
+            i += Character.charCount(cp);
+        }
+        return true;
     }
     @Override public String toString() { return "CdsExportCapturedFieldDto[protected]"; }
 }

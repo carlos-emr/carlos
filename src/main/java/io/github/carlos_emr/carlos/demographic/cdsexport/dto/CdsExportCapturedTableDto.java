@@ -33,6 +33,9 @@ public record CdsExportCapturedTableDto(
         String schemaSha256,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<Column> receiptColumns,
         @JsonInclude(JsonInclude.Include.NON_EMPTY) List<CdsExportNoteAccessDto> noteAccess) {
+    // Compiled once: a capture manifest is read back by every reader of the patient's capture.
+    private static final java.util.regex.Pattern COLUMN = java.util.regex.Pattern.compile("[A-Za-z0-9_]{1,128}");
+    private static final java.util.regex.Pattern SHA256 = java.util.regex.Pattern.compile("[0-9a-f]{64}");
     /** Existing source tables keep their original manifest shape when they have no note access dependencies. */
     public CdsExportCapturedTableDto(
             Set<String> columns, long rows, String schemaSha256, List<Column> receiptColumns) {
@@ -77,9 +80,9 @@ public record CdsExportCapturedTableDto(
         if (columns.isEmpty()
                 || columns.size() > 4096
                 || rows < 0
-                || columns.stream().anyMatch(column -> !column.matches("[A-Za-z0-9_]{1,128}"))
+                || columns.stream().anyMatch(column -> !COLUMN.matcher(column).matches())
                 || schemaSha256 == null
-                || !schemaSha256.matches("[0-9a-f]{64}")) {
+                || !SHA256.matcher(schemaSha256).matches()) {
             throw new IllegalArgumentException("CDS_EXPORT_CAPTURE_PLAN_INVALID");
         }
     }

@@ -68,6 +68,31 @@ public class CdsExportRetainedReceiptVerificationService {
                 || maximumReferences > 1_000_000
                 || !source.manifest().plaintextSha256().equals(retained.sourceManifestSha256())
                 || !retained.references().keySet().equals(retained.appliedUnits())) scope();
+        // Each section asks for the same comparison of the captured rows with their sealed import
+        // witnesses. Within the patient's session it is made once, from the checked capture and
+        // the same index instance; a later request still rechecks current authorization.
+        var verified = control.verifiedCaptures(patient.patient());
+        var key =
+                new Comparison(
+                        source,
+                        Set.copyOf(requiredTables),
+                        new Same(retained),
+                        maximumFields,
+                        maximumBytes,
+                        maximumReferences);
+        var known =
+                verified == null
+                        ? null
+                        : verified.derived(key, CdsExportRetainedReceiptVerificationDto.class);
+        if (known != null) {
+            captures.authorizeSources(lease, patient, requiredTables, control);
+            if (source.capture().tables().containsKey("casemgmt_note"))
+                captures.authorizeCapturedSources(
+                        lease, patient, requiredTables, source.capture(), control);
+            patient.require(lease);
+            control.checkpoint();
+            return known;
+        }
         var historicalUnits = new HashMap<String, CdsExportCapturedTextRowDto>();
         for (var row :
                 retained.tables().getOrDefault("cds_import_unit", java.util.Map.of()).values()) {
@@ -248,8 +273,43 @@ public class CdsExportRetainedReceiptVerificationService {
         captures.authorizeSources(lease, patient, requiredTables, control);
         patient.require(lease);
         control.checkpoint();
-        return new CdsExportRetainedReceiptVerificationDto(
-                source.manifest().plaintextSha256(), results, unchanged, review);
+        var result =
+                new CdsExportRetainedReceiptVerificationDto(
+                        source.manifest().plaintextSha256(), results, unchanged, review);
+        if (verified != null) verified.derived(key, result);
+        return result;
+    }
+
+    /** The inputs of one comparison; the index by identity (the session's one derived index). */
+    private record Comparison(
+            CdsExportPatientCaptureDto source,
+            Set<String> requiredTables,
+            Same retained,
+            long maximumFields,
+            long maximumBytes,
+            int maximumReferences) {
+        @Override
+        public String toString() {
+            return "CdsExportRetainedReceiptVerificationService.Comparison[protected]";
+        }
+    }
+
+    /** Reference identity, so a key never deep-compares (or hashes) a whole retained index. */
+    private record Same(Object value) {
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Same same && same.value == value;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(value);
+        }
+
+        @Override
+        public String toString() {
+            return "Same[protected]";
+        }
     }
 
     private record Address(String table, String id) {

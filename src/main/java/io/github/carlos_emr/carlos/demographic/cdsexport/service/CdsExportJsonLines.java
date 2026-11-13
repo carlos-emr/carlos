@@ -25,13 +25,13 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 /** Strict bounded internal JSON-lines transport. Caller owns the authenticated underlying stream. */
 final class CdsExportJsonLines {
@@ -42,11 +42,20 @@ final class CdsExportJsonLines {
     private final InputStream input;
     private final int maximum;
     private final Runnable checkpoint;
+    // Read in blocks rather than a byte at a time: one transport line per captured field.
+    private final byte[] buffer = new byte[65_536];
+    private int position, limit;
+    private byte[] line = new byte[256];
+    private final CharsetDecoder decoder =
+            StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT);
 
     CdsExportJsonLines(InputStream input, int maximum, Runnable checkpoint) {
         if (maximum < 1 || maximum > 1_048_576)
             throw new IllegalArgumentException("CDS_EXPORT_JSON_LINE_LIMIT_INVALID");
-        this.input = new BufferedInputStream(input, 65_536);
+        this.input = input;
         this.maximum = maximum;
         this.checkpoint = checkpoint;
     }
@@ -57,27 +66,58 @@ final class CdsExportJsonLines {
         return node;
     }
 
+    /**
+     * The next line as a JSON object, or null at a clean end of input. A line ends at a line
+     * feed; a carriage return, a line longer than the bound, an unterminated last line, invalid
+     * UTF-8 or anything but one JSON object is refused.
+     */
     JsonNode next() throws IOException {
         checkpoint.run();
-        var bytes = new ByteArrayOutputStream();
-        int value = input.read();
-        if (value == -1) return null;
-        while (value != '\n') {
-            if (value == -1 || value == '\r' || bytes.size() == maximum) invalid();
-            bytes.write(value);
-            value = input.read();
-            if ((bytes.size() & 8191) == 0) checkpoint.run();
+        if (!fill()) return null;
+        int length = 0;
+        while (true) {
+            if (position == limit && !fill()) invalid();
+            int start = position;
+            while (position < limit) {
+                byte value = buffer[position];
+                if (value == '\n') break;
+                if (value == '\r') invalid();
+                position++;
+            }
+            int count = position - start;
+            if (count > maximum - length) invalid();
+            if (length + count > line.length)
+                line = Arrays.copyOf(line, Math.min(maximum, Math.max(length + count, line.length * 2)));
+            System.arraycopy(buffer, start, line, length, count);
+            // The same cadence as before: at least one checkpoint per 8 KiB of a long line.
+            if ((length >>> 13) != ((length + count) >>> 13)) checkpoint.run();
+            length += count;
+            if (position < limit) {
+                position++; // the line feed
+                break;
+            }
         }
-        String line =
-                StandardCharsets.UTF_8
-                        .newDecoder()
-                        .onMalformedInput(CodingErrorAction.REPORT)
-                        .onUnmappableCharacter(CodingErrorAction.REPORT)
-                        .decode(ByteBuffer.wrap(bytes.toByteArray()))
-                        .toString();
-        var node = JSON.readTree(line);
+        String text;
+        try {
+            text = decoder.reset().decode(ByteBuffer.wrap(line, 0, length)).toString();
+        } finally {
+            Arrays.fill(line, 0, length, (byte) 0);
+        }
+        var node = JSON.readTree(text);
         if (node == null || !node.isObject()) invalid();
         return node;
+    }
+
+    /** True when at least one unread byte is buffered; false at the end of input. */
+    private boolean fill() throws IOException {
+        if (position < limit) return true;
+        position = 0;
+        limit = 0;
+        // As the buffered stream this replaces: a read that returns no byte is the end of input.
+        int count = input.read(buffer, 0, buffer.length);
+        if (count <= 0) return false;
+        limit = count;
+        return true;
     }
 
     private static void invalid() throws IOException {
