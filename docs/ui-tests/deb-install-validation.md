@@ -1168,8 +1168,9 @@ property is absent or explicitly set to `false`. Devcontainer and Debian install
 therefore both use the modern chart and do not mirror modern notes/CPP into `eChart`.
 Existing legacy records are retained as historical snapshots. Non-Exit legacy editor
 save requests return HTTP 410 before changing clinical data or layout; Exit retains
-its layout-only behavior. Authorized report readers can open Historical chart from
-the modern chart header and view or print patient-owned historical revisions. These
+its layout-only behavior. Authorized report readers can open the historical chart at
+`/report/ViewReportecharthistory?demographic_no=<id>` (the modern chart header no longer links it)
+and view or print patient-owned historical revisions. These
 prints are labeled historical and do not include subsequent modern notes or CPP;
 use the modern chart print workflow for current care. Messaging offers historical
 encounter PDFs only when a retained row contains clinical text. A loaded `false`,

@@ -2,13 +2,16 @@
 /* Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later */
 'use strict';
 /*
- * The encounter chart shows CDS source links only for a patient with imported CDS data.
+ * The encounter chart shows CDS source links only for a patient with imported CDS data, and never
+ * above the notes.
  *
  * The chart once printed "Clinical notes: CDS source fields — Additional clinical categories: CDS
  * source fields" and a note about CDS creation times above the CPP boxes of every patient, with the
  * dash arriving as mojibake. This opens the real chart for an owned patient no import touched and
- * asserts none of that wording is there, then gives that patient synthetic preserved source fields
- * and asserts each link returns for its own category only.
+ * asserts none of that wording is anywhere on it, then gives that patient synthetic preserved
+ * source fields and asserts each short link appears in the notes toolbar (beside the Filter button)
+ * for its own category only, with the timing note as hover text, while neither the header, the CPP
+ * boxes nor the notes below the toolbar move.
  *
  * The source-field rows are seeded directly: the import that would write them needs the qualified
  * CDS tier (scripts/demographic-cds-import-playwright-checks.js covers the real import). They carry
@@ -23,16 +26,25 @@ const {reloadChart} = require('./chart-session-state-two-window-isolation-playwr
 const CDS_WORDING = '.cds-source-fields-link, .cds-chart-source-links, .cds-note-source-timing';
 const SOURCE_RUN = '00000000-0000-4000-8000-0000000000c5';
 
-/** What the centre column holds above the CPP boxes, and where the boxes start within it. */
+/**
+ * What the centre column holds above the CPP boxes, and where the page's landmarks sit: the boxes
+ * within their column, the header's height, and the notes list below the toolbar.
+ */
 async function aboveCppBoxes(chart) {
   await chart.locator('#cppBoxes').waitFor({state: 'attached'});
+  await chart.locator('#notesFilterToggle').waitFor({state: 'visible'});
   return chart.evaluate(() => {
     const boxes = document.getElementById('cppBoxes');
     const column = boxes.parentElement;
     const nodes = [...column.childNodes];
+    const toggle = document.getElementById('notesFilterToggle');
+    const notes = document.getElementById('encMainDiv');
     return {
       text: nodes.slice(0, nodes.indexOf(boxes)).map(node => (node.textContent || '').trim()).filter(Boolean).join(' '),
       offset: Math.round(boxes.getBoundingClientRect().top - column.getBoundingClientRect().top),
+      header: Math.round(document.getElementById('header-bottom-row').parentElement.getBoundingClientRect().height),
+      // The notes list relative to the toolbar row: unchanged when the links add no height.
+      notesBelowToolbar: notes ? Math.round(notes.getBoundingClientRect().top - toggle.getBoundingClientRect().top) : null,
     };
   });
 }
@@ -69,45 +81,56 @@ async function workflow(s) {
   'The owned patient already carries CDS import rows');
 
   const chart = await s.chart();
-  let ordinaryOffset;
-  await s.step('a patient no import touched has no CDS wording above the CPP boxes', async () => {
-    const above = await aboveCppBoxes(chart);
+  const toolbarLinks = category => chart.locator('#notCPP').locator(sourceLinks(chart, category));
+  let ordinary;
+  await s.step('a patient no import touched has no CDS wording anywhere on the chart', async () => {
+    ordinary = await aboveCppBoxes(chart);
     h.assert(await chart.locator(CDS_WORDING).count() === 0,
       'The chart of a patient without imported data still renders CDS source links or the CDS timing note');
-    h.assert(above.text === '', `The centre column prints text above the CPP boxes: ${above.text.slice(0, 120)}`);
-    h.assert(!/CDS source fields|For CDS imports/.test(await chart.locator('body').innerText()),
+    h.assert(ordinary.text === '', `The centre column prints text above the CPP boxes: ${ordinary.text.slice(0, 120)}`);
+    h.assert(!/CDS source|For CDS imports/.test(await chart.locator('body').innerText()),
       'The chart of a patient without imported data mentions CDS source fields');
-    ordinaryOffset = above.offset;
   });
 
-  await s.step('imported clinical notes bring back their link and the timing note, and nothing for other categories', async () => {
+  const assertNotesColumnUntouched = async label => {
+    const above = await aboveCppBoxes(chart);
+    h.assert(above.text === '' && above.offset === ordinary.offset,
+      `${label}: the CDS links moved the CPP boxes or printed above them (${above.text.slice(0, 120)})`);
+    h.assert(above.header === ordinary.header && above.notesBelowToolbar === ordinary.notesBelowToolbar,
+      `${label}: the CDS links lengthened the header or pushed the notes down `
+        + `(header ${ordinary.header}->${above.header}, notes ${ordinary.notesBelowToolbar}->${above.notesBelowToolbar})`);
+    h.assert(await chart.locator('#header-bottom-row .cds-source-fields-link').count() === 0,
+      `${label}: a CDS source link is in the chart header`);
+    h.assert(await chart.locator('.cds-note-source-timing').count() === 0,
+      `${label}: the CDS timing note is printed on the chart`);
+  };
+
+  await s.step('imported clinical notes add one toolbar link with the timing note as hover text', async () => {
     seed('ClinicalNotes');
     await reloadChart(s, chart, 'chart with CDS clinical-note source fields');
-    const link = sourceLinks(chart, 'ClinicalNotes');
+    const link = toolbarLinks('ClinicalNotes');
     await link.first().waitFor({state: 'visible'});
-    h.assert(await link.count() === 1, 'The clinical-notes source link is missing or repeated');
+    h.assert(await sourceLinks(chart, 'ClinicalNotes').count() === 1, 'The clinical-notes source link is missing, repeated or outside the notes toolbar');
     const href = new URL(await link.first().getAttribute('href'), chart.url());
     h.assert(href.pathname.endsWith('/demographic/cdsSourceFields') && href.searchParams.get('demographicNo') === patient,
       'The clinical-notes source link names another patient or route');
+    const hint = await link.first().getAttribute('title') || '';
+    h.assert(/CDS/.test(hint) && /CARLOS/.test(hint), 'The clinical-notes source link lost its source-creation timing hint');
     h.assert(await sourceLinks(chart, 'NewCategory').count() === 0,
       'An additional-categories link is shown without source fields in that category');
-    const timing = chart.locator('.cds-note-source-timing');
-    h.assert(await timing.count() === 1 && await timing.isVisible() && /CDS/.test(await timing.innerText()),
-      'The source-creation timing note is missing beside imported clinical notes');
-    const block = await chart.locator('.cds-chart-source-links').innerText();
-    h.assert(!/—|â/.test(block), 'A separator is printed beside a single source link');
-    h.assert((await aboveCppBoxes(chart)).offset > ordinaryOffset,
-      'The source links take no room above the CPP boxes, so the ordinary-chart layout assertion measures nothing');
+    await assertNotesColumnUntouched('clinical notes only');
   });
 
-  await s.step('both categories are separated by a real dash', async () => {
+  await s.step('additional categories add their own toolbar link', async () => {
     seed('NewCategory');
     await reloadChart(s, chart, 'chart with both CDS source categories');
-    await sourceLinks(chart, 'NewCategory').first().waitFor({state: 'visible'});
+    await toolbarLinks('NewCategory').first().waitFor({state: 'visible'});
     h.assert(await sourceLinks(chart, 'ClinicalNotes').count() === 1 && await sourceLinks(chart, 'NewCategory').count() === 1,
       'The chart does not show exactly one link per imported category');
-    const block = await chart.locator('.cds-chart-source-links').innerText();
-    h.assert(/—/.test(block) && !/â/.test(block), `The separator between the source links is not a dash: ${block.slice(0, 160)}`);
+    const labels = await chart.locator('.cds-chart-source-links').allInnerTexts();
+    h.assert(labels.length === 2 && new Set(labels.map(text => text.trim())).size === 2 && labels.every(text => !/\u00e2/.test(text)),
+      `The two source links are not distinct, cleanly encoded labels: ${labels.join(' | ').slice(0, 160)}`);
+    await assertNotesColumnUntouched('both categories');
   });
 }
 

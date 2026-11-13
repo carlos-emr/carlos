@@ -1,33 +1,25 @@
 <%-- Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later. --%>
 <%--
-    CDS source links for the encounter chart: clinical notes and additional clinical categories,
-    with the note about source creation times.
+    CDS source links for the encounter chart: one short link to the imported clinical-note source
+    fields and one to the additional clinical categories.
 
-    Both chart layouts place this above the notes. It renders nothing at all for a patient without
-    imported CDS data in those categories, so an ordinary chart keeps its layout; each part appears
-    only when its category has source fields. The timing note concerns clinical notes only.
+    The chart is where an imported note or an unmapped category is read, so it keeps a route to the
+    values the import preserved. It renders nothing at all for a patient without imported CDS data
+    in those categories, and each link only for its own category. It prints no explanatory text:
+    the note about source creation times is the hover text of the clinical-notes link.
+
+    The modern chart places this in the notes toolbar, beside the View Full Chart and Filter
+    buttons, where it adds no height; the legacy layout places it at the top of the page.
 
     Attributes: demographicNo (patient).
 --%>
 <%@ tag pageEncoding="UTF-8" body-content="empty" %>
-<%@ tag import="io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceFieldPresenceResolver" %>
-<%@ tag import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
 <%@ attribute name="demographicNo" required="true" type="java.lang.String" rtexprvalue="true" %>
-<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
-<%
-    CdsSourceFieldPresenceResolver cdsPresence = SpringUtils.getBean(CdsSourceFieldPresenceResolver.class);
-    String cdsPatient = (String) jspContext.getAttribute("demographicNo");
-    jspContext.setAttribute("cdsNotesPresent", cdsPresence.hasSourceFields(request, cdsPatient, "ClinicalNotes"));
-    jspContext.setAttribute("cdsAdditionalPresent", cdsPresence.hasSourceFields(request, cdsPatient, "NewCategory"));
-%>
-<c:if test="${cdsNotesPresent or cdsAdditionalPresent}">
-    <fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
-    <div class="cds-chart-source-links">
-        <c:if test="${cdsNotesPresent}"><span class="cds-chart-source-link"><fmt:message key="sourceClinicalNotes" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${demographicNo}" category="ClinicalNotes"/></span></c:if>
-        <c:if test="${cdsNotesPresent and cdsAdditionalPresent}">&mdash;</c:if>
-        <c:if test="${cdsAdditionalPresent}"><span class="cds-chart-source-link"><fmt:message key="sourceAdditionalCategories" bundle="${cdsSourceLabels}"/>: <source:cdsSourceFields demographicNo="${demographicNo}" category="NewCategory"/></span></c:if>
-    </div>
-    <c:if test="${cdsNotesPresent}"><p class="cds-note-source-timing"><fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}"/></p></c:if>
-</c:if>
+<fmt:setBundle basename="cdsImportMessages" var="cdsSourceLabels"/>
+<fmt:message key="sourceChartClinicalNotesLink" bundle="${cdsSourceLabels}" var="cdsNotesLabel"/>
+<fmt:message key="sourceChartAdditionalCategoriesLink" bundle="${cdsSourceLabels}" var="cdsAdditionalLabel"/>
+<fmt:message key="sourceClinicalNotesTimingHelp" bundle="${cdsSourceLabels}" var="cdsNotesTimingHelp"/>
+<source:cdsSourceFields demographicNo="${demographicNo}" category="ClinicalNotes" label="${cdsNotesLabel}" hint="${cdsNotesTimingHelp}" wrapperClass="cds-chart-source-links"/>
+<source:cdsSourceFields demographicNo="${demographicNo}" category="NewCategory" label="${cdsAdditionalLabel}" wrapperClass="cds-chart-source-links"/>

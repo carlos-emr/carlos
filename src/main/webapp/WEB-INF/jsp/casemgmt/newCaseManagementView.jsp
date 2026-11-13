@@ -32,7 +32,6 @@
 
 
 <%@include file="/WEB-INF/jsp/casemgmt/taglibs.jsp" %>
-<%@ taglib prefix="source" tagdir="/WEB-INF/tags" %>
 
 
 
@@ -68,10 +67,6 @@
 
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 <c:set var="ctx" value="${pageContext.request.contextPath}" scope="request"/>
-
-<%-- CDS source links appear only for a patient with imported CDS notes or additional categories;
-     an ordinary chart renders nothing here, so the CPP boxes stay at the top of the column. --%>
-<source:cdsChartSourceLinks demographicNo="${not empty requestScope.demographicNo ? requestScope.demographicNo : param.demographicNo}"/>
 
 <div id="cppBoxes">
     <div id="divR1">

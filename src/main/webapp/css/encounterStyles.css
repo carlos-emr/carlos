@@ -514,12 +514,14 @@ div.topBox-notes ul li, div.topBox-notes ul li a {
     white-space: wrap;
     background-color: inherit !important;
 }
-div.topBox-notes ul li.cpp-empty-state {
-    color: #666666;
-    font-style: italic;
-    padding: 4px 5px;
-}
 
+
+/* CDS source links in the notes toolbar: inline, so they add no height to the row. */
+span.cds-chart-source-links {
+    display: inline-block;
+    margin-left: 12px;
+    white-space: nowrap;
+}
 
 div#encMainDiv {
     display: flex;

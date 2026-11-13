@@ -63,6 +63,9 @@ public class CdsImportPatientDao extends AbstractDaoImpl<CdsImportPatient> {
     /**
      * Whether an import run matched or wrote this chart, held or not.
      * Answered from {@code idx_cds_patient_target_hold (target_demographic_no, held)}.
+     *
+     * @param demographicNo int the chart's demographic number
+     * @return boolean {@code true} when at least one import patient row targets this chart
      */
     public boolean target(int demographicNo) {
         return !entityManager.createQuery("select p.id from CdsImportPatient p where p.targetDemographicNo=:demo", String.class)

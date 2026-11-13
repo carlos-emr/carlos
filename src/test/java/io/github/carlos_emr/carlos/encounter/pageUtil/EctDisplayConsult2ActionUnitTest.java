@@ -118,6 +118,22 @@ class EctDisplayConsult2ActionUnitTest {
         assertThat(EctDisplayConsult2Action.buildReferralLabel(service, specialist)).isEqualTo(expected);
     }
 
+    @ParameterizedTest(name = "[{index}] service=''{0}'' specialist=''{1}'' -> ''{2}''")
+    @CsvSource(value = {
+            "Cardiology|Smith, John|Cardiology",
+            "'  Cardiology  '|Smith, John|Cardiology",
+            "Cardiology|N/A|Cardiology",
+            "Cardiology|NULL|Cardiology",
+            "''|Smith, John|Smith, John",
+            "NULL|'  Smith, John  '|Smith, John",
+            "'   '|N/A|''",
+            "NULL|NULL|''"
+    }, delimiter = '|', nullValues = "NULL")
+    @DisplayName("should show the service alone, falling back to the specialist only without a service")
+    void shouldBuildRowTitle_forServiceAndSpecialistCombinations(String service, String specialist, String expected) {
+        assertThat(EctDisplayConsult2Action.buildRowTitle(service, specialist)).isEqualTo(expected);
+    }
+
     @ParameterizedTest(name = "[{index}] label=''{0}'' date=''{1}'' -> ''{2}''")
     @CsvSource(value = {
             "Cardiology - Smith, John|2026-01-05|Cardiology - Smith, John 2026-01-05",
@@ -133,8 +149,8 @@ class EctDisplayConsult2ActionUnitTest {
     }
 
     @Test
-    @DisplayName("should show the specialist, encode the visible title and keep the hover text raw for the JSP encoder")
-    void shouldRenderSpecialistLabel_withEncodedTruncatedTitle() {
+    @DisplayName("should show the service alone, encode the visible title and keep the specialist in the raw hover text")
+    void shouldRenderServiceTitle_withSpecialistInHoverText() {
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(security.hasPrivilege(loggedInInfo, "_con", "r", null)).thenReturn(true);
@@ -149,14 +165,14 @@ class EctDisplayConsult2ActionUnitTest {
         session.providerNo = "999998";
         session.demographicNo = "1";
         session.appointmentNo = "11";
-        String longService = "Otolaryngology Head and Neck Surgery Clinic";
+        String longService = "Otolaryngology Head and Neck Surgery Outpatient Clinic";
 
         try (MockedStatic<SpringUtils> spring = mockStatic(SpringUtils.class);
              MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
              MockedConstruction<EctViewConsultationRequestsUtil> requests = mockConstruction(
                      EctViewConsultationRequestsUtil.class, (rows, construction) -> {
                          rows.ids = List.of("201", "202");
-                         rows.service = List.of(longService, "Cardiology");
+                         rows.service = List.of(longService, "Cardiology <i>clinic</i>");
                          rows.vSpecialist = List.of("FAKE-Smith, Anne", "<b>FAKE-O'Neil</b>");
                          rows.date = List.of("2099-01-01", "2098-02-02");
                          rows.status = List.of("1", "1");
@@ -173,14 +189,15 @@ class EctDisplayConsult2ActionUnitTest {
             String cardiologyDate = DateUtils.formatDate(dateOf(2098, 2, 2), request.getLocale());
             String longServiceDate = DateUtils.formatDate(dateOf(2099, 1, 1), request.getLocale());
 
+            // The row is the service, as OSCAR 19 lists it; the specialist is hover text only.
             NavBarDisplayDAO.Item encoded = panel.getItem(0);
-            assertThat(encoded.getTitle()).isEqualTo("Cardiology - &lt;b&gt;FAKE-O'Neil&lt;/b&gt;");
-            assertThat(encoded.getLinkTitle()).isEqualTo("Cardiology - <b>FAKE-O'Neil</b> " + cardiologyDate);
+            assertThat(encoded.getTitle()).isEqualTo("Cardiology &lt;i&gt;clinic&lt;/i&gt;");
+            assertThat(encoded.getLinkTitle())
+                    .isEqualTo("Cardiology <i>clinic</i> - <b>FAKE-O'Neil</b> " + cardiologyDate);
 
             NavBarDisplayDAO.Item truncated = panel.getItem(1);
-            String fullLabel = longService + " - FAKE-Smith, Anne";
-            assertThat(truncated.getTitle()).isEqualTo(fullLabel.substring(0, 45) + "...");
-            assertThat(truncated.getLinkTitle()).isEqualTo(fullLabel + " " + longServiceDate);
+            assertThat(truncated.getTitle()).isEqualTo(longService.substring(0, 45) + "...");
+            assertThat(truncated.getLinkTitle()).isEqualTo(longService + " - FAKE-Smith, Anne " + longServiceDate);
         }
     }
 
