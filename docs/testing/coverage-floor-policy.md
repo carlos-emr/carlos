@@ -235,11 +235,13 @@ The refresh binds 804 source floors and eight nonexecutable exclusions to that
 source and report. The two new exclusions are documentation-only package-info
 files changed in this comparison: `documentManager/htmlpdf/support`
 (`XhtmlDomUnitTest` exercises the rules it documents) and `admin/service`
-(`SecurityRecordUpdateServiceUnitTest`). The floors were refreshed four times in this
+(`SecurityRecordUpdateServiceUnitTest`). The floors were refreshed five times in this
 PR. The first refresh added 55 sources new to the comparison and raised 74
 metrics; the second, after the last product changes, added 15 and raised 4; the
 third, after merging `release/2026.08` through #6182, added 3 and raised none;
-the fourth, after a log line was sanitized, added none and raised 1.
+the fourth, after a log line was sanitized, added none and raised 1; the fifth,
+after the chart-issue fix and the follow-up PRs #6188, #6189 and #6190, added 7
+and raised 15 (a complete run of 37,037 cases).
 Higher historical metrics and every required refusal line are retained, no
 waiver is added and no threshold is lowered. Freshness passes.
 
