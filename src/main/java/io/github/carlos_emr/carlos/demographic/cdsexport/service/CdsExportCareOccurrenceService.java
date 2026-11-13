@@ -53,6 +53,9 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
     private final CdsExportNativeCaptureService captures;
     private final CdsExportCapturedTextRowsReader rows;
 
+    // Two constructors: Spring must be told which one to use, or it looks for a default one
+    // and the export context (web and CLI) fails to start.
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportCareOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
