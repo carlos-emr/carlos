@@ -402,9 +402,9 @@ class CdsExportPatientInventoryServiceUnitTest {
             shouldInventoryNativeReportsWithoutImportMetadata_andAvoidDuplicatingImportedRepresentations()
                     throws Exception {
         var f = fixture(CdsCategory.REPORTS);
-        f.nativeRows.add(
-                new CdsExportNativeRowReceiptDto(
-                        "document", "91", "91", CdsExportPatientPipelineFixture.HASH));
+        // A document witness now carries its state: the inventory reads its status to leave a
+        // soft-deleted document out (review R6).
+        f.nativeRows.add(documentWitness("document", "91", "A"));
         assertThat(capture(f).identities()).hasSize(2);
         f.unit(
                 CdsCategory.REPORTS,
@@ -417,5 +417,79 @@ class CdsExportPatientInventoryServiceUnitTest {
                         capture(f).identities().stream()
                                 .filter(i -> i.category() == CdsCategory.REPORTS))
                 .hasSize(1);
+    }
+
+    @Test
+    void shouldLeaveSoftDeletedDocumentsAndDeletedLinks_outOfTheExpectedReports() throws Exception {
+        var f = fixture(CdsCategory.REPORTS);
+        f.nativeRows.add(documentWitness("document", "91", "A"));
+        f.nativeRows.add(documentWitness("ctl_document", "27_91", "A"));
+        f.nativeRows.add(documentWitness("document", "92", "D"));
+        f.nativeRows.add(documentWitness("ctl_document", "27_92", "A"));
+        f.nativeRows.add(documentWitness("document", "93", "A"));
+        f.nativeRows.add(documentWitness("ctl_document", "27_93", "D"));
+        f.nativeRows.add(documentWitness("document", "94", "H"));
+        f.nativeRows.add(documentWitness("ctl_document", "27_94", null));
+        var reports =
+                capture(f).identities().stream()
+                        .filter(identity -> identity.category() == CdsCategory.REPORTS)
+                        .toList();
+        assertThat(reports)
+                .containsExactlyInAnyOrder(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.REPORTS,
+                                CdsImportKeys.hash("carlos-native-occurrence-v1", "document", "91")),
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.REPORTS,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "document", "94")));
+    }
+
+    @Test
+    void shouldRefuseADocumentWitness_withoutTheStateThatShowsWhetherItWasDeleted()
+            throws Exception {
+        var f = fixture(CdsCategory.REPORTS);
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "document", "91", "91", CdsExportPatientPipelineFixture.HASH));
+        assertThatThrownBy(() -> capture(f))
+                .hasMessage("CDS_EXPORT_DOCUMENT_STATUS_WITNESS_REQUIRED");
+    }
+
+    /** A document or patient-link witness whose authenticated state carries its status. */
+    private static CdsExportNativeRowReceiptDto documentWitness(
+            String table, String id, String status) {
+        var columns =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                                .Column("status", "VARCHAR", 1, 0));
+        var cell =
+                status == null
+                        ? new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState
+                                .Cell(true, 0, null)
+                        : new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState
+                                .Cell(
+                                false,
+                                1,
+                                HexFormat.of()
+                                        .formatHex(
+                                                CdsImportKeys.digest()
+                                                        .digest(
+                                                                status.getBytes(
+                                                                        java.nio.charset
+                                                                                .StandardCharsets
+                                                                                .UTF_8))));
+        var state =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        table, id, columns, List.of(cell));
+        return new CdsExportNativeRowReceiptDto(
+                table,
+                id,
+                CdsExportPatientTableSourceReader.key(
+                        Integer.parseInt(id.substring(id.indexOf('_') + 1))),
+                state.digest(),
+                state);
     }
 }

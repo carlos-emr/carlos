@@ -79,6 +79,18 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportFileRows(int patient) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENT_FILES, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportFileRowsAfter(int patient, Long afterId, int limit) {
+        CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENT_FILES, patient, afterId, limit);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public byte[] readCdsExportValueChunk(int patient, long rowId, String column, long offset, int length) {
         CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
         return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENTS, patient, rowId, column, offset, length);

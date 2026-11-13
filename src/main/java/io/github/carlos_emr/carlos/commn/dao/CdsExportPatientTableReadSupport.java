@@ -88,6 +88,13 @@ public final class CdsExportPatientTableReadSupport {
                 "document_no",
                 null,
                 List.of("document_no", "module", "module_id", "status")),
+        /**
+         * The documents whose stored file the chart shows, and so the only files capture reads
+         * (CdsExportDocumentRepresentation.FILE): status A, no stored HTML in docxml, and a
+         * patient link that is not deleted. Soft-deleted documents, deleted links and Add
+         * HTML/Add Link documents (status H, content in docxml, no file) are never opened.
+         */
+        DOCUMENT_FILES("document", "document_no", null, List.of("docfilename", "document_no")),
         MEASUREMENTS_CURRENT(
                 "measurements",
                 "id",
@@ -946,6 +953,15 @@ public final class CdsExportPatientTableReadSupport {
             if (this == DOCUMENTS)
                 return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and"
                         + " c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
+            // Exact byte comparisons, as CdsExportDocumentRepresentation compares the captured
+            // text: a NULL link status is a live legacy link, and only an empty or NULL docxml
+            // leaves the file as what the chart shows.
+            if (this == DOCUMENT_FILES)
+                return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and"
+                        + " c.`module_id`=:patient and c.`document_no`=d.`document_no` and"
+                        + " (c.`status` is null or CAST(c.`status` AS BINARY)<>'D')) and"
+                        + " CAST(d.`status` AS BINARY)='A' and"
+                        + " COALESCE(OCTET_LENGTH(CAST(d.`docxml` AS BINARY)),0)=0";
             // A measurement carrying a lab_no extension is an HL7 result that
             // Hl7textResultsData.fileMeasurements indexed for flowsheets. It is a laboratory
             // result: the complete report is exported (and authorized, including sensitive

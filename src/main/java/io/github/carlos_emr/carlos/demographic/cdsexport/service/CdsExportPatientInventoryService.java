@@ -102,6 +102,9 @@ public class CdsExportPatientInventoryService {
         var expected = new TreeSet<CdsExportIdentityDto>();
         var notes = new HashSet<String>();
         var documents = new HashSet<String>();
+        // A soft-deleted document or deleted patient link is captured and accounted by the
+        // report occurrence service but is not in the chart, so it is never an occurrence.
+        var removedDocuments = new HashSet<String>();
         var sourceFields = new HashSet<String>();
         var superseded = new HashSet<String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
@@ -141,7 +144,18 @@ public class CdsExportPatientInventoryService {
                                         budget);
                             } else if (row.table().equals("document")) {
                                 if (!documents.add(row.id())) invalid();
+                                if (CdsExportDocumentRepresentation.removed(row))
+                                    removedDocuments.add(row.id());
                                 budget.add();
+                            } else if (row.table().equals("ctl_document")) {
+                                // The link id is "<patient>_<document>"; only this patient's
+                                // own links are captured (Plan.DOCUMENT_LINKS).
+                                String prefix = patient.patient() + "_";
+                                if (!row.id().startsWith(prefix)) invalid();
+                                if (CdsExportDocumentRepresentation.removed(row)) {
+                                    removedDocuments.add(row.id().substring(prefix.length()));
+                                    budget.add();
+                                }
                             } else if (row.table().equals("casemgmt_note")) {
                                 if (!notes.add(row.id())) invalid();
                                 budget.add();
@@ -169,6 +183,7 @@ public class CdsExportPatientInventoryService {
         for (String address : index.appliedUnits())
             for (var reference : index.references().getOrDefault(address, List.of()))
                 if (reference.table().equals("document")) documents.remove(reference.id());
+        documents.removeAll(removedDocuments);
         for (String document : documents) {
             if (!lease.document().command().categories().contains(CdsCategory.REPORTS)) invalid();
             add(

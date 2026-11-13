@@ -49,6 +49,16 @@ public interface DocumentDao extends AbstractDao<Document>, CdsExportPatientTabl
     /** Current metadata/classification under a row lock for document publication. */
     Document findForPageMutation(Integer documentNo);
 
+    /**
+     * Number of the patient's documents whose content is a stored file the chart shows (live,
+     * status A, no stored HTML). CDS export captures only these files.
+     */
+    long countCdsExportFileRows(int patient);
+
+    /** Keyset page of {@link #countCdsExportFileRows(int)} rows: document_no and docfilename only. */
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportFileRowsAfter(
+            int patient, Long afterId, int limit);
+
     public enum Module {
         DEMOGRAPHIC;
 

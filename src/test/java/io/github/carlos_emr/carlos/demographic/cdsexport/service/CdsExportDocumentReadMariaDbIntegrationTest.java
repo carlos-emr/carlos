@@ -335,6 +335,67 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldReadOnlyFilesTheChartShows_leavingRemovedAndStoredHtmlDocumentsUnopened() {
+        // Every fixture row starts as status A with stored HTML in docxml, which the chart
+        // renders instead of any file. Make some of them ordinary uploads (empty or NULL
+        // docxml), then soft-delete, unlink, convert to an Add HTML document (status H) or
+        // give a status that differs only in case (reviews R3 and R6).
+        sql.update(
+                "update document set docxml='' where document_no in (?,?,?,?,?) and doctype=?",
+                patient + 1,
+                patient + 3,
+                patient + 4,
+                patient + 6,
+                patient + 7,
+                marker);
+        sql.update(
+                "update document set docxml=NULL where document_no=? and doctype=?",
+                patient + 2,
+                marker);
+        sql.update(
+                "update document set status='D' where document_no=? and doctype=?",
+                patient + 3,
+                marker);
+        sql.update(
+                "update ctl_document set status='D' where module='demographic' and module_id=?"
+                        + " and document_no=?",
+                patient,
+                patient + 4);
+        sql.update(
+                "update document set status='H' where document_no=? and doctype=?",
+                patient + 5,
+                marker);
+        sql.update(
+                "update document set status='a' where document_no=? and doctype=?",
+                patient + 6,
+                marker);
+        sql.update(
+                "update ctl_document set status=NULL where module='demographic' and module_id=?"
+                        + " and document_no=?",
+                patient,
+                patient + 7);
+        read.executeWithoutResult(
+                status -> {
+                    assertThat(documents.countCdsExportFileRows(patient)).isEqualTo(3);
+                    var rows = documents.findCdsExportFileRowsAfter(patient, null, 32);
+                    assertThat(rows)
+                            .extracting(io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto::id)
+                            .containsExactly(
+                                    (long) patient + 1, (long) patient + 2, (long) patient + 7);
+                    assertThat(rows.getFirst().cells().keySet())
+                            .containsExactly("docfilename", "document_no");
+                    assertThat(
+                                    documents.findCdsExportFileRowsAfter(
+                                            patient, rows.getLast().id(), 32))
+                            .isEmpty();
+                    // The metadata domain still captures every row for its explicit disposition.
+                    assertThat(documents.countCdsExportRows(patient)).isEqualTo(35);
+                    // Another patient's file is never in this patient's file domain.
+                    assertThat(documents.countCdsExportFileRows(patient + 1)).isZero();
+                });
+    }
+
+    @Test
     void shouldPreserveCompleteDocumentXml_andNullVersusEmptySource() {
         read.executeWithoutResult(
                 status -> {

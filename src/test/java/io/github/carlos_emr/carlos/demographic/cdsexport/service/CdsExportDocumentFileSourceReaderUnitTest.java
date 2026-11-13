@@ -41,7 +41,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
     void shouldKeepMetadataAndAnEmptyDocumentDomainAvailable_whenCaptureBoundsAreInvalid(
             String bound) throws Exception {
         var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
-        when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of());
+        when(documents.findCdsExportFileRowsAfter(27, null, 32)).thenReturn(List.of());
         assertThat(reader.count(27)).isZero();
         var values = new ByteArrayOutputStream();
         var index = new ByteArrayOutputStream();
@@ -68,7 +68,7 @@ class CdsExportDocumentFileSourceReaderUnitTest {
     void shouldRefuseInvalidBounds_beforeOpeningAnyPresentNativeFile(String bound) {
         var row = mock(CdsExportRawRowDto.class);
         when(row.id()).thenReturn(7L);
-        when(documents.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of(row));
+        when(documents.findCdsExportFileRowsAfter(27, null, 32)).thenReturn(List.of(row));
         var reader = new CdsExportDocumentFileSourceReader(documents, "", bound);
         assertThatThrownBy(
                         () -> reader.capture(27, mock(CdsExportNativeCaptureComposer.Writer.class)))
@@ -102,5 +102,70 @@ class CdsExportDocumentFileSourceReaderUnitTest {
                                         }))
                 .hasMessage("CANCELLED");
         verifyNoInteractions(documents);
+    }
+
+    @Test
+    void shouldCountAndReadOnlyDocumentsWhoseContentIsAStoredFile_forDocumentFileSourceReader() {
+        // A soft-deleted document, a deleted link and an Add HTML/Add Link document have no
+        // file to read; the capture plan leaves them out (reviews R3 and R6).
+        when(documents.countCdsExportRows(27)).thenReturn(5L);
+        when(documents.countCdsExportFileRows(27)).thenReturn(2L);
+        var reader = new CdsExportDocumentFileSourceReader(documents, "", "1024");
+        assertThat(reader.count(27)).isEqualTo(2);
+        verify(documents, never()).countCdsExportRows(27);
+    }
+
+    @Test
+    void shouldHoldOnlyThePatient_whenARowNamesAFileThatIsNotThere() throws Exception {
+        var root =
+                java.nio.file.Files.createTempDirectory(
+                        java.nio.file.Path.of(
+                                        System.getProperty(
+                                                "cds.export.test.documentRoot",
+                                                System.getProperty("user.home")))
+                                .toAbsolutePath(),
+                        "owned-native-document-",
+                        java.nio.file.attribute.PosixFilePermissions.asFileAttribute(
+                                java.nio.file.attribute.PosixFilePermissions.fromString(
+                                        "rwx------")));
+        try {
+            byte[] name = "20260305101400purged.pdf".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            var cell =
+                    new io.github.carlos_emr.carlos.commn.dto.CdsExportRawCellDto(
+                            false,
+                            name.length,
+                            java.util.HexFormat.of()
+                                    .formatHex(
+                                            java.security.MessageDigest.getInstance("SHA-256")
+                                                    .digest(name)),
+                            name);
+            when(documents.findCdsExportFileRowsAfter(27, null, 32))
+                    .thenReturn(List.of(new CdsExportRawRowDto(7, Map.of("docfilename", cell))));
+            var reader = new CdsExportDocumentFileSourceReader(documents, root.toString(), "1024");
+            var values = new ByteArrayOutputStream();
+            var index = new ByteArrayOutputStream();
+            assertThatThrownBy(
+                            () ->
+                                    new CdsExportNativeCaptureComposer()
+                                            .compose(
+                                                    values,
+                                                    index,
+                                                    Set.of(reader.table()),
+                                                    10,
+                                                    1024,
+                                                    () -> {},
+                                                    out -> {
+                                                        out.beginTable(
+                                                                reader.table(), reader.columns(), 1);
+                                                        reader.capture(27, out);
+                                                        out.endTable();
+                                                    }))
+                    .isInstanceOf(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportMappingReviewException.class)
+                    .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_MISSING");
+        } finally {
+            java.nio.file.Files.delete(root);
+        }
     }
 }

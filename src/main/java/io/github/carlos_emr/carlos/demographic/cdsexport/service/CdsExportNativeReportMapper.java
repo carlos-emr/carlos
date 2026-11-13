@@ -29,7 +29,11 @@ import java.io.IOException;
 import java.time.*;
 import java.util.*;
 
-/** A native chart document retains its own dates, source author, reviewer and complete metadata. */
+/**
+ * A native chart document retains its own dates, source author, reviewer and complete metadata.
+ * Its content is the attached stored file, or for an Add HTML or Add Link document the HTML the
+ * chart renders from {@code document.docxml}, exported as Content/TextContent.
+ */
 public final class CdsExportNativeReportMapper {
     private static final Set<String> CLASSES =
             Set.of(
@@ -61,29 +65,64 @@ public final class CdsExportNativeReportMapper {
         }
     }
 
+    /**
+     * The report's own content: the attached stored file, or the HTML the chart renders from
+     * {@code document.docxml} (an Add HTML or Add Link document), which is exported as text.
+     */
+    public record Content(String filePath, String extension, boolean storedHtml) {
+        /** A stored file attached at {@code filePath}, declared as {@code extension}. */
+        public static Content file(String filePath, String extension) {
+            return new Content(filePath, extension, false);
+        }
+
+        /** The document's stored HTML, exported as Content/TextContent. */
+        public static Content html() {
+            return new Content(null, "html", true);
+        }
+    }
+
     public Result map(
             int patient,
             CdsExportCapturedTextRowDto document,
             CdsExportCapturedTextRowDto link,
-            String relative,
-            String extension,
+            Content content,
             Map<String, CdsExportCapturedTextRowDto> providers,
             ZoneId zone)
             throws IOException {
         if (patient < 1
+                || content == null
                 || !document.table().equals("document")
                 || !link.table().equals("ctl_document")
                 || !Integer.toString(patient).equals(link.fields().get("module_id"))
                 || !"demographic".equals(link.fields().get("module"))
                 || !Objects.equals(
                         document.fields().get("document_no"), link.fields().get("document_no"))
-                || relative == null
-                || !relative.matches("Reports/[0-9a-f]{64}\\.[a-z0-9]{1,12}")
-                || extension == null
-                || !extension.matches("[a-z0-9]{1,12}")) invalid();
+                || content.extension() == null
+                || !content.extension().matches("[a-z0-9]{1,12}")
+                || (content.storedHtml()
+                        ? content.filePath() != null
+                        : content.filePath() == null
+                                || !content.filePath()
+                                        .matches("Reports/[0-9a-f]{64}\\.[a-z0-9]{1,12}"))) invalid();
         var source = document.fields();
-        if (!"A".equals(source.get("status")) || !"A".equals(link.fields().get("status")))
+        var representation = CdsExportDocumentRepresentation.of(source, link.fields());
+        // A removed document never reaches the mapper: it is accounted as not exported.
+        if (representation == CdsExportDocumentRepresentation.REMOVED
+                || representation == CdsExportDocumentRepresentation.FILE && content.storedHtml()
+                || representation == CdsExportDocumentRepresentation.STORED_HTML
+                        && !content.storedHtml()) invalid();
+        String linkStatus = link.fields().get("status");
+        // An active (A) or HTML (H) association, or a legacy NULL one, is the chart's own link.
+        if (representation == CdsExportDocumentRepresentation.UNREPRESENTED
+                || linkStatus != null && !linkStatus.equals("A") && !linkStatus.equals("H"))
             review("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+        String html = content.storedHtml() ? source.get("docxml") : null;
+        // The chart renders docxml only when it is not blank (ManageDocument2Action.display);
+        // blank stored HTML shows nothing, and text the XML document cannot carry is held.
+        if (html != null
+                && (html.trim().isEmpty()
+                        || !CdsExportNativeFieldAssessments.legal(html, Integer.MAX_VALUE)))
+            review("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
         String restricted = source.get("restrictToProgram");
         if (restricted != null && !restricted.isEmpty() && !restricted.equals("0"))
             review("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
@@ -97,6 +136,14 @@ public final class CdsExportNativeReportMapper {
         for (var row : rows) {
             var state = new CdsExportNativeFieldAssessments(row, fields);
             for (var entry : row.fields().entrySet()) {
+                if (html != null && row == document && entry.getKey().equals("docxml")) {
+                    state.set(
+                            "docxml",
+                            Outcome.MAPPED,
+                            "Reports/Content",
+                            "EXACT_STORED_HTML_DOCUMENT_CONTENT");
+                    continue;
+                }
                 if (entry.getValue() != null
                         && !CdsExportNativeFieldAssessments.legal(entry.getValue(), 32768))
                     review("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
@@ -108,9 +155,15 @@ public final class CdsExportNativeReportMapper {
             }
         }
         text.put("Media", "Download");
-        text.put("Format", "Binary");
-        text.put("FileExtensionAndVersion", extension);
-        text.put("FilePath", relative);
+        if (html != null) {
+            text.put("Format", "Text");
+            text.put("FileExtensionAndVersion", content.extension());
+            text.put("TextContent", html);
+        } else {
+            text.put("Format", "Binary");
+            text.put("FileExtensionAndVersion", content.extension());
+            text.put("FilePath", content.filePath());
+        }
         String classification = source.get("docClass");
         if (classification == null || classification.isEmpty() || !CLASSES.contains(classification))
             classification = classify(source.get("doctype"));
@@ -123,7 +176,14 @@ public final class CdsExportNativeReportMapper {
             text.put("SubClass", subclass);
         var details = new LinkedHashMap<String, Object>();
         details.put("version", 1);
-        details.put("document", source);
+        if (html == null) details.put("document", source);
+        else {
+            // The stored HTML is the report's Content; the rest of the row is its context.
+            var context = new LinkedHashMap<>(source);
+            context.remove("docxml");
+            details.put("document", context);
+            details.put("content", "document.docxml");
+        }
         details.put("link", link.fields());
         for (var entry :
                 Map.of("receivedDate", "ReceivedDateTime", "sent_date_time", "SentDateTime")
@@ -140,9 +200,9 @@ public final class CdsExportNativeReportMapper {
         String observed = source.get("observationdate");
         if (observed != null && !observed.isEmpty())
             dates.put("EventDateTime", CdsExportNativeHistoryMapper.clock(observed, zone));
-        String content = source.get("contentdatetime");
-        if (content != null && !content.isEmpty() && !dates.containsKey("ReceivedDateTime"))
-            dates.put("ReceivedDateTime", CdsExportNativeHistoryMapper.clock(content, zone));
+        String filed = source.get("contentdatetime");
+        if (filed != null && !filed.isEmpty() && !dates.containsKey("ReceivedDateTime"))
+            dates.put("ReceivedDateTime", CdsExportNativeHistoryMapper.clock(filed, zone));
         for (var entry :
                 Map.of("source", "SourceAuthorPhysician", "sourceFacility", "SourceFacility")
                         .entrySet()) {
@@ -207,9 +267,13 @@ public final class CdsExportNativeReportMapper {
                         "Media",
                         "Format",
                         "FileExtensionAndVersion",
-                        "FilePath",
-                        "Class",
-                        "SubClass")) text(result, xml, name);
+                        "FilePath")) text(result, xml, name);
+        if (result.text().containsKey("TextContent")) {
+            xml.start("cds", "Content");
+            xml.element("cds_dt", "TextContent", result.text().get("TextContent"));
+            xml.end();
+        }
+        for (String name : List.of("Class", "SubClass")) text(result, xml, name);
         date(result, xml, "EventDateTime");
         date(result, xml, "ReceivedDateTime");
         if (result.text().containsKey("SourceAuthorPhysician")) {

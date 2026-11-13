@@ -33,7 +33,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-/** Native files are encrypted within the same patient snapshot as their complete document/link metadata. */
+/**
+ * Native files are encrypted within the same patient snapshot as their complete document/link
+ * metadata. Only a live document whose content is its stored file is read: a soft-deleted
+ * document, a deleted patient link and an Add HTML/Add Link document (content in docxml, no
+ * file) are never opened (CdsExportDocumentRepresentation).
+ */
 @Service
 public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceReader {
     static final String TABLE = "native_document_files";
@@ -81,9 +86,10 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
         }
     }
 
+    /** Only documents whose content is a stored file the chart shows; see CdsExportDocumentRepresentation. */
     @Override
     public long count(int patient) {
-        return documents.countCdsExportRows(patient);
+        return documents.countCdsExportFileRows(patient);
     }
 
     @Override
@@ -100,7 +106,7 @@ public class CdsExportDocumentFileSourceReader implements CdsExportNativeSourceR
         long maximumBytes = -1;
         while (true) {
             checkpoint.run();
-            var page = documents.findCdsExportRowsAfter(patient, after, 32);
+            var page = documents.findCdsExportFileRowsAfter(patient, after, 32);
             if (page.size() > 32) invalid();
             for (var document : page) {
                 checkpoint.run();

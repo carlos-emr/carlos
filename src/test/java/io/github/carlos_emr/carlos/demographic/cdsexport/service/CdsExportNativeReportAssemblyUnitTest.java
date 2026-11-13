@@ -536,6 +536,85 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
+    void shouldExportAScannedPdfAndStoredHtmlDocuments_asTheChartShowsThem() throws Exception {
+        add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        String html = "<p>Discharge summary ü 😀</p>\r\n<p>Second line &amp; more</p>";
+        add(92, storedHtml(92, "html", html), "H", null);
+        String redirect = DocumentLink.toRedirectHtml("https://portal.example.org/report?id=1&x=2");
+        add(93, storedHtml(93, "link", redirect), "H", null);
+        String xml = assemble();
+        var reports = reports(xml);
+        assertThat(reports).hasSize(3);
+        assertThat(reports.get(0))
+                .contains(
+                        "<Format>Binary</Format>",
+                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>",
+                        "<FilePath>Reports/")
+                .doesNotContain("<Content>");
+        assertThat(reports.get(1))
+                .contains(
+                        "<Format>Text</Format>",
+                        "<FileExtensionAndVersion>html</FileExtensionAndVersion>",
+                        "<cdsd:TextContent>&lt;p&gt;Discharge summary ü 😀&lt;/p&gt;&#13;\n")
+                .doesNotContain("<FilePath>");
+        assertThat(reports.get(2))
+                .contains("<Format>Text</Format>", "https://portal.example.org/report?id=1");
+        assertThat(attachments).hasSize(1);
+        assertThat(attachment(attachments.values().iterator().next())).isEqualTo(PDF);
+        assertThat(receipts).hasSize(3);
+        assertThat(result.nativeRows()).isEqualTo(3);
+        assertThat(result.nativeOnlyRows()).isEqualTo(3);
+        // The stored HTML is the report's content, so it is not repeated in its source context.
+        var htmlField =
+                receipts.get(1).fields().entrySet().stream()
+                        .filter(entry -> entry.getKey().column().equals("docxml"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(htmlField.getValue().destination()).isEqualTo("Reports/Content");
+    }
+
+    @Test
+    void shouldLeaveSoftDeletedDocumentsAndDeletedLinksOut_withEveryFieldAccounted()
+            throws Exception {
+        add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        var deleted = uploaded(94, "20260101090000old-letter.pdf", "application/pdf");
+        deleted.put("status", "D");
+        add(94, deleted, "A", null);
+        add(95, uploaded(95, "20260101090100moved-letter.pdf", "application/pdf"), "D", null);
+        String xml = assemble();
+        assertThat(reports(xml)).hasSize(1);
+        assertThat(xml).doesNotContain("old-letter", "moved-letter");
+        assertThat(receipts).hasSize(1);
+        assertThat(attachments).hasSize(1);
+        assertThat(result.nativeRows()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldHoldOnlyThisPatient_forAnEmptyFile() throws Exception {
+        add(98, uploaded(98, "20260305101800empty.pdf", "application/pdf"), "A", new byte[0]);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_EMPTY");
+        assertThat(attachments).isEmpty();
+    }
+
+    @Test
+    void shouldHoldOnlyThisPatient_forAnHtmlDocumentWithNoStoredHtml() throws Exception {
+        add(99, storedHtml(99, "html", ""), "H", null);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldHoldOnlyThisPatient_forBlankStoredHtml() throws Exception {
+        add(99, storedHtml(99, "html", " \r\n\t"), "H", null);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
+    }
+
+    @Test
     void shouldReadEveryAttachment_throughOneAuthenticatedPassOfThePatientsValues()
             throws Exception {
         add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
