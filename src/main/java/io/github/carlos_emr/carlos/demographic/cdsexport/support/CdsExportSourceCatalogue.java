@@ -51,9 +51,11 @@ public final class CdsExportSourceCatalogue {
             Map<String, Set<String>> requiredScopes,
             Map<String, List<String>> patientScopes,
             Map<String, List<String>> clinicalRemainders,
-            CdsExportTableSchemaDto scope) {
+            CdsExportTableSchemaDto scope,
+            Map<String, String> localOperationalTables) {
         public Snapshot {
             tables = Map.copyOf(tables);
+            localOperationalTables = Map.copyOf(localOperationalTables);
             profiles = List.copyOf(profiles);
             var copy = new HashMap<String, Set<String>>();
             requiredScopes.forEach((name, values) -> copy.put(name, Set.copyOf(values)));
@@ -234,7 +236,23 @@ public final class CdsExportSourceCatalogue {
                         CdsExportTableSchemaDto.class);
         if (scope.columns().size() != 1
                 || !sha(bytes).equals(scope.columns().getFirst().expression())) invalid();
-        return new Snapshot(rulings, profiles, required, patientScopes, clinicalRemainders, scope);
+        var operational = new HashMap<String, String>();
+        var local = root.path("localOperationalTables");
+        if (!local.isMissingNode()) {
+            if (!local.isObject() || local.size() > 32) invalid();
+            for (var field : local.properties()) {
+                // Package-created local tables are outside the Flyway physical contract by design;
+                // a name inside the contract must keep its reviewed ruling instead.
+                if (!field.getKey().matches("[A-Za-z_][A-Za-z0-9_]{0,63}")
+                        || rulings.containsKey(field.getKey())
+                        || !field.getValue().isTextual()
+                        || field.getValue().asText().isBlank()
+                        || field.getValue().asText().length() > 512) invalid();
+                operational.put(field.getKey(), field.getValue().asText());
+            }
+        }
+        return new Snapshot(
+                rulings, profiles, required, patientScopes, clinicalRemainders, scope, operational);
     }
 
     private static Map<String, List<String>> scopedColumns(

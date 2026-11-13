@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "6db530ca2758966213c52c6e22b058a51b2ba343d3f39dabcac2f7554610227e"
+      "physicalContractSha256": "5a77741cce5922cc2fd5d439e5c616169f679c542abc1f9fd708eb24111defa9"
     },
     "bc": {
-      "physicalContractSha256": "d1db24c024cc8ce2c5cb2c20cc36c0a2275bf8ea6355f4aa2cc1b6716211e9eb"
+      "physicalContractSha256": "15e5167bce8092276748754e56ba4bba13418492b9a1228c32ea68350ae13e15"
     }
   },
   "tables": {
@@ -155,6 +155,7 @@
     "casemgmt_tmpsave": "REQUIRE_EMPTY",
     "cds_export_attempt": "OPERATIONAL",
     "cds_export_event": "OPERATIONAL",
+    "cds_export_held_patient": "OPERATIONAL",
     "cds_export_run": "OPERATIONAL",
     "cds_import_admission": "OPERATIONAL",
     "cds_import_checkpoint": "OPERATIONAL",
@@ -1029,6 +1030,9 @@
       "discharge_notes",
       "radioDischargeReason"
     ]
+  },
+  "localOperationalTables": {
+    "_carlos_demo_seed_complete": "Created by carlos-ctl demo-data to record that the publicly known demonstration dataset finished loading. It holds no patient data and is outside the Flyway physical contract."
   },
   "rulingNotes": {
     "CVCMedication": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",

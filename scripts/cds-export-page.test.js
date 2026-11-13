@@ -2,11 +2,12 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {checkedJob, newest, presentation} = require('../src/main/webapp/js/demographic/cds-export.js');
+const {checkedJob, newest, presentation, responseFailure, submissionNotice} = require('../src/main/webapp/js/demographic/cds-export.js');
 const id = 'a8fe0033-468d-468c-ae0e-b11d372b533a';
 function job(values = {}) {
     return {id, state: 'ACCEPTED', revision: 0, epoch: 0, totalPatients: null, processedPatients: 0, blockedPatients: 0,
-        cancelRequested: false, workerOwned: false, artifactAvailable: false, complete: false, waiting: true, safeCode: null, ...values};
+        cancelRequested: false, workerOwned: false, artifactAvailable: false, complete: false, heldBack: false, waiting: true,
+        safeCode: null, ...values};
 }
 test('unknown discovery total stays unknown and acceptance stays waiting', () => {
     const value = presentation(job());
@@ -27,6 +28,21 @@ test('artifact availability cannot hide unknown, unaccounted, blocked or cancell
         assert.equal(presentation(value).complete, false);
         assert.throws(() => checkedJob({...value, complete: true}), /STATUS_INVALID/);
     }
+});
+test('a package with held patients is downloadable but never a complete migration', () => {
+    const value = job({state: 'READY', artifactAvailable: true, heldBack: true, waiting: false,
+        totalPatients: 3, processedPatients: 3, blockedPatients: 1});
+    const shown = presentation(value);
+    assert.equal(shown.complete, false);
+    assert.equal(shown.downloadable, true);
+    assert.match(shown.label, /without 1 held patient\(s\) — not a complete migration/);
+    assert.throws(() => checkedJob({...value, complete: true}), /STATUS_INVALID/);
+    assert.throws(() => checkedJob({...value, heldBack: false}), /STATUS_INVALID/);
+    for (const changed of [{blockedPatients: 3}, {cancelRequested: true}, {artifactAvailable: false}, {processedPatients: 2}])
+        assert.throws(() => checkedJob({...value, ...changed}), /STATUS_INVALID/);
+    assert.equal(presentation(job({state: 'READY', artifactAvailable: true, complete: true, waiting: false,
+        totalPatients: 1, processedPatients: 1})).downloadable, true);
+    assert.equal(presentation(job({state: 'REVIEW_REQUIRED', waiting: false})).downloadable, false);
 });
 test('failed, review, cancelled and expired can never imply a completed transfer', () => {
     for (const state of ['FAILED', 'REVIEW_REQUIRED', 'CANCELLED', 'EXPIRED']) {
@@ -108,3 +124,13 @@ for (const controlSucceeds of [true, false]) {
         assert.equal(pending.length, 0);
     });
 }
+
+test('an access refusal names only a fixed missing right, never response text', () => {
+    const named = responseFailure({code: 'CDS_EXPORT_ACCESS_DENIED', missingRight: '_lab_sensitive'});
+    assert.equal(named.message, 'CDS_EXPORT_ACCESS_DENIED');
+    assert.match(submissionNotice(named, 'key-1'), /lack read access to _lab_sensitive/);
+    const hostile = responseFailure({code: '<b>x</b>', missingRight: '<script>'});
+    assert.equal(hostile.message, 'CDS_EXPORT_RESPONSE_UNCONFIRMED');
+    assert.equal(hostile.missingRight, undefined);
+    assert.match(submissionNotice(hostile, 'key-1'), /could not be confirmed .*key-1/);
+});

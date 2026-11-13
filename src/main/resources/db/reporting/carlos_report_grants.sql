@@ -130,6 +130,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('CdsClientForm', 'reportable', NULL, NULL),
 ('cds_export_attempt', 'restricted', NULL, 'Protected export artifact and active-download ownership; use authorized CDS workflows'),
 ('cds_export_event', 'restricted', NULL, 'Protected export disclosure and lifecycle audit; use authorized CDS workflows'),
+('cds_export_held_patient', 'restricted', NULL, 'Protected export record of patients held back from a package; use authorized CDS workflows'),
 ('cds_export_run', 'restricted', NULL, 'Protected export requests and artifact ownership; use authorized CDS workflows'),
 ('cds_import_admission', 'restricted', NULL, 'Protected import evidence or source-restricted clinical data; use authorized CDS workflows'),
 ('cds_import_checkpoint', 'restricted', NULL, 'Protected import evidence or source-restricted clinical data; use authorized CDS workflows'),

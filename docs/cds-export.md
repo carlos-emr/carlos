@@ -36,7 +36,7 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.42`, following
+The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.43`, following
 the release's common `V1.0.59.37`. All 87 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
@@ -76,6 +76,7 @@ line; those changes are not part of this release pair.
 | `V1.0.59.40` | Artifact publication attempts | `V1.0.84` |
 | `V1.0.59.41` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
 | `V1.0.59.42` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
+| `V1.0.59.43` | Protected record of patients held back from an export package (chart number and safe code only) | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for

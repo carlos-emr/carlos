@@ -133,6 +133,31 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseLaboratoryExportAtAdmission_whenTheRolesLackSensitiveLabRead() {
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_lab_sensitive"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, command("100")))
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("missing required sec object (_lab_sensitive)");
+        assertThat(
+                        CdsExportAccessService.missingObject(
+                                new SecurityException("missing required sec object (_lab_sensitive)")))
+                .isEqualTo("_lab_sensitive");
+        // A job without laboratory results does not need the sensitive-result right.
+        assertThat(access.webActor(session, demographicCommand("100")).providerNo())
+                .isEqualTo("100");
+    }
+
+    @Test
+    void shouldNameTheCategoryRight_whenTheRolesLackItAtAdmission() {
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_rx"), eq("r"), isNull()))
+                .thenReturn(false);
+        assertThatThrownBy(() -> access.webActor(session, command("100")))
+                .hasMessage("missing required sec object (_rx)");
+        assertThat(CdsExportAccessService.missingObject(new SecurityException("REVOKED"))).isNull();
+    }
+
+    @Test
     void shouldVerifyPharmacyMatchesOwningRoutesGlobalAndPatientRxChecks_forBothIdentities() {
         for (String denied : List.of("100", "200")) {
             var command = demographicCommand("200");

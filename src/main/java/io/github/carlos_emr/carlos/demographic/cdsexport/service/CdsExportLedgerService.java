@@ -28,6 +28,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportEventDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportHeldPatientDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportRunDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportAttemptDao;
 import io.github.carlos_emr.carlos.commn.model.CdsExportAttempt;
@@ -67,6 +68,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class CdsExportLedgerService {
     private static final int MAX_DOCUMENT = 262_144;
     private static final long LEASE_SECONDS = 120;
+    /** The diagnostic report names at most this many held charts; the encrypted ReadMe names all. */
+    private static final int MAX_REPORTED_HELD = 4096;
     private static final JsonMapper JSON =
             JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()
@@ -85,6 +88,7 @@ public class CdsExportLedgerService {
     private final CdsExportRunDao runs;
     private final CdsExportEventDao events;
     private final CdsExportAttemptDao attempts;
+    private final CdsExportHeldPatientDao heldPatients;
     private final TransactionTemplate write;
     private final TransactionTemplate read;
     private final TransactionTemplate captureControl;
@@ -94,10 +98,12 @@ public class CdsExportLedgerService {
             CdsExportRunDao runs,
             CdsExportEventDao events,
             CdsExportAttemptDao attempts,
+            CdsExportHeldPatientDao heldPatients,
             PlatformTransactionManager manager) {
         this.runs = runs;
         this.events = events;
         this.attempts = Objects.requireNonNull(attempts);
+        this.heldPatients = Objects.requireNonNull(heldPatients);
         write = transaction(manager, false);
         read = transaction(manager, true);
         captureControl = transaction(manager, false);
@@ -214,6 +220,19 @@ public class CdsExportLedgerService {
                                         value.safeCode(),
                                         value.at().toString()));
                     }
+                    var heldRows = heldPatients.held(id, row.epoch(), MAX_REPORTED_HELD + 1);
+                    var held =
+                            new java.util.ArrayList<
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportDiagnosticDto.Held>();
+                    for (var value : heldRows.stream().limit(MAX_REPORTED_HELD).toList()) {
+                        if (value.patient() <= 0) throw new IllegalStateException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+                        safeCode(value.safeCode());
+                        held.add(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportDiagnosticDto.Held(
+                                        value.patient(), value.safeCode()));
+                    }
                     return new io.github.carlos_emr.carlos.demographic.cdsexport.dto
                             .CdsExportDiagnosticDto(
                             1,
@@ -231,7 +250,9 @@ public class CdsExportLedgerService {
                             row.createdAt().toString(),
                             row.updatedAt().toString(),
                             recent.size() > 128,
-                            audit);
+                            audit,
+                            heldRows.size() > MAX_REPORTED_HELD,
+                            held);
                 });
     }
 
@@ -501,7 +522,7 @@ public class CdsExportLedgerService {
                         null,
                         null);
         if (!context.cohort().plaintextSha256().equals(prepared.cohortSha256())) artifactInvalid();
-        retain(lease, context, false);
+        retain(lease, context, false, prepared.metadata().heldPatients());
         return context;
     }
 
@@ -530,12 +551,18 @@ public class CdsExportLedgerService {
                         encrypted.ciphertext(),
                         encrypted.proof());
         if (!context.cohort().plaintextSha256().equals(prepared.cohortSha256())) artifactInvalid();
-        retain(lease, context, true);
+        retain(lease, context, true, prepared.metadata().heldPatients());
         return context;
     }
 
     private void retain(
-            CdsExportLeaseDto lease, CdsExportArtifactContextDto context, boolean encrypted) {
+            CdsExportLeaseDto lease,
+            CdsExportArtifactContextDto context,
+            boolean encrypted,
+            List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportHeldPatientDto>
+                    held) {
+        var heldRows = heldRows(held, context.patients());
+        long heldPatients = heldRows.size();
         var text = encodeContext(context);
         var sha = digest(text);
         transaction(
@@ -559,6 +586,7 @@ public class CdsExportLedgerService {
                     var attempt = attempt(run, lease.epoch());
                     if (sha.equals(attempt.getContextDigest())) {
                         context(attempt);
+                        recordHeld(run, lease.epoch(), heldRows, now);
                         return null;
                     }
                     if (attempt.getContextDocument() != null) {
@@ -570,7 +598,14 @@ public class CdsExportLedgerService {
                     attempt.setContextDigest(sha);
                     attempt.setUpdatedAt(now);
                     attempt.setState(encrypted ? "ENCRYPTED" : "PREPARED");
+                    // The unversioned heartbeat refreshes the row, so it runs before the held
+                    // count is set; the count change is then versioned like any other mutation.
                     runs.renewLease(run, now, now.plusSeconds(LEASE_SECONDS));
+                    // Held patients are counted and named durably, in the transaction that binds
+                    // the ReadMe listing them, so a partial package can never read as a complete
+                    // migration in status, history, the diagnostic report or the CLI exit status.
+                    recordHeld(run, lease.epoch(), heldRows, now);
+                    run.setBlockedPatients(heldPatients);
                     event(
                             run,
                             encrypted ? "CIPHERTEXT_RETAINED" : "PACKAGE_RETAINED",
@@ -579,6 +614,54 @@ public class CdsExportLedgerService {
                             now);
                     return null;
                 });
+    }
+
+    private static java.util.SortedMap<Integer, String> heldRows(
+            List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportHeldPatientDto>
+                    held,
+            long patients) {
+        if (held == null) artifactInvalid();
+        var rows = new java.util.TreeMap<Integer, String>();
+        for (var value : held) {
+            if (value == null || rows.put(value.patient(), safeHeldCode(value.code())) != null)
+                artifactInvalid();
+        }
+        // A package always carries at least one patient: all-held selections never package.
+        if (rows.size() >= patients) artifactInvalid();
+        return rows;
+    }
+
+    private static String safeHeldCode(String code) {
+        if (code == null || !code.matches("CDS_EXPORT_[A-Z0-9_]{1,85}")) artifactInvalid();
+        return code;
+    }
+
+    /**
+     * Writes the epoch's held list once. A replay (lost acknowledgement, prepared then encrypted
+     * retention) must name exactly the same patients and codes; anything else is a different
+     * package and is refused.
+     */
+    private void recordHeld(
+            CdsExportRun run, long epoch, java.util.SortedMap<Integer, String> rows, Instant now) {
+        long existing = heldPatients.count(run.getId(), epoch);
+        if (existing == 0) {
+            for (var row : rows.entrySet()) {
+                var value = new io.github.carlos_emr.carlos.commn.model.CdsExportHeldPatient();
+                value.setId(UUID.randomUUID().toString());
+                value.setRunId(run.getId());
+                value.setEpoch(epoch);
+                value.setDemographicNo(row.getKey());
+                value.setSafeCode(row.getValue());
+                value.setCreatedAt(now);
+                heldPatients.persist(value);
+            }
+            return;
+        }
+        if (existing != rows.size()) artifactInvalid();
+        var recorded = new java.util.TreeMap<Integer, String>();
+        for (var row : heldPatients.held(run.getId(), epoch, rows.size() + 1))
+            recorded.put(row.patient(), row.safeCode());
+        if (!recorded.equals(rows)) artifactInvalid();
     }
 
     private static CdsExportArtifactContextDto preparedOnly(CdsExportArtifactContextDto value) {
@@ -688,7 +771,6 @@ public class CdsExportLedgerService {
                                     run.getCohortDigest(), expected.cohort().plaintextSha256()))
                         artifactInvalid();
                     run.setProcessedPatients(expected.patients());
-                    run.setBlockedPatients(0);
                     run.setArtifactMember(expected.ciphertext().memberId());
                     run.setArtifactDigest(expected.ciphertext().plaintextSha256());
                     run.setArtifactBytes(expected.ciphertext().plaintextBytes());

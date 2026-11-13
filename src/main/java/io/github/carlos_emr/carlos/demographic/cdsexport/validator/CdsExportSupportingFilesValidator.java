@@ -118,6 +118,19 @@ public final class CdsExportSupportingFilesValidator {
                         .map(CdsCategory::wireName)
                         .collect(java.util.stream.Collectors.joining(", ")));
         text.field("Audit information access after migration", metadata.auditAccessDescription());
+        text.field("Held patients not in this package", Long.toString(metadata.heldPatients().size()));
+        for (var held : metadata.heldPatients()) {
+            text.field("Held patient", Integer.toString(held.patient()));
+            text.field("Held patient reason", held.code());
+        }
+        text.field(
+                "Unreviewed local tables not exported",
+                Long.toString(metadata.unreviewedLocalSources().size()));
+        for (var local : metadata.unreviewedLocalSources()) {
+            text.field("Unreviewed local table", local.table());
+            text.field(
+                    "Unreviewed local table estimated rows", Long.toString(local.estimatedRows()));
+        }
         text.exact("Patient file paths below are complete within the named export container.");
         text.exact(
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.");

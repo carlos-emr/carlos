@@ -34,4 +34,13 @@ public record CdsExportJobDto(String id, CdsExportState state, long revision, Lo
         return state == CdsExportState.READY && artifactAvailable && !cancelRequested && totalPatients != null
                 && totalPatients > 0 && processedPatients == totalPatients && blockedPatients == 0;
     }
+    /**
+     * A downloadable package that deliberately leaves out the held patients it lists. It is never
+     * a complete migration: complete() stays false and callers must surface the held count.
+     */
+    public boolean heldBack() {
+        return state == CdsExportState.READY && artifactAvailable && !cancelRequested && totalPatients != null
+                && totalPatients > 0 && processedPatients == totalPatients && blockedPatients > 0
+                && blockedPatients < totalPatients;
+    }
 }

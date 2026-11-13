@@ -76,6 +76,11 @@ public class CdsExportSourceCatalogueReader implements CdsExportNativeSourceRead
         return source.readSourceSchema();
     }
 
+    /** Requires the caller's read-only transaction; names and estimates only, never values. */
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto> unreviewedLocalSources() {
+        return source.unreviewedLocalSources();
+    }
+
     @Override
     public long count(int patient) {
         return count(patient, () -> {});

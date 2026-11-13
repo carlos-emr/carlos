@@ -18,6 +18,7 @@
  */
 package io.github.carlos_emr.carlos.commn.dao;
 
+import io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.*;
 
@@ -49,7 +50,7 @@ public class CdsExportSourceCatalogueDao {
         var catalogue = CdsExportSourceCatalogue.current();
         int caseMode = tableNameCaseMode();
         var engines = engines(caseMode);
-        var profile = profile(catalogue, engines.keySet(), caseMode);
+        var profile = profile(catalogue, engines.keySet(), caseMode).profile();
         var columns = new HashMap<String, List<CdsExportTableSchemaDto.Column>>();
         for (var row :
                 rows(
@@ -114,7 +115,7 @@ public class CdsExportSourceCatalogueDao {
         Objects.requireNonNull(checkpoint).run();
         var catalogue = CdsExportSourceCatalogue.current();
         int caseMode = tableNameCaseMode();
-        var profile = profile(catalogue, engines(caseMode).keySet(), caseMode);
+        var profile = profile(catalogue, engines(caseMode).keySet(), caseMode).profile();
         for (String table : new TreeSet<>(profile.tables().keySet())) {
             checkpoint.run();
             if (!profile.tables().get(table).engine().equals("InnoDB"))
@@ -237,22 +238,101 @@ public class CdsExportSourceCatalogueDao {
         return result;
     }
 
-    private static CdsExportSourceCatalogue.Profile profile(
-            CdsExportSourceCatalogue.Snapshot catalogue, Set<String> actual, int caseMode) {
-        var matches =
-                catalogue.profiles().stream()
-                        .filter(profile -> matches(profile.tables().keySet(), actual, caseMode))
-                        .toList();
-        if (matches.size() != 1) review();
-        return matches.getFirst();
+    /**
+     * Base tables outside the matched pinned physical profile and outside the reviewed list of
+     * package-operational local tables, with MariaDB's row estimate. They have no reviewed
+     * structure or patient ownership, so they are never exported; callers list them in the
+     * protected diagnostics and the encrypted ReadMe instead of letting them pass silently.
+     */
+    // Identifiers come from information_schema and are validated as ASCII SQL identifiers.
+    @SuppressWarnings("java:S2077")
+    public List<CdsExportLocalSourceDto> unreviewedLocalSources() {
+        snapshot();
+        var catalogue = CdsExportSourceCatalogue.current();
+        int caseMode = tableNameCaseMode();
+        var extras = profile(catalogue, engines(caseMode).keySet(), caseMode).extras();
+        var estimates = new HashMap<String, Long>();
+        for (var row :
+                rows(
+                        "select TABLE_NAME,TABLE_ROWS from information_schema.TABLES where"
+                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
+                        1026)) {
+            String table = tableKey((String) row[0], caseMode);
+            if (extras.contains(table))
+                estimates.put((String) row[0], row[1] == null ? 0L : ((Number) row[1]).longValue());
+        }
+        var result = new ArrayList<CdsExportLocalSourceDto>();
+        for (var entry : new TreeMap<>(estimates).entrySet()) {
+            String table = entry.getKey();
+            tableKey(table, caseMode);
+            // The name comes from information_schema and matched the ASCII identifier pattern above.
+            // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
+            boolean populated =
+                    !entityManager
+                            .createNativeQuery("select 1 from `" + table + "` limit 1")
+                            .setHint("org.hibernate.timeout", 120)
+                            .getResultList()
+                            .isEmpty();
+            if (populated)
+                result.add(new CdsExportLocalSourceDto(table, Math.max(1, entry.getValue())));
+        }
+        return List.copyOf(result);
     }
 
-    private static boolean matches(Set<String> expected, Set<String> actual, int caseMode) {
-        var keys = new HashSet<String>();
-        for (String name : expected) {
-            if (!keys.add(tableKey(name, caseMode))) review();
+    private record Match(CdsExportSourceCatalogue.Profile profile, Set<String> extras) {}
+
+    /**
+     * Every table of exactly one pinned profile must exist with its reviewed structure. Additional
+     * local tables do not choose or block a profile; they are reported by {@link
+     * #unreviewedLocalSources()}. A missing profile table, or two profiles fitting equally, still
+     * requires review because the reviewed physical contract no longer describes the database.
+     */
+    private static Match profile(
+            CdsExportSourceCatalogue.Snapshot catalogue, Set<String> actual, int caseMode) {
+        var operational = new HashSet<String>();
+        for (String name : catalogue.localOperationalTables().keySet())
+            operational.add(tableKey(name, caseMode));
+        Match best = null;
+        boolean tied = false;
+        var closestMissing = new TreeSet<String>();
+        String closestName = null;
+        for (var profile : catalogue.profiles()) {
+            var keys = new HashSet<String>();
+            for (String name : profile.tables().keySet()) {
+                if (!keys.add(tableKey(name, caseMode))) review();
+            }
+            var missing = new TreeSet<>(keys);
+            missing.removeAll(actual);
+            if (!missing.isEmpty()) {
+                if (closestName == null || missing.size() < closestMissing.size()) {
+                    closestName = profile.name();
+                    closestMissing = missing;
+                }
+                continue;
+            }
+            var extras = new HashSet<>(actual);
+            extras.removeAll(keys);
+            extras.removeAll(operational);
+            if (best == null || extras.size() < best.extras().size()) {
+                best = new Match(profile, Set.copyOf(extras));
+                tied = false;
+            } else if (extras.size() == best.extras().size()) tied = true;
         }
-        return keys.equals(actual);
+        if (best == null) {
+            // Names from the pinned physical contract only; no values.
+            LOG.warn(
+                    "CDS_EXPORT_SOURCE_PROFILE_TABLES_MISSING profile={} tables={}",
+                    closestName,
+                    closestMissing.size() > 20
+                            ? List.copyOf(closestMissing).subList(0, 20) + " +" + (closestMissing.size() - 20)
+                            : closestMissing);
+            review();
+        }
+        if (tied) {
+            LOG.warn("CDS_EXPORT_SOURCE_PROFILE_AMBIGUOUS");
+            review();
+        }
+        return best;
     }
 
     @SuppressWarnings("unchecked")

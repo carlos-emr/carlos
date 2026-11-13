@@ -23,11 +23,40 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 import java.util.List;
 
-/** Explicit PHI-free diagnostic report; no native row, clinical intent, stored member, key or grant is serialized. */
+/**
+ * Diagnostic report for an authorized observer of the job. No native row, clinical value,
+ * clinical intent, stored member, key or grant is serialized. The only patient-correlating values
+ * are the chart numbers of patients the current attempt held back, each with its safe reason
+ * code, because the operator must know which charts to correct before exporting them; the list is
+ * bounded and {@code heldPatientsTruncated} says when the encrypted ReadMe holds more.
+ */
 public record CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
         Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
         boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
-        boolean eventsTruncated, List<Audit> recentEvents) {
-    public CdsExportDiagnosticDto { recentEvents = List.copyOf(recentEvents); }
+        boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
+        List<Held> heldPatients) {
+    public CdsExportDiagnosticDto {
+        recentEvents = List.copyOf(recentEvents);
+        heldPatients = List.copyOf(heldPatients);
+    }
+
+    /** Report shape without held-back patients, for jobs and attempts that held none. */
+    public CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
+            Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
+            boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
+            boolean eventsTruncated, List<Audit> recentEvents) {
+        this(apiVersion, event, runId, state, epoch, totalPatients, processedPatients, blockedPatients,
+                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, eventsTruncated,
+                recentEvents, false, List.of());
+    }
+
     public record Audit(String type, long epoch, String safeCode, String at) { }
+
+    /** One held-back chart and the safe code saying why it is not in the package. */
+    public record Held(int patient, String safeCode) {
+        @Override
+        public String toString() {
+            return "Held[protected]";
+        }
+    }
 }

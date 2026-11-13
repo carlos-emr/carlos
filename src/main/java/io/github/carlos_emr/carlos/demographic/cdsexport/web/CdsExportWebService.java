@@ -117,9 +117,13 @@ public class CdsExportWebService {
         response.setHeader("Content-Disposition", null);
         int status = 503;
         String code = "CDS_EXPORT_REQUEST_UNAVAILABLE";
+        String missingRight = null;
         if (failure instanceof SecurityException) {
             status = 403;
             code = "CDS_EXPORT_ACCESS_DENIED";
+            missingRight =
+                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                            .CdsExportAccessService.missingObject(failure);
         } else if (failure instanceof CdsExportStaleControlException) {
             status = 409;
             code = "CDS_EXPORT_STATUS_CHANGED";
@@ -162,17 +166,16 @@ public class CdsExportWebService {
             }
         }
         try {
-            json(
-                    response,
-                    status,
-                    Map.of(
-                            "ok",
-                            false,
-                            "code",
-                            code,
-                            "message",
-                            "The request did not complete. Check the saved submission or job status"
-                                    + " before retrying."));
+            var body = new LinkedHashMap<String, Object>();
+            body.put("ok", false);
+            body.put("code", code);
+            body.put(
+                    "message",
+                    "The request did not complete. Check the saved submission or job status"
+                            + " before retrying.");
+            // A fixed security-object name only, so the operator knows which right to grant.
+            if (missingRight != null) body.put("missingRight", missingRight);
+            json(response, status, body);
         } catch (IOException | IllegalStateException writeFailed) {
             LOG.error("CDS_EXPORT_ERROR_RESPONSE_FAILED {}", LogSafe.exceptionTrace(writeFailed));
         }
@@ -195,6 +198,7 @@ public class CdsExportWebService {
         value.put("artifactAvailable", row.artifactAvailable());
         value.put("waiting", row.waiting());
         value.put("complete", row.complete());
+        value.put("heldBack", row.heldBack());
         return value;
     }
 }

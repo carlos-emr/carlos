@@ -28,6 +28,10 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    and patient-specific read. The ledger migration seeds the administrator export
    permission; it preserves an existing customized grant/denial on replay.
    A saved job ID or Unix root identity does not replace clinical authorization.
+   Selecting Laboratory Results also requires read access to `_lab_sensitive`,
+   which no role receives by default. Admission checks every selected category's
+   role-level right and refuses a missing one by name (CLI exit 3, browser
+   "Export refused" notice naming the right) before anything is accepted.
 4. Configure `cds.export.clinicalZone` explicitly and consistently with the clinic
    and `cds.import.clinicalZone`. Configure protected selection, retained import,
    export-store and master-key roots. Store/key IDs are immutable bindings for
@@ -160,7 +164,29 @@ cancellation. Resume is subject to the original binding and current authorizatio
 | 2 | Configuration/runtime failure or an unconfirmed result; inspect the original durable job. |
 | 3 | Authorization denied. |
 | 4 | Review, failed or incomplete foreground work, or unavailable artifact. |
+| 5 | The package is ready but leaves out held patients; it is not a complete migration. |
 | 130 | Waiting interrupted; durable cancellation was not requested. |
+
+### Held patients
+
+A selected patient whose chart this release cannot represent completely (an
+unmapped value, a chart that changed during capture, access restricted for that
+patient) is held back: it is left out of the package and named, never silently
+omitted, and the other selected patients are still exported. The job reaches
+READY with a nonzero held count; the browser labels it "Transfer package ready
+without N held patient(s) — not a complete migration", and the CLI prints
+`CDS_EXPORT_PATIENTS_HELD` and exits 5. The diagnostic report (`--report`, or the
+browser's report download) lists each held chart number with its safe code, and
+the encrypted package ReadMe lists the same patients for the recipient. Correct
+or review those charts and export them in a new job. A failure that concerns the
+whole job (storage, recipient policy, audit arrangement, limits, runtime change)
+still stops it, and a job in which every patient was held produces no package.
+
+Populated tables that this release does not know (another tool's bookkeeping
+table, a local backup copy) do not block an export. They are listed by name and
+estimated row count in the package ReadMe and in a protected log line
+(`CDS_EXPORT_UNREVIEWED_LOCAL_TABLES`), and their contents are not exported. The
+package-created `_carlos_demo_seed_complete` marker is ruled local operational.
 
 ## Receive and decrypt the package
 

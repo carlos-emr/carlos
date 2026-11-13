@@ -47,6 +47,7 @@ class QueryByExampleSqlValidatorUnitTest {
             "rx_submission_receipt",
             "cds_export_attempt",
             "cds_export_event",
+            "cds_export_held_patient",
             "cds_export_run",
             "cds_import_admission",
             "cds_import_checkpoint",

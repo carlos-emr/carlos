@@ -340,4 +340,116 @@ class CdsExportClinicalPackageServiceUnitTest {
         verify(fixture.captures, never())
                 .capture(any(), any(), anySet(), anyLong(), anyLong(), any());
     }
+
+    private CdsExportCohortService.Patient secondPatient() throws IOException {
+        var second = mock(CdsExportCohortService.Patient.class);
+        when(second.patient()).thenReturn(28);
+        when(second.cohortSha256()).thenReturn(fixture.cohort.plaintextSha256());
+        when(ledger.status(fixture.run)).thenAnswer(call -> status(2L));
+        when(cohorts.open(eq(fixture.lease), eq(fixture.control)))
+                .thenAnswer(
+                        call -> {
+                            var cursor = mock(CdsExportCohortService.Cursor.class);
+                            when(cursor.next())
+                                    .thenReturn(
+                                            fixture.patient,
+                                            second,
+                                            (CdsExportCohortService.Patient) null);
+                            when(cursor.complete()).thenAnswer(ignored -> eof);
+                            return cursor;
+                        });
+        return second;
+    }
+
+    @Test
+    void shouldHoldOnlyTheChartNeedingReview_andPackageEveryOtherPatient() throws Exception {
+        var second = secondPatient();
+        when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))
+                .thenThrow(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException(
+                                "CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT"));
+        var prepared = compose();
+        assertThat(prepared.patients()).isEqualTo(2);
+        assertThat(prepared.metadata().heldPatients())
+                .containsExactly(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportHeldPatientDto(
+                                28, "CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT"));
+        try (var input = fixture.store.open(prepared.authorization())) {
+            var lines = new CdsExportJsonLines(input, 1 << 20, () -> {});
+            assertThat(lines.next().path("patients").asLong()).isEqualTo(2);
+            assertThat(lines.next().path("patient").asInt()).isEqualTo(27);
+            var held = lines.next();
+            assertThat(held.path("kind").asText()).isEqualTo("HELD");
+            assertThat(held.path("patient").asInt()).isEqualTo(28);
+            assertThat(held.path("code").asText())
+                    .isEqualTo("CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT");
+            assertThat(lines.next().path("kind").asText()).isEqualTo("END");
+            assertThat(lines.next()).isNull();
+        }
+        // The held chart's own captures are discarded and it is never authorized or audited
+        // as disclosed.
+        verify(fixture.captures, never()).authorizeSources(any(), eq(second), anySet(), any());
+        var entries =
+                org.mockito.ArgumentCaptor.forClass(
+                        io.github.carlos_emr.carlos.commn.model.OscarLog.class);
+        verify(auditLogs).persist(entries.capture());
+        assertThat(entries.getAllValues())
+                .extracting(io.github.carlos_emr.carlos.commn.model.OscarLog::getDemographicId)
+                .containsExactly(27);
+    }
+
+    @Test
+    void shouldStillStopTheWholeJob_whenARefusalConcernsEveryPatient() throws Exception {
+        var second = secondPatient();
+        when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))
+                .thenThrow(
+                        new CdsExportReviewException(
+                                CdsExportReviewException.Reason.RESOURCE_LIMIT));
+        assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
+        assertThat(fixture.members()).hasSize(1);
+    }
+
+    @Test
+    void shouldEndAsTheSharedReason_whenEveryPatientWasHeldForIt() throws Exception {
+        var second = secondPatient();
+        when(fixture.captures.capture(any(), any(), anySet(), anyLong(), anyLong(), any()))
+                .thenThrow(new SecurityException("PATIENT_RESTRICTED"));
+        var before = fixture.members();
+        assertThatThrownBy(this::compose)
+                .isInstanceOf(SecurityException.class)
+                .hasMessage("CDS_EXPORT_ACCESS_CHANGED");
+        // Nothing the job staged survives: only the fixture's own pre-staged inputs remain.
+        assertThat(fixture.members()).isEqualTo(before);
+        verify(ledger, never()).phase(fixture.lease, CdsExportState.RECONCILING);
+        assertThat(second.patient()).isEqualTo(28);
+    }
+
+    @Test
+    void shouldReportMixedHeldReasons_asPatientsHeld() throws IOException {
+        var refusal =
+                CdsExportClinicalPackageService.allHeld(
+                        List.of(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportHeldPatientDto(27, "CDS_EXPORT_ACCESS_CHANGED"),
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportHeldPatientDto(28, "CDS_EXPORT_UNMAPPED_DATA")));
+        assertThat(refusal).hasMessage("CDS_EXPORT_PATIENTS_HELD");
+        assertThat(
+                        CdsExportClinicalPackageService.allHeld(
+                                List.of(
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportHeldPatientDto(
+                                                27, "CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT"))))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT");
+        assertThat(
+                        CdsExportClinicalPackageService.heldCode(
+                                new CdsExportReviewException(
+                                        CdsExportReviewException.Reason.RECIPIENT_UNAVAILABLE)))
+                .isNull();
+    }
 }

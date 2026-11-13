@@ -55,10 +55,10 @@ class CdsExportSourceCatalogueUnitTest {
     @Test
     void shouldBindEveryRuling_toTheExactShippedOntarioAndBcPhysicalContracts() throws Exception {
         var catalogue = CdsExportSourceCatalogue.current();
-        assertThat(catalogue.tables()).hasSize(510);
+        assertThat(catalogue.tables()).hasSize(511);
         assertThat(catalogue.profiles())
                 .extracting(profile -> profile.tables().size())
-                .containsExactly(457, 490);
+                .containsExactly(458, 491);
         assertThat(catalogue.tables().get("eChart"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
         assertThat(catalogue.tables().get("allergies"))

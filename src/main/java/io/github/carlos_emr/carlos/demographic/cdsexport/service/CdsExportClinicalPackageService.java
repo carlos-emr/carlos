@@ -25,6 +25,8 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportSupportingFilesValidator;
 import java.io.IOException;
@@ -42,6 +44,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class CdsExportClinicalPackageService {
     private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final String ACCESS_CHANGED = "CDS_EXPORT_ACCESS_CHANGED";
+    private static final org.apache.logging.log4j.Logger LOG =
+            org.apache.logging.log4j.LogManager.getLogger(CdsExportClinicalPackageService.class);
 
     public record Limits(
             long patients,
@@ -143,6 +148,7 @@ public class CdsExportClinicalPackageService {
                         control::checkpoint);
         var owned = new ArrayList<CdsExportStagedFileDto>();
         var files = new TreeMap<String, PatientFile>();
+        var held = new TreeMap<Integer, CdsExportHeldPatientDto>();
         var physicians = new TreeMap<String, CdsExportPhysicianSummaryDto>();
         var billingNames = new HashMap<String, String>();
         var tables = captures.requiredTables(lease.document().command());
@@ -157,60 +163,44 @@ public class CdsExportClinicalPackageService {
                     control.checkpoint();
                     if (++patients > limits.patients()) limit();
                     if (!cohort.plaintextSha256().equals(patient.cohortSha256())) invalid();
-                    var source =
-                            captures.capture(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    control);
-                    own(
-                            owned,
-                            metadataBytes,
-                            limits.metadataBytes(),
-                            List.of(
-                                    source.manifest(),
-                                    source.capture().values(),
-                                    source.capture().index()));
-                    var retained =
-                            payloads.freeze(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    source.manifest(),
-                                    bounds.fields(),
-                                    bounds.bytes(),
-                                    control);
-                    own(
-                            owned,
-                            metadataBytes,
-                            limits.metadataBytes(),
-                            List.of(
-                                    retained.manifest(),
-                                    retained.capture().values(),
-                                    retained.capture().index()));
-                    var document =
-                            documents.compose(
-                                    lease,
-                                    patient,
-                                    tables,
-                                    source,
-                                    retained.manifest(),
-                                    bounds,
-                                    applicationVersion,
-                                    xmlLimits,
-                                    control);
-                    var outputs = new ArrayList<CdsExportStagedFileDto>();
-                    outputs.add(document.xml());
-                    outputs.add(document.reconciliation());
-                    for (var attachment : document.attachments()) outputs.add(attachment.file());
-                    own(owned, metadataBytes, limits.metadataBytes(), outputs);
+                    // A patient whose chart this release cannot represent is held back and named,
+                    // never silently omitted; infrastructure failures still stop the whole job.
+                    int ownedMark = owned.size();
+                    long metadataMark = metadataBytes[0];
+                    Captured captured;
+                    try {
+                        captured =
+                                capturePatient(
+                                        lease,
+                                        patient,
+                                        tables,
+                                        bounds,
+                                        applicationVersion,
+                                        xmlLimits,
+                                        limits,
+                                        control,
+                                        owned,
+                                        metadataBytes);
+                    } catch (CdsExportReviewException
+                            | CdsExportMappingReviewException
+                            | SecurityException refused) {
+                        String code = heldCode(refused);
+                        if (code == null) throw refused;
+                        for (int i = owned.size() - 1; i >= ownedMark; i--)
+                            store.discardUnpublished(owned.remove(i));
+                        metadataBytes[0] = metadataMark;
+                        held.put(patient.patient(), new CdsExportHeldPatientDto(patient.patient(), code));
+                        // Safe code only; the patient number is recorded in the protected
+                        // disclosure manifest and the encrypted ReadMe, not in the log.
+                        LOG.warn("CDS_EXPORT_PATIENT_HELD run={} code={}", lease.runId(), code);
+                        continue;
+                    }
+                    var source = captured.source();
+                    var document = captured.document();
+                    var name = captured.name();
                     expectedMembers =
                             Math.addExact(expectedMembers, 1L + document.attachments().size());
                     if (expectedMembers > limits.members()) limit();
-                    var name =
-                            naming.bind(lease, patient, tables, source, document, bounds, control);
                     var path = new CdsExportPathComposer().compose(name);
                     String relative = path.physicianFolder() + "/" + path.patientXmlFile();
                     var noteScope = source.capture().tables().get("casemgmt_note");
@@ -241,10 +231,23 @@ public class CdsExportClinicalPackageService {
                 }
                 if (!cursor.complete()
                         || patients != initial.totalPatients()
-                        || patients != files.size()) invalid();
+                        || patients != files.size() + held.size()) invalid();
             }
+            // Every selected patient held back: there is no package to publish.
+            if (files.isEmpty()) {
+                var refusal = allHeld(held.values());
+                if (refusal instanceof CdsExportMappingReviewException mapping) throw mapping;
+                throw (RuntimeException) refusal;
+            }
+            var localSources = captures.unreviewedLocalSources();
+            if (!localSources.isEmpty())
+                // Table names from information_schema only; no values or patient identifiers.
+                LOG.warn(
+                        "CDS_EXPORT_UNREVIEWED_LOCAL_TABLES run={} tables={}",
+                        lease.runId(),
+                        localSources.stream().map(CdsExportLocalSourceDto::table).toList());
             ledger.phase(lease, CdsExportState.RECONCILING);
-            authorizeCohort(lease, tables, files.values(), control, patients, false);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false);
             policy = disclosure.resolveAccepted(lease.document(), Instant.now());
             var metadata =
                     new CdsExportPackageMetadataDto(
@@ -256,10 +259,15 @@ public class CdsExportClinicalPackageService {
                             clinicalZone,
                             lease.document().command().profile(),
                             lease.document().command().categories(),
-                            policy.auditAccessDescription());
+                            policy.auditAccessDescription(),
+                            List.copyOf(held.values()),
+                            localSources);
             var byPatient = new TreeMap<Integer, PatientFile>();
             for (var file : files.values())
-                if (byPatient.putIfAbsent(file.document().patient(), file) != null) invalid();
+                if (byPatient.putIfAbsent(file.document().patient(), file) != null
+                        || held.containsKey(file.document().patient())) invalid();
+            var disclosed = new TreeMap<Integer, Object>(byPatient);
+            disclosed.putAll(held);
             long totalPatients = patients;
             var header =
                     new ScopeHeader(
@@ -276,15 +284,9 @@ public class CdsExportClinicalPackageService {
                             "DISCLOSURE_MANIFEST",
                             output -> {
                                 line(output, header);
-                                for (var file : byPatient.values()) {
+                                for (var entry : disclosed.values()) {
                                     control.checkpoint();
-                                    line(
-                                            output,
-                                            new ScopePatient(
-                                                    "PATIENT",
-                                                    file.document().patient(),
-                                                    file.document().sourceManifestSha256(),
-                                                    file.notes()));
+                                    line(output, scopeLine(entry));
                                 }
                                 line(output, new ScopeEnd("END", totalPatients));
                             });
@@ -292,14 +294,8 @@ public class CdsExportClinicalPackageService {
             try (var input = store.open(authorization)) {
                 var lines = new CdsExportJsonLines(input, 1 << 20, control::checkpoint);
                 if (!same(header, lines.next())) invalid();
-                for (var file : byPatient.values())
-                    if (!same(
-                            new ScopePatient(
-                                    "PATIENT",
-                                    file.document().patient(),
-                                    file.document().sourceManifestSha256(),
-                                    file.notes()),
-                            lines.next())) invalid();
+                for (var entry : disclosed.values())
+                    if (!same(scopeLine(entry), lines.next())) invalid();
                 if (!same(new ScopeEnd("END", patients), lines.next()) || lines.next() != null)
                     invalid();
             }
@@ -341,8 +337,8 @@ public class CdsExportClinicalPackageService {
                                 owned.add(eventLog[0]);
                             });
             owned.add(readMe);
-            if (totals[0].patientFiles() != patients || totals[0].physicians() != physicians.size())
-                invalid();
+            if (totals[0].patientFiles() != files.size()
+                    || totals[0].physicians() != physicians.size()) invalid();
             ledger.phase(lease, CdsExportState.VALIDATING);
             CdsExportSupportingFilesValidator.Result supporting;
             try (var readme = store.open(readMe);
@@ -375,7 +371,7 @@ public class CdsExportClinicalPackageService {
                     || supporting.readMeBytes() != readMe.plaintextBytes()
                     || !supporting.eventLogSha256().equals(eventLog[0].plaintextSha256())
                     || supporting.eventLogBytes() != eventLog[0].plaintextBytes()
-                    || supporting.patientFiles() != patients
+                    || supporting.patientFiles() != files.size()
                     || supporting.physicians() != physicians.size()) invalid();
             ledger.phase(lease, CdsExportState.PACKAGING);
             var members =
@@ -417,7 +413,7 @@ public class CdsExportClinicalPackageService {
                                     control::checkpoint);
             owned.add(archive.archive());
             if (archive.entries() != expectedMembers) invalid();
-            authorizeCohort(lease, tables, files.values(), control, patients, false);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, false);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var descriptors =
@@ -462,7 +458,7 @@ public class CdsExportClinicalPackageService {
                 if (!same(new OwnershipEnd("END", descriptors.size()), lines.next())
                         || lines.next() != null) invalid();
             }
-            authorizeCohort(lease, tables, files.values(), control, patients, true);
+            authorizeCohort(lease, tables, files.values(), held.keySet(), control, patients, true);
             disclosure.resolveAccepted(lease.document(), Instant.now());
             control.checkpoint();
             var result =
@@ -495,10 +491,136 @@ public class CdsExportClinicalPackageService {
         }
     }
 
+    private record Captured(
+            CdsExportPatientCaptureDto source,
+            CdsExportPatientDocumentService.Document document,
+            CdsExportPatientFileDto name) {}
+
+    /** One selected patient's capture, retained payload, finished document and file binding. */
+    private Captured capturePatient(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            String applicationVersion,
+            CdsExportXmlLimitsDto xmlLimits,
+            Limits limits,
+            CdsExportRunControl control,
+            List<CdsExportStagedFileDto> owned,
+            long[] metadataBytes)
+            throws IOException {
+        var source =
+                captures.capture(lease, patient, tables, bounds.fields(), bounds.bytes(), control);
+        own(
+                owned,
+                metadataBytes,
+                limits.metadataBytes(),
+                List.of(source.manifest(), source.capture().values(), source.capture().index()));
+        var retained =
+                payloads.freeze(
+                        lease,
+                        patient,
+                        tables,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        control);
+        own(
+                owned,
+                metadataBytes,
+                limits.metadataBytes(),
+                List.of(
+                        retained.manifest(),
+                        retained.capture().values(),
+                        retained.capture().index()));
+        var document =
+                documents.compose(
+                        lease,
+                        patient,
+                        tables,
+                        source,
+                        retained.manifest(),
+                        bounds,
+                        applicationVersion,
+                        xmlLimits,
+                        control);
+        var outputs = new ArrayList<CdsExportStagedFileDto>();
+        outputs.add(document.xml());
+        outputs.add(document.reconciliation());
+        for (var attachment : document.attachments()) outputs.add(attachment.file());
+        own(owned, metadataBytes, limits.metadataBytes(), outputs);
+        var name = naming.bind(lease, patient, tables, source, document, bounds, control);
+        return new Captured(source, document, name);
+    }
+
+    /**
+     * The safe code for a refusal that concerns only this patient's chart or this patient's
+     * access, or null when the refusal concerns the whole job (limits, recipient, audit policy,
+     * runtime change), which must still stop it.
+     */
+    static String heldCode(Exception refused) {
+        if (refused instanceof CdsExportMappingReviewException mapping) return mapping.getMessage();
+        if (refused instanceof SecurityException) return ACCESS_CHANGED;
+        if (refused instanceof CdsExportReviewException review)
+            return switch (review.reason()) {
+                case UNMAPPED_DATA,
+                        PREVENTION_PROGRAM_SCOPE,
+                        MERGED_PATIENT_SCOPE,
+                        SOURCE_CHANGED,
+                        AMBIGUOUS_SOURCE,
+                        INCOMPLETE_RENDER,
+                        MISSING_ATTACHMENT,
+                        CLINICAL_VALIDATION_FAILED,
+                        CLINICAL_SOURCE_UNREVIEWED -> review.reason().code();
+                case AUDIT_ACCESS_UNAVAILABLE,
+                        RECIPIENT_UNAVAILABLE,
+                        RESOURCE_LIMIT,
+                        RUNTIME_CHANGED,
+                        NO_PATIENTS_SELECTED,
+                        PATIENTS_HELD -> null;
+            };
+        return null;
+    }
+
+    /**
+     * The refusal for a job whose every selected patient was held, so there is no package. When
+     * every patient was held for the same cause the job ends exactly as a one-patient job did
+     * before patients could be held: the same review reason, the mapping refusal (reported as
+     * unmapped data) or, when access was refused for every patient, the access refusal (decision:
+     * a right missing for the whole selection refuses the job). Mixed causes report PATIENTS_HELD;
+     * the per-patient reasons stay in the protected held-patient record.
+     */
+    static Exception allHeld(Collection<CdsExportHeldPatientDto> held) {
+        var codes = new TreeSet<String>();
+        for (var value : held) codes.add(value.code());
+        if (codes.size() == 1) {
+            String code = codes.first();
+            if (ACCESS_CHANGED.equals(code)) return new SecurityException(ACCESS_CHANGED);
+            for (var reason : CdsExportReviewException.Reason.values())
+                if (reason.code().equals(code)) return new CdsExportReviewException(reason);
+            return new CdsExportMappingReviewException(code);
+        }
+        return new CdsExportReviewException(CdsExportReviewException.Reason.PATIENTS_HELD);
+    }
+
+    private static Object scopeLine(Object entry) {
+        if (entry instanceof CdsExportHeldPatientDto held)
+            return new ScopeHeld("HELD", held.patient(), held.code());
+        var file = (PatientFile) entry;
+        return new ScopePatient(
+                "PATIENT",
+                file.document().patient(),
+                file.document().sourceManifestSha256(),
+                file.notes());
+    }
+
+    private record ScopeHeld(String kind, int patient, String code) {}
+
     private void authorizeCohort(
             CdsExportLeaseDto lease,
             Set<String> tables,
             Collection<PatientFile> files,
+            Set<Integer> held,
             CdsExportRunControl control,
             long expected,
             boolean auditPrepared)
@@ -513,7 +635,12 @@ public class CdsExportClinicalPackageService {
             while ((patient = cursor.next()) != null) {
                 control.checkpoint();
                 var file = byPatient.get(patient.patient());
-                if (file == null) invalid();
+                if (file == null) {
+                    // A held patient is not disclosed: no source authorization or chart audit.
+                    if (!held.contains(patient.patient())) invalid();
+                    count++;
+                    continue;
+                }
                 captures.authorizeSources(lease, patient, tables, control);
                 for (var scope : file.notes()) {
                     control.checkpoint();

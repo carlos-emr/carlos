@@ -128,6 +128,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportRunDao.class,
     CdsExportEventDao.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportAttemptDao.class,
+    io.github.carlos_emr.carlos.commn.dao.CdsExportHeldPatientDao.class,
     io.github.carlos_emr.carlos.commn.dao.DemographicDaoImpl.class,
     SecurityDaoImpl.class,
     ProviderFacilityDaoImpl.class,

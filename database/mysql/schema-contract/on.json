@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "45c6c9c936896f2d9abeffda08d3366106bd020b6450c7f58462476ea4b33c22",
+ "migration_sha256": "c61a9fff1b608089a0c9ddcece54114386fca94d0debec4251d3e82cf74752af",
  "province": "on",
  "schema": {
   "checks": [
@@ -14483,6 +14483,78 @@
     "utf8mb4_bin",
     null,
     6
+   ],
+   [
+    "cds_export_held_patient",
+    "created_at",
+    "datetime(6)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    6
+   ],
+   [
+    "cds_export_held_patient",
+    "demographic_no",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    4
+   ],
+   [
+    "cds_export_held_patient",
+    "epoch",
+    "bigint(20)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    3
+   ],
+   [
+    "cds_export_held_patient",
+    "id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    1
+   ],
+   [
+    "cds_export_held_patient",
+    "run_id",
+    "varchar(36)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    2
+   ],
+   [
+    "cds_export_held_patient",
+    "safe_code",
+    "varchar(96)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_bin",
+    null,
+    5
    ],
    [
     "cds_export_run",
@@ -131902,6 +131974,50 @@
     "NO"
    ],
    [
+    "cds_export_held_patient",
+    "PRIMARY",
+    0,
+    1,
+    "id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    0,
+    1,
+    "run_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    0,
+    2,
+    "epoch",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    0,
+    3,
+    "demographic_no",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "cds_export_run",
     "PRIMARY",
     0,
@@ -141178,6 +141294,51 @@
     "id"
    ],
    [
+    "cds_export_held_patient",
+    "PRIMARY",
+    1,
+    "id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_held_patient",
+    "fk_cds_export_held_patient_run",
+    1,
+    "run_id",
+    "$self",
+    "cds_export_run",
+    "id"
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    1,
+    "run_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    2,
+    "epoch",
+    null,
+    null,
+    null
+   ],
+   [
+    "cds_export_held_patient",
+    "uq_cds_export_held_patient",
+    3,
+    "demographic_no",
+    null,
+    null,
+    null
+   ],
+   [
     "cds_export_run",
     "PRIMARY",
     1,
@@ -144980,6 +145141,13 @@
     "RESTRICT"
    ],
    [
+    "cds_export_held_patient",
+    "fk_cds_export_held_patient_run",
+    "cds_export_run",
+    "RESTRICT",
+    "CASCADE"
+   ],
+   [
     "cds_import_checkpoint",
     "fk_cds_checkpoint_lineage",
     "cds_import_lineage",
@@ -146021,6 +146189,12 @@
    ],
    [
     "cds_export_event",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_bin"
+   ],
+   [
+    "cds_export_held_patient",
     "InnoDB",
     "Dynamic",
     "utf8mb4_bin"

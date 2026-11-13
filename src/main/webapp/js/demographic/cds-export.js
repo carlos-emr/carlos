@@ -18,13 +18,16 @@
                 || !Number.isSafeInteger(job.revision) || job.revision < 0 || !Number.isSafeInteger(job.epoch) || job.epoch < 0
                 || !(job.totalPatients === null || Number.isSafeInteger(job.totalPatients) && job.totalPatients >= 0)
                 || ![job.processedPatients, job.blockedPatients].every(n => Number.isSafeInteger(n) && n >= 0)
-                || ![job.cancelRequested, job.workerOwned, job.artifactAvailable, job.complete, job.waiting].every(v => typeof v === 'boolean')
+                || ![job.cancelRequested, job.workerOwned, job.artifactAvailable, job.complete, job.heldBack, job.waiting].every(v => typeof v === 'boolean')
                 || !(job.safeCode === null || /^CDS_EXPORT_[A-Z0-9_]{1,85}$/.test(job.safeCode))) {
             throw new Error('CDS_EXPORT_STATUS_INVALID');
         }
         const complete = job.state === 'READY' && job.artifactAvailable && !job.cancelRequested
             && job.totalPatients !== null && job.totalPatients > 0 && job.processedPatients === job.totalPatients && job.blockedPatients === 0;
-        if (job.complete !== complete
+        const heldBack = job.state === 'READY' && job.artifactAvailable && !job.cancelRequested
+            && job.totalPatients !== null && job.totalPatients > 0 && job.processedPatients === job.totalPatients
+            && job.blockedPatients > 0 && job.blockedPatients < job.totalPatients;
+        if (job.complete !== complete || job.heldBack !== heldBack
                 || job.waiting !== (!FINAL.has(job.state) && !job.workerOwned)
                 || job.totalPatients !== null && job.processedPatients > job.totalPatients) throw new Error('CDS_EXPORT_STATUS_INVALID');
         return job;
@@ -37,13 +40,26 @@
     }
     function presentation(job) {
         checkedJob(job);
-        return {label: job.state === 'READY' && !job.complete ? 'Package unavailable — check job status' : LABELS[job.state],
-            complete: job.complete, terminal: FINAL.has(job.state),
+        const label = job.heldBack
+            ? 'Transfer package ready without ' + job.blockedPatients + ' held patient(s) — not a complete migration'
+            : job.state === 'READY' && !job.complete ? 'Package unavailable — check job status' : LABELS[job.state];
+        return {label, complete: job.complete, downloadable: job.complete || job.heldBack, terminal: FINAL.has(job.state),
             count: job.totalPatients === null ? 'Patient total is not yet known.' : job.processedPatients + ' of ' + job.totalPatients + ' patients processed.',
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
-    const api = {checkedJob, newest, presentation};
+    /** The page error for a refused or unconfirmed response; only a fixed right name is kept. */
+    function responseFailure(data) {
+        const failure = new Error(/^CDS_EXPORT_[A-Z0-9_]+$/.test(data && data.code || '') ? data.code : 'CDS_EXPORT_RESPONSE_UNCONFIRMED');
+        if (/^_[A-Za-z0-9_.]{1,64}$/.test(data && data.missingRight || '')) failure.missingRight = data.missingRight;
+        return failure;
+    }
+    function submissionNotice(error, key) {
+        return error && error.missingRight
+            ? 'Export refused: the export provider\'s roles lack read access to ' + error.missingRight + '. Grant that right, or leave out the categories that need it, then submit again.'
+            : 'Submission could not be confirmed (' + error.message + '). Check saved key ' + key + ' before starting another export.';
+    }
+    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CdsExportPage = api;
     if (!global.document) return;
@@ -81,7 +97,7 @@
                         || !response.headers.get('Content-Type')?.startsWith('application/json')) throw new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED');
                 const data = await response.json();
                 if (data.apiVersion !== API_VERSION || !response.ok || data.ok !== true) {
-                    throw new Error(/^CDS_EXPORT_[A-Z0-9_]+$/.test(data.code || '') ? data.code : 'CDS_EXPORT_RESPONSE_UNCONFIRMED');
+                    throw responseFailure(data);
                 }
                 return data;
             } finally { clearTimeout(timeout); }
@@ -89,14 +105,15 @@
         function controls() {
             const shown = current ? presentation(current) : null;
             byId('reportExport').disabled = !fresh || busy || !current;
-            byId('downloadExport').disabled = !fresh || busy || !shown?.complete;
+            byId('downloadExport').disabled = !fresh || busy || !shown?.downloadable;
             byId('cancelExport').disabled = !fresh || busy || !shown?.canCancel;
             byId('resumeExport').disabled = !fresh || busy || !shown?.canResume || root.dataset.canResume !== 'true';
         }
         function render(job) {
             current = newest(current, job); const shown = presentation(current); fresh = true;
             byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('runId').value = current.id; byId('exportStatus').hidden = false;
-            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' Blocked: ' + current.blockedPatients + '.';
+            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' Held back: ' + current.blockedPatients
+                + (current.blockedPatients > 0 ? ' (listed in the package ReadMe and the report).' : '.');
             byId('exportConnection').textContent = current.waiting ? 'Saved; waiting for a compatible worker.' : 'Status confirmed by the server.';
             byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
                 ? 'This package belongs to a different installation build. Start a new export to prepare a compatible package.'
@@ -109,7 +126,7 @@
         function artifactForm(id, csrfId, needsPackage) {
             byId(id).addEventListener('submit', async function (event) {
                 event.preventDefault();
-                if (!fresh || busy || !current || needsPackage && !current.complete) { notice('Refresh job status before downloading.', true); return; }
+                if (!fresh || busy || !current || needsPackage && !(current.complete || current.heldBack)) { notice('Refresh job status before downloading.', true); return; }
                 try {
                     if (global.csrfTokenReady) await global.csrfTokenReady;
                     const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
@@ -171,7 +188,7 @@
                 notice('Export accepted. Job ' + data.job.id + '. Acceptance does not mean the package is ready.');
                 await open(checkedJob(data.job).id); history();
             } catch (error) {
-                notice('Submission could not be confirmed (' + error.message + '). Check saved key ' + byId('submissionKey').value + ' before starting another export.', true);
+                notice(submissionNotice(error, byId('submissionKey').value), true);
             } finally { busy = false; byId('submitExport').disabled = false; controls(); }
         });
         byId('findSubmission').addEventListener('click', async () => {

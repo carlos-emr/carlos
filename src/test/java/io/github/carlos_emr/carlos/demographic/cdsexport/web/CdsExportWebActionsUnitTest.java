@@ -281,6 +281,20 @@ class CdsExportWebActionsUnitTest {
         assertThat(response.getContentAsString()).doesNotContain("private patient /path");
     }
 
+    @Test
+    void shouldNameOnlyAFixedMissingRight_whenAccessIsRefused() throws Exception {
+        web.failure(
+                response, new SecurityException("missing required sec object (_lab_sensitive)"));
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getContentAsString())
+                .contains("\"code\":\"CDS_EXPORT_ACCESS_DENIED\"", "\"missingRight\":\"_lab_sensitive\"");
+        response = new org.springframework.mock.web.MockHttpServletResponse();
+        web.failure(response, new SecurityException("patient 27 private path"));
+        assertThat(response.getContentAsString())
+                .contains("CDS_EXPORT_ACCESS_DENIED")
+                .doesNotContain("missingRight", "27", "private path");
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"write", "complete", "close"})
     void shouldKeepCommittedDownloadBytes_withoutEnteringStrutsErrorRendering(String phase)

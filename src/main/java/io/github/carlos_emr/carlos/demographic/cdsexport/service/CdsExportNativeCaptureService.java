@@ -154,6 +154,17 @@ public class CdsExportNativeCaptureService {
         read.setTimeout(120);
     }
 
+    /**
+     * Populated base tables outside the matched physical profile and the reviewed local-operational
+     * list. They are never read for values; the package lists them so they are not lost silently.
+     */
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto>
+            unreviewedLocalSources() {
+        if (!(readers.get("clinical_source_catalogue") instanceof CdsExportSourceCatalogueReader catalogue))
+            throw new IllegalStateException("CDS_EXPORT_CAPTURE_DEPENDENCY_MISSING");
+        return read.execute(status -> catalogue.unreviewedLocalSources());
+    }
+
     /** A per-capture definition keeps concurrent jobs from mutating a shared transaction template. */
     private TransactionTemplate captureTransaction() {
         var transaction =

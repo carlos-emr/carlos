@@ -82,6 +82,8 @@ migration/
            V1.0.59.39__cds_export_ledger.sql
            V1.0.59.40__cds_export_artifact_attempts.sql
            V1.0.59.41__seed_admin_cds_import_permission.sql
+           V1.0.59.42__index_cds_hrm_patient_scope.sql
+           V1.0.59.43__cds_export_held_patients.sql
   on/      V1.0.1__on_schema.sql            # Ontario-only tables (structure)
            V1.0.2__on_data.sql              # Ontario reference data (rows)
            V1.0.4__on_performance_indexes.sql
@@ -103,7 +105,7 @@ migration/
 ```
 
 The **genesis baseline** is `V1` + the province `V1.0.1`/`V1.0.2` files (frozen). Everything from
-`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.41`.
+`V1.0.3` onward is a forward delta. The highest migration in this branch is `common/V1.0.59.43`.
 `V1.0.48`–`V1.0.51` are claimed by open pull requests. `develop` already uses
 `V1.0.60` and above, so this release line stays below its floor (`scripts/flyway-released-migrations.txt`):
 `common/V1.0.59.2` is #5089's, the two BC migrations of #5062 and #5051 are `V1.0.59.3` and `V1.0.59.4`,
@@ -112,7 +114,8 @@ and the collation/index corrections occupy `common/V1.0.59.6` and `common/V1.0.5
 The Messenger's PDF attachment column widening (#5444) is `common/V1.0.59.8`.
 The CDS import migrations occupy `V1.0.59.8.1` and `V1.0.59.9`–`V1.0.59.26`.
 OSCAR 19 text capacities are preserved by common `V1.0.59.27`, Ontario `V1.0.59.28`, and BC `V1.0.59.29` plus `V1.0.59.31` for the BCAR 2007 urine-culture field; common `V1.0.59.30` enforces the audited Consent history rule, and common `V1.0.59.32` keeps native archive text capacities and update timestamps aligned with the live fields (issue #5503).
-The next unallocated number for ANY location — shared or province — is `V1.0.59.42`.
+The CDS export migrations occupy `common/V1.0.59.38`–`V1.0.59.43`.
+The next unallocated number for ANY location — shared or province — is `V1.0.59.44`.
 `V1.0.59.1` is an intentional gap: #5067's migration was renumbered as release migrations merged first.
 PR #3996's unpublished attachment migrations were renumbered from V1.0.37/V1.0.38 to
 V1.0.42/V1.0.43 so databases already running release migrations through V1.0.41 apply them.

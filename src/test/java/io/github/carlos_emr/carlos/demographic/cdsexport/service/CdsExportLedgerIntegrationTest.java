@@ -197,6 +197,9 @@ class CdsExportLedgerIntegrationTest {
                                     CdsExportRun.class.getName(),
                                     CdsExportEvent.class.getName(),
                                     io.github.carlos_emr.carlos.commn.model.CdsExportAttempt.class
+                                            .getName(),
+                                    io.github.carlos_emr.carlos.commn.model.CdsExportHeldPatient
+                                            .class
                                             .getName()));
                     factory.setJpaPropertyMap(
                             Map.of(
@@ -223,6 +226,7 @@ class CdsExportLedgerIntegrationTest {
         context.register(
                 CdsExportRunDao.class,
                 io.github.carlos_emr.carlos.commn.dao.CdsExportAttemptDao.class,
+                io.github.carlos_emr.carlos.commn.dao.CdsExportHeldPatientDao.class,
                 CdsExportLedgerService.class);
         context.registerBean(CdsExportEventDao.class, Audit::new);
         context.refresh();
@@ -241,6 +245,10 @@ class CdsExportLedgerIntegrationTest {
                         operatorKey());
                 sql.update(
                         "delete from cds_export_event where run_id in (select id from"
+                                + " cds_export_run where operator=?)",
+                        operatorKey());
+                sql.update(
+                        "delete from cds_export_held_patient where run_id in (select id from"
                                 + " cds_export_run where operator=?)",
                         operatorKey());
                 sql.update("delete from cds_export_run where operator=?", operatorKey());
@@ -975,6 +983,79 @@ class CdsExportLedgerIntegrationTest {
     }
 
     @Test
+    void shouldRecordHeldPatientsOnce_andNameThemInTheDiagnosticReport() throws Exception {
+        var held =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportHeldPatientDto(28, "CDS_EXPORT_UNMAPPED_DATA"));
+        var f = artifactFixture(List.of(27, 28), held);
+        ledger.retainPrepared(f.lease(), f.prepared());
+        ledger.retainPrepared(f.lease(), f.prepared());
+        ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        ledger.retainEncrypted(f.lease(), f.encrypted());
+        assertThat(
+                        sql.queryForList(
+                                "select concat(epoch,':',demographic_no,':',safe_code) from"
+                                        + " cds_export_held_patient where run_id=?",
+                                String.class,
+                                f.lease().runId()))
+                .containsExactly(f.lease().epoch() + ":28:CDS_EXPORT_UNMAPPED_DATA");
+        assertThat(ledger.status(f.lease().runId()).blockedPatients()).isEqualTo(1);
+        var report = ledger.diagnostic(f.lease().runId());
+        assertThat(report.heldPatientsTruncated()).isFalse();
+        assertThat(report.heldPatients())
+                .containsExactly(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportDiagnosticDto.Held(28, "CDS_EXPORT_UNMAPPED_DATA"));
+        assertThat(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(report))
+                .contains("\"heldPatients\":[{\"patient\":28,\"safeCode\":\"CDS_EXPORT_UNMAPPED_DATA\"}]");
+    }
+
+    @Test
+    void shouldRefuseAHeldListThatChanges_betweenPreparedAndEncryptedRetention() throws Exception {
+        var f =
+                artifactFixture(
+                        List.of(27, 28),
+                        List.of(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportHeldPatientDto(28, "CDS_EXPORT_UNMAPPED_DATA")));
+        ledger.retainPrepared(f.lease(), f.prepared());
+        org.mockito.Mockito.when(f.prepared().metadata().heldPatients())
+                .thenReturn(
+                        List.of(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportHeldPatientDto(28, "CDS_EXPORT_SOURCE_CHANGED")));
+        ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
+        assertThatThrownBy(() -> ledger.retainEncrypted(f.lease(), f.encrypted()))
+                .hasMessage("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
+        assertThat(
+                        sql.queryForObject(
+                                "select safe_code from cds_export_held_patient where run_id=?",
+                                String.class,
+                                f.lease().runId()))
+                .isEqualTo("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldRefuseToRetainAPackage_whenEverySelectedPatientWasHeld() throws Exception {
+        var everyone =
+                artifactFixture(
+                        List.of(27),
+                        List.of(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportHeldPatientDto(27, "CDS_EXPORT_UNMAPPED_DATA")));
+        assertThatThrownBy(() -> ledger.retainPrepared(everyone.lease(), everyone.prepared()))
+                .hasMessage("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
+        assertThat(
+                        sql.queryForObject(
+                                "select count(*) from cds_export_held_patient where run_id=?",
+                                Long.class,
+                                everyone.lease().runId()))
+                .isZero();
+        assertThat(ledger.status(everyone.lease().runId()).blockedPatients()).isZero();
+    }
+
+    @Test
     void shouldRequirePreparedEvidence_beforeRetainingCiphertext() throws Exception {
         var f = artifactFixture();
         ledger.phase(f.lease(), CdsExportState.ENCRYPTING);
@@ -1081,8 +1162,16 @@ class CdsExportLedgerIntegrationTest {
             CdsExportDeliveryService.Encrypted encrypted) {}
 
     private ArtifactFixture artifactFixture() throws Exception {
-        var lease = boundLease();
-        var cohort = preparedCohort(lease);
+        return artifactFixture(List.of(27), List.of());
+    }
+
+    private ArtifactFixture artifactFixture(
+            List<Integer> patients,
+            List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportHeldPatientDto>
+                    held)
+            throws Exception {
+        var lease = boundLease(patients);
+        var cohort = preparedCohort(lease, patients);
         ledger.sealSelection(lease, cohort.sealed());
         for (var phase :
                 List.of(
@@ -1093,7 +1182,13 @@ class CdsExportLedgerIntegrationTest {
         var prepared = org.mockito.Mockito.mock(CdsExportClinicalPackageService.Prepared.class);
         org.mockito.Mockito.when(prepared.runId()).thenReturn(lease.runId());
         org.mockito.Mockito.when(prepared.epoch()).thenReturn(lease.epoch());
-        org.mockito.Mockito.when(prepared.patients()).thenReturn(1L);
+        org.mockito.Mockito.when(prepared.patients()).thenReturn((long) patients.size());
+        var metadata =
+                org.mockito.Mockito.mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportPackageMetadataDto.class);
+        org.mockito.Mockito.when(metadata.heldPatients()).thenReturn(held);
+        org.mockito.Mockito.when(prepared.metadata()).thenReturn(metadata);
         org.mockito.Mockito.when(prepared.cohortSha256())
                 .thenReturn(cohort.sealed().member().plaintextSha256());
         var authorization = artifactFile("DISCLOSURE_MANIFEST");
@@ -1403,7 +1498,12 @@ class CdsExportLedgerIntegrationTest {
             CdsExportCohortService service, CdsExportCohortService.Sealed sealed) {}
 
     private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto boundLease() {
-        var original = document("recipient");
+        return boundLease(List.of(27));
+    }
+
+    private io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto boundLease(
+            List<Integer> patients) {
+        var original = document("recipient", "fixture", patients);
         var document =
                 new CdsExportJobDocumentDto(
                         2,
@@ -1457,6 +1557,13 @@ class CdsExportLedgerIntegrationTest {
     private CohortFixture preparedCohort(
             io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease)
             throws Exception {
+        return preparedCohort(lease, List.of(27));
+    }
+
+    private CohortFixture preparedCohort(
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto lease,
+            List<Integer> patients)
+            throws Exception {
         java.nio.file.Files.setPosixFilePermissions(
                 cohortRoot, java.nio.file.attribute.PosixFilePermissions.fromString("rwx------"));
         var store =
@@ -1487,15 +1594,19 @@ class CdsExportLedgerIntegrationTest {
         var inventory =
                 store.stage(
                         "PATIENT_SELECTION",
-                        output ->
+                        output -> {
+                            for (int patient : patients)
                                 output.write(
-                                        "{\"demographicNo\":27,\"physicianNo\":\"999998\"}\n"
+                                        ("{\"demographicNo\":"
+                                                        + patient
+                                                        + ",\"physicianNo\":\"999998\"}\n")
                                                 .getBytes(
-                                                        java.nio.charset.StandardCharsets.UTF_8)));
+                                                        java.nio.charset.StandardCharsets.UTF_8));
+                        });
         var now = Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         var selection =
                 new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportSelectionDto(
-                        now, now, 1, inventory);
+                        now, now, patients.size(), inventory);
         return new CohortFixture(service, service.prepare(lease, selection, cohortControl(lease)));
     }
 
@@ -1508,6 +1619,11 @@ class CdsExportLedgerIntegrationTest {
     }
 
     private CdsExportJobDocumentDto document(String recipient, String submissionKey) {
+        return document(recipient, submissionKey, List.of(27));
+    }
+
+    private CdsExportJobDocumentDto document(
+            String recipient, String submissionKey, List<Integer> patients) {
         var command =
                 new CdsExportCommand(
                         submissionKey,
@@ -1516,7 +1632,7 @@ class CdsExportLedgerIntegrationTest {
                         CdsLogicalProfile.ONTARIO_MD_5_2,
                         CdsExportCommand.Selection.SELECTED_PATIENTS,
                         List.of(),
-                        List.of(27),
+                        patients,
                         EnumSet.allOf(CdsCategory.class),
                         recipient,
                         "retained-source");

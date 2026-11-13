@@ -85,6 +85,20 @@ public final class CdsExportSupportingFilesComposer {
                         .map(CdsCategory::wireName)
                         .collect(java.util.stream.Collectors.joining(", ")));
         line(readMe, "Audit information access after migration", metadata.auditAccessDescription());
+        // A partial transfer must say so inside the package itself, not only in the sender's ledger.
+        line(readMe, "Held patients not in this package", Long.toString(metadata.heldPatients().size()));
+        for (var held : metadata.heldPatients()) {
+            line(readMe, "Held patient", Integer.toString(held.patient()));
+            line(readMe, "Held patient reason", held.code());
+        }
+        line(
+                readMe,
+                "Unreviewed local tables not exported",
+                Long.toString(metadata.unreviewedLocalSources().size()));
+        for (var local : metadata.unreviewedLocalSources()) {
+            line(readMe, "Unreviewed local table", local.table());
+            line(readMe, "Unreviewed local table estimated rows", Long.toString(local.estimatedRows()));
+        }
         readMe.write("Patient file paths below are complete within the named export container.\n");
         readMe.write(
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");

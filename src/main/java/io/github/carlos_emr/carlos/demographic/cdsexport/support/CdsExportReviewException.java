@@ -37,7 +37,8 @@ public final class CdsExportReviewException extends RuntimeException {
         CLINICAL_VALIDATION_FAILED,
         RUNTIME_CHANGED,
         NO_PATIENTS_SELECTED,
-        CLINICAL_SOURCE_UNREVIEWED;
+        CLINICAL_SOURCE_UNREVIEWED,
+        PATIENTS_HELD;
 
         public String code() {
             return "CDS_EXPORT_" + name();

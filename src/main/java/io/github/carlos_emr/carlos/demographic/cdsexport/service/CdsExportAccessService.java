@@ -420,20 +420,47 @@ public class CdsExportAccessService {
             CdsCategory only,
             boolean sensitive) {
         String target = patient == null ? null : patient.toString();
-        if (!security.hasPrivilegeReadOnly(context, "_demographic", "r", target)
-                || patient != null && !security.isAllowedAccessToPatientRecord(context, patient))
-            deny();
+        // A role-level (patient == null) refusal names the missing security object so an operator
+        // can grant it before resubmitting; a patient-level refusal stays generic.
+        if (!security.hasPrivilegeReadOnly(context, "_demographic", "r", target))
+            refuse(patient, "_demographic");
+        if (patient != null && !security.isAllowedAccessToPatientRecord(context, patient)) deny();
         for (CdsCategory category : command.categories()) {
             if (only != null && category != only) continue;
-            if (!security.hasPrivilegeReadOnly(
-                    context,
+            String object =
                     io.github.carlos_emr.carlos.demographic.cds.security.CdsCategoryReadPermission
-                            .object(category),
-                    "r",
-                    target)) deny();
+                            .object(category);
+            if (!security.hasPrivilegeReadOnly(context, object, "r", target))
+                refuse(patient, object);
         }
-        if (sensitive && !security.hasPrivilegeReadOnly(context, "_lab_sensitive", "r", target))
-            deny();
+        // Laboratory capture requires the sensitive-result right for every selected patient
+        // before any row is read, whether or not the chart holds a sensitive result. Check the
+        // role-level right at admission and worker entry so a missing grant is refused up front
+        // (authorization) instead of after acceptance as a changed-access review.
+        boolean laboratoryScope =
+                patient == null
+                        && command.categories().contains(CdsCategory.LABORATORY_RESULTS)
+                        && (only == null || only == CdsCategory.LABORATORY_RESULTS);
+        if ((sensitive || laboratoryScope)
+                && !security.hasPrivilegeReadOnly(context, "_lab_sensitive", "r", target))
+            refuse(patient, "_lab_sensitive");
+    }
+
+    private static void refuse(Integer patient, String object) {
+        if (patient == null) throw new SecurityException("missing required sec object (" + object + ")");
+        deny();
+    }
+
+    /**
+     * The security object named by a role-level export refusal, or null. Only fixed object names
+     * matching CARLOS's own pattern are returned, never request or patient data.
+     */
+    public static String missingObject(Throwable refused) {
+        if (!(refused instanceof SecurityException) || refused.getMessage() == null) return null;
+        var matcher =
+                java.util.regex.Pattern.compile("missing required sec object \\((_[A-Za-z0-9_.]{1,64})\\)")
+                        .matcher(refused.getMessage());
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     private void requireAdministration(LoggedInInfo actor) {

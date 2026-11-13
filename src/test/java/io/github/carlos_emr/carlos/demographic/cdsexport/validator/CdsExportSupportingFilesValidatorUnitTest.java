@@ -156,6 +156,52 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
+    void shouldRefuseAReadmeThatOmitsAHeldPatientOrLocalTable_listedInTheMetadata() throws Exception {
+        var partial =
+                new CdsExportPackageMetadataDto(
+                        metadata.exportRoot(),
+                        metadata.physicianGroup(),
+                        metadata.groupContactInformation(),
+                        metadata.applicationVersion(),
+                        metadata.exportTime(),
+                        metadata.clinicalZone(),
+                        metadata.profile(),
+                        metadata.categories(),
+                        metadata.auditAccessDescription(),
+                        List.of(new CdsExportHeldPatientDto(41, "CDS_EXPORT_UNMAPPED_DATA")),
+                        List.of(
+                                new io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto(
+                                        "clinic_notes_local", 7)));
+        var complete = metadata;
+        metadata = partial;
+        // The ReadMe composed for a complete package must not validate as the partial package.
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        var text = new ByteArrayOutputStream();
+        new CdsExportSupportingFilesComposer()
+                .compose(
+                        text,
+                        new ByteArrayOutputStream(),
+                        partial,
+                        physicians.iterator(),
+                        List.of(
+                                        new CdsExportPatientSummaryDto(
+                                                actual.getFirst().naming(),
+                                                actual.getFirst().xml().occurrences(),
+                                                null,
+                                                null,
+                                                actual.getFirst().xml().xmlSha256(),
+                                                actual.getFirst().xml().xmlBytes()))
+                                .iterator(),
+                        () -> {});
+        readMe = text.toByteArray();
+        assertThat(validate().patientFiles()).isEqualTo(1);
+        readMe = replace(readMe, "Held patient reason: \"CDS_EXPORT_UNMAPPED_DATA\"",
+                "Held patient reason: \"CDS_EXPORT_ACCESS_CHANGED\"");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        metadata = complete;
+    }
+
+    @Test
     void shouldRefuseAlteredAuditText_inTheFinishedReadme() {
         readMe = replace(readMe, "Synthetic approved audit arrangement", "Different terms");
         assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");

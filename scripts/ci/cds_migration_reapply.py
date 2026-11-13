@@ -11,7 +11,8 @@ def verify_export_migration_reapply(repository: Path, query):
     names = ('V1.0.59.38__cds_native_field_baselines.sql',
              'V1.0.59.39__cds_export_ledger.sql',
              'V1.0.59.40__cds_export_artifact_attempts.sql',
-             'V1.0.59.42__index_cds_hrm_patient_scope.sql')
+             'V1.0.59.42__index_cds_hrm_patient_scope.sql',
+             'V1.0.59.43__cds_export_held_patients.sql')
     migrations = [folder.joinpath(name).read_text() for name in names]
     def first_statement(sql):
         # Semicolons in explanatory comments are not SQL statement boundaries.
@@ -85,11 +86,18 @@ def verify_export_migration_reapply(repository: Path, query):
                    "AND table_name='HRMDocumentToDemographic' AND index_name='idx_cds_hrm_patient_key' "
                    "AND column_name='cds_patient_key'") != ['1']:
             raise RuntimeError('HRM patient index did not recover after partial DDL')
+        execute(migrations[4]); execute(migrations[4])
+        execute("INSERT INTO cds_export_held_patient (id,run_id,epoch,demographic_no,safe_code,created_at) "
+                "VALUES ('00000000-0000-4000-8000-0000000000a1','00000000-0000-4000-8000-000000000001',1,27,"
+                "'CDS_EXPORT_UNMAPPED_DATA',NOW(6))")
+        execute(migrations[4])
+        if execute('SELECT COUNT(*) FROM cds_export_held_patient') != ['1']:
+            raise RuntimeError('Held-patient DDL replay changed recorded held patients')
         return {'protocol': 1, 'status': 'PARTIAL_DDL_REPLAY_PASSED',
                 'nativeWitnessPreserved': True, 'existingAttemptPreserved': True,
                 'missingAttemptBackfilledOnce': True, 'explicitDenialPreserved': True,
                 'hrmSourceOwnersPreserved': True, 'hrmPatientIndexRecovered': True,
-                'hrmLegacyInsertCompatible': True,
+                'hrmLegacyInsertCompatible': True, 'heldPatientsPreserved': True,
                 'migrations': {name: hashlib.sha256(folder.joinpath(name).read_bytes()).hexdigest() for name in names}}
     finally:
         query('DROP DATABASE ' + database)

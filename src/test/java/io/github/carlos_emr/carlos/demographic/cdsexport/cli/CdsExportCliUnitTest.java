@@ -221,6 +221,45 @@ class CdsExportCliUnitTest {
     }
 
     @Test
+    void shouldExitFive_whenTheReadyPackageLeavesOutHeldPatients() throws Exception {
+        when(runtime.execute(RUN))
+                .thenReturn(
+                        new CdsExportJobDto(
+                                RUN,
+                                CdsExportState.READY,
+                                1,
+                                3L,
+                                3,
+                                1,
+                                false,
+                                false,
+                                1,
+                                null,
+                                Instant.EPOCH,
+                                Instant.EPOCH,
+                                true));
+        assertThat(run(fresh())).isEqualTo(5);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_PATIENTS_HELD: package ready without 1 held patient(s)");
+        assertThat(output.toString(StandardCharsets.UTF_8)).contains("\"heldBack\":true");
+    }
+
+    @Test
+    void shouldNameTheMissingRight_whenAdmissionRefusesTheProvidersRoles() throws Exception {
+        when(runtime.accept())
+                .thenThrow(new SecurityException("missing required sec object (_lab_sensitive)"));
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("lack read access to _lab_sensitive")
+                .doesNotContain("current export scope is denied");
+        doThrow(new SecurityException("CDS_EXPORT_AUTHORIZATION_DENIED")).when(runtime).accept();
+        error.reset();
+        assertThat(run(fresh())).isEqualTo(3);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_AUTHORIZATION: current export scope is denied");
+    }
+
+    @Test
     void shouldTreatAStatusExitAsObservation_only() throws Exception {
         assertThat(run(new String[] {"--operation", "status", "--provider", "100", "--run", RUN}))
                 .isZero();

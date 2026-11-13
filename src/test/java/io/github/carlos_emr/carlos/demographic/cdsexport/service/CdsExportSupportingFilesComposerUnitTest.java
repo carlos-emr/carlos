@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportHeldPatientDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPackageMetadataDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientSummaryDto;
@@ -151,6 +152,31 @@ class CdsExportSupportingFilesComposerUnitTest {
                 metadata(Set.of(CdsCategory.DEMOGRAPHICS)), List.of(physician(1)).iterator(),
                 List.of(demographicSummary("C27", "First")).iterator(),
                 () -> {throw new IllegalStateException("fixture cancelled");})).hasMessage("fixture cancelled");
+    }
+
+    @Test void shouldListHeldPatientsAndUnreviewedLocalTables_inTheReadMe() throws Exception {
+        var readMe = new ByteArrayOutputStream();
+        var base = metadata(Set.of(CdsCategory.DEMOGRAPHICS));
+        var partial = new CdsExportPackageMetadataDto(base.exportRoot(), base.physicianGroup(),
+                base.groupContactInformation(), base.applicationVersion(), base.exportTime(),
+                base.clinicalZone(), base.profile(), base.categories(), base.auditAccessDescription(),
+                List.of(new CdsExportHeldPatientDto(41, "CDS_EXPORT_UNMAPPED_DATA")),
+                List.of(new io.github.carlos_emr.carlos.commn.dto.CdsExportLocalSourceDto("clinic_notes_local", 7)));
+        composer.compose(readMe, new ByteArrayOutputStream(), partial, List.of(physician(1)).iterator(),
+                List.of(demographicSummary("C27", "First")).iterator(), () -> {});
+        assertThat(readMe.toString(StandardCharsets.UTF_8)).contains(
+                "Held patients not in this package: \"1\"\nHeld patient: \"41\"\n"
+                        + "Held patient reason: \"CDS_EXPORT_UNMAPPED_DATA\"\n",
+                "Unreviewed local tables not exported: \"1\"\nUnreviewed local table: \"clinic_notes_local\"\n"
+                        + "Unreviewed local table estimated rows: \"7\"\n");
+    }
+
+    @Test void shouldStateNoHeldPatientsOrLocalTables_forACompletePackage() throws Exception {
+        var readMe = new ByteArrayOutputStream();
+        composer.compose(readMe, new ByteArrayOutputStream(), metadata(Set.of(CdsCategory.DEMOGRAPHICS)),
+                List.of(physician(1)).iterator(), List.of(demographicSummary("C27", "First")).iterator(), () -> {});
+        assertThat(readMe.toString(StandardCharsets.UTF_8)).contains(
+                "Held patients not in this package: \"0\"\n", "Unreviewed local tables not exported: \"0\"\n");
     }
 
     private CdsExportPackageMetadataDto metadata(Set<CdsCategory> categories) {

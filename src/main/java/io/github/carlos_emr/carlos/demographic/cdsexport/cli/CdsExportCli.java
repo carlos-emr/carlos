@@ -181,9 +181,25 @@ public final class CdsExportCli {
                         "CDS_EXPORT_DELIVERY: console delivery failed; reconcile the original durable job");
                 outcome = 2;
             } else if (!work || arguments.detach()) outcome = 0;
-            else outcome = state.complete() ? 0 : 4;
+            else if (state.complete()) outcome = 0;
+            else if (state.heldBack()) {
+                err.println(
+                        "CDS_EXPORT_PATIENTS_HELD: package ready without "
+                                + state.blockedPatients()
+                                + " held patient(s); they are listed in the package ReadMe and the report");
+                outcome = 5;
+            } else outcome = 4;
         } catch (SecurityException denied) {
-            err.println("CDS_EXPORT_AUTHORIZATION: current export scope is denied");
+            String missing =
+                    io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService
+                            .missingObject(denied);
+            err.println(
+                    missing == null
+                            ? "CDS_EXPORT_AUTHORIZATION: current export scope is denied"
+                            : "CDS_EXPORT_AUTHORIZATION: the export provider's roles lack read"
+                                    + " access to "
+                                    + missing
+                                    + "; grant it or leave out the categories that need it");
             outcome = 3;
         } catch (InterruptedException stopped) {
             Thread.currentThread().interrupt();
@@ -332,6 +348,7 @@ public final class CdsExportCli {
         result.put("safeCode", job.safeCode());
         result.put("waiting", job.waiting());
         result.put("complete", job.complete());
+        result.put("heldBack", job.heldBack());
         return result;
     }
 

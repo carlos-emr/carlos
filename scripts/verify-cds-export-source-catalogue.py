@@ -8,6 +8,7 @@ classifies a populated source as operational, or qualifies a clinical engine.
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,12 @@ def main():
                 if field == 'patientScopes':
                     assert all(columns[name].startswith(('tinyint(', 'smallint(', 'mediumint(', 'int(', 'bigint(', 'varchar('))
                                for name in names), table + ' owner type drift'
+    local = catalogue.get('localOperationalTables', {})
+    assert isinstance(local, dict) and len(local) <= 32
+    for table, rationale in local.items():
+        # Package-created tables outside the Flyway contract; a contract table keeps its ruling.
+        assert re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,63}', table) and table not in actual, table
+        assert isinstance(rationale, str) and rationale.strip() and len(rationale) <= 512, table
     for table, disposition in catalogue['tables'].items():
         if disposition == 'ACCESS_CONTROL':
             assert table in catalogue['patientScopes'] and table in catalogue['clinicalRemainders']

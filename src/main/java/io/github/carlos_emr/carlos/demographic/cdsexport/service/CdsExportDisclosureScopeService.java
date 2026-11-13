@@ -128,6 +128,22 @@ public class CdsExportDisclosureScopeService {
                             patient -> {
                                 control.checkpoint();
                                 var node = lines.required();
+                                if (node.isObject()
+                                        && "HELD".equals(node.path("kind").textValue())) {
+                                    // A held patient was not packaged, so nothing is disclosed
+                                    // for them and no source authority is re-checked.
+                                    if (node.size() != 3
+                                            || !node.path("patient").isIntegralNumber()
+                                            || !node.path("patient").canConvertToInt()
+                                            || node.path("patient").intValue()
+                                                    != patient.demographicNo()
+                                            || !node.path("code").isTextual()
+                                            || !node.path("code")
+                                                    .textValue()
+                                                    .matches("CDS_EXPORT_[A-Z0-9_]{1,85}"))
+                                        invalid();
+                                    return;
+                                }
                                 if (!node.isObject()
                                         || node.size() != 4
                                         || !node.path("kind").isTextual()
