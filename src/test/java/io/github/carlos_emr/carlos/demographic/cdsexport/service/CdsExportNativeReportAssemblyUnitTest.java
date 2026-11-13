@@ -200,7 +200,8 @@ class CdsExportNativeReportAssemblyUnitTest {
         row.put("lab_type", "DOC");
         row.put("provider_no", provider);
         row.put("status", status);
-        row.put("timestamp", time);
+        // A TIMESTAMP column: captured as the instant of this Toronto clinic time.
+        row.put("timestamp", CdsExportLaboratoryReviewerMappingUnitTest.instant(time));
         row.put("comment", comment);
         rows(CdsExportDocumentRouteSourceReader.TABLE)
                 .put(CdsExportPatientTableSourceReader.key(id), row);
@@ -220,7 +221,7 @@ class CdsExportNativeReportAssemblyUnitTest {
         row.put("id", Integer.toString(id));
         row.put("documentNo", Integer.toString(document));
         row.put("reviewerProviderNo", provider);
-        row.put("reviewDateTime", time);
+        row.put("reviewDateTime", CdsExportLaboratoryReviewerMappingUnitTest.instant(time));
         rows("DocumentExtraReviewer").put(CdsExportPatientTableSourceReader.key(id), row);
     }
 
@@ -695,9 +696,10 @@ class CdsExportNativeReportAssemblyUnitTest {
                         "<cdsd:FullDate>2026-03-07</cdsd:FullDate>",
                         "<cdsd:LastName>Inbox</cdsd:LastName>",
                         "<cdsd:FullDate>2026-03-08</cdsd:FullDate>",
-                        // Exact times and the inbox comment are kept in the source context.
+                        // Exact times (a DATETIME as stored, a TIMESTAMP as its instant) and the
+                        // inbox comment are kept in the source context.
                         "2026-03-06 15:30:00",
-                        "2026-03-07 10:15:00",
+                        CdsExportLaboratoryReviewerMappingUnitTest.instant("2026-03-07 10:15:00"),
                         "Booked a follow-up")
                 .doesNotContain("<ReviewingOHIPPhysicianId>12345<");
         assertThat(receipts).hasSize(1);
