@@ -109,7 +109,11 @@ to the exact arguments, and the provider still needs current clinical permission
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current/deleted measurements, supported
 HL7 ORU results, and document reports with their attachments. Revised notes retain
-the original and edits in one clinical occurrence.
+the original and edits in one clinical occurrence. A clinical note whose latest
+revision is archived (removed from the active record) is still exported, because the
+encounter list still shows it, but its text begins with a statement that it is
+archived and not current: ClinicalNotes has no status field, and the receiving
+importer, CARLOS included, files it as an ordinary note carrying that statement.
 
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select

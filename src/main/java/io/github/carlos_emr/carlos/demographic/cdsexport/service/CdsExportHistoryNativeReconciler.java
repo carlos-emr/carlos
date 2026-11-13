@@ -69,18 +69,27 @@ final class CdsExportHistoryNativeReconciler {
                             .toList();
             if (originalBodies.size() != 1)
                 throw new IOException("CDS_EXPORT_HISTORY_SOURCE_FIELD_AMBIGUOUS");
+            // An archived current revision is stated first, before the original imported text.
+            String statement =
+                    CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT + "\n\n";
+            String revisions = nativeValue.text().get("MyClinicalNotesContent");
+            if (nativeValue.archived() && !revisions.startsWith(statement))
+                throw new IOException("CDS_EXPORT_HISTORY_NATIVE_ARCHIVE_STATEMENT_INVALID");
+            String nativeRevisions =
+                    nativeValue.archived() ? revisions.substring(statement.length()) : revisions;
             replace(
                     changes,
                     sourceFields,
                     "MyClinicalNotesContent[1]",
                     xml -> {
+                        if (nativeValue.archived()) xml.text(statement);
                         // The native projection may be only a placeholder for an arbitrarily long
                         // source narrative. Preserve the original logical value as a stream.
                         try (var reader = values.text(originalBodies.getFirst())) {
                             xml.text(reader);
                         }
                         xml.text("\n\n[Current CARLOS native note revisions and source context]\n");
-                        xml.text(nativeValue.text().get("MyClinicalNotesContent"));
+                        xml.text(nativeRevisions);
                     });
             if (nativeValue.text().containsKey("NoteType"))
                 replace(

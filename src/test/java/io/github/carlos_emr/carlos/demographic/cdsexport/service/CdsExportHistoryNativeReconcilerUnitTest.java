@@ -96,8 +96,33 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     private CdsExportRetainedSectionWriter.Prepared reconcile(
             CdsCategory category, String tag, List<CdsExportRetainedFieldDto> fields)
             throws Exception {
+        return reconcile(category, tag, fields, "Current edited narrative", false);
+    }
+
+    private CdsExportRetainedSectionWriter.Prepared reconcile(
+            CdsCategory category,
+            String tag,
+            List<CdsExportRetainedFieldDto> fields,
+            String currentBody,
+            boolean archived)
+            throws Exception {
         var original = note(91, "Original imported narrative", tag, List.of());
-        var current = note(92, "Current edited narrative", tag, List.of());
+        var current = note(92, currentBody, tag, List.of());
+        if (archived) {
+            var values = new LinkedHashMap<>(current.note().value().fields());
+            values.put("archived", "1");
+            current =
+                    new CdsExportHistoryFieldReconciler.Current(
+                            row(
+                                    io.github.carlos_emr.carlos.commn.dao
+                                            .CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
+                                    92,
+                                    values),
+                            current.extensions(),
+                            current.links(),
+                            current.patientIssues(),
+                            current.definitions());
+        }
         var nativeHistory =
                 new CdsExportNativeHistoryMapper()
                         .map(
@@ -157,6 +182,33 @@ class CdsExportHistoryNativeReconcilerUnitTest {
                         "Current edited narrative",
                         "[Current CARLOS native note revisions and source context]");
         assertThat(result.replacedFields()).containsExactly(fields.getFirst().id());
+    }
+
+    @Test
+    void shouldStateAnArchivedImportedNote_beforeTheOriginalImportedText() throws Exception {
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.CLINICAL_NOTES,
+                                "MyClinicalNotesContent[1]",
+                                "Original imported narrative"));
+        var result =
+                reconcile(
+                        CdsCategory.CLINICAL_NOTES, null, fields, "Original imported narrative",
+                        true);
+        String xml =
+                new String(
+                        render(CdsCategory.CLINICAL_NOTES, result.content()),
+                        StandardCharsets.UTF_8);
+        String content =
+                xml.substring(
+                        xml.indexOf("<MyClinicalNotesContent>")
+                                + "<MyClinicalNotesContent>".length());
+        assertThat(content)
+                .startsWith(CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT);
+        assertThat(content.indexOf(CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT, 1))
+                .as("stated once")
+                .isEqualTo(-1);
     }
 
     @Test

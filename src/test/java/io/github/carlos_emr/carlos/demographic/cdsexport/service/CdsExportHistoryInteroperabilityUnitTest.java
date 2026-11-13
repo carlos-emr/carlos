@@ -45,6 +45,126 @@ import org.junit.jupiter.api.io.TempDir;
 class CdsExportHistoryInteroperabilityUnitTest {
     @TempDir Path root;
 
+    /** What the receiving CARLOS importer prepared and wrote for one exported occurrence. */
+    record Imported(
+            CaseManagementNote note,
+            CdsHistoryNativeDto prepared,
+            List<CdsClinicalDiagnosticDto> notices) {}
+
+    /** Parses actual exporter bytes and runs the native history persister on the record. */
+    Imported roundTrip(CdsExportNativeHistoryDto output, String tag) throws Exception {
+        var category = output.category();
+        Path directory = Files.createTempDirectory(root, "roundtrip-");
+        var records = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        Files.write(directory.resolve("patient.xml"), render(output)),
+                        directory.resolve("parsed"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        var record =
+                records.stream()
+                        .filter(r -> r.section().equals(category.wireName()))
+                        .findFirst()
+                        .orElseThrow();
+        var fields = new CdsFieldParser();
+        var preparation = mock(CdsNativePreparationService.class);
+        var prepared = new AtomicReference<CdsHistoryNativeDto>();
+        doAnswer(
+                        call -> {
+                            prepared.set(call.getArgument(5));
+                            return null;
+                        })
+                .when(preparation)
+                .store(anyString(), anyLong(), anyString(), anyString(), any(), any());
+        when(preparation.load(
+                        anyString(),
+                        anyLong(),
+                        anyString(),
+                        anyString(),
+                        any(),
+                        eq(CdsHistoryNativeDto.class)))
+                .thenAnswer(call -> prepared.get());
+        var notes = mock(CaseManagementNoteDAO.class);
+        var written = new AtomicReference<CaseManagementNote>();
+        doAnswer(
+                        call -> {
+                            CaseManagementNote note = call.getArgument(0);
+                            note.setId(91L);
+                            written.set(note);
+                            return null;
+                        })
+                .when(notes)
+                .saveNote(any());
+        var issues = mock(IssueDAO.class);
+        if (tag != null) {
+            var definition = new Issue();
+            definition.setId(51L);
+            definition.setCode(tag);
+            when(issues.findCandidatesByCode(tag)).thenReturn(List.of(definition));
+        }
+        var patientIssues = mock(CaseManagementIssueDAO.class);
+        when(patientIssues.findCandidatesByDemographicAndIssue(anyInt(), anyLong()))
+                .thenReturn(List.of());
+        doAnswer(
+                        call -> {
+                            CaseManagementIssue issue = call.getArgument(0);
+                            issue.setId(41L);
+                            return null;
+                        })
+                .when(patientIssues)
+                .saveIssue(any());
+        var extensions = mock(CaseManagementNoteExtDAO.class);
+        var extensionId = new java.util.concurrent.atomic.AtomicLong(101);
+        doAnswer(
+                        call -> {
+                            CaseManagementNoteExt extension = call.getArgument(0);
+                            extension.setId(extensionId.getAndIncrement());
+                            return null;
+                        })
+                .when(extensions)
+                .save(any());
+        var properties = new Properties();
+        properties.setProperty("cds.import.clinicalZone", "America/Toronto");
+        // The receiving clinic knows the exporting fixture provider by its OHIP number.
+        var resolver = mock(CdsProviderResolver.class);
+        when(resolver.resolve(eq("001234"), any(), any(), any(), anyBoolean()))
+                .thenReturn(
+                        new CdsProviderMatchDto(
+                                "17", CdsProviderMatchDto.Outcome.MATCHED_IDENTIFIERS));
+        var writer =
+                new CdsHistoryPersister(
+                        fields,
+                        new CdsClinicalNormalizationService(fields),
+                        new CdsImportConfigurationService(properties),
+                        resolver,
+                        preparation,
+                        notes,
+                        patientIssues,
+                        issues,
+                        extensions);
+        var command =
+                new CdsImportCommand(
+                        directory,
+                        "roundtrip",
+                        "999998",
+                        1,
+                        null,
+                        "native-export",
+                        "omd-5.2",
+                        false,
+                        false,
+                        false,
+                        0,
+                        null,
+                        false);
+        writer.prepare("run", 1, "unit", record, command);
+        var notices = new ArrayList<CdsClinicalDiagnosticDto>();
+        writer.write("run", 1, "unit", 28, record, command, notices::add);
+        return new Imported(written.get(), prepared.get(), notices);
+    }
+
     @Test
     void shouldKeepNativeCppNarrativesAndArchiveState_afterExportAndReceivingImport()
             throws Exception {
@@ -80,112 +200,12 @@ class CdsExportHistoryInteroperabilityUnitTest {
                                 value.participants(),
                                 value.metadata(),
                                 archived);
-                Path directory = Files.createTempDirectory(root, "roundtrip-");
-                var records = new ArrayList<CdsRecordDto>();
-                new CdsXmlParser()
-                        .parse(
-                                Files.write(directory.resolve("patient.xml"), render(output)),
-                                directory.resolve("parsed"),
-                                CdsInputLimitsDto.defaults(),
-                                () -> false,
-                                records::add);
-                var record =
-                        records.stream()
-                                .filter(r -> r.section().equals(category.getKey().wireName()))
-                                .findFirst()
-                                .orElseThrow();
-                var fields = new CdsFieldParser();
-                var preparation = mock(CdsNativePreparationService.class);
-                var prepared = new AtomicReference<CdsHistoryNativeDto>();
-                doAnswer(
-                                call -> {
-                                    prepared.set(call.getArgument(5));
-                                    return null;
-                                })
-                        .when(preparation)
-                        .store(anyString(), anyLong(), anyString(), anyString(), any(), any());
-                when(preparation.load(
-                                anyString(),
-                                anyLong(),
-                                anyString(),
-                                anyString(),
-                                any(),
-                                eq(CdsHistoryNativeDto.class)))
-                        .thenAnswer(call -> prepared.get());
-                var notes = mock(CaseManagementNoteDAO.class);
-                var written = new AtomicReference<CaseManagementNote>();
-                doAnswer(
-                                call -> {
-                                    CaseManagementNote note = call.getArgument(0);
-                                    note.setId(91L);
-                                    written.set(note);
-                                    return null;
-                                })
-                        .when(notes)
-                        .saveNote(any());
-                var issues = mock(IssueDAO.class);
-                var definition = new Issue();
-                definition.setId(51L);
-                definition.setCode(category.getValue());
-                when(issues.findCandidatesByCode(category.getValue()))
-                        .thenReturn(List.of(definition));
-                var patientIssues = mock(CaseManagementIssueDAO.class);
-                when(patientIssues.findCandidatesByDemographicAndIssue(anyInt(), anyLong()))
-                        .thenReturn(List.of());
-                doAnswer(
-                                call -> {
-                                    CaseManagementIssue issue = call.getArgument(0);
-                                    issue.setId(41L);
-                                    return null;
-                                })
-                        .when(patientIssues)
-                        .saveIssue(any());
-                var extensions = mock(CaseManagementNoteExtDAO.class);
-                var extensionId = new java.util.concurrent.atomic.AtomicLong(101);
-                doAnswer(
-                                call -> {
-                                    CaseManagementNoteExt extension = call.getArgument(0);
-                                    extension.setId(extensionId.getAndIncrement());
-                                    return null;
-                                })
-                        .when(extensions)
-                        .save(any());
-                var properties = new Properties();
-                properties.setProperty("cds.import.clinicalZone", "America/Toronto");
-                var writer =
-                        new CdsHistoryPersister(
-                                fields,
-                                new CdsClinicalNormalizationService(fields),
-                                new CdsImportConfigurationService(properties),
-                                mock(CdsProviderResolver.class),
-                                preparation,
-                                notes,
-                                patientIssues,
-                                issues,
-                                extensions);
-                var command =
-                        new CdsImportCommand(
-                                directory,
-                                "roundtrip",
-                                "999998",
-                                1,
-                                null,
-                                "native-export",
-                                "omd-5.2",
-                                false,
-                                false,
-                                false,
-                                0,
-                                null,
-                                false);
-                writer.prepare("run", 1, "unit", record, command);
-                var notices = new ArrayList<CdsClinicalDiagnosticDto>();
-                writer.write("run", 1, "unit", 28, record, command, notices::add);
-                assertThat(written.get().getNote()).isEqualTo(narrative);
-                assertThat(written.get().isArchived()).isEqualTo(archived);
-                assertThat(prepared.get().archived()).isEqualTo(archived);
+                var imported = roundTrip(output, category.getValue());
+                assertThat(imported.note().getNote()).isEqualTo(narrative);
+                assertThat(imported.note().isArchived()).isEqualTo(archived);
+                assertThat(imported.prepared().archived()).isEqualTo(archived);
                 assertThat(
-                                notices.stream()
+                                imported.notices().stream()
                                         .anyMatch(
                                                 n ->
                                                         n.code()
@@ -193,5 +213,40 @@ class CdsExportHistoryInteroperabilityUnitTest {
                                                                         "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION")))
                         .isEqualTo(archived);
             }
+    }
+
+    @Test
+    void shouldReceiveAnArchivedEncounterNote_asAStatedArchivedNoteRatherThanALiveOne()
+            throws Exception {
+        var original = note(91, "Seen for cough. Plan: fluids.", null, List.of());
+        var fields = new LinkedHashMap<>(original.note().value().fields());
+        fields.put("note_id", "92");
+        fields.put("archived", "1");
+        fields.put("update_date", "2026-07-11 09:00:00");
+        var archive =
+                new CdsExportHistoryFieldReconciler.Current(
+                        row(
+                                io.github.carlos_emr.carlos.commn.dao
+                                        .CdsExportPatientTableReadSupport.Plan.CASE_NOTES,
+                                92,
+                                fields),
+                        List.of(),
+                        List.of(),
+                        Map.of(),
+                        Map.of());
+        var mapped =
+                new CdsExportNativeHistoryMapper()
+                        .map(
+                                27,
+                                CdsCategory.CLINICAL_NOTES,
+                                List.of(original, archive),
+                                providers(),
+                                ZoneId.of("America/Toronto"));
+        var imported = roundTrip(mapped.value(), null);
+        // ClinicalNotes has no archive field; the receiver sees the statement first, never a
+        // bare live note. The CARLOS importer therefore files it as a note that says so.
+        assertThat(imported.note().getNote())
+                .startsWith(CdsExportNativeHistoryMapper.ARCHIVED_CLINICAL_NOTE_STATEMENT)
+                .contains("Seen for cough. Plan: fluids.");
     }
 }

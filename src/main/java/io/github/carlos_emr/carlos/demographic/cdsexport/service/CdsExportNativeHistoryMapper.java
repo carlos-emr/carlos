@@ -61,6 +61,17 @@ public final class CdsExportNativeHistoryMapper {
                     "include_issue_innote",
                     "appointmentNo");
 
+    /**
+     * Leads the text of a ClinicalNotes entry whose current revision is archived. CARLOS archives
+     * a note by saving a new revision with {@code archived = 1} (the CPP editor's Archive button,
+     * NotesService); the CPP boxes, CPP print and CPP text drop it, but the encounter note list
+     * still shows it, so it is part of the record, not deleted. ClinicalNotes has no status or
+     * residual field, so the receiver is told in the note itself rather than shown a live note.
+     */
+    static final String ARCHIVED_CLINICAL_NOTE_STATEMENT =
+            "[CARLOS: this note was archived (removed from the active record) in its latest"
+                    + " revision. It is kept for the record and is not a current note.]";
+
     public record Result(
             CdsExportNativeHistoryDto value,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
@@ -327,8 +338,20 @@ public final class CdsExportNativeHistoryMapper {
         String json = JSON.writeValueAsString(Map.of("version", 1, "revisions", metadata));
         var coding = code(category, current);
         String body = bodies.getLast();
+        boolean archived = "1".equals(current.note().value().fields().get("archived"));
         if (category == CdsCategory.CLINICAL_NOTES) {
             var full = new StringBuilder();
+            if (archived) {
+                full.append(ARCHIVED_CLINICAL_NOTE_STATEMENT).append("\n\n");
+                var note = current.note().value();
+                decisions.put(
+                        new CdsExportNativeFieldKeyDto(note.table(), note.recordKey(), "archived"),
+                        new CdsExportFieldAssessmentDto(
+                                CdsExportFieldAssessmentDto.Presence.VALUE,
+                                Outcome.MAPPED,
+                                "MyClinicalNotesContent",
+                                "EXPLICIT_ARCHIVED_NOTE_STATEMENT"));
+            }
             for (int i = 0; i < bodies.size(); i++) {
                 if (bodies.size() > 1)
                     full.append(i == 0 ? "[Original note]\n" : "\n\n[Revision " + (i + 1) + "]\n");
@@ -375,7 +398,7 @@ public final class CdsExportNativeHistoryMapper {
                         coding,
                         participants,
                         json,
-                        "1".equals(current.note().value().fields().get("archived"))),
+                        archived),
                 decisions,
                 new ArrayList<>(rows.values()));
     }
