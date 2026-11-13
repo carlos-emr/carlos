@@ -60,6 +60,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportSourceSnapshotService.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao.class,
     CdsExportSourceCatalogueReader.class,
+    io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao.class,
+    CdsExportListedSourceReader.class,
     io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class,
     CdsExportHospitalReportScopeSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl.class,

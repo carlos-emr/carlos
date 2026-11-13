@@ -90,7 +90,13 @@ public class CdsExportNativeCaptureService {
     private final TransactionTemplate read;
     private final CdsExportSourceSnapshotService snapshots;
     private final Properties settings = new Properties();
+    private io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao summaries;
 
+    /**
+     * Production wiring: every installed reader bean, plus one data-summary reader for each
+     * DOCUMENT table of the pinned source catalogue (built from the physical contract, so they are
+     * not separate beans).
+     */
     @Autowired
     public CdsExportNativeCaptureService(
             ObjectProvider<CdsExportNativeSourceReader> installed,
@@ -99,7 +105,30 @@ public class CdsExportNativeCaptureService {
             PlatformTransactionManager transactions,
             CdsExportSourceSnapshotService snapshots,
             @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
-                    Properties settings) {
+                    Properties settings,
+            io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao summaries) {
+        this(
+                java.util.stream.Stream.concat(
+                                installed.orderedStream(),
+                                CdsExportDataSummarySourceReader.readers(
+                                        Objects.requireNonNull(summaries))
+                                        .stream())
+                        .toList(),
+                stores,
+                clock,
+                transactions,
+                snapshots);
+        this.settings.putAll(Objects.requireNonNull(settings));
+        this.summaries = summaries;
+    }
+
+    public CdsExportNativeCaptureService(
+            ObjectProvider<CdsExportNativeSourceReader> installed,
+            CdsExportStagingFactory stores,
+            CdsExportRunDao clock,
+            PlatformTransactionManager transactions,
+            CdsExportSourceSnapshotService snapshots,
+            Properties settings) {
         this(installed.orderedStream().toList(), stores, clock, transactions, snapshots);
         this.settings.putAll(Objects.requireNonNull(settings));
     }
@@ -163,6 +192,17 @@ public class CdsExportNativeCaptureService {
         if (!(readers.get("clinical_source_catalogue") instanceof CdsExportSourceCatalogueReader catalogue))
             throw new IllegalStateException("CDS_EXPORT_CAPTURE_DEPENDENCY_MISSING");
         return read.execute(status -> catalogue.unreviewedLocalSources());
+    }
+
+    /**
+     * Populated LISTED tables (removed features) with no patient link, and their exact row counts.
+     * They belong to no chart; the package lists them for the whole job instead of ignoring them.
+     */
+    public List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
+            listedClinicSources() {
+        var source = summaries;
+        if (source == null) return List.of();
+        return read.execute(status -> source.listedClinicSources());
     }
 
     /** A per-capture definition keeps concurrent jobs from mutating a shared transaction template. */
@@ -283,10 +323,11 @@ public class CdsExportNativeCaptureService {
                                                                             reader.schema(),
                                                                             columns);
                                                     long count = reader.count(patient, probe);
-                                                    if (count < 0
-                                                            || count
-                                                                    > maximumFields
-                                                                            / columns.size())
+                                                    if (count < 0)
+                                                        throw new IOException(
+                                                                "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
+                                                    reader.requireCapacity(count, maximumFields);
+                                                    if (count > maximumFields / columns.size())
                                                         throw new IOException(
                                                                 "CDS_EXPORT_CAPTURE_FIELD_LIMIT");
                                                     if (reader.table().equals("demographic")
@@ -529,8 +570,8 @@ public class CdsExportNativeCaptureService {
             var table = captured.tables().get(reader.table());
             if (!reader.columns().equals(table.columns())
                     || !new CdsExportSourceSchemaValidator()
-                            .expectedSha256(reader.table(), reader.columns())
-                            .equals(table.schemaSha256()))
+                            .acceptedSha256(reader.table(), reader.columns())
+                            .contains(table.schemaSha256()))
                 throw new IOException("CDS_EXPORT_CAPTURE_SCHEMA_MISMATCH");
             verifyReceiptColumns(reader.table(), table.columns(), table.receiptColumns());
             plan.put(

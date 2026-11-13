@@ -35,6 +35,7 @@ public final class CdsExportSourceSchemaValidator {
     private static final Set<String> INSTALLED =
             Set.of(
                     "clinical_source_catalogue",
+                    CdsExportListedSourceReader.TABLE,
                     "HRMDocumentToDemographic",
                     "native_document_files",
                     "document",
@@ -98,6 +99,7 @@ public final class CdsExportSourceSchemaValidator {
 
     public String verify(String scope, CdsExportTableSchemaDto actual, Set<String> columns)
             throws IOException {
+        if (dataSummary(scope)) return verifyDataSummary(scope, actual, columns);
         if (scope == null
                 || actual == null
                 || !INSTALLED.contains(scope)
@@ -132,6 +134,8 @@ public final class CdsExportSourceSchemaValidator {
                                 ? "TRUSTED_SOURCE_CATALOGUE"
                                 : scope.equals("native_document_files")
                                         ? "TRUSTED_NATIVE_DOCUMENT_STORAGE"
+                                        : scope.equals(CdsExportListedSourceReader.TABLE)
+                                        ? "TRUSTED_LISTED_SOURCE_COUNTS"
                                         : scope.equals("medication_reference")
                                                 ? "TRUSTED_PUBLIC_REFERENCE"
                                                 : scope.equals("retained_import_options")
@@ -151,8 +155,26 @@ public final class CdsExportSourceSchemaValidator {
         }
     }
 
+    /**
+     * Every schema digest a capture of this scope may legitimately carry. A data-summary table has
+     * one per pinned profile that has it (the legacy formRourke2009 differs only by engine) and
+     * one for its absence from a profile that lacks it; any other scope has exactly one.
+     */
+    public Set<String> acceptedSha256(String table, Set<String> columns) throws IOException {
+        if (!dataSummary(table)) return Set.of(expectedSha256(table, columns));
+        var accepted = new java.util.TreeSet<String>();
+        for (var candidate : dataSummaryCandidates(table))
+            accepted.add(verifyDataSummary(table, candidate, columns));
+        return Set.copyOf(accepted);
+    }
+
     /** Mapping/recovery verifies the captured schema contract without rereading mutable clinical tables. */
     public String expectedSha256(String table, Set<String> columns) throws IOException {
+        if (dataSummary(table)) {
+            var accepted = acceptedSha256(table, columns);
+            if (accepted.size() != 1) invalid();
+            return accepted.iterator().next();
+        }
         if (!INSTALLED.contains(table)) invalid();
         try (var input =
                 getClass().getResourceAsStream("/cds-export/source-schema/" + table + ".json")) {
@@ -160,6 +182,68 @@ public final class CdsExportSourceSchemaValidator {
             byte[] bytes = input.readNBytes(1_048_577);
             if (bytes.length > 1_048_576) invalid();
             return verify(table, JSON.readValue(bytes, CdsExportTableSchemaDto.class), columns);
+        }
+    }
+
+    private static boolean dataSummary(String scope) {
+        return scope != null
+                && io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                                .current()
+                                .tables()
+                                .get(scope)
+                        == io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportSourceCatalogue.Disposition.DOCUMENT;
+    }
+
+    /**
+     * A data-summary table is bound to the pinned physical contract itself: the actual structure
+     * must equal one profile's table exactly, or be absent where a pinned profile has no such
+     * table. All columns are captured.
+     */
+    private static java.util.List<CdsExportTableSchemaDto> dataSummaryCandidates(String table) {
+        var result = new java.util.ArrayList<CdsExportTableSchemaDto>();
+        boolean absent = false;
+        for (var profile :
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                        .current()
+                        .profiles()) {
+            var schema = profile.tables().get(table);
+            if (schema == null) absent = true;
+            else if (!result.contains(schema)) result.add(schema);
+        }
+        if (absent)
+            result.add(
+                    new CdsExportTableSchemaDto(
+                            table,
+                            io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao.ABSENT,
+                            java.util.List.of(),
+                            java.util.List.of()));
+        return java.util.List.copyOf(result);
+    }
+
+    private static String verifyDataSummary(
+            String table, CdsExportTableSchemaDto actual, Set<String> columns) throws IOException {
+        var candidates = dataSummaryCandidates(table);
+        var physical =
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                        .current()
+                        .physical(table)
+                        .orElse(null);
+        if (actual == null
+                || !candidates.contains(actual)
+                || physical == null
+                || !columns.equals(
+                        Set.copyOf(
+                                physical.columns().stream()
+                                        .map(CdsExportTableSchemaDto.Column::name)
+                                        .toList()))) invalid();
+        try {
+            return HexFormat.of()
+                    .formatHex(
+                            MessageDigest.getInstance("SHA-256")
+                                    .digest(JSON.writeValueAsBytes(actual)));
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
         }
     }
 

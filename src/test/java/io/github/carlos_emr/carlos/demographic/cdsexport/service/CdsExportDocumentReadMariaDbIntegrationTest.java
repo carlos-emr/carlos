@@ -130,7 +130,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         .HRMDocumentToDemographicDao
                         .class,
                 DocumentDaoImpl.class,
-                CtlDocumentDaoImpl.class);
+                CtlDocumentDaoImpl.class,
+                CdsExportDataSummaryReadDao.class);
         // Sealed native-baseline witnesses need an installation key (IMP-1).
         context.registerBean(
                 io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
@@ -269,13 +270,12 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         catalogue.requireUnclassifiedSourcesEmpty(
                                                 patient, () -> {});
                                     }));
-            // A clinical source remains subject to the same fail-closed closure check.
+            // A clinical source remains subject to the same fail-closed closure check. (The
+            // cumulative patient profile used here before is now exported as a data summary.)
             sql.update(
-                    "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no)"
-                            + " values(?,?,?,'989879')",
-                    patient,
-                    Integer.toString(patient),
-                    "Owned unsupported clinical fact");
+                    "insert into dxresearch(demographic_no,dxresearch_code,update_date)"
+                            + " values(?,'OWNEDCDS',now())",
+                    patient);
             try {
                 stableLegacy(
                         () ->
@@ -290,9 +290,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
             } finally {
                 sql.update(
-                        "delete from casemgmt_cpp where id=? and demographic_no=?",
-                        patient,
-                        Integer.toString(patient));
+                        "delete from dxresearch where demographic_no=? and"
+                                + " dxresearch_code='OWNEDCDS'",
+                        patient);
             }
         } finally {
             if (linkCreated)
@@ -868,19 +868,25 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
+        // A disease-registry entry is still unmapped and must stay empty; the cumulative patient
+        // profile this test used before is now exported as a data summary (decision 6).
         sql.update(
-                "insert into casemgmt_cpp(id,demographic_no,socialHistory,provider_no)"
-                        + " values(?,?,?,'989879')",
-                patient,
-                Integer.toString(patient),
-                "Owned unrepresented clinical source");
-        assertThatThrownBy(
-                        () ->
-                                read.executeWithoutResult(
-                                        status ->
-                                                catalogue.requireUnclassifiedSourcesEmpty(
-                                                        patient, () -> {})))
-                .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+                "insert into dxresearch(demographic_no,dxresearch_code,update_date)"
+                        + " values(?,'OWNEDCDS',now())",
+                patient);
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    read.executeWithoutResult(
+                                            status ->
+                                                    catalogue.requireUnclassifiedSourcesEmpty(
+                                                            patient, () -> {})))
+                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+        } finally {
+            sql.update(
+                    "delete from dxresearch where demographic_no=? and dxresearch_code='OWNEDCDS'",
+                    patient);
+        }
     }
 
     @Test
@@ -921,13 +927,12 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldStopTheJobAndNameTheTable_whenAClinicWideMustBeEmptySourceIsPopulated() {
-        // DrugProduct (a dead dispensing table) has no patient link: a row there concerns every
+        // A legacy CML lab report header has no patient link: a row there concerns every
         // patient, so the job stops once with the clinic code instead of holding every patient
         // one by one, and the table is named on the channel the CLI prints (census D5). The
-        // recycle bin used here before is now ruled operational.
-        sql.update(
-                "insert into DrugProduct(name,code,amount,lastUpdateDate,lastUpdateUser)"
-                        + " values('synthetic','synthetic',1,now(),'999998')");
+        // recycle bin and then DrugProduct used here before are now ruled operational and
+        // listed (removed feature) respectively.
+        sql.update("insert into labReportInformation(location_id) values('synthetic')");
         try (var log =
                 io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
                         "carlos.cds.safeTechnical")) {
@@ -949,10 +954,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                             .contains(
                                                     "CDS_EXPORT_SOURCE:",
                                                     "CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED",
-                                                    "\"DrugProduct\"")
-                                            .doesNotContain("synthetic", "999998"));
+                                                    "\"labReportInformation\"")
+                                            .doesNotContain("synthetic"));
         } finally {
-            sql.update("delete from DrugProduct where name='synthetic'");
+            sql.update("delete from labReportInformation where location_id='synthetic'");
         }
     }
 
@@ -1002,18 +1007,21 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
+        // Episodes are still unmapped; the CAISI hospitalisation days used here before are now a
+        // listed removed feature.
         sql.update(
-                "insert into CdsHospitalisationDays(id,clientId,admitted) values(?,?,'2024-02-29')",
+                "insert into Episode(id,demographicNo,lastUpdateUser,startDate)"
+                        + " values(?,?,'999998','2024-02-29')",
                 patient,
                 patient + 77);
         try {
             requireCatalogueScope();
-            sql.update("update CdsHospitalisationDays set clientId=? where id=?", patient, patient);
+            sql.update("update Episode set demographicNo=? where id=?", patient, patient);
             assertThatThrownBy(this::requireCatalogueScope)
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from CdsHospitalisationDays where id=? and clientId in (?,?)",
+                    "delete from Episode where id=? and demographicNo in (?,?)",
                     patient,
                     patient,
                     patient + 77);
@@ -1022,6 +1030,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseANumericTextPatientAlias_withoutHidingItBehindCanonicalStringEquality() {
+        // The cumulative patient profile is now exported as a data summary (decision 6): its
+        // numeric text alias still belongs to the patient, so the row is captured for this chart
+        // instead of refusing it, and it is never hidden behind canonical string equality.
         String alias = "0" + patient;
         sql.update(
                 "insert into casemgmt_cpp(id,demographic_no,provider_no,socialHistory)"
@@ -1030,8 +1041,19 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 alias,
                 "OWNED_SOURCE_ALIAS");
         try {
-            assertThatThrownBy(this::requireCatalogueScope)
-                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+            requireCatalogueScope();
+            var summaries = context.getBean(CdsExportDataSummaryReadDao.class);
+            var plan = CdsExportDataSummaryReadDao.plan("casemgmt_cpp");
+            Long count = read.execute(status -> summaries.count(plan, patient));
+            List<CdsExportDataSummaryReadDao.Row> rows =
+                    read.execute(status -> summaries.page(plan, patient, null, 8));
+            assertThat(count).isEqualTo(1L);
+            assertThat(rows)
+                    .singleElement()
+                    .satisfies(
+                            row ->
+                                    assertThat(row.cells().get("demographic_no").inlineBytes())
+                                            .isEqualTo(alias.getBytes(StandardCharsets.UTF_8)));
         } finally {
             sql.update("delete from casemgmt_cpp where id=? and demographic_no=?", patient, alias);
         }
