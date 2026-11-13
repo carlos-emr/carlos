@@ -10322,11 +10322,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "The runWorkflow FAKE- patient; read-only: each Add Prevention popup is read and closed, nothing is saved. SKIP when cvc.url replaces the brand picker.",
-      "notes": "Found while covering issue #5279 section 7. For one brand per distinct dose unit and route in prevention/vaccine-brands.json, the Add Prevention form opened from the brand picker must show the catalogue's own unit and route (any letter case), never a blank box or another value; every difference is reported together. Fails at its one step while finding 323 (#5432) stands; standard route codes (SQ as SC, Intranasal as IN, Intradermal as ID) are accepted.",
-      "expectedFailure": {
-        "finding": 323,
-        "step": "every dose unit and route the catalogue prefills is shown by the Add Prevention form as given"
-      }
+      "notes": "Found while covering issue #5279 section 7. For one brand per distinct dose unit and route in prevention/vaccine-brands.json, the Add Prevention form opened from the brand picker must show the catalogue's own unit and route (any letter case), never a blank box or another value; every difference is reported together. Finding 323 (#5432) is fixed: the form maps each catalogue value to its own code or shows it as given. Kept as a regression check; standard route codes (SQ as SC, Intranasal as IN, Intradermal as ID) are accepted."
     },
     {
       "name": "prevention-cvc-lot-expiry",

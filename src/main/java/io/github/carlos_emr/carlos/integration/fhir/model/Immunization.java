@@ -422,6 +422,10 @@ public class Immunization<T extends AbstractModel<Integer> & ImmunizationInterfa
             } else if ("IN".equals(oscarRouteCode)) {
                 code = "46713006";
                 display = "Intranasal: IN";
+            } else if ("IV".equals(oscarRouteCode)) {
+                // Offered by the Add Prevention form since #5432 (an IV brand such as Cytogam).
+                code = "47625008";
+                display = "Intravenous: IV";
             } else if ("PO".equals(oscarRouteCode)) {
                 code = "26643006";
                 display = "Oral: PO";
