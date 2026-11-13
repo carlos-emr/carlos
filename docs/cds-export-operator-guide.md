@@ -41,7 +41,10 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    export-store and master-key roots. Store/key IDs are immutable bindings for
    accepted jobs; retain the original configured roots/keys while their artifacts
    remain available. Never rotate a missing or invalid existing key as a recovery
-   shortcut.
+   shortcut. An installation that has imported CDS charts also needs the import's
+   native-baseline witness key files (`cds.nativeBaseline.keyRoot`, see the import
+   configuration) to re-export them; without them the job stops with
+   `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`.
 5. Configure the root-controlled sender, recipient certificate and audit arrangement
    under `cds.export.policyRoot`. The exact manifest/file hashes, recipient pin,
    validity, scope and approved audit text are rechecked at disclosure boundaries.
