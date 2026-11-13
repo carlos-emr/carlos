@@ -141,6 +141,55 @@ class CdsExportDemographicPhonesMapperUnitTest {
     }
 
     @Test
+    void shouldAccountForTheRowsAMasterRecordSaveWrites_whileHoldingAPopulatedUnsupportedValue()
+            throws Exception {
+        // D5: DemographicUpdate2Action saves one demographicExt row per key the form lists, with a
+        // NULL or empty value for each blank field, and edit-form-clinical.jsp posts
+        // rxInteractionWarningLevel "0" ("Not specified") for a patient without a level.
+        var saved = new ArrayList<CdsExportCapturedTextRowDto>();
+        long id = 0;
+        for (String key :
+                List.of(
+                        "aboriginal",
+                        "ethnicity",
+                        "area",
+                        "given_consent",
+                        "primaryEMR",
+                        "usSigned",
+                        "privacyConsent",
+                        "informedConsent",
+                        "paper_chart_archived_date",
+                        "HasPrimaryCarePhysician",
+                        "EmploymentStatus"))
+            saved.add(property(++id, key, null));
+        for (String key :
+                List.of("cytolNum", "phoneComment", "paper_chart_archived", "paper_chart_archived_program", "PHU"))
+            saved.add(property(++id, key, ""));
+        saved.add(property(++id, "rxInteractionWarningLevel", "0"));
+        var result = map(saved);
+        assertThat(result.baseRowRepresentable()).isTrue();
+        assertThat(result.relatedFields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        assertThat(
+                        result.relatedFields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicExt",
+                                                CdsExportPatientTableSourceReader.key(1),
+                                                "key_val"))
+                                .rule())
+                .isEqualTo("PROPERTY_KEY_OF_AN_EMPTY_EXTENSION");
+        assertThat(value(result, id).rule()).isEqualTo("UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+        // A value somebody chose has no CDS home and still holds the chart for review.
+        for (var chosen :
+                List.of(
+                        property(1, "aboriginal", "Yes"),
+                        property(1, "rxInteractionWarningLevel", "3"),
+                        property(1, "cytolNum", "12345")))
+            assertThat(map(List.of(chosen)).baseRowRepresentable()).isFalse();
+    }
+
+    @Test
     void
             shouldVerifyOrphanedNonemptyExtensionsCannotCreateAPhoneNumber_forDemographicPhonesMapperContract()
                     throws Exception {

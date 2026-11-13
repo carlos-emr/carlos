@@ -189,6 +189,8 @@ public final class CdsExportPersonalContactMapper {
                                     "facilityId",
                                     "programNo"))
                 state.operational(column, "CAPTURED_NATIVE_CONTACT_IDENTITY_OR_CONTEXT");
+            if (row.table().equals("DemographicContact"))
+                CdsExportContactConsent.assess(state, "Contact");
         }
         var groups = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
         for (var row : associations) {

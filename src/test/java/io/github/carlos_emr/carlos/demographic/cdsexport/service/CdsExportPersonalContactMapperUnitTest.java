@@ -193,6 +193,27 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
+    void shouldAcceptTheDefaultContactConsent_whileHoldingAnExplicitRefusal() throws Exception {
+        // D5: contact.jsp lists "Consent" (1) first and manageHealthCareTeam.jsp posts 1, so a
+        // contact added through the UI carries consentToContact 1. CDS 5.2 has no element for it.
+        var consenting = changed(association(-1, 9), "consentToContact", "1");
+        var result = map(List.of(consenting), List.of(contact(9)));
+        assertThat(result.nativeRepresentable()).isTrue();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "DemographicContact",
+                                                consenting.recordKey(),
+                                                "consentToContact"))
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+        parse(result, HASH);
+        var refused = changed(association(-1, 9), "consentToContact", "0");
+        assertThat(map(List.of(refused), List.of(contact(9))).nativeRepresentable()).isFalse();
+    }
+
+    @Test
     void shouldRefuseALegacyRelationshipId_insteadOfExportingItsDigitsAsThePurpose()
             throws Exception {
         // D4: older health-care-team data stored CtlRelationships ids ("3" is Parent in the
@@ -356,11 +377,14 @@ class CdsExportPersonalContactMapperUnitTest {
     void
             shouldVerifyUnknownPurposeFlagsConflictingAssertionsConsentAndResponsibleProviderContextAreNotDiscarded_forPersonalContactMapperContract()
                     throws Exception {
+        // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
+        // is covered by shouldAcceptTheDefaultContactConsent_whileHoldingAnExplicitRefusal; an
+        // explicit refusal or an unknown spelling still holds the chart.
         for (var pair :
                 List.of(
                         Map.entry("ec", "yes"),
                         Map.entry("sdm", "1"),
-                        Map.entry("consentToContact", "1"),
+                        Map.entry("consentToContact", "true"),
                         Map.entry("consentToContact", "0"),
                         Map.entry("mrp", "1")))
             assertThat(

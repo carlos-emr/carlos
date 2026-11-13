@@ -1673,6 +1673,17 @@ tables carry the same ruling in the source catalogue (`OPERATIONAL`), so an edit
 is no longer held because these rows exist. Earlier values stay available only through the
 approved audit arrangement in operator-guide step 6; the package does not carry them.
 
+Values that CARLOS's own forms write when nobody chooses anything are not patient facts and do
+not hold a chart. Each keeps an explicit `OPERATIONAL` disposition, and its source value stays in
+the protected capture: newsletter `Unknown` and country of origin `-1` ("Not set")
+(`UI_PLACEHOLDER_NOT_A_PATIENT_FACT`); the empty `demographicExt` row that a Master Record save
+writes for every blank listed key (`PROPERTY_KEY_OF_AN_EMPTY_EXTENSION`), on both the native and
+the imported-chart path; `rxInteractionWarningLevel` `0` ("Not specified"); and consent to contact
+`1` on contact and pharmacy links, which is the model and form default
+(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`). A value that someone chose and that has no CDS 5.2
+home still requires review: another newsletter choice or country, a populated unsupported
+extension, a warning level, or consent `0`, which is an instruction not to contact that person.
+
 The demographic occurrence decides exactly the public provider rows that its own columns
 name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
 whichever categories are selected. A provider captured only for another selected category

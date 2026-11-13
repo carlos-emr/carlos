@@ -71,6 +71,8 @@ public final class CdsExportDemographicAncillaryReconciler {
                     "pronoun",
                     "pronounId",
                     "sourceOfIncome");
+    private static final Map<String, String> UI_PLACEHOLDERS =
+            Map.of("newsletter", "Unknown", "country_of_origin", "-1");
 
     /**
      * Requires the exact captured row witness and disjoint prior ownership. Every base-row
@@ -182,6 +184,18 @@ public final class CdsExportDemographicAncillaryReconciler {
                                     .equals(value))) {
                 outcome = Outcome.OPERATIONAL;
                 rule = "NATIVE_EMPTY_REFERRING_PHYSICIAN_WRAPPER";
+            }
+            // Form placeholders, not patient facts: add-form-personal.jsp:738-739 preselects
+            // newsletter "Unknown" and edit-form-personal.jsp:994-999 re-posts it for an empty
+            // value; both forms offer country of origin "-1" ("Not set") as the first option
+            // (add-form-personal.jsp:969-970, edit-form-personal.jsp:1426). Each save writes
+            // them through DemographicAddRecord2Action/DemographicUpdate2Action. The value
+            // stays in the protected capture with this explicit disposition. Any other value
+            // remains a populated ancillary fact that requires review.
+            String placeholder = UI_PLACEHOLDERS.get(column);
+            if (placeholder != null && placeholder.equals(value)) {
+                outcome = Outcome.OPERATIONAL;
+                rule = "UI_PLACEHOLDER_NOT_A_PATIENT_FACT";
             }
             fields.put(
                     new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column),

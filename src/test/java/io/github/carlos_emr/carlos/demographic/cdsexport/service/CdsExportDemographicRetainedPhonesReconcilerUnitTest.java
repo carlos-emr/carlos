@@ -170,11 +170,27 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
         current.add(property(3, "hPhoneExt", "0012"));
         assertThat(reconcile().phonesRepresentable()).isFalse();
         setup();
+        // Updated for D5: another property row used to be deferred to an enclosing assembly that
+        // never decided it, so an imported chart edited through the Master Record failed its
+        // closure. It now receives the native property disposition and stays visible as review.
         current.add(property(3, "otherProperty", "Keep outside phone decisions"));
         var result = reconcile();
-        assertThat(result.deferredPropertyRows())
-                .containsExactly(CdsExportPatientTableSourceReader.key(3));
-        assertThat(result.phonesRepresentable()).isTrue();
+        assertThat(result.deferredPropertyRows()).isEmpty();
+        assertThat(result.phonesRepresentable()).isFalse();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicExt",
+                                                CdsExportPatientTableSourceReader.key(3),
+                                                "value"))
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        setup();
+        current.add(property(3, "otherProperty", ""));
+        var empty = reconcile();
+        assertThat(empty.deferredPropertyRows()).isEmpty();
+        assertThat(empty.phonesRepresentable()).isTrue();
     }
 
     @Test

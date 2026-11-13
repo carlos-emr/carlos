@@ -222,6 +222,8 @@ public final class CdsExportProfessionalContactMapper {
                                     "facilityId",
                                     "programNo"))
                 state.operational(column, "CAPTURED_PROFESSIONAL_CONTACT_IDENTITY_OR_CONTEXT");
+            if (row.table().equals("DemographicContact"))
+                CdsExportContactConsent.assess(state, "ReferredPhysician");
         }
         var grouped = new EnumMap<Role, List<CdsExportCapturedTextRowDto>>(Role.class);
         for (var row : associations) {

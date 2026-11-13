@@ -762,6 +762,89 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                 .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
     }
 
+    /**
+     * The row shapes that CARLOS's own forms write. add-form-personal.jsp preselects newsletter
+     * "Unknown", country of origin "-1", an empty title and spoken language, and English;
+     * DemographicAddRecord2Action stores the empty referring-physician wrapper. A later Master
+     * Record save (DemographicUpdate2Action) writes one demographicExt row per listed key, empty
+     * for blank fields, with rxInteractionWarningLevel "0". contact.jsp links a contact with
+     * consent "1"; DemographicPharmacyDaoImpl links a pharmacy with the model's consent TRUE.
+     */
+    private void masterRecordPatient() {
+        var current = rows.get("demographic").getFirst();
+        var values = new LinkedHashMap<>(current.fields());
+        values.put("newsletter", "Unknown");
+        values.put("country_of_origin", "-1");
+        values.put("title", "");
+        values.put("spoken_lang", "");
+        values.put("official_lang", "English");
+        values.put("family_doctor", "<rdohip></rdohip><rd></rd>");
+        values.put("hin", "1234567890");
+        values.put("ver", "");
+        values.put("hc_type", "ON");
+        values.put("address", "12 Main St");
+        values.put("city", "Ottawa");
+        values.put("province", "ON");
+        values.put("postal", "K1A 0B1");
+        values.put("chart_no", "");
+        values.put("sin", "");
+        values.put("email", "");
+        values.put("alias", "");
+        values.put("pref_name", "");
+        values.put("gender", "");
+        values.put("pronoun", "");
+        rows.get("demographic")
+                .set(0, new CdsExportCapturedTextRowDto(current.table(), current.recordKey(), values));
+        long id = 0;
+        for (String key : List.of("aboriginal", "ethnicity", "area", "usSigned", "EmploymentStatus"))
+            rows.get("demographicExt")
+                    .add(CdsExportDemographicPhonesMapperUnitTest.property(++id, key, null));
+        for (String key : List.of("cytolNum", "phoneComment", "demo_cell", "hPhoneExt", "PHU"))
+            rows.get("demographicExt")
+                    .add(CdsExportDemographicPhonesMapperUnitTest.property(++id, key, ""));
+        rows.get("demographicExt")
+                .add(
+                        CdsExportDemographicPhonesMapperUnitTest.property(
+                                ++id, "rxInteractionWarningLevel", "0"));
+        var link =
+                CdsExportPersonalContactMapperUnitTest.changed(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPersonalContactMapperUnitTest.changed(
+                                        CdsExportPersonalContactMapperUnitTest.association(-1, 9),
+                                        "role",
+                                        "Parent"),
+                                "ec",
+                                "true"),
+                        "sdm",
+                        "");
+        rows.get("DemographicContact")
+                .add(CdsExportPersonalContactMapperUnitTest.changed(link, "consentToContact", "1"));
+        rows.get("Contact").add(CdsExportPersonalContactMapperUnitTest.contact(9));
+        rows.get("demographicPharmacy")
+                .add(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPharmacyMapperUnitTest.link(-1, 7),
+                                "consentToContact",
+                                "1"));
+        rows.get("pharmacyInfo").add(CdsExportPharmacyMapperUnitTest.pharmacy(7));
+    }
+
+    @Test
+    void shouldExportAPatientCreatedAndEditedThroughTheMasterRecord_withoutHoldingForFormDefaults()
+            throws Exception {
+        masterRecordPatient();
+        var result = assemble();
+        assertThat(result.fields().values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        String xml = validatedXml(result);
+        assertThat(xml)
+                .contains("<cdsd:PurposeAsPlainText>Parent</cdsd:PurposeAsPlainText>", "<PreferredPharmacy>")
+                .doesNotContain(">Unknown<", ">-1<");
+    }
+
     /** Renders through the real composer and pinned-schema validator, as the job does. */
     private static String validatedXml(CdsExportNativeDemographicAssembler.Result result)
             throws IOException {

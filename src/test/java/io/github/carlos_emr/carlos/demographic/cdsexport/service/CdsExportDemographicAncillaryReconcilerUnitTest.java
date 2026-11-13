@@ -84,6 +84,20 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
             }
         }
     }
+    @Test void shouldAccountForMasterRecordPlaceholders_whileStillHoldingAChosenValue() throws Exception {
+        // D5: add-form-personal.jsp preselects newsletter "Unknown" and offers country of origin "-1" ("Not set");
+        // every save writes them. They are not patient facts; a chosen value has no CDS home and still holds the chart.
+        for (var placeholder : List.of(Map.entry("newsletter", "Unknown"), Map.entry("country_of_origin", "-1"))) {
+            var result = reconcile(row(placeholder.getKey(), placeholder.getValue()));
+            assertThat(result.fields().get(key(placeholder.getKey())).outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(result.fields().get(key(placeholder.getKey())).rule()).isEqualTo("UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+            assertThat(result.coreRepresentable()).isTrue();
+        }
+        for (var chosen : List.of(Map.entry("newsletter", "Paper"), Map.entry("country_of_origin", "CA"))) {
+            var result = reconcile(row(chosen.getKey(), chosen.getValue()));
+            assertThat(result.fields().get(key(chosen.getKey())).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+        }
+    }
     @Test void shouldAccountForCapturedOperationalIdentity_withoutInventingClinicalHistory() throws Exception {
         for (String column : List.of("date_joined", "lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer")) {
             var result = reconcile(row(column, "fixture"));

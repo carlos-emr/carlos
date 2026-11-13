@@ -111,7 +111,41 @@ public final class CdsExportDemographicPhonesMapper {
                 continue;
             }
             mark(row, fields, "hidden", Outcome.OPERATIONAL, "", "EXACT_VISIBLE_NATIVE_PROPERTY");
-            if (key == null || !KEYS.containsKey(key)) continue;
+            if (key == null || !KEYS.containsKey(key)) {
+                String value = row.fields().get("value");
+                // DemographicUpdate2Action saves one row for every key the Master Record form
+                // lists (DemographicEditVersion.editedExtensionKeys()), with a NULL or empty
+                // value for each field left blank. An empty row states no patient fact, so its
+                // key is accounted for here; a populated unsupported property still requires
+                // review.
+                if (key != null && !present(value))
+                    mark(
+                            row,
+                            fields,
+                            "key_val",
+                            Outcome.OPERATIONAL,
+                            "",
+                            "PROPERTY_KEY_OF_AN_EMPTY_EXTENSION");
+                // edit-form-clinical.jsp:167-168 and 1282-1285 select "0" ("Not specified") for
+                // a patient without a warning level, so every save writes "0".
+                else if ("rxInteractionWarningLevel".equals(key) && "0".equals(value)) {
+                    mark(
+                            row,
+                            fields,
+                            "key_val",
+                            Outcome.OPERATIONAL,
+                            "",
+                            "UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+                    mark(
+                            row,
+                            fields,
+                            "value",
+                            Outcome.OPERATIONAL,
+                            "",
+                            "UI_PLACEHOLDER_NOT_A_PATIENT_FACT");
+                }
+                continue;
+            }
             String path = path(key);
             mark(row, fields, "key_val", Outcome.MAPPED, path, "EXACT_NATIVE_PHONE_PROPERTY_KEY");
             if (known.putIfAbsent(key, row) != null) duplicate.add(key);

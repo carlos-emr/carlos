@@ -161,6 +161,8 @@ public final class CdsExportPharmacyMapper {
                             ? List.of("recordID", "addDate", "uid")
                             : List.of("id", "demographic_no", "addDate"))
                 state.operational(column, "CAPTURED_NATIVE_PHARMACY_IDENTITY_OR_METADATA");
+            if (row.table().equals("demographicPharmacy"))
+                CdsExportContactConsent.assess(state, "PreferredPharmacy");
         }
         for (var row : links) {
             var state = states.get(row);

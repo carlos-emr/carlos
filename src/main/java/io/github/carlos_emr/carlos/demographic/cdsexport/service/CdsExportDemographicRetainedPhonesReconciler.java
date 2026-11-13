@@ -34,7 +34,13 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/** Retained phone occurrences plus original/current extension and mobile witnesses; other properties remain explicit hand-offs. */
+/**
+ * Retained phone occurrences plus original/current extension and mobile witnesses. Every other
+ * captured property row receives the same native property disposition as on a native chart
+ * (an empty row's key is operational, a populated unsupported value requires review), so an
+ * imported chart later saved through the Master Record form is never left with undecided
+ * extension rows. {@link Result#deferredPropertyRows()} is therefore always empty.
+ */
 public final class CdsExportDemographicRetainedPhonesReconciler {
     private static final String ROOT = "/OmdCds[1]/PatientRecord[1]/Demographics[1]/";
     private static final Pattern PHONE =
@@ -103,7 +109,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         var proofs = capturedProperties.proofs();
         var rows = capturedProperties.rows();
         var known = capturedProperties.known();
-        var deferred = capturedProperties.deferred();
         var nativeRaw = new LinkedHashMap<>(current.fields());
         nativeRaw.remove("demographic_no");
         var demographic = new CdsExportDemographicRowDto(patient, nativeRaw);
@@ -112,7 +117,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                         .map(
                                 new CdsExportDemographicMapper().map(demographic),
                                 demographic,
-                                known,
+                                propertyRows,
                                 maximumRows,
                                 maximumBytes,
                                 checkpoint);
@@ -309,7 +314,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         values.requireActive();
         checkpoint.run();
         return new Result(
-                index.sourceManifestSha256(), address, sourceIds, deferred, fields, changes);
+                index.sourceManifestSha256(), address, sourceIds, Set.of(), fields, changes);
     }
 
     private record SourcePhones(
@@ -361,8 +366,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
     private record CapturedProperties(
             Map<String, CdsExportNativeRowReceiptDto> proofs,
             Map<String, CdsExportCapturedTextRowDto> rows,
-            List<CdsExportCapturedTextRowDto> known,
-            Set<String> deferred) {
+            List<CdsExportCapturedTextRowDto> known) {
         @Override
         public String toString() {
             return "CapturedProperties[protected]";
@@ -395,7 +399,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
         }
         var rows = new HashMap<String, CdsExportCapturedTextRowDto>();
         var known = new ArrayList<CdsExportCapturedTextRowDto>();
-        var deferred = new HashSet<String>();
         long bytes = 0;
         for (var row : propertyRows) {
             checkpoint.run();
@@ -425,10 +428,9 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             if (bytes > maximumBytes)
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_RETAINED_PHONE_RESOURCE_LIMIT");
             if (KEYS.containsValue(row.fields().get("key_val"))) known.add(row);
-            else deferred.add(row.recordKey());
         }
         if (!rows.keySet().equals(proofs.keySet())) scope();
-        return new CapturedProperties(proofs, rows, known, deferred);
+        return new CapturedProperties(proofs, rows, known);
     }
 
     private static Map<String, Property> properties(

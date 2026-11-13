@@ -192,7 +192,10 @@ class CdsExportPharmacyMapperUnitTest {
 
     @Test
     void shouldVerifyContactConsentIsCapturedSourceContextAndNeverInventedOrDiscarded_forPharmacyMapperContract() throws Exception {
-        for (String value : List.of("0", "1"))
+        // Updated for D5: "1" is the model default that DemographicPharmacyDaoImpl persists for every
+        // pharmacy a patient is linked to, so it used to hold every UI-linked pharmacy. It is now
+        // operational; an explicit refusal ("0") or an unknown spelling still requires review.
+        for (String value : List.of("0", "true"))
             assertThat(
                             map(
                                             List.of(
@@ -203,6 +206,18 @@ class CdsExportPharmacyMapperUnitTest {
                                             List.of(pharmacy(9)))
                                     .nativeRepresentable())
                     .isFalse();
+        var linked = changed(link(-1, 9), "consentToContact", "1");
+        var result = map(List.of(linked), List.of(pharmacy(9)));
+        assertThat(result.nativeRepresentable()).isTrue();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicPharmacy",
+                                                linked.recordKey(),
+                                                "consentToContact"))
+                                .rule())
+                .isEqualTo("DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER");
     }
 
     @ParameterizedTest

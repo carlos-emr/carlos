@@ -234,9 +234,11 @@ class CdsExportContactFieldReconcilerUnitTest {
     @Test
     void shouldVerifyNativeConsentHistoryAndAdditionalPopulatedFieldsRemainExplicitReviewRequirements_forContactFieldReconcilerContract()
             throws Exception {
+        // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
+        // no longer holds the chart; an explicit refusal still does.
         for (var entry :
                 List.of(
-                        Map.entry("consentToContact", "1"),
+                        Map.entry("consentToContact", "0"),
                         Map.entry("active", "0"),
                         Map.entry("deleted", "1"))) {
             association = new LinkedHashMap<>(oldAssociation);
