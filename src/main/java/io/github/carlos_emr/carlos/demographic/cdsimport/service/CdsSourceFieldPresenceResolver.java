@@ -123,7 +123,7 @@ public class CdsSourceFieldPresenceResolver {
             LoggedInInfo viewer = session == null ? null : LoggedInInfo.getLoggedInInfoFromSession(session);
             access.requireClinicalRead(viewer, patient, category);
             return true;
-        } catch (SecurityException refused) {
+        } catch (SecurityException _) {
             return false;
         } catch (RuntimeException failure) {
             LOG.warn("CDS source link authorization check failed; hiding the link", failure);
