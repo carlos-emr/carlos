@@ -154,9 +154,12 @@ public class RecurringAppointmentService {
      * (reminders off) leaves every stored choice as it is.
      */
     private void recordReminderChoice(LoggedInInfo user, Map<String, String> values, Appointment appointment) {
-        if (AppointmentReminderChoice.isOnCopiedForm(values)) {
-            reminders.recordRequest(user, appointment.getId(), appointment.getDemographicNo(), ReminderChannel.EMAIL,
-                    AppointmentReminderChoice.isTickedOnCopiedForm(values));
+        // Each reminder box on the form (#884: email and text) is recorded on its own.
+        for (ReminderChannel channel : ReminderChannel.values()) {
+            if (AppointmentReminderChoice.isOnCopiedForm(values, channel)) {
+                reminders.recordRequest(user, appointment.getId(), appointment.getDemographicNo(), channel,
+                        AppointmentReminderChoice.isTickedOnCopiedForm(values, channel));
+            }
         }
     }
 

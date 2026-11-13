@@ -8,12 +8,12 @@ path (`EmailManager`), so every email rule that applies to staff-sent patient em
 
 | Setting | Where | Meaning |
 |---|---|---|
-| `emailApptReminder` | `carlos.properties` | `yes`, `true` or `on` shows the box on Add/Edit Appointment and runs the reminder job every 5 minutes. Off by default. |
+| `emailApptReminder` | `carlos.properties` | `yes`, `true` or `on` shows the box on Add/Edit Appointment and sends email reminders. Off by default. The reminder job runs every 5 minutes while this or the text reminder switch (`smsApptReminder`, see [Text Appointment Reminders](../sms/appointment-text-reminders.md)) is on. |
 | `appointment_reminder.email.sender` | `carlos.properties` | The sender address reminders go from. It must be an **active** sender in Administration > Email configuration. Without it, nothing is sent and each reminder records "not set up". |
 | `appointment_reminder.email.hours_before` | `carlos.properties` | How many hours before the start the reminder goes. Default 24; kept between 3 and 168. A missing or invalid value uses 24, and the log says so. |
 
-`emailApptReminder` and `hours_before` are read at startup, so restart Tomcat after changing them. The sender
-address is read at every send.
+`emailApptReminder` and `hours_before` are read at startup, so restart Tomcat after changing them: the job starts
+at startup when either reminder switch is on. The sender address is read at every send.
 
 The clinic email footer must be configured, as for every patient email. The `appointment_reminder` table and the
 `_edoc` write right for the system account come from the release's database migration.
@@ -116,6 +116,6 @@ Each reminder is claimed with `SELECT … FOR UPDATE SKIP LOCKED` before it is s
 server may run the job. An attempt is recorded before the email is sent: a server stopping mid-send can leave a
 reminder "not confirmed", but never sends it twice.
 
-## Later: SMS
-Each reminder row names its channel. SMS reminders (#3843) can be added as a second channel without a schema
-change, using the SMS module's own consent gate.
+## Text reminders
+Each reminder row names its channel. Text reminders are the second channel, with their own box, switch and consent
+gate: see [Text Appointment Reminders](../sms/appointment-text-reminders.md) (#884).

@@ -234,7 +234,8 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
         ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.status.due", "");
-        when(reminders.statusLine(any(Appointment.class), any(Locale.class))).thenReturn(Optional.of(line));
+        when(reminders.statusLine(any(Appointment.class), org.mockito.ArgumentMatchers.eq(ReminderChannel.EMAIL),
+                any(Locale.class))).thenReturn(Optional.of(line));
         // A front-desk role: the appointment and the patient's record, but no right on their email.
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
@@ -248,15 +249,18 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
     void shouldHideTheStatusLine_fromAUserWhoMayNotOpenThisPatientsAppointment() {
         AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
         SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
-        when(reminders.statusLine(any(Appointment.class), any(Locale.class)))
+        when(reminders.statusLine(any(Appointment.class), any(ReminderChannel.class), any(Locale.class)))
                 .thenReturn(Optional.of(new ReminderStatusLine("appointment.reminder.status.due", "")));
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
         when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
-        // Email rights do not stand in for the appointment's.
+        // Email or text rights do not stand in for the appointment's.
         when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(true);
 
         assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), Locale.ENGLISH))
                 .as("no _appointment w for this patient").isNull();
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), ReminderChannel.SMS, Locale.ENGLISH))
+                .as("no _appointment w for this patient: no text line either").isNull();
 
         when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
         when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(false);
@@ -284,5 +288,126 @@ class AppointmentReminderChoiceUnitTest extends CarlosUnitTestBase {
         verify(security, never()).hasPrivilege(any(), anyString(), anyString(), anyInt());
         verify(security, never()).isAllowedAccessToPatientRecord(any(), anyInt());
         verify(reminders, never()).statusLine(any(), any());
+        verify(reminders, never()).statusLine(any(), any(), any());
+    }
+
+    // #884: the Text Reminder box sits beside the email one and is read, stored and shown on its own.
+
+    private static MockHttpServletRequest boxes(boolean emailShown, boolean emailTicked, boolean smsShown,
+                                                boolean smsTicked) {
+        MockHttpServletRequest request = form(emailShown, emailTicked);
+        if (smsShown) {
+            request.setParameter(AppointmentReminderChoice.SMS_SHOWN_PARAMETER, "1");
+        }
+        if (smsTicked) {
+            request.setParameter(AppointmentReminderChoice.SMS_PARAMETER, "text reminder");
+        }
+        return request;
+    }
+
+    @Test
+    void shouldReadEachBox_onlyUnderItsOwnName() {
+        MockHttpServletRequest emailOnly = boxes(true, true, false, false);
+        MockHttpServletRequest smsOnly = boxes(false, false, true, true);
+
+        assertThat(AppointmentReminderChoice.isOnForm(smsOnly, ReminderChannel.SMS)).isTrue();
+        assertThat(AppointmentReminderChoice.isTicked(smsOnly, ReminderChannel.SMS)).isTrue();
+        assertThat(AppointmentReminderChoice.isOnForm(smsOnly)).isFalse();
+        assertThat(AppointmentReminderChoice.isTicked(smsOnly)).isFalse();
+        assertThat(AppointmentReminderChoice.isOnForm(emailOnly, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isTicked(emailOnly, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isOnForm(null, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isTicked(null, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isAnyOnForm(smsOnly)).isTrue();
+        assertThat(AppointmentReminderChoice.isAnyOnForm(boxes(false, true, false, true))).isFalse();
+    }
+
+    @Test
+    void shouldRecordEachBoxOnItsOwnChannel_whenTheFormShowedBoth() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        AppointmentReminderChoice.record(boxes(true, false, true, true), user, appointment(101));
+
+        verify(reminders).recordRequest(user, 101, 42, ReminderChannel.EMAIL, false);
+        verify(reminders).recordRequest(user, 101, 42, ReminderChannel.SMS, true);
+    }
+
+    @Test
+    void shouldLeaveTheEmailChoiceAlone_whenOnlyTheTextBoxWasShown() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        AppointmentReminderChoice.record(boxes(false, true, true, false), user, appointment(101));
+
+        verify(reminders).recordRequest(user, 101, 42, ReminderChannel.SMS, false);
+        verify(reminders, never()).recordRequest(any(), anyInt(), anyInt(),
+                org.mockito.ArgumentMatchers.eq(ReminderChannel.EMAIL), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void shouldLeaveTheTextChoiceAlone_whenOnlyTheEmailBoxWasShown() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+
+        AppointmentReminderChoice.record(boxes(true, true, false, true), user, appointment(101));
+
+        verify(reminders).recordRequest(user, 101, 42, ReminderChannel.EMAIL, true);
+        verify(reminders, never()).recordRequest(any(), anyInt(), anyInt(),
+                org.mockito.ArgumentMatchers.eq(ReminderChannel.SMS), org.mockito.ArgumentMatchers.anyBoolean());
+    }
+
+    @Test
+    void shouldReadTheTextBox_fromAFormCopiedIntoAMap() {
+        var copied = java.util.Map.of(AppointmentReminderChoice.SMS_SHOWN_PARAMETER, "1",
+                AppointmentReminderChoice.SMS_PARAMETER, "on", AppointmentReminderChoice.SHOWN_PARAMETER, "1");
+
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(copied, ReminderChannel.SMS)).isTrue();
+        assertThat(AppointmentReminderChoice.isTickedOnCopiedForm(copied, ReminderChannel.SMS)).isTrue();
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(copied, ReminderChannel.EMAIL)).isTrue();
+        assertThat(AppointmentReminderChoice.isTickedOnCopiedForm(copied, ReminderChannel.EMAIL)).isFalse();
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(java.util.Map.of(AppointmentReminderChoice.SHOWN_PARAMETER, "1"),
+                ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isOnCopiedForm(null, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isTickedOnCopiedForm(null, ReminderChannel.SMS)).isFalse();
+    }
+
+    @Test
+    void shouldRecordAndMoveGroupReminders_whenOnlyTheTextBoxWasShown() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        MockHttpServletRequest smsOnly = boxes(false, false, true, true);
+
+        AppointmentReminderChoice.recordForGroup(smsOnly, user, java.util.List.of(booking(201, "999998", 42)), "999998");
+        AppointmentReminderChoice.moveReminders(smsOnly, user, 101, appointment(202));
+
+        verify(reminders).recordRequest(user, 201, 42, ReminderChannel.SMS, true);
+        verify(reminders).moveReminders(user, 101, 202);
+    }
+
+    @Test
+    void shouldAskTheStoredTextChoice_forTheEditPage() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        when(reminders.isRequested(101, ReminderChannel.SMS)).thenReturn(true);
+
+        assertThat(AppointmentReminderChoice.isRequested(101, ReminderChannel.SMS)).isTrue();
+        assertThat(AppointmentReminderChoice.isRequested(101)).isFalse();
+        assertThat(AppointmentReminderChoice.isRequested(null, ReminderChannel.SMS)).isFalse();
+        assertThat(AppointmentReminderChoice.isRequested(0, ReminderChannel.SMS)).isFalse();
+    }
+
+    /** #884 (the owner's decision): the text line, too, shows to whoever may open the appointment, without _sms. */
+    @Test
+    void shouldShowTheTextStatusLine_toWhoeverMayOpenThisPatientsAppointment() {
+        AppointmentReminderService reminders = createAndRegisterMock(AppointmentReminderService.class);
+        SecurityInfoManager security = createAndRegisterMock(SecurityInfoManager.class);
+        ReminderStatusLine line = new ReminderStatusLine("appointment.reminder.sms.status.due", "");
+        when(reminders.statusLine(any(Appointment.class), org.mockito.ArgumentMatchers.eq(ReminderChannel.SMS),
+                any(Locale.class))).thenReturn(Optional.of(line));
+        // A front-desk role: the appointment and the patient's record, but no right on their texts or email.
+        when(security.isAllowedAccessToPatientRecord(user, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_demographic", SecurityInfoManager.READ, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_appointment", SecurityInfoManager.WRITE, 42)).thenReturn(true);
+        when(security.hasPrivilege(user, "_sms", SecurityInfoManager.READ, 42)).thenReturn(false);
+        when(security.hasPrivilege(user, "_email", SecurityInfoManager.READ, 42)).thenReturn(false);
+
+        assertThat(AppointmentReminderChoice.statusLine(user, appointment(101), ReminderChannel.SMS, Locale.ENGLISH))
+                .isEqualTo(line);
     }
 }

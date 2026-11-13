@@ -193,14 +193,21 @@ public class AppointmentReminder extends AbstractModel<Long> {
         lastStatus = AppointmentReminderStatus.SENDING;
         lastAttemptAt = now;
         lastEmailLogId = null;
+        lastSmsTransactionId = null;
         attempts++;
         updatedAt = now;
     }
 
     /** The attempt for the current claim ended with {@code status}. */
     public void finish(AppointmentReminderStatus status, Integer emailLogId, Date now) {
+        finish(status, emailLogId, null, now);
+    }
+
+    /** The outcome, with the message it produced: an email log row, or an SMS row (#884). */
+    public void finish(AppointmentReminderStatus status, Integer emailLogId, Long smsTransactionId, Date now) {
         lastStatus = Objects.requireNonNull(status, "status");
         lastEmailLogId = emailLogId;
+        lastSmsTransactionId = smsTransactionId;
         updatedAt = now;
         releaseClaim();
     }

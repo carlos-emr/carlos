@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.appointment.reminder;
 
 import io.github.carlos_emr.carlos.PMmodule.dao.ProviderDao;
 import io.github.carlos_emr.carlos.commn.dao.ClinicDAO;
+import io.github.carlos_emr.carlos.commn.dao.DemographicExtDao;
 import io.github.carlos_emr.carlos.commn.dao.EmailConfigDao;
 import io.github.carlos_emr.carlos.commn.dao.SecObjPrivilegeDao;
 import io.github.carlos_emr.carlos.commn.model.EmailConfig;
@@ -34,6 +35,8 @@ import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.EmailComposeManager;
 import io.github.carlos_emr.carlos.managers.EmailManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManagerImpl;
+import io.github.carlos_emr.carlos.sms.dao.SmsTransactionDao;
+import io.github.carlos_emr.carlos.sms.service.SmsQueueService;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +44,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -52,7 +56,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 /**
- * A lock on one patient's record that names the system account (#5887): the reminder channels run as provider
+ * A lock on one patient's record that names the system account (#5887, #884): the reminder channels run as provider
  * {@code -1} with no HTTP session, so their access check must refuse quietly. The session-marking check would throw
  * inside the privilege evaluation and log an error with a stack trace for every such reminder.
  *
@@ -114,6 +118,22 @@ class ReminderPatientLockUnitTest extends CarlosUnitTestBase {
             assertThat(log.messages()).isEmpty();
         }
         verifyNoInteractions(demographics);
+    }
+
+    @Test
+    @DisplayName("should record no access, and log nothing, when the text channel meets the lock")
+    void shouldRecordNoAccessQuietly_whenTheTextChannelMeetsTheLock() {
+        SmsQueueService queue = mock(SmsQueueService.class);
+        SmsReminderChannel channel = new SmsReminderChannel(queue, mock(SmsTransactionDao.class), demographics,
+                mock(DemographicExtDao.class), mock(ClinicDAO.class), providers, security, () -> true, () -> null,
+                ReminderWindow.forSmsHoursBefore("24"), Clock.systemDefaultZone());
+
+        try (LogCapture log = LogCapture.forLogger(SecurityInfoManagerImpl.class)) {
+            assertThat(channel.send(REMINDER)).isEqualTo(
+                    ReminderOutcome.because(AppointmentReminderStatus.NOT_PERMITTED, "noPatientAccess"));
+            assertThat(log.messages()).isEmpty();
+        }
+        verifyNoInteractions(demographics, queue);
     }
 
     /** Guards the fixture: without the lock the same channel reaches the patient, so the lock is what refuses. */

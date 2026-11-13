@@ -98,7 +98,48 @@ class AppointmentReminderBoxJspRegressionTest {
     void shouldSendTheMarker_onlyWithTheBox() throws IOException {
         for (String name : new String[]{"addappointment.jsp", "editappointment.jsp"}) {
             assertThat(page(name).split("name=\"emailPtShown\"", -1)).as(name).hasSize(2);
+            assertThat(page(name).split("name=\"smsPtShown\"", -1)).as(name).hasSize(2);
         }
+    }
+
+    /**
+     * #884: the Text Reminder box follows the email block, after it closes, on the switch the reminder job reads
+     * for texts; so a clinic can turn on texts without email.
+     */
+    @Test
+    void shouldSendTheTextMarkerWithTheTextBox_onAdd() throws IOException {
+        assertThat(page("addappointment.jsp")).containsSubsequence(
+                "pros.isPropertyActive(\"emailApptReminder\")",
+                "<input type=\"hidden\" name=\"emailPtShown\" value=\"1\">",
+                "<% } %>",
+                "pros.isPropertyActive(io.github.carlos_emr.carlos.appointment.reminder.SmsReminderChannel.ENABLED_PROPERTY)",
+                "<fmt:message key=\"Appointment.formTextReminder\"/>",
+                "name=\"smsPt\" id=\"smsPt\" value=\"text reminder\"",
+                "AppointmentReminderChoice.isTicked(request,",
+                "ReminderChannel.SMS) ? \"checked\" : \"\" %>>",
+                "<input type=\"hidden\" name=\"smsPtShown\" value=\"1\">",
+                "<% } %>");
+    }
+
+    @Test
+    void shouldShowTheStoredTextChoiceAndItsStatus_onEdit() throws IOException {
+        assertThat(page("editappointment.jsp")).containsSubsequence(
+                "pros.isPropertyActive(\"emailApptReminder\")",
+                "<% } else { %>",
+                "<% }%>",
+                "pros.isPropertyActive(io.github.carlos_emr.carlos.appointment.reminder.SmsReminderChannel.ENABLED_PROPERTY)",
+                "AppointmentReminderChoice.isOnForm(request,",
+                "ReminderChannel.SMS)",
+                "AppointmentReminderChoice.isRequested(apptFromRequest.getId(),",
+                "ReminderChannel.SMS); %>",
+                "<fmt:message key=\"Appointment.formTextReminder\"/>",
+                "name=\"smsPt\" id=\"smsPt\" value=\"text reminder\" <%= smsReminderTicked ? \"checked\" : \"\" %>>",
+                "<input type=\"hidden\" name=\"smsPtShown\" value=\"1\">",
+                "AppointmentReminderChoice.statusLine(loggedInInfo,",
+                "apptFromRequest, io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS,",
+                "<fmt:message key=\"${smsReminderStatusKey}\" var=\"smsReminderStatusText\"><fmt:param value=\"${smsReminderStatusArgument}\"/></fmt:message>",
+                "<carlos:encode value=\"${smsReminderStatusText}\"/>",
+                "<% } %>");
     }
 
     /**

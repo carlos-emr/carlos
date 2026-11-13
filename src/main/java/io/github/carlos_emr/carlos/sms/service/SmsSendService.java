@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
@@ -29,6 +30,11 @@ public class SmsSendService {
     private static final String DIRECT_PROVIDER_EXCEPTION_CODE = "DIRECT_PROVIDER_EXCEPTION";
     /** Returned, without recording anything, while SMS is turned off in Administration &gt; SMS. */
     public static final String SMS_TURNED_OFF_MESSAGE = "SMS sending is turned off in Administration > SMS.";
+    /**
+     * Returned, without recording anything, for a text whose time limit has already passed (#884): an appointment
+     * reminder handed over too late is not sent at all.
+     */
+    public static final String SMS_EXPIRED_MESSAGE = "SMS not sent: the time it had to be sent by has passed.";
     /**
      * Returned, without recording anything, while the provider cannot send: a credential or the sender number it
      * needs is not saved, or a saved credential cannot be read.
@@ -134,6 +140,9 @@ public class SmsSendService {
         if (!validation.valid()) {
             return SmsSendResultDto.validationFailed(validation.messages());
         }
+        if (command.expiredAt(Instant.now())) {
+            return SmsSendResultDto.validationFailed(List.of(SMS_EXPIRED_MESSAGE));
+        }
 
         SmsProviderType providerType = forcedProvider != null ? forcedProvider : providerSelector.configuredDefault();
         SmsProviderSettings settings;
@@ -155,13 +164,13 @@ public class SmsSendService {
             return SmsSendResultDto.validationFailed(List.of(e.getMessage()));
         }
         if (!consentDecision.allowed()) {
-            return SmsSendResultDto.consentBlocked(consentDecision);
+            return SmsSendResultDto.consentBlocked(consentDecision, transaction.getId());
         }
 
         try {
             transaction = transactionRecorder.markSending(transaction, new Date());
         } catch (SmsTransactionClaimConflictException e) {
-            return SmsSendResultDto.queued();
+            return SmsSendResultDto.queued(transaction.getId());
         }
 
         // Claim before taking a permit, as the queue worker does, so a claim conflict never burns one. Nothing
@@ -243,13 +252,13 @@ public class SmsSendService {
     private SmsSendResultDto releasedClaimResult(SmsTransaction released) {
         Objects.requireNonNull(released, "SMS claim release result is required");
         if (released.getStatus() == SmsStatus.QUEUED) {
-            return SmsSendResultDto.queued();
+            return SmsSendResultDto.queued(released.getId());
         }
         if (released.getStatus() == SmsStatus.SENDING) {
             // A version conflict (or removed row) prevented a confirmed handoff. Preserve the newer
             // claim and tell the caller to reconcile its outcome before creating another send.
             return new SmsSendResultDto(false, SmsStatus.SENDING, released.getProviderMessageId(),
-                    List.of(SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE));
+                    List.of(SmsProviderSendResultDto.OUTCOME_UNKNOWN_MESSAGE), released.getId());
         }
         return SmsSendResultDto.fromTransaction(released);
     }

@@ -208,11 +208,18 @@ public class AppointmentReminderService {
      * is cancelled, a no-show or past, or it has no patient.
      */
     public Optional<ReminderStatusLine> statusLine(Appointment appointment, Locale locale) {
+        return statusLine(appointment, ReminderChannel.EMAIL, locale);
+    }
+
+    /** The status line for one channel's reminder (#884: the Text Reminder box has its own). */
+    public Optional<ReminderStatusLine> statusLine(Appointment appointment, ReminderChannel channel, Locale locale) {
         if (appointment == null || appointment.getId() == null || appointment.getDemographicNo() <= 0
                 || isCancelledOrNoShow(appointment.getStatus())) {
             return Optional.empty();
         }
-        Optional<AppointmentReminder> stored = reminders.findByAppointment(appointment.getId(), ReminderChannel.EMAIL);
+        Optional<AppointmentReminder> stored = reminders.findByAppointment(appointment.getId(), channel);
+        // Each channel words its own lines (#884: "the patient has not consented to texts", "See SMS Queue").
+        String keys = statusKeyPrefix(channel);
         if (stored.isEmpty() || !stored.get().isRequested()) {
             return Optional.empty();
         }
@@ -226,29 +233,51 @@ public class AppointmentReminderService {
                 .withLocale(locale == null ? Locale.ENGLISH : locale);
         LocalDateTime attempted = toLocal(reminder.getLastAttemptAt());
         String attemptedAt = attempted == null ? "" : shown.format(attempted);
-        if (start.equals(toLocal(reminder.getSentFor())) && reminder.getLastStatus() != null) {
-            return Optional.of(switch (reminder.getLastStatus()) {
-                case SENT -> new ReminderStatusLine("appointment.reminder.status.sent", attemptedAt);
-                // A send in progress lasts seconds; one a stopped server left becomes UNCONFIRMED when recovered.
-                case SENDING -> new ReminderStatusLine("appointment.reminder.status.sending", "");
-                case UNCONFIRMED -> new ReminderStatusLine("appointment.reminder.status.unconfirmed", attemptedAt);
-                case FAILED -> new ReminderStatusLine("appointment.reminder.status.failed", attemptedAt);
-                case BLOCKED_CONSENT -> new ReminderStatusLine("appointment.reminder.status.blockedConsent", "");
-                case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine("appointment.reminder.status.noAddress", "");
-                case NO_SENDER, NO_FOOTER -> new ReminderStatusLine("appointment.reminder.status.notSetUp", "");
-                case NOT_PERMITTED -> new ReminderStatusLine("appointment.reminder.status.notPermitted", "");
-                case DUPLICATE -> new ReminderStatusLine("appointment.reminder.status.duplicate", "");
+        AppointmentReminderStatus current = reminder.getLastStatus() == null ? null
+                : channelFor(channel).map(found -> found.currentStatus(reminder)).orElse(reminder.getLastStatus());
+        if (start.equals(toLocal(reminder.getSentFor())) && current != null) {
+            return Optional.of(switch (current) {
+                case SENT -> new ReminderStatusLine(keys + "sent", attemptedAt);
+                case QUEUED -> new ReminderStatusLine(keys + "queued", attemptedAt);
+                case EXPIRED -> new ReminderStatusLine(keys + "expired", "");
+                case SENDING -> new ReminderStatusLine(keys + "sending", "");
+                case UNCONFIRMED -> new ReminderStatusLine(keys + "unconfirmed", attemptedAt);
+                case FAILED -> failedLine(channel, reminder, keys, attemptedAt);
+                case TOO_LONG -> new ReminderStatusLine(keys + "doesNotFit", "");
+                case BLOCKED_CONSENT -> new ReminderStatusLine(keys + "blockedConsent", "");
+                case NO_ADDRESS, INVALID_ADDRESS -> new ReminderStatusLine(keys + "noAddress", "");
+                case NO_SENDER, NO_FOOTER -> new ReminderStatusLine(keys + "notSetUp", "");
+                case NOT_PERMITTED -> new ReminderStatusLine(keys + "notPermitted", "");
+                case DUPLICATE -> new ReminderStatusLine(keys + "duplicate", "");
             });
         }
         if (!now.isBefore(start)) {
             return Optional.empty();
         }
-        if (now.isBefore(window.opensAt(start))) {
-            return Optional.of(new ReminderStatusLine("appointment.reminder.status.scheduled", shown.format(window.opensAt(start))));
+        ReminderWindow channelWindow = windowFor(channel);
+        // #884: the next moment it can go, quiet hours included, so a text ticked at night says 08:00.
+        Optional<LocalDateTime> next = channelWindow.nextSendTime(start, now);
+        if (next.isEmpty()) {
+            // Time is left before the cutoff, but all of it is in the quiet hours (text reminders only).
+            return Optional.of(new ReminderStatusLine(keys + (now.isBefore(start.minus(channelWindow.cutoff()))
+                    ? "quietHours" : "tooLate"), ""));
         }
-        return Optional.of(window.isDue(start, now, null)
-                ? new ReminderStatusLine("appointment.reminder.status.due", "")
-                : new ReminderStatusLine("appointment.reminder.status.tooLate", ""));
+        return Optional.of(next.get().isAfter(now)
+                ? new ReminderStatusLine(keys + "scheduled", shown.format(next.get()))
+                : new ReminderStatusLine(keys + "due", ""));
+    }
+
+    /**
+     * A definite failure's line. A text reminder that failed before it reached the SMS queue has no SMS row to
+     * look at (#884), so its line says nothing was sent, and whether it is tried once more.
+     */
+    private ReminderStatusLine failedLine(ReminderChannel channel, AppointmentReminder reminder, String keys,
+                                          String attemptedAt) {
+        if (channel != ReminderChannel.SMS || reminder.getLastStatus() != AppointmentReminderStatus.FAILED) {
+            return new ReminderStatusLine(keys + "failed", attemptedAt);
+        }
+        return new ReminderStatusLine(keys + (reminder.getAttempts() < maxAttemptsFor(channel)
+                ? "notQueuedRetry" : "notQueued"), attemptedAt);
     }
 
     /**
@@ -267,11 +296,15 @@ public class AppointmentReminderService {
             if (Thread.currentThread().isInterrupted()) {
                 break;
             }
+            if (!channel.enabled()) {
+                continue;
+            }
             LocalDateTime now = LocalDateTime.now(clock);
             recoverAbandoned(channel.channel(), now);
+            ReminderWindow channelWindow = channel.window().orElse(window);
             List<Long> due = new ArrayList<>();
-            for (ReminderCandidate candidate : reminders.findDue(channel.channel(), window.earliestStart(now),
-                    window.latestStart(now), MAX_ATTEMPTS, MAX_CANDIDATES)) {
+            for (ReminderCandidate candidate : reminders.findDue(channel.channel(), channelWindow.earliestStart(now),
+                    channelWindow.latestStart(now), channel.maxAttempts(), MAX_CANDIDATES)) {
                 if (due.size() >= batchSize) {
                     break;
                 }
@@ -372,7 +405,7 @@ public class AppointmentReminderService {
      */
     public static final Set<AppointmentReminderStatus> HANDED_OVER = Collections.unmodifiableSet(
             EnumSet.of(AppointmentReminderStatus.SENT, AppointmentReminderStatus.UNCONFIRMED,
-                    AppointmentReminderStatus.SENDING));
+                    AppointmentReminderStatus.SENDING, AppointmentReminderStatus.QUEUED));
 
     /** Where a reminder stands against the patient's other bookings for the same visit. */
     enum SameVisit {
@@ -426,7 +459,9 @@ public class AppointmentReminderService {
                     boolean live = other.isRequested() && booking != null && !isCancelledOrNoShow(booking.getStatus())
                             && start.equals(toLocal(booking.getStartTimeAsFullDate()));
                     // Sent, or may have been. A DUPLICATE never covers in return: it may be covered by this one.
-                    if (done == AppointmentReminderStatus.SENT || done == AppointmentReminderStatus.UNCONFIRMED) {
+                    // A text handed to the SMS queue (#884) counts as sent.
+                    if (done == AppointmentReminderStatus.SENT || done == AppointmentReminderStatus.UNCONFIRMED
+                            || done == AppointmentReminderStatus.QUEUED) {
                         // A booking still here covers the visit. One that left this start since (unticked, cancelled,
                         // moved) covers only a booking that was already here when its reminder went: a booking moved
                         // or booked into this start later is reminded for it.
@@ -513,13 +548,20 @@ public class AppointmentReminderService {
      * the window allows, from {@link #RETRY_AFTER} after its last attempt (the retry rule in {@link #isDue}).
      */
     private boolean retryPossible(AppointmentReminder reminder, LocalDateTime start, LocalDateTime now) {
-        if (reminder.getLastStatus() != AppointmentReminderStatus.FAILED || reminder.getAttempts() >= MAX_ATTEMPTS) {
+        if (reminder.getLastStatus() != AppointmentReminderStatus.FAILED
+                || reminder.getAttempts() >= maxAttemptsFor(reminder.getChannel())) {
             return false;
         }
         LocalDateTime lastAttempt = toLocal(reminder.getLastAttemptAt());
         LocalDateTime retryAt = lastAttempt == null || lastAttempt.plus(RETRY_AFTER).isBefore(now)
                 ? now : lastAttempt.plus(RETRY_AFTER);
-        return window.isDue(start, retryAt, null);
+        // A sibling must not yield to a retry whose allowed window is shorter than the polling period.
+        // Use the channel's own window, quiet hours and handover margin included (#884).
+        ReminderWindow channelWindow = windowFor(reminder.getChannel());
+        return channelWindow.nextSendTime(start, retryAt)
+                .filter(next -> channelWindow.isDue(start,
+                        next.plusSeconds(AppointmentReminderScheduler.INTERVAL_SECONDS), null))
+                .isPresent();
     }
 
     /**
@@ -540,7 +582,7 @@ public class AppointmentReminderService {
         Date start = appointment.getStartTimeAsFullDate();
         reminder.startSending(start, toDate(now));
         return Optional.of(new ClaimedReminder(reminder.getId(), appointment.getId(), appointment.getDemographicNo(),
-                toLocal(start)));
+                toLocal(start), reminder.getRequestedBy()));
     }
 
     /**
@@ -570,7 +612,7 @@ public class AppointmentReminderService {
             logger.warn("Appointment reminder {} changed hands before its outcome was recorded", claimed.reminderId());
             return;
         }
-        reminder.finish(outcome.status(), outcome.emailLogId(), Date.from(clock.instant()));
+        reminder.finish(outcome.status(), outcome.emailLogId(), outcome.smsTransactionId(), Date.from(clock.instant()));
     }
 
     /** Releases this run's claim on reminders it did not start, so the next run need not wait for it to go stale. */
@@ -603,7 +645,8 @@ public class AppointmentReminderService {
             recovered = transactions.execute(status -> {
                 List<ClaimedReminder> found = new ArrayList<>();
                 for (AppointmentReminder reminder : reminders.findAbandonedSending(channel, toDate(now.minus(STALE_CLAIM)))) {
-                    reminder.finish(AppointmentReminderStatus.UNCONFIRMED, reminder.getLastEmailLogId(), toDate(now));
+                    reminder.finish(AppointmentReminderStatus.UNCONFIRMED, reminder.getLastEmailLogId(),
+                            reminder.getLastSmsTransactionId(), toDate(now));
                     Appointment appointment = appointments.find(reminder.getAppointmentNo());
                     found.add(new ClaimedReminder(reminder.getId(), reminder.getAppointmentNo(),
                             appointment == null ? 0 : appointment.getDemographicNo(), toLocal(reminder.getSentFor())));
@@ -642,6 +685,7 @@ public class AppointmentReminderService {
     private static void audit(ReminderChannel channel, ClaimedReminder reminder, ReminderOutcome outcome) {
         String data = "reminderId=" + reminder.reminderId()
                 + (outcome.emailLogId() == null ? "" : "&emailLogId=" + outcome.emailLogId())
+                + (outcome.smsTransactionId() == null ? "" : "&smsTransactionId=" + outcome.smsTransactionId())
                 + (outcome.reason() == null ? "" : "&reason=" + outcome.reason());
         LogAction.addLog(Provider.SYSTEM_PROVIDER_NO, "AppointmentReminder." + channel + "." + outcome.status(),
                 LogConst.CON_APPT, String.valueOf(reminder.appointmentNo()), null,
@@ -659,15 +703,34 @@ public class AppointmentReminderService {
         }
         LocalDateTime start = toLocal(appointment.getStartTimeAsFullDate());
         LocalDateTime sentFor = toLocal(reminder.getSentFor());
-        if (window.isDue(start, now, sentFor)) {
+        ReminderWindow channelWindow = windowFor(reminder.getChannel());
+        if (channelWindow.isDue(start, now, sentFor)) {
             return true;
         }
         LocalDateTime lastAttempt = toLocal(reminder.getLastAttemptAt());
         return start != null && start.equals(sentFor)
                 && reminder.getLastStatus() == AppointmentReminderStatus.FAILED
-                && reminder.getAttempts() < MAX_ATTEMPTS
+                && reminder.getAttempts() < maxAttemptsFor(reminder.getChannel())
                 && lastAttempt != null && !lastAttempt.plus(RETRY_AFTER).isAfter(now)
-                && window.isDue(start, now, null);
+                && channelWindow.isDue(start, now, null);
+    }
+
+    /** The bundle key prefix of a channel's status lines. */
+    static String statusKeyPrefix(ReminderChannel channel) {
+        return channel == ReminderChannel.SMS ? "appointment.reminder.sms.status." : "appointment.reminder.status.";
+    }
+
+    private Optional<AppointmentReminderChannel> channelFor(ReminderChannel kind) {
+        return channels.get().stream().filter(channel -> channel.channel() == kind).findFirst();
+    }
+
+    /** The channel's own window (#884: SMS has its lead time and quiet hours), else the service's. */
+    private ReminderWindow windowFor(ReminderChannel kind) {
+        return channelFor(kind).flatMap(AppointmentReminderChannel::window).orElse(window);
+    }
+
+    private int maxAttemptsFor(ReminderChannel kind) {
+        return channelFor(kind).map(AppointmentReminderChannel::maxAttempts).orElse(MAX_ATTEMPTS);
     }
 
     /** Cancelled ({@code C}, including its {@code S}/{@code V} variants) or no-show ({@code N}). */

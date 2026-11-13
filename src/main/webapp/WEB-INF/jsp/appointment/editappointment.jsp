@@ -1518,6 +1518,38 @@
                     <td></td>
                 </tr>
                 <% }%>
+                <%-- #884: the Text Reminder box, as the email one above: the stored choice or the posted one,
+                     smsPtShown so a form without the box never withdraws a text reminder, and its own status
+                     line, shown to whoever may open this patient's appointment (_appointment w for the patient,
+                     with the patient's record locks), as the email line is. --%>
+                <% if (pros.isPropertyActive(io.github.carlos_emr.carlos.appointment.reminder.SmsReminderChannel.ENABLED_PROPERTY)) { %>
+                <% boolean smsReminderTicked = io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isOnForm(request,
+                                io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS)
+                        ? io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isTicked(request,
+                                io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS)
+                        : apptFromRequest != null
+                          && io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.isRequested(apptFromRequest.getId(),
+                                io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS); %>
+                <tr>
+                    <td>
+                        <label for="smsPt"><fmt:message key="Appointment.formTextReminder"/>:</label>
+                    </td>
+                    <td>
+                <input type="checkbox" class="form-check-input" name="smsPt" id="smsPt" value="text reminder" <%= smsReminderTicked ? "checked" : "" %>>
+                <input type="hidden" name="smsPtShown" value="1">
+                <% io.github.carlos_emr.carlos.appointment.reminder.ReminderStatusLine smsReminderStatus = apptFromRequest == null ? null
+                        : io.github.carlos_emr.carlos.appointment.reminder.AppointmentReminderChoice.statusLine(loggedInInfo,
+                                apptFromRequest, io.github.carlos_emr.carlos.appointment.reminder.ReminderChannel.SMS,
+                                (java.util.Locale) pageContext.getAttribute("appointmentLocale"));
+                    if (smsReminderStatus != null) {
+                        pageContext.setAttribute("smsReminderStatusKey", smsReminderStatus.messageKey());
+                        pageContext.setAttribute("smsReminderStatusArgument", smsReminderStatus.argument()); %>
+                <fmt:message key="${smsReminderStatusKey}" var="smsReminderStatusText"><fmt:param value="${smsReminderStatusArgument}"/></fmt:message>
+                <div class="form-text" id="smsReminderStatus"><carlos:encode value="${smsReminderStatusText}"/></div>
+                <% } %>
+                    </td>
+                </tr>
+                <% } %>
             </table>
     </div>
         </div>

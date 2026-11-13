@@ -76,6 +76,67 @@ class SmsQueueProcessingServiceUnitTest {
         assertThat(transaction.getProviderMessageId()).isEqualTo("provider-1");
     }
 
+    /** #884: an appointment reminder's text, queued with a time limit. */
+    private static SmsTransaction queuedReminder(long id, Instant expiresAt) {
+        SmsTransaction transaction = SmsTransaction.outboundAttempt(SmsSendCommand.appointmentReminder(123,
+                "416-555-1212", "FAKE reminder", "999998", 501, expiresAt), SmsProviderType.STUB);
+        assignId(transaction, id);
+        transaction.recordConsentDecision(CONSENTED);
+        return transaction;
+    }
+
+    @Test
+    @DisplayName("the worker fails a text whose time limit passed while it waited, sending nothing and asking nothing")
+    void shouldFailAnExpiredText_withoutSendingOrCheckingConsent() {
+        SmsTransaction expired = queuedReminder(1L, Instant.now().minusSeconds(60));
+        SmsTransaction due = queuedTransaction(2L);
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(expired, due));
+        SmsProviderClient client = mock(SmsProviderClient.class);
+        when(client.providerType()).thenReturn(SmsProviderType.STUB);
+        when(client.send(any(), anyString(), any())).thenReturn(SmsProviderSendResultDto.accepted("provider-2", SmsStatus.SENT));
+        java.util.concurrent.atomic.AtomicInteger consentChecks = new java.util.concurrent.atomic.AtomicInteger();
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(client)),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> {
+                    consentChecks.incrementAndGet();
+                    return CONSENTED;
+                }
+        );
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(2);
+
+        assertThat(expired)
+                .extracting(SmsTransaction::getStatus, SmsTransaction::getErrorCode)
+                .containsExactly(SmsStatus.FAILED, SmsQueueProcessingService.QUEUE_EXPIRED_CODE);
+        assertThat(expired.getProviderMessageId()).isNull();
+        // The next row is still sent in the same run: an expired text holds nothing up.
+        assertThat(due.getStatus()).isEqualTo(SmsStatus.SENT);
+        verify(client, times(1)).send(any(), anyString(), any());
+        assertThat(consentChecks).as("only the row that was sent").hasValue(1);
+    }
+
+    @Test
+    @DisplayName("the worker sends a text still inside its time limit as any other")
+    void shouldSendAText_stillInsideItsTimeLimit() {
+        SmsTransaction reminder = queuedReminder(1L, Instant.now().plus(Duration.ofHours(20)));
+        RecordingSmsTransactionService recorder = new RecordingSmsTransactionService(List.of(reminder));
+        SmsQueueProcessingService worker = new SmsQueueProcessingService(
+                recorder,
+                new SmsProviderClientResolver(List.of(new AcceptingProviderClient())),
+                new SmsRetryCalculator(3, Duration.ofSeconds(1), Duration.ofSeconds(10)),
+                providerType -> true,
+                command -> CONSENTED
+        );
+
+        assertThat(worker.processDueMessages(25)).isEqualTo(1);
+
+        assertThat(reminder.getStatus()).isEqualTo(SmsStatus.SENT);
+        assertThat(reminder.getErrorCode()).isNull();
+    }
+
     @ParameterizedTest
     @EnumSource(value = SmsStatus.class, names = {"SENT", "DELIVERED"})
     @DisplayName("the worker still sends the same queued message after a premature delivery callback")
