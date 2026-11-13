@@ -32,10 +32,28 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-/** Maps individual native HL7 observations; complete source context is a separate NewCategory. */
+/**
+ * Maps individual native HL7 observations; complete source context is a separate NewCategory.
+ *
+ * <p>Text is exported as the laboratory wrote it. Results, notes, reference ranges and names are
+ * read from the raw segment, so a separator a laboratory left unescaped stays in the text instead
+ * of cutting it at the first piece, and HL7 escapes are decoded the way CARLOS displays them (see
+ * {@link #decode}). A structured value (numeric, date, coded) with unexpected components needs
+ * review.
+ */
 final class CdsExportNativeLaboratoryMapper {
+    /**
+     * HL7 Table 0078 flags with the same meaning in the CDS enumeration. HL7 {@code U} means
+     * "significant change up" while the CDS enumeration's {@code U} means Unknown, so it travels
+     * as plain text, like {@code D}, {@code B} and {@code W}, which the enumeration lacks.
+     */
     private static final Set<String> FLAGS =
-            Set.of("L", "LL", "H", "HH", "N", "A", "AA", "S", "R", "I", "MS", "VS", "U");
+            Set.of("L", "LL", "H", "HH", "N", "A", "AA", "S", "R", "I", "MS", "VS");
+
+    /** The data dictionary's translation of an absent flag. */
+    static final String UNKNOWN_FLAG = "U";
+
+    private static final Set<String> TEXT_TYPES = Set.of("ST", "TX", "FT");
 
     record Value(
             String ordinal,
@@ -64,16 +82,24 @@ final class CdsExportNativeLaboratoryMapper {
                 laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
             laboratory = literal(laboratory);
             if (laboratory.isEmpty()) review("CDS_EXPORT_NATIVE_LAB_NAME_REQUIRED");
+            var raw = source.parsed().raw();
             for (var observation : source.parsed().observations()) {
                 var text = new LinkedHashMap<String, String>();
                 var dates = new LinkedHashMap<String, CdsExportDateDto>();
                 Segment obx = observation.result(), obr = observation.order();
                 put(text, "LaboratoryName", laboratory, 120);
-                put(text, "TestNameReportedByLab", scalar(obx, 3, 0, 2), 120);
+                String reportedName = componentText(raw, obx, 3, 0, 2);
+                put(text, "TestNameReportedByLab", reportedName, 120);
                 put(text, "LabTestCode", scalar(obx, 3, 0, 1), 50);
-                String accession = scalar(obr, 3, 0, 1);
-                if (accession.isEmpty())
-                    accession = source.information().fields().get("accessionNum");
+                String orderedName = componentText(raw, obr, 4, 0, 2);
+                // Issue #3959: receivers key their result list on TestName, so it carries the
+                // laboratory's name for the test, or the ordered test's when the result has none.
+                put(text, "TestName", reportedName.isEmpty() ? orderedName : reportedName, 120);
+                // The accession CARLOS stores, shows and groups versions by is the handler's
+                // (hl7TextInfo.accessionNum); OBR-3 is only the generic order number.
+                String stored = source.information().fields().get("accessionNum");
+                String order = scalar(obr, 3, 0, 1);
+                String accession = stored == null || stored.isEmpty() ? order : stored;
                 put(text, "AccessionNumber", accession, 120);
                 String type = scalar(obx, 2, 0, 1);
                 if (!Set.of("NM", "ST", "TX", "FT", "CE", "CWE", "CNE", "DT", "TS", "DTM")
@@ -81,12 +107,24 @@ final class CdsExportNativeLaboratoryMapper {
                 String value;
                 if (Set.of("CE", "CWE", "CNE").contains(type)) {
                     String code = scalar(obx, 5, observation.repetition(), 1);
-                    String description = scalar(obx, 5, observation.repetition(), 2);
+                    String description =
+                            componentText(raw, obx, 5, observation.repetition(), 2);
                     value =
                             description.isEmpty()
                                     ? code
                                     : code.isEmpty() ? description : code + " — " + description;
-                } else value = scalar(obx, 5, observation.repetition(), 1);
+                } else if (Set.of("TX", "FT").contains(type)) {
+                    // Each repetition of a TX/FT result is a continuation line of one narrative.
+                    var lines = new ArrayList<String>();
+                    for (String line : raw.repetitions(obx, 5)) lines.add(literal(decode(line, raw)));
+                    value = String.join("\n", lines);
+                } else if (type.equals("ST"))
+                    value = rawText(raw, obx, 5, observation.repetition());
+                else {
+                    value = scalar(obx, 5, observation.repetition(), 1);
+                    if (!value.equals(rawText(raw, obx, 5, observation.repetition())))
+                        review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+                }
                 if (type.equals("NM") && !value.isEmpty()) {
                     try {
                         new java.math.BigDecimal(value);
@@ -94,26 +132,28 @@ final class CdsExportNativeLaboratoryMapper {
                         review("CDS_EXPORT_NATIVE_LAB_NUMERIC_VALUE_INVALID");
                     }
                 }
-                StringBuilder information = new StringBuilder();
-                information
-                        .append("Native HL7 observation ")
-                        .append(observation.ordinal())
-                        .append("; value type ")
-                        .append(type)
-                        .append(
-                                ". Complete source message and routing context:"
-                                        + " CARLOS.NativeLaboratory.v1.");
+                // Only laboratory-reported facts: CARLOS provenance stays in the NewCategory
+                // residual, never in a field a receiver shows as the laboratory's commentary.
+                var information = new ArrayList<String>();
+                String subId = scalar(obx, 4, 0, 1);
+                if (!subId.isEmpty()) information.add("Observation sub-ID: " + subId);
+                if (!orderedName.isEmpty()) information.add("Ordered test: " + orderedName);
+                if (!order.isEmpty() && !order.equals(accession))
+                    information.add("Order number: " + order);
                 if (!value.isEmpty()) {
                     if (CdsExportNativeFieldAssessments.legal(value, 120)) {
                         put(text, "ResultValue", value, 120);
-                        put(text, "ResultUnit", scalar(obx, 6, 0, 1), 120);
+                        String unit = scalar(obx, 6, 0, 1);
+                        // Units sent only as the CE text component are still the result's unit.
+                        if (unit.isEmpty()) unit = componentText(raw, obx, 6, 0, 2);
+                        put(text, "ResultUnit", unit, 120);
                     } else {
-                        if (!Set.of("ST", "TX", "FT").contains(type))
+                        if (!TEXT_TYPES.contains(type))
                             review("CDS_EXPORT_NATIVE_LAB_RESULT_VALUE_CAPACITY");
-                        information.append("\n\nResult text (complete):\n").append(value);
+                        information.add("Result text (complete):\n" + value);
                     }
                 }
-                put(text, "ReferenceRangeText", scalar(obx, 7, 0, 1), 1024);
+                put(text, "ReferenceRangeText", rawText(raw, obx, 7, 0), 1024);
                 String requested = scalar(obr, 6, 0, 1);
                 if (!requested.isEmpty())
                     dates.put("LabRequisitionDateTime", temporal(requested, zone));
@@ -130,15 +170,20 @@ final class CdsExportNativeLaboratoryMapper {
                 }
                 if (!CdsExportNativeFieldAssessments.legal(flag, 50))
                     review("CDS_EXPORT_NATIVE_LAB_FLAG_CAPACITY");
-                if (flag.isEmpty())
-                    information.append("\nThe laboratory supplied no normal/abnormal flag.");
+                // The data dictionary translates a result with no flag to Unknown.
+                boolean enumFlag = flag.isEmpty() || FLAGS.contains(flag);
+                if (flag.isEmpty()) flag = UNKNOWN_FLAG;
                 StringBuilder notes = new StringBuilder();
                 for (var comment : observation.comments())
-                    for (int i = 0; i < comment.getField(3).length; i++) {
+                    for (String line : raw.repetitions(comment, 3)) {
                         if (!notes.isEmpty()) notes.append('\n');
-                        notes.append(scalar(comment, 3, i, 1));
+                        notes.append(literal(decode(line, raw)));
                     }
-                put(text, "TestResultsInformationReportedByTheLab", information.toString(), 32000);
+                put(
+                        text,
+                        "TestResultsInformationReportedByTheLab",
+                        String.join("\n", information),
+                        32000);
                 put(text, "NotesFromLab", notes.toString(), 32000);
                 put(text, "TestResultStatus", scalar(obx, 11, 0, 1), 20);
                 // The laboratory's "do not disclose" marking travels as BlockedTestResult, using
@@ -149,13 +194,7 @@ final class CdsExportNativeLaboratoryMapper {
                         source.parsed().blockedMessage()
                                 || "BLOCKED".equals(scalar(obx, 13, 0, 1));
                 result.add(
-                        new Value(
-                                observation.ordinal(),
-                                text,
-                                dates,
-                                flag,
-                                FLAGS.contains(flag),
-                                blocked));
+                        new Value(observation.ordinal(), text, dates, flag, enumFlag, blocked));
             }
             return List.copyOf(result);
         } catch (HL7Exception failure) {
@@ -306,6 +345,96 @@ final class CdsExportNativeLaboratoryMapper {
     private static String scalar(Segment segment, int field, int repetition, int component)
             throws HL7Exception {
         return literal(Terser.get(segment, field, repetition, component, 1));
+    }
+
+    /** The laboratory's whole text of one repetition; separators it left unescaped stay literal. */
+    private static String rawText(
+            CdsExportNativeLaboratoryParser.Raw raw, Segment segment, int field, int repetition)
+            throws IOException {
+        var repetitions = raw.repetitions(segment, field);
+        return repetition >= repetitions.size()
+                ? ""
+                : literal(decode(repetitions.get(repetition), raw));
+    }
+
+    /** One component's text; subcomponent separators the laboratory left unescaped stay literal. */
+    private static String componentText(
+            CdsExportNativeLaboratoryParser.Raw raw,
+            Segment segment,
+            int field,
+            int repetition,
+            int component)
+            throws IOException {
+        var repetitions = raw.repetitions(segment, field);
+        if (repetition >= repetitions.size()) return "";
+        var components =
+                CdsExportNativeLaboratoryParser.Raw.split(
+                        repetitions.get(repetition), raw.component);
+        return component > components.size()
+                ? ""
+                : literal(decode(components.get(component - 1), raw));
+    }
+
+    /**
+     * Decodes HL7 escapes in raw text the way CARLOS displays it: the delimiter escapes, line
+     * breaks ({@code .br}, {@code .sp[n]}), spaces ({@code .sk n}) and UTF-8 hex
+     * ({@code Xhh..}); highlighting and layout commands ({@code H}, {@code N}, {@code .in},
+     * {@code .ti}, {@code .ce}, {@code .fi}, {@code .nf}) carry no text. Decoding from the raw
+     * text keeps an escaped escape (a literal backslash sequence) distinct from a line break.
+     * Any other sequence is kept as written.
+     */
+    static String decode(String text, CdsExportNativeLaboratoryParser.Raw raw) throws IOException {
+        var out = new StringBuilder(text.length());
+        int index = 0;
+        while (index < text.length()) {
+            int end = text.charAt(index) == raw.escape ? text.indexOf(raw.escape, index + 1) : -1;
+            if (end < 0) {
+                out.append(text.charAt(index++));
+                continue;
+            }
+            String code = text.substring(index + 1, end);
+            switch (code) {
+                case "F" -> out.append(raw.field);
+                case "S" -> out.append(raw.component);
+                case "T" -> out.append(raw.subcomponent);
+                case "R" -> out.append(raw.repetition);
+                case "E" -> out.append(raw.escape);
+                case ".br" -> out.append('\n');
+                case "H", "N", ".ce", ".fi", ".nf" -> {
+                    // Highlighting and layout only.
+                }
+                default -> {
+                    if (code.matches("\\.sp[+]?[0-9]{0,3}"))
+                        out.append(
+                                "\n".repeat(
+                                        code.length() > 3
+                                                ? Math.max(1, Math.min(64, Integer.parseInt(code.substring(3).replace("+", ""))))
+                                                : 1));
+                    else if (code.matches("\\.sk[+]?[0-9]{1,3}"))
+                        out.append(" ".repeat(Math.min(256, Integer.parseInt(code.substring(3).replace("+", "")))));
+                    else if (code.matches("\\.(?:in|ti)[+-]?[0-9]{0,3}")) {
+                        // Indentation only.
+                    } else if (code.matches("X(?:[0-9A-Fa-f]{2})+")) {
+                        try {
+                            out.append(
+                                    java.nio.charset.StandardCharsets.UTF_8
+                                            .newDecoder()
+                                            .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                                            .onUnmappableCharacter(
+                                                    java.nio.charset.CodingErrorAction.REPORT)
+                                            .decode(
+                                                    java.nio.ByteBuffer.wrap(
+                                                            java.util.HexFormat.of()
+                                                                    .parseHex(code.substring(1)))));
+                        } catch (java.nio.charset.CharacterCodingException invalid) {
+                            review("CDS_EXPORT_NATIVE_LAB_ESCAPE_REQUIRES_REVIEW");
+                        }
+                    } else out.append(text, index, end + 1);
+                }
+            }
+            index = end + 1;
+        }
+        return out.toString();
     }
 
     private static String literal(String value) {

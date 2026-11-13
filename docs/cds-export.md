@@ -1593,7 +1593,19 @@ and applies original shifts to collection, requisition and every reviewer date.
 Native-only or changed HL7 requires explicit review. A DOC route, which the inbox writes for
 every document assigned to a patient, is a document link owned by the Reports path and does not
 affect laboratory export; an older MDS, CML or BCP route, or an unknown one, still holds the
-patient. Focused verification passed
+patient. Native result text, notes, reference ranges and test names are read from the raw HL7
+segment (verified against HAPI's parse field by field), so a separator a laboratory left
+unescaped, as in `Hemolyzed & lipemic ^ repeat`, stays in the text instead of cutting it. HL7
+escapes are decoded as CARLOS displays them: `\.br\` and `\.sp\` are line breaks, `\Xhh\` is
+UTF-8 and highlighting or layout commands carry no text, while an escaped escape stays literal.
+The continuation lines of a TX or FT narrative form one result. TestName is the laboratory's
+name for the test, or the ordered test's name when the result has none (#3959); AccessionNumber
+is the accession CARLOS stores and shows, with a different order number noted in the
+laboratory information. That field now carries only laboratory facts (sub-ID, ordered test,
+order number, the complete text of a long result); CARLOS provenance stays in the NewCategory
+residual. A result with no flag is written as the dictionary's Unknown (`U`), and the HL7 flags
+with no CDS equivalent, including HL7 `U` ("significant change up"), are written as plain text.
+A numeric, date or coded value with unexpected components needs review. Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.
