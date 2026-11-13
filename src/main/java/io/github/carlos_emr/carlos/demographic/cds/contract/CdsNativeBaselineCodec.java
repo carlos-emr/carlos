@@ -41,12 +41,20 @@ import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKey
  * set. Stored receipt JSON and its digest are not rewritten or reinterpreted.
  *
  * <p>The witness document holds an unsalted per-column SHA-256 and byte length, which can be
- * reversed by enumeration for low-entropy PHI. It is therefore stored only as a protocol-3
- * envelope ({@link #seal}): AES-256-GCM under a per-installation key held outside the database
- * ({@link CdsNativeBaselineKeys}), with the key ID recorded in the envelope and the receipt
- * digest bound as associated data. {@link #unseal} is the only reader of stored values and
- * refuses an unsealed document; {@link #encode}/{@link #decode} handle the plaintext document
- * only in memory (for example in an export's retained index after unsealing).
+ * reversed by enumeration for low-entropy PHI. It is therefore stored only sealed ({@link
+ * #seal}): AES-256-GCM under a per-installation key held outside the database ({@link
+ * CdsNativeBaselineKeys}), with the key ID recorded in the envelope and the receipt digest bound
+ * as associated data. {@link #unseal} is the only reader of stored values and refuses an
+ * unsealed document; {@link #encode}/{@link #decode} handle the plaintext document only in
+ * memory (for example in an export's retained index after unsealing).
+ *
+ * <p>New witnesses are protocol-4 envelopes: the document is deflated before it is sealed. Every
+ * committed import unit stores its witness twice (unit and checkpoint), and the document repeats
+ * each row's column metadata, so an uncompressed witness averaged about 23 KB and took an
+ * overflow page per copy; deflated it is about a quarter of that and usually stays in the row.
+ * The compression is bound into the associated data, so a protocol number changed in storage
+ * fails authentication, and inflation stops at {@link #MAX_BYTES}. Protocol-3 envelopes (the
+ * same seal without compression) written by earlier builds remain readable.
  */
 public final class CdsNativeBaselineCodec {
     /**
@@ -87,6 +95,9 @@ public final class CdsNativeBaselineCodec {
     private static final int MAX_ENVELOPE_DEPTH = 1;
 
     private static final String SEALED_DOMAIN = "carlos-cds-native-baseline-v3";
+
+    /** Protocol 4: the same seal over the deflated document, under its own associated data. */
+    private static final String DEFLATED_DOMAIN = "carlos-cds-native-baseline-v4-deflate";
     private static final java.security.SecureRandom NONCES = new java.security.SecureRandom();
 
     /** The stored form: a sealed witness document and the key that sealed it. */
@@ -194,7 +205,8 @@ public final class CdsNativeBaselineCodec {
             CdsNativeBaselineKeys keys)
             throws IOException {
         java.util.Objects.requireNonNull(keys);
-        String plaintext = encode(references, targetDigest, rows);
+        byte[] plaintext =
+                deflate(encode(references, targetDigest, rows).getBytes(StandardCharsets.UTF_8));
         String keyId = keys.activeKeyId();
         byte[] nonce = new byte[12];
         NONCES.nextBytes(nonce);
@@ -205,8 +217,8 @@ public final class CdsNativeBaselineCodec {
                     javax.crypto.Cipher.ENCRYPT_MODE,
                     keys.key(keyId),
                     new javax.crypto.spec.GCMParameterSpec(128, nonce));
-            cipher.updateAAD(associated(keyId, targetDigest));
-            sealed = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+            cipher.updateAAD(associated(DEFLATED_DOMAIN, keyId, targetDigest));
+            sealed = cipher.doFinal(plaintext);
         } catch (java.security.GeneralSecurityException failure) {
             throw new IOException("CDS_NATIVE_BASELINE_SEAL_FAILED");
         }
@@ -214,7 +226,7 @@ public final class CdsNativeBaselineCodec {
         String encoded =
                 ENVELOPE.writeValueAsString(
                         new Envelope(
-                                3,
+                                4,
                                 keyId,
                                 encoder.encodeToString(nonce),
                                 encoder.encodeToString(sealed)));
@@ -255,7 +267,9 @@ public final class CdsNativeBaselineCodec {
         exact(tree, Set.of("protocol", "keyId", "nonce", "sealed"));
         if (!tree.get("protocol").isIntegralNumber()
                 || !tree.get("protocol").canConvertToInt()
-                || tree.get("protocol").intValue() != 3) invalid();
+                || tree.get("protocol").intValue() != 3 && tree.get("protocol").intValue() != 4)
+            invalid();
+        boolean deflated = tree.get("protocol").intValue() == 4;
         String keyId = text(tree, "keyId");
         byte[] nonce, sealed;
         try {
@@ -274,13 +288,15 @@ public final class CdsNativeBaselineCodec {
                     javax.crypto.Cipher.DECRYPT_MODE,
                     key,
                     new javax.crypto.spec.GCMParameterSpec(128, nonce));
-            cipher.updateAAD(associated(keyId, targetDigest));
+            cipher.updateAAD(
+                    associated(deflated ? DEFLATED_DOMAIN : SEALED_DOMAIN, keyId, targetDigest));
             plaintext = cipher.doFinal(sealed);
         } catch (javax.crypto.AEADBadTagException tampered) {
             throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
         } catch (java.security.GeneralSecurityException failure) {
             throw new IOException("CDS_NATIVE_BASELINE_SEAL_FAILED");
         }
+        if (deflated) plaintext = inflate(plaintext);
         if (plaintext.length > MAX_BYTES) invalid();
         String text;
         try {
@@ -296,9 +312,51 @@ public final class CdsNativeBaselineCodec {
         return text;
     }
 
-    private static byte[] associated(String keyId, String targetDigest) {
-        return (SEALED_DOMAIN + "\0" + keyId + "\0" + targetDigest)
-                .getBytes(StandardCharsets.UTF_8);
+    private static byte[] associated(String domain, String keyId, String targetDigest) {
+        return (domain + "\0" + keyId + "\0" + targetDigest).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** A zlib stream of the document; a witness document is far below {@link #MAX_BYTES}. */
+    private static byte[] deflate(byte[] document) {
+        var deflater = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION);
+        try {
+            deflater.setInput(document);
+            deflater.finish();
+            var output = new java.io.ByteArrayOutputStream(Math.max(64, document.length / 3));
+            byte[] buffer = new byte[16384];
+            while (!deflater.finished()) output.write(buffer, 0, deflater.deflate(buffer));
+            if (output.size() > MAX_BYTES) invalid();
+            return output.toByteArray();
+        } finally {
+            deflater.end();
+        }
+    }
+
+    /**
+     * The authenticated zlib stream of a protocol-4 witness, refused rather than truncated when it
+     * is malformed, ends early, carries trailing bytes or inflates past {@link #MAX_BYTES}.
+     */
+    private static byte[] inflate(byte[] compressed) {
+        var inflater = new java.util.zip.Inflater();
+        try {
+            inflater.setInput(compressed);
+            var output =
+                    new java.io.ByteArrayOutputStream(
+                            (int) Math.min(MAX_BYTES, 4L * compressed.length + 64));
+            byte[] buffer = new byte[16384];
+            while (!inflater.finished()) {
+                int count = inflater.inflate(buffer);
+                if (count == 0 && (inflater.needsInput() || inflater.needsDictionary())) invalid();
+                if (output.size() + count > MAX_BYTES) invalid();
+                output.write(buffer, 0, count);
+            }
+            if (inflater.getRemaining() != 0) invalid();
+            return output.toByteArray();
+        } catch (java.util.zip.DataFormatException malformed) {
+            throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        } finally {
+            inflater.end();
+        }
     }
 
     private static void verify(Document document, String references, String targetDigest)

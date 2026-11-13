@@ -2133,11 +2133,16 @@ Pristine independent ON/BC reference databases validate the complete migration c
 canonical schema contracts. The witness document is bounded to 8MiB and carries no native
 plaintext values, but its unsalted per-column hashes and byte lengths are value equivalents
 for low-entropy columns (sex, birth date parts, health card or SIN number, postal code,
-phone). It is therefore stored only sealed (IMP-1): a protocol-3 envelope, AES-256-GCM under
-a per-installation key held outside the database (`cds.nativeBaseline.keyRoot` /
-`cds.nativeBaseline.activeKey`, see the [import configuration](cds-import-configuration.md)),
-with the key ID recorded and the receipt digest bound as associated data. A stored unsealed
-document, a tampered or rebound envelope and a missing key are refused. The exporter unseals a
+phone). It is therefore stored only sealed (IMP-1): AES-256-GCM under a per-installation key
+held outside the database (`cds.nativeBaseline.keyRoot` / `cds.nativeBaseline.activeKey`, see
+the [import configuration](cds-import-configuration.md)), with the key ID recorded and the
+receipt digest bound as associated data. New witnesses are protocol-4 envelopes, deflated before
+they are sealed. Every committed unit stores its witness twice (unit and checkpoint), and the
+uncompressed protocol-3 form averaged about 23 KB, an overflow page per copy, which filled the
+installed scaling lane's database. Deflated, a witness is a quarter to a third of that size.
+The compression is part of the associated data, inflation stops at the 8 MiB document bound, and
+protocol-3 witnesses from earlier builds still open. A stored unsealed document, a tampered,
+rebound or relabelled envelope and a missing key are refused. The exporter unseals a
 witness only into its in-memory retained index (the frozen capture keeps the sealed form) and
 fails the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE` when the recorded key is not
 configured. Treat witnesses, keys, ledger database access and backups as protected patient

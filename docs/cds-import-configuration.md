@@ -39,7 +39,9 @@ Each committed import unit stores a field witness of every native row it wrote
 (`cds_import_unit.native_baseline`, copied to `cds_import_checkpoint`), which the exporter
 uses to tell which native columns changed since import. Its per-column SHA-256 and byte
 length are reversible for low-entropy PHI, so the witness is stored only sealed with
-AES-256-GCM under a per-installation key held outside the database. The import and export
+AES-256-GCM under a per-installation key held outside the database. New witnesses are deflated
+before they are sealed (protocol 4, about a quarter of the uncompressed size); witnesses sealed
+uncompressed by earlier builds (protocol 3) still open. The import and export
 (web and both CLIs) read the same two properties:
 
 | Property | Default | Meaning |

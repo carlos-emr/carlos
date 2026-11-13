@@ -133,8 +133,17 @@ class CdsNativeBaselineFieldPageMariaDbIntegrationTest {
                 org.springframework.test.util.ReflectionTestUtils.setField(
                         receipts, "entityManager", entityManager);
                 var receipt = receipts.capture(targets);
-                // Beyond the 65,536-character bound that refused the envelope before.
-                assertThat(receipt.nativeBaseline().length()).isGreaterThan(65_536);
+                // The document is beyond the 65,536-character bound that refused the envelope
+                // before; deflated before sealing, the stored witness is a fraction of it.
+                String text =
+                        CdsNativeBaselineCodec.unsealedText(
+                                receipt.nativeBaseline(),
+                                receipt.targetReferences(),
+                                receipt.targetDigest(),
+                                keys);
+                assertThat(text.length()).isGreaterThan(65_536);
+                assertThat(receipt.nativeBaseline()).contains("\"protocol\":4");
+                assertThat(receipt.nativeBaseline().length()).isLessThan(text.length() / 3);
                 var document =
                         CdsNativeBaselineCodec.unseal(
                                 receipt.nativeBaseline(),

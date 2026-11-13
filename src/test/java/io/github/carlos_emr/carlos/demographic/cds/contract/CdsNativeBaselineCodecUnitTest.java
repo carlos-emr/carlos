@@ -62,7 +62,7 @@ class CdsNativeBaselineCodecUnitTest {
         String sealed = CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), keys);
         for (var cell : row.cells())
             if (cell.sha256() != null) assertThat(sealed).doesNotContain(cell.sha256());
-        assertThat(sealed).contains("\"protocol\":3", "\"keyId\":\"test-active\"");
+        assertThat(sealed).contains("\"protocol\":4", "\"keyId\":\"test-active\"");
         assertThat(sealed).doesNotContain("\"rows\"", "\"cells\"", "\"bytes\"");
         assertThat(CdsNativeBaselineCodec.unseal(sealed, receipt, sha(receipt), keys).rows())
                 .containsExactly(row);
@@ -366,6 +366,7 @@ class CdsNativeBaselineCodecUnitTest {
             var parser = new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser();
             int pages = 0, largest = 0;
             boolean demographics = false;
+            List<CdsNativeRowState> largestRows = List.of();
             for (var record : records) {
                 var slices =
                         new ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
@@ -389,15 +390,27 @@ class CdsNativeBaselineCodecUnitTest {
                                                     sealed, references, sha(references), keys)
                                             .rows())
                             .containsExactlyElementsOf(rows);
-                    largest = Math.max(largest, sealed.length());
+                    int document =
+                            CdsNativeBaselineCodec.encode(references, sha(references), rows)
+                                    .length();
+                    if (document > largest) {
+                        largest = document;
+                        largestRows = List.copyOf(rows);
+                    }
                     demographics |= record.section().equals("Demographics") && rows.size() == 32;
                     pages++;
                 }
             }
             assertThat(pages).isGreaterThan(records.size());
             assertThat(demographics).isTrue();
-            // The fixture's largest page is beyond the bound that refused it.
+            // The fixture's largest page is beyond the bound that refused it. New witnesses are
+            // deflated, so an earlier build's protocol-3 envelope of that page must open too.
             assertThat(largest).isGreaterThan(65_536);
+            String references = receipt(largestRows);
+            String earlier = protocolThree(references, largestRows, keys);
+            assertThat(earlier.length()).isGreaterThan(65_536);
+            assertThat(CdsNativeBaselineCodec.unseal(earlier, references, sha(references), keys).rows())
+                    .containsExactlyElementsOf(largestRows);
         } finally {
             try (var paths = java.nio.file.Files.walk(folder)) {
                 for (var path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
@@ -486,6 +499,144 @@ class CdsNativeBaselineCodecUnitTest {
         assertThatThrownBy(
                         () -> CdsNativeBaselineCodec.decode(tree.toString(), references, digest))
                 .isInstanceOf(com.fasterxml.jackson.core.exc.StreamConstraintsException.class);
+    }
+
+    @Test
+    void shouldStoreADeflatedWitness_atUnderHalfTheUncompressedSeal() throws Exception {
+        // A full source-field page: 32 cds_import_field rows, each with its own random digests.
+        var random = new java.security.SecureRandom();
+        String[] names = {
+            "source_namespace", "id", "run_id", "patient_key", "unit_key", "demographic_no",
+            "category", "source_path", "occurrence", "value_type", "date_precision",
+            "original_value", "normalized_value", "payload_location", "payload_digest",
+            "payload_offset", "payload_length"
+        };
+        var rows = new ArrayList<CdsNativeRowState>();
+        for (int row = 0; row < 32; row++) {
+            var columns = new ArrayList<CdsNativeRowDigest.Column>();
+            var cells = new ArrayList<CdsNativeRowState.Cell>();
+            for (String name : names) {
+                columns.add(new CdsNativeRowDigest.Column(name, "VARCHAR", 255, 0));
+                byte[] value = new byte[32];
+                random.nextBytes(value);
+                cells.add(new CdsNativeRowState.Cell(false, 40, HexFormat.of().formatHex(value)));
+            }
+            rows.add(
+                    new CdsNativeRowState(
+                            "cds_import_field", String.format("%064x", row), columns, cells));
+        }
+        String references = receipt(rows);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        String sealed = CdsNativeBaselineCodec.seal(references, sha(references), rows, keys);
+        String earlier = protocolThree(references, rows, keys);
+
+        assertThat(sealed).contains("\"protocol\":4");
+        assertThat(sealed.length()).isLessThan(earlier.length() / 2);
+        assertThat(CdsNativeBaselineCodec.unseal(sealed, references, sha(references), keys).rows())
+                .containsExactlyElementsOf(rows);
+        assertThat(CdsNativeBaselineCodec.unseal(earlier, references, sha(references), keys).rows())
+                .containsExactlyElementsOf(rows);
+    }
+
+    @Test
+    void shouldRefuseAChangedProtocolNumber_inEitherDirection() throws Exception {
+        var row = vector();
+        String references = receipt(row, false), digest = sha(references);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        String deflated = CdsNativeBaselineCodec.seal(references, digest, List.of(row), keys);
+        String earlier = protocolThree(references, List.of(row), keys);
+
+        for (String changed :
+                List.of(
+                        deflated.replace("\"protocol\":4", "\"protocol\":3"),
+                        earlier.replace("\"protocol\":3", "\"protocol\":4"),
+                        deflated.replace("\"protocol\":4", "\"protocol\":5")))
+            assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(changed, references, digest, keys))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldRefuseADeflatedWitness_thatInflatesPastTheBoundOrCarriesTrailingBytes()
+            throws Exception {
+        var row = vector();
+        String references = receipt(row, false), digest = sha(references);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        byte[] bomb = zlib(new byte[CdsNativeBaselineCodec.MAX_BYTES + 1]);
+        assertThat(bomb.length).isLessThan(65_536);
+        byte[] document =
+                CdsNativeBaselineCodec.encode(references, digest, List.of(row))
+                        .getBytes(StandardCharsets.UTF_8);
+        byte[] compressed = zlib(document);
+        byte[] trailing = java.util.Arrays.copyOf(compressed, compressed.length + 1);
+        byte[] truncated = java.util.Arrays.copyOf(compressed, compressed.length - 4);
+
+        for (byte[] body : List.of(bomb, trailing, truncated)) {
+            String envelope =
+                    envelope(4, "carlos-cds-native-baseline-v4-deflate", digest, body, keys);
+            assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(envelope, references, digest, keys))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        }
+        // The same construction around the untouched stream opens.
+        String sound = envelope(4, "carlos-cds-native-baseline-v4-deflate", digest, compressed, keys);
+        assertThat(CdsNativeBaselineCodec.unseal(sound, references, digest, keys).rows())
+                .containsExactly(row);
+    }
+
+    /** The protocol-3 envelope earlier builds stored: the same seal without compression. */
+    private static String protocolThree(
+            String references,
+            List<CdsNativeRowState> rows,
+            io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys)
+            throws Exception {
+        byte[] document =
+                CdsNativeBaselineCodec.encode(references, sha(references), rows)
+                        .getBytes(StandardCharsets.UTF_8);
+        return envelope(3, "carlos-cds-native-baseline-v3", sha(references), document, keys);
+    }
+
+    private static String envelope(
+            int protocol,
+            String domain,
+            String digest,
+            byte[] body,
+            io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys)
+            throws Exception {
+        String keyId = keys.activeKeyId();
+        byte[] nonce = new byte[12];
+        new java.security.SecureRandom().nextBytes(nonce);
+        var cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(
+                javax.crypto.Cipher.ENCRYPT_MODE,
+                keys.key(keyId),
+                new javax.crypto.spec.GCMParameterSpec(128, nonce));
+        cipher.updateAAD((domain + "\0" + keyId + "\0" + digest).getBytes(StandardCharsets.UTF_8));
+        var encoder = java.util.Base64.getEncoder();
+        return new com.fasterxml.jackson.databind.ObjectMapper()
+                .writeValueAsString(
+                        new CdsNativeBaselineCodec.Envelope(
+                                protocol,
+                                keyId,
+                                encoder.encodeToString(nonce),
+                                encoder.encodeToString(cipher.doFinal(body))));
+    }
+
+    private static byte[] zlib(byte[] value) {
+        var deflater = new java.util.zip.Deflater();
+        deflater.setInput(value);
+        deflater.finish();
+        var output = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[16384];
+        while (!deflater.finished()) output.write(buffer, 0, deflater.deflate(buffer));
+        deflater.end();
+        return output.toByteArray();
     }
 
     /** One row of the widest receipt target at every validated column and cell maximum. */
