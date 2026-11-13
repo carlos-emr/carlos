@@ -67,8 +67,7 @@ final class CdsExportCapturedTextWitness {
                 || !row.recordKey().equals(witness.recordKey())
                 || !witness.id().equals(row.fields().get(identityColumn))
                 || !row.exactNumbers().isEmpty()
-                || !row.fields()
-                        .keySet()
+                || !comparedColumns(row)
                         .equals(
                                 Set.copyOf(
                                         witness.state().columns().stream()
@@ -80,6 +79,23 @@ final class CdsExportCapturedTextWitness {
             if (!matches(witness.state(), column.name(), row.fields().get(column.name())))
                 throw new IOException("CDS_EXPORT_CAPTURED_TEXT_WITNESS_SCOPE_INVALID");
         }
+    }
+
+    /**
+     * The captured columns a witness proves. {@code demographicExt.dashboard_single_value_key} is
+     * an invisible, virtual column derived from the row itself (dashboard exclusion history): the
+     * capture plan selects it by name, but the witness's {@code SELECT *} recipe never contains
+     * it, so it is left out of the comparison exactly as
+     * {@code CdsExportNativeCaptureService.verifyReceiptColumns} leaves it out of the receipt
+     * recipe. Without this every chart with a Master Record extension field failed the whole job.
+     */
+    private static Set<String> comparedColumns(CdsExportCapturedTextRowDto row) {
+        if (!row.table().equals("demographicExt")
+                || !row.fields().containsKey("dashboard_single_value_key"))
+            return row.fields().keySet();
+        var columns = new java.util.HashSet<>(row.fields().keySet());
+        columns.remove("dashboard_single_value_key");
+        return Set.copyOf(columns);
     }
 
     static boolean matches(CdsNativeRowState state, String column, String value)
