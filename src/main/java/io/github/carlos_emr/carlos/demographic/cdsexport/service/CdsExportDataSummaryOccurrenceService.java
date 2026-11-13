@@ -202,6 +202,23 @@ public class CdsExportDataSummaryOccurrenceService {
             return new Printed(bytes, subClass, event, author, metadata, notes);
         }
 
+        // A record compares arrays by identity; two prints of the same record compare by content.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Printed that
+                    && java.util.Arrays.equals(pdf, that.pdf)
+                    && subClass.equals(that.subClass)
+                    && Objects.equals(event, that.event)
+                    && Objects.equals(author, that.author)
+                    && metadata.equals(that.metadata)
+                    && notes.equals(that.notes);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(java.util.Arrays.hashCode(pdf), subClass, event, author, metadata, notes);
+        }
+
         @Override
         public String toString() {
             return "CdsExportDataSummaryOccurrenceService.Printed[protected]";

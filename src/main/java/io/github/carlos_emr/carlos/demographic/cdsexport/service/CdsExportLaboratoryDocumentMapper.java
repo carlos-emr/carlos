@@ -57,6 +57,23 @@ final class CdsExportLaboratoryDocumentMapper {
 
     /** The decoded payload: bytes for a Binary report, or the text of a Text report. */
     record Payload(byte[] bytes, String text, String encoding, String dataType, String subtype) {
+        // A record compares arrays by identity; payloads compare by their decoded content.
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Payload that
+                    && java.util.Arrays.equals(bytes, that.bytes)
+                    && java.util.Objects.equals(text, that.text)
+                    && java.util.Objects.equals(encoding, that.encoding)
+                    && java.util.Objects.equals(dataType, that.dataType)
+                    && java.util.Objects.equals(subtype, that.subtype);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(
+                    java.util.Arrays.hashCode(bytes), text, encoding, dataType, subtype);
+        }
+
         @Override
         public String toString() {
             return "Payload[protected]";
