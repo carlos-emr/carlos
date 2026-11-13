@@ -82,6 +82,29 @@ class CdsExportPublicProviderMapperUnitTest {
     }
 
     @Test
+    void shouldNotAssertAnotherJurisdictionsNumber_asTheOhipBillingNumber() throws Exception {
+        // D9: the data dictionary defines OHIPPhysicianId as six digits; a BC MSP number ("A1234")
+        // or a placeholder ("0") in ohip_no is not one. The physician is still named.
+        for (String number : List.of("A1234", "0", "12345", "1234AB")) {
+            var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
+            fields.put("ohip_no", number);
+            var mapped =
+                    new CdsExportPublicProviderMapper()
+                            .map(
+                                    new CdsExportCapturedTextRowDto(
+                                            "provider",
+                                            CdsExportPublicProviderSourceReader.key("0é27"),
+                                            fields),
+                                    CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.value().ohipNumber()).isNull();
+            assertThat(mapped.value().firstName()).isEqualTo("Zoë😀");
+            assertThat(mapped.fields().get(key("ohip_no")).rule())
+                    .isEqualTo("NON_OHIP_BILLING_NUMBER_NOT_ASSERTED");
+        }
+    }
+
+    @Test
     void shouldRefuseAChangedIdentityKey_insteadOfUsingTheDisplayName() {
         var row = provider("CPSO", "000123");
         var forged =

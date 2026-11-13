@@ -66,6 +66,15 @@ public final class CdsExportPublicProviderMapper {
         if ("".equals(state.raw("first_name"))) first = "";
         if ("".equals(state.raw("last_name"))) last = "";
         String ohip = token(state, "ohip_no", target.path + "/OHIPPhysicianId");
+        // The schema type is only a six-character token, but the data dictionary defines the
+        // OHIP billing number as six digits. Outside Ontario the same column holds another
+        // jurisdiction's practitioner number (a five-character BC MSP number, for example) and
+        // sites use placeholders such as "0"; neither is an OHIP number, so it is not asserted
+        // as one. The physician's name is still exported.
+        if (ohip != null && !ohip.matches("[0-9]{6}")) {
+            state.operational("ohip_no", "NON_OHIP_BILLING_NUMBER_NOT_ASSERTED");
+            ohip = null;
+        }
         String cpso = null;
         // Other public registration authorities are lookup metadata, not Ontario CPSO assertions.
         state.operational("practitionerNoType", "CAPTURED_PUBLIC_REGISTRATION_AUTHORITY");
