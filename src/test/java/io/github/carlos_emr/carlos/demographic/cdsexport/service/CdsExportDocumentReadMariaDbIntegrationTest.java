@@ -1072,6 +1072,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         try {
             requireCatalogueScope();
             assertThat(summaryRows("admission", patient)).isZero();
+            // The column's default '0' is no discharge reason: such a row is membership only.
+            sql.update("update admission set radioDischargeReason='0' where am_id=?", patient);
+            requireCatalogueScope();
+            assertThat(summaryRows("admission", patient)).isZero();
             for (String update :
                     List.of(
                             "update admission set"

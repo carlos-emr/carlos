@@ -825,8 +825,10 @@ remainder" test the presence check used, so only admissions with a narrative or 
 reason become "Program admission" summaries (every column: program, provider, dates, status,
 team and the narratives). A membership row without one is not exported. Program membership keeps
 gating access: `CdsExportNoteAccessDao` and the application's patient-access checks read
-`admission` directly, independently of the catalogue ruling. A `radioDischargeReason` of `0`
-(the column default) counts as stored, exactly as it held the chart before.
+`admission` directly, independently of the catalogue ruling. A `radioDischargeReason` of `0` is
+the column default and no CARLOS screen writes a discharge reason (reasons are lookup codes, such
+as `50` for an automatic discharge), so `0` is no reason and does not make a row a record
+(`CdsExportSourceCatalogue.remainderPresent`, shared by the record filter and the presence check).
 
 No legacy table and no clinic-wide must-be-empty table remains: every remaining `REQUIRE_EMPTY`
 table has a patient link.

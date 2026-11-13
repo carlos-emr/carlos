@@ -255,7 +255,9 @@ public class CdsExportSourceCatalogueDao {
         if (remainder != null) {
             var clauses = new ArrayList<String>();
             for (String column : remainder)
-                clauses.add("COALESCE(OCTET_LENGTH(d.`" + column + "`),0)>0");
+                clauses.add(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                                .remainderPresent(table, column));
             query += " and (" + String.join(" or ", clauses) + ")";
         }
         return query;

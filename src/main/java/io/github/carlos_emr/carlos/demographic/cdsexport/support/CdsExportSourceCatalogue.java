@@ -53,6 +53,29 @@ public final class CdsExportSourceCatalogue {
         LISTED
     }
 
+    /**
+     * The spelling a clinical remainder column holds when nobody recorded anything. The
+     * {@code admission.radioDischargeReason} column defaults to {@code '0'}, and no CARLOS screen
+     * writes a discharge reason (discharge reasons are lookup codes, such as {@code 50} for an
+     * automatic discharge), so {@code '0'} is no reason.
+     */
+    private static final Map<String, Map<String, String>> NO_REMAINDER =
+            Map.of("admission", Map.of("radioDischargeReason", "0"));
+
+    /**
+     * SQL test, on alias {@code d}, that a clinical remainder column of {@code table} holds a
+     * recorded value: neither NULL nor empty nor the column's spelling of "none". The column
+     * names come from the reviewed catalogue only.
+     */
+    public static String remainderPresent(String table, String column) {
+        if (table == null || column == null || !column.matches("[A-Za-z0-9_]{1,64}"))
+            throw new IllegalArgumentException("CDS_EXPORT_REMAINDER_COLUMN_INVALID");
+        String value = "d.`" + column + "`";
+        String present = "COALESCE(OCTET_LENGTH(" + value + "),0)>0";
+        String none = NO_REMAINDER.getOrDefault(table, Map.of()).get(column);
+        return none == null ? present : "(" + present + " and " + value + "<>'" + none + "')";
+    }
+
     public record Profile(String name, Map<String, CdsExportTableSchemaDto> tables) {
         public Profile {
             tables = Map.copyOf(tables);

@@ -574,7 +574,10 @@ public class CdsExportDataSummaryReadDao {
         // metadata: only its rows with a stored remainder are records. The test is the one the
         // source-presence check used when such a row held the chart.
         var clauses = new ArrayList<String>();
-        for (String column : remainder) clauses.add("COALESCE(OCTET_LENGTH(d.`" + column + "`),0)>0");
+        for (String column : remainder)
+            clauses.add(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                            .remainderPresent(table, column));
         return "(" + scope + " and (" + String.join(" or ", clauses) + "))";
     }
 

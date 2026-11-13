@@ -140,6 +140,16 @@ class CdsExportSourceCatalogueUnitTest {
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
         assertThat(catalogue.clinicalRemainders().get("admission"))
                 .containsExactly("admission_notes", "discharge_notes", "radioDischargeReason");
+        // The discharge reason column's default '0' is no reason; every other remainder only
+        // needs a non-empty value.
+        assertThat(CdsExportSourceCatalogue.remainderPresent("admission", "radioDischargeReason"))
+                .isEqualTo(
+                        "(COALESCE(OCTET_LENGTH(d.`radioDischargeReason`),0)>0 and"
+                                + " d.`radioDischargeReason`<>'0')");
+        assertThat(CdsExportSourceCatalogue.remainderPresent("admission", "discharge_notes"))
+                .isEqualTo("COALESCE(OCTET_LENGTH(d.`discharge_notes`),0)>0");
+        assertThatThrownBy(() -> CdsExportSourceCatalogue.remainderPresent("admission", "a`b"))
+                .isInstanceOf(IllegalArgumentException.class);
         assertThat(catalogue.tables(CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL)).isEmpty();
         assertThatThrownBy(() -> catalogue.patientScopes().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
