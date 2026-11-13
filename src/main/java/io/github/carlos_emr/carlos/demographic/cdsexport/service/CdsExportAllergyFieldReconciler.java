@@ -181,6 +181,21 @@ public final class CdsExportAllergyFieldReconciler {
                 }
             } else currentPaths.add(group.path);
         }
+        // A native reaction too long for Reaction travels in a native allergy's Notes. This path
+        // keeps the imported Notes, so such a value on an imported row (CARLOS amends an allergy
+        // by archiving it and adding a native row, never by editing it in place) is held rather
+        // than dropped.
+        if (!choosePrepared.contains(Group.REACTION)
+                && "Notes"
+                        .equals(
+                                decisions
+                                        .get(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        current.table(),
+                                                        current.recordKey(),
+                                                        "reaction"))
+                                        .destination()))
+            mark(current, decisions, Group.REACTION, "CHANGED_LONG_REACTION_REQUIRES_REVIEW");
         preparedPaths.add(
                 "Notes"); // This standard field was retained but has no native allergy column.
         String description =

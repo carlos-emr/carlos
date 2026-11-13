@@ -72,6 +72,21 @@ public final class CdsExportAllergyMapper {
             "Inactive in the sending EMR: this allergy record was archived (removed, replaced by"
                     + " an edit, or marked inactive) and is not a current allergy.";
 
+    /**
+     * Leads a reaction longer than the standard Reaction element (120 characters) in Notes. The
+     * Add Allergy page's Reaction box has no maximum length and the column is MEDIUMTEXT, so a long
+     * reaction is ordinary chart content: it is written in full in Notes (text32K) instead of
+     * being truncated or holding the patient.
+     */
+    static final String LONG_REACTION_LABEL = "Reaction:\n";
+
+    /** Combines the archived statement and a long reaction into the allergy's Notes, in that order. */
+    static String notes(boolean archived, String longReaction) {
+        if (longReaction == null) return archived ? ARCHIVED_NOTE : null;
+        String reaction = LONG_REACTION_LABEL + longReaction;
+        return archived ? ARCHIVED_NOTE + "\n\n" + reaction : reaction;
+    }
+
     /** DrugRef search categories: 13 is a brand product, the others generic/ingredient/class results. */
     private static final String BRAND_TYPE = "13";
 
@@ -110,7 +125,14 @@ public final class CdsExportAllergyMapper {
         source.operational("lastUpdateDate", "CAPTURED_MODIFICATION_CLOCK_NOT_RECORDED_DATE");
         source.operational("position", "CAPTURED_DISPLAY_ORDER");
         String description = source.text("DESCRIPTION", "OffendingAgentDescription", 120);
-        String reaction = source.text("reaction", "Reaction", 120);
+        String reaction = null, longReaction = null;
+        String rawReaction = source.raw("reaction");
+        if (rawReaction != null
+                && rawReaction.codePointCount(0, rawReaction.length()) > 120
+                && CdsExportNativeFieldAssessments.legal(rawReaction, 32000)) {
+            longReaction = rawReaction;
+            source.set("reaction", Outcome.MAPPED, "Notes", "COMPLETE_LONG_REACTION_IN_NOTES");
+        } else reaction = source.text("reaction", "Reaction", 120);
         String property;
         String nonDrug = source.raw("nonDrug");
         if (nonDrug == null) {
@@ -130,6 +152,13 @@ public final class CdsExportAllergyMapper {
         }
         String archived = source.code("archived", ARCHIVE, Map.of("0", "false", "1", "true"));
         if (archived == null) source.review("archived", ARCHIVE, "ARCHIVE_STATE_REQUIRED");
+        if (longReaction != null
+                && !CdsExportNativeFieldAssessments.legal(
+                        notes(Boolean.parseBoolean(archived), longReaction), 32000)) {
+            // Beyond text32K even in Notes (a reaction of about 32,000 characters).
+            source.review("reaction", "Notes", "LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW");
+            longReaction = null;
+        }
         String reactionType =
                 source.code("reaction_type", "ReactionType", Map.of("AL", "AL", "AR", "AR"));
         String life =
@@ -189,6 +218,12 @@ public final class CdsExportAllergyMapper {
                 // Generic, ingredient and class search results name the allergen by their
                 // description; the search category is catalogue lookup metadata, not a code.
                 source.operational("TYPECODE", "DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE");
+            else if (BRAND_TYPE.equals(typeCode) && (din == null || din.isEmpty()))
+                // A brand chosen from the drug search whose DrugRef lookup returned no DIN:
+                // RxAddAllergy2Action saves it anyway so the clinician's record is not lost. The
+                // allergen is named by its description (and its product's ATC class, if DrugRef
+                // gave one); without a DIN the category is lookup metadata, as for 10-14 above.
+                source.operational("TYPECODE", "DRUGREF_BRAND_WITHOUT_RESOLVED_DIN");
         }
         // The DrugRef search id is a catalogue lookup key, never a DIN (RxAddAllergy2Action).
         if (source.raw("drugref_id") != null)
@@ -257,7 +292,7 @@ public final class CdsExportAllergyMapper {
                         severity,
                         reaction,
                         recorded == null ? absent : recorded,
-                        Boolean.parseBoolean(archived) ? ARCHIVED_NOTE : null,
+                        notes(Boolean.parseBoolean(archived), longReaction),
                         Boolean.parseBoolean(archived),
                         age,
                         onset,

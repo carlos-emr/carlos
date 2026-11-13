@@ -221,6 +221,22 @@ class CdsExportAllergyMapperUnitTest {
                                 body -> new CdsExportAllergyXmlWriter().write(brand.value(), body)),
                         java.nio.charset.StandardCharsets.UTF_8);
         assertThat(xml).contains("DIN", "02247701").doesNotContain("CARLOS.Allergy.Atc.v1");
+        // A brand saved after DrugRef returned no DIN (RxAddAllergy2Action keeps it, A23): the
+        // allergen is named by its description, its product ATC travels in the residual.
+        var unresolved = baseline();
+        unresolved.putAll(Map.of("TYPECODE", "13", "drugref_id", "45678", "atc", "J01CA04"));
+        var noDin = mapper.map(27, allergy(unresolved), List.of());
+        assertThat(noDin.nativeRowRepresentable()).isTrue();
+        assertThat(noDin.value().codeType()).isEqualTo("ATC");
+        assertThat(noDin.fields().get(key("TYPECODE")).rule())
+                .isEqualTo("DRUGREF_BRAND_WITHOUT_RESOLVED_DIN");
+        unresolved.put("atc", null);
+        var bare = mapper.map(27, allergy(unresolved), List.of());
+        assertThat(bare.nativeRowRepresentable()).isTrue();
+        assertThat(bare.value().codeValue()).isNull();
+        assertThat(bare.value().description()).isEqualTo("FAKE-CDS agent");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(allergy(unresolved)), bare.fields(), 1000, () -> {});
         // An ingredient (14) search result is named by its description; its id is not a code.
         var ingredient = baseline();
         ingredient.putAll(Map.of("TYPECODE", "14", "drugref_id", "987"));
@@ -309,10 +325,44 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
-    void shouldBlockReactionCapacityAndPrecisionConflicts_withoutTruncatingOrMovingDataIntoNotes()
+    void shouldWriteALongReactionInFullInNotes_insteadOfTruncatingOrHoldingIt() throws Exception {
+        // A22: the Reaction box has no maximum length (MEDIUMTEXT); Reaction holds 120.
+        String reaction = "Hives and wheeze within minutes;\r\n" + "x".repeat(140);
+        for (String archived : List.of("0", "1")) {
+            var fields = baseline();
+            fields.put("reaction", reaction);
+            fields.put("archived", archived);
+            var mapped = mapper.map(27, allergy(fields), List.of());
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().reaction()).isNull();
+            assertThat(mapped.value().notes())
+                    .isEqualTo(
+                            "1".equals(archived)
+                                    ? CdsExportAllergyMapper.ARCHIVED_NOTE
+                                            + "\n\nReaction:\n"
+                                            + reaction
+                                    : "Reaction:\n" + reaction);
+            assertThat(mapped.fields().get(key("reaction")).destination()).isEqualTo("Notes");
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(allergy(fields)), mapped.fields(), 1000, () -> {});
+            String xml =
+                    new String(
+                            CdsExportNativeHistoryMapperUnitTest.render(
+                                    CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                                    body ->
+                                            new CdsExportAllergyXmlWriter()
+                                                    .write(mapped.value(), body)),
+                            java.nio.charset.StandardCharsets.UTF_8);
+            assertThat(xml).doesNotContain("Reaction>").contains("x".repeat(140));
+        }
+    }
+
+    @Test
+    void shouldBlockReactionsBeyondNotesAndPrecisionConflicts_withoutTruncating()
             throws Exception {
         var fields = baseline();
-        fields.put("reaction", "x".repeat(121));
+        fields.put("reaction", "x".repeat(32001));
         var longReaction = mapper.map(27, allergy(fields), List.of());
         assertThat(longReaction.nativeRowRepresentable()).isFalse();
         assertThat(longReaction.fields().get(key("reaction")).outcome())
