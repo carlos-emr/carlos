@@ -55,6 +55,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -83,6 +86,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -1269,6 +1273,131 @@ class AddEditDocument2ActionUnitTest extends CarlosUnitTestBase {
                 .isAnnotationPresent(StrutsParameter.class)).isFalse();
         assertThat(AddEditDocument2Action.class.getMethod("setDocFileContentType", String.class)
                 .isAnnotationPresent(StrutsParameter.class)).isFalse();
+    }
+
+    /** document.docdesc: a utf8mb4 VARCHAR(255), counted in code points. */
+    private static final int DESCRIPTION_MAX = io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH;
+
+    /**
+     * A description longer than document.docdesc was stored cut to 255 characters without a word,
+     * because the packaged database is not strict. The add is refused before
+     * anything is written, with a docerrors message. "\uD83D\uDE00" is one character, two Java chars.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should refuse to add a document whose description is one character longer than document.docdesc")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheAdd_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String character) {
+        action.setMode("add");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(character.repeat(DESCRIPTION_MAX + 1));
+        action.setDocType("Consultant Report");
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("failAdd");
+            documents.verifyNoInteractions();
+        }
+
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        logActionMock.verifyNoInteractions();
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should add a document whose description fills document.docdesc exactly, storing it whole")
+    void shouldStoreTheWholeDescription_whenItFillsTheColumnExactly(String character) throws Exception {
+        String description = character.repeat(DESCRIPTION_MAX);
+        tempUploadFile = File.createTempFile("add-edit-document", ".txt");
+        Files.writeString(tempUploadFile.toPath(), "test");
+        Path documentDir = Files.createTempDirectory("add-edit-document-output");
+        String originalDocumentDir = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", documentDir.toString());
+        action.setMode("add");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setDocCreator("999998");
+        action.setResponsibleId("999998");
+        action.setSource("local");
+        action.setDocPublic("0");
+        action.setObservationDate("2026-11-13");
+        action.setAppointmentNo("0");
+        bindDocFileUpload(tempUploadFile, "full-description.txt", "text/plain");
+        ArgumentCaptor<EDoc> stored = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class, CALLS_REAL_METHODS)) {
+            eDocUtilMock.when(() -> EDocUtil.getDoctypes("provider"))
+                    .thenReturn(new ArrayList<>(List.of("Consultant Report")));
+            eDocUtilMock.when(() -> EDocUtil.addDocumentSQL(any(EDoc.class))).thenReturn("321");
+
+            assertThat(action.execute2()).isEqualTo(ActionSupport.NONE);
+
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(stored.capture()));
+        } finally {
+            if (originalDocumentDir == null) {
+                CarlosProperties.getInstance().remove("DOCUMENT_DIR");
+            } else {
+                CarlosProperties.getInstance().setProperty("DOCUMENT_DIR", originalDocumentDir);
+            }
+            File[] writtenFiles = documentDir.toFile().listFiles();
+            if (writtenFiles != null) {
+                for (File writtenFile : writtenFiles) {
+                    Files.deleteIfExists(writtenFile.toPath());
+                }
+            }
+            Files.deleteIfExists(documentDir);
+        }
+        assertThat(stored.getValue().getDescription()).isEqualTo(description);
+        assertThat(request.getAttribute("docerrors")).isNull();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should refuse an edit whose description is one character longer than document.docdesc, changing nothing")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheEdit_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String character) {
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(character.repeat(DESCRIPTION_MAX + 1));
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("failEdit");
+            documents.verifyNoInteractions();
+        }
+
+        Hashtable<String, String> errors = (Hashtable<String, String>) request.getAttribute("docerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        assertThat(request.getAttribute("editDocumentNo")).isEqualTo("123");
+        assertThat(transactions.begun).isZero();
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "\uD83D\uDE00"})
+    @DisplayName("should save an edit whose description fills document.docdesc exactly")
+    void shouldSaveTheEdit_whenTheDescriptionFillsTheColumnExactly(String character) {
+        String description = character.repeat(DESCRIPTION_MAX);
+        action.setMode("123");
+        action.setFunction("provider");
+        action.setFunctionId("999998");
+        action.setDocDesc(description);
+        action.setDocType("Consultant Report");
+        action.setAppointmentNo("0");
+        ArgumentCaptor<EDoc> stored = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> documents = mockStatic(EDocUtil.class)) {
+            assertThat(action.execute2()).isEqualTo("successEdit");
+            documents.verify(() -> EDocUtil.editDocumentSQL(stored.capture(), eq(false)));
+        }
+
+        assertThat(stored.getValue().getDescription()).isEqualTo(description);
     }
 
     @Test

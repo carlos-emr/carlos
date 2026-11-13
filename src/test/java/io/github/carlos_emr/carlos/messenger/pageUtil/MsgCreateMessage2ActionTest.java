@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
 import io.github.carlos_emr.carlos.messenger.data.MsgProviderData;
 import io.github.carlos_emr.carlos.test.base.CarlosWebTestBase;
 import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
+import io.github.carlos_emr.carlos.utility.LocaleUtils;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
 import org.junit.jupiter.api.*;
@@ -207,6 +208,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
         private static final String RECIPIENT = "FAKE-recipient";
         private final AtomicReference<String> sentItems = new AtomicReference<>();
         private final AtomicReference<String> sentPdfs = new AtomicReference<>();
+        private final AtomicReference<String> sentSubject = new AtomicReference<>();
         private final java.util.concurrent.atomic.AtomicInteger sends = new java.util.concurrent.atomic.AtomicInteger();
         private Runnable duringSend = () -> { };
         private String sentMessageId = "77";
@@ -241,6 +243,7 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
                 when(data.sendMessage2(any(), any(), any(), any(), any(), any(), any(), any(), any()))
                         .thenAnswer(invocation -> {
                             sends.incrementAndGet();
+                            sentSubject.set(invocation.getArgument(1));
                             sentItems.set(invocation.getArgument(6));
                             sentPdfs.set(invocation.getArgument(7));
                             duringSend.run();
@@ -252,6 +255,61 @@ class MsgCreateMessage2ActionTest extends CarlosWebTestBase {
             })) {
                 return executeAction(action);
             }
+        }
+
+        /**
+         * messagetbl.thesubject is a utf8mb4 VARCHAR(128) and the packaged database cuts a longer
+         * value off without an error, so the action refuses it. The column
+         * counts code points: an emoji is one character, two Java chars.
+         */
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should send a subject that fills messagetbl.thesubject exactly, an emoji counting as one character")
+        void shouldSendTheWholeSubject_whenItFillsTheColumnExactly(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sends.get()).isEqualTo(1);
+            assertThat(sentSubject.get()).isEqualTo(subject);
+        }
+
+        @org.junit.jupiter.params.ParameterizedTest
+        @org.junit.jupiter.params.provider.ValueSource(strings = {"S", "\uD83D\uDE00"})
+        @DisplayName("should refuse a subject one character longer than the column, send nothing and keep what was written")
+        void shouldRefuseTheSubject_whenItIsOneCharacterLongerThanTheColumn(String character) throws Exception {
+            String subject = character.repeat(MessageTbl.SUBJECT_MAX_LENGTH + 1);
+            action.setAttachmentKey(thisWindow);
+            action.setDemographic_no("101");
+            action.setSubject(subject);
+
+            assertThat(send()).isEqualTo("error");
+
+            assertThat(sends.get()).isZero();
+            verifyNoInteractions(mockDemoManager);
+            assertThat((String) getMockRequest().getAttribute("createMessageError"))
+                    .isEqualTo(LocaleUtils.getMessage(getMockRequest(), "messenger.CreateMessage.msgSubjectTooLong"))
+                    .contains(Integer.toString(MessageTbl.SUBJECT_MAX_LENGTH));
+            assertThat(getMockRequest().getAttribute("ReSubject")).isEqualTo(subject);
+            assertThat(getMockRequest().getAttribute("ReText")).isEqualTo("FAKE body");
+            assertThat(getMockRequest().getAttribute("demographic_no")).isEqualTo("101");
+            assertThat(getMockRequest().getAttribute(MsgAttachmentStaging.KEY_ATTRIBUTE)).isEqualTo(thisWindow);
+            assertThat(MsgAttachmentStaging.peek(getMockSession(), thisWindow).pdfAttachment())
+                    .isEqualTo("<PDF>FAKE patient 101 chart</PDF>");
+        }
+
+        @Test
+        @DisplayName("should measure the subject as it is stored, after its surrounding spaces are trimmed")
+        void shouldSendTheTrimmedSubject_whenOnlyItsSurroundingSpacesPassTheColumn() throws Exception {
+            String subject = "S".repeat(MessageTbl.SUBJECT_MAX_LENGTH);
+            action.setSubject("  " + subject + "  ");
+
+            assertThat(send()).isEqualTo("success");
+
+            assertThat(sentSubject.get()).isEqualTo(subject);
         }
 
         @org.junit.jupiter.params.ParameterizedTest
