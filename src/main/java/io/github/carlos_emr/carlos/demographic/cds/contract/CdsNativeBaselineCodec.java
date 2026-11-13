@@ -318,8 +318,8 @@ public final class CdsNativeBaselineCodec {
 
     /** A zlib stream of the document; a witness document is far below {@link #MAX_BYTES}. */
     private static byte[] deflate(byte[] document) {
-        var deflater = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION);
-        try {
+        // Closing (Java 25: AutoCloseable) releases the native zlib state, as end() did.
+        try (var deflater = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION)) {
             deflater.setInput(document);
             deflater.finish();
             var output = new java.io.ByteArrayOutputStream(Math.max(64, document.length / 3));
@@ -327,8 +327,6 @@ public final class CdsNativeBaselineCodec {
             while (!deflater.finished()) output.write(buffer, 0, deflater.deflate(buffer));
             if (output.size() > MAX_BYTES) invalid();
             return output.toByteArray();
-        } finally {
-            deflater.end();
         }
     }
 
@@ -337,8 +335,7 @@ public final class CdsNativeBaselineCodec {
      * is malformed, ends early, carries trailing bytes or inflates past {@link #MAX_BYTES}.
      */
     private static byte[] inflate(byte[] compressed) {
-        var inflater = new java.util.zip.Inflater();
-        try {
+        try (var inflater = new java.util.zip.Inflater()) {
             inflater.setInput(compressed);
             var output =
                     new java.io.ByteArrayOutputStream(
@@ -354,8 +351,6 @@ public final class CdsNativeBaselineCodec {
             return output.toByteArray();
         } catch (java.util.zip.DataFormatException malformed) {
             throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
-        } finally {
-            inflater.end();
         }
     }
 

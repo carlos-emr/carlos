@@ -303,6 +303,11 @@ final class CdsExportDataSummaryHtmlComposer {
                     html.append("<div class=\"state\">")
                             .append(SIGNATURE_UNDECRYPTABLE)
                             .append("</div>");
+            // Every form is handled above; an unknown one is named like an undecryptable value.
+            default ->
+                    html.append("<div class=\"state\">")
+                            .append(SIGNATURE_UNDECRYPTABLE)
+                            .append("</div>");
         }
     }
 

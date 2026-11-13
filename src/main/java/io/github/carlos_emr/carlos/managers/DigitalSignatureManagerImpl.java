@@ -83,6 +83,8 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
                         + "(likely encrypted with a currently-unavailable key); returning no image", id, read.failure());
                 digitalSignature.setSignatureImage(null);
             }
+            // Every form is handled above; an unknown one is never shown as an image.
+            default -> digitalSignature.setSignatureImage(null);
         }
 
         return digitalSignature;
