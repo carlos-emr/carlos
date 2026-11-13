@@ -73,7 +73,15 @@ public class CdsPatientIdentityResolver {
                         case "D" -> "DE";
                         default -> status;
                     };
-        else status = text(record, "PersonStatusCode/PersonStatusAsPlainText", 50);
+        else {
+            status = text(record, "PersonStatusCode/PersonStatusAsPlainText", 50);
+            // A CARLOS export names its built-in statuses by meaning; restore the native code.
+            if (status != null)
+                status =
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsPatientStatusLabels
+                                .CODES
+                                .getOrDefault(status, status);
+        }
         return new CdsPatientIdentityDto(
                 text(record, "UniqueVendorIdSequence", 20),
                 text(record, "Names/LegalName/FirstName/Part", 50),

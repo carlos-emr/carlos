@@ -38571,14 +38571,15 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "demographic-status": {
-        "destination": "Demographic.patientStatus (enum A/I/D→AC/IN/DE; plain source text retained literally within widened native capacity).",
+        "destination": "Demographic.patientStatus (enum A/I/D→AC/IN/DE; the plain-text labels Moved and Fired that a CARLOS export writes for its built-in MO and FI statuses→MO/FI; any other plain source text retained literally within widened native capacity).",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsPatientIdentityResolver.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPatientStatusLabels.java"
         ],
-        "normalization": "The two mutually exclusive enum/plain-text branches retain their meaning; no unknown value is converted to active.",
+        "normalization": "The two mutually exclusive enum/plain-text branches retain their meaning; only the exact CdsPatientStatusLabels labels Moved/Fired are mapped back to their CARLOS codes, and no unknown value is converted to active.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 3 (Demographics)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39856,7 +39857,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "64f3612cfe804c10fa414725ba525d1214c8f338fc260e6353ad2c6a1644b65c"
+    "sha256": "faa1e605856052d8ba0bb0cbf9db77508ab7149c61fe59af06ed18a193852233"
   },
   "root": "cds:OmdCds",
   "schemas": [

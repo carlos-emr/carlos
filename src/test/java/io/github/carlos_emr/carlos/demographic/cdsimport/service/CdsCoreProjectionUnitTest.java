@@ -62,6 +62,7 @@ import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -77,6 +78,9 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
     private CdsHistoryPersister histories;
     private CdsAppointmentPersister appointments;
     private CdsImportCommand command;
+    /** The fixture's PersonStatusCode; a test may set another before parsing. */
+    private String personStatus =
+            "<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode>";
     private CdsPatientIdentityResolver identity;
     private DemographicDao demographicDao;
     private DemographicCustDao customDao;
@@ -175,6 +179,22 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         0,
                         null,
                         false);
+    }
+
+    @Test
+    void shouldRestoreCarlosStatusCodes_fromTheLabelsACarlosExportWrites() throws Exception {
+        // Review D8: the exporter writes Moved/Fired by meaning; a clinic-defined status passes.
+        var resolver = new CdsPatientIdentityResolver(fields);
+        for (var status :
+                Map.of("Moved", "MO", "Fired", "FI", "Transferred & pending", "Transferred & pending")
+                        .entrySet()) {
+            personStatus =
+                    "<PersonStatusCode><PersonStatusAsPlainText>"
+                            + status.getKey().replace("&", "&amp;")
+                            + "</PersonStatusAsPlainText></PersonStatusCode>";
+            assertThat(resolver.source(parse("", ""), command).status())
+                    .isEqualTo(status.getValue());
+        }
     }
 
     @Test
@@ -1730,7 +1750,7 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         + healthCard
                         + "<Gender>F</Gender><UniqueVendorIdSequence>owned</UniqueVendorIdSequence>"
                         + demographicExtra
-                        + "<PersonStatusCode><PersonStatusAsEnum>A</PersonStatusAsEnum></PersonStatusCode>"
+                        + personStatus
                         + statusDate
                         + "</Demographics>";
         Files.writeString(

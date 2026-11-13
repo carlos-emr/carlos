@@ -392,6 +392,19 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
+    void shouldExportMovedAndFiredByMeaning_insteadOfTheirTwoLetterCodes() throws Exception {
+        // Review D8: another EMR sees "Moved", not "MO"; CARLOS maps the label back on import.
+        for (var status : Map.of("MO", "Moved", "FI", "Fired").entrySet()) {
+            var fields = baseline();
+            fields.put("patient_status", status.getKey());
+            var result = mapper.map(row(fields));
+            assertThat(result.enumeratedStatus()).isFalse();
+            assertThat(text(parse(xml(result)), "cds", "PersonStatusAsPlainText"))
+                    .isEqualTo(status.getValue());
+        }
+    }
+
+    @Test
     void shouldKeepCustomPatientStatusAsPlainText_withoutAssumingItMeansActive() throws Exception {
         var fields = baseline();
         fields.put("patient_status", "Transferred & pending");

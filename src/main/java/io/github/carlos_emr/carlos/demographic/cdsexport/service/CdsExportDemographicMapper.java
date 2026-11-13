@@ -100,6 +100,14 @@ public final class CdsExportDemographicMapper {
                 status =
                         state.text(
                                 "patient_status", "PersonStatusCode/PersonStatusAsPlainText", 50);
+                // CARLOS's own non-CDS statuses travel by meaning, not as a bare two-letter code
+                // (the add/edit forms' "MO - Moved", "FI - Fired"); CdsPatientIdentityResolver
+                // maps the label back. A clinic-defined status is exported as it is stored.
+                String label =
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPatientStatusLabels.LABELS
+                                .get(status);
+                if (label != null) status = label;
                 enumerated = false;
             }
         }
