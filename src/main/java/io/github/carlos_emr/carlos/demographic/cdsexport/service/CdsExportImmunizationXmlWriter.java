@@ -21,11 +21,16 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportImmunizationDto;
 import java.io.IOException;
 
-/** Schema-ordered standard vaccine event. Native screening entries and program restrictions require classification before this writer. */
+/**
+ * Schema-ordered vaccine event: the optional CARLOS residual comes first, as CDS 5.2 orders
+ * ResidualInfo ahead of ImmunizationName. Native screening entries and program restrictions
+ * require classification before this writer.
+ */
 public final class CdsExportImmunizationXmlWriter {
     public void write(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
@@ -35,6 +40,15 @@ public final class CdsExportImmunizationXmlWriter {
     private void writeValue(CdsExportImmunizationDto value, CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
         validate(value);
+        if (value.sourceContext() != null) {
+            xml.start("cds", "ResidualInfo");
+            CdsExportNativeHistoryXmlWriter.residualElement(
+                    xml,
+                    CdsNativeExtensionContract.PREVENTION_SOURCE_CONTEXT,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    value.sourceContext());
+            xml.end();
+        }
         xml.element("cds", "ImmunizationName", value.name());
         optional(xml, "ImmunizationType", value.type());
         optional(xml, "Manufacturer", value.manufacturer());
@@ -76,6 +90,15 @@ public final class CdsExportImmunizationXmlWriter {
             invalid();
         if (value.code() != null
                 && (!"DIN".equals(value.codeSystem()) || !value.code().matches("[0-9]{8}")))
+            invalid();
+        // Residual Content is an xs:token: the mapper escapes every literal space, so XML
+        // whitespace normalization cannot alter the carried values.
+        if (value.sourceContext() != null
+                && (value.sourceContext().isEmpty()
+                        || !CdsExportNativeFieldAssessments.legal(value.sourceContext(), 1 << 24)
+                        || value.sourceContext()
+                                .chars()
+                                .anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')))
             invalid();
     }
 

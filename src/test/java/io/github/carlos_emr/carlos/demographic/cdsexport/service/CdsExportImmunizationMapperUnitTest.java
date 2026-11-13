@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+
 import static org.assertj.core.api.Assertions.*;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsWireSchema;
@@ -146,7 +148,9 @@ class CdsExportImmunizationMapperUnitTest {
         assertThat(result.fields()).hasSize(52);
         var value = result.value();
         assertThat(value.name()).isEqualTo(" Brand café 😀 ");
-        assertThat(value.manufacturer()).isEmpty();
+        // The form saves an empty row for every unfilled input; it is not a fact (review F5),
+        // so no empty element is written. The exact empty text stays in the residual.
+        assertThat(value.manufacturer()).isNull();
         assertThat(value.lot()).isNull();
         assertThat(value.route()).isEqualTo("IM");
         assertThat(value.site()).isEqualTo(" Left arm ");
@@ -158,6 +162,84 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldExportAVaccineSavedByThePreventionForm_withItsEmptyInputRowsAndNativeContext()
+            throws Exception {
+        // AddPrevention2Action saves the provider, a reminder date and one extension row per
+        // input whether filled or not (addHashtoArray), including a blank name. Review F5.
+        parent.put("prevention_type", "FutureVaccine");
+        parent.put("provider_no", "999998");
+        parent.put("next_date", "2025-02-28");
+        parent.put("snomedId", "28531000087107");
+        int id = 30;
+        for (String key :
+                List.of(
+                        "location2", "din", "result", "reason", "neverReason", "dosage", "product",
+                        "workflowId", "formId", "name", "expiryDate", "providerName"))
+            extra(id++, key, "");
+        extra(id++, "location", "Left deltoid");
+        extra(id++, "lot", "AB123");
+        extra(id++, "route", "IM");
+        extra(id++, "dose", "0.5 mL");
+        extra(id++, "manufacture", "Example Biologics");
+        extra(id++, "comments", "No reaction");
+        extra(id++, "chronic", "on");
+        extra(id, "brandSnomedId", "28571000087109");
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(
+                        result.fields().values().stream()
+                                .filter(
+                                        field ->
+                                                field.outcome()
+                                                        == CdsExportFieldAssessmentDto.Outcome
+                                                                .REQUIRES_REVIEW))
+                .isEmpty();
+        var value = result.value();
+        // The blank name row does not hide the configured type name.
+        assertThat(value.name()).isEqualTo("FutureVaccine");
+        assertThat(value.type()).isNull();
+        assertThat(value.site()).isEqualTo("Left deltoid");
+        assertThat(value.lot()).isEqualTo("AB123");
+        assertThat(value.code()).isNull();
+        assertThat(value.notes()).isEqualTo("No reaction");
+        assertThat(value.sourceContext())
+                .contains("\"provider_no\":\"999998\"", "\"brandSnomedId\"", "\"chronic\"")
+                .doesNotContain(" ");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.IMMUNIZATIONS,
+                                body -> new CdsExportImmunizationXmlWriter().write(value, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains("CARLOS.Prevention.Source.v1", "FutureVaccine", "Left deltoid")
+                .doesNotContain("ImmunizationType");
+        assertThat(xml.indexOf("ResidualInfo")).isLessThan(xml.indexOf("ImmunizationName"));
+    }
+
+    @Test
+    void shouldCarryATypedTextThatIsNotAnEightDigitDin_insteadOfExportingOrRefusingIt()
+            throws Exception {
+        extra(30, "din", "1234567");
+        var result = map();
+        assertThat(result.value().code()).isNull();
+        assertThat(result.value().sourceContext()).contains("1234567");
+        assertThat(
+                        result.fields().entrySet().stream()
+                                .filter(entry -> entry.getKey().column().equals("val"))
+                                .map(entry -> entry.getValue().rule()))
+                .containsExactly("NATIVE_TEXT_IS_NOT_A_DIN_CARRIED");
+    }
+
+    @Test
+    void shouldIgnoreTheSupersededVersionLink_ofAnEditedVaccine() throws Exception {
+        extra(30, "previousId", "16");
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(result.value().name()).isEqualTo("Td");
+    }
+
+    @Test
     void shouldVerifyExplicitRefusalRemainsTrue_forImmunizationMapperContract() throws Exception {
         parent.put("refused", "1");
         assertThat(map().value().refused()).isTrue();
@@ -166,11 +248,26 @@ class CdsExportImmunizationMapperUnitTest {
     @Test
     void shouldVerifyIneligibleAndCompletedExternallyAreNeverCollapsed_toNotRefused()
             throws Exception {
-        for (String flag : Arrays.asList("2", "3", "x", null, "")) {
+        // The prevention form saves 2 (ineligible) and 3 (completed externally); they no longer
+        // hold the chart (review F5). Ineligible was not given, so it is never exported as given.
+        parent.put("refused", "2");
+        var ineligible = map().value();
+        assertThat(ineligible.refused()).isTrue();
+        assertThat(ineligible.notes()).isEqualTo("Ineligible");
+        assertThat(decision(map(), "preventions", "refused").rule())
+                .isEqualTo("INELIGIBLE_IS_NOT_ADMINISTERED");
+        parent.put("refused", "3");
+        extra(30, "comments", "Given at pharmacy");
+        var external = map().value();
+        assertThat(external.refused()).isFalse();
+        assertThat(external.notes()).isEqualTo("Completed externally\nGiven at pharmacy");
+        assertThat(external.sourceContext()).contains("\"refused\":\"3\"");
+        extras.clear();
+        for (String flag : Arrays.asList("x", null, "")) {
             parent.put("refused", flag);
             assertThat(map().value()).isNull();
             assertThat(decision(map(), "preventions", "refused").rule())
-                    .isEqualTo("INELIGIBLE_EXTERNAL_OR_UNKNOWN_STATUS_NEEDS_RECONCILIATION");
+                    .isEqualTo("UNKNOWN_NATIVE_STATUS_NEEDS_RECONCILIATION");
         }
     }
 
@@ -272,9 +369,11 @@ class CdsExportImmunizationMapperUnitTest {
     void shouldVerifyANativeSnomedIdNeverTurnsIntoStandardDin_forImmunizationMapperContract()
             throws Exception {
         parent.put("snomedId", "00123456");
-        assertThat(map().value()).isNull();
-        assertThat(decision(map(), "preventions", "snomedId").outcome())
-                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        // The CVC concept is carried in the residual (review F5), never as a DIN.
+        assertThat(map().value().code()).isNull();
+        assertThat(decision(map(), "preventions", "snomedId").destination())
+                .isEqualTo("ResidualInfo");
+        assertThat(map().value().sourceContext()).contains("\"snomedId\":\"00123456\"");
     }
 
     @Test
@@ -298,6 +397,14 @@ class CdsExportImmunizationMapperUnitTest {
             shouldVerifyAFutureConfiguredVaccineDoesNotExtendTheOldWireEnumeration_forImmunizationMapperContract()
                     throws Exception {
         parent.put("prevention_type", "FutureVaccine");
+        // A configured vaccine outside CT-020 (here COVID-19) is exported by name with no
+        // ImmunizationType, its native type carried (review F5); the old list is not extended.
+        assertThat(map().value().type()).isNull();
+        assertThat(map().value().name()).isEqualTo("FutureVaccine");
+        assertThat(decision(map(), "preventions", "prevention_type").rule())
+                .isEqualTo("NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL");
+        // An explicit imported wire type outside the list still needs review.
+        extra(30, "cdsType", "COVID-19");
         assertThat(map().value()).isNull();
         assertThat(decision(map(), "preventions", "prevention_type").rule())
                 .isEqualTo("NO_PINNED_WIRE_TYPE_EQUIVALENCE");
@@ -365,24 +472,42 @@ class CdsExportImmunizationMapperUnitTest {
     void
             shouldVerifyUnknownAndStaleImportedExtensionsCannotBeIgnoredOrOverrideCurrentEvent_forImmunizationMapperContract()
                     throws Exception {
-        for (String key : List.of("customClinicalValue", "cdsDateOriginal", "cdsDatePrecision")) {
+        // Import provenance on a row the reconciler did not claim is a stale hint (review).
+        for (String key : List.of("cdsDateOriginal", "cdsDatePrecision")) {
             extra(30, key, "2020");
             assertThat(map().value()).isNull();
             extras.clear();
         }
+        // Any other native key is carried exactly and cannot change the event (review F5).
+        extra(30, "customClinicalValue", "2020");
+        var carried = map().value();
+        assertThat(carried.date()).isEqualTo(map().value().date());
+        assertThat(carried.sourceContext()).contains("\"customClinicalValue\"");
     }
 
     @Test
     void
             shouldVerifyAdministeringCliniciansDueDatesReminderSuppressionAndProgramAffiliationRemainExplicit_forImmunizationMapperContract()
                     throws Exception {
+        // These have no CDS Immunizations element; they are carried exactly in the residual
+        // instead of holding the chart (review F5).
         for (String column :
                 List.of("provider_no", "provider_name", "next_date", "never", "programNo")) {
             String prior =
                     parent.put(column, column.equals("never") ? "1" : "Recorded native value");
-            assertThat(map().value()).isNull();
+            // A program on an explicitly unrestricted row; a restriction still needs review.
+            parent.put("restrictToProgram", column.equals("programNo") ? "0" : null);
+            var result = map();
+            assertThat(result.nativeRowRepresentable()).isTrue();
+            assertThat(decision(result, "preventions", column).destination())
+                    .isEqualTo("ResidualInfo");
+            assertThat(result.value().sourceContext())
+                    .contains(column.equals("never") ? "\"never\":\"1\"" : "Recorded\\u0020native");
             parent.put(column, prior);
         }
+        parent.put("restrictToProgram", null);
+        parent.put("programNo", "10034");
+        assertThat(map().value()).isNull();
     }
 
     @Test
@@ -415,7 +540,8 @@ class CdsExportImmunizationMapperUnitTest {
         extra(30, "lot", null);
         extra(31, "manufacture", "");
         var result = map();
-        assertThat(result.value().manufacturer()).isEmpty();
+        // Neither becomes an element (review F5); presence still distinguishes them.
+        assertThat(result.value().manufacturer()).isNull();
         assertThat(result.value().lot()).isNull();
         assertThat(
                         result.fields().entrySet().stream()

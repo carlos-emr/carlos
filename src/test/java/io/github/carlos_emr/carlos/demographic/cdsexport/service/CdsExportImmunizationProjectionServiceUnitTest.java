@@ -256,7 +256,9 @@ class CdsExportImmunizationProjectionServiceUnitTest {
     @Test
     void shouldVerifyUnknownClinicalExtensionsRemainABlockedOccurrence_withTheirFields() throws Exception {
         var fields = new TreeMap<>(children.getFirst().fields());
-        fields.put("keyval", "unknownClinicalValue");
+        // An unknown native key is now carried in the residual (review F5); a stale imported
+        // date hint on a row no import unit claims still blocks.
+        fields.put("keyval", "cdsDatePrecision");
         children.set(
                 0,
                 new CdsExportCapturedTextRowDto(

@@ -32,6 +32,26 @@ duplicated or unwitnessed row refuses the patient. Program-restricted rows, rows
 not a proven screening, unknown status codes, duplicate result/reason/comments extensions and
 unsupported date precision hold the patient for review, and any unclassifiable prevention row
 also holds a PastHealth export because it may be a screening.
+also holds a PastHealth export because it may be a screening.
+
+Native vaccines are exported as Immunizations exactly as the prevention form records them. The
+name is the recorded brand name, or the configured prevention type when the name is blank;
+ImmunizationType is the configured Health Canada type when it is one of the CT-020 values, and
+is left out (never guessed) for a configured vaccine outside that list, such as COVID-19,
+Pneu-C-20 or RZV. Site, route, dose, lot, manufacturer, instructions and comments map to their
+standard elements, and an eight-digit DIN becomes ImmunizationCode; text typed in the DIN box
+that is not an eight-digit DIN is never exported as one. "Completed externally" exports as given
+(RefusedFlag N) and "Ineligible" as not given (RefusedFlag Y), with the status as the first line
+of Notes. The complete parent, extension and precision rows travel in the same
+`CARLOS.Prevention.Source.v1` residual as screenings, so the recording provider, reminder date
+and "never remind" choice, the CVC concept, flu risk factors, refusal reasons and the free-text
+administering provider are carried exactly. The form saves an empty row for every unfilled
+input; an empty row is not a fact and never hides the type name. An edited vaccine's link to the
+version it replaced is not exported. Program-restricted rows, unknown status codes, duplicate
+standard fields, unsupported date precision and the importer's date hints on a row no applied
+import claims still hold the patient. An imported vaccine is written from its retained original
+elements without this residual, so a provider, reminder or status added after the import holds
+the patient for review.
 
 Superseded or removed prevention versions are not exported, for vaccines and screenings alike.
 CARLOS never edits a prevention in place: an edit soft-deletes the old row (`deleted = '1'`)
@@ -942,10 +962,10 @@ immunization occurrence integration remain separate unfinished gates.
 
 The native immunization mapper and projection service now retain a decision for every parent,
 extension and precision field. They use captured definitions, exact current text and date
-precision, and require explicit DIN authority. Ineligible/external statuses, duplicate keys,
-conflicting aliases, unsupported archive/provider/clinical fields and stale imported date hints
-remain review cases until their reconciliation or carriers are complete. They cannot be collapsed
-into a refusal boolean or silently dropped. The writer independently checks the pinned CT-020
+precision, and require explicit DIN authority. Ineligible and externally completed statuses,
+provider, reminder and other native fields are carried as described above; duplicate keys,
+conflicting aliases, unsupported archive states and stale imported date hints remain review cases.
+They cannot be collapsed into a refusal boolean or silently dropped. The writer independently checks the pinned CT-020
 enumeration and the dictionary's 32,000-character note boundary. Source generations, bounded
 child indexes, counts, authenticated EOF and late live authority guard the projection. The
 86-case isolated suite and 15 installed checks passed before integration. The integrated

@@ -200,7 +200,8 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
         for (String text : Arrays.asList(null, "")) {
             edit("comments").put("val", text);
             var result = reconcile();
-            assertThat(result.mapping().value().notes()).isEqualTo(text);
+            // An emptied comment row is not a fact (review F5): no Notes, and never the old ones.
+            assertThat(result.mapping().value().notes()).isNull();
             assertThat(result.currentPaths()).contains("Notes");
         }
     }
@@ -495,7 +496,8 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
         assertThat(received.date().original()).isEqualTo("2024-03-01");
         assertThat(received.date().earliest()).isEqualTo(source.date().earliest());
         assertThat(received.date().appliedShiftDays()).isZero();
-        assertThat(received.notes()).isEmpty();
+        // The emptied comment writes no Notes element (review F5).
+        assertThat(received.notes()).isNull();
     }
 
     @Test

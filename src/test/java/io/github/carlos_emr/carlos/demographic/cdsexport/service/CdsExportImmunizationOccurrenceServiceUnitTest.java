@@ -159,11 +159,20 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
             throws Exception {
         var f = fixture(false, null);
         var parent = new TreeMap<>(f.parents.getFirst().fields());
-        parent.put("provider_name", "Unmapped administering clinician");
+        // A free-text administering clinician is carried in the residual (review F5); an
+        // unknown status code still refuses the occurrence.
+        parent.put("refused", "7");
         f.parents = List.of(row("preventions", parent));
         f.witnesses = List.of(witness(f.parents.getFirst()));
         assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
         assertThat(f.receipts).isEmpty();
+        var carried = fixture(false, null);
+        var named = new TreeMap<>(carried.parents.getFirst().fields());
+        named.put("provider_name", "Administering clinician");
+        carried.parents = List.of(row("preventions", named));
+        carried.witnesses = List.of(witness(carried.parents.getFirst()));
+        assertThat(new String(compose(carried, false), StandardCharsets.UTF_8))
+                .contains("CARLOS.Prevention.Source.v1", "Administering\\u0020clinician");
     }
 
     @Test

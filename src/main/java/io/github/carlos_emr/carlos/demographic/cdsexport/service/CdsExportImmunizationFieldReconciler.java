@@ -145,6 +145,20 @@ public final class CdsExportImmunizationFieldReconciler {
                 new CdsExportImmunizationMapper(zone)
                         .candidate(patient, parent, extensions, precision, definitions);
         var fields = new LinkedHashMap<>(candidate.fields());
+        // A reconciled imported occurrence is written from its retained original elements and
+        // carries no CARLOS native residual, so a value the native mapper could only carry there
+        // (a provider, reminder or status added in CARLOS after the import) needs review here.
+        for (var entry : fields.entrySet())
+            if (entry.getValue().outcome() == Outcome.MAPPED
+                    && entry.getValue()
+                            .destination()
+                            .contains(CdsExportImmunizationMapper.RESIDUAL))
+                entry.setValue(
+                        new CdsExportFieldAssessmentDto(
+                                entry.getValue().presence(),
+                                Outcome.REQUIRES_REVIEW,
+                                entry.getValue().destination(),
+                                "IMPORTED_OCCURRENCE_HAS_NO_NATIVE_RESIDUAL"));
         var old = new CdsExportPreparedImmunizationMapper().map(prepared);
         var expected = CdsExportImmunizationProjectionEvidence.expectedExtensions(prepared);
         var originalByKey = originalExtensions(prior, expected, fields);

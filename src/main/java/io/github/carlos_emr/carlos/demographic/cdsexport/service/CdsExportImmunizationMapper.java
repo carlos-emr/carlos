@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
@@ -29,9 +30,14 @@ import java.util.*;
 
 /**
  * Native vaccine interpretation after captured category/dependency closure. Every parent,
- * extension and precision field retains an explicit disposition. Duplicate keys, stale
- * imported date hints, archive/clinical fields without a carrier, unqualified coding and
- * unsupported native statuses require reconciliation; no first/last row silently wins.
+ * extension and precision field retains an explicit disposition. The complete native parent,
+ * extension and precision rows travel in the {@code CARLOS.Prevention.Source.v1} residual, so a
+ * value CARLOS records with no CDS Immunizations element (the recording provider, a reminder
+ * date, flu risk factors, a refusal reason, a vaccine type outside the CT-020 list) is carried
+ * exactly instead of refusing the chart. Empty extension rows, which the prevention form saves
+ * for every unfilled input, are not facts. Duplicate standard keys, stale imported date hints,
+ * program restrictions, removed versions and unknown statuses still require reconciliation; no
+ * first/last row silently wins.
  */
 public final class CdsExportImmunizationMapper {
     private final java.time.ZoneId zone;
@@ -43,6 +49,24 @@ public final class CdsExportImmunizationMapper {
     public CdsExportImmunizationMapper(java.time.ZoneId zone) {
         this.zone = zone;
     }
+
+    /** The CDS 5.2 Immunizations residual; the carrier is the screening one, shared by name. */
+    static final String RESIDUAL = "ResidualInfo";
+
+    static final String CARRIED = "EXACT_NATIVE_PREVENTION_SOURCE_CONTEXT";
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    /**
+     * The prevention form's statuses that are neither "given here" (0) nor "refused" (1). A
+     * vaccine completed elsewhere was administered; an ineligible one was not, so it is never
+     * exported as given. The native label opens Notes and the exact code is in the residual.
+     */
+    private static final Map<String, String> STATUS_NOTE =
+            Map.of("2", "Ineligible", "3", "Completed externally");
+
+    /** CdsImmunizationPersister date provenance; meaningful only through the reconciler. */
+    private static final Set<String> STALE_IMPORT_HINTS =
+            Set.of("cdsDateOriginal", "cdsDatePrecision");
 
     private static final Map<String, String> DESTINATIONS =
             Map.ofEntries(
@@ -98,7 +122,7 @@ public final class CdsExportImmunizationMapper {
         int id = verifiedPatientRow(patient, row, extensions, precision, classifier);
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
-        var source = new CdsExportNativeFieldAssessments(row, decisions);
+        var source = carried(row, decisions);
         for (String column :
                 List.of("id", "demographic_no", "lastUpdateDate", "creation_date", "creator"))
             source.operational(column, "CAPTURED_NATIVE_IDENTITY_OR_STORAGE_AUDIT");
@@ -113,6 +137,11 @@ public final class CdsExportImmunizationMapper {
         else source.review("deleted", "ResidualInfo", "ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
         if ("0".equals(source.raw("never")))
             source.operational("never", "NO_NATIVE_REMINDER_SUPPRESSION");
+        else if ("1".equals(source.raw("never")))
+            source.set("never", Outcome.MAPPED, RESIDUAL, "NATIVE_NEVER_REMIND_CARRIED");
+        // The recording provider, reminder date, free-text administering provider, program of a
+        // previously authorized unrestricted row and the CVC concept have no CDS Immunizations
+        // element; carried() already maps them exactly to the residual.
         String restriction = source.raw("restrictToProgram");
         if ("0".equals(restriction) || restriction == null && source.raw("programNo") == null)
             source.operational("restrictToProgram", "PREVIOUSLY_AUTHORIZED_UNRESTRICTED_SCOPE");
@@ -134,6 +163,7 @@ public final class CdsExportImmunizationMapper {
         if (name == null || name.isBlank())
             source.review("prevention_type", "ImmunizationName", "IMMUNIZATION_NAME_REQUIRED");
         boolean typeProven = true;
+        boolean typeCarried = false;
         String type = oneOf(byKey, List.of("cdsType"), "ImmunizationType", 20);
         if (!byKey.containsKey("cdsType")) {
             var definition = classifier.definition(nativeType);
@@ -141,11 +171,18 @@ public final class CdsExportImmunizationMapper {
             if (type != null && type.isEmpty()) type = null;
         }
         if (type != null && !CdsExportImmunizationVocabulary.TYPES.contains(type)) {
-            typeProven = false;
-            source.review("prevention_type", "ImmunizationType", "NO_PINNED_WIRE_TYPE_EQUIVALENCE");
-            if (byKey.containsKey("cdsType"))
+            if (byKey.containsKey("cdsType")) {
+                // An explicit wire type outside the list came from an import; it needs review.
+                typeProven = false;
+                source.review(
+                        "prevention_type", "ImmunizationType", "NO_PINNED_WIRE_TYPE_EQUIVALENCE");
                 for (var fields : byKey.get("cdsType"))
                     fields.review("val", "ImmunizationType", "NO_PINNED_WIRE_TYPE_EQUIVALENCE");
+            } else
+                // A configured CARLOS vaccine (COVID-19, Pneu-C-20, RZV, ...) whose type is not
+                // a CT-020 value: ImmunizationType is optional and omitted, the name is exported
+                // and the native type is in the residual.
+                typeCarried = true;
             type = null;
         }
         var configuredType =
@@ -171,18 +208,31 @@ public final class CdsExportImmunizationMapper {
             source.set(
                     "prevention_type",
                     Outcome.MAPPED,
-                    "ImmunizationName/ImmunizationType",
-                    "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");
+                    typeCarried
+                            ? "ImmunizationName;" + RESIDUAL
+                            : "ImmunizationName/ImmunizationType",
+                    typeCarried
+                            ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
+                            : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");
         boolean refused = false;
-        String refusal = source.raw("refused");
+        String refusal = source.raw("refused"), statusNote = null;
         if ("0".equals(refusal) || "1".equals(refusal)) {
             refused = "1".equals(refusal);
             source.set("refused", Outcome.MAPPED, "RefusedFlag", "EXPLICIT_NATIVE_REFUSED_BOOLEAN");
+        } else if (refusal != null && STATUS_NOTE.containsKey(refusal)) {
+            // Completed externally was given (N); ineligible was not given (Y), never "given".
+            refused = "2".equals(refusal);
+            statusNote = STATUS_NOTE.get(refusal);
+            source.set(
+                    "refused",
+                    Outcome.MAPPED,
+                    "RefusedFlag;Notes;" + RESIDUAL,
+                    "2".equals(refusal)
+                            ? "INELIGIBLE_IS_NOT_ADMINISTERED"
+                            : "COMPLETED_EXTERNALLY_IS_ADMINISTERED");
         } else
             source.review(
-                    "refused",
-                    "RefusedFlag",
-                    "INELIGIBLE_EXTERNAL_OR_UNKNOWN_STATUS_NEEDS_RECONCILIATION");
+                    "refused", "RefusedFlag", "UNKNOWN_NATIVE_STATUS_NEEDS_RECONCILIATION");
         var dateRows = new ArrayList<CdsExportNativeFieldAssessments>();
         var seen = new HashSet<String>();
         for (var item : precision) {
@@ -197,7 +247,7 @@ public final class CdsExportImmunizationMapper {
                                             integer(item.fields().get("id"))))
                     || !"4".equals(item.fields().get("table_name"))
                     || integer(item.fields().get("table_id")) != id) scope();
-            var fields = new CdsExportNativeFieldAssessments(item, decisions);
+            var fields = carried(item, decisions);
             for (String column : List.of("id", "table_name", "table_id"))
                 fields.operational(column, "VERIFIED_IMMUNIZATION_PRECISION_IDENTITY");
             if ("7".equals(fields.raw("field_name"))) {
@@ -229,6 +279,16 @@ public final class CdsExportImmunizationMapper {
             for (var fields : dateRows)
                 fields.review("format", "Date", "DATE_PRECISION_REQUIRES_REVIEW");
         }
+        if (byKey.containsKey("din")
+                && !byKey.containsKey("cdsCode")
+                && !byKey.containsKey("cdsCodeSystem")
+                && byKey.get("din").size() == 1
+                && !byKey.get("din").getFirst().raw("val").matches("[0-9]{8}")) {
+            // A DIN typed into the prevention form that is not an eight-digit DIN cannot be the
+            // standard code; it is carried exactly, never exported as a DIN.
+            var typed = byKey.remove("din").getFirst();
+            typed.set("val", Outcome.MAPPED, RESIDUAL, "NATIVE_TEXT_IS_NOT_A_DIN_CARRIED");
+        }
         String din = oneOf(byKey, List.of("din", "cdsCode"), "ImmunizationCode", 8);
         String system = oneOf(byKey, List.of("cdsCodeSystem"), "ImmunizationCode", 20);
         if (din != null) {
@@ -245,6 +305,22 @@ public final class CdsExportImmunizationMapper {
         } else if (system != null)
             for (var fields : byKey.get("cdsCodeSystem"))
                 fields.review("val", "ImmunizationCode", "CODE_AND_AUTHORITY_MUST_BE_PAIRED");
+        var commentsFields = byKey.getOrDefault("comments", List.of());
+        String notes = oneOf(byKey, List.of("comments"), "Notes", 32000);
+        if (statusNote != null) {
+            notes = notes == null ? statusNote : statusNote + "\n" + notes;
+            if (!CdsExportNativeFieldAssessments.legal(notes, 32000)) {
+                source.review("refused", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                for (var fields : commentsFields)
+                    fields.review("val", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                notes = null;
+            }
+        }
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put("prevention", row.fields());
+        context.put("extensions", sorted(extensions).stream().map(r -> r.fields()).toList());
+        context.put("precision", sorted(precision).stream().map(r -> r.fields()).toList());
         var value =
                 new CdsExportImmunizationDto(
                         name,
@@ -259,7 +335,8 @@ public final class CdsExportImmunizationMapper {
                         date,
                         refused,
                         oneOf(byKey, List.of("instructions"), "Instructions", 250),
-                        oneOf(byKey, List.of("comments"), "Notes", 32000));
+                        notes,
+                        CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(context)));
         return new Candidate(value, decisions);
     }
 
@@ -278,7 +355,7 @@ public final class CdsExportImmunizationMapper {
                                     CdsExportPatientTableSourceReader.key(
                                             integer(ext.fields().get("id"))))
                     || integer(ext.fields().get("prevention_id")) != id) scope();
-            var fields = new CdsExportNativeFieldAssessments(ext, decisions);
+            var fields = carried(ext, decisions);
             fields.operational("id", "CAPTURED_EXTENSION_ROW_IDENTITY");
             fields.operational("prevention_id", "VERIFIED_IMMUNIZATION_PARENT");
             String key = fields.raw("keyval");
@@ -287,10 +364,35 @@ public final class CdsExportImmunizationMapper {
                 fields.review("val", "", "UNKNOWN_NATIVE_EXTENSION_KEY");
                 continue;
             }
-            byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(fields);
-            if (DESTINATIONS.containsKey(key))
+            String value = fields.raw("val");
+            if (value == null || value.isEmpty()) {
+                // The prevention form saves one row per input, filled or not (addHashtoArray):
+                // an empty value is not a recorded fact and never hides the type name.
+                fields.operational("keyval", "EMPTY_NATIVE_EXTENSION_ROW");
+                fields.set(
+                        "val",
+                        Outcome.ABSENT,
+                        "",
+                        value == null ? "SQL_NULL_EXTENSION_VALUE" : "EMPTY_EXTENSION_VALUE");
+                continue;
+            }
+            if ("previousId".equals(key)) {
+                // An edit's link to the version it superseded (CdsExportPreventionVersions).
+                fields.operational("keyval", "SUPERSEDED_VERSION_LINK");
+                fields.operational("val", "SUPERSEDED_VERSION_LINK");
+                continue;
+            }
+            if (DESTINATIONS.containsKey(key)) {
+                byKey.computeIfAbsent(key, ignored -> new ArrayList<>()).add(fields);
                 fields.operational("keyval", "EXPLICIT_NATIVE_IMMUNIZATION_FIELD");
-            else fields.review("keyval", "", "UNMAPPED_NATIVE_EXTENSION_KEY");
+            } else if (STALE_IMPORT_HINTS.contains(key)) {
+                // The importer's date provenance; on a row no applied import unit claims it is a
+                // stale hint that could contradict the current event date.
+                fields.review("keyval", "Date", "STALE_IMPORTED_DATE_HINT_REQUIRES_RECONCILIATION");
+                fields.review("val", "Date", "STALE_IMPORTED_DATE_HINT_REQUIRES_RECONCILIATION");
+            }
+            // Every other key (location2, result, reason, neverReason, providerName, expiryDate,
+            // flu risk factors, CVC brand, ...) stays MAPPED to the residual by carried().
         }
         for (var entry : byKey.entrySet())
             if (entry.getValue().size() > 1)
@@ -326,6 +428,29 @@ public final class CdsExportImmunizationMapper {
                 || classifier == null) scope();
         classifier.sourceManifestSha256();
         return id;
+    }
+
+    /** Every captured field is carried exactly in the residual unless a rule says otherwise. */
+    private static CdsExportNativeFieldAssessments carried(
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions) {
+        var fields = new CdsExportNativeFieldAssessments(row, decisions);
+        for (var entry : row.fields().entrySet())
+            if (entry.getValue() == null)
+                fields.set(entry.getKey(), Outcome.ABSENT, "", "SQL_NULL_CARRIED_IN_RESIDUAL");
+            else if (entry.getValue().isEmpty())
+                fields.set(entry.getKey(), Outcome.ABSENT, "", "EMPTY_TEXT_CARRIED_IN_RESIDUAL");
+            else if (CdsExportNativeFieldAssessments.legal(entry.getValue(), Integer.MAX_VALUE))
+                fields.set(entry.getKey(), Outcome.MAPPED, RESIDUAL, CARRIED);
+            else fields.review(entry.getKey(), RESIDUAL, "WIRE_TEXT_REQUIRES_REVIEW");
+        return fields;
+    }
+
+    private static List<CdsExportCapturedTextRowDto> sorted(
+            List<CdsExportCapturedTextRowDto> rows) {
+        return rows.stream()
+                .sorted(Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
+                .toList();
     }
 
     private static String oneOf(

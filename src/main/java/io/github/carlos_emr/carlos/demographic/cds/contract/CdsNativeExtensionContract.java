@@ -64,9 +64,9 @@ public final class CdsNativeExtensionContract {
 
     /**
      * Complete native prevention rows (the parent, every extension and every date-precision row)
-     * behind a PastHealth entry exported from a CARLOS screening. SQL NULL and empty text stay
-     * distinct, and the JSON carries no literal XML whitespace so token normalization cannot
-     * alter it.
+     * behind a PastHealth entry exported from a CARLOS screening, or behind an Immunizations entry
+     * exported from a vaccine recorded in CARLOS. SQL NULL and empty text stay distinct, and the
+     * JSON carries no literal XML whitespace so token normalization cannot alter it.
      */
     public static final String PREVENTION_SOURCE_CONTEXT = "CARLOS.Prevention.Source.v1";
 
