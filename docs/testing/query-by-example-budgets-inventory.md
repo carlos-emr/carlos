@@ -28,19 +28,23 @@ must all agree. Narrowing the same composer then returns the expected rows with
 no stale timeout/truncation guidance.
 
 Each successful/truncated execution enters history exactly once; the timeout does
-not. Each execution requires one fresh INFO event from `RptByExampleData`, with
-the exact provider, independently computed SHA-256, query length, duration, row
-count and outcome. Foreign loggers, wrong severity, substituted/duplicate metadata,
-extra fields or raw SQL cannot stand in for audit evidence. The audit stream is
-distinct from the clinical database log. Eighteen independent controls reject bad
-table fragments and false audit evidence; two positive controls accept valid inputs.
+not. Each execution requires exactly one fresh row in the `log` audit table
+(finding 357; the INFO line it replaces as evidence is discarded at the packaged
+WARN level): found by the run's id window and its independently computed SHA-256,
+then required to be `read`/`query_by_example`, by the test provider with a client
+address, with no content id and no patient, and with data naming the exact query
+length, row count and outcome. Another action or content type, another provider,
+substituted/duplicate metadata, extra fields or raw SQL cannot stand in for audit
+evidence, and the application log span of each run must not contain the submitted
+SQL. Twenty-one independent controls reject bad table fragments and false audit
+evidence; two positive controls accept valid inputs and one pins the audit lookup.
 
 Requires `CARLOS_DISPOSABLE_VM=1`, a configured read-only reporting account
 (`QBE_REPORTING_USER` defaults to `carlos_report`), a SQL fixture account with
-PROCESS visibility, and readable application INFO output via
-`LAB_UPLOAD_JOURNAL_UNIT` or `LAB_UPLOAD_SERVER_LOG`. Enable INFO only for the
-disposable test window and restore its prior setting. Missing execution, audit
-or account proof cannot count as a passing resource-limit test.
+PROCESS visibility, and a readable application log via `LAB_UPLOAD_JOURNAL_UNIT`
+or `LAB_UPLOAD_SERVER_LOG` (to prove the SQL never reaches it; INFO need not be
+enabled). Missing execution, audit or account proof cannot count as a passing
+resource-limit test.
 
 Cleanup claims empty namespaces before writes, refuses active queries or changed
 ownership, and removes only the owned extension/history rows. Unexpected

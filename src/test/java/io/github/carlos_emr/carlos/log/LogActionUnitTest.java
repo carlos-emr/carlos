@@ -246,6 +246,46 @@ class LogActionUnitTest {
 
     @Test
     @Tag("create")
+    void shouldPersistCompleteRowInItsOwnTransaction_fromIndependentLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+        java.util.concurrent.ExecutorService executor = mock(java.util.concurrent.ExecutorService.class);
+        LogAction.setExecutorServiceForTesting(executor);
+        LoggedInInfo info = loggedInInfo();
+        io.github.carlos_emr.carlos.commn.model.Security security = mock(io.github.carlos_emr.carlos.commn.model.Security.class);
+        when(security.getSecurityNo()).thenReturn(7);
+        when(info.getLoggedInSecurity()).thenReturn(security);
+
+        LogAction.addLogSynchronousInNewTransaction(info, "read", "query_by_example", null, null, "outcome=success");
+
+        // Written by the caller's own thread, in a transaction of its own: never queued, never joined.
+        org.mockito.Mockito.verifyNoInteractions(executor);
+        verify(oscarLogDao, never()).persist(any());
+        verify(oscarLogDao).persistInNewTransaction(argThat((OscarLog log) ->
+                "999998".equals(log.getProviderNo())
+                        && Integer.valueOf(7).equals(log.getSecurityId())
+                        && "127.0.0.1".equals(log.getIp())
+                        && "read".equals(log.getAction())
+                        && "query_by_example".equals(log.getContent())
+                        && log.getContentId() == null
+                        && log.getDemographicId() == null
+                        && "outcome=success".equals(log.getData())));
+    }
+
+    @Test
+    @Tag("create")
+    void shouldSwallowPersistenceFailure_fromIndependentLoggedInInfoAudit() {
+        OscarLogDao oscarLogDao = mock(OscarLogDao.class);
+        doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao)
+                .persistInNewTransaction(any());
+        LogAction.setOscarLogDaoForTesting(oscarLogDao);
+
+        assertThatCode(() -> LogAction.addLogSynchronousInNewTransaction(loggedInInfo(), "read", "query_by_example",
+                null, null, "outcome=failed")).doesNotThrowAnyException();
+    }
+
+    @Test
+    @Tag("create")
     void shouldSwallowPersistenceFailure_fromSynchronousLoggedInInfoAudit() {
         OscarLogDao oscarLogDao = mock(OscarLogDao.class);
         doThrow(new IllegalStateException("synthetic persistence failure")).when(oscarLogDao).persist(any());

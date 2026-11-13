@@ -73,6 +73,8 @@ public class LogConst {
     public static final String CON_DEMOGRAPHIC_RELATION = "demographic_relations";
     // A listing of patients produced by the Demographic Report Tool (one row per run, not per patient).
     public static final String CON_DEMOGRAPHIC_REPORT = "demographic_report";
+    // One run of Query by Example, whatever its outcome (one row per run; the query hash, never the SQL).
+    public static final String CON_QUERY_BY_EXAMPLE = "query_by_example";
     public static final String CON_ROLE = "role";
     public static final String CON_PRIVILEGE = "privilege";
     public static final String CON_FORM = "form";
