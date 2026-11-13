@@ -60,7 +60,7 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseUnknownMismatchedAndMalformedPublicProducts_insteadOfOmittingMandatoryDin()
+    void shouldRefuseMismatchedAndMalformedPublicProducts_andReportAnUnknownDinAsAbsent()
             throws Exception {
         for (var change :
                 List.of(
@@ -75,9 +75,10 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
                             () -> new CdsExportDrugReferenceLookupService(client).read("00123456"))
                     .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
         }
+        // A21: DrugRef answers a DIN it no longer holds with no product (RxDrugRef returns null);
+        // that is reported as absent, so the prescription is exported unqualified, not held.
         var missing = mock(RxDrugRef.class);
-        assertThatThrownBy(() -> new CdsExportDrugReferenceLookupService(missing).read("00123456"))
-                .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
+        assertThat(new CdsExportDrugReferenceLookupService(missing).read("00123456")).isNull();
     }
 
     @Test

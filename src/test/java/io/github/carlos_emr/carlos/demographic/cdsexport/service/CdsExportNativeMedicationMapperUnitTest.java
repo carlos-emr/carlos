@@ -191,8 +191,13 @@ class CdsExportNativeMedicationMapperUnitTest {
         fields.put("customName", null);
         fields.put("BN", "Native reference tablet");
         fields.put("dosage", "5 mg");
-        assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
-                .isInstanceOf(java.io.IOException.class);
+        // Without a captured reference the drug is exported without a DIN (A21); a captured
+        // reference that does not match the drug row is still refused.
+        assertThat(
+                        mapper.map(27, medication(fields), List.of(), Map.of())
+                                .value()
+                                .fields())
+                .doesNotContainKey(Field.DrugIdentificationNumber);
         var reference = publicReference(fields);
         for (var change :
                 List.of(Map.of("regional_identifier", "99999999"), Map.of("GCN_SEQNO", "18"))) {
@@ -570,7 +575,6 @@ class CdsExportNativeMedicationMapperUnitTest {
                         Map.of("cds_projection_incomplete", "1"),
                         Map.of("durunit", "unknown"),
                         Map.of("duration", "one"),
-                        Map.of("rxStatus", "Completed", "past_med", "0"),
                         Map.of("archived", "yes"),
                         Map.of("customName", " "))) {
             var fields = source();
@@ -578,6 +582,157 @@ class CdsExportNativeMedicationMapperUnitTest {
             assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
                     .isInstanceOf(java.io.IOException.class);
         }
+    }
+
+    @Test
+    void shouldExportIndependentlySavedStatusAndPastMedication_asStoredInsteadOfHolding()
+            throws Exception {
+        // A18: prescribe.jsp saves "Past medication" and the status select independently.
+        for (var pair :
+                List.of(
+                        Map.of("rxStatus", "Active", "past_med", "1"),
+                        Map.of("rxStatus", "Completed", "past_med", "0"),
+                        Map.of("rxStatus", "Aborted", "past_med", "0"))) {
+            var fields = source();
+            fields.putAll(pair);
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields())
+                    .containsEntry(Field.PrescriptionStatus, pair.get("rxStatus"))
+                    .containsEntry(
+                            Field.PastMedications, "1".equals(pair.get("past_med")) ? "Y" : "N");
+            assertThat(result.metadata()).contains("\"past_med\":\"" + pair.get("past_med"));
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+        }
+    }
+
+    @Test
+    void shouldExportTheChosenTreatmentTypeAndAsNeededFrequency_insteadOfHolding()
+            throws Exception {
+        // A19: the treatment select, the short-term box and the as-needed box are independent.
+        var fields = source();
+        fields.put("eTreatmentType", "ACU");
+        fields.put("short_term", "0");
+        fields.put("long_term", null);
+        var acute = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(acute.value().fields()).containsEntry(Field.TreatmentType, "ACU");
+        assertThat(acute.metadata()).contains("\"short_term\":\"0\"");
+        // The as-needed box with no frequency is the frequency PRN.
+        fields = source();
+        fields.put("freqcode", null);
+        fields.put("prn", "1");
+        var asNeeded = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(asNeeded.value().fields()).containsEntry(Field.Frequency, "PRN");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(asNeeded, xml));
+        // A PRN frequency or treatment with the box unticked is written as chosen.
+        fields = source();
+        fields.put("freqcode", "PRN");
+        fields.put("prn", "0");
+        var unticked = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(unticked.value().fields()).containsEntry(Field.Frequency, "PRN");
+        assertThat(unticked.metadata()).contains("\"prn\":\"0\"");
+        fields = source();
+        fields.put("eTreatmentType", "PRNL");
+        fields.put("prn", "0");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.TreatmentType, "PRN Long-term");
+    }
+
+    @Test
+    void shouldCarryAnOverlongDispenseIntervalAndProtocol_inTheResidualOnly() throws Exception {
+        // A20: the Rx page sets no maximum length on these; the elements hold 10 and 20.
+        var fields = source();
+        fields.put("dispense_interval", "every 2 weeks");
+        fields.put("protocol", "Protocol identifier text");
+        fields.put("priorRxProtocol", "Prior protocol identifier");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(result.value().fields())
+                .doesNotContainKeys(
+                        Field.DispenseInterval,
+                        Field.ProtocolIdentifier,
+                        Field.PriorPrescriptionReferenceIdentifier);
+        assertThat(result.metadata())
+                .contains("every 2 weeks", "Protocol identifier text", "Prior protocol identifier");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+    }
+
+    @Test
+    void shouldExportACatalogueDrugUnknownToDrugRef_withoutADinInsteadOfHolding()
+            throws Exception {
+        // A21: no public reference was captured (the DIN is blank or DrugRef no longer holds it).
+        for (String din : Arrays.asList("00999999", null)) {
+            var fields = source();
+            fields.put("GCN_SEQNO", "17");
+            fields.put("customName", null);
+            fields.put("BN", "Discontinued brand tablet");
+            fields.put("regional_identifier", din);
+            var result = mapper.map(27, medication(fields), List.of(), Map.of(), null);
+            assertThat(result.value().fields())
+                    .containsEntry(Field.DrugName, "Discontinued brand tablet")
+                    .doesNotContainKey(Field.DrugIdentificationNumber);
+            assertThat(result.metadata())
+                    .contains(
+                            "\"regionalIdentifierAuthority\":\"UNQUALIFIED\"",
+                            "\"catalogueReference\":\"NOT_IN_DRUG_REFERENCE\"",
+                            "\"GCN_SEQNO\":\"17\"");
+            if (din != null) assertThat(result.metadata()).contains(din);
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+        }
+    }
+
+    @Test
+    void shouldNameThePrescriber_whoseProviderRecordHasNoUsableOhipOrCpsoNumber()
+            throws Exception {
+        // A17: one provider record no longer holds every patient it prescribed for.
+        var provider =
+                new LinkedHashMap<>(CdsExportPublicProviderMapperUnitTest.provider(null, "12345").fields());
+        provider.put("ohip_no", "1234 56789");
+        var row =
+                new CdsExportCapturedTextRowDto(
+                        "provider", CdsExportPublicProviderSourceReader.key("0é27"), provider);
+        var fields = source();
+        fields.put("provider_no", "0é27");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of("0é27", row));
+        assertThat(result.value().prescriber().firstName()).isEqualTo("Zoë😀");
+        assertThat(result.value().prescriber().ohipNumber()).isNull();
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(
+                        List.of(medication(fields), row), result.fields(), 1000, () -> {});
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+    }
+
+    @Test
+    void shouldExportAPrescriptionRecordedForAnOutsidePrescriber_withoutNamingTheRecorder()
+            throws Exception {
+        // The Rx page's outside-provider box: the CARLOS provider records another physician's
+        // prescription (a blank OHIP box is stored as "0"). The recorder is not PrescribedBy.
+        var row = CdsExportPublicProviderMapperUnitTest.provider("CPSO", "000123");
+        var fields = source();
+        fields.put("provider_no", "0é27");
+        fields.put("outside_provider_name", "Dr. Outside Writer");
+        fields.put("outside_provider_ohip", "0");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of("0é27", row));
+        assertThat(result.value().prescriber()).isNull();
+        assertThat(result.metadata()).contains("Dr. Outside Writer", "\"outside_provider_ohip\":\"0\"");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(
+                        List.of(medication(fields), row), result.fields(), 1000, () -> {});
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+        // The recorder's own name and number in the boxes still name the recorder.
+        fields.put("outside_provider_name", "Zoë😀 D’Arcy");
+        fields.put("outside_provider_ohip", "001234");
+        assertThat(
+                        mapper.map(27, medication(fields), List.of(), Map.of("0é27", row))
+                                .value()
+                                .prescriber())
+                .isNotNull();
     }
 
     @Test

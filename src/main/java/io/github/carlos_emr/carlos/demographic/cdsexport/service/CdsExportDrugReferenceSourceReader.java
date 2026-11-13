@@ -84,13 +84,16 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
             if (input.catalogueId().signum() == 0) continue;
             control.checkpoint();
             String din = input.regionalIdentifier();
-            if (din == null || !din.matches("[0-9]{8}")) invalid();
+            // A catalogue selection whose stored identifier is not an eight-digit DIN, or whose
+            // DIN DrugRef no longer knows (a product removed from the installed dictionary), has
+            // no public reference to bind. The prescription is still exported, as an unqualified
+            // catalogue selection: authored name and strength as stored, no DIN element, and the
+            // stored identifier exactly in the medication residual (CdsExportNativeMedicationMapper).
+            if (din == null || !din.matches("[0-9]{8}")) continue;
+            if (!codes.containsKey(din)) codes.put(din, lookup.read(din));
             var reference = codes.get(din);
-            if (reference == null) {
-                reference = lookup.read(din);
-                codes.put(din, reference);
-            }
-            if (reference == null || !din.equals(reference.din())) invalid();
+            if (reference == null) continue;
+            if (!din.equals(reference.din())) invalid();
             references.put(input.drugId(), reference);
             control.checkpoint();
         }

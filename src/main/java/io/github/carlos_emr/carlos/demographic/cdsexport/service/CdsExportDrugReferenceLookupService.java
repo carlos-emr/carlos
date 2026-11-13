@@ -46,6 +46,11 @@ public class CdsExportDrugReferenceLookupService {
         this.reference = Objects.requireNonNull(reference);
     }
 
+    /**
+     * The public product DrugRef holds for a DIN, or null when DrugRef answers that it has no
+     * product for it (an unknown DIN, such as a product no longer in the installed dictionary).
+     * A malformed or mismatched answer is refused; a transport failure is an I/O failure.
+     */
     public CdsExportDrugReferenceDto read(String din) throws IOException {
         if (TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException(
@@ -55,8 +60,9 @@ public class CdsExportDrugReferenceLookupService {
             // false avoids the native client's HTML detail enrichment. No patient or prescription
             // identifier, name, dose, author or chart content enters the request.
             var product = reference.getDrugByDIN(din, Boolean.FALSE);
-            if (product == null
-                    || !din.equals(product.get("regional_identifier"))
+            // RxDrugRef.getDrugByDIN reports "no product for this DIN" as null (#5006).
+            if (product == null) return null;
+            if (!din.equals(product.get("regional_identifier"))
                     || !(product.get("product") instanceof String name)
                     || !(product.get("components") instanceof Vector<?> components)
                     || components.size() > 64) review();

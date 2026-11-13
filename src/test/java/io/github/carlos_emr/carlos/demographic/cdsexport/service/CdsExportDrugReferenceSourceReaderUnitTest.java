@@ -111,20 +111,53 @@ class CdsExportDrugReferenceSourceReaderUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingCatalogueDin_andScopeChangesBeforeReadingPayload() throws Exception {
+    void shouldLeaveACatalogueDrugWithoutAKnownDinUnqualified_insteadOfHoldingThePatient()
+            throws Exception {
+        // A21: a catalogue selection whose stored identifier is not a DIN, or whose DIN DrugRef no
+        // longer holds, gets no public reference; the mapper exports it without a DIN element.
         var drugs = mock(DrugDao.class);
         var projection = mock(CdsExportDrugReferenceProjectionService.class);
         var lookup = mock(CdsExportDrugReferenceLookupService.class);
-        when(projection.read(27))
-                .thenReturn(
-                        List.of(
-                                new CdsExportDrugReferenceInputDto(
-                                        51, BigInteger.valueOf(17), "not a DIN")));
+        var inputs =
+                List.of(
+                        new CdsExportDrugReferenceInputDto(51, BigInteger.valueOf(17), "not a DIN"),
+                        new CdsExportDrugReferenceInputDto(52, BigInteger.valueOf(17), null),
+                        new CdsExportDrugReferenceInputDto(53, BigInteger.valueOf(17), "00999999"),
+                        new CdsExportDrugReferenceInputDto(54, BigInteger.valueOf(18), "00999999"),
+                        input(55, 17));
+        when(projection.read(27)).thenReturn(inputs);
+        when(drugs.readCdsExportDrugReferenceInputs(27, 8192)).thenReturn(inputs);
+        when(lookup.read("00999999")).thenReturn(null);
+        when(lookup.read("00123456")).thenReturn(reference());
+        var scoped =
+                new CdsExportDrugReferenceSourceReader(drugs, projection, lookup)
+                        .forCapture(27, mock(CdsExportRunControl.class));
+        assertThat(scoped.count(27)).isEqualTo(1);
+        // An absent product is remembered like a found one: one lookup per distinct DIN.
+        verify(lookup, times(1)).read("00999999");
+        verify(lookup, times(1)).read("00123456");
+        verifyNoMoreInteractions(lookup);
+    }
+
+    @Test
+    void shouldRefuseAMismatchedProduct_beforeReadingPayload() throws Exception {
+        var drugs = mock(DrugDao.class);
+        var projection = mock(CdsExportDrugReferenceProjectionService.class);
+        var lookup = mock(CdsExportDrugReferenceLookupService.class);
+        when(projection.read(27)).thenReturn(List.of(input(51, 17)));
+        var other =
+                new CdsExportDrugReferenceDto(
+                        1,
+                        CdsExportDrugReferenceDto.AUTHORITY,
+                        "00999999",
+                        "Other product",
+                        reference().components());
+        when(lookup.read("00123456")).thenReturn(other);
         assertThatThrownBy(
                         () ->
                                 new CdsExportDrugReferenceSourceReader(drugs, projection, lookup)
                                         .forCapture(27, mock(CdsExportRunControl.class)))
                 .hasMessage("CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW");
-        verifyNoInteractions(lookup);
+        verifyNoInteractions(drugs);
     }
 }

@@ -48,7 +48,33 @@ public final class CdsExportNativeMedicationMapper {
                     "SQL_FLOAT_DISPLAY_IS_NOT_AN_EXACT_DOSE_WITNESS",
                     "DURATION_IS_NOT_KNOWN_DAYS",
                     "CONFLICTING_NATIVE_DOSE_UNITS",
-                    "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT");
+                    "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT",
+                    // The Rx page saves "Past medication" and the status select independently
+                    // (prescribe.jsp), so "Yes" beside Active, or "No" beside Completed, is an
+                    // ordinary saved prescription. Both standard elements are written as stored.
+                    "CONFLICTING_MEDICATION_CURRENTNESS",
+                    // The treatment type select and the hidden short-term box (driven by the
+                    // long-term radio) are also saved independently; TreatmentType is written as
+                    // chosen and the short-term flag travels in the residual.
+                    "CONFLICTING_NATIVE_TREATMENT_TYPE_INDICATOR",
+                    // The as-needed box unticked beside a "PRN" frequency or a PRN treatment type:
+                    // Frequency and TreatmentType are written as chosen, the flag in the residual.
+                    "CONFLICTING_NATIVE_AS_NEEDED_INDICATOR",
+                    // The Rx page's "outside provider" box: the CARLOS provider recorded a
+                    // prescription another physician wrote. The recorder is then not written as
+                    // PrescribedBy, and the outside name (one string, never split into a
+                    // personNameSimple) and number travel in the residual.
+                    "CONFLICTING_PRESCRIBER_NAME",
+                    "CONFLICTING_PRESCRIBER_IDENTIFIER");
+
+    /**
+     * Optional elements narrower than their native column (dispense interval 100 characters
+     * against DispenseInterval's 10, protocol and prior protocol 255 against 20). The Rx page sets
+     * no maximum length, so a longer value is an ordinary saved prescription: the element is
+     * omitted, never truncated, and the exact value travels in the residual.
+     */
+    private static final Set<String> RESIDUAL_ONLY_WHEN_OVERLONG =
+            Set.of("dispense_interval", "protocol", "priorRxProtocol");
 
     /**
      * One mapped prescription. {@code reasons} is the {@code CARLOS.Medication.Reasons.v1}
@@ -203,6 +229,14 @@ public final class CdsExportNativeMedicationMapper {
                 review();
             values.put(Field.Frequency, qualified);
             prnResolved = true;
+        } else if (asNeeded
+                && frequencyValue == null
+                && !populated(source.get("freqcode"))
+                && (treatmentValue == null || !treatmentValue.startsWith("PRN "))) {
+            // The as-needed box with no frequency at all ("take 1 tab as needed") is the CT-024
+            // frequency PRN, which the CARLOS importer reads back as the as-needed flag.
+            values.put(Field.Frequency, "PRN");
+            prnResolved = true;
         }
         // A flag saying the start date is unknown takes precedence over a stored anchor. The
         // start date's precision rows are then not a StartDate: they travel, exactly, in the
@@ -246,7 +280,11 @@ public final class CdsExportNativeMedicationMapper {
                     && !(key.column().equals("start_date_unknown")
                             && assessment
                                     .rule()
-                                    .equals("UNKNOWN_START_DATE_REQUIRES_RECONCILIATION")))
+                                    .equals("UNKNOWN_START_DATE_REQUIRES_RECONCILIATION"))
+                    && !(RESIDUAL_ONLY_WHEN_OVERLONG.contains(key.column())
+                            && assessment.rule().equals("WIRE_TEXT_REQUIRES_REVIEW")
+                            && CdsExportNativeFieldAssessments.legal(
+                                    source.get(key.column()), Integer.MAX_VALUE)))
                 review();
             // The context contains SQL NULL and empty values distinctly, and contains every
             // physical field. This disposition does not claim a standard clinical projection.
@@ -272,6 +310,8 @@ public final class CdsExportNativeMedicationMapper {
         details.put(
                 "regionalIdentifierAuthority",
                 reference == null ? "UNQUALIFIED" : reference.authority());
+        if (reference == null && catalogueSelected(row))
+            details.put("catalogueReference", "NOT_IN_DRUG_REFERENCE");
         if (referenceRow != null) {
             details.put("reference", referenceRow.fields());
             var assessments = new CdsExportNativeFieldAssessments(referenceRow, fields);
@@ -289,13 +329,19 @@ public final class CdsExportNativeMedicationMapper {
         if (reasons.problemCode() != null)
             values.put(Field.ProblemCode, reasons.problemCode());
         fields.putAll(reasons.fields(reasons.problemCode() != null));
+        boolean outsidePrescriber =
+                candidate.assessments().values().stream()
+                        .anyMatch(
+                                field ->
+                                        field.outcome() == Outcome.REQUIRES_REVIEW
+                                                && field.rule().startsWith("CONFLICTING_PRESCRIBER_"));
         var value =
                 new CdsExportMedicationDto(
                         candidate.written(),
                         start,
                         reference == null ? null : reference.components().getFirst().strength(),
                         reference == null ? null : reference.components().getFirst().unit(),
-                        candidate.prescriber(),
+                        outsidePrescriber ? null : candidate.prescriber(),
                         values);
         CdsExportMedicationXmlWriter.validate(value);
         return new Result(value, metadata, fields, archived, reasons.residual());
@@ -367,8 +413,12 @@ public final class CdsExportNativeMedicationMapper {
             if (reference != null) review();
             return null;
         }
-        if (reference == null
-                || !reference.table().equals("medication_reference")
+        // A catalogue selection without a captured public reference: its stored identifier is
+        // not an eight-digit DIN, or DrugRef no longer holds the product
+        // (CdsExportDrugReferenceSourceReader). It is exported unqualified, with no DIN element;
+        // GCN_SEQNO and regional_identifier travel exactly in the residual.
+        if (reference == null) return null;
+        if (!reference.table().equals("medication_reference")
                 || !reference.recordKey().equals(row.recordKey())
                 || !reference.fields().keySet().equals(CdsExportDrugReferenceSourceReader.COLUMNS)
                 || !Objects.equals(row.fields().get("drugid"), reference.fields().get("drugid"))
@@ -408,6 +458,17 @@ public final class CdsExportNativeMedicationMapper {
         // requires the database's first ingredient amount, including combination products.
         // Authored names and complete native strength text remain independent source values.
         return value;
+    }
+
+    private static boolean catalogueSelected(CdsExportCapturedTextRowDto row) {
+        String catalogue = row.fields().get("GCN_SEQNO");
+        try {
+            return catalogue != null
+                    && !catalogue.isEmpty()
+                    && new BigInteger(catalogue).signum() != 0;
+        } catch (NumberFormatException invalid) {
+            return false;
+        }
     }
 
     public void write(Result result, CdsExportXmlComposer.ContentWriter xml) throws IOException {
