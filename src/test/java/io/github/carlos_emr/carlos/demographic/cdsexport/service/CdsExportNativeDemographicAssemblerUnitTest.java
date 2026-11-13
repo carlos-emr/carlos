@@ -693,6 +693,75 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                 .hasSize(40);
     }
 
+    @Test
+    void shouldCloseAnImportedChartAgainstItsOwnProviderSlice_whenAnotherCategoryCapturedItsAuthor()
+            throws Exception {
+        // D2: an allergy recorded by Dr 17 puts provider 17 in the capture. The retained path
+        // used to validate closure against every captured row, so 17's unassessed fields
+        // failed the whole job; it must use the same owned slice as its reconcilers.
+        var current = rows.get("demographic").getFirst();
+        var values = new LinkedHashMap<>(current.fields());
+        values.put("provider_no", "99");
+        rows.get("demographic")
+                .set(0, new CdsExportCapturedTextRowDto(current.table(), current.recordKey(), values));
+        for (String id : List.of("99", "17")) {
+            var provider = new LinkedHashMap<String, String>();
+            io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS.forEach(
+                    c -> provider.put(c, null));
+            provider.putAll(
+                    Map.of("provider_no", id, "first_name", "Public", "last_name", "Dr" + id));
+            rows.get("provider")
+                    .add(
+                            new CdsExportCapturedTextRowDto(
+                                    "provider",
+                                    CdsExportPublicProviderSourceReader.key(id),
+                                    provider));
+        }
+        var selected =
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
+        var owned = CdsExportDemographicOccurrenceService.demographicRows(rows);
+        var assembled =
+                new CdsExportNativeDemographicAssembler()
+                        .assemble(27, selected, HASH, owned, 100, 1L << 20, () -> {});
+        String source = "c".repeat(64);
+        var result =
+                new CdsExportDemographicRetainedCoreReconciler.Result(
+                        HASH,
+                        "11111111-1111-4111-8111-111111111111:" + "b".repeat(64),
+                        Set.of(source),
+                        Set.of(),
+                        assembled.fields(),
+                        Set.of(),
+                        Set.of(),
+                        List.of());
+        var validator =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.validator
+                        .CdsExportDemographicClosureValidator();
+        var closure = CdsExportDemographicOccurrenceService.closureRows(owned);
+        assertThat(closure)
+                .noneMatch(
+                        row ->
+                                row.table().equals("provider")
+                                        && "17".equals(row.fields().get("provider_no")));
+        assertThat(
+                        validator
+                                .validate(HASH, closure, Set.of(source), result, 1_000_000, () -> {})
+                                .nativeFields())
+                .isEqualTo(assembled.fields().size());
+        var everyCapturedRow = new ArrayList<CdsExportCapturedTextRowDto>();
+        rows.values().forEach(everyCapturedRow::addAll);
+        assertThatThrownBy(
+                        () ->
+                                validator.validate(
+                                        HASH,
+                                        everyCapturedRow,
+                                        Set.of(source),
+                                        result,
+                                        1_000_000,
+                                        () -> {}))
+                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_SCOPE_INVALID");
+    }
+
     /** Renders through the real composer and pinned-schema validator, as the job does. */
     private static String validatedXml(CdsExportNativeDemographicAssembler.Result result)
             throws IOException {

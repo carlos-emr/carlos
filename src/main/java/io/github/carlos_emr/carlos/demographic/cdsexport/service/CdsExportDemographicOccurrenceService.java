@@ -359,7 +359,8 @@ public class CdsExportDemographicOccurrenceService {
                                     var providers =
                                             new LinkedHashMap<
                                                     String, CdsExportCapturedTextRowDto>();
-                                    for (var provider : demographicRows(collected).get("provider"))
+                                    var owned = demographicRows(collected);
+                                    for (var provider : owned.get("provider"))
                                         if (providers.putIfAbsent(
                                                         provider.fields().get("provider_no"),
                                                         provider)
@@ -448,12 +449,10 @@ public class CdsExportDemographicOccurrenceService {
                                                                     == CdsCategory.DEMOGRAPHICS)
                                             .forEach(field -> allDemographicSource.add(field.id()));
                                     if (!expectedSource.equals(allDemographicSource)) scope();
-                                    var expectedRows = new ArrayList<CdsExportCapturedTextRowDto>();
-                                    collected.values().forEach(expectedRows::addAll);
                                     new CdsExportDemographicClosureValidator()
                                             .validate(
                                                     index.sourceManifestSha256(),
-                                                    expectedRows,
+                                                    closureRows(owned),
                                                     expectedSource,
                                                     result,
                                                     1_000_000,
@@ -560,6 +559,19 @@ public class CdsExportDemographicOccurrenceService {
             }
             if (!byKey.isEmpty()) scope();
         }
+    }
+
+    /**
+     * The rows a retained (imported-chart) occurrence must account for: exactly the owned slice
+     * whose provider rows its reconcilers were given, as on the native path. A provider captured
+     * only because another selected category names it (an allergy's recorder, a note's author)
+     * is decided by that category's receipt, not left unassessed in the demographic closure.
+     */
+    static List<CdsExportCapturedTextRowDto> closureRows(
+            Map<String, List<CdsExportCapturedTextRowDto>> owned) {
+        var result = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (String table : new TreeSet<>(owned.keySet())) result.addAll(owned.get(table));
+        return List.copyOf(result);
     }
 
     private static <T> List<T> concat(List<T> first, List<T> second) {
