@@ -317,6 +317,21 @@ public class LogAction {
         }
     }
 
+    /**
+     * {@link #addLogSynchronousInNewTransaction(OscarLog)} for a row of the signed-in user: the
+     * same columns as {@link #addLog(LoggedInInfo, String, String, String, String, String)}
+     * (provider, security id, client address, patient), written in the calling thread in a
+     * transaction of its own. The row exists when this returns, survives a rollback of whatever the
+     * caller has open, and is never written on the caller's connection. Never throws a persistence
+     * failure; it is logged.
+     *
+     * @since 2026-11-13
+     */
+    public static void addLogSynchronousInNewTransaction(LoggedInInfo loggedInInfo, String action, String content,
+            String contentId, String demographicNo, String data) {
+        addLogSynchronousInNewTransaction(buildEntry(loggedInInfo, action, content, contentId, demographicNo, data));
+    }
+
 
     /**
      * ported from the old caisi pmm_log
