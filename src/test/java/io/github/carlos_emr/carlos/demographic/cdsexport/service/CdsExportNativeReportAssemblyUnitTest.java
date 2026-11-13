@@ -615,6 +615,54 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
+    void shouldAccountEveryCapturedFieldOfEachExportedReport_inItsOwnReceipt() throws Exception {
+        add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        add(92, storedHtml(92, "html", "<p>Discharge summary</p>"), "H", null);
+        var deleted = uploaded(94, "20260101090000old-letter.pdf", "application/pdf");
+        deleted.put("status", "D");
+        add(94, deleted, "A", null);
+        assemble();
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::nativeId)
+                .containsExactly("91", "92");
+        for (var receipt : receipts) {
+            assertThat(receipt.identity())
+                    .isEqualTo(
+                            new CdsExportIdentityDto(
+                                    PATIENT_KEY,
+                                    CdsCategory.REPORTS,
+                                    CdsImportKeys.hash(
+                                            "carlos-native-occurrence-v1",
+                                            "document",
+                                            receipt.nativeId())));
+            assertThat(receipt.fields().values())
+                    .noneMatch(
+                            field ->
+                                    field.outcome()
+                                            == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+            assertThat(receipt.retainedFields()).isEmpty();
+            assertThat(receipt.replacedFields()).isEmpty();
+        }
+        // Document and link rows of each report, plus the stored file of the scanned PDF only.
+        var files =
+                receipts.get(0).fields().entrySet().stream()
+                        .filter(e -> e.getKey().table().equals(CdsExportDocumentFileSourceReader.TABLE))
+                        .toList();
+        assertThat(files).hasSize(3);
+        assertThat(
+                        files.stream()
+                                .filter(e -> e.getKey().column().equals("content"))
+                                .map(e -> e.getValue().destination()))
+                .containsExactly("Reports/FilePath");
+        assertThat(receipts.get(1).fields().keySet())
+                .noneMatch(key -> key.table().equals(CdsExportDocumentFileSourceReader.TABLE));
+        assertThat(result.nativeRows()).isEqualTo(2);
+        assertThat(result.importedRows()).isZero();
+        assertThat(result.nativeOnlyRows()).isEqualTo(2);
+        assertThat(result.retainedSourceFields()).isZero();
+    }
+
+    @Test
     void shouldHoldOnlyThisPatient_forAnEmptyFile() throws Exception {
         add(98, uploaded(98, "20260305101800empty.pdf", "application/pdf"), "A", new byte[0]);
         assertThatThrownBy(this::assemble)

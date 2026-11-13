@@ -506,12 +506,13 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         // Every document row no applied import accounts for is a native chart
                         // document. Each is classified as the chart shows it, and mapped, before
                         // anything is staged: a document that holds the patient costs no copy.
-                        var nativeRows = new TreeMap<Integer, CdsExportCapturedTextRowDto>();
+                        var documentRows = new TreeMap<Integer, CdsExportCapturedTextRowDto>();
                         for (var row : current.values())
                             if (row.table().equals("document"))
-                                nativeRows.put(Integer.parseInt(row.fields().get("document_no")), row);
+                                documentRows.put(
+                                        Integer.parseInt(row.fields().get("document_no")), row);
                         var natives = new ArrayList<NativeDocument>();
-                        for (var entry : nativeRows.entrySet()) {
+                        for (var entry : documentRows.entrySet()) {
                             control.checkpoint();
                             if (usedFiles.contains(entry.getKey())) continue;
                             var document = entry.getValue();
