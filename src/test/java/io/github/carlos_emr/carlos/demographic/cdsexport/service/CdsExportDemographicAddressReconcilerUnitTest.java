@@ -94,11 +94,21 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnEditedCompoundStreetRequiresReviewAndAnExplicitStreetClearDeletesAllProjectedLines_forDemographicAddressReconcilerContract()
+    void shouldVerifyAnEditedCompoundStreetReplacesEverySourceLineAndAnExplicitStreetClearDeletesAllProjectedLines_forDemographicAddressReconcilerContract()
             throws Exception {
+        // Updated: a street edited over several source lines used to hold the chart. The edited
+        // street is Line1 and the other source lines are superseded (listed as replaced).
         compoundStreet();
         fixture.currentField("address", "Later single line");
-        assertThat(reconcile().representable()).isFalse();
+        var edited = reconcile();
+        assertThat(edited.representable()).isTrue();
+        assertThat(rule(edited, "address"))
+                .isEqualTo("EDITED_CURRENT_ADDRESS_PARTS_SUPERSEDE_SOURCE_PARTS");
+        var editedDocument = render(edited);
+        assertThat(text(editedDocument, "Line1")).containsExactly("Later single line");
+        assertThat(text(editedDocument, "Line2")).isEmpty();
+        assertThat(text(editedDocument, "City")).containsExactly("Town");
+        assertThat(plan(edited).replacedFields()).hasSize(2);
         fixture.currentField("address", null);
         var result = reconcile();
         assertThat(result.changes()).hasSize(2);
@@ -168,8 +178,18 @@ class CdsExportDemographicAddressReconcilerUnitTest {
                 });
         assertThat(reconcile().changes()).isEmpty();
         assertThat(text(render(reconcile()), "Line1")).containsExactly("123 Source", "123 Source");
+        // Updated: a later edit used to hold the chart. The current columns now replace the
+        // first source address and the second is superseded; both stay in the retained source.
         fixture.currentField("city", "Later");
-        assertThat(reconcile().representable()).isFalse();
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "city"))
+                .isEqualTo("EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS");
+        var document = render(result);
+        assertThat(text(document, "Address")).hasSize(1);
+        assertThat(text(document, "Line1")).containsExactly("123 Source");
+        assertThat(text(document, "City")).containsExactly("Later");
+        assertThat(plan(result).replacedFields()).hasSize(10);
     }
 
     @Test
@@ -188,16 +208,24 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyANewValueCannotOverwriteAnUnprojectedOriginalStreet_forDemographicAddressReconcilerContract() throws Exception {
+    void shouldVerifyANewValueSupersedesAnUnprojectedOriginalStreet_forDemographicAddressReconcilerContract() throws Exception {
+        // Updated: a street typed over a source-only street used to hold the chart.
         source.put("Address[1]/Structured[1]/Line1[1]", "A".repeat(50));
         source.put("Address[1]/Structured[1]/Line2[1]", "B".repeat(25));
         fixture.preparedAddress(
                 false, new CdsDemographicNativeDto.Address(null, "Town", "ON", "K1A0B1"));
         fixture.currentField("address", "New");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ADDRESSES_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        var document = render(result);
+        assertThat(text(document, "Line1")).containsExactly("New");
+        assertThat(text(document, "Line2")).isEmpty();
+        assertThat(text(document, "City")).containsExactly("Town");
+        // An empty value a form save writes over the source-only street is not an edit.
+        fixture.currentField("address", "");
+        var saved = reconcile();
+        assertThat(saved.changes()).isEmpty();
+        assertThat(text(render(saved), "Line2")).containsExactly("B".repeat(25));
     }
 
     @Test
@@ -210,10 +238,79 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAddingAStructuredCity_toAnOriginalFormattedAddressRequiresReview() throws Exception {
+    void shouldWriteTheCurrentStructuredAddress_whenAPatientWithAnImportedFormattedAddressMoves()
+            throws Exception {
+        // Updated: a city entered on an imported Formatted address used to hold the chart. The
+        // patient moved: the current columns are written Structured, as for a never-imported
+        // chart, and the Formatted source text is superseded (listed as replaced).
         formatted();
+        fixture.currentField("address", "9 New Street");
         fixture.currentField("city", "Later");
-        assertThat(reconcile().representable()).isFalse();
+        fixture.currentField("province", "ON");
+        fixture.currentField("postal", "K2B8C3");
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "postal"))
+                .isEqualTo("EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS");
+        var document = render(result);
+        assertThat(text(document, "Formatted")).isEmpty();
+        assertThat(text(document, "Line1")).containsExactly("9 New Street");
+        assertThat(text(document, "City")).containsExactly("Later");
+        assertThat(text(document, "CountrySubdivisionCode")).containsExactly("CA-ON");
+        assertThat(text(document, "PostalCode")).containsExactly("K2B8C3");
+        assertThat(plan(result).replacedFields()).hasSize(2);
+    }
+
+    @Test
+    void shouldExportNoMailingAddress_whenTheUserClearsAnImportedFormattedAddress() throws Exception {
+        // The forms keep their default province; with no street, city or postal code it records
+        // no address, so the cleared Formatted source is superseded rather than replayed.
+        formatted();
+        fixture.currentField("address", "");
+        fixture.currentField("province", "ON");
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "address"))
+                .isEqualTo("CLEARED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS");
+        assertThat(text(render(result), "Address")).isEmpty();
+        assertThat(plan(result).replacedFields()).hasSize(2);
+    }
+
+    @Test
+    void shouldReplaceBothSourceAddresses_whenAPatientImportedWithTwoMailingAddressesMoves()
+            throws Exception {
+        // The importer projects neither of two different mailing addresses (none is the
+        // current one), so the columns start empty. A form save that writes them empty keeps
+        // both; an address the user then enters replaces both.
+        source.put("Address[2]/@addressType", "M");
+        source.put("Address[2]/Formatted[1]", "Second\nAddress");
+        fixture.preparedAddress(false, null);
+        fixture.currentField("address", "");
+        fixture.currentField("city", "");
+        var kept = reconcile();
+        assertThat(kept.representable()).isTrue();
+        assertThat(kept.changes()).isEmpty();
+        assertThat(rule(kept, "city"))
+                .isEqualTo("UNPROJECTED_SOURCE_ADDRESS_KEPT_WITHOUT_A_CURRENT_ADDRESS");
+        assertThat(text(render(kept), "Address")).hasSize(2);
+        fixture.currentField("address", "9 New Street");
+        fixture.currentField("city", "Later");
+        var moved = reconcile();
+        assertThat(moved.representable()).isTrue();
+        var document = render(moved);
+        assertThat(text(document, "Address")).hasSize(1);
+        assertThat(text(document, "Line1")).containsExactly("9 New Street");
+        assertThat(text(document, "Formatted")).isEmpty();
+        assertThat(plan(moved).replacedFields()).hasSize(7);
+    }
+
+    @Test
+    void shouldStillHoldTheChart_forAnAddressValueNoXmlDocumentCanCarry() throws Exception {
+        formatted();
+        fixture.currentField("city", "Bad\u0001Town");
+        var result = reconcile();
+        assertThat(result.representable()).isFalse();
+        assertThat(rule(result, "city")).isEqualTo("CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW");
     }
 
     @Test
@@ -231,6 +328,22 @@ class CdsExportDemographicAddressReconcilerUnitTest {
         assertThat(reconcile().representable()).isFalse();
         active = false;
         assertThatThrownBy(this::reconcile).hasMessage("EXPIRED_VALUES");
+    }
+
+    private static String rule(
+            CdsExportDemographicAddressReconciler.Result result, String column) {
+        return result.fields().entrySet().stream()
+                .filter(entry -> entry.getKey().column().equals(column))
+                .findFirst()
+                .orElseThrow()
+                .getValue()
+                .rule();
+    }
+
+    private CdsExportRetainedSectionWriter.Prepared plan(
+            CdsExportDemographicAddressReconciler.Result result) throws Exception {
+        return new CdsExportRetainedSectionWriter()
+                .prepareChanges(graph().fields(), values(), result.changes(), () -> {});
     }
 
     private void compoundStreet() {

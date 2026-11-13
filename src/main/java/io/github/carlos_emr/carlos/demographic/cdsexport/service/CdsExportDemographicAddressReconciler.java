@@ -30,7 +30,16 @@ import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/** Preserves original address structure and unprojected parts; only proven current dependencies are replaced. */
+/**
+ * Preserves original address structure and unprojected parts while the chart is unedited. After a
+ * CARLOS edit the current columns are the truth: an edited part replaces its source part, and an
+ * edit that a part-by-part replacement cannot express (a Formatted source, two source addresses
+ * of one type, a source address the importer never projected) replaces the whole source address
+ * with the current Structured one, as for a never-imported chart. A superseded source value is
+ * never silently dropped: it stays in the import's retained source and the receipt lists its
+ * fields as replaced, under the rule named here. Besides an unproven import projection, only
+ * text no XML document can hold still requires review.
+ */
 public final class CdsExportDemographicAddressReconciler {
     private static final String ROOT = "/OmdCds[1]/PatientRecord[1]/Demographics[1]/";
     private static final Pattern ADDRESS =
@@ -181,8 +190,30 @@ public final class CdsExportDemographicAddressReconciler {
                     review = true;
                 } else rule = "VERIFIED_UNCHANGED_SOURCE_ADDRESS";
             } else if (occurrences.size() > 1 || prepared == null && !occurrences.isEmpty()) {
-                rule = "EDITED_AMBIGUOUS_SOURCE_ADDRESS_REQUIRES_REVIEW";
-                review = true;
+                // Two or more source addresses of this type, or one the importer never projected:
+                // after a CARLOS edit the current columns are the truth for this type. They
+                // replace the first source address and the others are superseded; every replaced
+                // source field stays in the import's retained source and is listed as replaced.
+                // Columns the importer left empty and a form save then wrote empty (or the forms'
+                // default province alone) record no address: an unprojected source is kept.
+                if (illegal(kind, nativeMapping)) {
+                    rule = "CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW";
+                    review = true;
+                } else if (nativeAddress == null && prepared == null)
+                    rule = "UNPROJECTED_SOURCE_ADDRESS_KEPT_WITHOUT_A_CURRENT_ADDRESS";
+                else {
+                    for (int n = 0; n < occurrences.size(); n++)
+                        supersede(
+                                groups.get(occurrences.get(n)),
+                                "Address[" + occurrences.get(n) + "]",
+                                kind,
+                                n == 0 ? nativeAddress : null,
+                                changes);
+                    rule =
+                            nativeAddress == null
+                                    ? "CLEARED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS"
+                                    : "EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS";
+                }
             } else if (occurrences.isEmpty()) {
                 if (prepared != null) {
                     rule = "PREPARED_SOURCE_ADDRESS_REQUIRED";
@@ -236,29 +267,29 @@ public final class CdsExportDemographicAddressReconciler {
                     boolean onlyStreet =
                             kind.columns.subList(1, 4).stream()
                                     .noneMatch(projection.changedColumns()::contains);
-                    if (!onlyStreet
-                            || prepared.address() == null
-                            || street == null
-                            || street.isEmpty()
-                            || !CdsExportNativeFieldAssessments.legal(street, 1000)) {
-                        rule = "EDITED_FORMATTED_ADDRESS_REQUIRES_REVIEW";
+                    if (illegal(kind, nativeMapping)) {
+                        rule = "CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW";
                         review = true;
-                    } else {
+                    } else if (onlyStreet
+                            && prepared.address() != null
+                            && street != null
+                            && !street.isEmpty()
+                            && CdsExportNativeFieldAssessments.legal(street, 1000)) {
                         replace(original, prefix, "Formatted[1]", xml -> xml.text(street), local);
                         rule = "EXACT_CURRENT_FORMATTED_ADDRESS";
-                    }
+                    } else
+                        // A city, province or postal code entered on an imported Formatted
+                        // address, or a street the Formatted arm cannot hold: the current columns
+                        // are written Structured, as for a never-imported chart, and supersede the
+                        // Formatted source text.
+                        rule = supersedeOrKeep(original, prefix, kind, prepared, nativeAddress, local);
                 } else if (original.containsKey("Structured[1]")) {
-                    if (sourceOnly
-                            || kind.columns.stream()
-                                    .anyMatch(
-                                            column ->
-                                                    nativeMapping.fields().get(column).outcome()
-                                                            == CdsExportDemographicMappingDto
-                                                                    .Outcome.REQUIRES_REVIEW)
-                            || nativeAddress == null) {
-                        rule = "EDITED_EMPTY_ADDRESS_REQUIRES_REVIEW";
+                    if (illegal(kind, nativeMapping)) {
+                        rule = "CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW";
                         review = true;
-                    } else {
+                    } else if (sourceOnly || nativeAddress == null)
+                        rule = supersedeOrKeep(original, prefix, kind, prepared, nativeAddress, local);
+                    else {
                         replace(
                                 original,
                                 prefix,
@@ -269,6 +300,7 @@ public final class CdsExportDemographicAddressReconciler {
                     }
                 } else {
                     rule = "EXACT_CURRENT_ADDRESS_PARTS";
+                    boolean superseded = false;
                     for (int part = 0; part < 4; part++) {
                         String column = kind.columns.get(part);
                         boolean changed =
@@ -290,21 +322,41 @@ public final class CdsExportDemographicAddressReconciler {
                                                                 key.equals(path)
                                                                         || key.startsWith(
                                                                                 path + "/"));
-                        if (requiresPartReview(
-                                preparedPart,
-                                hadSource,
-                                part,
-                                lines,
-                                column,
-                                nativeMapping,
-                                current)) {
+                        if (nativeMapping.fields().get(column).outcome()
+                                == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW) {
                             review = true;
-                            rule = "EDITED_UNPROJECTED_OR_COMPOUND_ADDRESS_PART_REQUIRES_REVIEW";
+                            rule = "CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW";
                             continue;
                         }
+                        boolean present = CdsExportDemographicSupportingMapper.present(
+                                current.fields().get(column));
+                        // A part the importer kept source-only left its column empty; an empty
+                        // value a form save wrote there is not an edit of that part.
+                        if (preparedPart == null && hadSource && !present) continue;
+                        // A value typed over a source-only part, or a single-line street typed
+                        // over a street of several source lines, is the truth after the edit:
+                        // the superseded source part stays in the retained source and is listed
+                        // as replaced.
+                        if (preparedPart == null && hadSource || part == 0 && lines.size() > 1)
+                            superseded |= present;
                         String value = nativePartValue(part, nativeAddress);
                         if (part == 0 && lines.size() > 1) {
-                            for (String line : lines) replace(original, prefix, line, null, local);
+                            for (String line : lines)
+                                replace(
+                                        original,
+                                        prefix,
+                                        line,
+                                        line.equals("Structured[1]/Line1[1]") && value != null
+                                                ? xml -> xml.text(value)
+                                                : null,
+                                        local);
+                            if (!lines.contains("Structured[1]/Line1[1]") && value != null)
+                                replace(
+                                        original,
+                                        prefix,
+                                        "Structured[1]/Line1[1]",
+                                        xml -> xml.text(value),
+                                        local);
                         } else if (part == 3) {
                             CdsExportXmlComposer.Content content =
                                     value == null
@@ -329,6 +381,8 @@ public final class CdsExportDemographicAddressReconciler {
                                     value == null ? null : xml -> xml.text(value),
                                     local);
                     }
+                    if (superseded && !review)
+                        rule = "EDITED_CURRENT_ADDRESS_PARTS_SUPERSEDE_SOURCE_PARTS";
                 }
                 changes.addAll(local);
             }
@@ -385,21 +439,60 @@ public final class CdsExportDemographicAddressReconciler {
         };
     }
 
-    private static boolean requiresPartReview(
-            String preparedPart,
-            boolean hadSource,
-            int part,
-            List<String> lines,
-            String column,
-            CdsExportDemographicMappingDto nativeMapping,
-            CdsExportCapturedTextRowDto current) {
-        return preparedPart == null && hadSource
-                || nativeMapping.fields().get(column).outcome()
-                        == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW
-                || part == 0
-                        && lines.size() > 1
-                        && current.fields().get(column) != null
-                        && !current.fields().get(column).isEmpty();
+    /** A current column holding text no XML document can carry: the only address hold left. */
+    private static boolean illegal(Kind kind, CdsExportDemographicMappingDto nativeMapping) {
+        return kind.columns.stream()
+                .anyMatch(
+                        column ->
+                                nativeMapping.fields().get(column).outcome()
+                                        == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW);
+    }
+
+    /**
+     * Replaces one imported address with the current one (or removes it when the chart records no
+     * address of this type) and returns the rule. When the importer projected none of its parts
+     * and the chart records no address, nothing the user saw was cleared: the source is kept.
+     */
+    private static String supersedeOrKeep(
+            Map<String, CdsExportRetainedFieldDto> original,
+            String prefix,
+            Kind kind,
+            CdsDemographicNativeDto.Address prepared,
+            CdsExportDemographicMappingDto.Address nativeAddress,
+            List<CdsExportRetainedSectionWriter.Change> changes) {
+        boolean seen =
+                prepared.address() != null
+                        || prepared.city() != null
+                        || prepared.province() != null
+                        || prepared.postal() != null;
+        if (nativeAddress == null && !seen)
+            return "UNPROJECTED_SOURCE_ADDRESS_KEPT_WITHOUT_A_CURRENT_ADDRESS";
+        supersede(original, prefix, kind, nativeAddress, changes);
+        return nativeAddress == null
+                ? "CLEARED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS"
+                : "EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS";
+    }
+
+    /** The whole imported address replaced by the current Structured one, or removed. */
+    private static void supersede(
+            Map<String, CdsExportRetainedFieldDto> original,
+            String prefix,
+            Kind kind,
+            CdsExportDemographicMappingDto.Address nativeAddress,
+            List<CdsExportRetainedSectionWriter.Change> changes) {
+        replace(
+                original,
+                prefix,
+                "",
+                nativeAddress == null
+                        ? null
+                        : xml -> {
+                            xml.attribute("", "addressType", kind.wire);
+                            xml.start("cds_dt", "Structured");
+                            structured(nativeAddress, xml);
+                            xml.end();
+                        },
+                changes);
     }
 
     private static String nativePartValue(
