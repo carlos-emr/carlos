@@ -114,6 +114,48 @@ class CdsMedicationResidualReaderUnitTest {
     }
 
     @Test
+    void shouldReadTheRestorableSourceColumns_besideTheArchiveCarrier() throws Exception {
+        // #6198: only quantity, unit, unitName and prn of the complete native row are read.
+        var row = new LinkedHashMap<String, String>();
+        row.put("BN", "Synthetic  brand");
+        row.put("quantity", "100");
+        row.put("unit", "");
+        row.put("unitName", "mL");
+        row.put("prn", "1");
+        String content =
+                new ObjectMapper()
+                        .writeValueAsString(Map.of("version", 1, "fields", row))
+                        .replace(" ", "\\u0020");
+        var state =
+                new CdsMedicationResidualReader(fields)
+                        .read(
+                                parsed(
+                                        "MedicationsAndTreatments",
+                                        "<ResidualInfo>"
+                                                + element(
+                                                        CdsNativeExtensionContract
+                                                                .MEDICATION_SOURCE_CONTEXT,
+                                                        "string",
+                                                        content)
+                                                + element(
+                                                        CdsNativeExtensionContract
+                                                                .MEDICATION_ARCHIVED,
+                                                        "boolean",
+                                                        "true")
+                                                + "</ResidualInfo>"));
+        assertThat(state.archived()).isTrue();
+        assertThat(state.source().quantity()).isEqualTo("100");
+        assertThat(state.source().quantityUnit()).isEqualTo("mL");
+        assertThat(state.source().prn()).isEqualTo("1");
+        assertThat(state.source().toString()).doesNotContain("mL");
+        // A unitName equal to the dose unit is the importer's copy, not a quantity unit.
+        assertThat(
+                        new CdsMedicationResidualReader.SourceContext("100", "mL", "mL", "0")
+                                .quantityUnit())
+                .isNull();
+    }
+
+    @Test
     void shouldKeepLegacyPreparedBytesStable_andPreserveExplicitArchiveState() throws Exception {
         var mapper = new ObjectMapper();
         var legacy = new CdsMedicationNativeDto(null, null);

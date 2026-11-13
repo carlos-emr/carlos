@@ -138,7 +138,10 @@ public class CdsMedicationPersister {
         drug.setRoute(source.route());
         drug.setDrugForm(source.form());
         drug.setUnit(source.doseUnit());
-        drug.setUnitName(source.doseUnit());
+        // On the Rx page unitName is the quantity's unit. Only a CARLOS sender's carrier names
+        // one (#6198); otherwise the dose unit is copied, as before.
+        drug.setUnitName(
+                source.quantityUnit() != null ? source.quantityUnit() : source.doseUnit());
         drug.setCdsDoseText(source.dose());
         CdsMedicationDose.parse(source.dose())
                 .ifPresent(
@@ -162,9 +165,15 @@ public class CdsMedicationPersister {
         drug.setRxStatus(source.prescriptionStatus());
         drug.setCdsCurrentness(source.currentness().name());
         drug.setCdsProjectionIncomplete(source.sourceRequiresReconciliation());
+        // The exact native as-needed flag restored from a CARLOS sender's carrier (#6198), which
+        // the frequency alone cannot show ("BID PRN"); otherwise derived from the standard
+        // elements, as before.
         drug.setPrn(
-                source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
-                        || "PRN".equals(source.frequency()));
+                source.asNeeded() != null
+                        ? source.asNeeded()
+                        : source.treatmentType() != null
+                                        && source.treatmentType().startsWith("PRN ")
+                                || "PRN".equals(source.frequency()));
         drug.setArchived(archived || source.currentness() == Currentness.HISTORICAL);
         drug.setArchivedReason(
                 source.currentness() == Currentness.HISTORICAL

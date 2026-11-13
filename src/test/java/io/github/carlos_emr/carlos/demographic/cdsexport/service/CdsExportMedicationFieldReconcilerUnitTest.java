@@ -119,6 +119,88 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldKeepARestoredQuantityUnitAndAsNeededFlag_whenTheImportedPrescriptionIsUnchanged()
+            throws Exception {
+        // #6198: the import restored unitName "mL" and prn 1 from the sender's
+        // CARLOS.Medication.Source.v1. The sealed baseline proves the import wrote them, so the
+        // unchanged prescription keeps its original Quantity ("12.5 mL") and Frequency pages,
+        // and the retained carrier stays true.
+        var stored = restoredBaseline();
+        var result = reconcile(fixture(stored, numbers(), true, restoredSource(), stored));
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields())
+                .containsEntry(Field.Quantity, "12.5 mL")
+                .containsEntry(Field.Frequency, "BID PRN")
+                .containsEntry(Field.DosageUnitOfMeasure, "tablet");
+        assertThat(result.preparedPaths())
+                .contains("Quantity", "Frequency/TreatmentType", "DosageUnitOfMeasure");
+        assertThat(result.currentPaths()).isEmpty();
+        for (String column : List.of("unitName", "prn", "quantity", "unit")) {
+            var decision = result.mapping().fields().get(key(column));
+            assertThat(decision.outcome())
+                    .as(column)
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(decision.rule()).isEqualTo("VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION");
+        }
+        assertThat(result.mapping().fields().get(key("unitName")).destination())
+                .isEqualTo("Quantity");
+    }
+
+    @Test
+    void shouldHoldARestoredQuantityUnitOrAsNeededFlag_whenChangedAfterImport() throws Exception {
+        // The retained carrier would restate the imported value beside a changed chart.
+        for (var change :
+                List.of(
+                        Map.entry("unitName", "L"),
+                        Map.entry("quantity", "20"),
+                        Map.entry("prn", "0"))) {
+            var current = restoredBaseline();
+            current.put(change.getKey(), change.getValue());
+            var result =
+                    reconcile(
+                            fixture(
+                                    current,
+                                    numbers(),
+                                    true,
+                                    restoredSource(),
+                                    restoredBaseline()));
+            assertThat(result.mapping().nativeRowRepresentable()).as(change.getKey()).isFalse();
+            assertThat(result.mapping().fields().get(key(change.getKey())).rule())
+                    .isEqualTo("RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW");
+        }
+        // A prepared unit the sealed baseline never held is not proven.
+        var unproven = restoredBaseline();
+        unproven.put("unitName", "tablet");
+        var result = reconcile(fixture(unproven, numbers(), true, restoredSource(), unproven));
+        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
+        assertThat(result.mapping().fields().get(key("unitName")).rule())
+                .isEqualTo("PREPARED_NATIVE_PROJECTION_NOT_PROVEN");
+    }
+
+    /** {@link #source()} as imported from a CARLOS sender's carrier with "12.5 mL", BID PRN. */
+    static CdsMedicationDto restoredSource() throws Exception {
+        var value = (com.fasterxml.jackson.databind.node.ObjectNode) JSON.valueToTree(source());
+        value.put("frequency", "BID PRN");
+        value.put("quantityUnit", "mL");
+        value.put("asNeeded", true);
+        return JSON.copy()
+                .disable(
+                        com.fasterxml.jackson.databind.DeserializationFeature
+                                .ADJUST_DATES_TO_CONTEXT_TIME_ZONE)
+                .treeToValue(value, CdsMedicationDto.class);
+    }
+
+    /** The drugs row CdsMedicationPersister writes for {@link #restoredSource()}. */
+    static Map<String, String> restoredBaseline() {
+        var fields = baseline();
+        fields.put("unitName", "mL");
+        fields.put("prn", "1");
+        fields.put("freqcode", "BID PRN");
+        fields.put("special", "Original café drug 5 mg\n 0.5-1 tablet PO BID PRN");
+        return fields;
+    }
+
+    @Test
     void shouldReuseVerifiedSourceOnlyStrength_whenOnlyProviderNotesChanged() throws Exception {
         assertThatThrownBy(() -> new CdsExportPreparedMedicationMapper().map(sourceOnlyStrength()))
                 .hasMessage("CDS_EXPORT_MEDICATION_LARGE_STRENGTH_REQUIRES_RETAINED_CARRIER");

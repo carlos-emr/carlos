@@ -36,6 +36,7 @@ import org.junit.jupiter.api.*;
 class CdsExportImmunizationMapperUnitTest {
     private final CdsExportImmunizationMapper mapper =
             new CdsExportImmunizationMapper(java.time.ZoneId.of("America/Toronto"));
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory;
     private Map<String, String> parent;
     private List<CdsExportCapturedTextRowDto> extras, dates;
     private CdsExportPreventionClassifier definitions;
@@ -215,6 +216,60 @@ class CdsExportImmunizationMapperUnitTest {
                 .contains("CARLOS.Prevention.Source.v1", "FutureVaccine", "Left deltoid")
                 .doesNotContain("ImmunizationType");
         assertThat(xml.indexOf("ResidualInfo")).isLessThan(xml.indexOf("ImmunizationName"));
+    }
+
+    @Test
+    void shouldRestoreTheOtherProviderAndReminderDate_whenTheCarlosImporterReadsTheExport()
+            throws Exception {
+        // #6198: the prevention form's "Other" provider (-1) with a typed name, and a reminder
+        // date. CDS has no Immunizations element for either; the CARLOS importer restores both
+        // from CARLOS.Prevention.Source.v1.
+        parent.put("provider_no", "-1");
+        parent.put("next_date", "2025-02-28");
+        extra(30, "providerName", "FAKE-Other  clinician café");
+        extra(31, "lot", "AB123");
+        var value = map().value();
+        assertThat(value.sourceContext()).doesNotContain(" ");
+        var received = receive(value);
+        assertThat(received.providerName()).isEqualTo("FAKE-Other  clinician café");
+        assertThat(received.reminderDate()).isEqualTo("2025-02-28");
+        assertThat(received.lot()).isEqualTo("AB123");
+        assertThat(received.refused()).isFalse();
+        // The importer writes the name as the form does, so the reconciler expects that row.
+        assertThat(CdsExportImmunizationProjectionEvidence.expectedExtensions(received))
+                .containsEntry("providerName", "FAKE-Other  clinician café");
+        // A CARLOS provider number belongs to the sender and is never restored.
+        parent.put("provider_no", "999998");
+        parent.put("next_date", null);
+        var chosen = receive(map().value());
+        assertThat(chosen.providerName()).isNull();
+        assertThat(chosen.reminderDate()).isNull();
+    }
+
+    /** Writes one vaccine with its residual, validates it and reads it with the importer. */
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto receive(
+            CdsExportImmunizationDto value) throws Exception {
+        byte[] xml =
+                CdsExportNativeHistoryMapperUnitTest.render(
+                        CdsCategory.IMMUNIZATIONS,
+                        body -> new CdsExportImmunizationXmlWriter().write(value, body));
+        var folder = java.nio.file.Files.createTempDirectory(directory, "receive-");
+        var file = java.nio.file.Files.write(folder.resolve("patient.xml"), xml);
+        var records =
+                new ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+        new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
+                .parse(
+                        file,
+                        folder.resolve("parsed"),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto
+                                .defaults(),
+                        () -> false,
+                        records::add);
+        return new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                        .CdsClinicalNormalizationService(
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsFieldParser())
+                .immunization(records.get(1));
     }
 
     @Test

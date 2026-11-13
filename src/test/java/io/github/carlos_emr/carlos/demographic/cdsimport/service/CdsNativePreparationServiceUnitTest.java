@@ -303,6 +303,61 @@ class CdsNativePreparationServiceUnitTest {
     }
 
     @Test
+    void shouldSealAndLoadAnImmunization_withAndWithoutRestoredSourceContext() throws Exception {
+        // #6198: an unrestored vaccine keeps its earlier payload bytes (no new keys) and loads
+        // through the transient defaults; a restored one seals and loads its values exactly.
+        for (var restored : new String[][] {{null, null}, {"FAKE-Other  clinician", "2025-02-28"}}) {
+            var dao = mock(CdsImportPreparationDao.class);
+            Map<String, CdsImportPreparation> rows = new HashMap<>();
+            when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+            doAnswer(
+                            call -> {
+                                CdsImportPreparation row = call.getArgument(0);
+                                rows.put(row.getId(), row);
+                                return null;
+                            })
+                    .when(dao)
+                    .persist(any());
+            var source =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto(
+                            "Synthetic vaccine",
+                            "Td",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            false,
+                            null,
+                            null,
+                            CdsTemporalDto.unknown(),
+                            restored[0],
+                            restored[1]);
+            service(dao).store("run", 1, "a".repeat(64), "b".repeat(64), command(), source);
+            var row = rows.values().iterator().next();
+            String payload = row.getPayload();
+            assertThat(payload.contains("providerName")).isEqualTo(restored[0] != null);
+            assertThat(payload.contains("reminderDate")).isEqualTo(restored[1] != null);
+            try (var ownership = mockStatic(CdsImportUnitService.class)) {
+                var decoded =
+                        service(dao)
+                                .load(
+                                        "run",
+                                        1,
+                                        "a".repeat(64),
+                                        "b".repeat(64),
+                                        command(),
+                                        io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                                .CdsImmunizationDto.class);
+                assertThat(decoded).isEqualTo(source);
+            }
+            assertThat(row.getPayload()).isEqualTo(payload);
+        }
+    }
+
+    @Test
     void shouldLoadAMedicationSealedWithDurationDays_asItsExactDayDuration() throws Exception {
         // Review M4: a payload sealed before #3958 names durationDays; its meaning is unit D.
         var dao = mock(CdsImportPreparationDao.class);

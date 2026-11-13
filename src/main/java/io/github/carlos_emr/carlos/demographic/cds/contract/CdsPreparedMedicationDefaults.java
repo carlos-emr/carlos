@@ -34,6 +34,10 @@ import java.util.Set;
  * {@code durationUnit "D"}. The stored bytes and seal are never rewritten; only the decoded tree
  * is translated. A payload naming both shapes, a unit without an amount (or the reverse), or a
  * unit outside D/W/M/Y is refused rather than guessed.
+ *
+ * <p>Preparations sealed before the CARLOS source carrier was restored (#6198) omit
+ * {@code source.quantityUnit} and {@code source.asNeeded}; both are absent (null) there, which
+ * keeps the persister's earlier derivation. A present value of the wrong type is refused.
  */
 public final class CdsPreparedMedicationDefaults {
     private static final Set<String> UNITS = Set.of("D", "W", "M", "Y");
@@ -61,6 +65,12 @@ public final class CdsPreparedMedicationDefaults {
                 prescription.put("durationUnit", "D");
             } else throw invalid();
         }
+        if (!prescription.has("quantityUnit")) prescription.putNull("quantityUnit");
+        else if (!prescription.get("quantityUnit").isNull()
+                && !prescription.get("quantityUnit").isTextual()) throw invalid();
+        if (!prescription.has("asNeeded")) prescription.putNull("asNeeded");
+        else if (!prescription.get("asNeeded").isNull()
+                && !prescription.get("asNeeded").isBoolean()) throw invalid();
         JsonNode amount = prescription.get("duration"), unit = prescription.get("durationUnit");
         if (amount == null || unit == null) throw invalid();
         if (amount.isNull() != unit.isNull()) throw invalid();

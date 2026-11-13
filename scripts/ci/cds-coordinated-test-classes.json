@@ -338,6 +338,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsRulesetFingerprintMappingUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsRuntimeIdentityUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSchemaTypeCursorUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceContextRestorationUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceFieldCapacityUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadServiceUnitTest",

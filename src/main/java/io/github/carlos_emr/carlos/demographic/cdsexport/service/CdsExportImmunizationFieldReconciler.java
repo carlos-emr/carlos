@@ -23,6 +23,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImmunizationDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedReceiptVerificationDto.Reason;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
@@ -294,6 +295,7 @@ public final class CdsExportImmunizationFieldReconciler {
                         "VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION");
             } else currentPaths.add(part.path);
         }
+        restored(prepared, parent, root, originalByKey, fields);
         var now = candidate.value();
         var value =
                 new CdsExportImmunizationDto(
@@ -324,6 +326,68 @@ public final class CdsExportImmunizationFieldReconciler {
                 new CdsExportImmunizationMappingDto(blocked ? null : value, fields),
                 preparedPaths,
                 currentPaths);
+    }
+
+    /**
+     * Values the import restored from the sender's {@code CARLOS.Prevention.Source.v1} (#6198): the
+     * free-text "Other" provider (provider {@code -1} and its {@code providerName} extension) and
+     * the reminder date. CDS has no element for them, so the retained occurrence carries them only
+     * in that original carrier, which the retained assembler re-exports unchanged. They are
+     * accounted to it while the sealed baseline proves the import wrote them and they are
+     * unchanged; a changed or unproven value requires review, because the retained carrier would
+     * restate the old one.
+     */
+    private static void restored(
+            CdsImmunizationDto prepared,
+            CdsExportCapturedTextRowDto parent,
+            Row root,
+            Map<String, Row> originalByKey,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields)
+            throws IOException {
+        if (prepared.providerName() != null) {
+            var row = originalByKey.get("providerName");
+            boolean proved =
+                    row != null
+                            && CdsExportImmunizationProjectionEvidence.matches(
+                                    row.baseline(), "val", prepared.providerName())
+                            && CdsExportImmunizationProjectionEvidence.matches(
+                                    root.baseline(), "provider_no", "-1");
+            boolean unchanged =
+                    !root.difference().changedColumns().contains("provider_no")
+                            && row != null
+                            && Collections.disjoint(
+                                    row.difference().changedColumns(),
+                                    Set.of("keyval", "prevention_id", "val"));
+            String rule = restoredRule(proved, unchanged);
+            mark(parent, fields, Set.of("provider_no"), CdsExportImmunizationMapper.RESIDUAL, rule);
+            if (row != null)
+                mark(
+                        row.current(),
+                        fields,
+                        Set.of("keyval", "val"),
+                        CdsExportImmunizationMapper.RESIDUAL,
+                        rule);
+        }
+        if (prepared.reminderDate() != null) {
+            boolean proved =
+                    CdsExportImmunizationProjectionEvidence.matches(
+                            root.baseline(), "next_date", prepared.reminderDate());
+            boolean unchanged = !root.difference().changedColumns().contains("next_date");
+            mark(
+                    parent,
+                    fields,
+                    Set.of("next_date"),
+                    CdsExportImmunizationMapper.RESIDUAL,
+                    restoredRule(proved, unchanged));
+        }
+    }
+
+    private static String restoredRule(boolean proved, boolean unchanged) {
+        return !proved
+                ? "PREPARED_NATIVE_PROJECTION_NOT_PROVEN"
+                : unchanged
+                        ? "VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION"
+                        : "RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW";
     }
 
     private Map<String, Row> originalExtensions(

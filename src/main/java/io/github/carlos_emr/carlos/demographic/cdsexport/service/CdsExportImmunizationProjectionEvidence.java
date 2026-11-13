@@ -54,6 +54,8 @@ final class CdsExportImmunizationProjectionEvidence {
         result.put("cdsCodeSystem", value.codeSystem());
         result.put("cdsType", value.type());
         result.put("cdsName", value.name());
+        // The free-text "Other" provider restored from a CARLOS sender's carrier (#6198).
+        result.put("providerName", value.providerName());
         return Collections.unmodifiableMap(result);
     }
 

@@ -51,6 +51,8 @@ public class CdsClinicalNormalizationService {
             Set.of("CHRON", "ACU", "ONET", "PRN Long-term", "PRN Short-term");
     private static final Pattern MEDICATION_DURATION = Pattern.compile(
             "([0-9]+)\\s*(D|DAYS?|W|WEEKS?|M|MONTHS?|Y|YEARS?)?", Pattern.CASE_INSENSITIVE);
+    /** The native {@code drugs.unitName} capacity, and the exporter's DosageUnitOfMeasure bound. */
+    private static final int QUANTITY_UNIT_CAPACITY = 50;
     private final CdsFieldParser fields;
 
     public CdsClinicalNormalizationService(CdsFieldParser fields) {
@@ -97,7 +99,16 @@ public class CdsClinicalNormalizationService {
             durationUnit = match.group(2) == null ? "D"
                     : Ascii.toUpperCase(match.group(2).substring(0, 1));
         }
-        String quantity = numericText(text(record, "Quantity", 1024), "Quantity", false);
+        // #6198: a CARLOS sender's complete native row restores the quantity unit and the
+        // as-needed flag, which CDS has no element for, only when the standard elements the
+        // exporter wrote from the same row agree with it.
+        var carried = new CdsMedicationResidualReader(fields).read(record).source();
+        String standardQuantity = text(record, "Quantity", 1024);
+        String quantity, quantityUnit = null;
+        if (carried != null && carried.quantityUnit() != null) {
+            quantityUnit = carried.quantityUnit();
+            quantity = carriedQuantity(standardQuantity, carried);
+        } else quantity = numericText(standardQuantity, "Quantity", false);
         String dose = text(record, "Dosage", 120);
         if (dose != null && CdsMedicationDose.parse(dose).isEmpty()) {
             diagnostics.add(new CdsClinicalDiagnosticDto("CDS_DOSE_PRESERVED_AS_TEXT", "Dosage"));
@@ -138,6 +149,7 @@ public class CdsClinicalNormalizationService {
                 route = text(record, "Route", 120),
                 frequency = text(record, "Frequency", 120);
         Integer repeats = integer(text(record, "NumberOfRefills", 100), "NumberOfRefills");
+        Boolean asNeeded = carried == null ? null : carriedAsNeeded(carried, frequency, treatment);
         String description = text(record, "DrugDescription", 2000);
         // M6: the native strength column holds only the standard Strength. A description naming
         // other strengths (a combination product such as "875 mg / 125 mg", where Strength is
@@ -206,7 +218,57 @@ public class CdsClinicalNormalizationService {
                 date(record, "StartDate", command),
                 strengthSourceOnly,
                 requiresReconciliation,
-                diagnostics);
+                diagnostics,
+                quantityUnit,
+                asNeeded);
+    }
+
+    /**
+     * The native quantity behind a standard Quantity that the CARLOS exporter wrote as the amount
+     * followed by the carried quantity unit ("100 mL"). The carrier and the standard element must
+     * agree exactly: a bare amount, another amount or unit, or a Quantity without the carried
+     * amount (or the reverse) is contradictory and requires review, never a guess.
+     */
+    private static String carriedQuantity(
+            String standard, CdsMedicationResidualReader.SourceContext carried) {
+        String amount = carried.quantity(), unit = carried.quantityUnit();
+        if (unit.codePointCount(0, unit.length()) > QUANTITY_UNIT_CAPACITY)
+            throw new CdsClinicalException(
+                    "CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+        boolean recorded = amount != null && !amount.isEmpty();
+        if (standard == null && !recorded) return null;
+        if (standard == null
+                || !recorded
+                || !amount.matches("[0-9]+(?:\\.[0-9]+)?")
+                || !standard.equals(amount + " " + unit.strip()))
+            throw new CdsClinicalException("CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW", "Quantity");
+        return amount;
+    }
+
+    /**
+     * The exact native as-needed flag. The CARLOS exporter always shows a set flag in the
+     * standard elements (a PRN Frequency such as "PRN" or "BID PRN", or a PRN TreatmentType), so a
+     * set flag beside elements that name no PRN is contradictory and requires review. An unset
+     * flag beside a PRN frequency is an ordinary saved prescription (the box left unticked) and
+     * is restored as recorded. A captured SQL NULL restores nothing.
+     */
+    private static Boolean carriedAsNeeded(
+            CdsMedicationResidualReader.SourceContext carried, String frequency, String treatment) {
+        if (carried.prn() == null) return null;
+        boolean flagged =
+                switch (carried.prn()) {
+                    case "1" -> true;
+                    case "0" -> false;
+                    default ->
+                            throw new CdsClinicalException(
+                                    "CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+                };
+        boolean named =
+                frequency != null && Ascii.toUpperCase(frequency).contains("PRN")
+                        || treatment != null && treatment.startsWith("PRN ");
+        if (flagged && !named)
+            throw new CdsClinicalException("CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW", "Frequency");
+        return flagged;
     }
 
     private static boolean blank(String value) {
@@ -289,20 +351,90 @@ public class CdsClinicalNormalizationService {
         if (name == null || name.isBlank()) {
             throw new CdsClinicalException("CDS_IMMUNIZATION_NAME_REQUIRED", "ImmunizationName");
         }
+        String type = text(record, "ImmunizationType", 100),
+                manufacturer = text(record, "Manufacturer", 120),
+                lot = text(record, "LotNumber", 120),
+                route = text(record, "Route", 120),
+                site = text(record, "Site", 120),
+                dose = text(record, "Dose", 120),
+                code = text(record, "ImmunizationCode/value", 20),
+                codeSystem = text(record, "ImmunizationCode/CodingSystem", 250);
+        boolean refused = indicator(record, "RefusedFlag", true);
+        String instructions = text(record, "Instructions", 250), notes = text(record, "Notes", 32768);
+        CdsTemporalDto date = date(record, "Date", command);
+        // #6198: a CARLOS sender's complete native row restores the free-text administering
+        // provider and the reminder date, which CDS has no Immunizations element for.
+        var carried = new CdsImmunizationResidualReader(fields).read(record);
+        String providerName = null, reminderDate = null;
+        if (carried != null) {
+            // The carrier must describe this event: its native status is the RefusedFlag the
+            // exporter wrote from it (given and completed externally N; refused and ineligible Y).
+            boolean nativeRefused =
+                    switch (carried.refused() == null ? "" : carried.refused()) {
+                        case "0", "3" -> false;
+                        case "1", "2" -> true;
+                        default ->
+                                throw new CdsClinicalException(
+                                        "CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW",
+                                        "ResidualInfo");
+                    };
+            if (nativeRefused != refused)
+                throw new CdsClinicalException(
+                        "CDS_IMMUNIZATION_NATIVE_FIELD_REQUIRES_REVIEW", "RefusedFlag");
+            // Only the form's "Other" provider (-1) is a free-text name; a CARLOS provider number
+            // belongs to the sender and is never restored. Two recorded names are not resolved
+            // by first/last precedence.
+            if ("-1".equals(carried.providerNo()) && !carried.providerNames().isEmpty()) {
+                if (carried.providerNames().size() != 1)
+                    throw new CdsClinicalException(
+                            "CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+                providerName = carried.providerNames().getFirst();
+            }
+            reminderDate = reminderDate(carried.nextDate(), command);
+        }
         return new CdsImmunizationDto(
                 name,
-                text(record, "ImmunizationType", 100),
-                text(record, "Manufacturer", 120),
-                text(record, "LotNumber", 120),
-                text(record, "Route", 120),
-                text(record, "Site", 120),
-                text(record, "Dose", 120),
-                text(record, "ImmunizationCode/value", 20),
-                text(record, "ImmunizationCode/CodingSystem", 250),
-                indicator(record, "RefusedFlag", true),
-                text(record, "Instructions", 250),
-                text(record, "Notes", 32768),
-                date(record, "Date", command));
+                type,
+                manufacturer,
+                lot,
+                route,
+                site,
+                dose,
+                code,
+                codeSystem,
+                refused,
+                instructions,
+                notes,
+                date,
+                providerName,
+                reminderDate);
+    }
+
+    /**
+     * The native reminder date ({@code preventions.next_date}, captured as {@code yyyy-MM-dd}),
+     * shifted by the authorized synthetic-copy days like every other clinical date so a shifted
+     * chart never keeps a real reminder date. MySQL's zero date is how a legacy row records no
+     * reminder (the prevention form shows it empty); any other value that is not a civil date in
+     * years 1-9999, before or after the shift, requires review.
+     */
+    private static String reminderDate(String captured, CdsImportCommand command) {
+        if (captured == null || captured.equals("0000-00-00")) return null;
+        java.time.LocalDate date;
+        try {
+            date =
+                    java.time.LocalDate.parse(
+                            captured,
+                            java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd")
+                                    .withResolverStyle(java.time.format.ResolverStyle.STRICT));
+            if (command != null && command.timeshiftDays() != 0)
+                date = date.plusDays(command.timeshiftDays());
+        } catch (java.time.DateTimeException malformed) {
+            date = null;
+        }
+        if (date == null || date.getYear() < 1 || date.getYear() > 9999)
+            throw new CdsClinicalException(
+                    "CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW", "ResidualInfo");
+        return date.toString();
     }
 
     public CdsTemporalDto date(CdsRecordDto record, String field) throws IOException {

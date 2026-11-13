@@ -57,7 +57,15 @@ public final class CdsExportPreparedMedicationMapper {
             values.put(Field.Duration, duration);
         }
         put(values, Field.RefillDuration, source.refillDurationDays());
-        put(values, Field.Quantity, source.quantity());
+        // A quantity unit restored from a CARLOS sender's carrier (#6198) came from a Quantity
+        // written as the amount followed by that unit ("100 mL"); the same rendering keeps the
+        // retained carrier and the standard element in agreement.
+        put(
+                values,
+                Field.Quantity,
+                source.quantity() != null && source.quantityUnit() != null
+                        ? source.quantity() + " " + source.quantityUnit().strip()
+                        : source.quantity());
         put(values, Field.RefillQuantity, source.refillQuantity());
         put(values, Field.NumberOfRefills, source.repeats());
         flag(values, Field.LongTermMedication, source.longTerm());

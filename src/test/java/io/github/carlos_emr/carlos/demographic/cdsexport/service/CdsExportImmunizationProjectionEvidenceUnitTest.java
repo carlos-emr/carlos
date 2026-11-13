@@ -32,11 +32,14 @@ import org.junit.jupiter.api.Test;
 
 class CdsExportImmunizationProjectionEvidenceUnitTest {
     @Test
-    void shouldVerifyRecipeMatchesAllThirteenExistingPersisterKeys_withoutInventingMissingRows()
+    void shouldVerifyRecipeMatchesAllFourteenPersisterKeys_withoutInventingMissingRows()
             throws Exception {
         var source = source(CdsTemporalDto.unknown());
         var expected = CdsExportImmunizationProjectionEvidence.expectedExtensions(source);
-        assertThat(expected).hasSize(13);
+        // Thirteen standard and provenance keys, and the free-text provider a CARLOS sender's
+        // carrier restores (#6198), absent (no row) here.
+        assertThat(expected).hasSize(14);
+        assertThat(expected).containsEntry("providerName", null);
         assertThat(expected.get("manufacture")).isEqualTo("Maker");
         assertThat(expected.get("location")).isEqualTo("Left arm");
         assertThat(expected.get("comments")).isEqualTo("Notes");

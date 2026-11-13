@@ -113,7 +113,12 @@ public final class CdsNativeExtensionContract {
         }
     }
 
-    /** Complete native prescription context; unqualified codes remain explicitly unqualified. */
+    /**
+     * Complete native prescription context; unqualified codes remain explicitly unqualified. A
+     * CARLOS importer restores only the quantity unit ({@code unitName}) and the as-needed flag
+     * ({@code prn}) from it, and only when the standard Quantity and Frequency/TreatmentType
+     * written from the same row agree (#6198); every other column stays retained source.
+     */
     public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
 
     /**
@@ -136,7 +141,10 @@ public final class CdsNativeExtensionContract {
      * Complete native prevention rows (the parent, every extension and every date-precision row)
      * behind a PastHealth entry exported from a CARLOS screening, or behind an Immunizations entry
      * exported from a vaccine recorded in CARLOS. SQL NULL and empty text stay distinct, and the
-     * JSON carries no literal XML whitespace so token normalization cannot alter it.
+     * JSON carries no literal XML whitespace so token normalization cannot alter it. From an
+     * Immunizations entry a CARLOS importer restores only the free-text "Other" provider
+     * ({@code provider_no} -1 with its {@code providerName} extension) and the reminder date
+     * ({@code next_date}), once the carrier's status matches RefusedFlag (#6198).
      */
     public static final String PREVENTION_SOURCE_CONTEXT = "CARLOS.Prevention.Source.v1";
 

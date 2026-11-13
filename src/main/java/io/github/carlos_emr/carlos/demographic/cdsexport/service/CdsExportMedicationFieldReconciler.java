@@ -202,7 +202,8 @@ public final class CdsExportMedicationFieldReconciler {
                 samePrecision &= ref.reason() == Reason.UNCHANGED_ROW;
             }
         samePrecision &= priorPrecisionIds.equals(currentPrecisionIds);
-        for (var group : GROUPS) {
+        var restored = restoredColumns(source);
+        for (var group : groups(source)) {
             boolean proved = true;
             for (String column : group.columns())
                 proved &= matches(baseline, column, expected.get(column));
@@ -212,6 +213,19 @@ public final class CdsExportMedicationFieldReconciler {
                 continue;
             }
             boolean unchanged = Collections.disjoint(group.columns(), difference.changedColumns());
+            var restoredChanged = new HashSet<>(group.columns());
+            restoredChanged.retainAll(restored);
+            restoredChanged.retainAll(difference.changedColumns());
+            if (!unchanged
+                    && (!restoredChanged.isEmpty()
+                            || group.path().equals(Field.Quantity.name())
+                                    && restored.contains("unitName"))) {
+                // The retained CARLOS.Medication.Source.v1 carrier would restate a value the
+                // import restored from it (or the quantity it was checked against) and contradict
+                // the current chart (#6198).
+                mark(current, decisions, group, "RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW");
+                continue;
+            }
             if (source.strengthSourceOnly() && group.path().equals("Strength") && !unchanged) {
                 mark(current, decisions, group, "SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
                 continue;
@@ -365,6 +379,32 @@ public final class CdsExportMedicationFieldReconciler {
         return original;
     }
 
+    /**
+     * The field groups of this preparation. A quantity unit restored from a CARLOS sender's
+     * carrier (#6198) makes {@code unitName} part of Quantity (the exporter wrote "100 mL"), not
+     * of the dose unit, so a changed quantity unit cannot be exported as a dose unit.
+     */
+    private static List<Group> groups(CdsMedicationDto source) {
+        if (source.quantityUnit() == null) return GROUPS;
+        var result = new ArrayList<Group>(GROUPS.size());
+        for (var group : GROUPS)
+            result.add(
+                    group.path().equals(Field.DosageUnitOfMeasure.name())
+                            ? new Group(Field.DosageUnitOfMeasure, "unit")
+                            : group.path().equals(Field.Quantity.name())
+                                    ? new Group(Field.Quantity, "quantity", "unitName")
+                                    : group);
+        return result;
+    }
+
+    /** The native columns the import restored from a CARLOS sender's source carrier (#6198). */
+    private static Set<String> restoredColumns(CdsMedicationDto source) {
+        var result = new HashSet<String>();
+        if (source.quantityUnit() != null) result.add("unitName");
+        if (source.asNeeded() != null) result.add("prn");
+        return result;
+    }
+
     private static Map<String, String> projection(
             int patient, String id, CdsMedicationNativeDto prepared) {
         var source = prepared.source();
@@ -403,7 +443,9 @@ public final class CdsExportMedicationFieldReconciler {
         values.put("route", trim(source.route()));
         values.put("drug_form", trim(source.form()));
         values.put("unit", trim(source.doseUnit()));
-        values.put("unitName", trim(source.doseUnit()));
+        values.put(
+                "unitName",
+                trim(source.quantityUnit() != null ? source.quantityUnit() : source.doseUnit()));
         values.put("cds_dose_text", source.dose());
         String strength =
                 source.strengthSourceOnly()
@@ -434,8 +476,11 @@ public final class CdsExportMedicationFieldReconciler {
         values.put(
                 "prn",
                 flag(
-                        source.treatmentType() != null && source.treatmentType().startsWith("PRN ")
-                                || "PRN".equals(source.frequency())));
+                        source.asNeeded() != null
+                                ? source.asNeeded()
+                                : source.treatmentType() != null
+                                                && source.treatmentType().startsWith("PRN ")
+                                        || "PRN".equals(source.frequency())));
         boolean historical = source.currentness() == CdsMedicationDto.Currentness.HISTORICAL;
         boolean archived = prepared.archived() || historical;
         values.put("archived", flag(archived));

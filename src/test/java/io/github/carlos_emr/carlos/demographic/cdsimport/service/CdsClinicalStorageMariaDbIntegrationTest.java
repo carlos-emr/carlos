@@ -590,6 +590,124 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldStoreValuesRestoredFromCarlosSourceCarriers_inTheirNativeColumns() throws Exception {
+        // #6198: the native columns written from a CARLOS sender's carriers, read back as the
+        // export capture reads them (text casts), which the retained reconcilers' baseline
+        // witness compares with the sealed preparation.
+        var json = new com.fasterxml.jackson.databind.ObjectMapper();
+        var drugRow = new LinkedHashMap<String, String>();
+        drugRow.put("quantity", "100");
+        drugRow.put("unit", "");
+        drugRow.put("unitName", "mL");
+        drugRow.put("prn", "1");
+        Map<String, String> rx = new LinkedHashMap<>();
+        carrier(
+                rx,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                        .MEDICATION_SOURCE_CONTEXT,
+                json.writeValueAsString(Map.of("version", 1, "fields", drugRow)));
+        rx.put("DrugName", "Synthetic liquid");
+        rx.put("Quantity", "100 mL");
+        rx.put("Frequency", "BID PRN");
+        var medication =
+                normalization.medication(
+                        CdsClinicalFixture.record(directory, "MedicationsAndTreatments", rx));
+        Drug drug =
+                new CdsMedicationPersister(
+                                mock(DrugDao.class), mock(PartialDateDao.class), normalization)
+                        .candidate(42, medication);
+        var prevention = new LinkedHashMap<String, String>();
+        prevention.put("provider_no", "-1");
+        prevention.put("next_date", "2025-02-28");
+        prevention.put("refused", "0");
+        var name = new LinkedHashMap<String, String>();
+        name.put("keyval", "providerName");
+        name.put("val", "FAKE-Other  clinician café");
+        Map<String, String> vaccine = new LinkedHashMap<>();
+        carrier(
+                vaccine,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                        .PREVENTION_SOURCE_CONTEXT,
+                json.writeValueAsString(
+                        Map.of(
+                                "version",
+                                1,
+                                "prevention",
+                                prevention,
+                                "extensions",
+                                java.util.List.of(name))));
+        vaccine.put("ImmunizationName", "Synthetic vaccine");
+        vaccine.put("RefusedFlag/ynIndicatorsimple", "N");
+        var immunization =
+                normalization.immunization(
+                        CdsClinicalFixture.record(directory, "Immunizations", vaccine));
+        try (Session session = factory.openSession()) {
+            var transaction = session.beginTransaction();
+            boolean previous =
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .isActualTransactionActive();
+            try {
+                strict(session);
+                session.persist(drug);
+                session.flush();
+                Object[] stored =
+                        session.createNativeQuery(
+                                        "select quantity, unitName, CAST(prn AS CHAR) from drugs"
+                                                + " where drugid = :id",
+                                        Object[].class)
+                                .setParameter("id", drug.getId())
+                                .getSingleResult();
+                assertThat(stored).containsExactly("100", "mL", "1");
+                var preventions = new PreventionMergedDemographicDaoImpl();
+                var extensions = new PreventionExtDaoImpl();
+                var dates = new PartialDateDaoImpl();
+                for (Object dao : new Object[] {preventions, extensions, dates})
+                    ReflectionTestUtils.setField(dao, "entityManager", session);
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .setActualTransactionActive(true);
+                var receipt =
+                        new CdsImmunizationPersister(
+                                        preventions,
+                                        extensions,
+                                        dates,
+                                        normalization,
+                                        "America/Toronto")
+                                .write(42, "T099", immunization);
+                session.flush();
+                int id = Integer.parseInt(receipt.get("preventions"));
+                Object[] parent =
+                        session.createNativeQuery(
+                                        "select provider_no, CAST(next_date AS CHAR) from"
+                                                + " preventions where id = :id",
+                                        Object[].class)
+                                .setParameter("id", id)
+                                .getSingleResult();
+                assertThat(parent).containsExactly("-1", "2025-02-28");
+                assertThat(
+                                session.createNativeQuery(
+                                                "select val from preventionsExt where"
+                                                        + " prevention_id = :id and keyval ="
+                                                        + " 'providerName'",
+                                                String.class)
+                                        .setParameter("id", id)
+                                        .getResultList())
+                        .containsExactly("FAKE-Other  clinician café");
+            } finally {
+                org.springframework.transaction.support.TransactionSynchronizationManager
+                        .setActualTransactionActive(previous);
+                transaction.rollback();
+            }
+        }
+    }
+
+    /** One residual element as the CARLOS exporter writes it, every space escaped. */
+    private static void carrier(Map<String, String> values, String name, String json) {
+        values.put("ResidualInfo/DataElement[1]/Name", name);
+        values.put("ResidualInfo/DataElement[1]/DataType", "string");
+        values.put("ResidualInfo/DataElement[1]/Content", json.replace(" ", "\\u0020"));
+    }
+
+    @Test
     void shouldRetainUnknownAndYearPrecisionInImmunizationWriter_withAlphanumericAuditCreator()
             throws Exception {
         try (Session session = factory.openSession()) {

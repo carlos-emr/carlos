@@ -73,19 +73,58 @@ are added only after seal verification).
 | `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
 | `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
 | `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
-| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Not interpreted: retained as protected source data like any other residual. |
-| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations, PastHealth | Not interpreted: retained as protected source data like any other residual. |
+| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
 
 The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
-for audit and for a future, separately reviewed restoration. They are not projected because
-their JSON is not schema-validated clinical content and would bypass the standard-field
-normalization and review rules: a CARLOS-to-CARLOS move restores what the standard elements
-carry. What they alone carry is visible in the protected source view of the import: for a
-medication, the native quantity unit, as-needed flags and the exact IEEE dose witnesses
-(a week duration arrives as its exact day count, months and years with their unit); for a
-vaccine, the administering provider's free-text name, the reminder date and the never-remind
-flag. Restoring any of them natively is a maintainer decision recorded in the release pull
-request.
+as one JSON object, every space escaped so `xs:token` normalization cannot alter it. The
+importer reads them strictly (`CdsSourceContextParser`: `"version":1`, no duplicate member,
+nothing after the document, at most 2^24 characters) and restores only the native values CDS
+has no element for, and only when the standard elements the exporter wrote from the same row
+agree with the carrier. The carrier itself, and every value it alone carries, stays unchanged in
+the import's retained source fields.
+
+- **Medication quantity unit.** On the Rx page `unitName` is the quantity's unit. A carried
+  `unitName` that is not empty and differs from `unit` (the exporter's own reading) is restored
+  to `drugs.unitName` with the carried amount in `drugs.quantity`, only when the standard
+  Quantity is exactly that amount, a space and the trimmed unit (`100 mL`). A bare, different or
+  absent Quantity is contradictory: `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path
+  `Quantity`). Without a quantity unit the dose unit is copied to `unitName`, as before.
+- **Medication as-needed flag.** The carried `prn` (0 or 1) is restored to `drugs.prn` exactly,
+  including the `BID PRN` case the frequency alone cannot show. The exporter always shows a set
+  flag in Frequency (`PRN`, `BID PRN`) or a PRN TreatmentType, so a set flag beside elements that
+  name no PRN is `CDS_MEDICATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `Frequency`); an unset flag
+  beside a PRN frequency (the box left unticked) is restored as recorded. Without a carrier the
+  flag is derived from Frequency and TreatmentType, as before.
+- **Vaccine provider.** Only the prevention form's "Other" provider (`provider_no` `-1`) is a
+  free-text name: its one non-empty `providerName` extension is restored as `provider_no` `-1`
+  and a `providerName` extension, which is how the form saves it and what the chart shows. A
+  CARLOS provider number belongs to the sender and is never restored; the import still
+  attributes no local clinician. Two typed names require review.
+- **Vaccine reminder date.** `next_date` is restored to `preventions.next_date`, shifted by an
+  authorized synthetic date shift like every other clinical date. MySQL's zero date records no
+  reminder. The carrier describes its record: its native status must be the RefusedFlag the
+  exporter wrote (given and completed externally `N`, refused and ineligible `Y`), else
+  `CDS_IMMUNIZATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `RefusedFlag`).
+
+A malformed, oversized or duplicated carrier, a `prn` other than 0 or 1, an unknown status or an
+invalid date is `CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW` or
+`CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW` (path `ResidualInfo`); nothing is guessed. The
+restored values are part of the sealed preparation (`CdsMedicationDto.quantityUnit`/`asNeeded`,
+`CdsImmunizationDto.providerName`/`reminderDate`), omitted when absent so earlier payloads keep
+their bytes and seal, and defaulted after seal verification. The import receipt's native-baseline
+witness records the rows as written. Re-exporting the unedited imported chart writes the
+original elements beside the retained original carrier (the reconcilers account the restored
+columns to it), so a further CARLOS import restores the same values; a restored value changed in
+CARLOS since the import holds the patient (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`),
+because the retained carrier would restate the old value.
+
+What the carriers alone still carry, and the importer does not restore, stays visible in the
+protected source view of the import: for a medication, the exact IEEE dose witnesses and the
+other native columns (a week duration arrives as its exact day count, months and years with
+their unit); for a vaccine, the never-remind flag, the CVC concept, flu risk factors and the
+other native extensions.
 
 Export clinical qualification remains separate from these shared transfer rules.
 

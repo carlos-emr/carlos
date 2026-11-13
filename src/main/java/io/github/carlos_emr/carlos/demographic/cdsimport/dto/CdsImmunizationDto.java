@@ -21,7 +21,49 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
-/** An asserted administered/refused event can have explicitly unknown timing. */
+/**
+ * An asserted administered/refused event can have explicitly unknown timing.
+ *
+ * <p>{@code providerName} and {@code reminderDate} (#6198) are restored from a CARLOS sender's
+ * {@code CARLOS.Prevention.Source.v1}: the free-text name of the form's "Other" administering
+ * provider, and the native reminder date ({@code yyyy-MM-dd}, after any synthetic date shift).
+ * CDS has no Immunizations element for either. Both are omitted from the sealed preparation when
+ * null, so a payload sealed before they existed keeps its bytes and digest
+ * ({@code CdsPreparedImmunizationDefaults} supplies them after seal verification).
+ */
 public record CdsImmunizationDto(String name, String type, String manufacturer, String lot,
         String route, String site, String dose, String code, String codeSystem,
-        boolean refused, String instructions, String notes, CdsTemporalDto date) { }
+        boolean refused, String instructions, String notes, CdsTemporalDto date,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String providerName,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String reminderDate) {
+    public CdsImmunizationDto {
+        if (providerName != null && providerName.isEmpty())
+            throw new IllegalArgumentException("CDS_IMMUNIZATION_PROVIDER_NAME_INVALID");
+        if (reminderDate != null) {
+            try {
+                var parsed =
+                        java.time.LocalDate.parse(
+                                reminderDate,
+                                java.time.format.DateTimeFormatter.ofPattern("uuuu-MM-dd")
+                                        .withResolverStyle(
+                                                java.time.format.ResolverStyle.STRICT));
+                if (parsed.getYear() < 1 || parsed.getYear() > 9999)
+                    throw new IllegalArgumentException("CDS_IMMUNIZATION_REMINDER_DATE_INVALID");
+            } catch (java.time.DateTimeException malformed) {
+                throw new IllegalArgumentException("CDS_IMMUNIZATION_REMINDER_DATE_INVALID");
+            }
+        }
+    }
+
+    /** A value without restored native context (any source but a CARLOS sender's carrier). */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, null, null);
+    }
+}

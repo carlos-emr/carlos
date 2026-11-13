@@ -36,6 +36,7 @@ import org.junit.jupiter.api.*;
 @Tag("cds-export")
 class CdsExportNativeMedicationMapperUnitTest {
     final CdsExportNativeMedicationMapper mapper = new CdsExportNativeMedicationMapper();
+    @org.junit.jupiter.api.io.TempDir java.nio.file.Path directory;
 
     static Map<String, String> source() {
         var fields = CdsExportMedicationMapperUnitTest.baseline();
@@ -485,6 +486,73 @@ class CdsExportNativeMedicationMapperUnitTest {
                 .containsEntry(Field.Quantity, "30")
                 .containsEntry(Field.DosageUnitOfMeasure, "tablet");
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(mitte, xml));
+    }
+
+    @Test
+    void shouldRestoreTheQuantityUnitAndAsNeededFlag_whenTheCarlosImporterReadsTheExport()
+            throws Exception {
+        // #6198: a custom liquid "100 mL" with the as-needed box ticked beside BID. CDS has no
+        // element for either; the CARLOS importer restores both from CARLOS.Medication.Source.v1
+        // because the standard Quantity and Frequency the exporter wrote agree with it.
+        var fields = source();
+        fields.put("unit", "");
+        fields.put("unitName", "mL");
+        fields.put("quantity", "100");
+        fields.put("freqcode", "BID");
+        fields.put("prn", "1");
+        var exported = mapper.map(27, prescribed(fields), List.of(), Map.of());
+        assertThat(exported.value().fields())
+                .containsEntry(Field.Quantity, "100 mL")
+                .containsEntry(Field.Frequency, "BID PRN");
+        var received = receive(exported);
+        assertThat(received.quantity()).isEqualTo("100");
+        assertThat(received.quantityUnit()).isEqualTo("mL");
+        assertThat(received.asNeeded()).isTrue();
+        assertThat(received.frequency()).isEqualTo("BID PRN");
+        // The imported prescription re-exports the same standard Quantity beside the original
+        // carrier, and a second CARLOS import restores the same native values.
+        var again = new CdsExportPreparedMedicationMapper().map(received);
+        assertThat(again.fields())
+                .containsEntry(Field.Quantity, "100 mL")
+                .containsEntry(Field.Frequency, "BID PRN");
+        var second =
+                receive(
+                        new CdsExportNativeMedicationMapper.Result(
+                                again, exported.metadata(), Map.of(), false, null));
+        assertThat(second.quantity()).isEqualTo("100");
+        assertThat(second.quantityUnit()).isEqualTo("mL");
+        assertThat(second.asNeeded()).isTrue();
+        // An unticked box beside a PRN frequency is restored as recorded.
+        fields.put("freqcode", "PRN");
+        fields.put("prn", "0");
+        fields.put("unitName", "");
+        var unticked = receive(mapper.map(27, prescribed(fields), List.of(), Map.of()));
+        assertThat(unticked.asNeeded()).isFalse();
+        assertThat(unticked.quantityUnit()).isNull();
+        assertThat(unticked.quantity()).isEqualTo("100");
+    }
+
+    /** Writes one prescription with its residual, validates it and reads it with the importer. */
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto receive(
+            CdsExportNativeMedicationMapper.Result result) throws Exception {
+        byte[] xml = render(CdsCategory.MEDICATIONS_AND_TREATMENTS, x -> mapper.write(result, x));
+        var folder = java.nio.file.Files.createTempDirectory(directory, "receive-");
+        var file = java.nio.file.Files.write(folder.resolve("patient.xml"), xml);
+        var records =
+                new ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+        new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
+                .parse(
+                        file,
+                        folder.resolve("parsed"),
+                        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto
+                                .defaults(),
+                        () -> false,
+                        records::add);
+        return new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                        .CdsClinicalNormalizationService(
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsFieldParser())
+                .medication(records.get(1));
     }
 
     @Test

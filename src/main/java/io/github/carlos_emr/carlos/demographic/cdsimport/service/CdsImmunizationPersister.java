@@ -115,6 +115,9 @@ public class CdsImmunizationPersister {
         extra(prevention.getId(), "cdsCodeSystem", source.codeSystem());
         extra(prevention.getId(), "cdsType", source.type());
         extra(prevention.getId(), "cdsName", source.name());
+        // The free-text "Other" provider restored from a CARLOS sender's carrier (#6198), saved
+        // as the prevention form saves it.
+        extra(prevention.getId(), "providerName", source.providerName());
         return Map.of("preventions", String.valueOf(prevention.getId()));
     }
 
@@ -122,11 +125,19 @@ public class CdsImmunizationPersister {
         if (demographicNo < 1) throw new IllegalArgumentException("Invalid target patient");
         Prevention prevention = new Prevention();
         prevention.setDemographicId(demographicNo);
-        prevention.setProviderNo(""); // Import does not identify an administering clinician.
+        // Import does not identify a local administering clinician. A CARLOS sender's free-text
+        // "Other" provider (#6198) is restored as the form records it: provider -1 with the name
+        // in the providerName extension, which the chart shows only for -1.
+        prevention.setProviderNo(source.providerName() == null ? "" : "-1");
         prevention.setCreatorProviderNo(auditProviderNo);
         prevention.setPreventionType(preventionType(source.type()));
         prevention.setRefused(source.refused());
         prevention.setPreventionDate(nativeDate(source));
+        // The native reminder date restored from the carrier; a DATE has no clock or zone.
+        prevention.setNextDate(
+                source.reminderDate() == null
+                        ? null
+                        : java.sql.Date.valueOf(java.time.LocalDate.parse(source.reminderDate())));
         return prevention;
     }
 

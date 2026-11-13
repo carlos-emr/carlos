@@ -333,6 +333,99 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
     void
             shouldReconcileAnActuallyPersistedImporterProjection_andPreserveItsSourceMeaningAfterANativeNoteEdit()
                     throws Exception {
+        var result =
+                reconcileActualProjection(
+                                CdsExportMedicationFieldReconcilerUnitTest.source(),
+                                CdsExportMedicationFieldReconcilerUnitTest.fixture(
+                                        CdsExportMedicationFieldReconcilerUnitTest.baseline(),
+                                        CdsExportMedicationFieldReconcilerUnitTest.numbers(),
+                                        true),
+                                "Edited actual native provider note")
+                        .result();
+        assertThat(
+                        result.mapping().fields().values().stream()
+                                .filter(
+                                        value ->
+                                                value.outcome()
+                                                        == io.github.carlos_emr.carlos
+                                                                .demographic.cdsexport.dto
+                                                                .CdsExportFieldAssessmentDto
+                                                                .Outcome.REQUIRES_REVIEW)
+                                .toList())
+                .isEmpty();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields())
+                .containsEntry(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportMedicationDto.Field.Notes,
+                        "Edited actual native provider note");
+        assertThat(result.mapping().value().strengthAmount()).isEqualTo("5");
+        assertThat(result.mapping().value().prescriber().lastName()).isEqualTo("Physician");
+    }
+
+    @Test
+    void shouldReconcileAnActuallyPersistedRestoredQuantityUnitAndAsNeededFlag_withoutAHold()
+            throws Exception {
+        // #6198: the persister writes the quantity unit and as-needed flag restored from a CARLOS
+        // sender's carrier; the sealed native baseline of the real row proves them, so the
+        // unchanged prescription re-exports its original Quantity and Frequency with no hold.
+        var prepared = CdsExportMedicationFieldReconcilerUnitTest.restoredSource();
+        var outcome =
+                reconcileActualProjection(
+                        prepared,
+                        CdsExportMedicationFieldReconcilerUnitTest.fixture(
+                                CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline(),
+                                CdsExportMedicationFieldReconcilerUnitTest.numbers(),
+                                true,
+                                prepared,
+                                CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline()),
+                        null);
+        assertThat(outcome.row().fields())
+                .containsEntry("unitName", "mL")
+                .containsEntry("prn", "1")
+                .containsEntry("quantity", "12.5")
+                .containsEntry("freqcode", "BID PRN");
+        var result = outcome.result();
+        assertThat(
+                        result.mapping().fields().values().stream()
+                                .filter(
+                                        value ->
+                                                value.outcome()
+                                                        == io.github.carlos_emr.carlos
+                                                                .demographic.cdsexport.dto
+                                                                .CdsExportFieldAssessmentDto
+                                                                .Outcome.REQUIRES_REVIEW)
+                                .toList())
+                .isEmpty();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().fields())
+                .containsEntry(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportMedicationDto.Field.Quantity,
+                        "12.5 mL")
+                .containsEntry(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportMedicationDto.Field.Frequency,
+                        "BID PRN");
+        assertThat(result.preparedPaths()).contains("Quantity", "Frequency/TreatmentType");
+        assertThat(result.currentPaths()).isEmpty();
+    }
+
+    private record Reconciled(
+            CdsExportMedicationFieldReconciler.Result result,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto
+                    row) {}
+
+    /**
+     * Persists the importer's projection of {@code preparedSource} through the real persister and
+     * DAO, captures its sealed native baseline, optionally edits the provider note in SQL, and
+     * reconciles the captured row against {@code base}'s preparation.
+     */
+    private Reconciled reconcileActualProjection(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto preparedSource,
+            CdsExportMedicationFieldReconcilerUnitTest.Fixture base,
+            String editedNote)
+            throws Exception {
         var drugs = context.getBean(DrugDaoImpl.class);
         var persister =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.service
@@ -349,7 +442,6 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                 io.github.carlos_emr.carlos.demographic.cdsimport.dto
                                         .CdsProviderMatchDto.class);
         method.setAccessible(true);
-        var preparedSource = CdsExportMedicationFieldReconcilerUnitTest.source();
         var providerMatch =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsProviderMatchDto(
                         null,
@@ -380,11 +472,12 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                             });
             inserted = candidate.getId();
             assertThat(original).isNotNull();
-            sql.update(
-                    "update drugs set comment=? where drugid=? and demographic_no=?",
-                    "Edited actual native provider note",
-                    inserted,
-                    patient);
+            if (editedNote != null)
+                sql.update(
+                        "update drugs set comment=? where drugid=? and demographic_no=?",
+                        editedNote,
+                        inserted,
+                        patient);
             var currentReceipt =
                     write.execute(
                             status ->
@@ -461,11 +554,6 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                             CdsExportPatientTableSourceReader.key(captured.id()),
                             text,
                             numbers);
-            var base =
-                    CdsExportMedicationFieldReconcilerUnitTest.fixture(
-                            CdsExportMedicationFieldReconcilerUnitTest.baseline(),
-                            CdsExportMedicationFieldReconcilerUnitTest.numbers(),
-                            true);
             String address = CdsExportMedicationFieldReconcilerUnitTest.ADDRESS,
                     unitId =
                             io.github.carlos_emr.carlos.utility.CdsImportKeys.hash(
@@ -507,6 +595,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
             var difference =
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowComparison
                             .compare(old, now);
+            boolean unchanged = old.digest().equals(now.digest());
             var checked =
                     new io.github.carlos_emr.carlos.demographic.cdsexport.dto
                             .CdsExportRetainedReceiptVerificationDto(
@@ -519,13 +608,18 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                                     .CheckedReference(
                                                     reference,
                                                     now.digest(),
-                                                    io.github.carlos_emr.carlos.demographic
-                                                            .cdsexport.dto
-                                                            .CdsExportRetainedReceiptVerificationDto
-                                                            .Reason.CHANGED_ROW,
+                                                    unchanged
+                                                            ? io.github.carlos_emr.carlos
+                                                                    .demographic.cdsexport.dto
+                                                                    .CdsExportRetainedReceiptVerificationDto
+                                                                    .Reason.UNCHANGED_ROW
+                                                            : io.github.carlos_emr.carlos
+                                                                    .demographic.cdsexport.dto
+                                                                    .CdsExportRetainedReceiptVerificationDto
+                                                                    .Reason.CHANGED_ROW,
                                                     difference))),
-                            Set.of(),
-                            Set.of(address));
+                            unchanged ? Set.of(address) : Set.of(),
+                            unchanged ? Set.of() : Set.of(address));
             var result =
                     new CdsExportMedicationFieldReconciler()
                             .reconcile(
@@ -543,25 +637,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                             now),
                                     List.of(),
                                     Map.of());
-            assertThat(
-                            result.mapping().fields().values().stream()
-                                    .filter(
-                                            value ->
-                                                    value.outcome()
-                                                            == io.github.carlos_emr.carlos
-                                                                    .demographic.cdsexport.dto
-                                                                    .CdsExportFieldAssessmentDto
-                                                                    .Outcome.REQUIRES_REVIEW)
-                                    .toList())
-                    .isEmpty();
-            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
-            assertThat(result.mapping().value().fields())
-                    .containsEntry(
-                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
-                                    .CdsExportMedicationDto.Field.Notes,
-                            "Edited actual native provider note");
-            assertThat(result.mapping().value().strengthAmount()).isEqualTo("5");
-            assertThat(result.mapping().value().prescriber().lastName()).isEqualTo("Physician");
+            return new Reconciled(result, row);
         } finally {
             Integer cleanupId = inserted == null ? candidate.getId() : inserted;
             if (cleanupId != null)

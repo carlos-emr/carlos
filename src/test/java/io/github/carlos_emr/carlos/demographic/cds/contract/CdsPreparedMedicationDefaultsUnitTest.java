@@ -51,6 +51,34 @@ class CdsPreparedMedicationDefaultsUnitTest {
     }
 
     @Test
+    void shouldDefaultTheRestoredSourceContextValues_toNotRestoredForEarlierPayloads()
+            throws Exception {
+        // #6198: preparations sealed before the CARLOS source carrier was restored omit both.
+        var legacy =
+                CdsPreparedMedicationDefaults.apply(
+                        json.readTree("{\"source\":{\"duration\":null,\"durationUnit\":null}}"));
+        assertThat(legacy.path("source").get("quantityUnit").isNull()).isTrue();
+        assertThat(legacy.path("source").get("asNeeded").isNull()).isTrue();
+        var restored =
+                CdsPreparedMedicationDefaults.apply(
+                        json.readTree(
+                                "{\"source\":{\"duration\":null,\"durationUnit\":null,"
+                                        + "\"quantityUnit\":\"mL\",\"asNeeded\":false}}"));
+        assertThat(restored.path("source").path("quantityUnit").asText()).isEqualTo("mL");
+        assertThat(restored.path("source").path("asNeeded").isBoolean()).isTrue();
+        for (String value :
+                new String[] {
+                    "{\"source\":{\"duration\":null,\"durationUnit\":null,\"quantityUnit\":1}}",
+                    "{\"source\":{\"duration\":null,\"durationUnit\":null,\"asNeeded\":\"1\"}}"
+                }) {
+            var source = json.readTree(value);
+            assertThatThrownBy(() -> CdsPreparedMedicationDefaults.apply(source))
+                    .as(value)
+                    .hasMessage("CDS_PREPARED_MEDICATION_DEFAULTS_INVALID");
+        }
+    }
+
+    @Test
     void shouldAcceptEveryCurrentUnit_unchanged() throws Exception {
         for (String unit : new String[] {"D", "W", "M", "Y"}) {
             var result =

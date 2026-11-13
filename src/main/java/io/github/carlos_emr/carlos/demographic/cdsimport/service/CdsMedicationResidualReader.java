@@ -28,16 +28,56 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsInputExcepti
 import java.io.*;
 import java.util.*;
 
-/** Exact native medication archive carrier. Invalid known values never activate an archived prescription. */
+/**
+ * Exact native medication carriers: the archive state, and the complete native row in
+ * {@code CARLOS.Medication.Source.v1}, of which only the columns the importer restores (#6198)
+ * are read. Invalid, malformed or duplicate known carriers never activate an archived
+ * prescription and never fall back to a default; they require review. Every other residual
+ * value stays opaque protected source.
+ */
 final class CdsMedicationResidualReader {
-    private static final Set<String> KNOWN = Set.of(CdsNativeExtensionContract.MEDICATION_ARCHIVED);
+    private static final Set<String> KNOWN =
+            Set.of(
+                    CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                    CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT);
     private final CdsFieldParser fields;
 
     CdsMedicationResidualReader(CdsFieldParser fields) {
         this.fields = Objects.requireNonNull(fields);
     }
 
-    record NativeState(boolean archived) {}
+    /**
+     * The sender's native {@code drugs} columns the importer restores, exactly as captured (SQL
+     * NULL as null). The normalizer checks them against the standard elements the exporter wrote
+     * from the same row before any of them is restored.
+     */
+    record SourceContext(String quantity, String unit, String unitName, String prn) {
+        /**
+         * The quantity's unit, or null: on the Rx page {@code unitName} is the quantity unit, and
+         * one equal to {@code unit} is the importer's copy of the dose unit, not a quantity unit
+         * (the exporter's own reading, CdsExportNativeMedicationMapper).
+         */
+        String quantityUnit() {
+            return unitName != null && !unitName.isEmpty() && !unitName.equals(unit)
+                    ? unitName
+                    : null;
+        }
+
+        @Override
+        public String toString() {
+            return "CdsMedicationResidualReader.SourceContext[protected]";
+        }
+    }
+
+    /**
+     * @param source the restorable columns of {@code CARLOS.Medication.Source.v1}, or null when
+     *     the record carries none
+     */
+    record NativeState(boolean archived, SourceContext source) {
+        NativeState(boolean archived) {
+            this(archived, null);
+        }
+    }
 
     NativeState read(CdsRecordDto record) throws IOException {
         if (!record.section().equals("MedicationsAndTreatments")) return new NativeState(false);
@@ -53,7 +93,7 @@ final class CdsMedicationResidualReader {
                         }
                     });
             state.finish();
-            return new NativeState(Boolean.TRUE.equals(state.archived));
+            return new NativeState(Boolean.TRUE.equals(state.archived), state.source);
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -65,6 +105,7 @@ final class CdsMedicationResidualReader {
         private final Set<String> seen = new HashSet<>();
         private String group;
         private Boolean archived;
+        private SourceContext source;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -114,8 +155,36 @@ final class CdsMedicationResidualReader {
                             case "false", "0" -> false;
                             default -> throw invalidValue();
                         };
-            }
+            } else source = sourceContext(values.get("Content"));
             values.clear();
+        }
+
+        /** The complete native row (#6198); only a well-formed version 1 document is read. */
+        private SourceContext sourceContext(CdsFieldDto content) throws IOException {
+            String text;
+            try {
+                text = fields.readToken(record, content, CdsSourceContextParser.MAXIMUM_CHARACTERS);
+            } catch (CdsInputException capacity) {
+                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
+                throw invalidValue();
+            }
+            try {
+                var row =
+                        CdsSourceContextParser.row(
+                                CdsSourceContextParser.parse(text),
+                                "fields",
+                                "quantity",
+                                "unit",
+                                "unitName",
+                                "prn");
+                return new SourceContext(
+                        CdsSourceContextParser.text(row, "quantity"),
+                        CdsSourceContextParser.text(row, "unit"),
+                        CdsSourceContextParser.text(row, "unitName"),
+                        CdsSourceContextParser.text(row, "prn"));
+            } catch (IllegalArgumentException malformed) {
+                throw invalidValue();
+            }
         }
     }
 

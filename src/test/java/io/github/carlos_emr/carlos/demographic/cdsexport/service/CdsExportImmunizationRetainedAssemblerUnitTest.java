@@ -97,6 +97,69 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     @Test
+    void shouldReExportAnUnchangedRestoredVaccine_withItsOriginalCarlosCarrierAndNoHold()
+            throws Exception {
+        // #6198: a vaccine imported from a CARLOS sender, whose "Other" provider and reminder
+        // date the import restored from CARLOS.Prevention.Source.v1. The unchanged chart is
+        // re-exported from its original elements and the original carrier, so the next CARLOS
+        // import restores the same native values.
+        var date = CdsTemporal.parse(null, null, "2024-02-29", null, "Date");
+        var base =
+                new CdsExportImmunizationFieldReconcilerUnitTest()
+                        .restoredFixture(date, "Original notes");
+        assertThat(base.decision().mapping().nativeRowRepresentable()).isTrue();
+        var prevention = new LinkedHashMap<String, String>();
+        prevention.put("id", "17");
+        prevention.put("provider_no", "-1");
+        prevention.put("next_date", "2025-02-28");
+        prevention.put("refused", "0");
+        var provider = new LinkedHashMap<String, String>();
+        provider.put("id", "45");
+        provider.put("keyval", "providerName");
+        provider.put("prevention_id", "17");
+        provider.put("val", base.source().providerName());
+        var document = new LinkedHashMap<String, Object>();
+        document.put("version", 1);
+        document.put("prevention", prevention);
+        document.put("extensions", List.of(provider));
+        document.put("precision", List.of());
+        String carrier =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .writeValueAsString(document)
+                        .replace(" ", "\\u0020");
+        var fixture =
+                fixture(
+                        1,
+                        base,
+                        date,
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeExtensionContract.PREVENTION_SOURCE_CONTEXT,
+                        carrier);
+        var plan = prepare(fixture);
+        var records = parse(plan.content());
+        assertThat(
+                        new CdsFieldParser()
+                                .firstToken(
+                                        records.get(1),
+                                        "ResidualInfo/DataElement/Content",
+                                        1 << 20))
+                .isEqualTo(carrier);
+        var received =
+                new CdsClinicalNormalizationService(new CdsFieldParser())
+                        .immunization(records.get(1));
+        assertThat(received.providerName()).isEqualTo("FAKE-Other  clinician café");
+        assertThat(received.reminderDate()).isEqualTo("2025-02-28");
+        assertThat(received.name()).isEqualTo(base.source().name());
+        assertThat(received.notes()).isEqualTo(base.source().notes());
+        var residual =
+                fixture.fields().stream()
+                        .filter(field -> field.sourcePath().contains("ResidualInfo[1]"))
+                        .map(CdsExportRetainedFieldDto::id)
+                        .toList();
+        assertThat(plan.retainedFields()).containsAll(residual);
+    }
+
+    @Test
     void
             shouldVerifyImportedSecondPatientAndLaterOccurrenceAreReassembled_withoutChangingOwnershipOrDroppingFields()
                     throws Exception {
@@ -283,6 +346,17 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
             CdsExportImmunizationFieldReconcilerUnitTest.Fixture base,
             CdsTemporalDto date)
             throws Exception {
+        return fixture(
+                patientOrdinal, base, date, "Vendor." + "x".repeat(512), "Vendor café 😀 content");
+    }
+
+    private Fixture fixture(
+            int patientOrdinal,
+            CdsExportImmunizationFieldReconcilerUnitTest.Fixture base,
+            CdsTemporalDto date,
+            String residualName,
+            String residualContent)
+            throws Exception {
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field(patientOrdinal, "ImmunizationName[1]", "cds", base.source().name()));
         // An absent ImmunizationType retained no source field.
@@ -326,7 +400,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
                         patientOrdinal,
                         "ResidualInfo[1]/DataElement[1]/Name[1]",
                         "cds_dt",
-                        "Vendor." + "x".repeat(512)));
+                        residualName));
         fields.add(
                 field(
                         patientOrdinal,
@@ -338,7 +412,7 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
                         patientOrdinal,
                         "ResidualInfo[1]/DataElement[1]/Content[1]",
                         "cds_dt",
-                        "Vendor café 😀 content"));
+                        residualContent));
         var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         for (var field : fields) metadata.put(field.id(), metadata(field));
         var tables = new LinkedHashMap<>(base.index().tables());

@@ -66,6 +66,8 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     private List<CdsExportNativeRowReceiptDto> witnesses;
     private boolean withBaseline = true;
     private String sourceType = "Td", nativeType = "Td";
+    // #6198: the free-text provider and reminder date restored from a CARLOS sender's carrier.
+    private String restoredProvider, restoredReminder;
     private static final String CONFIGURATION =
             "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/></preventions>";
     private static final String CATCH_ALL_CONFIGURATION =
@@ -92,7 +94,9 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         false,
                         "Original instructions",
                         "Original notes",
-                        date);
+                        date,
+                        restoredProvider,
+                        restoredReminder);
         definitions =
                 CdsExportPreventionClassifier.fromCaptured(
                         SOURCE, configuration.getBytes(StandardCharsets.UTF_8), List.of());
@@ -109,7 +113,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         "prevention_type",
                         nativeType,
                         "provider_no",
-                        "",
+                        restoredProvider == null ? "" : "-1",
                         "deleted",
                         "0",
                         "never",
@@ -118,6 +122,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         "0",
                         "creator",
                         "AUDIT_ACTOR"));
+        oldRoot.put("next_date", restoredReminder);
         var expected = CdsExportImmunizationDateProjection.expected(date);
         oldRoot.put(
                 "prevention_date",
@@ -186,6 +191,99 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
         assertThat(result.mapping().fields()).hasSize(16 + 4 * oldExtras.size());
         assertThat(result.preparedPaths())
                 .contains("ImmunizationName", "Date", "Notes", "ImmunizationCode");
+    }
+
+    @Test
+    void shouldAccountRestoredProviderAndReminder_toTheRetainedCarrierWhileUnchanged()
+            throws Exception {
+        // #6198: the import restored the sender's "Other" provider and reminder date from
+        // CARLOS.Prevention.Source.v1. Unchanged, they are the retained carrier's own values: the
+        // re-export holds nothing and keeps the original standard elements.
+        restore();
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value())
+                .isEqualTo(new CdsExportPreparedImmunizationMapper().map(source));
+        assertThat(result.mapping().fields()).hasSize(16 + 4 * oldExtras.size());
+        var provider = extensionId("providerName");
+        for (var key :
+                List.of(
+                        parentKey("provider_no"),
+                        parentKey("next_date"),
+                        extensionKey(provider, "keyval"),
+                        extensionKey(provider, "val"))) {
+            var decision = result.mapping().fields().get(key);
+            assertThat(decision.outcome())
+                    .as(key.column())
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(decision.destination()).isEqualTo("ResidualInfo");
+            assertThat(decision.rule()).isEqualTo("VERIFIED_UNCHANGED_PREPARED_FIELD_PROJECTION");
+        }
+    }
+
+    @Test
+    void shouldHoldARestoredProviderOrReminder_whenChangedAfterImport() throws Exception {
+        // The retained carrier would restate the imported value beside a changed chart.
+        for (var change :
+                List.<java.util.function.Consumer<CdsExportImmunizationFieldReconcilerUnitTest>>of(
+                        test -> test.currentRoot.put("next_date", "2025-03-31"),
+                        test -> test.currentRoot.put("next_date", null),
+                        test -> test.currentRoot.put("provider_no", "999998"),
+                        test -> test.edit("providerName").put("val", "FAKE-Changed clinician"))) {
+            restore();
+            change.accept(this);
+            var result = reconcile();
+            assertThat(result.mapping().nativeRowRepresentable()).isFalse();
+            assertThat(result.mapping().fields().values())
+                    .anySatisfy(
+                            decision ->
+                                    assertThat(decision.rule())
+                                            .isEqualTo(
+                                                    "RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW"));
+        }
+    }
+
+    @Test
+    void shouldHoldARestoredReminder_thatTheSealedBaselineNeverHeld() throws Exception {
+        restore();
+        oldRoot.put("next_date", "2025-01-01");
+        currentRoot.put("next_date", "2025-01-01");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
+        assertThat(result.mapping().fields().get(parentKey("next_date")).rule())
+                .isEqualTo("PREPARED_NATIVE_PROJECTION_NOT_PROVEN");
+    }
+
+    private void restore() throws Exception {
+        restoredProvider = "FAKE-Other  clinician café";
+        restoredReminder = "2025-02-28";
+        prepare(CdsTemporal.parse(null, null, "2024-02-29", null, "Date"));
+    }
+
+    private int extensionId(String key) {
+        return currentExtras.entrySet().stream()
+                .filter(entry -> key.equals(entry.getValue().get("keyval")))
+                .findFirst()
+                .orElseThrow()
+                .getKey();
+    }
+
+    private static CdsExportNativeFieldKeyDto parentKey(String column) {
+        return new CdsExportNativeFieldKeyDto(
+                "preventions", CdsExportPatientTableSourceReader.key(17), column);
+    }
+
+    private static CdsExportNativeFieldKeyDto extensionKey(int id, String column) {
+        return new CdsExportNativeFieldKeyDto(
+                "preventionsExt", CdsExportPatientTableSourceReader.key(id), column);
+    }
+
+    /** As {@link #fixture(CdsTemporalDto, String)}, for a vaccine with restored context (#6198). */
+    Fixture restoredFixture(CdsTemporalDto date, String currentNotes) throws Exception {
+        restoredProvider = "FAKE-Other  clinician café";
+        restoredReminder = "2025-02-28";
+        prepare(date);
+        return fixture(currentNotes);
     }
 
     @Test

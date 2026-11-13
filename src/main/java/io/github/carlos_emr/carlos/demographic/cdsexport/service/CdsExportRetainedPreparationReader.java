@@ -294,7 +294,8 @@ public class CdsExportRetainedPreparationReader {
     private static <T> T readRequired(CdsExportCapturedTextRowDto row, Class<T> type)
             throws IOException {
         // Shared transient defaults translate payloads sealed by earlier builds (an omitted
-        // archive flag, or a medication's durationDays) without rewriting their bytes or seal.
+        // archive flag, a medication's durationDays, or the native values restored from a CARLOS
+        // source carrier) without rewriting their bytes or seal.
         T value =
                 type == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class
                         ? JSON.treeToValue(
@@ -310,7 +311,16 @@ public class CdsExportRetainedPreparationReader {
                                                 .CdsPreparedMedicationDefaults.apply(
                                                 JSON.readTree(row.fields().get("payload"))),
                                         type)
-                                : JSON.readValue(row.fields().get("payload"), type);
+                                : type == CdsImmunizationDto.class
+                                        ? JSON.treeToValue(
+                                                io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsPreparedImmunizationDefaults
+                                                        .apply(
+                                                                JSON.readTree(
+                                                                        row.fields()
+                                                                                .get("payload"))),
+                                                type)
+                                        : JSON.readValue(row.fields().get("payload"), type);
         if (value == null) invalid();
         return value;
     }

@@ -452,7 +452,12 @@ item's Notes). An item imported from a CDS file and then archived, edited, given
 CPP date, or (for an encounter note) given a new observation date in CARLOS is also exported. An
 imported CPP item moved into another CPP section is exported under its new section, with the
 elements of its imported record kept in the CARLOS residual. An allergy reaction over 120
-characters is also sent in a CARLOS residual that a receiving CARLOS restores in full.
+characters is also sent in a CARLOS residual that a receiving CARLOS restores in full. A
+receiving CARLOS also restores a prescription's quantity unit and as-needed box, and a vaccine's
+typed "Other" provider and reminder date, from the CARLOS residuals. When such a chart is
+exported again, an imported prescription or vaccine whose restored value was changed in place
+since the import holds the patient (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`): the
+original residual sent with it would contradict the chart.
 
 A protected UTF-8 selection file directly inside the configured selection root
 has this shape:

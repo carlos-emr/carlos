@@ -190,7 +190,10 @@ public class CdsNativePreparationService {
                                 .class
                 || type
                         == io.github.carlos_emr.carlos.demographic.cdsimport.dto
-                                .CdsMedicationNativeDto.class) {
+                                .CdsMedicationNativeDto.class
+                || type
+                        == io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsImmunizationDto.class) {
             var value =
                     JSON.reader()
                             .with(
@@ -210,8 +213,16 @@ public class CdsNativePreparationService {
                                                         .cdsimport.dto.CdsMedicationNativeDto.class
                                         ? io.github.carlos_emr.carlos.demographic.cds.contract
                                                 .CdsPreparedMedicationDefaults.apply(value)
-                                        : io.github.carlos_emr.carlos.demographic.cds.contract
-                                                .CdsPreparedHistoryDefaults.apply(value),
+                                        : type
+                                                        == io.github.carlos_emr.carlos.demographic
+                                                                .cdsimport.dto.CdsImmunizationDto
+                                                                .class
+                                                ? io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsPreparedImmunizationDefaults
+                                                        .apply(value)
+                                                : io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsPreparedHistoryDefaults
+                                                        .apply(value),
                         type);
             } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");

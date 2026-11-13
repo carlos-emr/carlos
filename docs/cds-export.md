@@ -278,15 +278,23 @@ that is not an eight-digit DIN is never exported as one. "Completed externally" 
 of Notes. The complete parent, extension and precision rows travel in the same
 `CARLOS.Prevention.Source.v1` residual as screenings, so the recording provider, reminder date
 and "never remind" choice, the CVC concept, flu risk factors, refusal reasons and the free-text
-administering provider are carried exactly. The form saves an empty row for every unfilled
+administering provider are carried exactly. A CARLOS importer restores two of them natively
+from that carrier (#6198, [import guide](cds-import.md#recognised-carlos-residual-markers)): the
+free-text name of the form's "Other" provider (`provider_no` `-1`; a CARLOS provider number is
+never restored) and the reminder date. The form saves an empty row for every unfilled
 input; an empty row is not a fact and never hides the type name. An edited vaccine's link to the
 version it replaced is not exported. A row restricted to a program is exported under the
 program rule below. A malformed program restriction flag, unknown status codes, duplicate
 standard fields, unsupported date precision and the importer's date hints on a row no applied
 import claims still hold the patient. An imported vaccine is written from its retained original
-elements without this residual while its row is the one the import wrote. CARLOS never edits a
-prevention in place, so a provider, reminder or status recorded after the import is a new
-version, exported natively with the residual (below).
+elements without this residual while its row is the one the import wrote. When the sender was
+CARLOS, those retained elements include its original `CARLOS.Prevention.Source.v1`: the
+provider and reminder date the import restored from it are accounted to it while the sealed
+native baseline proves them unchanged, so the unedited vaccine round-trips without a hold, and a
+restored value changed in place (`setNextPreventionDate`) holds the patient
+(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`) because the retained carrier would restate
+it. CARLOS otherwise never edits a prevention in place, so a provider, reminder or status
+recorded after the import is a new version, exported natively with the residual (below).
 
 `preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
 screen writes or reads. A prevention row is restricted to a program under the rule the chart
@@ -2167,7 +2175,12 @@ other categories and final publication still need the separate complete delivery
 Medication reconciliation now checks the sealed historical preparation against each native
 field group and its own exact baseline. A changed provider note or quantity can use its current
 value while preserving a proven DIN, structured strength, original prescriber, prescription
-identifiers and clock precision. Native clears remain cleared. Unprojected standard ProblemCode
+identifiers and clock precision. A quantity unit and as-needed flag the import restored from a
+CARLOS sender's `CARLOS.Medication.Source.v1` (#6198) are projected the same way (a restored
+`unitName` belongs to the Quantity group, whose original page is `100 mL`); unchanged, they are
+the retained carrier's own values, and changed they hold the patient
+(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`) because the retained carrier would restate
+them. Native clears remain cleared. Unprojected standard ProblemCode
 and unknown vendor data retain their source fields through the separate retained assembler.
 Source field pages must be applied and unchanged before those values are reused. The native
 parent link is keyed by each field ID; the shared occurrence-field resolver derives the
@@ -3309,7 +3322,10 @@ Native prescriptions use a separate mapper beside the strict retained-source rec
 Established dates, exact dose witnesses, supply, route, frequency, status and public prescriber
 fields have standard destinations. The complete captured `drugs` row, including SQL NULL versus
 empty text and IEEE dose witnesses, is also preserved in `CARLOS.Medication.Source.v1` under the
-pinned medication `ResidualInfo`. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
+pinned medication `ResidualInfo`. A CARLOS importer restores the quantity unit (`unitName`,
+written in Quantity as `100 mL`) and the exact as-needed flag (`prn`) from it when the standard
+Quantity and Frequency/TreatmentType agree with the carrier (#6198); the other columns stay
+retained source. Every JSON residual carrier (`CARLOS.Medication.Source.v1`,
 `CARLOS.Prescription.v1`, `CARLOS.Laboratory.v1`, `CARLOS.NativeHistory.v1` and the others named in
 this document) is written in one fixed key order with every space escaped as `\u0020`:
 residual `Content` is an `xs:token`, whose normalization would otherwise collapse a run of
@@ -3331,7 +3347,8 @@ writes both standard elements as stored; a treatment type that disagrees with th
 short-term box (`CONFLICTING_NATIVE_TREATMENT_TYPE_INDICATOR`) writes the chosen TreatmentType; a
 PRN frequency or treatment with the as-needed box unticked (`CONFLICTING_NATIVE_AS_NEEDED_INDICATOR`)
 writes them as chosen, and the as-needed box with no frequency at all writes the CT-024 frequency
-`PRN`, which the CARLOS importer reads back as the as-needed flag. A dispense interval longer than
+`PRN`, which another receiver reads as as-needed. The CARLOS importer restores the exact flag from
+`CARLOS.Medication.Source.v1`, an unticked box beside a PRN frequency included. A dispense interval longer than
 DispenseInterval's 10 characters, or a protocol or prior protocol longer than 20, leaves that
 element out (`RESIDUAL_ONLY_WHEN_OVERLONG`); never truncated. A prescription recorded with the
 "outside provider" box (`CONFLICTING_PRESCRIBER_NAME`/`CONFLICTING_PRESCRIBER_IDENTIFIER`: the
