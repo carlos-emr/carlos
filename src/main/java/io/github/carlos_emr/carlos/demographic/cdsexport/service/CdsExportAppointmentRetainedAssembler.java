@@ -39,7 +39,7 @@ public final class CdsExportAppointmentRetainedAssembler {
             throws IOException {
         values.requireActive();
         if (!decision.mapping().nativeRowRepresentable())
-            throw new IOException("CDS_EXPORT_APPOINTMENT_MAPPING_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_MAPPING_REQUIRES_REVIEW");
         if (!index.sourceManifestSha256().equals(decision.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();

@@ -55,14 +55,14 @@ public final class CdsExportAppointmentXmlWriter {
     static void validate(CdsExportAppointmentDto appointment) throws IOException {
         Objects.requireNonNull(appointment);
         if (appointment.timing().offset() == null)
-            throw new IOException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
         if (appointment.status() != null
                         && !CdsExportNativeFieldAssessments.legal(appointment.status(), 250)
                 || appointment.purpose() != null
                         && !CdsExportNativeFieldAssessments.legal(appointment.purpose(), 250)
                 || appointment.notes() != null
                         && !CdsExportNativeFieldAssessments.legal(appointment.notes(), 32000))
-            throw new IOException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
     }
 
     private static void optional(CdsExportXmlComposer.ContentWriter xml, String name, String value)

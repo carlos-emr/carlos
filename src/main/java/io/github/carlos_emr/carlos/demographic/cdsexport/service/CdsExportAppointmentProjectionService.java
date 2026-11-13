@@ -170,7 +170,7 @@ public class CdsExportAppointmentProjectionService {
         // Archive rows are versions/deletion history, not additional current appointments.
         // Until their historical representation is qualified, none can silently disappear.
         if (first.tables().get("appointmentArchive").rows() != 0)
-            throw new IOException("CDS_EXPORT_APPOINTMENT_HISTORY_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_HISTORY_REQUIRES_REVIEW");
         var lookups =
                 new CdsExportAppointmentLookupsDto(manifest.plaintextSha256(), providers, statuses);
         var mapper = new CdsExportAppointmentMapper();

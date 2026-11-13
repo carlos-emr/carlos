@@ -105,7 +105,10 @@ public final class CdsExportNativeHistoryMapper {
                 || revisions.size() > 8192
                 || !CdsExportNoteSourceReader.CATEGORIES.contains(category)) invalid();
         var current = revisions.getLast();
-        if (category(current) != category) invalid();
+        // An imported note later re-filed under another CPP category is a chart condition for
+        // review (this patient is held), not an integrity failure of the whole job.
+        if (category(current) != category)
+            review("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW");
         var decisions =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var rows = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();

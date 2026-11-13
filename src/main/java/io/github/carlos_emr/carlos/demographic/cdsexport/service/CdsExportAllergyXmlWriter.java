@@ -58,7 +58,7 @@ public final class CdsExportAllergyXmlWriter {
                     || !age.equals(age.strip())
                     || age.contains("  ")
                     || age.codePoints().anyMatch(code -> code < 0x20)) {
-                throw new IOException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
             }
             residual(
                     xml,
@@ -69,7 +69,7 @@ public final class CdsExportAllergyXmlWriter {
         if (allergy.onsetOfReaction() != null) {
             String onset =
                     CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(allergy.onsetOfReaction());
-            if (onset == null) throw new IOException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
+            if (onset == null) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
             residual(
                     xml,
                     CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
@@ -108,10 +108,10 @@ public final class CdsExportAllergyXmlWriter {
                 && !("DIN".equals(allergy.codeType())
                         || "ATC".equals(allergy.codeType())
                                 && CdsNativeExtensionContract.validAllergyAtc(allergy.codeValue())))
-            throw new IOException("CDS_EXPORT_ALLERGY_CODE_AUTHORITY_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_CODE_AUTHORITY_REQUIRES_REVIEW");
         if ((allergy.description() == null || allergy.description().isBlank())
                 && allergy.codeValue() == null) {
-            throw new IOException("CDS_EXPORT_ALLERGY_AGENT_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_AGENT_REQUIRES_REVIEW");
         }
         String[] values = {
             allergy.description(),
@@ -127,7 +127,7 @@ public final class CdsExportAllergyXmlWriter {
         int[] limits = {120, 2, 3, 20, 2, 1, 2, 120, 32000};
         for (int i = 0; i < values.length; i++)
             if (values[i] != null && !CdsExportNativeFieldAssessments.legal(values[i], limits[i]))
-                throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
         String code = allergy.codeValue();
         if (code != null
                 && (code.isEmpty()
@@ -137,7 +137,7 @@ public final class CdsExportAllergyXmlWriter {
                         || code.indexOf('\t') >= 0
                         || code.indexOf('\r') >= 0
                         || code.indexOf('\n') >= 0))
-            throw new IOException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
         String age = allergy.ageOfOnset();
         if (age != null
                 && (age.isEmpty()
@@ -145,11 +145,11 @@ public final class CdsExportAllergyXmlWriter {
                         || !age.equals(age.strip())
                         || age.contains("  ")
                         || age.codePoints().anyMatch(value -> value < 0x20)))
-            throw new IOException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_AGE_REQUIRES_REVIEW");
         if (allergy.onsetOfReaction() != null
                 && !CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.containsKey(
                         allergy.onsetOfReaction()))
-            throw new IOException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_ONSET_REQUIRES_REVIEW");
     }
 
     private static void residual(

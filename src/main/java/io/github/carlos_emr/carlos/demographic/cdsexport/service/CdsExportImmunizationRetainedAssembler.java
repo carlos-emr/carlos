@@ -41,7 +41,8 @@ public final class CdsExportImmunizationRetainedAssembler {
         Objects.requireNonNull(checkpoint);
         values.requireActive();
         if (!decision.mapping().nativeRowRepresentable())
-            throw new IOException("CDS_EXPORT_IMMUNIZATION_MAPPING_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportMappingReviewException("CDS_EXPORT_IMMUNIZATION_MAPPING_REQUIRES_REVIEW");
         if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();

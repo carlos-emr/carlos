@@ -596,7 +596,9 @@ public final class CdsExportMedicationFieldReconciler {
         throw new IOException("CDS_EXPORT_MEDICATION_RECONCILIATION_SCOPE_INVALID");
     }
 
+    /** A patient-specific data condition: the patient is held for review, not an I/O failure. */
     private static void review(String code) throws IOException {
-        throw new IOException(code);
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException(code);
     }
 }
