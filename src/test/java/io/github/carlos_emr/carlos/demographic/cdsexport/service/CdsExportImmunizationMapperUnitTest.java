@@ -462,6 +462,28 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldExportAnRhImmuneGlobulinInjection_asAnUntypedImmunization() throws Exception {
+        // The Rh Immune Globulin form (addRhInjection.jsp) posts type RH with product, lot,
+        // dosage and reason, and no name box.
+        parent.put("prevention_type", "RH");
+        extra(30, "product", "WinRho SDF");
+        extra(31, "lot", "RH-123");
+        extra(32, "dosage", "300");
+        extra(33, "reason", "28 weeks");
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(result.value().name()).isEqualTo(CdsExportImmunizationMapper.RH_LABEL);
+        assertThat(result.value().type()).isNull();
+        assertThat(result.value().lot()).isEqualTo("RH-123");
+        assertThat(result.value().sourceContext()).contains("WinRho", "28\\u0020weeks");
+        assertThat(decision(result, "preventions", "prevention_type").rule())
+                .isEqualTo("RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION");
+        CdsExportNativeHistoryMapperUnitTest.render(
+                CdsCategory.IMMUNIZATIONS,
+                body -> new CdsExportImmunizationXmlWriter().write(result.value(), body));
+    }
+
+    @Test
     void
             shouldVerifyYearAndMonthMarkersNeverInventAClinicalMonthDayOrClock_forImmunizationMapperContract()
                     throws Exception {

@@ -50,6 +50,13 @@ public final class CdsExportPreventionClassifier {
          * importer itself writes back as {@code OtherA}.
          */
         CATCH_ALL_INJECTION,
+        /**
+         * An Rh immune globulin injection (type {@code RH}), which the Rh Immune Globulin form
+         * records through {@code AddPrevention2Action} without any configured prevention item.
+         * It is exported as an Immunizations entry without ImmunizationType; a configured
+         * {@code RH} item is classified by its configuration instead.
+         */
+        RH_IMMUNE_GLOBULIN,
         CVC_IMMUNIZATION,
         CONFIGURED_NON_IMMUNIZATION,
         UNKNOWN_TYPE,
@@ -76,6 +83,9 @@ public final class CdsExportPreventionClassifier {
 
     /** The catch-all prevention type of the shipped configuration and of the CARLOS importer. */
     static final String CATCH_ALL_TYPE = "OtherA";
+
+    /** The prevention type the Rh Immune Globulin form saves (AddPrevention2Action.RH_INJECTION_TYPE). */
+    static final String RH_TYPE = "RH";
 
     private static final int MAX_XML = 1_048_576,
             MAX_ROWS = 10_000,
@@ -361,6 +371,9 @@ public final class CdsExportPreventionClassifier {
                             ? Rule.CATCH_ALL_INJECTION
                             : Rule.CONFIGURED_IMMUNIZATION);
         if (byName || byCode) return new Decision(Kind.IMMUNIZATION, Rule.CVC_IMMUNIZATION);
+        // AddPrevention2Action accepts RH without a configured item (the Rh Immune Globulin form).
+        if (configuredKind == null && RH_TYPE.equals(nativeType))
+            return new Decision(Kind.IMMUNIZATION, Rule.RH_IMMUNE_GLOBULIN);
         if (configuredKind == Kind.NON_IMMUNIZATION)
             return nativeSnomed == null || nativeSnomed.isEmpty()
                     ? new Decision(Kind.NON_IMMUNIZATION, Rule.CONFIGURED_NON_IMMUNIZATION)

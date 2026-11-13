@@ -309,6 +309,7 @@ public final class CdsExportPreventionScopePlanner {
             case UNRESOLVED_NON_IMMUNIZATION_CODE -> Review.UNRESOLVED_NON_IMMUNIZATION_CODE;
             case CONFIGURED_IMMUNIZATION,
                     CATCH_ALL_INJECTION,
+                    RH_IMMUNE_GLOBULIN,
                     CVC_IMMUNIZATION,
                     CONFIGURED_NON_IMMUNIZATION ->
                     throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");

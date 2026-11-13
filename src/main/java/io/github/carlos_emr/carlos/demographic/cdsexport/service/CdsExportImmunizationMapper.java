@@ -67,6 +67,12 @@ public final class CdsExportImmunizationMapper {
      * included, travel in the prevention residual.
      */
     static final String CATCH_ALL_LABEL = "Other immunization or injection";
+
+    /**
+     * ImmunizationName of an Rh immune globulin injection recorded by the Rh Immune Globulin form,
+     * which has no name box; its product, dosage and reason travel in the prevention residual.
+     */
+    static final String RH_LABEL = "Rh immune globulin";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
@@ -172,7 +178,11 @@ public final class CdsExportImmunizationMapper {
                 && !byKey.containsKey("cdsName")
                 && nativeType != null
                 && !nativeType.equals(CATCH_ALL_TYPE)
-                && CdsExportNativeFieldAssessments.legal(nativeType, 120)) name = nativeType;
+                && CdsExportNativeFieldAssessments.legal(nativeType, 120))
+            name =
+                    category.rule() == CdsExportPreventionClassifier.Rule.RH_IMMUNE_GLOBULIN
+                            ? RH_LABEL
+                            : nativeType;
         if ((name == null || name.isBlank())
                 && category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
                 && !byKey.containsKey("cdsName")) name = CATCH_ALL_LABEL;
@@ -229,6 +239,10 @@ public final class CdsExportImmunizationMapper {
                             : "ImmunizationName/ImmunizationType",
                     category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
                             ? "CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION"
+                            : category.rule()
+                                            == CdsExportPreventionClassifier.Rule
+                                                    .RH_IMMUNE_GLOBULIN
+                                    ? "RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION"
                             : typeCarried
                                     ? "NATIVE_TYPE_OUTSIDE_CT020_CARRIED_IN_RESIDUAL"
                                     : "EXACT_NATIVE_NAME_AND_CAPTURED_CONFIGURED_TYPE");

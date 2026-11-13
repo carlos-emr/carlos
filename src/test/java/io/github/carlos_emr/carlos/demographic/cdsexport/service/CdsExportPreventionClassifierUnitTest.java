@@ -328,6 +328,25 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
+    void shouldExportAnRhImmuneGlobulinInjection_asAnImmunizationUnlessConfiguredOtherwise()
+            throws Exception {
+        // The Rh Immune Globulin form saves type RH, which AddPrevention2Action accepts without a
+        // configured item; it was held as UNKNOWN_TYPE. A configured RH item still decides.
+        var shipped = from(XML, List.of());
+        assertThat(shipped.classify("RH", null))
+                .isEqualTo(
+                        new CdsExportPreventionClassifier.Decision(
+                                IMMUNIZATION,
+                                CdsExportPreventionClassifier.Rule.RH_IMMUNE_GLOBULIN));
+        assertThat(shipped.classify("UNCONFIGURED", null).rule()).isEqualTo(UNKNOWN_TYPE);
+        var configured =
+                from(
+                        "<preventions><item name='RH' layout='injection' headingName='Screenings'/></preventions>",
+                        List.of());
+        assertThat(configured.classify("RH", null).kind()).isEqualTo(NON_IMMUNIZATION);
+    }
+
+    @Test
     void shouldVerifyConflictingScreeningAndImmunizationDeclarationsRequireReview_forPreventionClassifierContract() throws Exception {
         var value =
                 from(
