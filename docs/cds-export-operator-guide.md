@@ -198,6 +198,25 @@ named by `PREVENTION_ITEMS` (use a value no other item declares, for example `Ot
 CT-020 value, so with `Other` it is left out. Each entry still needs a recorded vaccine name.
 Export the held patients again in a new job after the change.
 
+Disease Registry entries and episodes (pregnancies included) export under ProblemList, after
+the Ongoing Concerns items. Before this release any chart with either was held. An active or
+resolved registry entry is sent with its code, the code's description from the ICD-9, ICD-10,
+ICHPPC or MSP code table, its start date at the precision the registry shows (a year, a
+year-month or a full date) and, when resolved, the day it was resolved. A current or completed
+episode is sent with its dates, code, description and notes. Registry entries deleted from the
+registry and episodes saved as Deleted are not exported and do not hold the patient. A code the
+code table does not list, or from a system without a code table here (the SNOMED CT pregnancy
+codes), is still sent with its code and no standard description. Three cases hold the patient:
+an entry or episode with a status CARLOS does not write
+(`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`,
+`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`), a start date or precision the registry
+cannot show (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`,
+`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`,
+`CDS_EXPORT_NATIVE_EPISODE_DATE_REQUIRES_REVIEW`), and a code its code table describes twice
+in different words (`CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS`; the bundled BC MSP
+table continues some long descriptions on a second row). A diagnosis that is both an Ongoing
+Concern and a registry entry is two records in CARLOS and is sent as two ProblemList items.
+
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name
 and complete compound-strength text remain intact; the standard strength uses the

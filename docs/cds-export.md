@@ -140,6 +140,76 @@ says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedH
 whose text is the description and whose observation date is the ProcedureDate; Notes and the
 residual stay in the retained CDS source fields.
 
+Disease Registry entries (`dxresearch`) and coded episodes (`Episode`, pregnancies included) are
+exported as ProblemList items when ProblemList is selected, after the CPP Concerns items, through
+`CdsExportProblemRegistryOccurrenceService`, `CdsExportProblemRegistryMapper` and the shared
+`CdsExportNativeHistoryXmlWriter`. Both tables used to be `REQUIRE_EMPTY` with a direct patient
+scope, so every chart with a registry entry or an episode was held; they are now `MAPPED_SOURCE`
+in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECISION` and
+`EPISODES`; logical captures `dxresearch_precision` and `diagnosis_code_reference`).
+
+- A registry entry with status `A` is ProblemStatus `Active`; `C` is `Resolved`, with the
+  calendar day of `update_date` (the day the entry was resolved or last changed) as
+  ResolutionDate, as the legacy exporter wrote it; the clock time stays in the residual.
+  `start_date` is OnsetDate at the precision the registry list shows (`dxResearchBean` reads
+  `partial_date` table 3, field 4): `YYYY` is YearOnly, `YYYY-MM` is YearMonth, no marker or an
+  empty one is the stored full date. When a concurrent save left two precision rows, the export
+  uses the newest, as the registry list does (`PartialDateDao.getPartialDate`), and the older one
+  stays in the residual. Another field or marker holds the patient
+  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_PRECISION_REQUIRES_REVIEW`); a stored date that is not
+  a calendar day holds it as `CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_DATE_REQUIRES_REVIEW`.
+- Status `D` is a deleted entry: the registry list (`status<>'D'`) never shows it, as the legacy
+  exporter never exported it. Its row and precision rows stay captured and every field gets the
+  `DELETED_DISEASE_REGISTRY_ENTRY_NOT_SHOWN_IN_CHART` disposition; it is neither an expected
+  occurrence nor a reason to hold the patient. A NULL or other status holds the patient
+  (`CDS_EXPORT_NATIVE_PROBLEM_REGISTRY_STATUS_REQUIRES_REVIEW`).
+- An episode with status `Current` is `Active` and `Complete` is `Resolved`; `startDate` and
+  `endDate` are OnsetDate and ResolutionDate (full dates, as stored). `Deleted`, the third status
+  the episode form saves, gets `DELETED_EPISODE_NOT_CURRENT` and is not exported. Any other
+  status holds the patient (`CDS_EXPORT_NATIVE_EPISODE_STATUS_REQUIRES_REVIEW`). The episode
+  description is ProblemDiagnosisDescription when the code table has no description for the
+  code, otherwise ProblemDescription beside the code-table description; the notes are Notes.
+- DiagnosisCode is the stored coding system and code; an ICD-9 code of four or more letters and
+  digits is dotted as the legacy exporter's `Util.formatIcd9` did (`2500` becomes `250.0`), and
+  the stored code stays in the residual. StandardCodeDescription (token-normalized) and
+  ProblemDiagnosisDescription come from the public code table.
+- Code-table descriptions are read in the same patient snapshot through
+  `CdsExportDiagnosisCodeReadSupport`. Its fixed allowlist is the legacy exporter's
+  `ALLOWED_CODE_SYSTEM_DAOS`: `icd9`, `icd10`, `ichppccode` and `msp` (the `diagnosticcode`
+  table), compared ignoring ASCII case as the registry list's collation does; a stored coding
+  system never becomes an SQL identifier. Only rows matching one of the patient's current codes
+  are read, compared under the code column's own collation exactly as the registry list joins
+  them, so the four code tables keep their `REFERENCE` ruling. A code the table does not list,
+  or a system without a reviewed table (`SnomedCore`, whose licensed table is outside the
+  physical contract, so pregnancy codes have none), is still exported with an empty
+  StandardCodeDescription. A code the table holds twice with different descriptions holds the
+  patient (`CDS_EXPORT_NATIVE_PROBLEM_CODE_REFERENCE_AMBIGUOUS`); the bundled BC `diagnosticcode`
+  table splits 90 long MSP descriptions over continuation rows this way.
+- Nothing is clipped or dropped. A code a standard element cannot carry exactly (more than 20
+  characters, or irregular spacing), a blank coding system, a description over 250 characters or
+  notes over 65,536 characters leave that element out and travel only in the residual. The
+  `CARLOS.NativeHistory.v1` residual carries the complete row (every column except the row
+  identity and patient owner), its precision rows and the matched code-table rows as JSON with
+  SQL NULL and empty text distinct and every space escaped; `CARLOS.History.Archived.v1` is
+  `false`. The CARLOS importer files the item as a Concerns note and keeps the residual and code
+  in its retained source fields.
+- Every entry, episode and precision row is witnessed with its full JDBC receipt recipe. The
+  patient inventory expects one ProblemList identity (`dxresearch` or `Episode` and the row id)
+  for every row whose witnessed status is not deleted; a missing, duplicated, unwitnessed or
+  disagreeing row, a precision row of no captured entry and a code-table row no exported item
+  names all refuse the patient (`CDS_EXPORT_PROBLEM_REGISTRY_OCCURRENCE_SCOPE_INVALID`).
+- The registry and the CPP problems are separate records with their own status; the encounter
+  shows both lists. Adding a registry entry writes no CPP note. Signing a note with a certain
+  issue that has a Dx association (`CaseManagementManagerImpl.saveToDx`, `association=1`), or
+  adding an issue mapped in `caisi_issues_dx.properties`, creates a registry row for the same
+  diagnosis; that row is exported once as its own item, with its association flag in the residual,
+  beside the CPP item, as the legacy exporter exported both.
+- The CARLOS CDS importer never writes `dxresearch` or `Episode`, so an imported chart has no
+  retained source for them; an applied import unit that names such a row would mean it was
+  already exported as something else and holds the patient (`CDS_EXPORT_AMBIGUOUS_SOURCE`).
+- Authorization is the ProblemList category's (`_casemgmt.notes`) plus the chart and patient
+  gates; the registry screen's own `_dxresearch` read right is not separately required.
+
 Native measurements are exported as CareElements where a standard element represents them
 exactly, and each current observation also travels in full as a
 `CARLOS.NativeObservation.v1` NewCategory record. The native types and codes follow the CARLOS
