@@ -29,22 +29,38 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest;
 
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.github.carlos_emr.carlos.commn.model.Measurement;
-import io.github.carlos_emr.carlos.managers.MeasurementManager;
-import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import io.github.carlos_emr.carlos.commn.dao.DemographicDao;
+import io.github.carlos_emr.carlos.commn.dao.MeasurementTypeDao;
+import io.github.carlos_emr.carlos.commn.dao.ValidationsDao;
+import io.github.carlos_emr.carlos.commn.model.Measurement;
+import io.github.carlos_emr.carlos.commn.model.MeasurementType;
+import io.github.carlos_emr.carlos.commn.model.Validations;
+import io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctValidation;
+import io.github.carlos_emr.carlos.managers.MeasurementManager;
+import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.webserv.rest.to.MeasurementResponse;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 
 /**
  * RESTful web service for measurement data operations in CARLOS EMR.
@@ -103,7 +119,18 @@ public class MeasurementService extends AbstractServiceImpl {
     /** Business logic manager for measurement operations. */
     @Autowired
     private MeasurementManager measurementManager;
+
+    @Autowired
+    private DemographicDao demographicDao;
+
+    @Autowired
+    private MeasurementTypeDao measurementTypeDao;
+
+    @Autowired
+    private ValidationsDao validationsDao;
+
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
+    private final EctValidation ectValidation = new EctValidation();
 
     /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
     @Autowired
@@ -223,12 +250,20 @@ public class MeasurementService extends AbstractServiceImpl {
                 || !securityInfoManager.isAllowedAccessToPatientRecord(loggedInInfo, demoId)) {
             throw new ForbiddenException("Access Denied: measurement or patient-record access is restricted");
         }
+        if (demographicDao.getDemographicById(demoId) == null) {
+            throw new NotFoundException("Patient not found");
+        }
         String providerNo = loggedInInfo.getLoggedInProviderNo();
         if (providerNo == null || providerNo.isBlank()) {
             throw new ForbiddenException("A provider identity is required to record a measurement");
         }
 
         projections.requireRestSupported(demoId, java.util.Set.of("CareElements"));
+        validateMeasurementValue(
+            json.get("type").textValue(),
+            instruction == null ? "" : instruction,
+            json.get("dataField").textValue()
+        );
 
         Measurement measurement = new Measurement();
         measurement.setType(json.get("type").textValue());
@@ -251,5 +286,53 @@ public class MeasurementService extends AbstractServiceImpl {
             throw new BadRequestException("Invalid measurement " + field);
         }
         return json.get(field).textValue();
+    }
+
+    private void validateMeasurementValue(String type, String instruction, String value) {
+        List<MeasurementType> types =
+            measurementTypeDao.findByTypeAndMeasuringInstruction(type, instruction);
+
+        if (types == null || types.size() != 1) {
+            throw new BadRequestException("Unknown or ambiguously configured measurement type");
+        }
+
+        String validationId = types.get(0).getValidation();
+
+        // A configured type without a validation rule is permitted.
+        if (validationId == null || validationId.isBlank()) {
+            return;
+        }
+
+        final int id;
+        try {
+            id = Integer.parseInt(validationId);
+        } catch (NumberFormatException e) {
+            throw new InternalServerErrorException("Invalid measurement validation configuration");
+        }
+
+        Validations rule = validationsDao.find(id);
+        if (rule == null) {
+            throw new InternalServerErrorException("Measurement validation rule not found");
+        }
+
+        Double maxValue = rule.getMaxValue() == null ? 0.0 : rule.getMaxValue();
+        Double minValue = rule.getMinValue() == null ? 0.0 : rule.getMinValue();
+        Integer maxLength = rule.getMaxLength() == null ? 0 : rule.getMaxLength();
+        Integer minLength = rule.getMinLength() == null ? 0 : rule.getMinLength();
+        String regex = rule.getRegularExp();
+        Boolean numeric = rule.isNumeric();
+
+        try {
+            if (!ectValidation.isInRange(maxValue, minValue, value)
+                    || !ectValidation.maxLength(maxLength, value)
+                    || !ectValidation.minLength(minLength, value)
+                    || !ectValidation.matchRegExp(regex, value)
+                    || !ectValidation.isValidBloodPressure(regex, value)
+                    || !ectValidation.isNumeric(numeric, value)) {
+                throw new BadRequestException("Measurement value violates its configured validation rules");
+            }
+        } catch (java.util.regex.PatternSyntaxException e) {
+            throw new InternalServerErrorException("Invalid measurement validation configuration");
+        }
     }
 }
