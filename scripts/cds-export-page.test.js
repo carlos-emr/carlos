@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {checkedJob, newest, presentation, responseFailure, submissionNotice} = require('../src/main/webapp/js/demographic/cds-export.js');
+const {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay} = require('../src/main/webapp/js/demographic/cds-export.js');
 const id = 'a8fe0033-468d-468c-ae0e-b11d372b533a';
 function job(values = {}) {
     return {id, state: 'ACCEPTED', revision: 0, epoch: 0, totalPatients: null, processedPatients: 0, blockedPatients: 0,
@@ -133,4 +133,19 @@ test('an access refusal names only a fixed missing right, never response text', 
     assert.equal(hostile.message, 'CDS_EXPORT_RESPONSE_UNCONFIRMED');
     assert.equal(hostile.missingRight, undefined);
     assert.match(submissionNotice(hostile, 'key-1'), /could not be confirmed .*key-1/);
+});
+
+test('definitive control refusals are named, other failures stay unconfirmed', () => {
+    assert.match(controlNotice(new Error('CDS_EXPORT_WORKER_BUSY')), /worker is processing this job/);
+    assert.match(controlNotice(new Error('CDS_EXPORT_RUNTIME_CHANGED')), /Start a new export/);
+    assert.match(controlNotice(new Error('CDS_EXPORT_REQUEST_UNAVAILABLE')), /could not be confirmed/);
+    assert.match(submissionNotice(new Error('CDS_EXPORT_ADMISSION_DISABLED'), 'k'), /turned off.*Nothing was submitted/);
+});
+
+test('status polling backs off after failures and stops after six', () => {
+    assert.equal(pollDelay(0), 5000);
+    assert.equal(pollDelay(1), 10000);
+    assert.equal(pollDelay(4), 60000);
+    assert.equal(pollDelay(5), 60000);
+    assert.equal(pollDelay(6), null);
 });

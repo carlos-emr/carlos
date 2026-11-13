@@ -34,7 +34,7 @@ function browser() {
             const result = request.searchParams.has('runId')
                 ? {job: {id: runId, state: 'ACCEPTED', revision: 0, epoch: 0, totalPatients: null,
                     processedPatients: 0, blockedPatients: 0, cancelRequested: false, workerOwned: false,
-                    artifactAvailable: false, complete: false, waiting: true, safeCode: null}}
+                    artifactAvailable: false, complete: false, heldBack: false, waiting: true, safeCode: null}}
                 : {jobs: [], nextAfter: '', mayHaveMore: false};
             return new Response(JSON.stringify({ok: true, apiVersion: 1, ...result}), {
                 headers: {'Content-Type': 'application/json', 'X-CARLOS-CDS-Export-API-Version': '1'}});
@@ -45,7 +45,8 @@ function browser() {
         open: () => node('openExport').listeners.get('click')(),
         disconnectNext() { failNext = true; },
         async tick() {
-            const polls = [...timers].filter(([, timer]) => timer.delay === 5000);
+            // 5 s while healthy; a retry after a failure backs off (review W7).
+            const polls = [...timers].filter(([, timer]) => timer.delay >= 5000 && timer.delay <= 60000);
             assert.equal(polls.length, 1, 'exactly one status poll must be scheduled');
             timers.delete(polls[0][0]); await polls[0][1].callback();
         }};

@@ -54,12 +54,33 @@
         if (/^_[A-Za-z0-9_.]{1,64}$/.test(data && data.missingRight || '')) failure.missingRight = data.missingRight;
         return failure;
     }
-    function submissionNotice(error, key) {
-        return error && error.missingRight
-            ? 'Export refused: the export provider\'s roles lack read access to ' + error.missingRight + '. Grant that right, or leave out the categories that need it, then submit again.'
-            : 'Submission could not be confirmed (' + error.message + '). Check saved key ' + key + ' before starting another export.';
+    /** Poll every 5 s; back off after failures and stop after six consecutive ones (review W7). */
+    function pollDelay(failures) {
+        if (failures >= 6) return null;
+        return failures === 0 ? 5000 : Math.min(60000, 5000 * 2 ** failures);
     }
-    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice};
+    /** Known definitive control refusals; anything else stays an unconfirmed outcome. */
+    const CONTROL_REFUSALS = {
+        CDS_EXPORT_WORKER_BUSY: 'A worker is processing this job now, so it cannot be resumed or changed. Refresh to see its progress.',
+        CDS_EXPORT_RESUME_INVALID: 'This job cannot be resumed in its current state.',
+        CDS_EXPORT_CANCEL_INVALID: 'This job cannot be cancelled in its current state.',
+        CDS_EXPORT_RUNTIME_CHANGED: 'The export implementation changed since this job was accepted. Start a new export.',
+        CDS_EXPORT_STATUS_CHANGED: 'The job changed since it was shown. Refresh it and try again.',
+        CDS_EXPORT_ADMISSION_DISABLED: 'New exports are turned off on this server. Nothing was submitted.',
+        CDS_EXPORT_PROFILE_NOT_QUALIFIED: 'This server cannot export the selected profile. Nothing was submitted.'
+    };
+    function controlNotice(error) {
+        return CONTROL_REFUSALS[error && error.message]
+            || 'The control outcome could not be confirmed. Refresh the saved job before retrying.';
+    }
+    function submissionNotice(error, key) {
+        if (error && error.missingRight)
+            return 'Export refused: the export provider\'s roles lack read access to ' + error.missingRight + '. Grant that right, or leave out the categories that need it, then submit again.';
+        if (error && (error.message === 'CDS_EXPORT_ADMISSION_DISABLED' || error.message === 'CDS_EXPORT_PROFILE_NOT_QUALIFIED'))
+            return CONTROL_REFUSALS[error.message];
+        return 'Submission could not be confirmed (' + error.message + '). Check saved key ' + key + ' before starting another export.';
+    }
+    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CdsExportPage = api;
     if (!global.document) return;
@@ -116,7 +137,7 @@
                 + (current.blockedPatients > 0 ? ' (listed in the package ReadMe and the report).' : '.');
             byId('exportConnection').textContent = current.waiting ? 'Saved; waiting for a compatible worker.' : 'Status confirmed by the server.';
             byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
-                ? 'This package belongs to a different installation build. Start a new export to prepare a compatible package.'
+                ? 'The export implementation changed while this job was waiting or running. Start a new export.'
                 : current.safeCode || '';
             const progress = byId('exportProgress');
             if (current.totalPatients === null) progress.removeAttribute('value');
@@ -142,15 +163,23 @@
             fresh = false; controls();
             byId('exportConnection').textContent = 'Status could not be refreshed. The job may still be processing; check again before acting.';
         }
+        let failures = 0;
         async function poll(id, generation, background = false) {
             if (generation !== view) return;
             try {
                 const data = await request('cdsExportStatus', {runId: id, ...(background ? {autoRefresh: true} : {})});
-                if (generation !== view) return; render(data.job);
+                if (generation !== view) return; failures = 0; render(data.job);
             } catch (_) {
-                if (generation !== view) return; stale();
+                if (generation !== view) return; stale(); failures++;
             }
-            if (generation === view && (!current || !FINAL.has(current.state) || !fresh)) timer = setTimeout(() => poll(id, generation, true), 5000);
+            if (generation !== view || current && FINAL.has(current.state) && fresh) return;
+            const delay = pollDelay(failures);
+            // After repeated failures (for example an inactivity logout) stop polling and say so.
+            if (delay === null) {
+                byId('exportConnection').textContent = 'Status could not be refreshed several times. Your session may have ended: reload the page (and sign in again) to check the job.';
+                return;
+            }
+            timer = setTimeout(() => poll(id, generation, true), delay);
         }
         async function open(id) {
             if (!UUID.test(id || '')) { notice('Enter a valid job ID.', true); return; }
@@ -207,8 +236,8 @@
                 const data = await request('cdsExportControl', {runId: id, operation, expectedRevision: String(revision)}, true);
                 if (generation !== view) return; render(data.job);
                 notice(operation === 'cancel' ? 'Cancellation recorded. Check the final job outcome.' : 'Resume requested. Processing may still be waiting.');
-            } catch (_) {
-                if (generation === view) { stale(); notice('The control outcome could not be confirmed. Refresh the saved job before retrying.', true); }
+            } catch (error) {
+                if (generation === view) { stale(); notice(controlNotice(error), true); }
             } finally {
                 busy = false; controls();
                 if (generation === view) { clearTimeout(timer); await poll(id, generation); }

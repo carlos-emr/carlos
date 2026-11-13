@@ -152,7 +152,10 @@ public class CdsExportWebService {
                             "CDS_EXPORT_CANCEL_INVALID",
                             "CDS_EXPORT_WORKER_BUSY",
                             "CDS_EXPORT_RESUME_INVALID",
-                            "CDS_EXPORT_RUNTIME_CHANGED")
+                            "CDS_EXPORT_RUNTIME_CHANGED",
+                            // Definitive refusals, not an unconfirmed outcome (review W5).
+                            "CDS_EXPORT_ADMISSION_DISABLED",
+                            "CDS_EXPORT_PROFILE_NOT_QUALIFIED")
                     .contains(known == null ? "" : known)) {
                 status = 409;
                 code = known;

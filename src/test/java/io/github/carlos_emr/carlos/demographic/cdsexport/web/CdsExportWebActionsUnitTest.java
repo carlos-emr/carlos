@@ -268,6 +268,8 @@ class CdsExportWebActionsUnitTest {
                 "CDS_EXPORT_CANCEL_INVALID",
                 "CDS_EXPORT_WORKER_BUSY",
                 "CDS_EXPORT_RESUME_INVALID",
+                "CDS_EXPORT_ADMISSION_DISABLED",
+                "CDS_EXPORT_PROFILE_NOT_QUALIFIED",
                 "private patient /path"
             })
     void shouldClassifyKnownStateErrors_withoutExposingUnexpectedFailureDetails(String code)
