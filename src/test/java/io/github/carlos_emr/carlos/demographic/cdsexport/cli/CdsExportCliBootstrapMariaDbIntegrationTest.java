@@ -113,6 +113,12 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service
                                             .CdsExportNoteSourceReader.class))
                     .isNotNull();
+            // The Appointments scope requires the reason-list capture in the CLI transport too.
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportAppointmentReasonCodeSourceReader.class))
+                    .isNotNull();
             assertThat(
                             context.getBean(
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service

@@ -36,9 +36,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * Bounded reference join over authenticated captured values. No provider entity, status
- * cache, live clinical table or guessed reference is used. Callers keep every derived
- * mapping/output private until this entire call completes and retained-source reconciliation,
- * historical archive qualification and independent clinical coverage also succeed.
+ * cache, reason-list cache, live clinical table or guessed reference is used. Callers keep every
+ * derived mapping/output private until this entire call completes and retained-source
+ * reconciliation, historical archive qualification and independent clinical coverage also
+ * succeed.
  */
 @Service
 public class CdsExportAppointmentProjectionService {
@@ -52,6 +53,7 @@ public class CdsExportAppointmentProjectionService {
                     "appointment",
                     "appointmentArchive",
                     "appointment_status",
+                    "LookupListItem",
                     "provider",
                     "clinical_timezone");
     private final CdsExportCapturedTextRowsReader rows;
@@ -110,13 +112,16 @@ public class CdsExportAppointmentProjectionService {
             throw new IOException("CDS_EXPORT_CLINICAL_ZONE_CAPTURE_MISMATCH");
         var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
         var statuses = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
-        long[] counts = new long[7];
+        var reasonCodes = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+        // 0 rows, 1 bytes, 2 providers, 3 statuses, 4 appointments, 5 blocked, 6 fields,
+        // 7 reason-list items
+        long[] counts = new long[8];
         var first =
                 rows.forEachTable(
                         lease,
                         patient,
                         requiredTables,
-                        Set.of("provider", "appointment_status"),
+                        Set.of("provider", "appointment_status", "LookupListItem"),
                         manifest,
                         maximumFields,
                         maximumBytes,
@@ -163,16 +168,33 @@ public class CdsExportAppointmentProjectionService {
                                 statuses.computeIfAbsent(code, ignored -> new ArrayList<>())
                                         .add(row);
                                 counts[3]++;
+                            } else if (row.table().equals("LookupListItem")) {
+                                String id = row.fields().get("id");
+                                if (id == null
+                                        || !row.fields()
+                                                .keySet()
+                                                .equals(
+                                                        Set.copyOf(
+                                                                CdsExportPatientTableReadSupport
+                                                                        .Plan
+                                                                        .APPOINTMENT_REASON_CODES
+                                                                        .columns()))) scope();
+                                reasonCodes.computeIfAbsent(id, ignored -> new ArrayList<>())
+                                        .add(row);
+                                counts[7]++;
                             } else scope();
                         });
         if (counts[2] != first.tables().get("provider").rows()
-                || counts[3] != first.tables().get("appointment_status").rows()) scope();
+                || counts[3] != first.tables().get("appointment_status").rows()
+                || counts[7] != first.tables().get("LookupListItem").rows()) scope();
         // Archive rows are versions/deletion history, not additional current appointments.
         // Until their historical representation is qualified, none can silently disappear.
         if (first.tables().get("appointmentArchive").rows() != 0)
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_HISTORY_REQUIRES_REVIEW");
+        // No demographic snapshot is joined here, so a populated patient display stays review.
         var lookups =
-                new CdsExportAppointmentLookupsDto(manifest.plaintextSha256(), providers, statuses);
+                new CdsExportAppointmentLookupsDto(
+                        manifest.plaintextSha256(), providers, statuses, reasonCodes, Set.of());
         var mapper = new CdsExportAppointmentMapper();
         var second =
                 rows.forEach(

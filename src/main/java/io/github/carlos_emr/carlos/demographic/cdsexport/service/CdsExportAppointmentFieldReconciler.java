@@ -168,6 +168,14 @@ public final class CdsExportAppointmentFieldReconciler {
         var current = new HashSet<String>();
         String purpose = candidate.value() == null ? null : candidate.value().purpose();
         if (!difference.changedColumns().contains("reason")) {
+            // Imports never set reasonCode. A reason-list label chosen later is shown on the day
+            // sheet before the preserved imported purpose; that purpose cannot carry it.
+            var code =
+                    fields.get(
+                            new CdsExportNativeFieldKeyDto(
+                                    row.table(), row.recordKey(), "reasonCode"));
+            if (code != null && code.outcome() == Outcome.MAPPED)
+                review("CDS_EXPORT_APPOINTMENT_REASON_LABEL_ON_PRESERVED_PURPOSE_REQUIRES_REVIEW");
             if (prepared.diagnostics().stream()
                     .anyMatch(
                             notice ->

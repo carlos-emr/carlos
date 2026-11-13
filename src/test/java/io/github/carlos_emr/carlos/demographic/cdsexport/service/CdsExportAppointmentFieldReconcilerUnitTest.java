@@ -251,7 +251,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                 "new",
                 new CdsExportCapturedTextRowDto(
                         "provider", CdsExportPublicProviderSourceReader.key("new"), provider));
-        lookups = new CdsExportAppointmentLookupsDto(HASH, rows, lookups.statuses());
+        lookups = new CdsExportAppointmentLookupsDto(HASH, rows, lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays());
         assertThat(reconcile().mapping().value().provider().firstName()).isEqualTo("Current");
     }
 
@@ -313,8 +313,36 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         current.put("program_id", "1");
         assertThat(reconcile().mapping().value()).isNull();
         current.put("program_id", "0");
+        // The booking site (location) is now operational scheduler context; remarks, which only
+        // the SOAP schedule service and legacy data fill, is still an unmapped value.
         current.put("location", "Additional appointment location");
+        assertThat(reconcile().mapping().value()).isNotNull();
+        current.put("remarks", "Additional appointment remark");
         assertThat(reconcile().mapping().value()).isNull();
+    }
+
+    @Test
+    void shouldRequireReview_whenAReasonLabelIsChosenForAnUneditedImportedPurpose()
+            throws Exception {
+        // Imports never set reasonCode. Editing the booking in CARLOS submits the reason list's
+        // selected item; its label would show before the preserved imported purpose.
+        current.put("reasonCode", "2");
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", "Follow-Up"));
+        assertThatThrownBy(this::reconcile)
+                .hasMessage(
+                        "CDS_EXPORT_APPOINTMENT_REASON_LABEL_ON_PRESERVED_PURPOSE_REQUIRES_REVIEW");
+        // The list's blank first item, the form default, adds nothing to the display.
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", ""));
+        assertThat(reconcile().mapping().value().purpose()).isEqualTo(originalPurpose);
+    }
+
+    private CdsExportAppointmentLookupsDto withReasonItem(CdsExportCapturedTextRowDto item) {
+        return new CdsExportAppointmentLookupsDto(
+                HASH,
+                lookups.providers(),
+                lookups.statuses(),
+                Map.of(item.fields().get("id"), List.of(item)),
+                Set.of());
     }
 
     @Test
@@ -583,7 +611,30 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                 witness,
                 fields,
                 demographic,
-                new CdsExportAppointmentLookupsDto(HASH, lookups.providers(), lookups.statuses()));
+                new CdsExportAppointmentLookupsDto(HASH, lookups.providers(), lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays()));
+    }
+
+    /** A native (never imported) appointment whose current and witnessed values are {@code values}. */
+    Fixture nativeFixture(Map<String, String> values) throws Exception {
+        setup();
+        current.put("imported_status", null);
+        old.put("imported_status", null);
+        current.putAll(values);
+        old.putAll(values);
+        build();
+        return new Fixture(
+                index,
+                checked,
+                row(current),
+                witness,
+                fields,
+                demographic,
+                new CdsExportAppointmentLookupsDto(
+                        HASH,
+                        lookups.providers(),
+                        lookups.statuses(),
+                        lookups.reasonCodes(),
+                        lookups.earlierPatientDisplays()));
     }
 
     private CdsExportAppointmentFieldReconciler.Result reconcile() throws Exception {
@@ -601,7 +652,7 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                         row(current),
                         witness,
                         new CdsExportAppointmentLookupsDto(
-                                HASH, lookups.providers(), lookups.statuses()),
+                                HASH, lookups.providers(), lookups.statuses(), lookups.reasonCodes(), lookups.earlierPatientDisplays()),
                         demographic,
                         ZoneId.of("America/Toronto"),
                         fields,

@@ -35,10 +35,27 @@ import java.util.Set;
 /**
  * Native-only interpretation of exact captured appointment values and references. Imported
  * status is never a fallback for a changed/cleared local status. Extra values cannot be put
- * in Notes or ResidualInfo; this schema has no such residual field. The caller must reconcile
- * retained imported facts, archive/history and complete source coverage before publication.
+ * in Notes or ResidualInfo; this schema has no such residual field, so a populated value
+ * without a reviewed rule (for example {@code remarks}, which only the SOAP schedule service
+ * and legacy data fill) still requires review. The caller must reconcile retained imported
+ * facts, superseded archive versions and complete source coverage before publication.
  */
 public final class CdsExportAppointmentMapper {
+    /**
+     * Scheduler, site, billing-workflow and booking-provenance columns CARLOS writes with every
+     * booking. CDS 5.2 Appointments has no field for them and no ResidualInfo; the appointment
+     * template's reason and notes already reach AppointmentPurpose/AppointmentNotes.
+     */
+    private static final Map<String, String> SCHEDULER_CONTEXT =
+            Map.of(
+                    "style", "SCHEDULER_DISPLAY_STYLE_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "billing", "BILLING_WORKFLOW_STATE_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "location", "BOOKING_SITE_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "resources", "SCHEDULER_RESOURCE_TEXT_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "urgency", "SCHEDULER_URGENCY_FLAG_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "type", "APPOINTMENT_TEMPLATE_NAME_NOT_A_CDS_APPOINTMENT_FIELD",
+                    "bookingSource", "BOOKING_PROVENANCE_NOT_A_CDS_APPOINTMENT_FIELD");
+
     public CdsExportAppointmentMappingDto map(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -165,12 +182,8 @@ public final class CdsExportAppointmentMapper {
                         "AppointmentDate,AppointmentTime,Duration",
                         "APPOINTMENT_TIMING_REQUIRES_REVIEW");
         }
-        String purpose = source.text("reason", "AppointmentPurpose", 250);
+        String purpose = purpose(source, lookups, decisions);
         String notes = source.text("notes", "AppointmentNotes", 32000);
-        if ("".equals(source.raw("reason"))) {
-            purpose = "";
-            source.set("reason", Outcome.MAPPED, "AppointmentPurpose", "EXACT_NATIVE_EMPTY_TEXT");
-        }
         if ("".equals(source.raw("notes"))) {
             notes = "";
             source.set("notes", Outcome.MAPPED, "AppointmentNotes", "EXACT_NATIVE_EMPTY_TEXT");
@@ -183,7 +196,13 @@ public final class CdsExportAppointmentMapper {
                     "AppointmentStatus",
                     "RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION");
         }
-        CdsExportAppointmentNativeMetadata.qualify(row, demographic, decisions);
+        for (var column : SCHEDULER_CONTEXT.entrySet()) {
+            String value = source.raw(column.getKey());
+            if (value != null && !value.isEmpty())
+                source.operational(column.getKey(), column.getValue());
+        }
+        CdsExportAppointmentNativeMetadata.qualify(
+                row, demographic, lookups.earlierPatientDisplays(), decisions);
         return new Candidate(
                 timing == null
                         ? null
@@ -239,6 +258,114 @@ public final class CdsExportAppointmentMapper {
         source.set(
                 "status", Outcome.MAPPED, "AppointmentStatus", "EXACT_CAPTURED_STATUS_DEFINITION");
         return label;
+    }
+
+    /**
+     * AppointmentPurpose is what the day sheet shows: the trimmed label of the referenced
+     * {@code reasonCode} list item, a space and the trimmed reason
+     * ({@code appointmentprovideradminday.jsp}). When the code names no captured list item (the
+     * add form's "-1" placeholder when no list exists, or an id outside the reasonCode list) or
+     * the item's label is blank, the schedule shows the reason alone, so the exact reason is sent.
+     */
+    private static String purpose(
+            CdsExportNativeFieldAssessments source,
+            CdsExportAppointmentLookupsDto lookups,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            throws IOException {
+        String reason = source.raw("reason");
+        String code = source.raw("reasonCode");
+        String label = "";
+        if (code != null && !code.isEmpty()) {
+            var candidates = lookups.reasonCodes().getOrDefault(code, List.of());
+            if (candidates.size() > 1) {
+                source.review(
+                        "reasonCode", "AppointmentPurpose", "EXACT_REASON_CODE_ITEM_REQUIRED");
+                return null;
+            }
+            if (candidates.isEmpty())
+                source.operational(
+                        "reasonCode",
+                        "-1".equals(code)
+                                ? "NO_REASON_LIST_PLACEHOLDER_SCHEDULE_SHOWS_REASON_ONLY"
+                                : "REASON_CODE_OUTSIDE_REASON_LIST_SCHEDULE_SHOWS_REASON_ONLY");
+            else {
+                label = reasonLabel(source, code, candidates.getFirst(), decisions);
+                if (label == null) return null;
+            }
+        }
+        if (label.isEmpty()) {
+            String exact = source.text("reason", "AppointmentPurpose", 250);
+            if ("".equals(reason)) {
+                source.set(
+                        "reason", Outcome.MAPPED, "AppointmentPurpose", "EXACT_NATIVE_EMPTY_TEXT");
+                return "";
+            }
+            return exact;
+        }
+        String purpose = (label + " " + (reason == null ? "" : reason.trim())).trim();
+        if (!CdsExportNativeFieldAssessments.legal(purpose, 250)) {
+            source.review("reasonCode", "AppointmentPurpose", "LABELLED_PURPOSE_REQUIRES_REVIEW");
+            if (reason != null && !reason.isEmpty())
+                source.review("reason", "AppointmentPurpose", "LABELLED_PURPOSE_REQUIRES_REVIEW");
+            return null;
+        }
+        source.set(
+                "reasonCode",
+                Outcome.MAPPED,
+                "AppointmentPurpose",
+                "EXACT_CAPTURED_REASON_CODE_LABEL");
+        if (reason != null)
+            source.set(
+                    "reason",
+                    Outcome.MAPPED,
+                    "AppointmentPurpose",
+                    "REASON_TEXT_AFTER_SCHEDULE_REASON_LABEL");
+        return purpose;
+    }
+
+    /** @return the trimmed label, "" when the item's label is blank, or null after a review */
+    private static String reasonLabel(
+            CdsExportNativeFieldAssessments source,
+            String code,
+            CdsExportCapturedTextRowDto row,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            throws IOException {
+        if (!"LookupListItem".equals(row.table())
+                || !row.fields()
+                        .keySet()
+                        .equals(
+                                Set.copyOf(
+                                        CdsExportPatientTableReadSupport.Plan
+                                                .APPOINTMENT_REASON_CODES
+                                                .columns()))
+                || !code.equals(row.fields().get("id"))) scope();
+        try {
+            if (!CdsExportPatientTableSourceReader.key(Integer.parseInt(code))
+                    .equals(row.recordKey())) scope();
+        } catch (NumberFormatException failure) {
+            scope();
+        }
+        var item = new CdsExportNativeFieldAssessments(row, decisions);
+        item.operational("id", "CAPTURED_REASON_CODE_ITEM_IDENTITY");
+        item.operational("lookupListId", "CAPTURED_REASON_LIST_MEMBERSHIP");
+        item.operational("value", "REASON_CODE_ITEM_VALUE_NOT_SHOWN_ON_SCHEDULE");
+        for (String column : List.of("active", "displayOrder", "createdBy", "dateCreated"))
+            item.operational(column, "CAPTURED_REASON_LIST_CONFIGURATION");
+        String label = row.fields().get("label");
+        if (label == null) {
+            // The day sheet dereferences the label; a labelless item is not a reviewed display.
+            item.review("label", "AppointmentPurpose", "REASON_CODE_ITEM_HAS_NO_LABEL");
+            source.review("reasonCode", "AppointmentPurpose", "REASON_CODE_ITEM_HAS_NO_LABEL");
+            return null;
+        }
+        if (label.isBlank()) {
+            if (!label.isEmpty()) item.operational("label", "BLANK_REASON_LABEL_NOT_DISPLAYED");
+            source.operational(
+                    "reasonCode", "REASON_CODE_LABEL_IS_BLANK_SCHEDULE_SHOWS_REASON_ONLY");
+            return "";
+        }
+        item.set("label", Outcome.MAPPED, "AppointmentPurpose", "SCHEDULE_REASON_LABEL");
+        return label.trim();
     }
 
     private static CdsExportPublicProviderDto provider(

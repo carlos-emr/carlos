@@ -41,6 +41,7 @@ class CdsExportAppointmentProjectionServiceUnitTest {
                     "appointment",
                     "appointmentArchive",
                     "appointment_status",
+                    "LookupListItem",
                     "provider",
                     "clinical_timezone");
     private final CdsExportLeaseDto lease = mock(CdsExportLeaseDto.class);
@@ -275,6 +276,14 @@ class CdsExportAppointmentProjectionServiceUnitTest {
                                                 .columns()),
                                 1,
                                 "c".repeat(64)),
+                        "LookupListItem",
+                        new CdsExportCapturedTableDto(
+                                Set.copyOf(
+                                        CdsExportPatientTableReadSupport.Plan
+                                                .APPOINTMENT_REASON_CODES
+                                                .columns()),
+                                1,
+                                "f".repeat(64)),
                         "provider",
                         new CdsExportCapturedTableDto(
                                 CdsExportProviderRowDto.COLUMNS, 1, "d".repeat(64)));
@@ -288,6 +297,9 @@ class CdsExportAppointmentProjectionServiceUnitTest {
                             CdsExportCapturedTextRowsReader.Rows rows = call.getArgument(9);
                             rows.accept(CdsExportAppointmentMapperUnitTest.provider());
                             rows.accept(CdsExportAppointmentMapperUnitTest.status());
+                            rows.accept(
+                                    CdsExportAppointmentMapperUnitTest.reasonItem(
+                                            "2", "Follow-Up"));
                             return capture;
                         });
         when(reader.forEach(

@@ -76,6 +76,7 @@ public final class CdsExportSourceSchemaValidator {
                     "appointmentArchive",
                     "provider",
                     "appointment_status",
+                    "LookupListItem",
                     "appointment",
                     "demographic",
                     "demographicExt",

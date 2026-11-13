@@ -451,6 +451,24 @@ public final class CdsExportPatientTableReadSupport {
                         "short_letter_colour",
                         "short_letters",
                         "status")),
+        /**
+         * Reason-list items named by this patient's current appointments. The day sheet shows the
+         * label of the item in the list named {@code reasonCode} before the free-text reason, so
+         * the exporter needs the label to send what CARLOS displays.
+         */
+        APPOINTMENT_REASON_CODES(
+                "LookupListItem",
+                "id",
+                null,
+                List.of(
+                        "active",
+                        "createdBy",
+                        "dateCreated",
+                        "displayOrder",
+                        "id",
+                        "label",
+                        "lookupListId",
+                        "value")),
         APPOINTMENTS(
                 "appointment",
                 "appointment_no",
@@ -974,6 +992,14 @@ public final class CdsExportPatientTableReadSupport {
                         + " and a.`status`=d.`status`) or exists (select 1 from"
                         + " `appointmentArchive` a where a.`demographic_no`=:patient and"
                         + " a.`status`=d.`status`))";
+            }
+            // Only appointment rows carry reasonCode (appointmentArchive has no such column). The
+            // list name uses the column's own collation, exactly as LookupListDao.findByName does
+            // for the day sheet, so a list the schedule resolves is the list captured here.
+            if (this == APPOINTMENT_REASON_CODES) {
+                return "exists (select 1 from `appointment` a where a.`demographic_no`=:patient"
+                        + " and a.`reasonCode`=d.`id`) and exists (select 1 from `LookupList` l"
+                        + " where l.`id`=d.`lookupListId` and l.`name`='reasonCode')";
             }
             if (this == PARTIAL_DATE_ALLERGIES
                     || this == PARTIAL_DATE_MEDICATIONS

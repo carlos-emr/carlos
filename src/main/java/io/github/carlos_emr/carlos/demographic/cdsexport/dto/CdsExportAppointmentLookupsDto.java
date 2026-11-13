@@ -23,24 +23,47 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
-/** Bounded immutable candidates from the same authenticated source generation; names are never lookup keys. */
+/**
+ * Bounded immutable candidates from the same authenticated source generation. Definitions are
+ * keyed by exact stored codes, never by display names.
+ *
+ * @param providers public provider rows keyed by exact provider number
+ * @param statuses status definitions keyed by exact full status code
+ * @param reasonCodes captured {@code reasonCode} list items keyed by exact item id (the value
+ *     stored in {@code appointment.reasonCode}); an id the schedule cannot resolve is absent
+ * @param earlierPatientDisplays exact display names derived from this patient's own captured
+ *     {@code demographicArchive} snapshots, so a booking made before a rename is still recognized
+ *     as the same patient's display text
+ */
 public record CdsExportAppointmentLookupsDto(
         String sourceManifestSha256,
         Map<String, CdsExportCapturedTextRowDto> providers,
-        Map<String, List<CdsExportCapturedTextRowDto>> statuses) {
+        Map<String, List<CdsExportCapturedTextRowDto>> statuses,
+        Map<String, List<CdsExportCapturedTextRowDto>> reasonCodes,
+        Set<String> earlierPatientDisplays) {
     public CdsExportAppointmentLookupsDto {
         if (sourceManifestSha256 == null
                 || !sourceManifestSha256.matches("[0-9a-f]{64}")
                 || providers == null
-                || statuses == null) {
+                || statuses == null
+                || reasonCodes == null
+                || earlierPatientDisplays == null) {
             throw new IllegalArgumentException("CDS_EXPORT_APPOINTMENT_LOOKUPS_INVALID");
         }
         providers = Map.copyOf(providers);
+        statuses = copy(statuses);
+        reasonCodes = copy(reasonCodes);
+        earlierPatientDisplays = Set.copyOf(earlierPatientDisplays);
+    }
+
+    private static Map<String, List<CdsExportCapturedTextRowDto>> copy(
+            Map<String, List<CdsExportCapturedTextRowDto>> source) {
         var copied = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
-        statuses.forEach((code, rows) -> copied.put(code, List.copyOf(rows)));
-        statuses = Map.copyOf(copied);
+        source.forEach((code, rows) -> copied.put(code, List.copyOf(rows)));
+        return Map.copyOf(copied);
     }
 
     @Override

@@ -51,8 +51,10 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                     "appointment",
                     "appointmentArchive",
                     "appointment_status",
+                    "LookupListItem",
                     "provider",
                     "demographic",
+                    "demographicArchive",
                     "demographic_merged",
                     "cds_import_field",
                     "cds_import_unit",
@@ -211,14 +213,23 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                     var lookupByKey = new HashMap<String, CdsExportCapturedTextRowDto>();
                     var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
                     var statuses = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var reasonCodes = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+                    var earlierDisplays = new HashSet<String>();
                     var demographic = new CdsExportCapturedTextRowDto[1];
-                    long[] lookup = new long[5];
+                    // 0 rows, 1 bytes, 2 providers, 3 statuses, 4 demographic, 5 reason-list
+                    // items, 6 demographic archive snapshots
+                    long[] lookup = new long[7];
                     var first =
                             rows.forEachTable(
                                     lease,
                                     patient,
                                     tables,
-                                    Set.of("provider", "appointment_status", "demographic"),
+                                    Set.of(
+                                            "provider",
+                                            "appointment_status",
+                                            "LookupListItem",
+                                            "demographic",
+                                            "demographicArchive"),
                                     source.manifest(),
                                     bounds.fields(),
                                     bounds.bytes(),
@@ -226,6 +237,26 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                     control,
                                     row -> {
                                         if (++lookup[0] > bounds.lookupRows()) limit();
+                                        if (row.table().equals("demographicArchive")) {
+                                            // Only earlier display names are kept; the snapshot
+                                            // itself belongs to the Demographics assembler.
+                                            for (String display :
+                                                    CdsExportAppointmentNativeMetadata
+                                                            .archivedDisplays(
+                                                                    patient.patient(), row))
+                                                if (earlierDisplays.add(display))
+                                                    lookup[1] =
+                                                            Math.addExact(
+                                                                    lookup[1],
+                                                                    64L
+                                                                            + display.getBytes(
+                                                                                            StandardCharsets
+                                                                                                    .UTF_8)
+                                                                                    .length);
+                                            if (lookup[1] > bounds.indexBytes()) limit();
+                                            lookup[6]++;
+                                            return;
+                                        }
                                         lookup[1] =
                                                 Math.addExact(
                                                         lookup[1],
@@ -279,6 +310,24 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                         .add(row);
                                                 lookup[3]++;
                                             }
+                                            case "LookupListItem" -> {
+                                                String id = row.fields().get("id");
+                                                if (id == null
+                                                        || !row.fields()
+                                                                .keySet()
+                                                                .equals(
+                                                                        Set.copyOf(
+                                                                                CdsExportPatientTableReadSupport
+                                                                                        .Plan
+                                                                                        .APPOINTMENT_REASON_CODES
+                                                                                        .columns())))
+                                                    scope();
+                                                reasonCodes
+                                                        .computeIfAbsent(
+                                                                id, ignored -> new ArrayList<>())
+                                                        .add(row);
+                                                lookup[5]++;
+                                            }
                                             case "demographic" -> {
                                                 if (demographic[0] != null
                                                         || !Integer.toString(patient.patient())
@@ -297,10 +346,17 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                             || lookup[2] != first.tables().get("provider").rows()
                             || lookup[3] != first.tables().get("appointment_status").rows()
                             || lookup[4] != 1
-                            || lookup[4] != first.tables().get("demographic").rows()) scope();
+                            || lookup[4] != first.tables().get("demographic").rows()
+                            || lookup[5] != first.tables().get("LookupListItem").rows()
+                            || lookup[6] != first.tables().get("demographicArchive").rows())
+                        scope();
                     var lookups =
                             new CdsExportAppointmentLookupsDto(
-                                    index.sourceManifestSha256(), providers, statuses);
+                                    index.sourceManifestSha256(),
+                                    providers,
+                                    statuses,
+                                    reasonCodes,
+                                    earlierDisplays);
                     var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
                     long[] witnessBytes = {lookup[1]};
                     var receiptScan =

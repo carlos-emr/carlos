@@ -136,6 +136,60 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     }
 
     @Test
+    void shouldExportAUiBookedAppointment_withItsScheduleReasonLabelAndBookingContext()
+            throws Exception {
+        var f = uiBooked();
+        var records = parse(compose(f, false));
+        var parser = new CdsFieldParser();
+        assertThat(records).hasSize(2);
+        assertThat(parser.firstText(records.get(1), "AppointmentPurpose", 250))
+                .isEqualTo("Follow-Up Cough for 3 days");
+        assertThat(parser.firstText(records.get(1), "AppointmentStatus", 250))
+                .isEqualTo("Exact booked Ω");
+        assertThat(parser.firstText(records.get(1), "Duration", 10)).isEqualTo("15");
+        assertThat(f.result.nativeOnlyRows()).isEqualTo(1);
+        assertThat(f.receipts).hasSize(1);
+        var fields = f.receipts.getFirst().fields();
+        assertThat(fields.values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        // 26 appointment, 6 public provider, 9 status definition and 8 reason-list item fields.
+        assertThat(fields).hasSize(49);
+        assertThat(
+                        fields.get(
+                                        CdsExportAppointmentMapperUnitTest.itemKey(
+                                                2, "label"))
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+    }
+
+    @Test
+    void shouldRecognizeABookingMadeBeforeARename_onlyFromTheSamePatientsArchivedName()
+            throws Exception {
+        var renamed = new TreeMap<>(uiBooking());
+        renamed.put("name", "Maiden,Synthetic");
+        var held = uiBooked(renamed);
+        assertThatThrownBy(() -> compose(held, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+        var f = uiBooked(renamed);
+        f.auxiliary = new ArrayList<>(f.auxiliary);
+        f.auxiliary.add(
+                CdsExportAppointmentMapperUnitTest.demographicArchive(
+                        5, 27, "Maiden", "Synthetic"));
+        f.scopes.put(
+                "demographicArchive",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(
+                                CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_ARCHIVE
+                                        .columns()),
+                        1,
+                        HASH));
+        assertThat(parse(compose(f, false))).hasSize(2);
+    }
+
+    @Test
     void shouldVerifyFinalReceiptRevocationAndParentEofCannotBeSwallowedIntoValidXml_forAppointmentOccurrenceServiceContract() throws Exception {
         var revoked = fixture(false);
         revoked.revokeAtReceipt = true;
@@ -263,10 +317,66 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         CdsExportClinicalOccurrenceService.Result result;
     }
 
+    /**
+     * The values {@code AppointmentAddRecord2Action} stores for a booking made in the add form,
+     * after {@code AppointmentUpdateRecord2Action} marked the patient here (status "Q1" stands
+     * for that captured status definition; the archive row that edit wrote is left out here). The add and edit forms post neither style nor
+     * billing (both stored NULL); a recurring booking or an older row carries values, so this
+     * booking has both to prove they no longer hold the chart.
+     */
+    private static Map<String, String> uiBooking() {
+        var values = new TreeMap<String, String>();
+        values.put("appointment_date", "2026-11-02");
+        values.put("start_time", "09:00:00");
+        values.put("end_time", "09:14:00");
+        values.put("provider_no", "0é27");
+        values.put("name", "Fixture,Synthetic");
+        values.put("reason", "Cough for 3 days");
+        values.put("reasonCode", "2");
+        values.put("notes", "");
+        values.put("location", "Main Clinic");
+        values.put("type", "Follow-up visit");
+        values.put("style", "0");
+        values.put("billing", "B");
+        values.put("urgency", "critical");
+        values.put("resources", "");
+        values.put("remarks", "");
+        values.put("status", "Q1");
+        values.put("program_id", "0");
+        values.put("creator", "999998");
+        values.put("lastupdateuser", "999998");
+        values.put("createdatetime", "2026-11-01 16:20:00");
+        values.put("updatedatetime", "2026-11-02 09:03:00");
+        return values;
+    }
+
+    private Fixture uiBooked() throws Exception {
+        return uiBooked(uiBooking());
+    }
+
+    private Fixture uiBooked(Map<String, String> booking) throws Exception {
+        var f =
+                fixture(
+                        new CdsExportAppointmentFieldReconcilerUnitTest().nativeFixture(booking),
+                        false);
+        var item = CdsExportAppointmentMapperUnitTest.reasonItem("2", "Follow-Up");
+        f.auxiliary = new ArrayList<>(f.auxiliary);
+        f.auxiliary.add(item);
+        f.scopes.put(
+                "LookupListItem", new CdsExportCapturedTableDto(item.fields().keySet(), 1, HASH));
+        return f;
+    }
+
     private Fixture fixture(boolean imported) throws Exception {
+        return fixture(
+                new CdsExportAppointmentFieldReconcilerUnitTest().fixture(imported, "Current note"),
+                imported);
+    }
+
+    private Fixture fixture(
+            CdsExportAppointmentFieldReconcilerUnitTest.Fixture source, boolean imported)
+            throws Exception {
         var f = new Fixture();
-        var source =
-                new CdsExportAppointmentFieldReconcilerUnitTest().fixture(imported, "Current note");
         f.parents = List.of(source.row());
         f.receiptRows = List.of(source.witness());
         f.fields = imported ? source.fields() : List.of();
@@ -336,7 +446,13 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                                 CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_MERGES.columns()),
                         0,
                         HASH));
-        for (String table : List.of("provider", "appointment_status", "demographic")) {
+        for (String table :
+                List.of(
+                        "provider",
+                        "appointment_status",
+                        "demographic",
+                        "LookupListItem",
+                        "demographicArchive")) {
             var matches = lookups.stream().filter(row -> row.table().equals(table)).toList();
             f.scopes.put(
                     table,

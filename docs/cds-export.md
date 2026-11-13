@@ -653,15 +653,34 @@ A separate lookup captures full status codes and every referenced definition, in
 inactive and duplicate definitions; the first-character UI lookup is never used. The
 provider DAO projects only public ID/name/OHIP fields, checks all physical provider
 columns, and uses binary UTF-8 key paging for nonnumeric identifiers. Private provider
-values never enter capture. Both lookup scopes follow selected patient/category references.
+values never enter capture. A third lookup (`LookupListItem`, Appointments scope) captures
+the items of the list named `reasonCode` that the patient's current appointments reference,
+active or not; `LookupList` is read only as that list-name filter. All lookup scopes follow
+selected patient/category references.
 
 The native appointment mapper accounts for every row and used lookup field. It requires
 exact captured identities and an unambiguous full-code status definition. It preserves
 literal times and derives only a positive same-day whole-minute duration; overnight,
 subminute and daylight-saving ambiguity require review. Imported status never substitutes
-for a changed or cleared current status. Populated extra fields remain explicit blockers;
-this category has no `ResidualInfo`. The writer's actual bytes pass the pinned XSD and
-receiving parser checks. The separate owning archive DAO now captures every version, including repeated booking
+for a changed or cleared current status. This category has no `ResidualInfo`. The writer's
+actual bytes pass the pinned XSD and receiving parser checks.
+
+What an appointment exports, and what stays in CARLOS:
+
+| Native value | Export |
+| --- | --- |
+| date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` (end is inclusive) |
+| `status` | `AppointmentStatus`: the captured status definition's description |
+| `provider_no` | `Provider`: public name and OHIP number |
+| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. A labelled purpose over 250 characters, or an item without a label, requires review. |
+| `notes` | `AppointmentNotes` |
+| `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource` | Operational: scheduler display, booking site, billing workflow, the appointment template name and booking provenance have no CDS Appointments field. The template's reason and notes already reach the purpose and notes. |
+| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text requires review. |
+| `remarks` | Review when populated. The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and older data can fill it, and the patient's appointment history shows it. |
+| `program_id`, `imported_status` | Unchanged review rules (program affiliation; retained status reconciliation). |
+| storage audit and identity columns | Operational. |
+
+The separate owning archive DAO now captures every version, including repeated booking
 IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
 Current appointment projection requires that independent archive capture and refuses any
 nonempty history until its representation is qualified; historical versions are not
@@ -1036,7 +1055,9 @@ values require separately verified source-field pages. Post-option dates are not
 Native patient-display names require an exact captured same-patient join. Storage audit fields
 receive explicit assessments. Unknown clinical extras, program affiliations, source-only
 calendar records, aliases, deletions, merged patients and unrepresented appointment history
-remain review gates. All original field IDs are accounted for and the last callback cannot
+remain review gates. A reason-list label chosen in CARLOS for an imported appointment whose
+purpose was not edited requires review, because the preserved imported purpose cannot carry the
+label the schedule shows. All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.

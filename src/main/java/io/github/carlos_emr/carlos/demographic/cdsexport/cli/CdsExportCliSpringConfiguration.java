@@ -224,6 +224,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportAppointmentSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl.class,
     CdsExportAppointmentStatusSourceReader.class,
+    io.github.carlos_emr.carlos.commn.dao.LookupListItemDaoImpl.class,
+    CdsExportAppointmentReasonCodeSourceReader.class,
     CdsExportPublicProviderSourceReader.class,
     CdsExportAppointmentProjectionService.class,
     CdsExportNativeRowReceiptReader.class,

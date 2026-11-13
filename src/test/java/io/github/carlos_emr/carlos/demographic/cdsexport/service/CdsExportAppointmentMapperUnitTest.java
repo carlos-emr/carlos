@@ -65,7 +65,11 @@ class CdsExportAppointmentMapperUnitTest {
                             27,
                             appointment(baseline()),
                             new CdsExportAppointmentLookupsDto(
-                                    "a".repeat(64), original.providers(), candidates),
+                                    "a".repeat(64),
+                                    original.providers(),
+                                    candidates,
+                                    Map.of(),
+                                    Set.of()),
                             ZONE);
             assertThat(mapped.nativeRowRepresentable()).isFalse();
             assertThat(mapped.fields().get(key("status")).rule())
@@ -110,10 +114,10 @@ class CdsExportAppointmentMapperUnitTest {
     @Test
     void shouldKeepUnmappedExtrasAndOversizeValuesExplicit_withoutAppendingThemToNotes()
             throws Exception {
+        // "location" left this list: the booking site is reviewed scheduler context now
+        // (shouldClassifySchedulerAndBookingContextAsOperational_forUiBookedAppointment).
         for (var extra :
                 Map.of(
-                                "location",
-                                "Clinic A",
                                 "name",
                                 "Different patient display",
                                 "remarks",
@@ -157,7 +161,7 @@ class CdsExportAppointmentMapperUnitTest {
                                             "provider",
                                             CdsExportPublicProviderSourceReader.key("0é27"),
                                             provider)),
-                            lookups().statuses());
+                            lookups().statuses(), Map.of(), Set.of());
             var mapped = mapper.map(27, appointment(baseline()), lookups, ZONE);
             assertThat(mapped.nativeRowRepresentable()).isTrue();
             assertThat(mapped.value().provider().ohipNumber()).isNull();
@@ -184,7 +188,11 @@ class CdsExportAppointmentMapperUnitTest {
                         provider().fields());
         var lookups =
                 new CdsExportAppointmentLookupsDto(
-                        "a".repeat(64), Map.of("0é27", forged), lookups().statuses());
+                        "a".repeat(64),
+                        Map.of("0é27", forged),
+                        lookups().statuses(),
+                        Map.of(),
+                        Set.of());
         assertThatThrownBy(() -> mapper.map(27, appointment(baseline()), lookups, ZONE))
                 .hasMessage("CDS_EXPORT_APPOINTMENT_CAPTURE_SCOPE_INVALID");
     }
@@ -203,6 +211,186 @@ class CdsExportAppointmentMapperUnitTest {
         assertThat(blocked.nativeRowRepresentable()).isFalse();
         assertThat(blocked.fields().get(key("notes")).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
         assertThat(fields.get("notes")).isEqualTo(exact + "x");
+    }
+
+    @Test
+    void shouldClassifySchedulerAndBookingContextAsOperational_forUiBookedAppointment()
+            throws Exception {
+        var fields = baseline();
+        var context =
+                Map.of(
+                        "style", "1",
+                        "billing", "B",
+                        "location", "Main Clinic",
+                        "resources", "Room 2",
+                        "urgency", "critical",
+                        "type", "Follow-up visit",
+                        "bookingSource", "OSCAR");
+        fields.putAll(context);
+        var mapped = mapper.map(27, appointment(fields), lookups(), ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        for (String column : context.keySet()) {
+            assertThat(mapped.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(mapped.fields().get(key(column)).rule())
+                    .endsWith("_NOT_A_CDS_APPOINTMENT_FIELD");
+        }
+        assertThat(mapped.value().notes()).isEqualTo("Literal café 😀\r\nnotes");
+        assertThat(mapped.value().purpose()).isEqualTo("Exact purpose");
+    }
+
+    @Test
+    void shouldPrefixTheReasonWithTheScheduleLabel_whenTheReasonCodeNamesACapturedItem()
+            throws Exception {
+        var fields = baseline();
+        fields.put("reason", " Cough for 3 days ");
+        fields.put("reasonCode", "2");
+        var mapped =
+                mapper.map(27, appointment(fields), lookups(reasonItem("2", " Follow-Up ")), ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.value().purpose()).isEqualTo("Follow-Up Cough for 3 days");
+        assertThat(mapped.fields()).hasSize(49);
+        assertThat(mapped.fields().get(key("reasonCode")).outcome()).isEqualTo(Outcome.MAPPED);
+        assertThat(mapped.fields().get(key("reason")).destination())
+                .isEqualTo("AppointmentPurpose");
+        assertThat(mapped.fields().get(itemKey(2, "label")).outcome()).isEqualTo(Outcome.MAPPED);
+        for (String column :
+                List.of(
+                        "active",
+                        "createdBy",
+                        "dateCreated",
+                        "displayOrder",
+                        "id",
+                        "lookupListId",
+                        "value"))
+            assertThat(mapped.fields().get(itemKey(2, column)).outcome())
+                    .isEqualTo(Outcome.OPERATIONAL);
+        fields.put("reason", null);
+        assertThat(
+                        mapper.map(27, appointment(fields), lookups(reasonItem("2", "Follow-Up")), ZONE)
+                                .value()
+                                .purpose())
+                .isEqualTo("Follow-Up");
+    }
+
+    @Test
+    void shouldExportTheExactReasonAlone_whenTheScheduleShowsNoLabel() throws Exception {
+        // "-1" is the add form's placeholder when no reason list exists, "99" is an id outside
+        // the captured reasonCode list and item 1 is the seeded list's blank first entry.
+        for (String code : List.of("-1", "99", "1")) {
+            var fields = baseline();
+            fields.put("reason", " Exact purpose ");
+            fields.put("reasonCode", code);
+            var mapped = mapper.map(27, appointment(fields), lookups(reasonItem("1", "")), ZONE);
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.value().purpose()).isEqualTo(" Exact purpose ");
+            assertThat(mapped.fields().get(key("reasonCode")).outcome())
+                    .isEqualTo(Outcome.OPERATIONAL);
+            assertThat(mapped.fields().get(key("reason")).rule()).isEqualTo("EXACT_NATIVE_TEXT");
+        }
+    }
+
+    @Test
+    void shouldKeepReview_whenTheLabelledPurposeExceedsTheDictionaryLimit() throws Exception {
+        var fields = baseline();
+        fields.put("reason", "r".repeat(80));
+        fields.put("reasonCode", "2");
+        var fits =
+                mapper.map(27, appointment(fields), lookups(reasonItem("2", "L".repeat(169))), ZONE);
+        assertThat(fits.value().purpose()).hasSize(250);
+        var blocked =
+                mapper.map(27, appointment(fields), lookups(reasonItem("2", "L".repeat(170))), ZONE);
+        assertThat(blocked.nativeRowRepresentable()).isFalse();
+        assertThat(blocked.fields().get(key("reasonCode")).rule())
+                .isEqualTo("LABELLED_PURPOSE_REQUIRES_REVIEW");
+        assertThat(blocked.fields().get(key("reason")).outcome())
+                .isEqualTo(Outcome.REQUIRES_REVIEW);
+    }
+
+    @Test
+    void shouldRequireReview_whenTheReferencedReasonItemHasNoLabel() throws Exception {
+        var fields = baseline();
+        fields.put("reasonCode", "2");
+        var mapped = mapper.map(27, appointment(fields), lookups(reasonItem("2", null)), ZONE);
+        assertThat(mapped.nativeRowRepresentable()).isFalse();
+        assertThat(mapped.fields().get(key("reasonCode")).rule())
+                .isEqualTo("REASON_CODE_ITEM_HAS_NO_LABEL");
+    }
+
+    @Test
+    void shouldRefuseAReasonItemWhoseIdentityDiffersFromTheStoredCode_beforeMappingIt() {
+        var fields = baseline();
+        fields.put("reasonCode", "2");
+        var forged =
+                new CdsExportAppointmentLookupsDto(
+                        "a".repeat(64),
+                        Map.of("0é27", provider()),
+                        Map.of("Q1", List.of(status())),
+                        Map.of("2", List.of(reasonItem("3", "Other"))),
+                        Set.of());
+        assertThatThrownBy(() -> mapper.map(27, appointment(fields), forged, ZONE))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_CAPTURE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldAcceptOnlyTheExactDisplayFormsCarlosStores_forThePatientName() throws Exception {
+        var demographic = demographic("Fixture", "Synthetic", "Syn");
+        // Add form (AppointmentAddRecord2Action), then Demographic.getFormattedName() from the
+        // edit form's patient search and the booking web service, with and without the alias.
+        for (String name :
+                List.of("Fixture,Synthetic", "Fixture, Synthetic", "Fixture, Synthetic (Syn)")) {
+            var fields = baseline();
+            fields.put("name", name);
+            var mapped = mapper.map(27, appointment(fields), lookups(), ZONE, demographic);
+            assertThat(mapped.nativeRowRepresentable()).isTrue();
+            assertThat(mapped.fields().get(key("name")).rule())
+                    .isEqualTo("EXACT_CURRENT_PATIENT_DISPLAY_NOT_APPOINTMENT_NOTE");
+        }
+        for (String name :
+                List.of(
+                        "fixture,synthetic",
+                        "Fixture ,Synthetic",
+                        "Fixture,Synthetic (Syn)",
+                        "Synthetic Fixture",
+                        "Maiden,Synthetic")) {
+            var fields = baseline();
+            fields.put("name", name);
+            assertThatThrownBy(
+                            () -> mapper.map(27, appointment(fields), lookups(), ZONE, demographic))
+                    .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW");
+        }
+    }
+
+    @Test
+    void shouldAcceptAnEarlierNameOfTheSamePatient_fromItsCapturedArchiveSnapshot()
+            throws Exception {
+        var earlier =
+                CdsExportAppointmentNativeMetadata.archivedDisplays(
+                        27, demographicArchive(5, 27, "Maiden", "Synthetic"));
+        assertThat(earlier).containsExactlyInAnyOrder("Maiden,Synthetic", "Maiden, Synthetic");
+        var fields = baseline();
+        fields.put("name", "Maiden,Synthetic");
+        var lookups =
+                new CdsExportAppointmentLookupsDto(
+                        "a".repeat(64),
+                        Map.of("0é27", provider()),
+                        Map.of("Q1", List.of(status())),
+                        Map.of(),
+                        earlier);
+        var mapped =
+                mapper.map(
+                        27,
+                        appointment(fields),
+                        lookups,
+                        ZONE,
+                        demographic("Fixture", "Synthetic", null));
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.fields().get(key("name")).rule())
+                .isEqualTo("EXACT_EARLIER_PATIENT_DISPLAY_FROM_CAPTURED_ARCHIVE_NOT_APPOINTMENT_NOTE");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportAppointmentNativeMetadata.archivedDisplays(
+                                        27, demographicArchive(6, 28, "Other", "Patient")))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_SCOPE_INVALID");
     }
 
     static LinkedHashMap<String, String> baseline() {
@@ -269,7 +457,79 @@ class CdsExportAppointmentMapperUnitTest {
 
     static CdsExportAppointmentLookupsDto lookups() {
         return new CdsExportAppointmentLookupsDto(
-                "a".repeat(64), Map.of("0é27", provider()), Map.of("Q1", List.of(status())));
+                "a".repeat(64),
+                Map.of("0é27", provider()),
+                Map.of("Q1", List.of(status())),
+                Map.of(),
+                Set.of());
+    }
+
+    /** A reasonCode list item as the seeded list stores it; {@code label} may be null. */
+    static CdsExportCapturedTextRowDto reasonItem(String id, String label) {
+        var fields = new LinkedHashMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.APPOINTMENT_REASON_CODES
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.putAll(
+                Map.of(
+                        "id",
+                        id,
+                        "lookupListId",
+                        "1",
+                        "value",
+                        label == null ? "" : label.trim(),
+                        "displayOrder",
+                        id,
+                        "active",
+                        "1",
+                        "createdBy",
+                        "oscar",
+                        "dateCreated",
+                        "2026-07-08 19:53:16"));
+        fields.put("label", label);
+        return new CdsExportCapturedTextRowDto(
+                "LookupListItem",
+                CdsExportPatientTableSourceReader.key(Integer.parseInt(id)),
+                fields);
+    }
+
+    static CdsExportAppointmentLookupsDto lookups(CdsExportCapturedTextRowDto reasonItem) {
+        return new CdsExportAppointmentLookupsDto(
+                "a".repeat(64),
+                Map.of("0é27", provider()),
+                Map.of("Q1", List.of(status())),
+                Map.of(reasonItem.fields().get("id"), List.of(reasonItem)),
+                Set.of());
+    }
+
+    static CdsExportCapturedTextRowDto demographic(String last, String first, String alias) {
+        var fields = new TreeMap<String, String>();
+        io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto.COLUMNS.forEach(
+                column -> fields.put(column, null));
+        fields.put("demographic_no", "27");
+        fields.put("last_name", last);
+        fields.put("first_name", first);
+        fields.put("alias", alias);
+        return new CdsExportCapturedTextRowDto("demographic", "0000000027", fields);
+    }
+
+    static CdsExportCapturedTextRowDto demographicArchive(
+            int id, int patient, String last, String first) {
+        var fields = new TreeMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.DEMOGRAPHIC_ARCHIVE
+                .columns()
+                .forEach(column -> fields.put(column, null));
+        fields.put("id", Integer.toString(id));
+        fields.put("demographic_no", Integer.toString(patient));
+        fields.put("last_name", last);
+        fields.put("first_name", first);
+        return new CdsExportCapturedTextRowDto(
+                "demographicArchive", CdsExportPatientTableSourceReader.key(id), fields);
+    }
+
+    static CdsExportNativeFieldKeyDto itemKey(int id, String column) {
+        return new CdsExportNativeFieldKeyDto(
+                "LookupListItem", CdsExportPatientTableSourceReader.key(id), column);
     }
 
     static CdsExportNativeFieldKeyDto key(String column) {

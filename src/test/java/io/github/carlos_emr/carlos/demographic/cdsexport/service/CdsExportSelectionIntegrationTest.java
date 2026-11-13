@@ -193,6 +193,7 @@ class CdsExportSelectionIntegrationTest {
                 io.github.carlos_emr.carlos.commn.dao.PartialDateDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl.class,
+                io.github.carlos_emr.carlos.commn.dao.LookupListItemDaoImpl.class,
                 io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class,
                 io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService
@@ -1178,6 +1179,101 @@ class CdsExportSelectionIntegrationTest {
                     -first + 2,
                     code,
                     other);
+        }
+    }
+
+    @Test
+    @org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+            named = "cds.export.test.properties",
+            matches = ".+")
+    void shouldCaptureOnlyReferencedReasonListItems_forTheSelectedPatientsAppointments()
+            throws Exception {
+        insert(first, physician, "AC");
+        insert(first + 1, physician, "IN");
+        int list = -first, other = -first + 1;
+        int item = -first, otherList = -first + 1, otherPatient = -first + 2, unused = -first + 3;
+        try {
+            sql.update(
+                    "insert into LookupList(id,name,active,createdBy) values(?,'reasonCode',1,'cds'),"
+                            + "(?,'otherList',1,'cds')",
+                    list,
+                    other);
+            sql.update(
+                    "insert into LookupListItem(id,lookupListId,value,label,displayOrder,active,createdBy)"
+                            + " values(?,?,'FU','Follow-Up Ω',1,0,'cds'),(?,?,'X','Other list',1,1,'cds'),"
+                            + "(?,?,'P','Other patient',2,1,'cds'),(?,?,'U','Unreferenced',3,1,'cds')",
+                    item,
+                    list,
+                    otherList,
+                    other,
+                    otherPatient,
+                    list,
+                    unused,
+                    list);
+            sql.update(
+                    "insert into appointment(appointment_no,demographic_no,provider_no,appointment_date,start_time,end_time,reasonCode) "
+                            + "values(?,?,?,'2024-02-29','10:00:00','10:14:00',?),"
+                            + "(?,?,?,'2024-02-29','11:00:00','11:14:00',?),"
+                            + "(?,?,?,'2024-02-29','12:00:00','12:14:00',?)",
+                    -first,
+                    first,
+                    physician,
+                    item,
+                    -first + 1,
+                    first,
+                    physician,
+                    otherList,
+                    -first + 2,
+                    first + 1,
+                    physician,
+                    otherPatient);
+            var dao =
+                    context.getBean(io.github.carlos_emr.carlos.commn.dao.LookupListItemDao.class);
+            sourceRead()
+                    .execute(
+                            status -> {
+                                try {
+                                    var reader = new CdsExportAppointmentReasonCodeSourceReader(dao);
+                                    new CdsExportSourceSchemaValidator()
+                                            .verify(reader.schema(), reader.columns());
+                                    assertThat(reader.count(first)).isEqualTo(1);
+                                    var page = dao.findCdsExportRowsAfter(first, null, 32);
+                                    assertThat(page).hasSize(1);
+                                    assertThat(page.getFirst().id()).isEqualTo(item);
+                                    assertThat(
+                                                    new String(
+                                                            page.getFirst()
+                                                                    .cells()
+                                                                    .get("label")
+                                                                    .inlineBytes(),
+                                                            StandardCharsets.UTF_8))
+                                            .isEqualTo("Follow-Up Ω");
+                                    assertThatThrownBy(
+                                                    () ->
+                                                            dao.readCdsExportValueChunk(
+                                                                    first, unused, "label", 0, 1))
+                                            .hasMessage("CDS_EXPORT_NATIVE_SOURCE_INVALID");
+                                    status.setRollbackOnly();
+                                    return null;
+                                } catch (Exception failure) {
+                                    throw new IllegalStateException(failure);
+                                }
+                            });
+        } finally {
+            sql.update(
+                    "delete from appointment where appointment_no in (?,?,?) and demographic_no in (?,?)",
+                    -first,
+                    -first + 1,
+                    -first + 2,
+                    first,
+                    first + 1);
+            sql.update(
+                    "delete from LookupListItem where id in (?,?,?,?) and createdBy='cds'",
+                    item,
+                    otherList,
+                    otherPatient,
+                    unused);
+            sql.update("delete from LookupList where id in (?,?) and createdBy='cds'", list, other);
         }
     }
 
