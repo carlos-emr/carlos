@@ -83,7 +83,12 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Profile("cds-import-cli")
 @EnableTransactionManagement(proxyTargetClass=true)
 @org.springframework.context.annotation.EnableAspectJAutoProxy(proxyTargetClass=true)
-@ComponentScan(basePackages = "io.github.carlos_emr.carlos.demographic.cdsimport.service")
+// The browser submission service is web-only: it accepts a staged browser upload and writes the
+// submission's chart audit row (client address) through the application's OscarLogDao. The CLI
+// never accepts browser uploads, so its one-shot context leaves it out instead of loading that DAO.
+@ComponentScan(basePackages = "io.github.carlos_emr.carlos.demographic.cdsimport.service",
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
+                classes = io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadSubmissionService.class))
 @ComponentScan(basePackages = "io.github.carlos_emr.carlos.commn.dao", useDefaultFilters = false,
         includeFilters = @ComponentScan.Filter(type = FilterType.REGEX,
                 pattern = "io\\.github\\.carlos_emr\\.carlos\\.commn\\.dao\\.Cds(Import|Upload).*Dao"))
