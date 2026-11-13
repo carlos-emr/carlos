@@ -47,11 +47,18 @@ public final class CdsExportRetainedPharmacyReconciler {
         }
         @Override public String toString() { return "CdsExportRetainedPharmacyReconciler.Result[protected]"; }
     }
+    /** Rule of the status of an imported pharmacy link removed on the Rx pharmacy screen. */
+    static final String REMOVED_IMPORTED_PHARMACY = "REMOVED_IMPORTED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART";
     private static final Map<String, List<String>> GROUPS = Map.of(
             "Name[1]", List.of("name"), "Address[1]", List.of("address", "city", "province", "postalCode"),
             "PhoneNumber[1]", List.of("phone1"), "FaxNumber[1]", List.of("fax"), "EmailAddress[1]", List.of("email"));
 
-    /** A new rank or removed/replaced association is reviewable history, never an implicit deletion or same-name match. */
+    /**
+     * The imported preference while it is still the chart's rank-one link, with its structured
+     * source details kept; once removed or ranked lower, the current rank-one pharmacy (or none)
+     * replaces the imported element. A missing original row is reviewable history, never an
+     * implicit deletion or same-name match.
+     */
     public Result reconcile(int patient, String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto demographic, CdsExportNativeRowReceiptDto demographicWitness,
             NativeRows current, int maximumRows, long maximumBytes, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
@@ -82,10 +89,22 @@ public final class CdsExportRetainedPharmacyReconciler {
         if (binding.projected()) {
             var link = rows.get("demographicPharmacy/" + binding.association().id()); var pharmacy = rows.get("pharmacyInfo/" + binding.pharmacy().id());
             if (link == null || pharmacy == null || !binding.pharmacy().id().equals(link.fields().get("pharmacyID"))) blockers.add("ORIGINAL_PREFERRED_PHARMACY_MISSING_OR_REPLACED");
-            // The imported preference was removed or re-ranked: the retained element cannot follow
-            // it yet, so it stays an explicit review (class B) instead of exporting a removed pharmacy.
-            else if (!"1".equals(link.fields().get("status")) || !"1".equals(link.fields().get("preferredOrder"))) blockers.add("ORIGINAL_PREFERRED_PHARMACY_ASSOCIATION_CHANGED");
-            else {
+            // The Rx screen removed the imported preference (status 0, RxManagePharmacy2Action
+            // unlink) or made another pharmacy the first preference (the imported link is ranked
+            // lower): PreferredPharmacy is the chart's current rank-one pharmacy, or none, as on any
+            // chart. The native mapper decides the imported link and pharmacy like every other
+            // link (a removed one is not exported, a lower-ranked one travels in the native
+            // demographic record); the imported element's source fields stay in the import's
+            // retained source and the receipt lists them as replaced.
+            else if (!"1".equals(link.fields().get("status")) || !"1".equals(link.fields().get("preferredOrder"))) {
+                if ("0".equals(link.fields().get("status"))) {
+                    var key = new CdsExportNativeFieldKeyDto(link.table(), link.recordKey(), "status");
+                    decisions.put(key, new CdsExportFieldAssessmentDto(decisions.get(key).presence(), Outcome.OPERATIONAL, "", REMOVED_IMPORTED_PHARMACY));
+                }
+                var preferred = mapping.preferred();
+                changes.add(new CdsExportRetainedSectionWriter.Change(CdsExportRetainedPharmacyBinding.ROOT, binding.sourceFields(),
+                        preferred == null ? null : xml -> CdsExportPharmacyXmlWriter.writeContent(preferred, xml)));
+            } else {
                 var prepared = CdsExportRetainedPharmacyBinding.prepared(binding.preparation());
                 for (var group : GROUPS.entrySet()) {
                     checkpoint.run(); var columns = group.getValue();

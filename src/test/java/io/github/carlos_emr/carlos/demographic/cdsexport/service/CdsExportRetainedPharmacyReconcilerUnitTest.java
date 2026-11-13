@@ -103,10 +103,47 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         // Notes have no PreferredPharmacy element: they are carried in the native demographic record and no longer withhold the name edit.
         change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "notes", "Additional clinical context"); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
     }
-    @Test void shouldRequireReviewForInactiveAndChangedPreferences_beforeOfferingAnySourceReplacement() throws Exception {
-        for (String column : List.of("status", "preferredOrder")) { setup(); change("demographicPharmacy", column, "0"); assertThat(reconcile().representable()).isFalse(); }
+    @Test void shouldRequireReviewForUnknownPreferenceStates_beforeOfferingAnySourceReplacement() throws Exception {
+        // Updated: a removed (status 0) or re-ranked imported preference no longer holds the chart
+        // (see the removal and re-ranking tests below); a status no CARLOS screen writes still does.
+        setup(); change("demographicPharmacy", "status", "2"); assertThat(reconcile().representable()).isFalse();
         // "No Consent" set on the imported link in CARLOS is carried in the native record and no longer holds the chart.
         setup(); change("demographicPharmacy", "consentToContact", "0"); assertThat(reconcile().representable()).isTrue();
+    }
+    @Test void shouldRemoveTheImportedPreferredPharmacy_whenTheRxScreenRemovesItsLink() throws Exception {
+        // RxManagePharmacy2Action "remove": DemographicPharmacyDao.unlinkPharmacy sets status 0.
+        completeSource(); change("demographicPharmacy", "status", "0"); var result = reconcile();
+        assertThat(result.representable()).isTrue(); assertThat(result.changes()).singleElement().satisfies(change -> {
+            assertThat(change.relativePath()).isEqualTo("PreferredPharmacy[1]"); assertThat(change.content()).isNull();
+            assertThat(change.expectedPriorFields()).isEqualTo(result.sourceFields()); });
+        String link = CdsExportPharmacyMapperUnitTest.link(1, 9).recordKey(), pharmacy = CdsExportPharmacyMapperUnitTest.pharmacy(9).recordKey();
+        assertThat(result.fields().get(new CdsExportNativeFieldKeyDto("demographicPharmacy", link, "status")).rule()).isEqualTo("REMOVED_IMPORTED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        assertThat(result.fields().get(new CdsExportNativeFieldKeyDto("pharmacyInfo", pharmacy, "name")).rule()).isEqualTo("PHARMACY_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        var graph = fixture.fixture.graph(); var prepared = new CdsExportRetainedSectionWriter().prepareChanges(graph.fields(), CdsExportRetainedPharmacyBindingUnitTest.values(), result.changes(), () -> { });
+        assertThat(prepared.replacedFields()).isEqualTo(result.sourceFields());
+        assertThat(renderedPharmacy(result)).isNull();
+    }
+    @Test void shouldExportTheNewFirstPreference_whenAnotherPharmacyIsRankedAboveTheImportedOne() throws Exception {
+        // The Rx screen adds pharmacy 11 as the first preference: addPharmacyToDemographic moves
+        // the imported link to rank 2, which travels in the native demographic record.
+        completeSource();
+        change("demographicPharmacy", "preferredOrder", "2");
+        rows.add(CdsExportRetainedPharmacyBindingUnitTest.changed(CdsExportPharmacyMapperUnitTest.pharmacy(11), "name", "Corner Pharmacy"));
+        rows.add(CdsExportPharmacyMapperUnitTest.link(2, 11)); var result = reconcile();
+        assertThat(result.representable()).isTrue(); assertThat(result.changes()).singleElement().satisfies(change -> {
+            assertThat(change.relativePath()).isEqualTo("PreferredPharmacy[1]"); assertThat(change.content()).isNotNull();
+            assertThat(change.expectedPriorFields()).isEqualTo(result.sourceFields()); });
+        String importedLink = CdsExportPharmacyMapperUnitTest.link(1, 9).recordKey(), imported = CdsExportPharmacyMapperUnitTest.pharmacy(9).recordKey();
+        assertThat(CdsExportDemographicSupportingMapper.carries(result.fields().get(new CdsExportNativeFieldKeyDto("demographicPharmacy", importedLink, "preferredOrder")))).isTrue();
+        assertThat(CdsExportDemographicSupportingMapper.carries(result.fields().get(new CdsExportNativeFieldKeyDto("pharmacyInfo", imported, "name")))).isTrue();
+        var pharmacy = renderedPharmacy(result); assertThat(pharmacy.getElementsByTagNameNS("cds", "Name").item(0).getTextContent()).isEqualTo("Corner Pharmacy");
+        assertThat(pharmacy.getElementsByTagNameNS("cds_dt", "Line2").getLength()).isZero();
+    }
+    @Test void shouldKeepTheImportedPharmacyExactly_whileItIsStillTheFirstPreference() throws Exception {
+        // A second pharmacy added below it changes nothing in the imported element.
+        completeSource(); rows.add(CdsExportRetainedPharmacyBindingUnitTest.changed(CdsExportPharmacyMapperUnitTest.pharmacy(11), "name", "Corner Pharmacy"));
+        rows.add(CdsExportRetainedPharmacyBindingUnitTest.changed(CdsExportPharmacyMapperUnitTest.link(2, 11), "preferredOrder", "2"));
+        var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.changes()).isEmpty();
     }
     @Test void shouldRequireReviewForDuplicateFirstPreferences_withoutChoosingTheOriginalByConvenience() throws Exception {
         rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
