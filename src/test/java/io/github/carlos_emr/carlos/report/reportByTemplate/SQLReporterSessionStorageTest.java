@@ -149,6 +149,8 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             verify(request).setAttribute("csvWithheld-0", Boolean.TRUE);
             verify(request, never()).setAttribute(eq("csvWithheld"), any());
             verify(request).setAttribute("csvWithheldMb", 5);
+            // The default is below the setting's maximum, so the note says an administrator can raise it.
+            verify(request).setAttribute("csvWithheldSetting", "report_by_template.max_csv_mb");
             verify(request).setAttribute(eq("resultsethtml-0"), org.mockito.ArgumentMatchers.startsWith("<table"));
             verify(request, never()).setAttribute(eq("errormsg"), any());
             verify(resultSet).close();
@@ -188,6 +190,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("csv")).isEqualTo("");
             assertThat(request.getAttribute("csvWithheld")).isEqualTo(Boolean.TRUE);
             assertThat(request.getAttribute("csvWithheldMb")).isEqualTo(1);
+            assertThat(request.getAttribute("csvWithheldSetting")).isEqualTo("report_by_template.max_csv_mb");
             assertThat((String) request.getAttribute("resultsethtml")).startsWith("<table");
             assertThat(request.getAttribute("errormsg")).isNull();
             verify(rs).close();
@@ -259,6 +262,7 @@ class SQLReporterSessionStorageTest extends CarlosUnitTestBase {
             assertThat(request.getAttribute("csv-0")).isNull();
             assertThat(request.getAttribute("csvWithheld-0")).isNull();
             assertThat(request.getAttribute("csvWithheldMb")).isNull();
+            assertThat(request.getAttribute("csvWithheldSetting")).isNull();
             assertThat(request.getAttribute("sql-0")).isNull();
             assertThat(request.getAttribute("resultsethtml-0")).isNull();
             assertThat(request.getAttribute("errormsg").toString())

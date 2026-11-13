@@ -144,7 +144,7 @@ that takes effect at the next restart:
 | `report_by_template.max_html_mb` | 10 | 50 |
 | `report_by_template.max_columns` | 256 | 2000 |
 | `report_by_template.max_cell_chars` | 65536 | 1048576 |
-| `report_by_template.max_csv_mb` | 5 | 5 (can only be lowered) |
+| `report_by_template.max_csv_mb` | 5 | 50 |
 | `configured_report.max_rows` | 10000 | 100000 |
 | `configured_report.max_identifier_rows` | 100000 | 1000000 |
 | `configured_report.timeout_seconds` | 30 | 300 |
@@ -159,6 +159,20 @@ and output limits only with heap to spare: a configured report holds every row u
 page or file is written. See [report limits](test/report-template-budgets.md) and
 [report query boundaries](report-query-boundaries.md). Query by Example limits are
 unchanged.
+
+Report by Template's **Export to CSV** and **Export to XLSX** are now built on the server
+from the report's own result, which is kept in your session for 30 minutes (your three
+most recent reports). The result page no longer carries the report's data, so a download
+is always exactly what the query returned. Exporting from an expired page, or one left
+open across the upgrade, shows "This report result is no longer available" with a **Run
+the report again** button. Because the data no longer travels back through the web
+firewall, `report_by_template.max_csv_mb` can now be raised to 50. Each user who runs
+reports can hold up to three times that setting in server memory until the results
+expire, more only while their newest result is a sequence larger than that by itself (with
+a 5 MiB CSV limit and a 50 MiB HTML limit, a sequence of four 5 MiB CSVs keeps 20 MiB). All
+users together hold at most an eighth of the server's maximum heap (256 MiB with the
+packaged 2 GiB); beyond it the oldest results are dropped and their users asked to run the
+report again. Downloads are never cached by the browser.
 
 ### British Columbia billing
 

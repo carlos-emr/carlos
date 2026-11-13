@@ -23,7 +23,8 @@ public final class ReportTemplateBudgetProbe {
      * Requires REPORT_PROBE_JDBC_URL, REPORT_PROBE_USER and REPORT_PROBE_PASSWORD.
      *
      * @param args one scenario: 10, 10000, 100000, large-cell, timeout, stream-timeout or maximums (every
-     *             carlos.properties limit at its maximum, #5849; run it with a larger heap, see the doc)
+     *             other carlos.properties limit at its maximum and the CSV at its 5 MiB default, so the
+     *             held-back path runs at scale, #5849; run it with a larger heap, see the doc)
      * @throws Exception if configuration, JDBC access or rendering fails
      * @throws AssertionError if the expected limit or timely interruption is not observed
      */
@@ -53,7 +54,7 @@ public final class ReportTemplateBudgetProbe {
             case "10000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_10000";
             case "100000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_100000";
             // About 41 MiB of HTML and 39 MiB of CSV: under the 50 MiB page maximum, so the report completes,
-            // and over the 5 MiB CSV limit, so its CSV is held back.
+            // and over the 5 MiB default CSV limit (kept below its maximum here), so its CSV is held back.
             case "maximums" -> "SELECT seq, REPEAT('é', 200) AS sample FROM seq_1_to_100000";
             default -> throw new IllegalArgumentException("Unsupported probe scenario");
         };

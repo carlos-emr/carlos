@@ -93,6 +93,40 @@ class ReportByTemplateLimitMessagesUnitTest {
                 .doesNotContain("<%if (x > 1) { %>");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"en", "fr", "es", "pl", "pt_BR"})
+    @DisplayName("should have the run-again page for a result that is no longer kept, in every bundle")
+    void shouldHaveRunAgainMessages_inEveryBundle(String locale) throws IOException {
+        Properties bundle = new Properties();
+        try (InputStream in = Files.newInputStream(Path.of("src", "main", "resources", "oscarResources_" + locale + ".properties"))) {
+            bundle.load(in);
+        }
+        for (String key : List.of("report.byTemplate.resultUnavailableTitle", "report.byTemplate.resultUnavailable",
+                "report.byTemplate.runAgain")) {
+            assertThat(bundle.getProperty(key)).as("%s in %s", key, locale).isNotBlank().doesNotContain("{0}");
+        }
+        String unavailable = Files.readString(JSP.resolve("resultUnavailable.jsp"), StandardCharsets.UTF_8);
+        assertThat(unavailable).contains("<fmt:message key=\"report.byTemplate.resultUnavailable\"/>",
+                "<fmt:message key=\"report.byTemplate.runAgain\"/>", "<fmt:setBundle basename=\"oscarResources\"/>");
+    }
+
+    @Test
+    @DisplayName("should give the result page only the kept result's token, never its CSV")
+    void shouldCarryOnlyTheResultToken_onTheResultPage() throws IOException {
+        String result = Files.readString(JSP.resolve("resultReport.jsp"), StandardCharsets.UTF_8);
+        assertThat(result)
+                .doesNotContain("name=\"csv\"")
+                .doesNotContain("request.getAttribute(\"csv\")")
+                .doesNotContain("request.getAttribute(\"csv-\" + x)")
+                .containsSubsequence("<form style=\"display:inline;\"",
+                        "name=\"resultToken\" value=\"${carlos:forHtmlAttribute(csvDownloadToken)}\"",
+                        "name=\"resultIndex\"", "name=\"getCSV\"", "name=\"getXLS\"", "</form>")
+                // The held-back note names the setting while the CSV limit can still be raised.
+                .contains("<fmt:message key=\"report.byTemplate.csvWithheld\"><fmt:param value=\"${csvWithheldMb}\"/></fmt:message>"
+                        + "<c:if test=\"${not empty csvWithheldSetting}\"> <fmt:message key=\"report.limit.administratorCanRaise\">"
+                        + "<fmt:param value=\"${csvWithheldSetting}\"/></fmt:message></c:if>");
+    }
+
     @Test
     @DisplayName("should say in English that an administrator can raise the limit, naming its setting")
     void shouldTellTheUserAnAdministratorCanRaiseTheLimit_withItsSetting() throws IOException {

@@ -45,8 +45,15 @@ final class ReportResultBudget {
     // Fixed, not configurable: a sequence is written into one template by its author.
     static final int MAX_QUERIES = 32;
     private static final int MIB = 1024 * 1024;
-    /** The CSV limit can only be lowered: its downloads post the CSV back through the packaged web firewall. */
-    private static final int CSV_CEILING_MB = SQLReporter.MAX_CSV_EXPORT_LENGTH / MIB;
+    /**
+     * Maximum of {@code report_by_template.max_csv_mb}. The downloads are built on the server from the CSV it
+     * keeps for the session ({@link ReportCsvDownloads}), so the web firewall's form-data limit no longer caps it;
+     * memory does: a session keeps up to {@link ReportCsvDownloads#MAX_RESULTS_PER_SESSION} results, so at this
+     * maximum one user's recent reports can hold about 150 MiB of the heap for up to 30 minutes.
+     */
+    static final int MAX_CSV_MB_CEILING = 50;
+    /** The carlos.properties setting of the CSV limit, named in the note above a held-back CSV. */
+    static final String CSV_SETTING = "report_by_template.max_csv_mb";
     /** Bundle key of the sentence added to a refusal whose limit an administrator can still raise. */
     static final String ADMINISTRATOR_CAN_RAISE_KEY = "report.limit.administratorCanRaise";
     static final String ADMINISTRATOR_CAN_RAISE_ENGLISH =
@@ -105,9 +112,8 @@ final class ReportResultBudget {
 
     /**
      * The limits one report runs under. Administrators may set {@code report_by_template.max_rows},
-     * {@code .timeout_seconds}, {@code .max_html_mb}, {@code .max_columns} and {@code .max_cell_chars} in
-     * carlos.properties, up to their maximums, and {@code .max_csv_mb} below its 5 MiB ceiling only (a larger
-     * CSV would not fit the export POST through the packaged WAF). A missing setting keeps the default; see
+     * {@code .timeout_seconds}, {@code .max_html_mb}, {@code .max_columns}, {@code .max_cell_chars} and
+     * {@code .max_csv_mb} in carlos.properties, up to their maximums. A missing setting keeps the default; see
      * {@link ReportLimitSetting} for values that are not allowed.
      */
     record Limits(int maxRows, int timeoutSeconds, int maxHtmlBytes, int maxColumns, int maxCsvBytes,
@@ -128,13 +134,21 @@ final class ReportResultBudget {
                     ReportLimitSetting.read(settings, "report_by_template.timeout_seconds", TIMEOUT_SECONDS, TIMEOUT_SECONDS_CEILING),
                     ReportLimitSetting.read(settings, "report_by_template.max_html_mb", MAX_HTML_BYTES / MIB, MAX_HTML_MB_CEILING) * MIB,
                     ReportLimitSetting.read(settings, "report_by_template.max_columns", MAX_COLUMNS, MAX_COLUMNS_CEILING),
-                    ReportLimitSetting.read(settings, "report_by_template.max_csv_mb", CSV_CEILING_MB, CSV_CEILING_MB) * MIB,
+                    ReportLimitSetting.read(settings, CSV_SETTING, SQLReporter.MAX_CSV_EXPORT_LENGTH / MIB, MAX_CSV_MB_CEILING) * MIB,
                     ReportLimitSetting.read(settings, "report_by_template.max_cell_chars", MAX_CELL_CHARACTERS, MAX_CELL_CHARACTERS_CEILING));
         }
     }
 
     /** One rendered query: always the HTML, and the CSV unless it went over its limit and was held back (D260). */
     record Rendered(String html, String csv, boolean csvWithheld) {
+    }
+
+    /**
+     * The setting an administrator can raise when a CSV was held back at {@code maxCsvBytes}, or null when the
+     * limit is already at its maximum, so the note never promises a raise that cannot be made.
+     */
+    static String raisableCsvSetting(int maxCsvBytes) {
+        return maxCsvBytes / MIB < MAX_CSV_MB_CEILING ? CSV_SETTING : null;
     }
 
     private final Limits limits;
@@ -328,7 +342,7 @@ final class ReportResultBudget {
                 if (withheld) {
                     return;
                 }
-                // Each query's export form posts only its own CSV, so the limit applies to each query. The shared
+                // Each query's CSV is kept and downloaded on its own, so the limit applies to each query. The shared
                 // HTML budget still bounds memory: a query's CSV is no larger than its HTML, except for characters
                 // the HTML encoder replaces with a space, which can make it up to four times larger.
                 if (length > limits.maxCsvBytes() - written) {
