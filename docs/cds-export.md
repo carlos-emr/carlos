@@ -87,6 +87,21 @@ says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedH
 whose text is the description and whose observation date is the ProcedureDate; Notes and the
 residual stay in the retained CDS source fields.
 
+Native measurements are exported as CareElements where a standard element represents them
+exactly, and each current observation also travels in full as a
+`CARLOS.NativeObservation.v1` NewCategory record. Deleted measurements are not exported. A
+`measurementsDeleted` row is either a clinician's deletion of an erroneous entry
+(`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
+(`Hl7textResultsData`); neither is a current fact, and the legacy exporter, which read
+`MeasurementDao.findByDemographicId`, never exported them. Deleting a measurement moves its row
+but leaves its `measurementsExt` rows keyed by the original id, so capture follows
+`measurementsDeleted.originalId` as well as current measurements. Every field of the deleted row
+and of those extensions gets the `DELETED_OR_SUPERSEDED_OBSERVATION_VERSION` disposition: they
+are accounted, never an expected occurrence, and no reason to hold the patient, and they need no
+NewCategory selection. An extension whose id names both a current and a deleted observation, or
+two deleted ones, holds the patient (`CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS`); an
+original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`).
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture

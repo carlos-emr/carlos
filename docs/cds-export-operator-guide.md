@@ -107,7 +107,7 @@ Run as an authorized Unix operator through sudo. Root-issued delegation is bound
 to the exact arguments, and the provider still needs current clinical permissions.
 
 Native chart support includes demographics/external physicians, all seven history/note
-categories, prescriptions and printed scripts, current/deleted measurements, supported
+categories, prescriptions and printed scripts, current measurements, supported
 HL7 ORU results, and document reports with their attachments. Revised notes retain
 the original and edits in one clinical occurrence. A clinical note whose latest
 revision is archived (removed from the active record) is still exported, because the
@@ -139,8 +139,9 @@ foreign program holds the patient for review.
 Choose all seven history/note categories together: PersonalHistory, FamilyHistory,
 PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. Select
 NewCategory when exporting native measurements/labs or printed prescription context.
-It carries generic observations, deletion history, complete original lab messages and
-printed script history. Excluding a required supporting category requests review;
+It carries generic observations, complete original lab messages and printed script
+history. Deleted measurements (a clinician's deletion or an HL7 result superseded by a
+newer version) are not exported, as with the legacy exporter. Excluding a required supporting category requests review;
 the exporter does not silently expand the accepted selection.
 
 Vaccines export under Immunizations. Prevention screenings (the Screenings types and

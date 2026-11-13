@@ -198,6 +198,8 @@ public class CdsExportPatientInventoryService {
         } else if (!notes.isEmpty()) invalid();
         for (var observation :
                 care.nativeSources(lease, patient, tables, source, index, bounds, control)) {
+            // A deleted or superseded version is accounted, never an expected occurrence.
+            if (observation.deleted()) continue;
             if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
                 review();
             if (observation.element() != null)

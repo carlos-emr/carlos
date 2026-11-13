@@ -27,7 +27,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Complete patient-owned care projection. Deleted observations require a qualified audit carrier before any payload capture. */
+/** Complete patient-owned care extensions, including those a deleted observation left keyed by its original id. */
 @Service
 public class CdsExportMeasurementExtensionSourceReader extends CdsExportPatientTableSourceReader {
     public CdsExportMeasurementExtensionSourceReader(MeasurementsExtDao source) {

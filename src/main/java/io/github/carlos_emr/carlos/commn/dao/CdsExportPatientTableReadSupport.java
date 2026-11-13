@@ -937,9 +937,16 @@ public final class CdsExportPatientTableReadSupport {
             if (this == DOCUMENTS)
                 return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and"
                         + " c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
+            // Deleting an observation (EctDeleteData2Action, a superseded HL7 version) moves the
+            // measurements row to measurementsDeleted but leaves its extensions keyed by the old
+            // id, so an extension belongs to the patient through either owner. The owner ids are
+            // gathered once in a derived table: two OR'ed EXISTS would defeat the semi-join and
+            // scan the whole extension table for every page.
             if (this == MEASUREMENTS_EXT)
-                return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and"
-                        + " m.`id`=d.`measurement_id`)";
+                return "d.`measurement_id` in (select o.`k` from (select m.`id` k from"
+                        + " `measurements` m where m.`demographicNo`=:patient union all select"
+                        + " x.`originalId` from `measurementsDeleted` x where"
+                        + " x.`demographicNo`=:patient) o)";
             if (this == MEASUREMENT_TYPES)
                 return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and"
                         + " CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and"
@@ -1175,7 +1182,21 @@ public final class CdsExportPatientTableReadSupport {
                         .setParameter("patient", patient)
                         .setMaxResults(1)
                         .getResultList();
-        if (!shared.isEmpty())
+        // Extensions of a deleted observation are captured through its originalId; the same
+        // original id deleted from another chart would make them unattributable.
+        var deletedElsewhere =
+                shared.isEmpty()
+                        ? query(
+                                        em,
+                                        """
+                                        select 1,1 from measurementsDeleted d join measurementsDeleted o on o.originalId=d.originalId
+                                        where d.demographicNo=:patient and o.demographicNo<>d.demographicNo
+                                        """)
+                                .setParameter("patient", patient)
+                                .setMaxResults(1)
+                                .getResultList()
+                        : shared;
+        if (!shared.isEmpty() || !deletedElsewhere.isEmpty())
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support

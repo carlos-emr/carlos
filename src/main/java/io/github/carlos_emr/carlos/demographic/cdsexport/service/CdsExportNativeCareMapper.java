@@ -221,15 +221,51 @@ public final class CdsExportNativeCareMapper {
         return new BigDecimal(value.strip()).stripTrailingZeros().toPlainString();
     }
 
+    /** Disposition of every field of a deleted or superseded observation version. */
+    static final String RETIRED = "DELETED_OR_SUPERSEDED_OBSERVATION_VERSION";
+
+    /**
+     * A measurementsDeleted row is either a clinician's deletion of an erroneous entry
+     * (EctDeleteData2Action) or an HL7 result version superseded by a newer report
+     * (Hl7textResultsData). Neither is a current clinical fact, and the legacy exporter, which
+     * read MeasurementDao.findByDemographicId, never exported them; a receiving EMR must not see
+     * an erroneous value beside the current ones. As with superseded prevention versions
+     * (CdsExportPreventionVersions), every field of the row and of the extensions the deletion
+     * left behind keeps an explicit not-exported disposition: accounted, never dropped silently,
+     * and no reason to hold the patient.
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> retired(
+            int patient, CdsExportNativeCarePlanner.Occurrence occurrence) throws IOException {
+        var row = occurrence.observation();
+        String owner = row.fields().get("originalId");
+        if (patient < 1
+                || !occurrence.deleted()
+                || !row.table().equals("measurementsDeleted")
+                || !Integer.toString(patient).equals(row.fields().get("demographicNo"))
+                || owner == null
+                || !occurrence.definitions().isEmpty()) invalid();
+        var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        rows.add(row);
+        rows.addAll(occurrence.extensions());
+        for (var version : rows) {
+            if (version != row
+                    && (!version.table().equals("measurementsExt")
+                            || !owner.equals(version.fields().get("measurement_id")))) invalid();
+            var fields = new CdsExportNativeFieldAssessments(version, result);
+            for (String column : version.fields().keySet()) fields.operational(column, RETIRED);
+        }
+        return result;
+    }
+
     public Result map(
             int patient,
             CdsExportCapturedTextRowDto observation,
             List<CdsExportCapturedTextRowDto> extensions,
-            List<CdsExportCapturedTextRowDto> definitions,
-            boolean deleted)
+            List<CdsExportCapturedTextRowDto> definitions)
             throws IOException {
         if (patient < 1
-                || !observation.table().equals(deleted ? "measurementsDeleted" : "measurements")
+                || !observation.table().equals("measurements")
                 || !Integer.toString(patient).equals(observation.fields().get("demographicNo")))
             invalid();
         String id = observation.fields().get("id");
@@ -261,7 +297,7 @@ public final class CdsExportNativeCareMapper {
                 review("CDS_EXPORT_NATIVE_CARE_EXTENSION_AMBIGUOUS");
             extra.put(key, value);
         }
-        var standard = deleted ? null : standard(observation.fields(), extra);
+        var standard = standard(observation.fields(), extra);
         String element = standard == null ? null : standard.element();
         var output = new LinkedHashMap<String, String>();
         if (standard != null) {
@@ -290,7 +326,7 @@ public final class CdsExportNativeCareMapper {
                 JsonMapper.builder()
                         .build()
                         .writeValueAsString(
-                                Map.of("version", 1, "deleted", deleted, "rows", metadata));
+                                Map.of("version", 1, "deleted", false, "rows", metadata));
         return new Result(observation.table(), id, element, output, json, rows, fields);
     }
 

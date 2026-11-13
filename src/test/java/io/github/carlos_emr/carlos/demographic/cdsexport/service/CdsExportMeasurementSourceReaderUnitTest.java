@@ -89,7 +89,10 @@ class CdsExportMeasurementSourceReaderUnitTest {
     }
 
     @Test
-    void shouldCaptureDeletedCareWithItsExplicitSupportingSelection_withoutMutatingTheSingleton() {
+    void shouldCaptureDeletedCare_withoutRequiringASupportingNewCategorySelection() {
+        // Before: deleted observations were exported as NewCategory history, so the reader held
+        // the patient when NewCategory was not selected. They are now accounted and never
+        // exported (CdsExportNativeCareMapper.retired), so no carrier is needed.
         var dao = mock(MeasurementsDeletedDao.class);
         var singleton = new CdsExportDeletedMeasurementSourceReader(dao);
         when(dao.countCdsExportRows(27)).thenReturn(1L);
@@ -104,15 +107,11 @@ class CdsExportMeasurementSourceReaderUnitTest {
                                 .Selection.SELECTED_PATIENTS,
                         List.of(),
                         List.of(27),
-                        Set.of(
-                                CdsCategory.DEMOGRAPHICS,
-                                CdsCategory.CARE_ELEMENTS,
-                                CdsCategory.NEW_CATEGORY),
+                        Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.CARE_ELEMENTS),
                         "receiver",
                         "audit");
         assertThat(singleton.forRequest(command).count(27)).isEqualTo(1L);
-        assertThatThrownBy(() -> singleton.count(27)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        verify(dao, never()).findCdsExportRowsAfter(anyInt(), nullable(Long.class), anyInt());
+        assertThat(singleton.count(27)).isEqualTo(1L);
     }
 
     @Test
@@ -192,17 +191,6 @@ class CdsExportMeasurementSourceReaderUnitTest {
                                     .expectedSha256(value.table(), value.columns()))
                     .matches("[0-9a-f]{64}");
         }
-    }
-
-    @Test
-    void shouldRefuseDeletedCareBeforeAnyPayloadRead_whenSupportingHistoryIsExcluded() {
-        var dao = mock(MeasurementsDeletedDao.class);
-        var deleted = new CdsExportDeletedMeasurementSourceReader(dao);
-        when(dao.countCdsExportRows(27)).thenReturn(1L);
-        assertThatThrownBy(() -> deleted.count(27)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        verify(dao, never()).findCdsExportRowsAfter(anyInt(), nullable(Long.class), anyInt());
-        verify(dao, never())
-                .readCdsExportValueChunk(anyInt(), anyLong(), anyString(), anyLong(), anyInt());
     }
 
     @Test

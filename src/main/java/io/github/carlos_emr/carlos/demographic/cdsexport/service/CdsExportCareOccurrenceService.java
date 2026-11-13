@@ -28,6 +28,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCareElementDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -360,6 +361,22 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                     for (var nativeSource :
                             new CdsExportNativeCarePlanner()
                                     .plan(index, current, control::checkpoint)) {
+                        if (nativeSource.deleted()) {
+                            // Accounted, never exported; the extensions the deletion left
+                            // behind are owned here so the completeness gate still closes.
+                            var retired =
+                                    CdsExportNativeCareMapper.retired(
+                                            patient.patient(), nativeSource);
+                            new CdsExportNativeFieldAssessmentValidator()
+                                    .requireRepresentable(
+                                            retiredRows(nativeSource),
+                                            retired,
+                                            1_000_000,
+                                            control::checkpoint);
+                            for (var extension : nativeSource.extensions())
+                                if (!owned.add(key(extension.table(), id(extension)))) invalid();
+                            continue;
+                        }
                         if (!lease.document()
                                 .command()
                                 .categories()
@@ -370,13 +387,11 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                                 patient.patient(),
                                                 nativeSource.observation(),
                                                 nativeSource.extensions(),
-                                                nativeSource.definitions(),
-                                                nativeSource.table().equals("measurementsDeleted"));
+                                                nativeSource.definitions());
                         for (var row : mapped.rows()) {
                             String rowKey = key(row.table(), id(row));
                             if (row.table().equals("measurementType")) dictionary.add(rowKey);
-                            else if (!row.table().equals("measurementsDeleted")
-                                    && !owned.add(rowKey)) invalid();
+                            else if (!owned.add(rowKey)) invalid();
                         }
                         if (nativeSource.element() != null
                                 && !nativeSource.element().equals(mapped.element())) review();
@@ -676,15 +691,46 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         var demographic = current.get(key("demographic", Integer.toString(patient.patient())));
         if (demographic == null || source.capture().tables().get("demographic").rows() != 1)
             invalid();
-        for (var row : current.values()) {
-            if (row.table().equals("measurements")
-                    && !Integer.toString(patient.patient())
-                            .equals(row.fields().get("demographicNo"))) invalid();
-            if (row.table().equals("measurementsExt")
-                    && !current.containsKey(
-                            key("measurements", row.fields().get("measurement_id")))) invalid();
-        }
+        requireOwners(patient.patient(), current);
         return new CapturedCare(current, exact);
+    }
+
+    /**
+     * Every captured extension belongs to exactly one of this patient's observations: a current
+     * measurement, or the measurementsDeleted row whose originalId it still carries. An id that
+     * names both, or two deleted rows, cannot be attributed and holds the patient for review.
+     */
+    static void requireOwners(int patient, Map<String, CdsExportCapturedTextRowDto> current)
+            throws IOException {
+        var deletedOwners = new HashMap<String, Integer>();
+        for (var row : current.values()) {
+            if (Set.of("measurements", "measurementsDeleted").contains(row.table())
+                    && !Integer.toString(patient).equals(row.fields().get("demographicNo")))
+                invalid();
+            if (row.table().equals("measurementsDeleted")) {
+                String original = row.fields().get("originalId");
+                if (original == null || !original.matches("[1-9][0-9]{0,18}")) invalid();
+                deletedOwners.merge(original, 1, Integer::sum);
+            }
+        }
+        for (var row : current.values()) {
+            if (!row.table().equals("measurementsExt")) continue;
+            String owner = row.fields().get("measurement_id");
+            boolean live = current.containsKey(key("measurements", owner));
+            int deleted = owner == null ? 0 : deletedOwners.getOrDefault(owner, 0);
+            if (!live && deleted == 0) invalid();
+            if (live && deleted > 0 || deleted > 1)
+                throw new CdsExportMappingReviewException(
+                        "CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS");
+        }
+    }
+
+    private static List<CdsExportCapturedTextRowDto> retiredRows(
+            CdsExportNativeCarePlanner.Occurrence occurrence) {
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>();
+        rows.add(occurrence.observation());
+        rows.addAll(occurrence.extensions());
+        return rows;
     }
 
     private static void assess(

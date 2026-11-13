@@ -74,7 +74,7 @@ class CdsExportNativeCareMapperUnitTest {
                                         "typeDescription",
                                         "Native " + type))
                         .value();
-        var mapped = mapper.map(27, observation, List.of(), List.of(definition), false);
+        var mapped = mapper.map(27, observation, List.of(), List.of(definition));
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
         return mapped;
@@ -144,29 +144,117 @@ class CdsExportNativeCareMapperUnitTest {
                         "Exact clinical comment café 😀");
     }
 
+    /** A clinician's deletion as EctDeleteData2Action stores it: the row moves, its extensions stay. */
+    static CdsExportCapturedTextRowDto deletedWeight(long id, String original) {
+        return row(
+                        Plan.MEASUREMENTS_DELETED,
+                        id,
+                        Map.of(
+                                "demographicNo",
+                                "27",
+                                "type",
+                                "WT",
+                                "dataField",
+                                "800",
+                                "measuringInstruction",
+                                "in kg",
+                                "comments",
+                                "entered in error",
+                                "dateObserved",
+                                "2026-07-09 14:35:00",
+                                "dateEntered",
+                                "2026-07-09 14:36:00",
+                                "dateDeleted",
+                                "2026-07-10 14:00:00",
+                                "originalId",
+                                original))
+                .value();
+    }
+
+    static CdsExportCapturedTextRowDto extension(long id, String owner, String key, String value) {
+        return row(
+                        Plan.MEASUREMENTS_EXT,
+                        id,
+                        Map.of("measurement_id", owner, "keyval", key, "val", value))
+                .value();
+    }
+
     @Test
-    void shouldKeepDeletedObservationsOutOfCurrentCare_whileRetainingTheirFullHistoricalRecord()
+    void shouldAccountDeletedObservationsAndTheirLeftoverExtensions_withoutExportingThem()
             throws Exception {
-        var deleted =
-                row(
-                                Plan.MEASUREMENTS_DELETED,
-                                101,
-                                Map.of(
-                                        "demographicNo",
-                                        "27",
-                                        "type",
-                                        "WT",
-                                        "dataField",
-                                        "80",
-                                        "dateDeleted",
-                                        "2026-07-10 14:00:00",
-                                        "originalId",
-                                        "91"))
+        // Before: the deleted row was exported as NewCategory beside the current observations,
+        // labelled like them, and the extensions its deletion left behind were never captured.
+        var deleted = deletedWeight(101, "91");
+        var unit = extension(201, "91", "unit", "kg");
+        var comment = extension(202, "91", "comment", "scale not zeroed");
+        var unrelated = extension(203, "92", "unit", "cm");
+        var definition =
+                row(Plan.MEASUREMENT_TYPES, 51, Map.of("type", "WT", "measuringInstruction", "in kg"))
                         .value();
-        var mapped = mapper.map(27, deleted, List.of(), List.of(), true);
-        assertThat(mapped.element()).isNull();
-        assertThat(mapped.metadata()).contains("\"deleted\":true", "2026-07-10 14:00:00", "80");
-        render(CdsCategory.NEW_CATEGORY, body -> mapper.writeSupporting(mapped, body));
+        var current = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
+        for (var value : List.of(deleted, unit, comment, unrelated, definition))
+            current.put(value.table() + ":" + value.fields().get("id"), value);
+        var plan = new CdsExportNativeCarePlanner().plan(index(), current, () -> {});
+        assertThat(plan).hasSize(1);
+        var occurrence = plan.getFirst();
+        assertThat(occurrence.deleted()).isTrue();
+        assertThat(occurrence.element()).isNull();
+        assertThat(occurrence.extensions()).containsExactlyInAnyOrder(unit, comment);
+        assertThat(occurrence.definitions()).isEmpty();
+        var retired = CdsExportNativeCareMapper.retired(27, occurrence);
+        var rows = List.of(deleted, unit, comment);
+        var result =
+                new CdsExportNativeFieldAssessmentValidator()
+                        .validate(rows, retired, 10000, () -> {});
+        assertThat(result.representable()).isTrue();
+        assertThat(result.mapped()).isZero();
+        assertThat(retired.values())
+                .allSatisfy(
+                        decision -> {
+                            assertThat(decision.outcome())
+                                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
+                            assertThat(decision.rule())
+                                    .isEqualTo("DELETED_OR_SUPERSEDED_OBSERVATION_VERSION");
+                        });
+        assertThatThrownBy(() -> CdsExportNativeCareMapper.retired(28, occurrence))
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_SCOPE_INVALID");
+        // A deleted version is not a current observation and has no mapped form at all.
+        assertThatThrownBy(() -> mapper.map(27, deleted, List.of(unit), List.of()))
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldHoldThePatient_whenAnExtensionNamesBothACurrentAndADeletedObservation()
+            throws Exception {
+        var current = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
+        var live = observation("WT", "70", "kg");
+        var deleted = deletedWeight(101, "91");
+        var unit = extension(201, "91", "unit", "kg");
+        current.put("measurements:91", live);
+        current.put("measurementsExt:201", unit);
+        assertThatCode(() -> CdsExportCareOccurrenceService.requireOwners(27, current))
+                .doesNotThrowAnyException();
+        current.put("measurementsDeleted:101", deleted);
+        assertThatThrownBy(() -> CdsExportCareOccurrenceService.requireOwners(27, current))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS");
+        current.remove("measurements:91");
+        assertThatCode(() -> CdsExportCareOccurrenceService.requireOwners(27, current))
+                .doesNotThrowAnyException();
+        current.put("measurementsDeleted:102", deletedWeight(102, "91"));
+        assertThatThrownBy(() -> CdsExportCareOccurrenceService.requireOwners(27, current))
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS");
+        current.remove("measurementsDeleted:102");
+        current.remove("measurementsDeleted:101");
+        assertThatThrownBy(() -> CdsExportCareOccurrenceService.requireOwners(27, current))
+                .hasMessage("CDS_EXPORT_CARE_OCCURRENCE_INVALID");
+    }
+
+    private static CdsExportRetainedIndexDto index() {
+        return new CdsExportRetainedIndexDto(
+                "a".repeat(64), 0, 0, Map.of(), Set.of(), Map.of(), Map.of());
     }
 
     @Test
@@ -181,7 +269,7 @@ class CdsExportNativeCareMapperUnitTest {
         // Two different stated units: no standard element is guessed, and the full observation
         // with both units stays in the supporting NewCategory record.
         var conflicting =
-                mapper.map(27, observation("WT", "80", "kg"), List.of(ext), List.of(), false);
+                mapper.map(27, observation("WT", "80", "kg"), List.of(ext), List.of());
         assertThat(conflicting.element()).isNull();
         assertThat(conflicting.metadata()).contains("lbs", "\"kg\"", "80");
         assertThatThrownBy(
@@ -190,8 +278,7 @@ class CdsExportNativeCareMapperUnitTest {
                                         27,
                                         observation("WT", "80", "lbs"),
                                         List.of(ext, ext),
-                                        List.of(),
-                                        false))
+                                        List.of()))
                 .hasMessage("CDS_EXPORT_NATIVE_CARE_EXTENSION_AMBIGUOUS");
     }
 
@@ -204,8 +291,7 @@ class CdsExportNativeCareMapperUnitTest {
                                         28,
                                         observation("WT", "80", "kg"),
                                         List.of(),
-                                        List.of(),
-                                        false))
+                                        List.of()))
                 .hasMessage("CDS_EXPORT_NATIVE_CARE_SCOPE_INVALID");
         for (var value : List.of(List.of("BP", "120/unknown"), List.of("WT", "70 kg"),
                 List.of("SKST", "quit 2019"), List.of("HT", "175/180"))) {
@@ -247,7 +333,7 @@ class CdsExportNativeCareMapperUnitTest {
                                 Map.of("measurement_id", "91", "keyval", "unit", "val", "kPa"))
                         .value();
         assertThat(
-                        mapper.map(27, observation("BP", "16/10", ""), List.of(kpa), List.of(), false)
+                        mapper.map(27, observation("BP", "16/10", ""), List.of(kpa), List.of())
                                 .element())
                 .isNull();
     }
@@ -265,7 +351,7 @@ class CdsExportNativeCareMapperUnitTest {
             var observation = observation(value.get(0), value.get(1), value.get(2));
             var planned =
                     CdsExportNativeCareMapper.standard(observation.fields(), Map.of());
-            var mapped = mapper.map(27, observation, List.of(), List.of(), false);
+            var mapped = mapper.map(27, observation, List.of(), List.of());
             assertThat(planned == null ? null : planned.element())
                     .as(value.toString())
                     .isEqualTo(mapped.element());
@@ -338,7 +424,7 @@ class CdsExportNativeCareMapperUnitTest {
                                         "YEAR"))
                         .value();
         var mapped =
-                mapper.map(27, observation("WT", "80", "kg"), List.of(precision), List.of(), false);
+                mapper.map(27, observation("WT", "80", "kg"), List.of(precision), List.of());
         assertThat(mapped.element()).isNull();
         assertThat(mapped.values()).isEmpty();
         assertThat(mapped.metadata()).contains("date_precision", "YEAR");

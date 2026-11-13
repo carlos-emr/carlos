@@ -330,16 +330,61 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReviewForDeletedObservations_beforeAnyArchivePayloadCanBeCaptured() {
-        deleted(patient, patient);
-        read.executeWithoutResult(
-                status -> {
-                    var reader =
-                            new CdsExportDeletedMeasurementSourceReader(
-                                    context.getBean(MeasurementsDeletedDao.class));
-                    assertThatThrownBy(() -> reader.count(patient))
-                            .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-                });
+    void shouldCaptureDeletedObservations_andTheExtensionsTheirDeletionLeftBehind() {
+        // Before: the deleted row required a NewCategory carrier and its extensions, which
+        // EctDeleteData2Action leaves keyed by the original id, were never captured at all.
+        int original = patient + 36;
+        deleted(patient, original);
+        sql.update(
+                "insert into measurementsExt(id,measurement_id,keyval,val) values(?,?,'OwnedCareField','kg')",
+                original,
+                original);
+        try {
+            read.executeWithoutResult(
+                    status -> {
+                        var reader =
+                                new CdsExportDeletedMeasurementSourceReader(
+                                        context.getBean(MeasurementsDeletedDao.class));
+                        assertThat(reader.count(patient)).isEqualTo(1);
+                        assertThat(extensions.countCdsExportRows(patient)).isEqualTo(36);
+                        var rows = extensions.findCdsExportRowsAfter(patient, (long) patient + 34, 32);
+                        assertThat(rows).extracting(CdsExportRawRowDto::id).containsExactly((long) original);
+                        assertThat(
+                                        new String(
+                                                extensions.readCdsExportValueChunk(
+                                                        patient, original, "val", 0, 2),
+                                                StandardCharsets.UTF_8))
+                                .isEqualTo("kg");
+                        assertThat(extensions.countCdsExportRows(patient + 1)).isEqualTo(1);
+                    });
+        } finally {
+            sql.update(
+                    "delete from measurementsExt where id=? and measurement_id=? and keyval='OwnedCareField'",
+                    original,
+                    original);
+        }
+    }
+
+    @Test
+    void shouldRefuseADeletedIdentityThatAnotherChartAlsoDeleted_beforeReadingExtensions() {
+        int original = patient + 36;
+        deleted(patient, original);
+        sql.update(
+                "insert into measurementsDeleted(id,originalId,demographicNo,providerNo,type,dataField,measuringInstruction,dateObserved,dateEntered,dateDeleted) values(?,?,?,'',?,'1','in kg','2020-02-29',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                patient + 1,
+                original,
+                patient + 1,
+                marker);
+        try {
+            assertThatThrownBy(
+                            () ->
+                                    read.execute(
+                                            status -> extensions.countCdsExportRows(patient)))
+                    .hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
+        } finally {
+            sql.update(
+                    "delete from measurementsDeleted where id=? and type=?", patient + 1, marker);
+        }
     }
 
     @Test

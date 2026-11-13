@@ -99,36 +99,31 @@ def care_equal(record, patient: int) -> bool:
             return False
     supporting = [entry for entry in record.findall("c:NewCategory", NS)
                   if entry.find("c:CategoryName", NS).text == "CARLOS.NativeObservation.v1"]
-    if len(supporting) != 5:
+    # The fixture's deleted weight is a deleted version: accounted, never exported.
+    if len(supporting) != 4:
         return False
-    active, deleted = {}, []
+    active = {}
     for entry in supporting:
         if entry.find("c:CategoryName", NS).text != "CARLOS.NativeObservation.v1":
             return False
         context = json.loads(entry.find("c:ResidualInfo/d:DataElement[d:Name='CARLOS.Observation.v1']/d:Content", NS).text)
-        if context.get("version") != 1:
+        if context.get("version") != 1 or context.get("deleted") is not False:
             return False
         main = context["rows"][0]
         fields = main["fields"]
         if fields.get("demographicNo") != str(patient):
             return False
-        if context.get("deleted"):
-            if main["table"] != "measurementsDeleted":
-                return False
-            deleted.append(fields)
-        else:
-            if main["table"] != "measurements" or fields["type"] in active:
-                return False
-            active[fields["type"]] = fields
-    if set(active) != {"WT", "HT", "BP", "TEMP"} or len(deleted) != 1:
+        if main["table"] != "measurements" or fields["type"] in active:
+            return False
+        active[fields["type"]] = fields
+    if set(active) != {"WT", "HT", "BP", "TEMP"}:
         return False
     for code, value, unit in (("WT", "70.000", "kg"), ("HT", "175", "cm"), ("BP", "120/80", "mmHg"), ("TEMP", "37.1", "C")):
         if any(active[code].get(k) != v for k, v in {
             "dataField": value, "measuringInstruction": unit, "dateObserved": "2026-07-09 14:35:00",
             "dateEntered": "2026-07-10 12:30:00", "comments": "Native measurement comment café 😀"}.items()):
             return False
-    return all(deleted[0].get(k) == v for k, v in {"dataField": "80", "type": "WT", "dateDeleted": "2026-07-10 14:00:00",
-        "comments": "Deleted native measurement comment café 😀"}.items())
+    return "Deleted native measurement comment" not in XML.tostring(record, encoding="unicode")
 
 
 def laboratory_expected() -> list[dict[str, str]]:
@@ -361,7 +356,7 @@ def _clinically_equal(root, patient: int) -> bool:
         return False
     record = root.find("./c:PatientRecord", NS)
     categories = ["Demographics", "PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList",
-                  "RiskFactors"] + ["MedicationsAndTreatments"] * 3 + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 8
+                  "RiskFactors"] + ["MedicationsAndTreatments"] * 3 + ["LaboratoryResults"] * 4 + ["ClinicalNotes", "Reports"] + ["CareElements"] * 3 + ["AlertsAndSpecialNeeds"] + ["NewCategory"] * 7
     if [item.tag for item in record] != ["{cds}" + name for name in categories]:
         return False
     return medication_equal(record, patient) and history_equal(record) and report_equal(record) and laboratory_equal(record) and care_equal(record, patient) and all(len(root.findall(BASE + path, NS)) == 1 and root.find(BASE + path, NS).text == value

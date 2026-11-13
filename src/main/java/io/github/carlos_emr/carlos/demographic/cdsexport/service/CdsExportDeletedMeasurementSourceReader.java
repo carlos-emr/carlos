@@ -27,50 +27,22 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Complete deleted-observation projection, with an explicit request-bound supporting carrier gate. */
+/**
+ * Complete deleted-observation projection. A deleted or superseded measurement version is
+ * captured so every field can be accounted, but it is never exported (see
+ * CdsExportNativeCareMapper.retired), so it needs no supporting NewCategory carrier.
+ */
 @Service
 public class CdsExportDeletedMeasurementSourceReader extends CdsExportPatientTableSourceReader {
-    private final MeasurementsDeletedDao source;
-    private final boolean supporting;
-
-    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportDeletedMeasurementSourceReader(MeasurementsDeletedDao source) {
-        this(source, false);
-    }
-
-    private CdsExportDeletedMeasurementSourceReader(
-            MeasurementsDeletedDao source, boolean supporting) {
         super(
                 source,
                 CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_DELETED,
                 Set.of(CdsCategory.CARE_ELEMENTS));
-        this.source = java.util.Objects.requireNonNull(source);
-        this.supporting = supporting;
-    }
-
-    @Override
-    public CdsExportNativeSourceReader forRequest(
-            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
-        return new CdsExportDeletedMeasurementSourceReader(
-                source,
-                java.util.Objects.requireNonNull(command)
-                        .categories()
-                        .contains(CdsCategory.NEW_CATEGORY));
     }
 
     @Override
     public Set<String> requiredTables() {
         return Set.of("measurements", "measurementsExt", "measurementsDeleted", "measurementType");
-    }
-
-    @Override
-    public long count(int patient) {
-        long count = super.count(patient);
-        if (count != 0 && !supporting)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
-                    .CdsExportReviewException(
-                    io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.UNMAPPED_DATA);
-        return count;
     }
 }

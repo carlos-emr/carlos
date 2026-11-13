@@ -220,14 +220,16 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                     for (var nativeSource :
                             care.nativeSources(
                                     lease, patient, tables, source, index, bounds, control)) {
+                        // Deleted and superseded versions are accounted by the CareElements
+                        // assembly and never exported (CdsExportNativeCareMapper.retired).
+                        if (nativeSource.deleted()) continue;
                         var mapped =
                                 new CdsExportNativeCareMapper()
                                         .map(
                                                 patient.patient(),
                                                 nativeSource.observation(),
                                                 nativeSource.extensions(),
-                                                nativeSource.definitions(),
-                                                nativeSource.table().equals("measurementsDeleted"));
+                                                nativeSource.definitions());
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
                                         mapped.rows(),

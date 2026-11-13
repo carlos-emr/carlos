@@ -39,6 +39,15 @@ final class CdsExportNativeCarePlanner {
             definitions = List.copyOf(definitions);
         }
 
+        /**
+         * A measurementsDeleted row: a clinician's deletion or an HL7 version superseded by a
+         * newer one. It is accounted field by field and never exported (see
+         * CdsExportNativeCareMapper.retired).
+         */
+        boolean deleted() {
+            return table.equals("measurementsDeleted");
+        }
+
         @Override
         public String toString() {
             return "CdsExportNativeCarePlanner.Occurrence[protected]";
@@ -62,13 +71,18 @@ final class CdsExportNativeCarePlanner {
                     && (!row.table().equals("measurements")
                             || imported.contains(row.fields().get("id")))) continue;
             String id = row.fields().get("id");
+            // Deletion leaves the extensions keyed by the removed observation's original id.
+            String owner = deleted ? row.fields().get("originalId") : id;
             var extensions = new ArrayList<CdsExportCapturedTextRowDto>();
             var definitions = new ArrayList<CdsExportCapturedTextRowDto>();
             for (var other : current.values()) {
+                if (other.table().equals("measurementsExt")
+                        && owner != null
+                        && owner.equals(other.fields().get("measurement_id"))) extensions.add(other);
+                // The vocabulary is captured for current observations and accounted by them; a
+                // deleted version is never exported, so it borrows no dictionary row.
                 if (!deleted
-                        && other.table().equals("measurementsExt")
-                        && id.equals(other.fields().get("measurement_id"))) extensions.add(other);
-                if (other.table().equals("measurementType")
+                        && other.table().equals("measurementType")
                         && Objects.equals(row.fields().get("type"), other.fields().get("type"))
                         && Objects.equals(
                                 row.fields().get("measuringInstruction"),
