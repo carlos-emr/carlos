@@ -232,7 +232,7 @@
 
 
     Appointment appt = null;
-    String demono = "", chartno = "", phone = "", rosterstatus = "", patientStatus = "", alert = "", doctorNo = "";
+    String demono = "", chartno = "", phone = "", rosterstatus = "", rosterstatusDisplay = "", patientStatus = "", alert = "", doctorNo = "";
     String strApptDate = bFirstDisp ? "" : request.getParameter("appointment_date");
 
     if (bFirstDisp) {
@@ -266,6 +266,7 @@
             chartno = d.getChartNo();
             phone = d.getPhone();
             rosterstatus = d.getRosterStatus();
+            rosterstatusDisplay = d.getRosterStatusDisplay(io.github.carlos_emr.carlos.utility.LocaleUtils.resolveBundleLocale(request));
             patientStatus = StringUtils.defaultString(d.getPatientStatus());
         }
 
@@ -953,14 +954,18 @@
     <%
         String editRosterStatus = StringUtils.defaultString(rosterstatus);
         boolean editDisplayRoster = !editRosterStatus.isEmpty() && !editRosterStatus.equalsIgnoreCase("RO");
+        String editRosterStatusDisplay = StringUtils.equalsIgnoreCase("NR", StringUtils.trimToEmpty(editRosterStatus))
+                ? rosterstatusDisplay : editRosterStatus;
         String editPatientStatus = (patientStatus == null || patientStatus.isEmpty() || patientStatus.equalsIgnoreCase("AC")) ? "" : patientStatus;
         boolean editShowStatus = editDisplayRoster || !editPatientStatus.isEmpty();
     %>
     <fmt:message key="Appointment.msgRosterStatus" var="rosterStatusLabel"/>
+    <fmt:message key="demographic.enrollementhistory.notrostered" var="rosterNotRosteredLabel"/>
     <div id="patientStatusBanner" class="alert alert-info alert-dismissible"
          data-roster-label="${carlos:forHtmlAttribute(rosterStatusLabel)}"
+         data-roster-not-rostered="${carlos:forHtmlAttribute(rosterNotRosteredLabel)}"
          style="<%= editShowStatus ? "" : "display:none" %>" role="alert">
-        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatus : "")) : ""%></span>
+        <span id="patientStatusText"><%=editShowStatus ? SafeEncode.forHtmlContent((editPatientStatus.isEmpty() ? "" : editPatientStatus + "\u00a0") + (editDisplayRoster ? editRosterStatusDisplay : "")) : ""%></span>
         <button type="button" class="btn-close" onclick="this.closest('.alert').style.display='none'" aria-label="Close"></button>
     </div>
     <%-- patientAlertBanner is always rendered so JavaScript can show/hide it when patient changes via autocomplete --%>
@@ -1585,7 +1590,7 @@
             <tr>
                 <td style="padding-left:10px;"><label><fmt:message key="Appointment.msgTelephone"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(phone) %>' context="html"/>
                     <br>
-                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(rosterstatus) %>' context="html"/>
+                    <label><fmt:message key="Appointment.msgRosterStatus"/>:</label> <carlos:encode value='<%= StringUtils.trimToEmpty(StringUtils.equalsIgnoreCase("NR", StringUtils.trimToEmpty(rosterstatus)) ? rosterstatusDisplay : rosterstatus) %>' context="html"/>
                 </td>
             </tr>
         </table>
