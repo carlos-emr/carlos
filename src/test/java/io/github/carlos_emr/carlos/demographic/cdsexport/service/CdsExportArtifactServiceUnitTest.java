@@ -208,6 +208,33 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
+    void shouldGiveCohortReverificationItsOwnTime_beyondTheTransferDeadline() throws Exception {
+        // Each cohort pass takes 600 ms and the transfer budget is one second; the three
+        // passes alone (open, after the last byte, completion) take 1.8 s. Review EC-3.
+        when(scopes.verifyRetained(any(), anyLong(), any(), any(), any(), anyLong(), any()))
+                .thenAnswer(
+                        call -> {
+                            Thread.sleep(600);
+                            return verified;
+                        });
+        var settings = new Properties();
+        settings.setProperty("cds.export.downloadTimeoutSeconds", "1");
+        service = new CdsExportArtifactService(ledger, stores, scopes, disclosure, access, settings);
+        try (var download = service.open(actor, lease.runId(), "package")) {
+            assertThat(download.scopeDue(System.nanoTime())).isFalse();
+            assertThat(download.scopeDue(System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(31)))
+                    .isTrue();
+            var output = new ByteArrayOutputStream();
+            download.writeTo(output);
+            download.complete();
+            assertThat(output.toByteArray()).isEqualTo(expected);
+        }
+        verify(ledger).finishDownload(lease, true);
+        verify(scopes, times(3))
+                .verifyRetained(any(), anyLong(), any(), any(), any(), anyLong(), any());
+    }
+
+    @Test
     void shouldRejectAnUnboundedDownloadBudget_beforeTakingAnArtifactLease() {
         var settings = new Properties();
         settings.setProperty("cds.export.downloadTimeoutSeconds", "86401");

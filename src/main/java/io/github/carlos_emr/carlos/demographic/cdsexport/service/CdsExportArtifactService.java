@@ -128,6 +128,8 @@ public class CdsExportArtifactService {
         private final long started = System.nanoTime();
         private final long timeoutNanos;
         private long lastProbe = started - 1_000_000_000L, lastScope;
+        /** Duration of the latest complete cohort re-verification, and the allowance it earns. */
+        private long lastScopeNanos, verificationAllowanceNanos;
         private final AtomicReference<RuntimeException> heartbeatFailure = new AtomicReference<>();
         private final ScheduledExecutorService heartbeat;
         private CdsExportStagingService store;
@@ -230,6 +232,17 @@ public class CdsExportArtifactService {
                             lease.document().storage(),
                             control::checkpoint);
             fullScope();
+            // The cohort is re-verified at least three more times (during streaming, after the
+            // last byte and at completion), and a large roster's pass can take minutes. The
+            // configured deadline is for the transfer itself, so each download also earns three
+            // times its measured first pass, never beyond the 24 h configuration ceiling
+            // (review EC-3). Liveness is still proven every 20 s by the lease heartbeat.
+            verificationAllowanceNanos =
+                    Math.min(
+                            lastScopeNanos > Long.MAX_VALUE / 3
+                                    ? Long.MAX_VALUE
+                                    : 3 * lastScopeNanos,
+                            Math.max(0, TimeUnit.SECONDS.toNanos(86_400) - timeoutNanos));
         }
 
         public long bytes() {
@@ -242,7 +255,7 @@ public class CdsExportArtifactService {
 
         private void local() {
             if (Thread.currentThread().isInterrupted()
-                    || System.nanoTime() - started > timeoutNanos)
+                    || System.nanoTime() - started > timeoutNanos + verificationAllowanceNanos)
                 throw new CancellationException("CDS_EXPORT_DOWNLOAD_STOPPED");
             var failed = heartbeatFailure.get();
             if (failed != null) throw failed;
@@ -264,6 +277,7 @@ public class CdsExportArtifactService {
 
         private void fullScope() throws IOException {
             probe();
+            long began = System.nanoTime();
             var c = lease.context();
             var verified =
                     scopes.verifyRetained(
@@ -281,6 +295,15 @@ public class CdsExportArtifactService {
                     || !c.authorization().plaintextSha256().equals(verified.authorizationSha256()))
                 throw new IOException("CDS_EXPORT_DOWNLOAD_SCOPE_INVALID");
             lastScope = System.nanoTime();
+            lastScopeNanos = Math.max(0, lastScope - began);
+        }
+
+        /**
+         * While streaming, the cohort is re-verified every 30 s, but never sooner after the last
+         * pass than that pass took, so re-verification uses at most half of the streaming time.
+         */
+        boolean scopeDue(long now) {
+            return now - lastScope >= Math.max(TimeUnit.SECONDS.toNanos(30), lastScopeNanos);
         }
 
         public void writeTo(OutputStream output) throws IOException {
@@ -293,8 +316,7 @@ public class CdsExportArtifactService {
                 try {
                     for (int n; (n = input.read(buffer)) != -1; ) {
                         probe();
-                        if (System.nanoTime() - lastScope >= TimeUnit.SECONDS.toNanos(30))
-                            fullScope();
+                        if (scopeDue(System.nanoTime())) fullScope();
                         count = Math.addExact(count, n);
                         if (count > bytes())
                             throw new IOException("CDS_EXPORT_DOWNLOAD_LENGTH_CHANGED");

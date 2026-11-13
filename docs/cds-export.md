@@ -179,7 +179,13 @@ patient's output is accepted.
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
-and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture
+and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). A download re-verifies
+the whole cohort's current authorization when it opens, during streaming, after the last
+byte and at completion. The download timeout is for the transfer itself: each download also
+earns three times its measured opening pass (never past 24 hours in total), and while
+streaming a new pass starts no sooner than 30 seconds, or the previous pass's own duration,
+after the last one, so a large roster's re-verification cannot consume the transfer time.
+Patient capture
 holds the legacy Rourke table's READ lock for at most the capture timeout plus
 30 seconds; its independent deadline defaults to 150 seconds. Raising the capture
 timeout can therefore block writes to that legacy form for longer, up to 7,230
