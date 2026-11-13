@@ -1103,6 +1103,53 @@ class CdsClinicalPersisterUnitTest {
         }
 
         @Test
+        void shouldVerifyABaseReleaseReceiptWithoutAWitness_withoutTheInstallationKey()
+                throws Exception {
+            // Resume after upgrade: units committed by release/2026.08 before this change carry
+            // a protocol-2 receipt and native_baseline NULL. They must stay verifiable on an
+            // upgraded installation, and verification must not need the baseline key.
+            var column =
+                    new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                            .Column("demographic_no", "INT", 10, 0);
+            var hasher =
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest.hasher(
+                            java.util.List.of(column));
+            hasher.append(false, 1, "a".repeat(64));
+            String row = hasher.finish();
+            String references =
+                    "{\"protocol\":2,\"refs\":[{\"table\":\"demographic\",\"id\":\"1\","
+                            + "\"digest\":\""
+                            + row
+                            + "\"}]}";
+            String digest =
+                    java.util.HexFormat.of()
+                            .formatHex(
+                                    java.security.MessageDigest.getInstance("SHA-256")
+                                            .digest(
+                                                    references.getBytes(
+                                                            java.nio.charset.StandardCharsets
+                                                                    .UTF_8)));
+            var entity = mock(jakarta.persistence.EntityManager.class);
+            var session = mock(org.hibernate.Session.class);
+            when(entity.unwrap(org.hibernate.Session.class)).thenReturn(session);
+            when(session.doReturningWork(any()))
+                    .thenAnswer(
+                            call ->
+                                    ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0))
+                                            .execute(connection));
+            var service =
+                    new CdsTargetReceiptService(
+                            io.github.carlos_emr.carlos.demographic.cds.security
+                                    .CdsNativeBaselineTestKeys.none());
+            ReflectionTestUtils.setField(service, "entityManager", entity);
+            var baseRelease =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(
+                            references, digest, false);
+            assertThat(baseRelease.nativeBaseline()).isNull();
+            assertThat(service.verify(baseRelease)).isTrue();
+        }
+
+        @Test
         void shouldPropagateMetadataTimeout_withoutStartingTheNativeRowQuery() throws Exception {
             var failure = new SQLTimeoutException("synthetic metadata lock deadline");
             doThrow(failure).when(metadataQuery).executeQuery();

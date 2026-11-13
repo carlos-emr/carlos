@@ -66,6 +66,20 @@ Corrections require the exact indexed field, original source identity, proposed 
 
 When a source or effective policy changed after an actual zero-write failure, submit the revised immutable input/options and use the explicit **Approve unwritten revision** review. Both revisions must have no clinical target, checkpoint, hold or uncertain commit, checked under the same durable locks. Old provenance and plans remain retained. Any evidence of clinical writes requires recovery of the original run; changing the source namespace or deleting ledger rows is not a supported workaround.
 
+Finish or cancel every import before upgrading CARLOS. Any change to the deployed import or
+export classes changes the ruleset fingerprint, so after an upgrade an attempt accepted by the
+earlier build is refused before any claim with `IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE`; its
+committed units, patient holds and maintenance window are left exactly as they were, and its
+report and cleanup retries still run. An attempt that had already committed units
+(`PARTIAL_COMMITTED`) cannot be resumed or replayed on the new build: its checkpoints are bound
+to the earlier ruleset (`SOURCE_REVISION_REVIEW_REQUIRED` on reuse). Keep its run ID, reports and
+holds, and reconcile the held charts against the original package with clinical review before
+releasing them; there is no automatic post-upgrade completion. An upgraded installation also
+needs the native-baseline key ([configuration](cds-import-configuration.md)) before any attempt
+is admitted (`NATIVE_BASELINE_KEY_UNAVAILABLE`). Base-release units carry no field witness;
+they stay readable (the exporter treats the absent witness as unknown evidence), and medication
+preparations sealed before #3958 decode as day durations.
+
 If an implementation update prevents an old zero-write attempt from resuming, cancel that attempt through the supported control and retain its run ID and evidence. Explicitly upload the original immutable package again under the same source namespace to create a new upload and acceptance on the current implementation, then review its **Approve unwritten revision** conflict. An upload already bound to an actual run does not become a new execution identity. Historical verification preserves the old acceptance, ruleset and cancellation, and checks its retained snapshot and, for web sources, the complete original chunk receipts. The source receipt digest and snapshot digest remain separate evidence. Cancellation alone does not prove that maintenance reopened: keep the retained window closed until a subsequent successful owner proves completion, zero holds and a verified maintenance release.
 
 Report or cleanup failure can be retried independently without repeating clinical writes. `cleanup COMPLETE` means the bounded ownership/reconciliation checks succeeded; accepted source, parse evidence, corrections and prior reports remain intentionally retained. Automatic housekeeping removes only proven unaccepted/owned temporary artifacts. Unknown ownership and uncertain acceptance are retained with an administrative alert. Do not use filesystem globs to purge accepted or shared run files.
