@@ -680,12 +680,16 @@ What an appointment exports, and what stays in CARLOS:
 | `program_id`, `imported_status` | Unchanged review rules (program affiliation; retained status reconciliation). |
 | storage audit and identity columns | Operational. |
 
-The separate owning archive DAO now captures every version, including repeated booking
-IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
-Current appointment projection requires that independent archive capture and refuses any
-nonempty history until its representation is qualified; historical versions are not
-counted as new bookings. Retained-field reconciliation also remains necessary before
-complete appointment coverage can be claimed.
+The separate owning archive DAO captures every `appointmentArchive` version, including repeated
+booking IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
+CARLOS copies an appointment into the archive before every edit, status change, billing and
+deletion, so ordinary charts have archive rows. Under maintainer decision 17 the edit history is
+superseded: each archive row is read and every field receives an explicit operational
+disposition, `SUPERSEDED_APPOINTMENT_VERSION` when the current appointment with the same number
+is captured, otherwise `DELETED_OR_MOVED_APPOINTMENT_VERSION`. Archive rows are never exported,
+never counted as bookings and never hold the patient. A deleted appointment is therefore not
+exported, as the day sheet and the default appointment history do not show it. A deleted or
+aliased imported appointment still requires retained-import review.
 
 `CdsNativeRowDigest` shares the importer's existing protocol-2 calculation without changing
 its receipt envelope or digest bytes. A frozen independent Python vector and actual-driver
@@ -1054,10 +1058,10 @@ Current edits and clears take effect; unchanged recorded provider and full sourc
 values require separately verified source-field pages. Post-option dates are not shifted again.
 Native patient-display names require an exact captured same-patient join. Storage audit fields
 receive explicit assessments. Unknown clinical extras, program affiliations, source-only
-calendar records, aliases, deletions, merged patients and unrepresented appointment history
-remain review gates. A reason-list label chosen in CARLOS for an imported appointment whose
-purpose was not edited requires review, because the preserved imported purpose cannot carry the
-label the schedule shows. All original field IDs are accounted for and the last callback cannot
+calendar records, aliases, deletions of imported appointments and merged patients remain review
+gates; native archive versions are superseded history (decision 17, above). A reason-list label
+chosen in CARLOS for an imported appointment whose purpose was not edited requires review,
+because the preserved imported purpose cannot carry the label the schedule shows. All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.

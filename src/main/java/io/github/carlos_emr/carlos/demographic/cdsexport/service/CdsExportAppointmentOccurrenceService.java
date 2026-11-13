@@ -37,7 +37,9 @@ import org.springframework.stereotype.Service;
 /**
  * Exact native/retained appointment assembly under one frozen generation. The clinical zone
  * and rules version come from that capture; no default JVM zone or mutable setting is read.
- * Archive/history and other unrepresented native facts remain explicit review gates.
+ * Archive rows are superseded or deleted versions ({@link CdsExportAppointmentVersions}): every
+ * field is assessed, none is exported and none holds the patient. Other unrepresented native
+ * facts remain explicit review gates.
  */
 @Service
 public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
@@ -164,9 +166,8 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         if (!zone.sourceManifestSha256().equals(source.manifest().plaintextSha256())) scope();
         var clinicalZone = zone.zone();
-        // The preceding full-source scan authenticates all fields and final authority before even
-        // an adverse history result.
-        if (source.capture().tables().get("appointmentArchive").rows() != 0) review();
+        // Decision 17: appointment edit history is superseded. Archive rows no longer hold the
+        // patient here; each one is read and assessed below, after the current rows.
         long[] counts = new long[4];
         values.withValues(
                 lease,
@@ -388,6 +389,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                     if (!receiptScan.sourceManifestSha256().equals(index.sourceManifestSha256())
                             || exact.size() != source.capture().tables().get("appointment").rows())
                         scope();
+                    var currentNumbers = Set.copyOf(exact.keySet());
                     var used = new HashSet<String>();
                     var seen = new HashSet<String>();
                     var actual =
@@ -520,6 +522,36 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                             || !exact.isEmpty()
                             || counts[0] != actual.tables().get("appointment").rows()) scope();
                     if (!imported.isEmpty()) review();
+                    long[] versions = {0};
+                    var archived =
+                            rows.forEach(
+                                    lease,
+                                    patient,
+                                    tables,
+                                    "appointmentArchive",
+                                    source.manifest(),
+                                    bounds.fields(),
+                                    bounds.bytes(),
+                                    1_048_576,
+                                    control,
+                                    row -> {
+                                        streams.requireActive();
+                                        patient.require(lease);
+                                        control.checkpoint();
+                                        new CdsExportNativeFieldAssessmentValidator()
+                                                .requireRepresentable(
+                                                        List.of(row),
+                                                        CdsExportAppointmentVersions.dispositions(
+                                                                patient.patient(),
+                                                                row,
+                                                                currentNumbers),
+                                                        1_000_000,
+                                                        control::checkpoint);
+                                        versions[0]++;
+                                    });
+                    if (!archived.equals(source.capture())
+                            || versions[0] != archived.tables().get("appointmentArchive").rows())
+                        scope();
                     var expected = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category && !expected.add(field.id())) scope();

@@ -124,19 +124,29 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         refused(missing);
     }
 
+    // Decision 17 replaced the old "any archive row needs review" gate: CARLOS archives an
+    // appointment on every status change, billing and edit, so archive rows are now read and
+    // assessed as superseded versions. An archive count the delivered rows do not match is still
+    // refused, and the merged-patient scan still runs before any value is read.
     @Test
-    void shouldVerifyArchiveHistoryNeedsReview_afterSourceAuthenticationInsteadOfBeingDropped()
+    void shouldRefuseAnArchiveCountTheDeliveredVersionsDoNotMatch_afterSourceAuthentication()
             throws Exception {
         var f = fixture(false);
-        f.scopes.put("appointmentArchive", new CdsExportCapturedTableDto(Set.of("id"), 1, HASH));
-        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        verifyNoInteractions(f.values);
+        f.scopes.put(
+                "appointmentArchive",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(
+                                CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE
+                                        .columns()),
+                        1,
+                        HASH));
+        refused(f);
         f.mergeEofFailure = true;
         assertThatThrownBy(() -> compose(f, false)).hasMessage("MERGE_SOURCE_EOF");
     }
 
     @Test
-    void shouldExportAUiBookedAppointment_withItsScheduleReasonLabelAndBookingContext()
+    void shouldExportAUiBookedAppointment_afterAStatusChangeArchivedItsBookedVersion()
             throws Exception {
         var f = uiBooked();
         var records = parse(compose(f, false));
@@ -155,7 +165,8 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         field ->
                                 field.outcome()
                                         == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
-        // 26 appointment, 6 public provider, 9 status definition and 8 reason-list item fields.
+        // 26 appointment, 6 public provider, 9 status definition and 8 reason-list item fields;
+        // the superseded archive version is assessed but is not an occurrence of its own.
         assertThat(fields).hasSize(49);
         assertThat(
                         fields.get(
@@ -163,6 +174,51 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                                                 2, "label"))
                                 .outcome())
                 .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+    }
+
+    @Test
+    void shouldNotExportOrHoldADeletedAppointment_whoseLastVersionIsOnlyInTheArchive()
+            throws Exception {
+        var f = uiBooked();
+        var deleted = new TreeMap<>(uiBooking());
+        deleted.put("appointment_date", "2026-10-05");
+        f.archives = List.of(f.archives.getFirst(), archive(8, "52", deleted));
+        f.scopes.put(
+                "appointmentArchive",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(
+                                CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE
+                                        .columns()),
+                        2,
+                        HASH));
+        var records = parse(compose(f, false));
+        assertThat(records).hasSize(2);
+        assertThat(new CdsFieldParser().firstText(records.get(1), "AppointmentDate/FullDate", 10))
+                .isEqualTo("2026-11-02");
+        assertThat(f.receipts).hasSize(1);
+        assertThat(
+                        CdsExportAppointmentVersions.dispositions(
+                                        27, f.archives.get(1), Set.of("51"))
+                                .values())
+                .allMatch(
+                        field ->
+                                field.rule().equals(CdsExportAppointmentVersions.REMOVED)
+                                        && field.outcome()
+                                                == CdsExportFieldAssessmentDto.Outcome
+                                                        .OPERATIONAL);
+    }
+
+    @Test
+    void shouldRefuseAnArchiveVersionOfAnotherPatient_insteadOfDiscardingIt() throws Exception {
+        var f = uiBooked();
+        var foreign = new TreeMap<>(f.archives.getFirst().fields());
+        foreign.put("demographic_no", "28");
+        f.archives =
+                List.of(
+                        new CdsExportCapturedTextRowDto(
+                                "appointmentArchive", f.archives.getFirst().recordKey(), foreign));
+        assertThatThrownBy(() -> compose(f, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_VERSION_SCOPE_INVALID");
     }
 
     @Test
@@ -308,6 +364,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         List<CdsExportCapturedTextRowDto> parents, auxiliary;
         List<CdsExportNativeRowReceiptDto> receiptRows;
         List<CdsExportRetainedFieldDto> fields;
+        List<CdsExportCapturedTextRowDto> archives = List.of();
         boolean changedGeneration,
                 mergeEofFailure,
                 parentEofFailure,
@@ -320,7 +377,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
     /**
      * The values {@code AppointmentAddRecord2Action} stores for a booking made in the add form,
      * after {@code AppointmentUpdateRecord2Action} marked the patient here (status "Q1" stands
-     * for that captured status definition; the archive row that edit wrote is left out here). The add and edit forms post neither style nor
+     * for that captured status definition). The add and edit forms post neither style nor
      * billing (both stored NULL); a recurring booking or an older row carries values, so this
      * booking has both to prove they no longer hold the chart.
      */
@@ -350,6 +407,23 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         return values;
     }
 
+    /** The version the edit archived: the same booking before the patient was marked here. */
+    private static CdsExportCapturedTextRowDto archive(
+            int id, String appointment, Map<String, String> booking) {
+        var values = new TreeMap<String, String>();
+        CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE
+                .columns()
+                .forEach(column -> values.put(column, booking.get(column)));
+        values.put("id", Integer.toString(id));
+        values.put("appointment_no", appointment);
+        values.put("demographic_no", "27");
+        values.put("status", "t");
+        values.put("lastupdateuser", "999998");
+        values.put("updatedatetime", null);
+        return new CdsExportCapturedTextRowDto(
+                "appointmentArchive", CdsExportPatientTableSourceReader.key(id), values);
+    }
+
     private Fixture uiBooked() throws Exception {
         return uiBooked(uiBooking());
     }
@@ -364,6 +438,15 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
         f.auxiliary.add(item);
         f.scopes.put(
                 "LookupListItem", new CdsExportCapturedTableDto(item.fields().keySet(), 1, HASH));
+        f.archives = List.of(archive(7, "51", booking));
+        f.scopes.put(
+                "appointmentArchive",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(
+                                CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE
+                                        .columns()),
+                        1,
+                        HASH));
         return f;
     }
 
@@ -561,6 +644,10 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                             boolean merge = "demographic_merged".equals(call.getArgument(3));
                             if (merge) {
                                 if (f.mergeEofFailure) throw new IOException("MERGE_SOURCE_EOF");
+                            } else if ("appointmentArchive".equals(call.getArgument(3))) {
+                                for (var row : f.archives)
+                                    ((CdsExportCapturedTextRowsReader.Rows) call.getArgument(9))
+                                            .accept(row);
                             } else {
                                 for (var row : f.parents)
                                     ((CdsExportCapturedTextRowsReader.Rows) call.getArgument(9))

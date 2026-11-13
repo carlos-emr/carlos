@@ -38,8 +38,9 @@ import org.springframework.stereotype.Service;
  * Bounded reference join over authenticated captured values. No provider entity, status
  * cache, reason-list cache, live clinical table or guessed reference is used. Callers keep every
  * derived mapping/output private until this entire call completes and retained-source
- * reconciliation, historical archive qualification and independent clinical coverage also
- * succeed.
+ * reconciliation and independent clinical coverage also succeed. Archive rows are superseded or
+ * deleted versions, not bookings ({@link CdsExportAppointmentVersions}); this projection of
+ * current bookings does not read them.
  */
 @Service
 public class CdsExportAppointmentProjectionService {
@@ -187,10 +188,6 @@ public class CdsExportAppointmentProjectionService {
         if (counts[2] != first.tables().get("provider").rows()
                 || counts[3] != first.tables().get("appointment_status").rows()
                 || counts[7] != first.tables().get("LookupListItem").rows()) scope();
-        // Archive rows are versions/deletion history, not additional current appointments.
-        // Until their historical representation is qualified, none can silently disappear.
-        if (first.tables().get("appointmentArchive").rows() != 0)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_HISTORY_REQUIRES_REVIEW");
         // No demographic snapshot is joined here, so a populated patient display stays review.
         var lookups =
                 new CdsExportAppointmentLookupsDto(

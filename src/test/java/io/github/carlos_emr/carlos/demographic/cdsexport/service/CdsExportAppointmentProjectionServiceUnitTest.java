@@ -102,20 +102,20 @@ class CdsExportAppointmentProjectionServiceUnitTest {
         assertThat(output).hasSize(1);
     }
 
+    // Decision 17: archive rows are superseded or deleted versions that the occurrence service
+    // assesses; they no longer stop the projection of current bookings, and are not bookings.
     @Test
-    void shouldRequireExplicitHistoryRepresentation_beforeEmittingCurrentBookings()
-            throws Exception {
+    void shouldProjectCurrentBookingsOnly_whenArchivedVersionsExist() throws Exception {
         var output = new ArrayList<CdsExportAppointmentMappingDto>();
+        var fields = CdsExportAppointmentMapperUnitTest.baseline();
+        fields.put("reasonCode", "2");
         var reader =
-                fixture(
-                        false,
-                        false,
-                        CdsExportAppointmentMapperUnitTest.appointment(
-                                CdsExportAppointmentMapperUnitTest.baseline()),
-                        true);
-        assertThatThrownBy(() -> project(reader, 10, 1L << 20, output))
-                .hasMessage("CDS_EXPORT_APPOINTMENT_HISTORY_REQUIRES_REVIEW");
-        assertThat(output).isEmpty();
+                fixture(false, false, CdsExportAppointmentMapperUnitTest.appointment(fields), true);
+        var result = project(reader, 10, 1L << 20, output);
+        assertThat(result.rows()).isEqualTo(1);
+        assertThat(result.blockedRows()).isZero();
+        assertThat(output).hasSize(1);
+        assertThat(output.getFirst().value().purpose()).isEqualTo("Follow-Up Exact purpose");
     }
 
     @Test
