@@ -494,4 +494,39 @@ class CdsExportClinicalPackageServiceUnitTest {
                                         "CDS_EXPORT_NATIVE_REPORT_FILE_MISSING")))
                 .isEqualTo("CDS_EXPORT_NATIVE_REPORT_FILE_MISSING");
     }
+
+    @Test
+    void shouldAuthorizeAPatientsNotes_inAscendingBatchesOfAtMostTheBatchLimit() {
+        var control =
+                mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class);
+        var notes = new ArrayList<CdsExportNoteAccessDto>();
+        for (long id = CdsExportClinicalPackageService.NOTE_BATCH + 5; id >= 1; id--)
+            notes.add(new CdsExportNoteAccessDto(id, 27, "17", "1"));
+
+        CdsExportClinicalPackageService.authorizeNotes(notes, control);
+
+        @SuppressWarnings("unchecked")
+        var batches = org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(control, times(2))
+                .authorizeNotes(eq(CdsCategory.CLINICAL_NOTES), batches.capture());
+        verify(control, never()).authorizeNote(any(), any());
+        List<List<CdsExportNoteAccessDto>> captured = new ArrayList<>();
+        for (var batch : batches.getAllValues()) captured.add((List<CdsExportNoteAccessDto>) batch);
+        assertThat(captured.get(0)).hasSize(CdsExportClinicalPackageService.NOTE_BATCH);
+        assertThat(captured.get(1)).hasSize(5);
+        long previous = 0;
+        for (var batch : captured)
+            for (var note : batch) {
+                assertThat(note.noteId()).isGreaterThan(previous);
+                previous = note.noteId();
+            }
+    }
+
+    @Test
+    void shouldAuthorizeNothing_forAPatientWithoutNotes() {
+        var control =
+                mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class);
+        CdsExportClinicalPackageService.authorizeNotes(List.of(), control);
+        verifyNoInteractions(control);
+    }
 }

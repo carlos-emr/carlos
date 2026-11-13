@@ -792,10 +792,7 @@ public class CdsExportClinicalPackageService {
                     continue;
                 }
                 captures.authorizeSources(lease, patient, tables, control);
-                for (var scope : file.notes()) {
-                    control.checkpoint();
-                    control.authorizeNote(CdsCategory.CLINICAL_NOTES, scope);
-                }
+                authorizeNotes(file.notes(), control);
                 if (auditPrepared) {
                     auditBatch.add(patient.patient());
                     if (auditBatch.size() == 100) {
@@ -813,6 +810,25 @@ public class CdsExportClinicalPackageService {
             }
         }
     }
+
+    /**
+     * The patient's exported notes, authorized in ascending note-id batches through one fresh
+     * authorization transaction each (review EC-3): the same live program, reporter-role and
+     * facility rules as one note at a time, without one database round trip per note.
+     */
+    static void authorizeNotes(List<CdsExportNoteAccessDto> notes, CdsExportRunControl control) {
+        var sorted = new ArrayList<>(notes);
+        sorted.sort(java.util.Comparator.comparingLong(CdsExportNoteAccessDto::noteId));
+        for (int start = 0; start < sorted.size(); start += NOTE_BATCH) {
+            control.checkpoint();
+            control.authorizeNotes(
+                    CdsCategory.CLINICAL_NOTES,
+                    List.copyOf(sorted.subList(start, Math.min(sorted.size(), start + NOTE_BATCH))));
+        }
+    }
+
+    /** The largest note batch one authorization accepts. */
+    static final int NOTE_BATCH = 8192;
 
     private record ScopeHeader(
             String kind,
