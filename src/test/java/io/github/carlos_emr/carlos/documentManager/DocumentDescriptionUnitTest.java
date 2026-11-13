@@ -5,12 +5,12 @@
 package io.github.carlos_emr.carlos.documentManager;
 
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.owasp.encoder.Encode;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -127,7 +127,7 @@ class DocumentDescriptionUnitTest {
     @Test
     void shouldStayWithinTheColumnAfterEncoding_withoutCuttingAnEntity() {
         // "&" stores as the five characters "&amp;": 51 whole entities fill 255, a 52nd would not fit.
-        String stored = DocumentDescription.fitEncoded("&".repeat(300), Encode::forHtml);
+        String stored = DocumentDescription.fitEncoded("&".repeat(300), SafeEncode::forHtml);
 
         assertThat(stored).isEqualTo("&amp;".repeat(51));
         assertThat(codePoints(stored)).isLessThanOrEqualTo(MAX);
@@ -135,9 +135,9 @@ class DocumentDescriptionUnitTest {
 
     @Test
     void shouldEncodeTheWholeText_whenItsEncodingFits() {
-        assertThat(DocumentDescription.fitEncoded("A & B", Encode::forHtml)).isEqualTo("A &amp; B");
+        assertThat(DocumentDescription.fitEncoded("A & B", SafeEncode::forHtml)).isEqualTo("A &amp; B");
         String emoji = EMOJI.repeat(300);
-        String stored = DocumentDescription.fitEncoded(emoji, Encode::forHtml);
+        String stored = DocumentDescription.fitEncoded(emoji, SafeEncode::forHtml);
         assertThat(stored).isEqualTo(EMOJI.repeat(MAX));
     }
 }

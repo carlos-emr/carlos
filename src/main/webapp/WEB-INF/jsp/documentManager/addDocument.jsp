@@ -255,7 +255,7 @@
      * server refuses a longer description too; this only saves the upload round trip.
      */
     function descriptionTooLong(field, limit) {
-        if (!field || Array.from(field.value.trim()).length <= limit) {
+        if (!field || Array.from(field.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length <= limit) {
             return false;
         }
         field.classList.add('is-invalid');

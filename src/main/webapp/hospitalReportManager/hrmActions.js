@@ -501,7 +501,14 @@ function printHrm(hrmReportId) {
     window.location = contextpath + "/hospitalReportManager/PrintHRMReport?segmentId=" + hrmReportId + "&hrmReportId=" + hrmReportId;
 }
 
+// The latest Set Description attempt per report. A reply to an older attempt is ignored, so a slow
+// "saved" for earlier text cannot replace the message about the text now in the box. (var, not
+// const: a page that includes this file twice must not fail on a redeclaration.)
+var descriptionAttempts = {};
+
 function setDescription(reportId) {
+    const attempt = (descriptionAttempts[reportId] || 0) + 1;
+    descriptionAttempts[reportId] = attempt;
     let description = jQuery("#descriptionField_" + reportId + "_hrm").val();
     // HRMDocument.description is a utf8mb4 VARCHAR(255) and the server stores the text as typed:
     // it counts code points, as Array.from does, so an emoji is one character. The page publishes
@@ -516,7 +523,9 @@ function setDescription(reportId) {
     }
     hrmModify({method: "setDescription", reportId: reportId, description: description},
         function (result) {
-            showHrmStatus("descriptionstatus" + reportId, result.message);
+            if (descriptionAttempts[reportId] === attempt) {
+                showHrmStatus("descriptionstatus" + reportId, result.message);
+            }
         });
 }
 

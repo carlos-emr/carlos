@@ -157,6 +157,34 @@ test('a description that fills the column exactly is posted whole', () => {
   assert.equal(status.textContent, 'Server refusal text', 'A server refusal is shown in the same status line');
 });
 
+test('a reply to an earlier description save never replaces the refusal of the text now in the box', () => {
+  const status = element();
+  const field = descriptionField('CT chest');
+  const {context, requests} = setup({elements: {'descriptionField_7_hrm': field, 'descriptionstatus7': status}});
+
+  context.setDescription('7');
+  field.value = '\u{1F600}'.repeat(256);
+  context.setDescription('7');
+  requests[0].success({success: true, message: 'Saved earlier text'});
+
+  assert.equal(requests.length, 1);
+  assert.equal(status.textContent, 'Localized too long');
+});
+
+test('only the reply to the latest description save is shown', () => {
+  const status = element();
+  const field = descriptionField('CT chest');
+  const {context, requests} = setup({elements: {'descriptionField_7_hrm': field, 'descriptionstatus7': status}});
+
+  context.setDescription('7');
+  field.value = 'CT chest and abdomen';
+  context.setDescription('7');
+  requests[1].success({success: true, message: 'Saved latest'});
+  requests[0].success({success: true, message: 'Saved earlier text'});
+
+  assert.equal(status.textContent, 'Saved latest');
+});
+
 test('the report page publishes the column length and the localized message on the description box', () => {
   const jsp = fs.readFileSync(path.join(__dirname,
     '../src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp'), 'utf8');

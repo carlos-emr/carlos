@@ -365,7 +365,7 @@ function validateFields() {
     }
     // Refused here, before Send and Archive archives the original, rather than cut by the database.
     var subjectBox = document.getElementById('subject');
-    if (subjectBox && Array.from(subjectBox.value.trim()).length > subjectMaxLength) {
+    if (subjectBox && Array.from(subjectBox.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > subjectMaxLength) {
         showAlert(msgSubjectTooLong, 'warning');
         subjectBox.focus();
         return false;

@@ -744,7 +744,7 @@
             }
             // document.docdesc counts code points (utf8mb4), as Array.from does, so an emoji is one
             // character. ManageDocument2Action refuses a longer description too; that is the check that holds.
-            if (Array.from(a).length > <%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH %>) {
+            if (Array.from(docDescObj.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH %>) {
                 <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
                 alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
                 docDescObj.focus();

@@ -251,7 +251,7 @@
             var ans = true;
             // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditHtml2Action
             // refuses a longer description too, and that is the check that holds.
-            if (Array.from(object.docDesc.value.trim()).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+            if (Array.from(object.docDesc.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
                 alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
                 object.docDesc.focus();
                 ans = false;

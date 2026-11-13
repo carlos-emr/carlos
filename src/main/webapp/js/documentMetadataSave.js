@@ -24,7 +24,7 @@
     function descriptionTooLong(form) {
         const field = form.elements && form.elements['documentDescription'];
         const limit = Number(root.CarlosDocumentDescriptionMaxLength) || 255;
-        return !!field && typeof field.value === 'string' && Array.from(field.value.trim()).length > limit;
+        return !!field && typeof field.value === 'string' && Array.from(field.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length > limit;
     }
     function csrf(form) {
         const input = form.querySelector('input[name="CSRF-TOKEN"]') || document.querySelector('input[name="CSRF-TOKEN"]');

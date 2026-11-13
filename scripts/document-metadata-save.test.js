@@ -157,6 +157,13 @@ for (const host of ['inbox', 'queue', 'multipage', 'popup']) {
         assert.equal(new URLSearchParams(f.requests[0].options.body).get('documentDescription'), ' ' + EMOJI.repeat(255) + ' ');
     });
 }
+test('a no-break space at the edge counts, as ManageDocument2Action counts it after Java trim()', () => {
+    // Java's trim() removes only U+0000..U+0020; JavaScript's trim() would also drop U+00A0 and
+    // let through a description the server then refuses.
+    const f = fixture('inbox'); f.form.elements.documentDescription.value = '\u00A0' + EMOJI.repeat(255);
+    assert.equal(f.save(), false); assert.equal(f.requests.length, 0);
+    assert.equal(f.status(), f.messages.descriptionTooLong);
+});
 test('a server refusal of an over-long description shows the description message and allows a corrected save', async () => {
     const f = fixture(); f.save();
     await f.answer(0, {status: 400, body: {...refused, descriptionTooLong: true, error: 'Server text'}}); unchanged(f);
