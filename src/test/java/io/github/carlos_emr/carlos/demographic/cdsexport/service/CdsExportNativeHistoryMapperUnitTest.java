@@ -229,6 +229,9 @@ class CdsExportNativeHistoryMapperUnitTest {
                         "001234",
                         "2026-07-10T12:30:00-04:00");
         assertThat(xml).doesNotContain("NEVER EXPORTED CREDENTIAL");
+        // Each revision's body appears once, in its own text section, not again in the details.
+        assertThat(xml.split("Original &lt;text&gt; &amp; É😀", -1)).hasSize(2);
+        assertThat(result.value().metadata()).doesNotContain("\"narrative\"");
         var factory = DocumentBuilderFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(bytes));

@@ -335,7 +335,10 @@ public final class CdsExportNativeHistoryMapper {
                 issues.add(facts);
             }
             if (!issues.isEmpty()) detail.put("issues", issues);
-            if (revision != current || category == CdsCategory.PERSONAL_HISTORY)
+            // ClinicalNotes text already carries every revision's body verbatim under its own
+            // "[Revision n]" heading; repeating it in the details only doubled the note.
+            if (category != CdsCategory.CLINICAL_NOTES
+                    && (revision != current || category == CdsCategory.PERSONAL_HISTORY))
                 detail.put("narrative", body == null ? "" : body);
             metadata.add(detail);
         }
