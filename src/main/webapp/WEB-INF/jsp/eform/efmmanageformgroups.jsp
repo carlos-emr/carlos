@@ -386,6 +386,12 @@
 
                 $(".check").change(validate).keyup(validate);
 
+                // The Administration shell answers a failed "Add group" request and fires this; the name
+                // may have changed while the request was out, so the button follows it again (#5842).
+                $("#addGroupForm").on("carlos:admin-request-failed", function () {
+                    $(this).find(".check").each(validate);
+                });
+
             });
             }
 

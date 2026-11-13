@@ -411,6 +411,7 @@
 <script type="text/javascript" src="<%=request.getContextPath() %>/library/DataTables/DataTables-1.13.11/js/dataTables.bootstrap5.min.js"></script>
 
 
+<fmt:message key="admin.admin.panelRequestFailed" var="adminPanelRequestFailed"/>
 <script type="text/javascript">
     // Standalone fragments such as eForm Management load their own jQuery.
     // Keep the shell instance with its validation/DataTables plugins, and restore
@@ -462,6 +463,31 @@
 
     });
 
+    // A hijacked form whose request fails (a 403 security or CSRF refusal, a
+    // 500 error page, a WAF block) used to leave the panel exactly as it was,
+    // so an admin could walk away believing a template, forwarding rule or
+    // referral edit had been saved (#5842). Keep the panel and the admin's
+    // entries, and put a message above the form with the HTTP status. The
+    // failed response body is never shown: it is an error page, not a panel.
+    var carlosAdminRequestFailedMessage = '${carlos:forJavaScript(adminPanelRequestFailed)}';
+
+    function showAdminRequestFailure(form, xhr, usableWhenSent) {
+        form.prevAll('.carlos-admin-request-failed').remove();
+        let status = xhr && xhr.status ? 'HTTP ' + xhr.status + ': ' : '';
+        let notice = $('<div class="alert alert-danger carlos-admin-request-failed" role="alert"></div>');
+        notice.text(status + carlosAdminRequestFailedMessage);
+        form.before(notice);
+        // A form that disabled its own button while sending must be usable again, but only the buttons
+        // that were usable when it was sent: a page may keep one disabled until its fields are valid
+        // (eForm groups' "Add group" for an empty or duplicate name). The event lets such a page check
+        // its fields again, since they may have changed while the request was out.
+        $(usableWhenSent || []).prop('disabled', false);
+        form.trigger('carlos:admin-request-failed');
+        if (notice[0] && notice[0].scrollIntoView) {
+            notice[0].scrollIntoView({block: 'nearest'});
+        }
+    }
+
     function registerFormSubmit(formId, divId) {
         let thisForm = $('#' + formId);
         $(thisForm.submit(function () {
@@ -476,12 +502,16 @@
             // eForm editor's save changes encoding depending on how it was
             // reached; the WAF exclusions cover both shapes.)
             let isMultipart = (thisForm.attr('enctype') || '').toLowerCase() === 'multipart/form-data';
+            let usableWhenSent = thisForm.find(':submit').filter(function () { return !this.disabled; }).get();
             let ajaxOptions = {
                 url: thisForm.attr('action'),
                 type: thisForm.attr('method'),
                 success: function (returnData) {
                     // insert returned html
                     $('#' + divId).html(returnData)
+                },
+                error: function (xhr) {
+                    showAdminRequestFailure(thisForm, xhr, usableWhenSent);
                 }
             };
             if (isMultipart) {
@@ -492,6 +522,8 @@
                 // gather the form data (CSRFGuard 4.5 auto-injects CSRF token into XHR headers)
                 ajaxOptions.data = $(this).serialize();
             }
+            // A notice from an earlier failed attempt is stale once the form is sent again.
+            thisForm.prevAll('.carlos-admin-request-failed').remove();
             $.ajax(ajaxOptions);
 
             return false; // stops browser from doing default submit process
