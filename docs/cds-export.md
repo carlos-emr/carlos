@@ -343,8 +343,9 @@ text (`CAST(.. AS BINARY)`), binary columns as raw bytes, SQL NULL distinct from
 values in byte ranges verified against the page's SHA-256; wide legacy forms in column groups whose
 row keys must agree. A table of the other province's profile reads as absent and its schema
 digest is the absent descriptor; `formRourke2009` (Aria on ON, MyISAM on BC) is read only under
-`CdsExportSourceReadLock`. A table's rows for one patient over 20,000 rows or 400,000 fields hold
-that patient (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`), as does a row identity that proves not unique
+`CdsExportSourceReadLock`. A table's rows for one patient over 100,000 rows or 400,000 fields hold
+that patient (`CDS_EXPORT_DATA_SUMMARY_ROW_LIMIT`; a long Rourke history, about 36,000 checkbox
+rows of four fields, is well inside both), as does a row identity that proves not unique
 (`CDS_EXPORT_DATA_SUMMARY_ROW_IDENTITY_NOT_UNIQUE`). `CdsExportListedSourceReader` captures, as
 the synthetic `listed_sources` scope of every export, only each listed table's name and the
 patient's row count.
@@ -365,7 +366,10 @@ an original document, then each source row with its table and every column with 
 HTML-encoded with `SafeEncode`. SQL NULL, empty and a value are labelled outside the value, long
 text is printed whole and wraps, and a binary value shows its size and SHA-256 and is embedded when
 its bytes (or their strict Base64 decoding) are a PNG, JPEG or GIF; e-mail bodies stored as Base64
-are decoded when they are UTF-8 text. `CdsExportDataSummaryPdfService` renders it through
+are decoded when they are UTF-8 text. The password and password hint of an encrypted e-mail
+(`emailLog.password`, `emailLog.passwordClue`) are access credentials, not chart content: the
+summary states that a value is held and withheld and never prints it or its length.
+`CdsExportDataSummaryPdfService` renders it through
 `HtmlPdfRenderService` (bundled fonts only) and checks the `%PDF-` header, that PDFBox loads it and
 that it has a page. A render that fails, prints replacement glyphs, or loses an embedded photo or
 signature holds the patient (`CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED` /
@@ -381,8 +385,14 @@ kind (or the form table and "revision n of m"), EventDateTime from the record's 
 its true precision (a date stays a date; a local date-time becomes an offset date-time in the
 clinic zone, or stays a date when that local time is ambiguous or skipped; a missing or zero date
 gives none) and Notes stating that it is a CARLOS data summary. Every captured field of the record
-is assessed `MAPPED` to `Reports/FilePath` and checked by `CdsExportNativeFieldAssessmentValidator`;
-the patient inventory expects one Reports identity per planned record. The package ReadMe counts
+is assessed `MAPPED` to `Reports/FilePath` (a withheld e-mail credential `OPERATIONAL` under
+`CARLOS_DATA_SUMMARY_CREDENTIAL_WITHHELD`) and checked by `CdsExportNativeFieldAssessmentValidator`;
+the patient inventory expects one Reports identity per planned record. The per-patient
+reconciliation audit records each receipt's field decisions grouped by table and assessment (each
+row key with the columns so decided), not one line per field, so a long encounter-form history stays
+well inside `cds.export.maxIndexBytes`; only a chart whose data summaries alone would still take
+three quarters of that budget is held (`CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT`) rather than stopping
+the job. The package ReadMe counts
 the data summaries of each patient by record kind and lists the patient's listed tables and the
 job's unlinked listed tables.
 

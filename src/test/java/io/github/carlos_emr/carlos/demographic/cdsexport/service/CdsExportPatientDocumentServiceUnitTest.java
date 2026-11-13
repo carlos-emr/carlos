@@ -71,6 +71,100 @@ class CdsExportPatientDocumentServiceUnitTest {
     }
 
     @Test
+    void shouldGroupFieldDecisions_byTableAndAssessmentWithEveryFieldOnce() throws Exception {
+        var identity =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto(
+                        "a".repeat(64), CdsCategory.REPORTS, "b".repeat(64));
+        var mapped =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Presence.VALUE,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                        "Reports/FilePath",
+                        "CARLOS_DATA_SUMMARY_EXACT_VALUE");
+        var absent =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Presence.SQL_NULL,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                        "Reports/FilePath",
+                        "CARLOS_DATA_SUMMARY_EXACT_VALUE");
+        var fields =
+                new java.util.LinkedHashMap<
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNativeFieldKeyDto,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto>();
+        for (String row : java.util.List.of("2", "1"))
+            for (String column : java.util.List.of("form_name", "field_name", "form_id"))
+                fields.put(field("form_boolean_value", row, column), mapped);
+        fields.put(field("form_boolean_value", "1", "value"), absent);
+        fields.put(field("formRourke2020", "7", "p1_date"), mapped);
+        var control =
+                mock(io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl.class);
+
+        var lines = CdsExportPatientDocumentService.fieldDecisions(identity, fields, control);
+
+        assertThat(lines)
+                .extracting(
+                        CdsExportPatientDocumentService.FieldDecisions::table,
+                        line -> line.assessment().presence().name(),
+                        line -> line.fields().toString())
+                .containsExactly(
+                        tuple("formRourke2020", "VALUE", "{" + key(7) + "=[p1_date]}"),
+                        tuple("form_boolean_value", "SQL_NULL", "{" + key(1) + "=[value]}"),
+                        tuple(
+                                "form_boolean_value",
+                                "VALUE",
+                                "{"
+                                        + key(1)
+                                        + "=[field_name, form_id, form_name], "
+                                        + key(2)
+                                        + "=[field_name, form_id, form_name]}"));
+        assertThat(lines).allSatisfy(line -> assertThat(line.identity()).isEqualTo(identity));
+        verify(control, times(fields.size())).checkpoint();
+    }
+
+    @Test
+    void shouldRefuseFieldDecisions_whenAnyFieldStillRequiresReview() {
+        var identity =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto(
+                        "a".repeat(64), CdsCategory.REPORTS, "b".repeat(64));
+        var review =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Presence.VALUE,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW,
+                        "none",
+                        "CARLOS_FIELD_REQUIRES_REVIEW");
+
+        assertThatThrownBy(
+                        () ->
+                                CdsExportPatientDocumentService.fieldDecisions(
+                                        identity,
+                                        java.util.Map.of(field("tickler", "1", "message"), review),
+                                        mock(
+                                                io.github.carlos_emr.carlos.demographic.cdsexport
+                                                        .engine.CdsExportRunControl.class)))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportReviewException.class);
+    }
+
+    private static String key(int row) {
+        return CdsExportPatientTableSourceReader.key(row);
+    }
+
+    private static io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto
+            field(String table, String row, String column) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto(
+                table, CdsExportPatientTableSourceReader.key(Integer.parseInt(row)), column);
+    }
+
+    @Test
     void shouldRefuseAnOmittedNativeOccurrence_evenWhenTheRemainingXmlIsValid() throws Exception {
         var f = fixture(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
         var prior = f.members();

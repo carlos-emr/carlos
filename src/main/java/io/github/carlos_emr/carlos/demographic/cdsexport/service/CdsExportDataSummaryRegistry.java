@@ -221,6 +221,23 @@ public final class CdsExportDataSummaryRegistry {
     }
 
     /**
+     * Columns whose stored value is an access credential rather than chart content: the password
+     * a recipient enters to open an encrypted e-mail, and its hint. The summary says that a value
+     * is held and withheld, never prints it, and the field is assessed OPERATIONAL under {@link
+     * #WITHHELD_RULE}. Everything else of the record is printed exactly.
+     */
+    private static final Map<String, Set<String>> WITHHELD =
+            Map.of("emailLog", Set.of("password", "passwordClue"));
+
+    /** The assessment rule of a withheld credential value. */
+    public static final String WITHHELD_RULE = "CARLOS_DATA_SUMMARY_CREDENTIAL_WITHHELD";
+
+    /** True when the column's value is a credential the summary never prints. */
+    public static boolean withheld(String table, String column) {
+        return WITHHELD.getOrDefault(table, Set.of()).contains(column);
+    }
+
+    /**
      * The rule of a registered table.
      *
      * @throws IllegalArgumentException for a table without a reviewed rule

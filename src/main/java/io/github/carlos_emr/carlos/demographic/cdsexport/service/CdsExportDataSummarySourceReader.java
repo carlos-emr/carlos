@@ -51,8 +51,13 @@ import java.util.Set;
  * @since 2026-11-13
  */
 final class CdsExportDataSummarySourceReader implements CdsExportNativeSourceReader {
-    /** Per patient and table: far above any CARLOS chart, small enough to render and hold. */
-    static final long MAXIMUM_ROWS = 20_000;
+    /**
+     * Per patient and table: far above any CARLOS chart, small enough to render and hold. The field
+     * bound is the memory guard; the row bound only stops very narrow tables from carrying a
+     * per-row overhead out of proportion (a long Rourke history is about 36,000 four-field
+     * checkbox rows).
+     */
+    static final long MAXIMUM_ROWS = 100_000;
 
     static final long MAXIMUM_FIELDS = 400_000;
 

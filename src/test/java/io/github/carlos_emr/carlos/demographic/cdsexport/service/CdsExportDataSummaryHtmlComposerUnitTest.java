@@ -141,6 +141,40 @@ class CdsExportDataSummaryHtmlComposerUnitTest {
     }
 
     @Test
+    void shouldWithholdEmailCredentials_whileStatingThatAValueIsHeld() {
+        var values = new LinkedHashMap<String, Value>();
+        values.put("subject", Value.text("Your results"));
+        values.put("password", Value.text("S3cret-Pa55"));
+        values.put("passwordClue", Value.text("Your clinic hint 4417"));
+
+        String html =
+                new CdsExportDataSummaryHtmlComposer()
+                        .compose(group("emailLog", Kind.EMAIL, values), PATIENT);
+
+        assertThat(html)
+                .contains("Your results")
+                .doesNotContain("S3cret-Pa55", "hint 4417", "11 characters")
+                .containsSubsequence(
+                        "password",
+                        "value withheld: an e-mail access credential is not exported",
+                        "passwordClue",
+                        "value withheld: an e-mail access credential is not exported");
+    }
+
+    @Test
+    void shouldStateAnEmptyCredential_asItDoesAnyEmptyField() {
+        var values = new LinkedHashMap<String, Value>();
+        values.put("password", Value.sqlNull());
+        values.put("passwordClue", Value.text(""));
+
+        String html =
+                new CdsExportDataSummaryHtmlComposer()
+                        .compose(group("emailLog", Kind.EMAIL, values), PATIENT);
+
+        assertThat(html).contains("no value (SQL NULL)", "empty").doesNotContain("withheld");
+    }
+
+    @Test
     void shouldRenderAValidatedPdf_throughTheBundledFontRenderer() throws Exception {
         var values = new LinkedHashMap<String, Value>();
         values.put("contents", binary(PNG));

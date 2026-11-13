@@ -161,18 +161,14 @@ public class CdsExportPatientDocumentService {
                                                                                     .replacedFields())),
                                                             auditBytes,
                                                             bounds.indexBytes());
-                                                    for (var entry : receipt.fields().entrySet()) {
-                                                        control.checkpoint();
-                                                        if (entry.getValue().outcome()
-                                                                == CdsExportFieldAssessmentDto
-                                                                        .Outcome.REQUIRES_REVIEW)
-                                                            review();
+                                                    for (var decisions :
+                                                            fieldDecisions(
+                                                                    receipt.identity(),
+                                                                    receipt.fields(),
+                                                                    control)) {
                                                         line(
                                                                 audit,
-                                                                new FieldDecision(
-                                                                        receipt.identity(),
-                                                                        entry.getKey(),
-                                                                        entry.getValue()),
+                                                                decisions,
                                                                 auditBytes,
                                                                 bounds.indexBytes());
                                                     }
@@ -454,10 +450,58 @@ public class CdsExportPatientDocumentService {
             Set<String> retainedFields,
             Set<String> replacedFields) {}
 
-    private record FieldDecision(
+    /**
+     * The field decisions of one receipt that share a source table and an assessment: each row
+     * (record key) with the columns so decided. One line per group, instead of one per field,
+     * keeps the per-patient audit within {@code maxIndexBytes} for long form histories (a data
+     * summary assesses every column of every revision) while recording the same decisions.
+     */
+    record FieldDecisions(
             CdsExportIdentityDto identity,
-            CdsExportNativeFieldKeyDto field,
-            CdsExportFieldAssessmentDto assessment) {}
+            String table,
+            CdsExportFieldAssessmentDto assessment,
+            SortedMap<String, SortedSet<String>> fields) {}
+
+    /**
+     * Groups a receipt's field assessments into {@link FieldDecisions} lines in a fixed order
+     * (table, then assessment, then record key and column). Any field still requiring review stops
+     * the document, as before.
+     */
+    static List<FieldDecisions> fieldDecisions(
+            CdsExportIdentityDto identity,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            CdsExportRunControl control)
+            throws IOException {
+        record Group(String table, CdsExportFieldAssessmentDto assessment) {}
+        var groups =
+                new TreeMap<Group, SortedMap<String, SortedSet<String>>>(
+                        Comparator.comparing(Group::table)
+                                .thenComparing(group -> group.assessment().presence())
+                                .thenComparing(group -> group.assessment().outcome())
+                                .thenComparing(
+                                        group -> group.assessment().destination(),
+                                        Comparator.nullsFirst(Comparator.naturalOrder()))
+                                .thenComparing(
+                                        group -> group.assessment().rule(),
+                                        Comparator.nullsFirst(Comparator.naturalOrder())));
+        for (var entry : fields.entrySet()) {
+            control.checkpoint();
+            var assessment = Objects.requireNonNull(entry.getValue());
+            if (assessment.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW)
+                review();
+            var key = entry.getKey();
+            if (!groups.computeIfAbsent(new Group(key.table(), assessment), ignored -> new TreeMap<>())
+                    .computeIfAbsent(key.recordKey(), ignored -> new TreeSet<>())
+                    .add(key.column())) invalid();
+        }
+        var lines = new ArrayList<FieldDecisions>(groups.size());
+        groups.forEach(
+                (group, rows) ->
+                        lines.add(
+                                new FieldDecisions(
+                                        identity, group.table(), group.assessment(), rows)));
+        return lines;
+    }
 
     private static void line(OutputStream out, Object value, long[] used, long maximum)
             throws IOException {

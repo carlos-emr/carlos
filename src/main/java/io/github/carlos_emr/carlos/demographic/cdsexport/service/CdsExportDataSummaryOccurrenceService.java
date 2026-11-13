@@ -36,6 +36,7 @@ import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +54,8 @@ import org.springframework.stereotype.Service;
  * "revision n of m" for an encounter form), EventDateTime from the record's own clinical date at its
  * true precision when it has a valid one, and Notes saying it is a CARLOS data summary.
  *
- * <p>Every captured field of the record is assessed MAPPED to the summary and checked by {@link
+ * <p>Every captured field of the record is assessed MAPPED to the summary (an e-mail access
+ * credential is withheld and assessed OPERATIONAL) and checked by {@link
  * CdsExportNativeFieldAssessmentValidator}; the inventory, the emission and the package ReadMe use
  * the same deterministic plan. The document of a kind comes from a {@link Renderer}: the data
  * summary by default, and a faithful rendering (an eForm, a consultation letter, a Rourke chart)
@@ -279,25 +281,54 @@ public class CdsExportDataSummaryOccurrenceService {
     }
 
     /**
-     * Each assessed field becomes one line of the patient's reconciliation audit, whose size is
-     * bounded per patient ({@code maxIndexBytes}) and stops the whole job when exceeded. A chart
-     * whose data summaries alone would take most of that budget (a very long encounter-form
-     * history) holds only that patient instead.
+     * The data summaries' share of the patient's reconciliation audit, whose size is bounded per
+     * patient ({@code maxIndexBytes}) and stops the whole job when exceeded. The audit groups a
+     * record's field decisions by table and assessment, so its size grows with rows and column
+     * names, not with one line per field; a long encounter-form history fits. Only a chart whose
+     * data summaries alone would still take most of the budget is held, with this code, instead of
+     * stopping every patient's export.
      */
     static void requireAuditCapacity(
             List<CdsExportDataSummaryPlanner.Group> groups,
             CdsExportClinicalOccurrenceService.Bounds bounds)
             throws IOException {
-        long fields = 0;
-        for (var group : groups)
-            for (var row : group.rows()) fields = Math.addExact(fields, row.values().size());
-        if (fields > bounds.indexBytes() / 4 * 3 / AUDIT_BYTES_PER_FIELD)
+        if (auditBytes(groups) > bounds.indexBytes() / 4 * 3)
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportMappingReviewException(AUDIT_LIMIT);
     }
 
-    /** A generous upper bound of one field-decision audit line. */
-    static final long AUDIT_BYTES_PER_FIELD = 512;
+    /** A generous upper bound of the audit bytes the data summaries' field decisions take. */
+    static long auditBytes(List<CdsExportDataSummaryPlanner.Group> groups) {
+        long bytes = 0;
+        for (var group : groups) {
+            var lines = new HashSet<String>();
+            for (var row : group.rows()) {
+                // A row's key repeats in each line (one per presence) that holds its columns.
+                var presences = java.util.EnumSet.noneOf(Presence.class);
+                for (var value : row.values().entrySet()) {
+                    presences.add(presence(value.getValue()));
+                    lines.add(row.table() + '\0' + presence(value.getValue()));
+                    bytes =
+                            Math.addExact(
+                                    bytes, AUDIT_BYTES_PER_COLUMN + 2L * value.getKey().length());
+                }
+                bytes =
+                        Math.addExact(
+                                bytes,
+                                presences.size()
+                                        * (AUDIT_BYTES_PER_ROW + 2L * row.recordKey().length()));
+            }
+            bytes = Math.addExact(bytes, AUDIT_BYTES_PER_LINE * lines.size());
+        }
+        return bytes;
+    }
+
+    /** Upper bounds of one grouped audit line's fixed part, one row's key and one column name. */
+    static final long AUDIT_BYTES_PER_LINE = 1024;
+
+    static final long AUDIT_BYTES_PER_ROW = 16;
+
+    static final long AUDIT_BYTES_PER_COLUMN = 8;
 
     static final String AUDIT_LIMIT = "CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT";
 
@@ -321,7 +352,18 @@ public class CdsExportDataSummaryOccurrenceService {
         xml.element("cds", "Notes", NOTES);
     }
 
-    /** Every captured field of the record is carried, with its exact value, by the summary. */
+    private static Presence presence(CdsExportDataSummaryPlanner.Value value) {
+        return switch (value.storage()) {
+            case SQL_NULL -> Presence.SQL_NULL;
+            case TEXT -> value.text().isEmpty() ? Presence.EMPTY : Presence.VALUE;
+            case BINARY -> value.bytes() == 0 ? Presence.EMPTY : Presence.VALUE;
+        };
+    }
+
+    /**
+     * Every captured field of the record is carried, with its exact value, by the summary, except
+     * a credential value the registry withholds (assessed OPERATIONAL, never printed).
+     */
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
             CdsExportDataSummaryPlanner.Group group) {
         var result = new TreeMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
@@ -332,26 +374,25 @@ public class CdsExportDataSummaryOccurrenceService {
             row.values()
                     .forEach(
                             (column, value) -> {
-                                var presence =
-                                        switch (value.storage()) {
-                                            case SQL_NULL -> Presence.SQL_NULL;
-                                            case TEXT ->
-                                                    value.text().isEmpty()
-                                                            ? Presence.EMPTY
-                                                            : Presence.VALUE;
-                                            case BINARY ->
-                                                    value.bytes() == 0
-                                                            ? Presence.EMPTY
-                                                            : Presence.VALUE;
-                                        };
-                                if (result.putIfAbsent(
-                                                new CdsExportNativeFieldKeyDto(
-                                                        row.table(), row.recordKey(), column),
-                                                new CdsExportFieldAssessmentDto(
+                                var presence = presence(value);
+                                var assessment =
+                                        presence == Presence.VALUE
+                                                        && CdsExportDataSummaryRegistry.withheld(
+                                                                row.table(), column)
+                                                ? new CdsExportFieldAssessmentDto(
+                                                        presence,
+                                                        Outcome.OPERATIONAL,
+                                                        "",
+                                                        CdsExportDataSummaryRegistry.WITHHELD_RULE)
+                                                : new CdsExportFieldAssessmentDto(
                                                         presence,
                                                         Outcome.MAPPED,
                                                         "Reports/FilePath",
-                                                        "CARLOS_DATA_SUMMARY_EXACT_VALUE"))
+                                                        "CARLOS_DATA_SUMMARY_EXACT_VALUE");
+                                if (result.putIfAbsent(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        row.table(), row.recordKey(), column),
+                                                assessment)
                                         != null)
                                     throw new IllegalStateException(
                                             "CDS_EXPORT_DATA_SUMMARY_FIELD_DUPLICATE");

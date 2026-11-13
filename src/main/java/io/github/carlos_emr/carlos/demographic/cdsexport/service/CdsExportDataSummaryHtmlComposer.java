@@ -130,6 +130,11 @@ final class CdsExportDataSummaryHtmlComposer {
             var rule = CdsExportDataSummaryRegistry.rule(source.table());
             for (var entry : source.values().entrySet()) {
                 fields++;
+                if (CdsExportDataSummaryRegistry.withheld(source.table(), entry.getKey())
+                        && !absent(entry.getValue())) {
+                    withheld(html, entry.getKey());
+                    continue;
+                }
                 field(html, entry.getKey(), entry.getValue(), rule.binaries().get(entry.getKey()));
             }
         }
@@ -138,6 +143,23 @@ final class CdsExportDataSummaryHtmlComposer {
                         "End of data summary: " + group.rows().size() + " source rows, " + fields + " fields."))
                 .append("</p></body></html>");
         return html.toString();
+    }
+
+    private static boolean absent(CdsExportDataSummaryPlanner.Value value) {
+        return switch (value.storage()) {
+            case SQL_NULL -> true;
+            case TEXT -> value.text().isEmpty();
+            case BINARY -> value.bytes() == 0;
+        };
+    }
+
+    /** A credential value: its presence is stated, its content (and length) never printed. */
+    private static void withheld(StringBuilder html, String column) {
+        html.append("<div class=\"field\"><span class=\"name\">")
+                .append(SafeEncode.forHtmlContent(column))
+                .append("</span> <span class=\"state\">")
+                .append("value withheld: an e-mail access credential is not exported")
+                .append("</span></div>");
     }
 
     private static void field(

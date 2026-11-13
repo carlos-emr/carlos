@@ -292,12 +292,15 @@ consultations, ticklers, e-mails, faxes, messages, consents, the cumulative
 patient profile, the patient photo and similar) do not hold a patient. When
 Reports is selected, each record is exported as a Reports entry holding a PDF
 "CARLOS data summary": every stored field of the record and its related rows
-with the exact value, clearly marked as not an original document. Each saved
+with the exact value, clearly marked as not an original document. The one
+exception is the password and password hint of an encrypted e-mail: the summary
+says a value is held but never prints it. Each saved
 encounter form is one record, labelled "revision n of m". The ReadMe counts each
 patient's data summaries by kind. When Reports is not selected these records are
-not exported, like any other unselected category. A patient whose records exceed
-the per-patient bound, or whose summary cannot be printed completely, is held
-with a `CDS_EXPORT_DATA_SUMMARY_*` code.
+not exported, like any other unselected category. Long form histories (years of
+Rourke visits, for example) export in full. Only a chart with more than 100,000
+rows or 400,000 fields in one such table, or whose summary cannot be printed
+completely, is held with a `CDS_EXPORT_DATA_SUMMARY_*` code.
 
 Records of removed CARLOS features (the old study, survey, CAISI form and HSFO
 modules and similar) are never exported and never hold a patient. The encrypted
