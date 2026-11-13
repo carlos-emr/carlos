@@ -78,14 +78,29 @@ final class CdsExportNativeCarePlanner {
                     new Occurrence(
                             row.table(),
                             id,
-                            deleted
-                                    ? null
-                                    : CdsExportNativeCareMapper.element(row.fields().get("type")),
+                            deleted ? null : standardElement(row, extensions),
                             row,
                             extensions,
                             definitions));
         }
         result.sort(Comparator.comparing(Occurrence::table).thenComparing(Occurrence::id));
         return List.copyOf(result);
+    }
+
+    /**
+     * The mapper's own exact-representation decision, so the planned and the mapped CareElements
+     * can never disagree. Ambiguous extensions plan no standard element; the mapper then refuses
+     * them explicitly.
+     */
+    private static String standardElement(
+            CdsExportCapturedTextRowDto row, List<CdsExportCapturedTextRowDto> extensions) {
+        var extra = new HashMap<String, String>();
+        for (var ext : extensions) {
+            String key = ext.fields().get("keyval");
+            if (key == null || extra.containsKey(key)) return null;
+            extra.put(key, ext.fields().get("val"));
+        }
+        var standard = CdsExportNativeCareMapper.standard(row.fields(), extra);
+        return standard == null ? null : standard.element();
     }
 }

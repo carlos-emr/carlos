@@ -67,9 +67,158 @@ public final class CdsExportNativeCareMapper {
         }
     }
 
-    /** Native generic observations have no equivalent standard CareElements child and remain explicit supporting clinical data. */
+    /** The CareElements child a native type can map to; the value, unit and date decide whether it does. */
     static String element(String type) {
         return type == null ? null : ELEMENTS.get(type);
+    }
+
+    /** One standard CareElements value derived exactly from a native observation. */
+    record Standard(String element, Map<String, String> values) {
+        Standard {
+            values = Collections.unmodifiableMap(new LinkedHashMap<>(values));
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportNativeCareMapper.Standard[protected]";
+        }
+    }
+
+    /**
+     * The single decision whether a current native observation also has an exact standard
+     * CareElements form; the planner, the inventory and the mapper all use it. Every native
+     * observation is exported in full as NewCategory supporting data; this only adds the standard
+     * element when the type, unit, value and calendar date are all exactly representable. Anything
+     * else (an unknown unit, a value with words in it, a partial date) returns null and the
+     * observation stays NewCategory-only instead of stopping the job.
+     */
+    static Standard standard(Map<String, String> observation, Map<String, String> extra) {
+        String type = observation.get("type"), element = element(type);
+        if (element == null) return null;
+        if (extra.containsKey("date_precision") && !"FULL_DATE".equals(extra.get("date_precision")))
+            return null;
+        String date = calendarDate(observation.get("dateObserved"));
+        String value = observation.get("dataField");
+        if (date == null || value == null || !CdsExportNativeFieldAssessments.legal(value, 1024))
+            return null;
+        String explicit = extra.containsKey("unit") ? extra.get("unit") : extra.get("units");
+        String unit = careUnit(type, explicit, observation.get("measuringInstruction"));
+        var output = new LinkedHashMap<String, String>();
+        switch (element) {
+            case "SmokingStatus" -> {
+                String status =
+                        switch (value.strip()) {
+                            case "Y", "Yes", "yes" -> "Y";
+                            case "N", "No", "no" -> "N";
+                            default -> null;
+                        };
+                if (status == null) return null;
+                output.put("Status", status);
+            }
+            case "SmokingPacks" -> {
+                String perDay = decimalOrNull(value);
+                if (perDay == null
+                        || !Set.of("pack/day", "packs/day", "packs per day").contains(unit))
+                    return null;
+                output.put("PerDay", perDay);
+            }
+            case "BloodPressure" -> {
+                if (!"mmhg".equals(unit)) return null;
+                var parts = value.split("/", -1);
+                if (parts.length != 2) return null;
+                String systolic = decimalOrNull(parts[0]), diastolic = decimalOrNull(parts[1]);
+                if (systolic == null || diastolic == null) return null;
+                output.put("SystolicBP", systolic);
+                output.put("DiastolicBP", diastolic);
+                output.put("BPUnit", "mmHg");
+            }
+            default -> {
+                BigDecimal factor = factor(type, unit);
+                String number = decimalOrNull(value);
+                if (factor == null || number == null) return null;
+                output.put(
+                        element,
+                        new BigDecimal(number).multiply(factor).stripTrailingZeros().toPlainString());
+                output.put(element + "Unit", type.equals("WT") ? "kg" : "cm");
+            }
+        }
+        output.put("Date", date);
+        for (String text : output.values())
+            if (!CdsExportNativeFieldAssessments.legal(text, 1024)) return null;
+        return new Standard(element, output);
+    }
+
+    private static String calendarDate(String observed) {
+        if (observed == null) return null;
+        try {
+            LocalDate date =
+                    observed.length() == 10
+                            ? LocalDate.parse(observed)
+                            : LocalDateTime.parse(observed.replace(' ', 'T')).toLocalDate();
+            return date.getYear() < 1 || date.getYear() > 9999 ? null : date.toString();
+        } catch (DateTimeException malformed) {
+            return null;
+        }
+    }
+
+    /**
+     * The unit of a standard care observation, normalized. An explicit unit extension wins; the
+     * measuring instruction contributes a unit only when, after removing CARLOS's flowsheet hint
+     * ("(nnn) Range:... Interval:...") and the waist prefix, it names a known unit. CARLOS records
+     * blood pressure in mmHg and treats the instruction as posture text
+     * (MeasurementUnitConstants), and with no unit recorded at all, weight is kg and height and
+     * waist are cm, as CARLOS displays them. Two different known units, or an unrecognized
+     * instruction, leave the unit undecided.
+     */
+    static String careUnit(String type, String explicit, String instruction) {
+        String stated = explicit == null || explicit.isBlank() ? null : normalUnit(explicit);
+        String hinted = instructionUnit(instruction);
+        if (type.equals("BP")) {
+            if (stated != null && !stated.equals("mmhg")) return null;
+            return hinted != null && !hinted.isEmpty() && !hinted.equals("mmhg") && known(hinted)
+                    ? null
+                    : "mmhg";
+        }
+        if (type.equals("SKST")) return stated == null ? hinted : stated;
+        if (stated != null && hinted != null && !hinted.isEmpty() && !stated.equals(hinted))
+            return null;
+        if (stated != null) return stated;
+        if (hinted == null) return null;
+        if (!hinted.isEmpty()) return hinted;
+        return switch (type) {
+            case "WT" -> "kg";
+            case "HT", "WAIS" -> "cm";
+            default -> null;
+        };
+    }
+
+    /** "" when the instruction states no unit; null when it is text that is not a known unit. */
+    private static String instructionUnit(String instruction) {
+        if (instruction == null) return "";
+        String text =
+                instruction
+                        .strip()
+                        .toLowerCase(Locale.ROOT)
+                        .replaceFirst("\\s*\\(.*$", "")
+                        .replaceFirst("\\s*range:.*$", "")
+                        .replaceFirst("^waist circum(?:ference)?\\s+", "")
+                        .replaceFirst("^in\\s+", "")
+                        .strip();
+        if (text.isEmpty()) return "";
+        return known(text) ? text : null;
+    }
+
+    private static boolean known(String unit) {
+        return factor("WT", unit) != null
+                || factor("HT", unit) != null
+                || unit.equals("mmhg")
+                || Set.of("pack/day", "packs/day", "packs per day").contains(unit);
+    }
+
+    private static String decimalOrNull(String value) {
+        if (value == null || !value.strip().matches("[+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"))
+            return null;
+        return new BigDecimal(value.strip()).stripTrailingZeros().toPlainString();
     }
 
     public Result map(
@@ -112,93 +261,26 @@ public final class CdsExportNativeCareMapper {
                 review("CDS_EXPORT_NATIVE_CARE_EXTENSION_AMBIGUOUS");
             extra.put(key, value);
         }
-        String type = observation.fields().get("type"), element = deleted ? null : element(type);
-        if (element != null
-                && extra.containsKey("date_precision")
-                && !"FULL_DATE".equals(extra.get("date_precision")))
-            review("CDS_EXPORT_NATIVE_CARE_DATE_PRECISION_REQUIRES_REVIEW");
+        var standard = deleted ? null : standard(observation.fields(), extra);
+        String element = standard == null ? null : standard.element();
         var output = new LinkedHashMap<String, String>();
-        if (element != null) {
-            String observed = observation.fields().get("dateObserved");
-            try {
-                if (observed == null) review("CDS_EXPORT_NATIVE_CARE_DATE_REQUIRED");
-                LocalDate date =
-                        observed.length() == 10
-                                ? LocalDate.parse(observed)
-                                : LocalDateTime.parse(observed.replace(' ', 'T')).toLocalDate();
-                if (date.getYear() < 1 || date.getYear() > 9999)
-                    review("CDS_EXPORT_NATIVE_CARE_DATE_REQUIRES_REVIEW");
-                output.put("Date", date.toString());
-            } catch (DateTimeException malformed) {
-                review("CDS_EXPORT_NATIVE_CARE_DATE_REQUIRES_REVIEW");
-            }
-            String value = observation.fields().get("dataField");
-            if (value == null || !CdsExportNativeFieldAssessments.legal(value, 1024))
-                review("CDS_EXPORT_NATIVE_CARE_VALUE_REQUIRES_REVIEW");
-            String instruction = observation.fields().get("measuringInstruction");
-            String unit = extra.get("unit");
-            if (unit == null) unit = extra.get("units");
-            if (unit != null
-                    && instruction != null
-                    && !instruction.isEmpty()
-                    && !sameUnit(unit, instruction))
-                review("CDS_EXPORT_NATIVE_CARE_UNITS_CONFLICT");
-            if (unit == null) unit = instruction;
-            if (element.equals("SmokingStatus")) {
-                String status =
-                        switch (value) {
-                            case "Y", "Yes", "yes" -> "Y";
-                            case "N", "No", "no" -> "N";
-                            default -> null;
-                        };
-                if (status == null) element = null;
-                else output.put("Status", status);
-            } else if (element.equals("SmokingPacks")) {
-                if (!Set.of("pack/day", "packs/day", "packs per day").contains(normalUnit(unit)))
-                    element = null;
-                else output.put("PerDay", decimal(value));
-            } else if (element.equals("BloodPressure")) {
-                if (!normalUnit(unit).equals("mmhg")) element = null;
-                else {
-                    var parts = value.split("/", -1);
-                    if (parts.length != 2)
-                        review("CDS_EXPORT_NATIVE_CARE_BLOOD_PRESSURE_REQUIRES_REVIEW");
-                    output.put("SystolicBP", decimal(parts[0]));
-                    output.put("DiastolicBP", decimal(parts[1]));
-                    output.put("BPUnit", "mmHg");
-                }
-            } else {
-                BigDecimal factor = factor(type, unit);
-                if (factor == null) element = null;
-                else {
-                    String target = element;
-                    output.put(
-                            target,
-                            new BigDecimal(decimal(value))
-                                    .multiply(factor)
-                                    .stripTrailingZeros()
-                                    .toPlainString());
-                    output.put(target + "Unit", type.equals("WT") ? "kg" : "cm");
-                }
-            }
-            if (element != null) {
-                var state = new CdsExportNativeFieldAssessments(observation, new LinkedHashMap<>());
-                for (String column :
-                        List.of("dataField", "dateObserved", "type", "measuringInstruction")) {
-                    String raw = state.raw(column);
-                    fields.put(
-                            new CdsExportNativeFieldKeyDto(
-                                    observation.table(), observation.recordKey(), column),
-                            new CdsExportFieldAssessmentDto(
-                                    raw == null
-                                            ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
-                                            : raw.isEmpty()
-                                                    ? CdsExportFieldAssessmentDto.Presence.EMPTY
-                                                    : CdsExportFieldAssessmentDto.Presence.VALUE,
-                                    Outcome.MAPPED,
-                                    "CareElements/" + element,
-                                    "EXPLICIT_NATIVE_CARE_VALUE_UNIT_AND_CALENDAR_DATE"));
-                }
+        if (standard != null) {
+            output.putAll(standard.values());
+            var state = new CdsExportNativeFieldAssessments(observation, new LinkedHashMap<>());
+            for (String column : List.of("dataField", "dateObserved", "type", "measuringInstruction")) {
+                String raw = state.raw(column);
+                fields.put(
+                        new CdsExportNativeFieldKeyDto(
+                                observation.table(), observation.recordKey(), column),
+                        new CdsExportFieldAssessmentDto(
+                                raw == null
+                                        ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
+                                        : raw.isEmpty()
+                                                ? CdsExportFieldAssessmentDto.Presence.EMPTY
+                                                : CdsExportFieldAssessmentDto.Presence.VALUE,
+                                Outcome.MAPPED,
+                                "CareElements/" + element,
+                                "EXPLICIT_NATIVE_CARE_VALUE_UNIT_AND_CALENDAR_DATE"));
             }
         }
         for (String value : output.values())
@@ -241,18 +323,8 @@ public final class CdsExportNativeCareMapper {
         xml.end();
     }
 
-    private static String decimal(String value) throws IOException {
-        if (value == null || !value.strip().matches("[+]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)"))
-            review("CDS_EXPORT_NATIVE_CARE_NUMERIC_VALUE_REQUIRES_REVIEW");
-        return new BigDecimal(value.strip()).stripTrailingZeros().toPlainString();
-    }
-
     private static String normalUnit(String unit) {
         return unit == null ? "" : unit.strip().toLowerCase(Locale.ROOT).replaceFirst("^in +", "");
-    }
-
-    private static boolean sameUnit(String left, String right) {
-        return normalUnit(left).equals(normalUnit(right));
     }
 
     private static BigDecimal factor(String type, String unit) {

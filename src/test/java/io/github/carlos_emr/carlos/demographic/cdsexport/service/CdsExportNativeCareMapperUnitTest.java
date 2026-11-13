@@ -170,22 +170,20 @@ class CdsExportNativeCareMapperUnitTest {
     }
 
     @Test
-    void shouldRejectConflictingUnitsAndDuplicateExtensionKeys_insteadOfGuessingPrecedence() {
+    void shouldKeepConflictingUnitsSupportingOnly_andRejectDuplicateExtensionKeys()
+            throws Exception {
         var ext =
                 row(
                                 Plan.MEASUREMENTS_EXT,
                                 101,
                                 Map.of("measurement_id", "91", "keyval", "unit", "val", "lbs"))
                         .value();
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        observation("WT", "80", "kg"),
-                                        List.of(ext),
-                                        List.of(),
-                                        false))
-                .hasMessage("CDS_EXPORT_NATIVE_CARE_UNITS_CONFLICT");
+        // Two different stated units: no standard element is guessed, and the full observation
+        // with both units stays in the supporting NewCategory record.
+        var conflicting =
+                mapper.map(27, observation("WT", "80", "kg"), List.of(ext), List.of(), false);
+        assertThat(conflicting.element()).isNull();
+        assertThat(conflicting.metadata()).contains("lbs", "\"kg\"", "80");
         assertThatThrownBy(
                         () ->
                                 mapper.map(
@@ -198,7 +196,8 @@ class CdsExportNativeCareMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseAnotherPatientAndAnInvalidNumericValue_withoutInventingAZero() {
+    void shouldRefuseAnotherPatient_andKeepANonNumericValueSupportingOnlyWithoutInventingAZero()
+            throws Exception {
         assertThatThrownBy(
                         () ->
                                 mapper.map(
@@ -208,8 +207,69 @@ class CdsExportNativeCareMapperUnitTest {
                                         List.of(),
                                         false))
                 .hasMessage("CDS_EXPORT_NATIVE_CARE_SCOPE_INVALID");
-        assertThatThrownBy(() -> map("BP", "120/unknown", "mmHg"))
-                .hasMessage("CDS_EXPORT_NATIVE_CARE_NUMERIC_VALUE_REQUIRES_REVIEW");
+        for (var value : List.of(List.of("BP", "120/unknown"), List.of("WT", "70 kg"),
+                List.of("SKST", "quit 2019"), List.of("HT", "175/180"))) {
+            var mapped = map(value.get(0), value.get(1), "");
+            assertThat(mapped.element()).isNull();
+            assertThat(mapped.values()).isEmpty();
+            assertThat(mapped.metadata()).contains(value.get(1));
+        }
+    }
+
+    @Test
+    void shouldMapTheInstructionTextCarlosActuallyStores_toStandardCareElements()
+            throws Exception {
+        // Seeded measurementType rows and the hypertension/diabetes/CHF flowsheets.
+        var cases =
+                List.of(
+                        List.of("BP", "128/82", "sitting position", "BloodPressure", "128"),
+                        List.of("BP", "128/82", "Sitting Position (nnn/nnn) Range:60-250", "BloodPressure", "82"),
+                        List.of("BP", "128/82", "", "BloodPressure", "mmHg"),
+                        List.of("WAIS", "90", "Waist Circum in cm", "WaistCircumference", "90"),
+                        List.of("WAIS", "90", "in cm (nnn) Range:40-500 Interval:3mo", "WaistCircumference", "90"),
+                        List.of("HT", "175", "in cm (nnn) Range:0-300", "Height", "175"),
+                        List.of("WT", "70.5", "in kg (nnn.n) Range:0-300 Interval:3mo", "Weight", "70.5"),
+                        List.of("WT", "70.5", "", "Weight", "kg"),
+                        List.of("SKST", "yes", "Yes/No", "SmokingStatus", "Y"));
+        for (var value : cases) {
+            var mapped = map(value.get(0), value.get(1), value.get(2));
+            assertThat(mapped.element()).as(value.toString()).isEqualTo(value.get(3));
+            assertThat(mapped.values()).containsValue(value.get(4));
+            render(CdsCategory.CARE_ELEMENTS, body -> mapper.writeCare(mapped, body));
+        }
+        // A posture or free-text instruction says nothing about weight units.
+        assertThat(map("WT", "70", "standing, shoes off").element()).isNull();
+        // An explicit non-mmHg pressure unit is never relabelled.
+        var kpa =
+                row(
+                                Plan.MEASUREMENTS_EXT,
+                                102,
+                                Map.of("measurement_id", "91", "keyval", "unit", "val", "kPa"))
+                        .value();
+        assertThat(
+                        mapper.map(27, observation("BP", "16/10", ""), List.of(kpa), List.of(), false)
+                                .element())
+                .isNull();
+    }
+
+    @Test
+    void shouldPlanExactlyTheElementTheMapperProduces_forEveryNativeObservation()
+            throws Exception {
+        for (var value :
+                List.of(
+                        List.of("BP", "128/82", "sitting position"),
+                        List.of("BP", "128/82 R arm", "sitting position"),
+                        List.of("WT", "70", "in kg"),
+                        List.of("WT", "70", "standing"),
+                        List.of("SKST", "former", ""))) {
+            var observation = observation(value.get(0), value.get(1), value.get(2));
+            var planned =
+                    CdsExportNativeCareMapper.standard(observation.fields(), Map.of());
+            var mapped = mapper.map(27, observation, List.of(), List.of(), false);
+            assertThat(planned == null ? null : planned.element())
+                    .as(value.toString())
+                    .isEqualTo(mapped.element());
+        }
     }
 
     @Test
@@ -263,7 +323,8 @@ class CdsExportNativeCareMapperUnitTest {
     }
 
     @Test
-    void shouldRefusePartialDateAnchors_insteadOfPublishingAnInventedFullObservationDate() {
+    void shouldKeepPartialDateAnchorsSupportingOnly_insteadOfPublishingAnInventedFullDate()
+            throws Exception {
         var precision =
                 row(
                                 Plan.MEASUREMENTS_EXT,
@@ -276,14 +337,10 @@ class CdsExportNativeCareMapperUnitTest {
                                         "val",
                                         "YEAR"))
                         .value();
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        observation("WT", "80", "kg"),
-                                        List.of(precision),
-                                        List.of(),
-                                        false))
-                .hasMessage("CDS_EXPORT_NATIVE_CARE_DATE_PRECISION_REQUIRES_REVIEW");
+        var mapped =
+                mapper.map(27, observation("WT", "80", "kg"), List.of(precision), List.of(), false);
+        assertThat(mapped.element()).isNull();
+        assertThat(mapped.values()).isEmpty();
+        assertThat(mapped.metadata()).contains("date_precision", "YEAR");
     }
 }
