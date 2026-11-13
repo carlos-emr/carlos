@@ -240,7 +240,8 @@ public class AppointmentReminderService {
                 case SENT -> new ReminderStatusLine(keys + "sent", attemptedAt);
                 case QUEUED -> new ReminderStatusLine(keys + "queued", attemptedAt);
                 case EXPIRED -> new ReminderStatusLine(keys + "expired", "");
-                case SENDING, UNCONFIRMED -> new ReminderStatusLine(keys + "unconfirmed", attemptedAt);
+                case SENDING -> new ReminderStatusLine(keys + "sending", "");
+                case UNCONFIRMED -> new ReminderStatusLine(keys + "unconfirmed", attemptedAt);
                 case FAILED -> failedLine(channel, reminder, keys, attemptedAt);
                 case TOO_LONG -> new ReminderStatusLine(keys + "doesNotFit", "");
                 case BLOCKED_CONSENT -> new ReminderStatusLine(keys + "blockedConsent", "");
@@ -446,6 +447,8 @@ public class AppointmentReminderService {
                 }
                 LocalDateTime now = LocalDateTime.now(clock);
                 SameVisit visit = SameVisit.SEND;
+                LocalDateTime since = null;
+                boolean historyRead = false;
                 for (ReminderCandidate sibling : reminders.findSameVisit(channel, appointment.getDemographicNo(), start,
                         reminderId, HANDED_OVER)) {
                     AppointmentReminder other = sibling.reminder();
@@ -462,7 +465,15 @@ public class AppointmentReminderService {
                         // A booking still here covers the visit. One that left this start since (unticked, cancelled,
                         // moved) covers only a booking that was already here when its reminder went: a booking moved
                         // or booked into this start later is reminded for it.
-                        if (live || hereWhenHandedOver(appointment, start, other)) {
+                        if (live) {
+                            return SameVisit.COVERED;
+                        }
+                        if (!historyRead) {
+                            // Every departed sibling compares the same booking history; read it only once.
+                            since = atStartSince(appointment, start);
+                            historyRead = true;
+                        }
+                        if (hereWhenHandedOver(since, other)) {
                             return SameVisit.COVERED;
                         }
                         continue;
@@ -493,14 +504,13 @@ public class AppointmentReminderService {
     }
 
     /**
-     * Whether {@code appointment} was already at {@code start} when {@code other}'s reminder was handed over, so that
-     * reminder told the patient of this booking too. Since when it has been at this start comes from its archived
-     * versions ({@link #atStartSince}), not its last update, which saving any change (even ticking the box) moves.
+     * Whether this booking was already at its start when {@code other}'s reminder was handed over, so that reminder
+     * told the patient of this booking too. {@code since} comes from its archived versions ({@link #atStartSince}),
+     * read once per same-visit check, not its last update, which saving any change (even ticking the box) moves.
      * When that cannot be told, it counts as here: one reminder rather than two.
      */
-    private boolean hereWhenHandedOver(Appointment appointment, LocalDateTime start, AppointmentReminder other) {
+    private boolean hereWhenHandedOver(LocalDateTime since, AppointmentReminder other) {
         LocalDateTime handedOver = toLocal(other.getLastAttemptAt());
-        LocalDateTime since = atStartSince(appointment, start);
         return handedOver == null || since == null || !since.isAfter(handedOver);
     }
 

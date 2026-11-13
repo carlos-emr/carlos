@@ -50,7 +50,9 @@ The clinic email footer must be configured, as for every patient email. The `app
   on it if it should be reminded.
 - **Retry:** one retry, 30 minutes after a definite failure (the mail server refused it, or it failed before
   being handed over). A refusal (consent, address, setup) or an unconfirmed send is never retried, so a patient is
-  not emailed twice.
+  not emailed twice. The job does not know about a resend from Manage Emails: if staff resend a failed reminder
+  there within those 30 minutes, the job's retry still goes and the patient gets two. Wait for the retry (the
+  line under the box shows its outcome), or resend only once it has also failed.
 - **A restart while sending:** the job marks each reminder just before sending it. If the server stops between that
   mark and the outcome, that one reminder shows "sent, but the mail server did not confirm it" after 15 minutes,
   and is never sent again. Reminders the job had not reached go at a later run.

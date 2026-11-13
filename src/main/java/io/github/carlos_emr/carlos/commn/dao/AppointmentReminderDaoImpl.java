@@ -75,9 +75,16 @@ public class AppointmentReminderDaoImpl extends AbstractDaoImpl<AppointmentRemin
         // appointment mapping nor its archive copy changes. The appointment's start is its date and its time,
         // two columns, so the window and "already attempted for this start" compare each part; the caller
         // still checks the exact window, the retry delay and the appointment's status.
+        // Cancelled, no-show and patient-less appointments are never reminded, so they are left out here too
+        // and cannot fill the limit. Same rule as AppointmentReminderService.isCancelledOrNoShow: a status
+        // (at most two characters) containing "C" or starting with "N". Compared by character code, so the
+        // match is case-sensitive under any collation: a clinic's custom status "c" is not cancelled.
         TypedQuery<Object[]> query = entityManager.createQuery(
                 "SELECT r, a FROM AppointmentReminder r, Appointment a "
                         + "WHERE a.id = r.appointmentNo AND r.channel = :channel AND r.requested = true "
+                        + "AND a.demographicNo > 0 "
+                        + "AND (a.status IS NULL OR (coalesce(ascii(substring(a.status, 1, 1)), 0) NOT IN (67, 78) "
+                        + "AND coalesce(ascii(substring(a.status, 2, 1)), 0) <> 67)) "
                         + "AND a.appointmentDate BETWEEN :firstDate AND :lastDate "
                         + "AND (a.appointmentDate > :firstDate OR a.startTime >= :firstTime) "
                         + "AND (a.appointmentDate < :lastDate OR a.startTime <= :lastTime) "

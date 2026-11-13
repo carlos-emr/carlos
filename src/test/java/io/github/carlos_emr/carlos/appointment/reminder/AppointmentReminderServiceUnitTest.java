@@ -428,6 +428,28 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
          * for it, once that booking has left (here, moved away). The earlier reminder was about the other booking.
          */
         @Test
+        void shouldReadTheBookingHistoryOnce_whenSeveralDepartedBookingsWereReminded() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(30)));
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT))
+                    .thenReturn(List.of(version(start.plusHours(5), NOW.minusDays(3))));
+            ReminderCandidate earlier = changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "moved");
+            ReminderCandidate later = changed(sibling(14L, "t", AppointmentReminderStatus.SENT), "moved");
+            // This booking arrived after the first handover but before the second.
+            later.reminder().startSending(at(start), at(NOW.minusMinutes(20)));
+            later.reminder().finish(AppointmentReminderStatus.SENT, null, at(NOW.minusMinutes(20)));
+            siblings(earlier, later);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+            verify(reminders).findArchivedVersions(APPOINTMENT, PATIENT);
+        }
+
+        @Test
         void shouldSend_whenThisBookingMovedIntoTheStartAfterTheOtherWasReminded() {
             Appointment appointment = appointment(start, PATIENT, "t");
             appointment.setUpdateDateTime(at(NOW.minusMinutes(30)));
@@ -1168,7 +1190,8 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
                 reminder.finish(AppointmentReminderStatus.valueOf(status), null, at(NOW.minusMinutes(10)));
             }
             String expected = switch (status) {
-                case "SENDING", "UNCONFIRMED" -> "appointment.reminder.status.unconfirmed";
+                case "SENDING" -> "appointment.reminder.status.sending";
+                case "UNCONFIRMED" -> "appointment.reminder.status.unconfirmed";
                 case "FAILED" -> "appointment.reminder.status.failed";
                 case "BLOCKED_CONSENT" -> "appointment.reminder.status.blockedConsent";
                 case "NO_ADDRESS", "INVALID_ADDRESS" -> "appointment.reminder.status.noAddress";
@@ -1207,7 +1230,7 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             ResourceBundle bundle = ResourceBundle.getBundle("oscarResources", Locale.forLanguageTag(language.replace('_', '-')));
             // Each channel words its own lines (#884), and QUEUED/EXPIRED come with the SMS channel.
             for (ReminderChannel channel : ReminderChannel.values()) {
-                for (String key : new String[]{"sent", "queued", "expired", "unconfirmed", "failed", "blockedConsent",
+                for (String key : new String[]{"sent", "queued", "expired", "sending", "unconfirmed", "failed", "blockedConsent",
                         "noAddress", "notSetUp", "notPermitted", "scheduled", "due", "tooLate", "duplicate"}) {
                     String fullKey = AppointmentReminderService.statusKeyPrefix(channel) + key;
                     String pattern = bundle.getString(fullKey);

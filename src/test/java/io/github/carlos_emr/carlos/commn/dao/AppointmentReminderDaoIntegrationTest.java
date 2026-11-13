@@ -190,6 +190,42 @@ class AppointmentReminderDaoIntegrationTest extends CarlosTestBase {
         assertThat(reminders.findDue(ReminderChannel.EMAIL, latest, earliest, 2, 10)).isEmpty();
     }
 
+    /**
+     * Rows the job would skip anyway must not fill the limit: cancelled ("C", "CS"), no-show ("N") and
+     * patient-less appointments are left out. The match is case-sensitive, like the service's check, so a
+     * clinic's custom status "c" and the usual ones ("t", "H") stay in.
+     */
+    @Test
+    void shouldLeaveOutCancelledNoShowAndPatientlessAppointments_whenReadingDueRows() {
+        LocalDateTime earliest = DAY.minusDays(1).atTime(12, 0);
+        LocalDateTime latest = DAY.atTime(10, 0);
+        List<AppointmentReminder> kept = new java.util.ArrayList<>();
+        int minute = 0;
+        for (String status : new String[]{"C", "CS", "VC", "N", "NS", "t", "H", "c", "n", null, ""}) {
+            Appointment appointment = appointment(DAY, LocalTime.of(8, minute));
+            minute += 5;
+            appointment.setStatus(status);
+            entityManager.merge(appointment);
+            AppointmentReminder reminder = reminder(appointment, ReminderChannel.EMAIL);
+            if (status == null || (!status.contains("C") && !status.startsWith("N"))) {
+                kept.add(reminder);
+            }
+        }
+        for (int patient : new int[]{0, -1}) {
+            Appointment patientless = appointment(DAY, LocalTime.of(7, 30));
+            patientless.setDemographicNo(patient);
+            entityManager.merge(patientless);
+            reminder(patientless, ReminderChannel.EMAIL);
+        }
+        entityManager.flush();
+
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 10))
+                .extracting(ReminderCandidate::reminder).containsExactlyElementsOf(kept);
+        // The excluded earlier appointments must not consume even the smallest candidate cap.
+        assertThat(reminders.findDue(ReminderChannel.EMAIL, earliest, latest, 2, 1))
+                .extracting(ReminderCandidate::reminder).containsExactly(kept.getFirst());
+    }
+
     @Test
     void shouldFindRowsLeftSending_byARunThatStopped() {
         Date stale = new Date(now.getTime() - 20 * 60_000L);
