@@ -845,6 +845,7 @@
     </form>
 
     <form name="ticklerform" method="post" action="DbTicklerDemoMain">
+        <%@ include file="/WEB-INF/jsp/tickler/ticklerStaleSelection.jspf" %>
         <table bgcolor=#666699 border=0 cellspacing=0 width=100%>
 
             <tr>
@@ -958,7 +959,8 @@
                         <tr>
                             <TD ROWSPAN="1" class="<%=cellColour%> noprint"><input
                                     type="checkbox" name="checkbox"
-                                    value="<%=t.getId()%>"></TD>
+                                    value="<%=t.getId()%>"
+                                    data-rendered-status="<%= t.getStatus() == null ? "" : t.getStatus().name() %>"></TD>
                             <TD ROWSPAN="1" class="<%=cellColour%>">
                                 <%if (Boolean.parseBoolean(CarlosProperties.getInstance().getProperty("tickler_edit_enabled"))) {%>
                                 <a href=#

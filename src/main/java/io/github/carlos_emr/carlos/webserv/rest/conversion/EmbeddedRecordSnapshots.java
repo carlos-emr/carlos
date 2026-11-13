@@ -91,6 +91,9 @@ public final class EmbeddedRecordSnapshots {
         target.setPatientStatusDate(source.getPatientStatusDate());
         target.setRosterStatus(source.getRosterStatus());
         target.setProviderNo(source.getProviderNo());
+        // The health card number is part of the embedded patient that appointment and consultation
+        // clients have always received; the SIN is the identifier this snapshot withholds.
+        target.setHin(source.getHin());
         target.setAddress(source.getAddress());
         target.setProvince(source.getProvince());
         target.setMonthOfBirth(source.getMonthOfBirth());
@@ -184,12 +187,12 @@ public final class EmbeddedRecordSnapshots {
         target.assignFormattedLinks(source.getFormattedLinks());
         target.assignCurrentRecord(source.getCurrentRecord());
         target.assignPersistent(source.isPersistent());
-        var safeView = demographicDomain(target);
-        safeView.setHin("");
-        safeView.setSin("");
-        target.assignLabel(safeView.getLabel());
-        if (safeView.getFirstName() != null && safeView.getLastName() != null) {
-            target.assignStandardIdentificationHtml(safeView.getStandardIdentificationHtml());
+        // The label and identification text name the health card as before; they are rendered from
+        // the detached copy, which never holds the SIN.
+        var detachedView = demographicDomain(target);
+        target.assignLabel(detachedView.getLabel());
+        if (detachedView.getFirstName() != null && detachedView.getLastName() != null) {
+            target.assignStandardIdentificationHtml(detachedView.getStandardIdentificationHtml());
         }
         return target;
     }
@@ -407,11 +410,11 @@ public final class EmbeddedRecordSnapshots {
         if (source == null) return null;
         initialized(source);
         EmbeddedProviderTo1 target = new EmbeddedProviderTo1();
-        boolean billing = actor != null && io.github.carlos_emr.carlos.webserv.ProviderBillingAccess.canRead(actor);
+        // Every scalar the embedded provider entity used to serialize, billing identifiers included.
         target.setProviderNo(source.getProviderNo());
         target.setComments(source.getComments());
         target.setPhone(source.getPhone());
-        if (billing) target.setBillingNo(source.getBillingNo());
+        target.setBillingNo(source.getBillingNo());
         target.setWorkPhone(source.getWorkPhone());
         target.setAddress(source.getAddress());
         target.setTeam(source.getTeam());
@@ -419,13 +422,13 @@ public final class EmbeddedRecordSnapshots {
         target.setLastName(source.getLastName());
         target.setProviderType(source.getProviderType());
         target.setSex(source.getSex());
-        if (billing) target.setOhipNo(source.getOhipNo());
+        target.setOhipNo(source.getOhipNo());
         target.setSpecialty(source.getSpecialty());
         target.setDob(source.getDob());
-        if (billing) target.setHsoNo(source.getHsoNo());
+        target.setHsoNo(source.getHsoNo());
         target.setProviderActivity(source.getProviderActivity());
         target.setFirstName(source.getFirstName());
-        if (billing) target.setRmaNo(source.getRmaNo());
+        target.setRmaNo(source.getRmaNo());
         target.setSignedConfidentiality(source.getSignedConfidentiality());
         target.setPractitionerNo(source.getPractitionerNo());
         target.setPractitionerNoType(source.getPractitionerNoType());

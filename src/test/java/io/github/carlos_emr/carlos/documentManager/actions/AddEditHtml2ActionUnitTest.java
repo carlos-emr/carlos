@@ -15,6 +15,8 @@ package io.github.carlos_emr.carlos.documentManager.actions;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.DocumentLink;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -42,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -310,6 +313,107 @@ class AddEditHtml2ActionUnitTest extends CarlosUnitTestBase {
             eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL("New valid type", "demographic"));
             eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)));
         }
+    }
+
+    /** One character in document.docdesc (utf8mb4), two Java chars. */
+    private static final String EMOJI = "\uD83D\uDE00";
+
+    /**
+     * Add Link stores the typed description with " (link)" after it, so what fits document.docdesc
+     * (255 characters) is 248 typed characters; longer was cut by the database without a word.
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", EMOJI})
+    @DisplayName("should store a link description that with its \" (link)\" fills document.docdesc exactly")
+    void shouldStoreTheWholeLinkDescription_whenWithItsSuffixItFillsTheColumn(String character) {
+        String typed = character.repeat(Document.DESCRIPTION_MAX_LENGTH - DocumentLink.DESCRIPTION_SUFFIX.length());
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setDocDesc(typed);
+        ArgumentCaptor<EDoc> saved = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(saved.capture()));
+        }
+
+        String stored = saved.getValue().getDescription();
+        assertThat(stored).isEqualTo(typed + DocumentLink.DESCRIPTION_SUFFIX);
+        assertThat(stored.codePointCount(0, stored.length())).isEqualTo(Document.DESCRIPTION_MAX_LENGTH);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", EMOJI})
+    @DisplayName("should refuse a link description that with its \" (link)\" is longer than document.docdesc, storing nothing")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheLinkDescription_whenWithItsSuffixItIsLongerThanTheColumn(String character) {
+        String typed = character.repeat(Document.DESCRIPTION_MAX_LENGTH - DocumentLink.DESCRIPTION_SUFFIX.length() + 1);
+        AddEditHtml2Action action = newAddLinkAction("https://example.org/report");
+        action.setDocDesc(typed);
+        action.setDocType("New type that must not be created");
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo("failed");
+            eDocUtilMock.verify(() -> EDocUtil.addDocTypeSQL(any(), any()), never());
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+        }
+
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("linkhtmlerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.linkDescriptionTooLong"));
+        // The retry form shows what was typed, without the suffix the save would have added.
+        assertThat(((AddEditDocument2Form) request.getAttribute("completedForm")).getDocDesc()).isEqualTo(typed);
+        assertThat(response.getRedirectedUrl()).isNull();
+    }
+
+    /** An HTML document (addHtml) or an edit of a link or HTML document stores the description as typed. */
+    @ParameterizedTest
+    @ValueSource(strings = {"addHtml", "777"})
+    @DisplayName("should store a description of exactly document.docdesc's length for an HTML document or an edit")
+    void shouldStoreTheWholeDescription_whenItFillsTheColumnWithoutASuffix(String mode) {
+        String typed = EMOJI.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        AddEditHtml2Action action = newAddLinkAction("<p>FAKE report</p>");
+        action.setMode(mode);
+        action.setDocDesc(typed);
+        ArgumentCaptor<EDoc> saved = ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo(AddEditHtml2Action.NONE);
+            if ("addHtml".equals(mode)) {
+                eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(saved.capture()));
+            } else {
+                eDocUtilMock.verify(() -> EDocUtil.editDocumentSQL(saved.capture(), eq(false)));
+            }
+        }
+
+        assertThat(saved.getValue().getDescription()).isEqualTo(typed);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"addHtml", "777"})
+    @DisplayName("should refuse a description one character longer than document.docdesc for an HTML document or an edit")
+    @SuppressWarnings("unchecked")
+    void shouldRefuseTheDescription_whenItIsOneCharacterLongerThanTheColumn(String mode) {
+        String typed = "d".repeat(Document.DESCRIPTION_MAX_LENGTH + 1);
+        AddEditHtml2Action action = newAddLinkAction("<p>FAKE report</p>");
+        action.setMode(mode);
+        action.setDocDesc(typed);
+
+        try (MockedStatic<LoggedInInfo> loggedInInfoMock = mockStatic(LoggedInInfo.class);
+             MockedStatic<EDocUtil> eDocUtilMock = mockStatic(EDocUtil.class)) {
+            stubLinkStatics(loggedInInfoMock, eDocUtilMock);
+            assertThat(action.execute()).isEqualTo("failed");
+            eDocUtilMock.verify(() -> EDocUtil.addDocumentSQL(any(EDoc.class)), never());
+            eDocUtilMock.verify(() -> EDocUtil.editDocumentSQL(any(EDoc.class), org.mockito.ArgumentMatchers.anyBoolean()), never());
+        }
+
+        Map<String, String> errors = (Map<String, String>) request.getAttribute("linkhtmlerrors");
+        assertThat(errors).containsExactly(entry("desctoolong", "dms.error.descriptionTooLong"));
+        assertThat(((AddEditDocument2Form) request.getAttribute("completedForm")).getDocDesc()).isEqualTo(typed);
     }
 
     @Test

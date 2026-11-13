@@ -5,7 +5,8 @@ const test = require('node:test');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const {workflow} = require('./lab-upload-playwright-checks');
+const {workflow, INITIAL_ROUTING_LOCKS_QUERY, initialRoutingLocks} = require('./lab-upload-playwright-checks');
+const {PROVIDER_LINKING_RULES_LOCK} = require('./lib/document-fixture-allocation');
 const {cleanupOwnedWorkflow} = require('./lib/workflow-session');
 
 async function fixture(t, type, fault) {
@@ -20,8 +21,9 @@ async function fixture(t, type, fault) {
   }
   t.mock.method(console, 'warn', () => {});
   const sources = new Set(['100', '101']);
-  // Source 100 shares a numeric ID with an older lock owned by another lab type.
-  const locks = new Set(['100', '999']);
+  // Source 100 shares a numeric ID with an older lock owned by another lab type. The application's
+  // own coordination row is there as well, as on any install whose provider linking rules were saved.
+  const locks = new Set([PROVIDER_LINKING_RULES_LOCK, '100', '999']);
   let failLockDelete = fault === 'delete';
   const measurementFault = fault.startsWith('measurement-');
   const measurements = new Set(measurementFault ? ['501', '999'] : []);
@@ -33,8 +35,9 @@ async function fixture(t, type, fault) {
   const cleanups = [];
   const sql = {
     rows(query) {
-      if (query === 'SELECT lab_no FROM providerLabRoutingLock ORDER BY lab_no') {
-        return [...locks].map(id => [id]);
+      if (query === INITIAL_ROUTING_LOCKS_QUERY) {
+        // What the database answers for that WHERE clause: every key but the coordination row's.
+        return [...locks].filter(id => id !== PROVIDER_LINKING_RULES_LOCK).map(id => [id]);
       }
       if (query.includes('SELECT lab_no FROM providerLabRoutingLock WHERE')) {
         const ids = query.match(/IN \(([\d,]+)\)/)[1].split(',');
@@ -223,7 +226,8 @@ for (const type of ['HL7', 'CML']) {
     assert.equal(f.patientPresent(), true, 'A child cleanup failure must retain its parent fixture');
     await f.cleanup();
     assert.deepEqual([...f.sources], []);
-    assert.deepEqual([...f.locks], ['100', '999'], 'Remove the introduced lock and preserve borrowed/foreign locks');
+    assert.deepEqual([...f.locks], [PROVIDER_LINKING_RULES_LOCK, '100', '999'],
+      'Remove the introduced lock and preserve borrowed/foreign locks and the coordination row');
     assert.equal(f.patientPresent(), false);
   });
 
@@ -235,7 +239,7 @@ for (const type of ['HL7', 'CML']) {
     assert.equal(f.patientPresent(), true);
     f.locks.add('100'); // Reconcile the borrowed row before retrying owned cleanup.
     await f.cleanup();
-    assert.deepEqual([...f.locks].sort(), ['100', '999']);
+    assert.deepEqual([...f.locks].sort(), [PROVIDER_LINKING_RULES_LOCK, '100', '999']);
     assert.deepEqual([...f.sources], []);
     assert.equal(f.patientPresent(), false);
   });
@@ -288,4 +292,19 @@ test('HL7 continuation setup and cleanup do not require ON-only legacy CML table
     {afterInitial:()=>{throw new Error('native continuation must not run in this setup probe');}}),/stop before browser/);
   for(const cleanup of [...cleanups].reverse())await cleanup();
   assert.ok(queries.some(query=>query.includes('hl7TextInfo')));assert.ok(queries.some(query=>query.startsWith('DELETE FROM fileUploadCheck')));
+});
+
+test('the initial routing lock snapshot leaves out the coordination row and no other key', () => {
+  assert.equal(PROVIDER_LINKING_RULES_LOCK, String(-(2 ** 31)), 'ProviderLabRoutingDao.PROVIDER_LINKING_RULES_LOCK is Integer.MIN_VALUE');
+  assert.equal(INITIAL_ROUTING_LOCKS_QUERY,
+    "SELECT lab_no FROM providerLabRoutingLock WHERE BINARY CAST(lab_no AS CHAR) <> '-2147483648' ORDER BY lab_no");
+  const asked = [];
+  const answering = rows => ({rows(query) { asked.push(query); return rows; }});
+  assert.deepEqual(initialRoutingLocks(answering([['7'], ['100'], ['2147483647']])), ['7', '100', '2147483647']);
+  assert.deepEqual(initialRoutingLocks(answering([])), []);
+  assert.deepEqual(asked, [INITIAL_ROUTING_LOCKS_QUERY, INITIAL_ROUTING_LOCKS_QUERY]);
+  // A key the query did not exclude is never accepted: the coordination row itself, zero, another negative, a pair.
+  for (const rows of [[[PROVIDER_LINKING_RULES_LOCK]], [['0']], [['-5']], [['7', '8']], [['7'], ['x']]]) {
+    assert.throws(() => initialRoutingLocks(answering(rows)), /Invalid initial routing lock snapshot/);
+  }
 });

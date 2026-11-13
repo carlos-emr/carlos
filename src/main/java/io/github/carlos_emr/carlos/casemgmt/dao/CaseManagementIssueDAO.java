@@ -85,8 +85,26 @@ public interface CaseManagementIssueDAO {
 
     public void deleteIssueById(CaseManagementIssue issue);
 
+    /**
+     * Saves each listed patient issue, as {@link #saveIssue(CaseManagementIssue)} does.
+     *
+     * <p>Note saves pass every issue the editor lists, changed or not. An issue whose own values
+     * are unchanged is not written and keeps its {@code update_date}.</p>
+     *
+     * @param issuelist issues to insert (no positive identifier) or write
+     */
     public void saveAndUpdateCaseIssues(List<CaseManagementIssue> issuelist);
 
+    /**
+     * Inserts a new patient issue with {@code update_date} set to now, or writes an existing one.
+     *
+     * <p>An existing issue's {@code update_date} is the time one of its own persisted values last
+     * changed. It moves only when this write changes one of them (for example acute, certain, major,
+     * resolved, type, program or catalogue issue); the date a caller's copy carries, including
+     * {@code null}, is not written.</p>
+     *
+     * @param issue issue to insert (no positive identifier) or write
+     */
     public void saveIssue(CaseManagementIssue issue);
 
     public List<CaseManagementIssue> getAllCertainIssues();

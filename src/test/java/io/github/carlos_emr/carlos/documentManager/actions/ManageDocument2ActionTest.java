@@ -20,6 +20,7 @@ import io.github.carlos_emr.carlos.commn.model.Queue;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.annotation.BoundedPdfTask;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
@@ -313,6 +314,49 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         response.reset(); request.removeParameter("flagproviders"); metadataTransactions.failCommit = true;
         metadata(route); assertThat(response.getStatus()).isEqualTo(500);
         assertThat(mapper.readTree(response.getContentAsString()).path("accepted").asBoolean()).isTrue();
+    }
+
+    /**
+     * document.docdesc is a utf8mb4 VARCHAR(255): the packaged database cut a longer description
+     * typed in the document viewer or inbox to 255 characters without a word. The save is refused
+     * before the transaction, routing or audit row. "😀" is one character, two Java chars.
+     */
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "fallback,d", "ajax,😀", "legacy,😀"})
+    void shouldRefuseTheWholeMetadataSave_whenTheDescriptionIsOneCharacterLongerThanTheColumn(String route, String character)
+            throws Exception {
+        prepareMetadata();
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertNoMetadataWrites();
+        verify(documentDao, Mockito.never()).findForPageMutation(anyInt());
+        assertThat(metadataTransactions.commits + metadataTransactions.rollbacks).isZero();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(json.path("success").asBoolean(true)).isFalse();
+        assertThat(json.path("accepted").asBoolean(true)).isFalse();
+        assertThat(json.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(json.path("document").asInt()).isEqualTo(42);
+        assertThat(json.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"ajax,d", "legacy,d", "ajax,😀", "legacy,😀"})
+    void shouldStoreTheWholeTrimmedDescription_whenItFillsTheColumnExactly(String route, String character) {
+        Document document = prepareMetadata();
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        // The surrounding blanks are not stored, as every other description writer (EDoc) trims.
+        request.setParameter("documentDescription", "  " + description + " ");
+
+        metadata(route);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(document.getDocdesc()).isEqualTo(description);
+        assertThat(metadataTransactions.commits).isEqualTo(1);
     }
 
     @ParameterizedTest @ValueSource(strings = {"GET", "HEAD"})
@@ -836,6 +880,60 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         }
     }
 
+    /** A stored PDF of patient 10 the signed-in provider may read, served by {@code method=display}. */
+    private void prepareDisplayOfPatientDocument() throws Exception {
+        authorizeEdocWrite();
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), isNull())).thenReturn(true);
+        when(securityInfoManager.hasPrivilege(any(), eq("_edoc"), eq("r"), eq("10"))).thenReturn(true);
+        when(ctlDocumentDao.findByDocumentNoAndModule(42, "demographic")).thenReturn(List.of(patientLink(10)));
+        when(ctlDocumentDao.getCtrlDocument(42)).thenReturn(patientLink(10));
+        when(securityInfoManager.isAllowedAccessToPatientRecord(any(), eq(10))).thenReturn(true);
+        Document stored = new Document(42);
+        stored.setDocfilename("stored.pdf");
+        stored.setContenttype("application/pdf");
+        stored.setDocdesc("FAKE-DESCRIPTION consult letter");
+        when(documentDao.getDocument("42")).thenReturn(stored);
+        Files.write(tempDir.resolve("stored.pdf"), "%PDF-1.4 synthetic".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        request.setParameter("method", "display");
+        request.setParameter("doc_no", "42");
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenADocumentIsDisplayed() throws Exception {
+        prepareDisplayOfPatientDocument();
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(response.getContentAsByteArray()).startsWith("%PDF".getBytes(java.nio.charset.StandardCharsets.ISO_8859_1));
+        // One view is one audit event, under the one content spelling ("document") that the inbox's
+        // "has this provider read it" lookup uses, filed under the patient the document belongs to.
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
+    @Test
+    void shouldWriteOneReadRowNamingThePatient_whenTheRequestAlsoNamesAPatient() throws Exception {
+        prepareDisplayOfPatientDocument();
+        // The inbox viewer adds demoNo to the URL; the row is still the one keyed by the stored link.
+        request.setParameter("demoNo", "10");
+
+        try (MockedStatic<PathValidationUtils> paths = cachePaths()) {
+            paths.when(() -> PathValidationUtils.validateExistingPath(any(File.class), any(File.class)))
+                    .thenReturn(tempDir.resolve("stored.pdf").toFile());
+            action.execute();
+        }
+
+        logActionMock.verify(() -> LogAction.addLog("999998", LogConst.READ, LogConst.CON_DOCUMENT, "42",
+                request.getRemoteAddr(), "10"));
+        logActionMock.verifyNoMoreInteractions();
+    }
+
     @Test
     void shouldStreamIncomingRasterFromConfiguredRoot_withoutDependingOnFiledDocumentDirectory() throws Exception {
         Path incoming = Files.createDirectory(tempDir.resolve("incoming"));
@@ -1200,6 +1298,80 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         List<Path> storedFiles = listStoredDocuments();
         assertThat(storedFiles).hasSize(1);
         assertThat(Files.readString(storedFiles.get(0))).isEqualTo("original-content");
+    }
+
+    /**
+     * Filing an incoming document stored the typed description cut to document.docdesc (255
+     * characters) without a word. The filing is refused before the queued file is read, moved or
+     * filed, through the filing contract the Incoming Docs page shows ("😀": one character).
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldRefuseIncomingFilingBeforeMovingAnything_whenTheDescriptionIsOneCharacterTooLong(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)), Mockito.never());
+        }
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("success").asBoolean(true)).isFalse();
+        assertThat(payload.path("accepted").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean(true)).isFalse();
+        assertThat(payload.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(payload.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+        assertThat(action.pageCountRequests).isZero();
+        verifyNoInteractions(providerInboxRoutingDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAnswerANativeFilingWithTheDescriptionMessage_whenTheDescriptionIsTooLong() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.setParameter("documentDescription", "d".repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+
+        assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var html = org.jsoup.Jsoup.parse(response.getContentAsString());
+        assertThat(html.select("p[role=alert]").text()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        // No resubmission of the same over-long text is offered; the link reopens the queued document.
+        assertThat(html.select("form,input,script")).isEmpty();
+        assertThat(html.select("a").attr("href")).contains("/documentManager/ViewIncomingDocs?queueId=1&pdfDir=Fax");
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldFileTheWholeDescription_whenAnIncomingDescriptionFillsTheColumnExactly(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        createIncomingSource(incomingDir, "full.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("full.pdf");
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        request.setParameter("documentDescription", " " + description + " ");
+        org.mockito.ArgumentCaptor<EDoc> filed = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class))).thenReturn("42");
+            assertThat(action.addIncomingDocument()).isEqualTo("nextIncomingDoc");
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(filed.capture()));
+        }
+
+        assertThat(filed.getValue().getDescription()).isEqualTo(description);
     }
 
     @Test

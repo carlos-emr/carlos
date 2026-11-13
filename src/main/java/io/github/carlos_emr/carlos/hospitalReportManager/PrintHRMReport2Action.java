@@ -98,6 +98,16 @@ public class PrintHRMReport2Action extends ActionSupport {
                 return NONE;
             }
 
+            // Decide for every requested report before a header is set or a file is made: one
+            // report filed to a patient this provider is locked out of refuses the whole request,
+            // so the answer is the 403 page and never a partial packet.
+            for (Integer hrmId : hrmIds) {
+                if (!HRMReportAccess.mayReadReport(securityInfoManager, hrmDocumentToDemographicDao, loggedInInfo, hrmId)) {
+                    logger.warn("Refused HRM PDF request: a requested report is filed to a patient the provider may not read");
+                    throw HRMReportAccess.denied();
+                }
+            }
+
             response.setContentType("application/pdf");  //octet-stream
             response.setHeader("Content-Disposition", "attachment; filename=\"HRMReport_"
                     + System.currentTimeMillis() + ".pdf\"");

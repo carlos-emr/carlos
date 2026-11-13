@@ -21,6 +21,7 @@
  */
 package io.github.carlos_emr.carlos.admin.web;
 
+import io.github.carlos_emr.carlos.admin.service.SecurityRecordUpdateService;
 import io.github.carlos_emr.carlos.security.CarlosMethodSecurity;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 
@@ -72,6 +73,7 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
         response = new MockHttpServletResponse();
         methodSecurity = mock(CarlosMethodSecurity.class);
         registerMock(CarlosMethodSecurity.class, methodSecurity);
+        registerMock(SecurityRecordUpdateService.class, mock(SecurityRecordUpdateService.class));
         servletActionContextMock = org.mockito.Mockito.mockStatic(ServletActionContext.class);
         servletActionContextMock.when(ServletActionContext::getRequest).thenReturn(request);
         servletActionContextMock.when(ServletActionContext::getResponse).thenReturn(response);
@@ -89,7 +91,8 @@ class SecurityAdminWriteActionsUnitTest extends CarlosUnitTestBase {
             Arguments.of("SecurityAddSecurity2Action",
                     (Function<CarlosMethodSecurity, ActionSupport>) SecurityAddSecurity2Action::new),
             Arguments.of("SecurityUpdate2Action",
-                    (Function<CarlosMethodSecurity, ActionSupport>) SecurityUpdate2Action::new)
+                    (Function<CarlosMethodSecurity, ActionSupport>) methodSecurity ->
+                            new SecurityUpdate2Action(methodSecurity, mock(SecurityRecordUpdateService.class)))
         );
     }
 

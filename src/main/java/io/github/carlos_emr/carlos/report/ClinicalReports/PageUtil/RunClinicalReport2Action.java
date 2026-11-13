@@ -51,6 +51,7 @@ import io.github.carlos_emr.carlos.report.ClinicalReports.ClinicalReportManager;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Denominator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.Numerator;
 import io.github.carlos_emr.carlos.report.ClinicalReports.ReportEvaluator;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
@@ -200,7 +201,14 @@ public class RunClinicalReport2Action extends ActionSupport {
 
 
         ReportEvaluator re = new ReportEvaluator();
-        re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        try {
+            re.evaluate(LoggedInInfo.getLoggedInInfoFromSession(request), d, n, numerators, extraVal, inclNonPositiveResults);
+        } catch (IllegalStateException e) {
+            // The report still fails as before. When a configured_report.* limit stopped it, the error
+            // page names that limit, so the user can narrow the report or ask for the limit to be raised.
+            ReportLimitNotice.publish(request, e);
+            throw e;
+        }
 
         int num = re.getNumeratorCount();
         int denom = re.getDenominatorCount();

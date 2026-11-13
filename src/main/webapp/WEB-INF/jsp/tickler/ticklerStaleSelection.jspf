@@ -1,0 +1,84 @@
+<%--
+    Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+    This software is published under the GPL GNU General Public License.
+
+    ticklerStaleSelection.jspf - included inside the bulk form (name="ticklerform") of the task
+    lists, ticklerMain.jsp and ticklerDemoMain.jsp.
+
+    The lists post only the ticked task numbers. A list loaded before another user completed or
+    deleted a task still shows it with its old status, and its Complete or Delete used to write
+    over that change (a Deleted task came back as Completed). This fragment:
+
+    1. posts what each ticked row showed. Every checkbox carries its row's status in
+       data-rendered-status; when the form is submitted, the pairs "<tickler_no>:<status>" of the
+       ticked rows go into the one hidden field "ticklerRendered" (TicklerRenderedStatus.PARAMETER).
+       The buttons call form.submit(), which fires no submit event, so the form's own submit() is
+       wrapped; the wrapper ends in the prototype's submit(), which is where the CSRF client adds
+       its token. The bulk actions hand the pairs to TicklerManager.updateStatusIfCurrent.
+    2. names the tasks the previous bulk action left alone because someone else had changed them
+       (remembered once in the session by the action), with their current status, so the user
+       reviews them instead of assuming they were completed or deleted.
+
+    Local names are prefixed "stale" because a static include shares the including page's scope.
+
+    @since 2026-11-12
+--%>
+<%
+    java.util.List<Integer> staleTicklerNos =
+            io.github.carlos_emr.carlos.tickler.pageUtil.TicklerRenderedStatus.takeRefused(session);
+    if (!staleTicklerNos.isEmpty()) {
+        java.util.ResourceBundle staleBundle = java.util.ResourceBundle.getBundle("oscarResources", request.getLocale());
+        io.github.carlos_emr.carlos.managers.TicklerManager staleTicklerManager =
+                io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.TicklerManager.class);
+        io.github.carlos_emr.carlos.utility.LoggedInInfo staleLoggedInInfo =
+                io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request);
+%>
+<div id="ticklerStaleSelection" class="alert alert-warning" role="alert">
+    <p><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(staleBundle.getString("tickler.staleSelection.notice")) %></p>
+    <ul class="mb-0">
+        <%
+            for (Integer staleTicklerNo : staleTicklerNos) {
+                io.github.carlos_emr.carlos.commn.model.Tickler staleTickler = staleTicklerManager.getTickler(staleLoggedInInfo, staleTicklerNo);
+                if (staleTickler == null) {
+                    continue;
+                }
+                String stalePatient = staleTickler.getDemographic() == null ? "" : staleTickler.getDemographic().getFormattedName();
+                String staleMessage = staleTickler.getMessage() == null ? "" : staleTickler.getMessage();
+                if (staleMessage.length() > 120) {
+                    staleMessage = staleMessage.substring(0, 120) + "…";
+                }
+                String staleStatusKey = staleTickler.getStatus() == io.github.carlos_emr.carlos.commn.model.Tickler.STATUS.C ? "tickler.ticklerMain.stComplete"
+                        : staleTickler.getStatus() == io.github.carlos_emr.carlos.commn.model.Tickler.STATUS.D ? "tickler.ticklerMain.stDeleted"
+                        : "tickler.ticklerMain.stActive";
+                String staleStatus = java.text.MessageFormat.format(staleBundle.getString("tickler.staleSelection.currentStatus"),
+                        staleBundle.getString(staleStatusKey));
+        %>
+        <li data-tickler-no="<%= staleTicklerNo %>"><strong><%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(stalePatient) %></strong>
+            <%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(staleMessage) %>
+            (<%= io.github.carlos_emr.carlos.utility.SafeEncode.forHtmlContent(staleStatus) %>)</li>
+        <%
+            }
+        %>
+    </ul>
+</div>
+<%
+    }
+%>
+<input type="hidden" name="<%= io.github.carlos_emr.carlos.tickler.pageUtil.TicklerRenderedStatus.PARAMETER %>" value="">
+<script>
+    (function () {
+        var form = document.forms['ticklerform'];
+        if (!form) return;
+        form.submit = function () {
+            var rendered = [];
+            for (var i = 0; i < form.elements.length; i++) {
+                var box = form.elements[i];
+                if (box.name === 'checkbox' && box.checked && box.getAttribute('data-rendered-status')) {
+                    rendered.push(box.value + ':' + box.getAttribute('data-rendered-status'));
+                }
+            }
+            form.elements['<%= io.github.carlos_emr.carlos.tickler.pageUtil.TicklerRenderedStatus.PARAMETER %>'].value = rendered.join(',');
+            return HTMLFormElement.prototype.submit.call(form);
+        };
+    })();
+</script>

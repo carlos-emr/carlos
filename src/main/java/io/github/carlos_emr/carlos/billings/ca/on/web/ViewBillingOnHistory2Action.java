@@ -24,6 +24,8 @@ package io.github.carlos_emr.carlos.billings.ca.on.web;
 import jakarta.servlet.http.HttpServletRequest;
 
 import io.github.carlos_emr.carlos.billings.ca.on.viewmodel.BillingOnHistoryViewModel;
+import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.log.LogConst;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -63,7 +65,43 @@ public class ViewBillingOnHistory2Action extends ActionSupport {
         BillingOnHistoryViewModel model = billingONHistoryAssembler
                 .assemble(loggedInInfo, request.getParameter("demographic_no"));
         request.setAttribute("historyModel", model);
+        auditHistoryRead(loggedInInfo, request.getParameter("demographic_no"));
 
         return SUCCESS;
+    }
+
+    /**
+     * The patient a billing page acts on, written the one way the audit trail keys it.
+     *
+     * <p>The billing pages read {@code demographic_no} as an integer, so {@code 042} and
+     * {@code +42} list patient 42. The audit row must name that same patient: a stricter pattern
+     * here would show the patient's billing with no row at all.</p>
+     *
+     * @param demographicNo the {@code demographic_no} request parameter as received
+     * @return the positive patient number in plain decimal, or {@code null} when the value names no patient
+     */
+    static String auditPatientNumber(String demographicNo) {
+        try {
+            int patient = Integer.parseInt(demographicNo == null ? "" : demographicNo.trim());
+            return patient > 0 ? Integer.toString(patient) : null;
+        } catch (NumberFormatException notANumber) {
+            return null;
+        }
+    }
+
+    /**
+     * Audits the opening of a patient's billing history: the page lists every invoice of the
+     * patient (dates, codes, amounts), so it is a read of that patient's billing record. One row
+     * for the page, keyed by the patient like the chart's own read rows, never one per invoice
+     * listed. A request that names no patient lists nothing and is not audited.
+     *
+     * @param loggedInInfo the signed-in user (provider, security id and client address of the row)
+     * @param demographicNo the {@code demographic_no} request parameter as received
+     */
+    static void auditHistoryRead(LoggedInInfo loggedInInfo, String demographicNo) {
+        String patient = auditPatientNumber(demographicNo);
+        if (loggedInInfo != null && patient != null) {
+            LogAction.addLog(loggedInInfo, LogConst.READ, LogConst.CON_BILLING_HISTORY, patient, patient, null);
+        }
     }
 }

@@ -134,11 +134,45 @@ runs with `sql_log_bin = 0`, so grants never ride the binary log into a point-in
   the connection, and so does a grant list the application cannot read. The log names the kind
   of grant, never the line, because that line carries the password hash.
 - `RptByExampleData` still validates first with `QueryByExampleSqlValidator`, still runs read-only
-  with the 15-second timeout and row and output limits, and audits each outcome by query hash. Two
-  outcomes are new: `unavailable` (no usable reporting account, nothing ran) and `denied` (MariaDB
-  refused a table or column the account is not granted).
+  with the 15-second timeout and row and output limits, and audits each outcome by query hash (see
+  [The audit row](#the-audit-row)). Two outcomes are new: `unavailable` (no usable reporting
+  account, nothing ran) and `denied` (MariaDB refused a table or column the account is not granted).
 - The page tells the user which case applies. When the account is not configured, the warning
   appears as soon as the page opens.
+
+### The audit row
+
+Every submitted run leaves exactly one row in the `log` audit table, whatever its outcome. Opening
+the page is not a run and leaves none. The row is written by `RptByExample2Action` through
+`RptByExampleData.auditRow`, after the run's outcome is final:
+
+| Column | Value |
+|---|---|
+| `action` / `content` | `read` / `query_by_example` (`LogConst.READ`, `LogConst.CON_QUERY_BY_EXAMPLE`) |
+| `provider_no`, `securityId`, `ip` | the signed-in user, as on every `LogAction` row |
+| `contentId`, `demographic_no` | empty: a run is not about one patient |
+| `data` | `queryHash=<SHA-256 hex of the SQL> queryLength=<n> durationMs=<n> rowCount=<n> outcome=<word>` |
+
+The outcome is one of `success`, `history_failed` (the results were shown but the history row
+could not be saved; it replaces `success`, it does not follow it), `rejected` (blank SQL or refused
+by the validator), `unavailable`, `denied`, `timeout`, `failed` and `disabled`
+(`QUERY_BY_EXAMPLE_ENABLED = false`). `rowCount` is the number of rows shown, so 0 for every
+outcome but `success` and `history_failed`. Neither the SQL text nor any result value is copied: to
+find which query a row names, hash the candidate SQL (for example from `reportByExamples`, the
+history of successful queries) and compare.
+
+The row is inserted in the request thread in a transaction of its own
+(`LogAction.addLogSynchronousInNewTransaction`, `REQUIRES_NEW`), so it is committed before the
+page answers. The query runs on the reporting account's own JDBC connection, outside any Spring
+transaction, so a failed, refused or timed-out query has nothing the row could join or be rolled
+back with. A failure to write the row is logged at ERROR (outcome and exception type only) and does
+not change what the user is shown.
+
+The INFO line `Query-by-Example audit provider=... queryHash=... queryLength=... durationMs=...
+rowCount=... outcome=...` from `RptByExampleData` is still logged for tooling that reads it, but it
+is diagnostics, not the audit trail: packaged installs log at WARN (`LOG_VERBOSITY` unset), so it
+is normally not written. Unavailable runs also log a WARN naming the missing or refused setting,
+and denied and failed runs a WARN by query hash.
 
 ### The build guards
 
@@ -274,10 +308,10 @@ keeps working without operator action. What users notice:
 
 | Layer | What |
 |---|---|
-| Unit | `ReportingConnectionServiceUnitTest` (settings, login refusal, `SHOW GRANTS` audit against the grant list, no password hash in logs), `ReportingGrantListUnitTest` (the reader the audit and the build checks share), `RptByExampleDataUnitTest` (`denied` and `unavailable` outcomes, no fallback), `ReportActionSecurityMigrationUnitTest` (messages), `QueryByExampleSqlValidatorUnitTest`, `QueryByExampleReportingClassificationUnitTest` |
+| Unit | `ReportingConnectionServiceUnitTest` (settings, login refusal, `SHOW GRANTS` audit against the grant list, no password hash in logs), `ReportingGrantListUnitTest` (the reader the audit and the build checks share), `RptByExampleDataUnitTest` (`denied` and `unavailable` outcomes, no fallback), `RptByExample2ActionAuditUnitTest` (one audit row per run for every outcome, no SQL text, an audit failure leaves the results), `ReportActionSecurityMigrationUnitTest` (messages), `QueryByExampleSqlValidatorUnitTest`, `QueryByExampleReportingClassificationUnitTest` |
 | Integration (H2) | `RptByExampleDataReportingAccountIntegrationTest` |
 | Live MariaDB | carlos-ctl `tests/test_reporting.py` with `CARLOS_TEST_MARIADB_SOCKET` and `CARLOS_SRC`: the shipped list against a real server, including column grants, re-sync revoking hand-made and `PROXY` grants, and the `PUBLIC` refusal leaving no stale grant |
-| Browser, packaged install | `scripts/report-query-by-example-least-privilege-playwright-checks.js` through the front door |
+| Browser, packaged install | `scripts/report-query-by-example-least-privilege-playwright-checks.js` through the front door; `scripts/report-query-by-example-budgets-playwright-checks.js` reads each run's audit row from the `log` table |
 | Deployment | `sudo carlos-ctl check` |
 
 ## Known limits

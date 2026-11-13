@@ -65,7 +65,7 @@ class ManageInboxhub2ActionUnitTest extends CarlosUnitTestBase {
         CategoryData categories = mock(CategoryData.class);
         try (MockedStatic<ServletActionContext> servlet = mockStatic(ServletActionContext.class);
              MockedConstruction<LabDataController> controllers = mockConstruction(LabDataController.class, (mock, context) -> {
-                 when(mock.getCategoryData(any())).thenReturn(categories);
+                 when(mock.getCategoryData(any(), any())).thenReturn(categories);
                  when(mock.getTotalResultsCountBasedOnQuery(any(), eq(categories))).thenReturn(new int[] {2, 3, 4, 9});
              })) {
             servlet.when(ServletActionContext::getRequest).thenReturn(request);

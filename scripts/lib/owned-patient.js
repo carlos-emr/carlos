@@ -44,6 +44,34 @@ const PATIENT_KEYED_TABLES = Object.freeze([
   ['demographiccust', 'demographic_no'],
 ]);
 
+/**
+ * Patient-keyed tables that a supported upgrade baseline does not have yet. The package upgrade test
+ * (deb-docker-validation.sh upgrade <tag>) prepares the OLDER install with this tree's harness, so a table that a
+ * later migration creates is missing there. Only the tables named here may be absent; any other missing table is
+ * still an error, so a renamed or mistyped table cannot slip through as "nothing to delete".
+ */
+const ADDED_AFTER_UPGRADE_BASELINE = Object.freeze(['rx_submission_receipt']);
+
+/**
+ * `pairs` ([table, column]) without the newer tables this database does not have.
+ *
+ * @param {{ value(query: string): string }} sql
+ * @param {ReadonlyArray<readonly [string, string]>} pairs
+ * @returns {Array<readonly [string, string]>} the pairs whose table exists, in their original order
+ */
+function presentTables(sql, pairs) {
+  const lacks = (table) => {
+    // A catalogue that cannot be read decides nothing: the table stays named and the database answers for it.
+    try {
+      return sql.value(`SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='${table}'`) === '0';
+    } catch (unreadable) {
+      return false;
+    }
+  };
+  const absent = ADDED_AFTER_UPGRADE_BASELINE.filter((table) => pairs.some(([name]) => name === table) && lacks(table));
+  return absent.length ? pairs.filter(([name]) => !absent.includes(name)) : [...pairs];
+}
+
 /** What recording allergies for the patient writes beyond the chart's own rows. */
 const ALLERGY_ROWS = Object.freeze({ extra: [['allergies', 'demographic_no']], via: [] });
 
@@ -145,7 +173,7 @@ function removeOwnedPatient(sql, patient, marker, { extra = [], via = [] } = {})
   if (sql.value(`SELECT COUNT(*) FROM demographic WHERE demographic_no=${patient} AND last_name=${quote(marker)}`) !== '1') {
     throw new Error('Patient fixture ownership changed');
   }
-  const keyed = [...PATIENT_KEYED_TABLES, ...extra];
+  const keyed = presentTables(sql, [...PATIENT_KEYED_TABLES, ...extra]);
   const owned = `SELECT note_id FROM casemgmt_note WHERE demographic_no=${patient}`;
   if (via.length) {
     // First, and counted while the parent rows that name them still exist: once those are deleted, no query can find a survivor.
@@ -169,5 +197,6 @@ function removeOwnedPatient(sql, patient, marker, { extra = [], via = [] } = {})
 }
 
 module.exports = {
-  ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient, eformRows, newOwnedMarker, removeOwnedPatient,
+  ADDED_AFTER_UPGRADE_BASELINE, ALLERGY_ROWS, CONSULTATION_ROWS, PATIENT_KEYED_TABLES, combineRows, createOwnedPatient, eformRows,
+  newOwnedMarker, presentTables, removeOwnedPatient,
 };

@@ -88,6 +88,11 @@ public final class FormSubmissionGuard {
     public enum Scope {
         /** {@code appointment/AddRecord} from the Add Appointment popup. */
         APPOINTMENT_ADD,
+        /**
+         * {@code appointment/appointmentgrouprecords}: Add Group Appointment, Group Update, Group
+         * Cancel and Group Delete on the Group Appointment page.
+         */
+        APPOINTMENT_GROUP,
         /** {@code billing/CA/ON/BillingONSave} from the Ontario bill review page. */
         BILLING_ON_SAVE,
         /** {@code demographic/DemographicAddRecord} from the Add Demographic form. */
@@ -96,7 +101,9 @@ public final class FormSubmissionGuard {
         CONSULTATION_SERVICE_ADD,
         /** {@code Pregnancy} from the patient-bound Add pregnancy form. */
         RX_FAVORITE_GROUP,
-        PREGNANCY_CREATE
+        PREGNANCY_CREATE,
+        /** {@code messenger/CreateMessage} from the Messenger compose page (new, reply, reply all, forward). */
+        MESSENGER_SEND
     }
 
     private enum State { ISSUED, SAVING, SAVED }

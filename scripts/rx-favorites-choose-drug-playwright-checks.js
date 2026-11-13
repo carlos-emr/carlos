@@ -412,7 +412,9 @@ async function workflow(session) {
       && response.request().method() === 'POST');
     await page.locator('input[onclick="submitForm(\'updateAndPrint\');"]').click();
     const savedResponse = await saved;
-    const submitted = new URLSearchParams(savedResponse.request().postData());
+    // The exact bytes the browser sent: only this body, sent again, is a replay of the save.
+    const savedBody = savedResponse.request().postData();
+    const submitted = new URLSearchParams(savedBody);
     h.assert(JSON.stringify(submitted.getAll('action')) === JSON.stringify(['updateAndPrint']),
       'legacy Print did not submit exactly one updateAndPrint action');
     h.assert(savedResponse.ok(), `the current legacy editor was refused with HTTP ${savedResponse.status()}`);
@@ -436,11 +438,37 @@ async function workflow(session) {
     }
     h.assert(differences.length === 0,
       `legacy Print changed clinical field(s): ${differences.join(', ')}; values withheld`);
-    const duplicate = await postCapturedEditor();
-    h.assert(duplicate.status() === 409 && (await duplicate.json()).error === 'STALE_RX_STASH',
-      'duplicate legacy Print was accepted');
+    // The same request sent again, byte for byte, is the save that already happened: the action finds
+    // its receipt and answers 409 with a page a person can read (reportLegacyRecovery, since #6099),
+    // where it used to answer the stash refusal's JSON. The page says the prescription is saved
+    // and must not be entered again. It is the browser's own body that is repeated: a body rebuilt
+    // from the form (other line endings in the instructions, for one) is not the same request.
+    const writeScript = `${String(config.baseUrl).replace(/\/$/, '')}/rx/writeScript`;
+    const replayHeaders = {'CSRF-TOKEN': payload['CSRF-TOKEN'], 'X-Requested-With': 'XMLHttpRequest'};
+    const duplicate = await session.context.request.post(writeScript, {
+      headers: {...replayHeaders, 'content-type': 'application/x-www-form-urlencoded'}, data: savedBody, maxRedirects: 0,
+    });
+    const duplicateBody = await duplicate.text();
+    h.assert(duplicate.status() === 409, `duplicate legacy Print answered HTTP ${duplicate.status()}; expected the already-saved refusal`);
+    h.assert(/^text\/html\b/i.test(duplicate.headers()['content-type'] || ''), 'the already-saved refusal of a duplicate legacy Print is not an HTML page');
+    h.assert(/<p role="alert">This prescription was already saved\. [^<]*do not enter it again\.<\/p>/.test(duplicateBody),
+      'the refusal of a duplicate legacy Print does not say the prescription was already saved');
     h.assert(sql.value(`SELECT COUNT(*) FROM drugs WHERE demographic_no=${patient}
       AND customName=${h.sqlString(legacyName)}`) === '1', 'duplicate legacy Print created another medication');
+    // The same draft sent with a changed field is an edit the save never saw (#5751). Answering it
+    // "already saved" would drop the correction unnoticed, so it is told apart: the earlier version
+    // was saved, the changes were not, and nothing is written.
+    const editedFields = new URLSearchParams(savedBody);
+    editedFields.set('quantity', '38');
+    const edited = await session.context.request.post(writeScript, {
+      headers: {...replayHeaders, 'content-type': 'application/x-www-form-urlencoded'}, data: editedFields.toString(), maxRedirects: 0,
+    });
+    const editedBody = await edited.text();
+    h.assert(edited.status() === 409, `an edited re-save of the saved legacy Print answered HTTP ${edited.status()}; expected a refusal`);
+    h.assert(/<p role="alert">An earlier version of this prescription was already saved\. The changes you entered afterwards were NOT saved\./.test(editedBody),
+      'an edited re-save of a saved legacy Print is not told that its changes were not saved');
+    h.assert(sql.value(`SELECT CONCAT(COUNT(*), ':', MAX(quantity)) FROM drugs WHERE demographic_no=${patient}
+      AND customName=${h.sqlString(legacyName)}`) === '1:37', 'the refused edited re-save changed or added a medication');
     await page.close();
   });
 
@@ -554,7 +582,9 @@ async function workflow(session) {
         await route.continue();
       });
       try {
-        await page.locator(`a[title="${name}"]`).click();
+        // The Rx page's own sidebar lists favourites as buttons (SideLinksEditFavorites2.jsp, since #6099);
+        // the other pages' sidebars still list them as links.
+        await page.locator(`:is(a, button)[title="${name}"]`).click();
         await page.waitForURL(/\/rx\/choosePatient\?[^#]*usefav=true/, { timeout: 15000 });
         await Promise.race([stashReceived, page.waitForTimeout(15000).then(() => {
           throw new Error('favorite handoff did not request the initial draft');

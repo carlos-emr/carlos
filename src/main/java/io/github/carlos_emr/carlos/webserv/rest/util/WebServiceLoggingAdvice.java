@@ -31,6 +31,7 @@ package io.github.carlos_emr.carlos.webserv.rest.util;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -43,6 +44,8 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import io.github.carlos_emr.carlos.log.LogAction;
@@ -55,9 +58,37 @@ import io.github.carlos_emr.carlos.log.LogAction;
 // which isn't very informative..but it's a first stab.
 
 
+/**
+ * Writes the access audit record of every REST service call.
+ *
+ * <p><strong>Transaction boundary.</strong> The audit record is not part of the resource's own
+ * transaction, in either direction: a resource transaction that rolls back must still leave its
+ * {@code FAILURE} record, and the audit insert must never run on the resource's connection. A
+ * resource method annotated {@code @Transactional(readOnly = true)} holds a connection MariaDB
+ * refuses to write on, so an insert joining it fails, marks the shared transaction rollback-only
+ * and turns a successful read into an HTTP 500. Two things keep the record apart:</p>
+ * <ol>
+ *   <li>{@link #ORDER} puts this advice outside the transaction advisor, so the record is written
+ *       after the resource transaction has committed or rolled back, and a failed commit is
+ *       recorded as a failure. Spring orders an unordered aspect <em>inside</em> the transaction
+ *       advisor, which is what this must not fall back to.</li>
+ *   <li>The record is written through
+ *       {@link LogAction#addLogSynchronousInNewTransaction(OscarLog)}, which opens a transaction
+ *       of its own. That holds even if a transaction is open around this advice after all.</li>
+ * </ol>
+ */
 @Aspect
 @Component
+@Order(WebServiceLoggingAdvice.ORDER)
 public class WebServiceLoggingAdvice {
+
+    /**
+     * Precedence of this advice on a REST resource proxy: ahead of (outside) every other advisor,
+     * the transaction advisor in particular. {@code <tx:annotation-driven>} in
+     * {@code applicationContext.xml} and {@code spring_jpa.xml} declares that advisor's order; it
+     * must stay numerically greater than this value.
+     */
+    public static final int ORDER = Ordered.HIGHEST_PRECEDENCE + 100;
 
     private static Logger logger = MiscUtils.getLogger();
 
@@ -98,17 +129,19 @@ public class WebServiceLoggingAdvice {
         HttpServletRequest request = currentRequest();
         String providerNo = resolveAuditProviderNo(request);
 
+        Object result;
         try {
-            Object result = joinpoint.proceed();
-
-            logAccess("REST WS: " + getServiceCallDescription(joinpoint), request, providerNo);
-            return result;
+            result = joinpoint.proceed();
         } catch (Throwable t) {
             logger.debug("WS Failure", t);
 
             logAccess("REST WS: FAILURE: " + getServiceCallDescription(joinpoint), request, providerNo);
             throw t;
         }
+        // Outside the try: by now the resource transaction has committed, so a problem writing the
+        // success record must not be reported as a FAILURE of the call, let alone rethrown.
+        logAccess("REST WS: " + getServiceCallDescription(joinpoint), request, providerNo);
+        return result;
     }
 
     private HttpServletRequest currentRequest() {
@@ -147,16 +180,27 @@ public class WebServiceLoggingAdvice {
         return StringUtils.isBlank(providerNo) ? NO_AUTHENTICATED_CALLER : providerNo;
     }
 
+    /**
+     * Writes one audit record in a transaction of its own. Never throws: the outcome of the audited
+     * call, whether its result or the exception it failed with, is what the client must receive.
+     */
     private void logAccess(String action, HttpServletRequest request, String providerNo) {
-        OscarLog log = new OscarLog();
-        log.setAction(action);
-        log.setProviderNo(providerNo);
+        try {
+            OscarLog log = new OscarLog();
+            log.setAction(action);
+            log.setProviderNo(providerNo);
 
-        log.setIp(request.getRemoteAddr());
-        log.setContent(request.getRequestURL().toString());
-        log.setData(request.getParameterMap().toString());
+            log.setIp(request.getRemoteAddr());
+            log.setContent(request.getRequestURL().toString());
+            log.setData(request.getParameterMap().toString());
 
-        LogAction.addLogSynchronous(log);
+            LogAction.addLogSynchronousInNewTransaction(log);
+        } catch (RuntimeException e) {
+            // LogAction reports a failed insert itself; this is a failure to build the record. Only the
+            // action and the exception type: the request URL and parameters may identify a patient.
+            logger.error("REST audit entry not written: action={}, cause={}", LogSafe.sanitize(action),
+                    e.getClass().getName());
+        }
     }
 
 }

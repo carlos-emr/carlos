@@ -127,7 +127,13 @@ function inspect(bytes) {
     .map(p=>({value:+p.text,pixel:p.y+p.h/2}));
   const x=calibrate(dates,5,1), y=calibrate(values,6,-1);
   assert(labels.some(p=>p.text==='Days' && p.y>box.bottom), 'Graph date-axis title is missing');
-  assert(labels.some(p=>/^wt$/i.test(p.text) && p.y>box.bottom+30), 'Graph weight legend is missing');
+  // The 12px legend is below tesseract's reliable size ("WT" reads as "wr"): read its strip enlarged.
+  const top=box.bottom+30, scale=3, strip=new PNG({width:png.width*scale,height:(png.height-top)*scale});
+  for(let sy=0;sy<strip.height;sy++)for(let sx=0;sx<strip.width;sx++) {
+    const from=((top+Math.floor(sy/scale))*png.width+Math.floor(sx/scale))*4;
+    png.data.copy(strip.data,(sy*strip.width+sx)*4,from,from+4);
+  }
+  assert(/\bwt\b/i.test(ocr(PNG.sync.write(strip),['--psm','11'])), 'Graph weight legend is missing');
   const rotated=new PNG({width:png.height,height:32});
   for(let py=0;py<png.height;py++)for(let px=0;px<32;px++) {
     png.data.copy(rotated.data, (px*rotated.width+png.height-1-py)*4, (py*png.width+px)*4, (py*png.width+px)*4+4);

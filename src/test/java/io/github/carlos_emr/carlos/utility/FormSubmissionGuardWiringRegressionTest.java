@@ -25,6 +25,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.Test;
 
+import io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentGroupSubmission;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -59,6 +61,7 @@ class FormSubmissionGuardWiringRegressionTest {
     @ParameterizedTest(name = "{0} renders a {1} token")
     @CsvSource({
             "appointment/addappointment.jsp, APPOINTMENT_ADD",
+            "appointment/appointmentgrouprecords.jsp, APPOINTMENT_GROUP",
             "demographic/add.jsp, DEMOGRAPHIC_ADD",
             "encounter/oscarConsultationRequest/config/AddService.jsp, CONSULTATION_SERVICE_ADD"
     })
@@ -82,6 +85,7 @@ class FormSubmissionGuardWiringRegressionTest {
     @ParameterizedTest(name = "{1} maps the refusal page")
     @CsvSource({
             "struts-scheduling.xml, appointment/AddRecord",
+            "struts-scheduling.xml, appointment/appointmentgrouprecords",
             "struts-billing.xml, billing/CA/ON/BillingONSave",
             "struts-demographic.xml, demographic/DemographicAddRecord",
             "struts-encounter.xml, encounter/AddService",
@@ -91,6 +95,42 @@ class FormSubmissionGuardWiringRegressionTest {
         assertThat(actionElement(strutsFile, action)).contains("<result name=\"" + FormSubmissionGuard.REFUSED_RESULT
                 + "\">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>");
         assertThat(JSP.resolve(Path.of("common", "formSubmissionRefused.jsp"))).exists();
+    }
+
+    @Test
+    void shouldReportTheGroupPagesWritesToItsClaim_onTheGroupAppointmentPage() throws IOException {
+        String page = read(JSP.resolve(Path.of("appointment", "appointmentgrouprecords.jsp")));
+        String action = actionElement("struts-scheduling.xml", "appointment/appointmentgrouprecords");
+
+        // The gate runs the page itself for a claimed submission: the page it forwards to is the route's view.
+        assertThat(action).contains("<result name=\"success\">" + AppointmentGroupSubmission.VIEW + "</result>");
+        assertThat(action).contains("<result name=\"" + AppointmentGroupSubmission.SAVED_RESULT
+                + "\">/WEB-INF/jsp/appointment/appointmentGroupSaved.jsp</result>");
+        // The page echoes the request into its form; a token posted by the Add Appointment form must
+        // not ride along beside the page's own.
+        assertThat(page).contains("temp.equals(FormSubmissionGuard.PARAMETER)");
+        // Add Group Appointment books one appointment at a time: the claim learns before the first booking.
+        assertThat(page).containsSubsequence("AppointmentGroupSubmission.storageStarted(request);",
+                "appointmentDao.persist(a);", "rowsAffected = 1;");
+        // The group edits run in one transaction: the claim learns before it commits whether it did.
+        assertThat(page).containsSubsequence("if (bSucc) AppointmentGroupSubmission.storageStarted(request);",
+                "groupTxManager.commit(groupTx);");
+        // The save is recorded after both branches' writes are durable and before the result page.
+        assertThat(page).containsSubsequence("groupTxManager.commit(groupTx);",
+                "if (bSucc) {", "AppointmentGroupSubmission.saved(request);",
+                "appointment.appointmentgrouprecords.msgAddSuccess");
+    }
+
+    @Test
+    void shouldEndOnTheFirstSavesResultPage_forARepeatedGroupAction() throws IOException {
+        String page = read(JSP.resolve(Path.of("appointment", "appointmentgrouprecords.jsp")));
+        String saved = read(JSP.resolve(Path.of("appointment", "appointmentGroupSaved.jsp")));
+        String success = "<h1><fmt:message key=\"appointment.appointmentgrouprecords.msgAddSuccess\"/></h1>";
+
+        assertThat(page).contains(success);
+        assertThat(saved).contains(success, "self.opener.refresh();", "self.close();");
+        // The answer to a repeat echoes nothing the repeat posted, and writes nothing.
+        assertThat(saved).doesNotContain("<%=", "request.getParameter", "Dao");
     }
 
     @Test

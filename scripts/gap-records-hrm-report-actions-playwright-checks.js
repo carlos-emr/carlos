@@ -9,7 +9,8 @@
  * Providers autocomplete ▸ patient (remove) and the patient autocomplete.
  * Asserts, against HRMDocumentToProvider / HRMDocument / HRMDocumentToDemographic: Sign-Off stores
  * signedOff=1 with a timestamp for the viewer only and flips the button to Revoke Sign-Off, which stores 0;
- * Set Description stores the typed text and the document list shows it; choosing a category stores
+ * Set Description stores the typed text and the document list shows it, and refuses a description one character
+ * longer than HRMDocument.description (255) with a length message, keeping the stored text; choosing a category stores
  * hrmCategoryId and the read-only label shows its name; picking a provider in the autocomplete adds exactly
  * that provider's unsigned routing row; (remove) beside the patient deletes the patient link and disables the
  * patient buttons, and picking the patient again in the autocomplete restores the link.
@@ -18,6 +19,7 @@
  * Cleanup deletes the owned rows and file and asserts them gone.
  */
 const h = require('./lib/playwright-harness');
+const b = require('./lib/boundary-values');
 const { runWorkflow, expectValue } = require('./lib/workflow-session');
 const { hrmReportLink } = require('./lib/hrm-report-list');
 const { createOwnedHrmReport } = require('./lib/gap-records-hrm-fixture');
@@ -85,6 +87,20 @@ async function workflow(s) {
     await list.reload();
     await list.locator('#tblHRM').waitFor({ timeout: TIMEOUT });
     h.assert((await list.locator('#tblHRM').innerText()).includes(description), 'The document list does not show the new description');
+  });
+
+  await s.step('Set Description refuses a description longer than the column and keeps the stored one', async () => {
+    // HRMDocument.description is a utf8mb4 VARCHAR(255); one character more used to be stored cut to 255.
+    const stored = sql.value(`SELECT description FROM HRMDocument WHERE id=${reportId}`);
+    const over = `${marker} L`.padEnd(256, 'x');
+    await viewer.locator(`[id="descriptionField_${reportId}_hrm"]`).fill(over);
+    await viewer.locator('#descriptionBox input[value="Set Description"]').click();
+    const status = viewer.locator(`#descriptionstatus${reportId}`);
+    await status.filter({ hasText: /too long/i }).waitFor({ timeout: TIMEOUT });
+    h.assert(b.lengthRefusal(await status.innerText()), 'Set Description gave no length refusal for an over-long description');
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    h.assert(sql.value(`SELECT description FROM HRMDocument WHERE id=${reportId}`) === stored,
+      'An over-long description changed the stored description');
   });
 
   await s.step('choosing a category stores it and the read-only label shows its name', async () => {

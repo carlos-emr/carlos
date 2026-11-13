@@ -1062,6 +1062,56 @@ public final class Login2Action extends ActionSupport {
         }
     }
 
+    /** Whether this request has written the "log in" audit row of its accepted sign-in. */
+    private boolean signInAudited;
+
+    /**
+     * Completes an accepted sign-in and keeps it on the audit trail when completing it fails.
+     *
+     * <p>The one "log in" row is written when the facility is known, so that it can name it.
+     * The credentials have been accepted and a session assigned well before that point. A
+     * failure in between (a provider, preference or facility lookup) would otherwise leave a
+     * session that no audit row accounts for, so the row is written here before the failure is
+     * passed on.</p>
+     *
+     * @param security authenticated security row
+     * @param strAuth authentication result fields returned by {@link LoginCheckLogin#auth}
+     * @param ip remote address used for audit logging
+     * @param isMobileOptimized whether mobile session flags should be applied
+     * @param submitType mobile/full-site submit mode
+     * @param ajaxResponse whether to write the final provider JSON response directly
+     * @return the result of {@link #populateAuthenticatedSession}
+     * @throws IOException if redirecting or writing the response fails
+     */
+    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
+                                              boolean isMobileOptimized, String submitType,
+                                              boolean ajaxResponse) throws IOException {
+        try {
+            return populateAuthenticatedSession(security, strAuth, ip, isMobileOptimized, submitType, ajaxResponse);
+        } catch (RuntimeException | IOException failure) {
+            if (!signInAudited) {
+                try {
+                    auditSignIn(strAuth[0], "", ip);
+                } catch (RuntimeException auditFailure) {
+                    failure.addSuppressed(auditFailure);
+                }
+            }
+            throw failure;
+        }
+    }
+
+    /**
+     * Writes the "log in" audit row of an accepted sign-in and remembers that it was written.
+     *
+     * @param providerNo the provider who signed in
+     * @param data the facility the session starts in ({@code facilityId=N}), or empty
+     * @param ip remote address of the sign-in
+     */
+    private void auditSignIn(String providerNo, String data, String ip) {
+        LogAction.addLog(providerNo, LogConst.LOGIN, LogConst.CON_LOGIN, data, ip);
+        signInAudited = true;
+    }
+
     /**
      * Completes session setup after password/PIN authentication and any required MFA have succeeded.
      *
@@ -1083,9 +1133,9 @@ public final class Login2Action extends ActionSupport {
     // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. See docs/static-analysis-workflows.md
     // FindSecBugs UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL.
     @SuppressFBWarnings(value = {"IMPROPER_UNICODE", "UNVALIDATED_REDIRECT"}, justification = "case-insensitive comparison of an internal/domain value (status/flag/enum/MIME/code); not a security or authorization decision. UNVALIDATED_REDIRECT: redirect target is a same-origin application path or validated internal path, not an attacker-controlled external URL")
-    private String completeAuthenticatedLogin(Security security, String[] strAuth, String ip,
-                                              boolean isMobileOptimized, String submitType,
-                                              boolean ajaxResponse) throws IOException {
+    private String populateAuthenticatedSession(Security security, String[] strAuth, String ip,
+                                                boolean isMobileOptimized, String submitType,
+                                                boolean ajaxResponse) throws IOException {
         HttpSession session = request.getSession(false);
         Map<String, String> oauthAuthorizationNonces =
                 OAuthAuthorizationSessionState.snapshotNonces(session);
@@ -1101,7 +1151,8 @@ public final class Login2Action extends ActionSupport {
         }
 
         logger.debug("Assigned new session for: {} : {} : {}", LogSafe.sanitize(strAuth[0]), LogSafe.sanitize(strAuth[3]), LogSafe.sanitize(strAuth[4])); // NOSONAR javasecurity:S5145 - sanitized with LogSafe
-        LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "", ip);
+        // The sign-in is audited once, below, when its facility is known: a second bare
+        // "log in" row here made every sign-in read as two audit events.
 
         Properties pvar = CarlosProperties.getInstance();
 
@@ -1187,6 +1238,8 @@ public final class Login2Action extends ActionSupport {
         if (provider == null) {
             logger.error("Authenticated login could not load provider record: providerNo={}, remote={}", // NOSONAR javasecurity:S5145 - sanitized with LogSafe
                     LogSafe.sanitize(providerNo), LogSafe.sanitize(ip));
+            // The credentials were accepted: keep that on the audit trail although the session ends here.
+            auditSignIn(strAuth[0], "", ip);
             session.invalidate();
             return loginFailureResult(message("login.errorUnableToProcess"));
         }
@@ -1196,6 +1249,8 @@ public final class Login2Action extends ActionSupport {
 
         List<Integer> facilityIds = providerDao.getFacilityIds(provider.getProviderNo());
         if (facilityIds.size() > 1) {
+            // The authentication is audited now; SelectFacility2Action audits the facility then chosen.
+            auditSignIn(strAuth[0], "", ip);
             session.setAttribute(SessionConstants.PENDING_FACILITY_SELECTION, Boolean.TRUE);
             String facilityPath = "/select_facility?nextPage=";
             String newURL = request.getContextPath() + facilityPath + SafeEncode.forUriComponent(where);
@@ -1206,8 +1261,7 @@ public final class Login2Action extends ActionSupport {
             Facility facility = facilityDao.find(facilityIds.get(0));
             request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- facility entity is DAO-loaded by authorized facility id
             session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
-            LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + facilityIds.get(0),
-                    ip);
+            auditSignIn(strAuth[0], "facilityId=" + facilityIds.get(0), ip);
         } else {
             List<Facility> facilities = facilityDao.findAll(true);
             if (facilities != null && facilities.size() >= 1) {
@@ -1217,7 +1271,9 @@ public final class Login2Action extends ActionSupport {
                 Facility facility = facilityDao.find(first_id);
                 request.getSession().setAttribute("currentFacility", facility); // nosemgrep: tainted-session-from-http-request -- fallback facility entity is DAO-loaded from active facility list
                 session.removeAttribute(SessionConstants.PENDING_FACILITY_SELECTION);
-                LogAction.addLog(strAuth[0], LogConst.LOGIN, LogConst.CON_LOGIN, "facilityId=" + first_id, ip);
+                auditSignIn(strAuth[0], "facilityId=" + first_id, ip);
+            } else {
+                auditSignIn(strAuth[0], "", ip);
             }
         }
 

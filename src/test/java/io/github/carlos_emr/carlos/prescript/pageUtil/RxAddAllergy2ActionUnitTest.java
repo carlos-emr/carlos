@@ -269,9 +269,11 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         // The success redirect returns to this patient's allergy page.
         assertThat(action.getDemographicNo()).isEqualTo(123);
         verify(mockRxPatient).addAllergy(any(), any());
+        // The row names the allergy, the patient and the client address; the allergen and the
+        // reaction typed in are clinical text and stay out of the audit log.
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
-                any(String.class), any(String.class), eq("123"), any(String.class)));
+                any(String.class), any(String.class), eq("123"), isNull()));
         verify(mockRxPatient, never()).deleteAllergy(anyInt());
     }
 
@@ -496,7 +498,7 @@ class RxAddAllergy2ActionUnitTest extends CarlosUnitTestBase {
         verify(mockRxPatient, never()).addAllergy(any(), any());
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ADD), eq(LogConst.CON_ALLERGY),
-                any(String.class), any(String.class), eq("123"), any(String.class)));
+                any(String.class), any(String.class), eq("123"), isNull()));
         logActionMock.verify(() -> LogAction.addLog(
                 eq("provider1"), eq(LogConst.ARCHIVE), eq(LogConst.CON_ALLERGY),
                 eq("42"), any(String.class), eq("123"), isNull()));

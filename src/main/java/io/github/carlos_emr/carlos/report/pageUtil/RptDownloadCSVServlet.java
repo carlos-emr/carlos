@@ -52,6 +52,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.report.data.ConfiguredReportQuery;
 import io.github.carlos_emr.carlos.report.data.ParameterizedSql;
+import io.github.carlos_emr.carlos.report.data.ReportLimitNotice;
 import io.github.carlos_emr.carlos.report.data.RptReportConfigData;
 import io.github.carlos_emr.carlos.report.data.RptReportCreator;
 import io.github.carlos_emr.carlos.report.data.RptReportItem;
@@ -62,7 +63,8 @@ import org.apache.commons.csv.CSVPrinter;
 public class RptDownloadCSVServlet extends HttpServlet {
 
     private static final Logger _logger = MiscUtils.getLogger();
-    public static final int MAX_CSV_EXPORT_BYTES = 5 * 1024 * 1024;
+    /** Default size limit of the download; {@code configured_report.max_csv_mb} in carlos.properties changes it. */
+    public static final int MAX_CSV_EXPORT_BYTES = ConfiguredReportQuery.MAX_CSV_MB * 1024 * 1024;
     private static final String SQL_AND = " and ";
 
     String DELIMETER = "\t";
@@ -78,10 +80,13 @@ public class RptDownloadCSVServlet extends HttpServlet {
             report = request.getParameter("demoReport") != null ? demoReport(request) : formReport(request);
         } catch (ServletException e1) {
             _logger.error("RptDownloadCSVServlet service() - form report failed", e1);
+            // A report stopped by a limit is named on the error page; the status is unchanged.
+            ReportLimitNotice.publish(request, e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
             return;
         } catch (Exception e1) {
             _logger.error("RptDownloadCSVServlet service() - report generation failed", e1);
+            ReportLimitNotice.publish(request, e1);
             response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, "Unable to generate report");
             return;
         }
@@ -91,8 +96,12 @@ public class RptDownloadCSVServlet extends HttpServlet {
             return;
         }
         byte[] bytes = in.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        if (bytes.length > MAX_CSV_EXPORT_BYTES) {
-            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE, "Report is too large; narrow the report filters");
+        // configured_report.max_csv_mb, read for each download; MAX_CSV_EXPORT_BYTES is its default.
+        int maximumMb = ConfiguredReportQuery.Limit.CSV.configured();
+        if (bytes.length > (long) maximumMb * 1024 * 1024) {
+            ReportLimitNotice.publish(request, ConfiguredReportQuery.Limit.CSV, maximumMb);
+            response.sendError(HttpServletResponse.SC_REQUEST_ENTITY_TOO_LARGE,
+                    ConfiguredReportQuery.Limit.CSV.english(maximumMb));
             return;
         }
 

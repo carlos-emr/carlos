@@ -37,7 +37,7 @@ class RxFavoriteGroupIntegrationTest {
         jdbc.execute("CREATE TABLE IF NOT EXISTS provider (provider_no VARCHAR(6) PRIMARY KEY, lastUpdateDate TIMESTAMP)");
         jdbc.execute("CREATE TABLE IF NOT EXISTS favorites (favoriteid INT PRIMARY KEY, provider_no VARCHAR(6), favoritename VARCHAR(50), special VARCHAR(255), dispenseInternal TINYINT NOT NULL DEFAULT 0)");
         String ddl = java.nio.file.Files.readString(java.nio.file.Path.of(
-                "database/mysql/migration/common/V1.0.59.35__rx_favorite_groups.sql"));
+                "database/mysql/migration/common/V1.0.59.37__rx_favorite_groups.sql"));
         // H2 has no engine conversions; the MariaDB adoption sentinel below exercises those.
         var migration = new ResourceDatabasePopulator(new org.springframework.core.io.ByteArrayResource(
                 ddl.substring(ddl.indexOf("-- Provider-owned")).getBytes(java.nio.charset.StandardCharsets.UTF_8)));
@@ -160,7 +160,7 @@ class RxFavoriteGroupIntegrationTest {
                 target.update("INSERT INTO " + table + "(id) VALUES (1)");
             }
             new ResourceDatabasePopulator(new FileSystemResource(
-                    "database/mysql/migration/common/V1.0.59.35__rx_favorite_groups.sql")).execute(adopted.dataSource());
+                    "database/mysql/migration/common/V1.0.59.37__rx_favorite_groups.sql")).execute(adopted.dataSource());
             for (String table : List.of("drugs", "prescription", "log", "favorites")) {
                 assertThat(target.queryForObject("SELECT ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=?",
                         String.class, table)).isEqualTo("InnoDB");

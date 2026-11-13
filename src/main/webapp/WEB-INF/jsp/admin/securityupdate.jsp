@@ -28,7 +28,25 @@
     CARLOS has no affiliation with OSCAR or McMaster University.
 
 --%>
+<%--
+    Result page of the Security Records edit form (admin/SecurityUpdate, SecurityUpdate2Action).
+
+    SecurityUpdate2Action validates the form and saves it through SecurityRecordUpdateService; this
+    page only reports what happened. It writes nothing.
+
+    Request attributes (set by SecurityUpdate2Action):
+        securityUpdateOutcome       saved | userNameInvalid | passwordInvalid | failed | editConflict
+        securityUpdatePasswordError message key of a refused password (passwordInvalid only)
+        securityUpdateConflictNo    security_no to reopen (editConflict only)
+
+    editConflict: the form was rendered before another save changed the login
+    (SecurityEditVersion). The action has already set HTTP 409 and Cache-Control: no-store; the
+    page says that nothing was saved and offers to reopen the record as it is now.
+
+    @since 2026-04-05
+--%>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ taglib uri="jakarta.tags.core" prefix="c" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <fmt:setBundle basename="oscarResources"/>
 
@@ -52,22 +70,16 @@
 %>
 
 
-<%@ page import="java.sql.*, java.util.*, java.security.*, io.github.carlos_emr.*" errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
-<%@ page import="io.github.carlos_emr.carlos.log.LogAction,io.github.carlos_emr.carlos.log.LogConst" %>
-<%@ page import="io.github.carlos_emr.carlos.utility.SpringUtils" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.model.Security" %>
-<%@ page import="io.github.carlos_emr.carlos.commn.dao.SecurityDao" %>
-<%@ page import="io.github.carlos_emr.carlos.managers.SecurityManager" %>
-<%@ page import="io.github.carlos_emr.MyDateFormat" %>
-<%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePinHandler" %>
-<%@ page import="io.github.carlos_emr.CarlosProperties" %>
+<%@ page errorPage="/WEB-INF/jsp/error/errorpage.jsp" %>
+<%@ page import="io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action" %>
 <%@ page import="io.github.carlos_emr.carlos.www.admin.SecurityUpdatePasswordValidator" %>
 <%
     if (!"POST".equalsIgnoreCase(request.getMethod())) {
         response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "POST required");
         return;
     }
-    SecurityDao securityDao = SpringUtils.getBean(SecurityDao.class);
+    String outcome = (String) request.getAttribute(SecurityUpdate2Action.OUTCOME_ATTRIBUTE);
+    String passwordError = (String) request.getAttribute(SecurityUpdate2Action.PASSWORD_ERROR_ATTRIBUTE);
 %>
 
 <html>
@@ -85,74 +97,30 @@
             </tr>
         </table>
         <%
-	SecurityManager securityManager = SpringUtils.getBean(SecurityManager.class);
-
-            int rowsAffected = 0;
-
-            // Must stay aligned with the Login2Action username pattern and security.user_name
-            // varchar(30): the form maxlength is browser-side only, so a direct POST outside
-            // this charset or length must be rejected before the save (an over-length value
-            // fails as a DB truncation error page; other charsets are rejected at login).
-            String newUserName = request.getParameter("user_name") == null ? "" : request.getParameter("user_name").trim();
-            boolean isUserNameValid = newUserName.matches("[a-zA-Z0-9]{1,30}");
-
-            String newPassword = request.getParameter("password");
-            String passwordError = SecurityUpdatePasswordValidator.validate(newPassword,
-                    request.getParameter("conPassword"), CarlosProperties.getInstance());
-            Security s = securityDao.find(Integer.parseInt(request.getParameter("security_no")));
-            // Validate before changing any fields on the managed entity: a rejected
-            // password must not partially apply a rename, PIN, or account-flag edit.
-            if (s != null && isUserNameValid && passwordError == null) {
-                s.setUserName(newUserName);
-                s.setProviderNo(request.getParameter("provider_no"));
-                s.setBExpireset(request.getParameter("b_ExpireSet") == null ? 0 : Integer.parseInt(request.getParameter("b_ExpireSet")));
-                s.setDateExpiredate(MyDateFormat.getSysDate(request.getParameter("date_ExpireDate")));
-                // Lock flags change only when the form says the checkboxes were editable; they are
-                // disabled while MFA is ticked and absent without the legacy PIN section
-                // (finding 62 / #4503).
-                SecurityUpdatePinHandler.applyLockFlags(s, "1".equals(request.getParameter("lockFlagsEditable")),
-                        request.getParameter("b_LocalLockSet"), request.getParameter("b_RemoteLockSet"));
-
-                if (!SecurityUpdatePasswordValidator.UNCHANGED_PASSWORD.equals(newPassword)) {
-                    s.setPassword(securityManager.encodePassword(newPassword));
-                    s.setPasswordUpdateDate(new java.util.Date());
-                }
-
-                SecurityUpdatePinHandler.apply(s, request.getParameter("pin"),
-                        CarlosProperties.getInstance().isPINEncripted());
-
-                if (request.getParameter("forcePasswordReset") != null && request.getParameter("forcePasswordReset").equals("1")) {
-                    s.setForcePasswordReset(Boolean.TRUE);
-                } else {
-                    s.setForcePasswordReset(Boolean.FALSE);
-                }
-
-		if (request.getParameter("enableMfa") != null && request.getParameter("enableMfa").equals("1")) {
-			s.setUsingMfa(Boolean.TRUE);
-		} else {
-			s.setUsingMfa(Boolean.FALSE);
-		}
-
-                s.setLastUpdateDate(new java.util.Date());
-
-                securityDao.saveEntity(s);
-                rowsAffected = 1;
-            }
-
-
-            if (rowsAffected == 1) {
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
-                        request.getParameter("security_no") + "->" + request.getParameter("user_name"), request.getRemoteAddr());
+            if (SecurityUpdate2Action.OUTCOME_SAVED.equals(outcome)) {
         %>
         <p>
         <h2><fmt:message key="admin.securityupdate.msgUpdateSuccess"/> <carlos:encode value='<%= request.getParameter("provider_no") != null ? request.getParameter("provider_no") : "" %>' context="html"/><%-- nosemgrep: java.jsp.jsp-scriptlet-xss.jsp-scriptlet-xss --%>
         </h2>
         <%
-        } else if (!isUserNameValid) {
+        } else if (SecurityUpdate2Action.OUTCOME_EDIT_CONFLICT.equals(outcome)) {
+        %>
+        <div id="securityEditConflict" role="alert">
+            <h1><fmt:message key="admin.securityupdate.editConflict.title"/></h1>
+            <p><fmt:message key="admin.securityupdate.editConflict.message"/></p>
+            <p><fmt:message key="admin.securityupdate.editConflict.instructions"/></p>
+            <c:if test="${not empty securityUpdateConflictNo}">
+                <%-- The edit page opens a login by its security_no (keyword), as the search results link to it. --%>
+                <c:set var="reopenUrl" value="${pageContext.request.contextPath}/admin/ViewSecurityUpdateSecurity?keyword=${carlos:forUriComponent(securityUpdateConflictNo)}"/>
+                <p><a id="securityEditConflictReopen" href="${carlos:forHtmlAttribute(reopenUrl)}"><fmt:message key="admin.securityupdate.editConflict.btnReopen"/></a></p>
+            </c:if>
+        </div>
+        <%
+        } else if (SecurityUpdate2Action.OUTCOME_USER_NAME_INVALID.equals(outcome)) {
         %>
         <h1><fmt:message key="admin.securityupdate.msgUserNameInvalid"/></h1>
         <%
-        } else if (passwordError != null) {
+        } else if (SecurityUpdate2Action.OUTCOME_PASSWORD_INVALID.equals(outcome) && passwordError != null) {
         %>
         <h1><fmt:message key="<%=passwordError%>"><fmt:param value="<%=SecurityUpdatePasswordValidator.MAX_PASSWORD_LENGTH%>"/></fmt:message></h1>
         <%

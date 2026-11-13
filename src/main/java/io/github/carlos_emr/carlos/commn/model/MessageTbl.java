@@ -66,6 +66,40 @@ public class MessageTbl extends AbstractModel<Integer> {
         return pdfRecords == null || pdfRecords.getBytes(StandardCharsets.UTF_8).length <= PDF_ATTACHMENT_MAX_BYTES;
     }
 
+    /**
+     * The most characters the {@code thesubject} column holds: it is a utf8mb4 {@code VARCHAR(128)}, which counts
+     * Unicode code points, so a character outside the Basic Multilingual Plane (an emoji) is one character here and
+     * two Java chars. MariaDB cuts a longer subject off without a word when {@code sql_mode} is not strict, which it
+     * is not on a packaged install, so a subject is held to this where it is written. Change it
+     * only with the column.
+     */
+    public static final int SUBJECT_MAX_LENGTH = 128;
+
+    /**
+     * Whether a subject, as it is stored, fits the {@code thesubject} column.
+     *
+     * @param subject the subject as stored (the Messenger trims it first), or {@code null}
+     * @return {@code true} for {@code null} or a subject of at most {@link #SUBJECT_MAX_LENGTH} code points
+     */
+    public static boolean subjectFits(String subject) {
+        return subject == null || subject.codePointCount(0, subject.length()) <= SUBJECT_MAX_LENGTH;
+    }
+
+    /**
+     * A subject CARLOS builds itself ("Re:" or "Fwd:" before a stored subject) cut to what the column holds, never
+     * inside a surrogate pair. The cut subject is shown in the compose box, where the user sees and can change it;
+     * text the user typed is refused instead, never cut.
+     *
+     * @param subject the built subject, or {@code null}
+     * @return {@code subject} itself when it fits, otherwise its first {@link #SUBJECT_MAX_LENGTH} code points
+     */
+    public static String fitSubject(String subject) {
+        if (subjectFits(subject)) {
+            return subject;
+        }
+        return subject.substring(0, subject.offsetByCodePoints(0, SUBJECT_MAX_LENGTH));
+    }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "messageid")

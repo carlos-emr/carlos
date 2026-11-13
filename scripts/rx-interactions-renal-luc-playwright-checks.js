@@ -72,7 +72,9 @@ async function workflow(s) {
   h.assert(sql.value(`SELECT COUNT(*) FROM measurements WHERE demographicNo=${patient}`) === '2', 'The measurement fixtures were not created');
   const [age, sex] = sql.rows(`SELECT TIMESTAMPDIFF(YEAR, STR_TO_DATE(CONCAT(year_of_birth,'-',month_of_birth,'-',date_of_birth),'%Y-%m-%d'), CURDATE()), sex
     FROM demographic WHERE demographic_no=${patient}`)[0];
-  const clcr = Math.round((140 - Number(age)) * weight / (creatinine * 0.8) * (sex === 'F' ? 0.85 : 1));
+  // The page's own arithmetic (RxUtil.getClcrUnrounded), then rounded DOWN as RenalDosing.jsp does since #6099:
+  // a fractional clearance is read in the lower dosing band, never rounded up into the next one.
+  const clcr = Math.floor((140 - Number(age)) * weight / (creatinine * 0.8) * (sex === 'F' ? 0.85 : 1));
 
   await s.step('the Rx interaction warning level auto-saves to the provider property and reads back on reopen', async () => {
     const current = sql.value(`SELECT value FROM property WHERE ${predicate} ORDER BY id DESC LIMIT 1`) || '0';
@@ -116,7 +118,8 @@ async function workflow(s) {
     const panel = rx.locator(`#renalDosing_${renalCard}`);
     await panel.locator('table.sofT').waitFor({ state: 'visible' });
     const equation = (await panel.locator('table.equation').innerText()).replace(/\s+/g, ' ');
-    h.assert(equation.includes(`Clcr ${clcr} =`) && equation.includes(`${weight}.0`) && equation.includes(`${creatinine}.0 sCr`),
+    // Whole values print without a trailing ".0" (setNA strips trailing zeros).
+    h.assert(equation.includes(`Clcr ${clcr} =`) && equation.includes(`X ${weight} [kg`) && equation.includes(`${creatinine} sCr`),
       `The dosing equation does not use the seeded weight and creatinine: ${equation}`);
     const selected = panel.locator('table.sofT tr.selected');
     h.assert(await selected.count() === 1, 'No single dosing recommendation is selected for the computed Clcr');

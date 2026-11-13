@@ -5,6 +5,7 @@
 // Download PDFs from both a new form and its saved instance on the installed app.
 const fs=require('node:fs');
 const path=require('node:path');
+const os=require('node:os');
 const {execFileSync}=require('node:child_process');
 const h=require('./lib/playwright-harness');
 const {runWorkflow,expectValue}=require('./lib/workflow-session');
@@ -25,6 +26,41 @@ function completedRender(log,fdid) {
   const receipts=[...log.matchAll(/Browser eForm renderer completed: fdid=([1-9]\d*) pages=([1-9]\d*) bytes=([1-9]\d*)(?= |$)/g)]
     .filter(match=>match[1]===fdid);
   return receipts.length===1&&receipts[0][2]==='2';
+}
+
+// Saved-eForm PDFs have one renderer and no fallback (EformDataManagerImpl renders only through
+// EFormBrowserPdfService), and an unattached packet is delivered byte-for-byte as Chromium's
+// Page.printToPDF wrote it, so the PDF's own Producer names the renderer on every install.
+const BROWSER_PRODUCER=/^Skia\/PDF m[1-9]\d*$/;
+
+/** The Producer line of pdfinfo output ('' when the PDF carries none). */
+function producerOf(pdfinfoOutput) {
+  const found=/^Producer:[ \t]*(.*)$/m.exec(pdfinfoOutput);
+  return found?found[1].trim():'';
+}
+
+/** The Producer the downloaded PDF itself declares. */
+function pdfProducer(bytes) {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'carlos-eform-producer-'));
+  try {
+    const file=path.join(dir,'in.pdf');fs.writeFileSync(file,bytes);
+    return producerOf(execFileSync('pdfinfo',['-enc','UTF-8',file],{encoding:'utf8',timeout:30000}));
+  }finally{fs.rmSync(dir,{recursive:true,force:true});}
+}
+
+/** Whether the renderer logged its INFO start line for this saved instance (installs at INFO or finer). */
+function renderLoggedAtInfo(log,fdid) {
+  return log.split('\n').some(line=>/Browser eForm renderer starting: fdid=([1-9]\d*)(?= |$)/.exec(line)?.[1]===fdid);
+}
+
+/**
+ * The browser renderer produced this download. The PDF's Producer is required on every install.
+ * The INFO completion receipt is required too when the server log carries the renderer's INFO
+ * lines; a default install logs at WARN and never writes them, which is no evidence either way.
+ */
+function rendererConfirmed({producer,log,fdid}) {
+  if(!BROWSER_PRODUCER.test(producer))return false;
+  return !renderLoggedAtInfo(log||'',fdid)||completedRender(log,fdid);
 }
 
 /** Fixed authored geometry, independent of the production geometry JavaScript. */
@@ -246,13 +282,20 @@ async function workflow(s) {
         h.assert(JSON.stringify(s.sql.rows(`SELECT * FROM eform_data WHERE fdid=${fdid}`))===JSON.stringify(originalRow),'Saved-instance PDF altered its original revision');
       }else originalRow=s.sql.rows(`SELECT * FROM eform_data WHERE fdid=${actual}`);
       fdid=actual;
-      const deadline=Date.now()+10000;let log;
-      do {
-        log=reader.since(mark);
-        if(completedRender(log,fdid))break;
-        await new Promise(resolve=>setTimeout(resolve,200));
-      }while(Date.now()<deadline);
-      h.assert(completedRender(log,fdid),'The actual saved-eForm browser renderer did not confirm this instance and both authored pages');
+      const producer=pdfProducer(downloaded.bytes);
+      h.assert(BROWSER_PRODUCER.test(producer),'Native eForm download was not written by the browser renderer: Producer '+JSON.stringify(producer));
+      let log='';
+      if(reader.configured) {
+        // The journal can lag the download by a moment. Without the renderer's INFO start line the
+        // install logs at WARN and no receipt will come; with it, wait for the completion receipt.
+        const deadline=Date.now()+10000,quiet=Date.now()+2000;
+        do {
+          log=reader.since(mark);
+          if(rendererConfirmed({producer,log,fdid})&&(renderLoggedAtInfo(log,fdid)||Date.now()>=quiet))break;
+          await new Promise(resolve=>setTimeout(resolve,200));
+        }while(Date.now()<deadline);
+      }
+      h.assert(rendererConfirmed({producer,log,fdid}),'The saved-eForm browser renderer logged this instance but did not confirm both authored pages');
       const pages=Array.from({length:graph.pageCount(downloaded.bytes)},(_,index)=>graph.pageWords(downloaded.bytes,index+1));
       console.log('    PDF '+template.shape+' '+stage+': '+JSON.stringify(pages.map(page=>({width:page.width,height:page.height,words:page.words}))));
       const boxes=verify(pages,pages.map((_,index)=>raster(downloaded.bytes,index+1)));
@@ -266,12 +309,12 @@ async function workflow(s) {
 
 if(require.main===module)runWorkflow('eform-deployed-page-exclusion',workflow,{preflightConfig:()=>{
   if(process.env.EXCLUSIVE!=='1')throw new h.SkipCheck('Owned eForm library/identity allocation requires EXCLUSIVE=1');
+  // Optional: with a readable server log at INFO the renderer's own completion receipt is checked too.
   const reader=serverLogFromEnvironment();
-  if(!reader.configured)throw new h.SkipCheck('A readable LAB_UPLOAD_JOURNAL_UNIT or LAB_UPLOAD_SERVER_LOG is required to prove the installed saved-eForm browser renderer');
-  reader.since(reader.mark());
+  if(reader.configured)reader.since(reader.mark());
   requirePoppler('pdfinfo','pdftotext','pdftoppm');
   if(!fs.existsSync(rendererTemp()))throw new h.SkipCheck('A readable installed renderer temp store is required; set EFORM_RENDER_TEMP_DIR for a non-default Catalina base');
   h.assert(fs.lstatSync(rendererTemp()).isDirectory()&&fs.realpathSync(rendererTemp())===rendererTemp(),'Renderer temp store must be a real directory');
   fs.readdirSync(rendererTemp());
 }});
-module.exports={fixture,verify,reserveInstanceIds,rendererFileFixture,completedRender,workflow};
+module.exports={fixture,verify,reserveInstanceIds,rendererFileFixture,completedRender,producerOf,rendererConfirmed,workflow};
