@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "comparisonSha256": "b1f8d8cb128ba2b55a47a5c33efe8e56ca3a352c1fd3a788a22336295623b999",
-  "baselineCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4",
-  "baselineSourceTree": "bfbc7ef7d080eccc9eb5b551ee8c506b205d09e6",
-  "baselineReportSha256": "66dcda8b48a4bdc2967b35c1a1ceda55ab57cc873d561657a15d787c7bb0aed5",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 baseline with final full retakes of four augmented test classes on the PR #6102 and release #6103 merged source, with pinned Chromium. All 43 combined Java paths (27 PR paths against the updated release branch) meet both parents' retained floors. Registered routed/prerequisite skips, the separate five-case permission lane and two physical MariaDB form-history cases are verified; all execution data use identical production classes. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "26ec64537c43883c3a11b45411c802f67abc5a68",
+  "comparisonSha256": "8fd164a36cf89e9689abd91fab9eb117f0c94fd2562a41c9957b93b010d34307",
+  "baselineCommit": "b29c2547284920708b5c913bae4abd0e07f9d595",
+  "baselineSourceTree": "26ec64537c43883c3a11b45411c802f67abc5a68",
+  "baselineReportSha256": "ca0ec5082e6debff3c1febe8ac6904d63c803d3b3d1afdd8b8a26da2ba499f2d",
+  "baselineLane": "Local Ubuntu (WSL2) / Temurin 25.0.5 complete H2 java-all run (offline Maven, forkCount 1 after a forkCount-2 attempt stopped at the 4 GiB memory guard), not through verify-release-evidence.py. Source: a local test merge (285ecce54e) of release 1b27a8fd2c with #6139 (ba5d934784), #6163 (22d340f966), #6161 (f8d722b66d), #6156 (75d5c77f8f), #6164 (7fec274a7f) and #6171 (b29c254728). Maven ran 36,370 tests, 219 skipped, 0 failures, 2 errors (PrescriptionQrCodeUIBeanUnitTest: its QR decoding check threw a ZXing ChecksumException in two cases; none of these PRs touches it).",
   "baselineTestCounts": {
-    "tests": 36113,
-    "skipped": 207,
+    "tests": 36370,
+    "skipped": 219,
     "failures": 0,
-    "errors": 0
+    "errors": 2
   },
-  "baselineTestReportsSha256": "8644a61dc5760ebf7aae79d3549ece4cda86997e447543bf19bb70cc5b780f98",
+  "baselineTestReportsSha256": "d9d354f5bff1392e6a95c2fe8b3d4c20e1d513a5e58bfd139ca76e74dcc16d1b",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -2449,7 +2449,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "412ebfc7c2593fac0b3b4d0a53a5ea0d45546c69"
+      "sourceBlob": "159ec3979653dd9a9c13aa1af8a8dcf3681c9a71"
     },
     "src/main/java/io/github/carlos_emr/carlos/lab/ca/all/pageUtil/LabUpload2Action.java": {
       "lines": 60.0,
@@ -4465,31 +4465,6 @@
     }
   },
   "zeroCoverageWaivers": {},
-  "baselineAdditionalTestRuns": [
-    {
-      "lane": "final-augmented-h2-test-class-retakes",
-      "tests": 132,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "837a312fd82813ac1d8647cbc0a38c405ad10dae8541f2baf419474f5f2b0d52"
-    },
-    {
-      "lane": "unprivileged-permissions",
-      "tests": 5,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "bd4b618bcb34c30301c0213f9faa75f5ecc7a560910fe4859c0e66dc914d8947"
-    },
-    {
-      "lane": "physical-mariadb-form-history",
-      "tests": 2,
-      "failures": 0,
-      "errors": 0,
-      "skipped": 0,
-      "reportsSha256": "5fd7146bc023d344ab4e785af2cb2396c85b29fe02bae01bbfc1dc7c9810762e"
-    }
-  ],
-  "baselineTestRunCommit": "075d3112b6c2fe0c48b71ca4384d16939f2fcdb4"
+  "baselineAdditionalTestRuns": [],
+  "baselineTestRunCommit": "285ecce54e265a643cd600d3691ae3c8af9b4f96"
 }

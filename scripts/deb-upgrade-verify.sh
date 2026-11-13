@@ -187,6 +187,11 @@ OAUTH_ACCESS_DEFAULTS=(
 # old stock line plus its newline: the LAB_FILTER_OLD of debian/carlos-emr.postinst,
 # and a contract test holds the two together.
 LAB_FILTER_OLD_SHA=8a16bd11665e3306
+# The #4613 stock line, which matched its words at the start of a result, is in
+# turn rewritten once to the skeleton's line (.lab-measurement-filter-words-migrated,
+# #6121): the 16-hex sha256 prefix of that line plus its newline, the
+# LAB_FILTER_WORDS_OLD of debian/carlos-emr.postinst.
+LAB_FILTER_WORDS_OLD_SHA=f799b7ced1fe272d
 # The digest of no definition at all (sha256 of empty input): a skeleton that
 # lacks the key, or an /etc file whose key was deleted, never sanctions a rewrite.
 LAB_FILTER_NONE_SHA=e3b0c44298fc1c14
@@ -228,12 +233,17 @@ done
 lf_pre=$(g "$PRE" cfg.labFilter.sha 2>/dev/null || true); lf_post=$(g "$POST" cfg.labFilter.sha 2>/dev/null || true)
 lf_skel=$(g "$POST" cfg.labFilter.skel.sha 2>/dev/null || true)
 lf_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-migrated 2>/dev/null || true)
+lfw_sentinel_pre=$(g "$PRE" sentinel..lab-measurement-filter-words-migrated 2>/dev/null || true)
 # The skeleton's line counts only when it exists and is not the old line itself.
 lf_skel_fixed() { [ -n "$lf_skel" ] && [ "$lf_skel" != "$LAB_FILTER_OLD_SHA" ] && [ "$lf_skel" != "$LAB_FILTER_NONE_SHA" ]; }
+# ... and, for the #6121 move, is not the #4613 line either.
+lf_skel_words_fixed() { lf_skel_fixed && [ "$lf_skel" != "$LAB_FILTER_WORDS_OLD_SHA" ]; }
 lf_ok=0; lf_changed=no
 if [ -n "$lf_pre" ] && [ "$lf_pre" = "$lf_post" ]; then
   lf_ok=1
 elif [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lf_sentinel_pre" != yes ]; then
+  lf_ok=1; lf_changed=yes
+elif [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && lf_skel_words_fixed && [ "$lf_post" = "$lf_skel" ] && [ "$lfw_sentinel_pre" != yes ]; then
   lf_ok=1; lf_changed=yes
 fi
 # The Help link either stayed put or, on the upgrade that first writes its
@@ -322,6 +332,12 @@ fi
 if [ "$lf_pre" = "$LAB_FILTER_OLD_SHA" ] && [ "$lf_sentinel_pre" != yes ]; then
   lf_skel_fixed && [ "$lf_post" = "$lf_skel" ] && ok "the old stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated: digest '$lf_post', skeleton '$lf_skel'"
   [ "$(g "$POST" sentinel..lab-measurement-filter-migrated)" = yes ] && ok "lab-filter migration sentinel written" || bad "lab-filter migration sentinel missing after upgrade"
+fi
+# The whole-word rewrite (#6121) is asserted when the PRE snapshot carries exactly
+# the #4613 stock line, the skeleton has moved on from it and it has not run yet.
+if [ "$lf_pre" = "$LAB_FILTER_WORDS_OLD_SHA" ] && [ "$lfw_sentinel_pre" != yes ] && lf_skel_words_fixed; then
+  [ "$lf_post" = "$lf_skel" ] && ok "the #4613 stock HL7_LAB_MEASUREMENT_FILTER was migrated to the skeleton's whole-word line" || bad "HL7_LAB_MEASUREMENT_FILTER was not migrated from the #4613 line: digest '$lf_post', skeleton '$lf_skel'"
+  [ "$(g "$POST" sentinel..lab-measurement-filter-words-migrated)" = yes ] && ok "lab-filter whole-word migration sentinel written" || bad "lab-filter whole-word migration sentinel missing after upgrade"
 fi
 # The Help link rewrite is asserted when the PRE snapshot carries exactly the old
 # stock line and the migration has not run yet.
