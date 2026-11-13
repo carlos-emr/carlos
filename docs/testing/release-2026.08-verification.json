@@ -4053,6 +4053,11 @@
               "name": "shouldDiscoverThePatientsBoundedDrugCatalogueKeys_withoutReadingOrSendingChartPayloads",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReconcileAnActuallyPersistedRestoredQuantityUnitAndAsNeededFlag_withoutAHold",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
@@ -4353,6 +4358,11 @@
               "name": "shouldExportAChartWithFormsTicklersMessagesAndPhoto_asDataSummaryReports",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldPrintAHealthCareTeamConsultant_fromTheContactTablesAsTheChartReadsThem",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
@@ -4493,6 +4503,51 @@
               "name": "shouldMatchAllPinnedPhysicalColumns_andTheirActualOrderedJdbcReceiptMetadata",
               "container": "",
               "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMeasurementWindowMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldCaptureAndPlanEveryMeasurement_ofAChartLargerThanOneExportWindow",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsNativeBaselineFieldPageMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-import",
+          "cases": [
+            {
+              "name": "shouldOpenTheSealedBaselineOfARealDemographicsFieldPage_asTheUnitCommitRequires",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldWriteAndReopenEveryFieldUnitOfThePayload8Chart_withAnInlineAndAnExternalReport",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportAbandonMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-import",
+          "cases": [
+            {
+              "name": "shouldReleaseTheCensusLockout_whenItsStoppedRunIsAbandonedByItsOperator",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldRefuseAnotherOperatorsAbandon_withoutTouchingTheRunOrTheWindow",
+              "container": "",
+              "check": "java-cds-transfer-import"
+            },
+            {
+              "name": "shouldDeferTheRelease_whileAnotherRunStillHoldsAChart",
+              "container": "",
+              "check": "java-cds-transfer-import"
             }
           ]
         }
