@@ -277,6 +277,34 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldAnswerADocumentProgramCheck_byTheExportingProvidersProgramMembership() {
+        var command =
+                new CdsExportCommand(
+                        "document-rights",
+                        "100",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        java.util.Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS),
+                        "recipient",
+                        "audit");
+        var actor = access.webActor(session, command);
+        when(notes.canReadDocumentProgram("100", 10034)).thenReturn(true);
+        assertThat(access.canReadDocumentProgram(actor, command, 27, "10034")).isTrue();
+        // A program the provider does not work in holds the patient; it is not an access failure.
+        assertThat(access.canReadDocumentProgram(actor, command, 27, "10016")).isFalse();
+        verify(notes).canReadDocumentProgram("100", 10016);
+        // Reports must be selected, and a malformed program is refused outright.
+        assertThatThrownBy(
+                        () -> access.canReadDocumentProgram(actor, noteCommand("100"), 27, "10034"))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> access.canReadDocumentProgram(actor, command, 27, "x"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldAuthorizeAll8192ExactNoteScopes_withOneIdentityAndOneSharedProgramGrant() {
         var command = noteCommand("100");
         var actor = access.webActor(session, command);

@@ -137,7 +137,28 @@ public final class CdsExportNativeReportMapper {
             ZoneId zone,
             CdsExportInboxReviewMapper.Reviews reviews)
             throws IOException {
+        // Without a live program check, a document restricted to a program is held.
+        return map(patient, document, link, content, providers, zone, reviews, program -> false);
+    }
+
+    /**
+     * As {@link #map(int, CdsExportCapturedTextRowDto, CdsExportCapturedTextRowDto, Content, Map,
+     * ZoneId, CdsExportInboxReviewMapper.Reviews)}, for a document the chart may show only inside
+     * a program. {@code readableProgram} is a fresh answer to whether every exporting identity
+     * works in that program; the document is held when it is false.
+     */
+    public Result map(
+            int patient,
+            CdsExportCapturedTextRowDto document,
+            CdsExportCapturedTextRowDto link,
+            Content content,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            CdsExportInboxReviewMapper.Reviews reviews,
+            java.util.function.Predicate<String> readableProgram)
+            throws IOException {
         java.util.Objects.requireNonNull(reviews);
+        java.util.Objects.requireNonNull(readableProgram);
         if (patient < 1
                 || content == null
                 || !document.table().equals("document")
@@ -172,9 +193,10 @@ public final class CdsExportNativeReportMapper {
                 && (html.trim().isEmpty()
                         || !CdsExportNativeFieldAssessments.legal(html, Integer.MAX_VALUE)))
             review("CDS_EXPORT_NATIVE_REPORT_STORED_HTML_REQUIRES_REVIEW");
-        String restricted = source.get("restrictToProgram");
-        if (restricted != null && !restricted.isEmpty() && !restricted.equals("0"))
-            review("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+        // Its restriction and program travel in Notes with every other document column.
+        String program = restrictedProgram(source);
+        if (program != null && !readableProgram.test(program))
+            review(CdsExportDocumentSourceReader.PROGRAM_HOLD);
         if (source.get("cds_content_precision") != null
                 && !source.get("cds_content_precision").isEmpty())
             review("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");
@@ -429,6 +451,26 @@ public final class CdsExportNativeReportMapper {
 
     private static void invalid() throws IOException {
         throw new IOException("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
+    }
+
+    /**
+     * The program a document is shown only inside, or null when the chart shows it to every
+     * provider who may read the chart: the flag clear, or no program ({@code NULL} or {@code -1}),
+     * as EDocUtil program filtering and DocumentPatientLink decide. A legacy NULL flag beside a
+     * program counts as restricted. Anything else is malformed and held.
+     */
+    static String restrictedProgram(Map<String, String> document)
+            throws CdsExportMappingReviewException {
+        String flag = document.get("restrictToProgram");
+        String program = document.get("program_id");
+        if (flag != null && !flag.equals("0") && !flag.equals("1"))
+            review("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+        if ("0".equals(flag) || program == null || program.equals("-1")) return null;
+        if (!program.matches("0|-?[1-9][0-9]{0,9}")
+                || Long.parseLong(program) < Integer.MIN_VALUE
+                || Long.parseLong(program) > Integer.MAX_VALUE)
+            review("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+        return program;
     }
 
     private static void review(String code) throws CdsExportMappingReviewException {

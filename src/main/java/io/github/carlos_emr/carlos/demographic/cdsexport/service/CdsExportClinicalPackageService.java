@@ -712,6 +712,7 @@ public class CdsExportClinicalPackageService {
             return switch (review.reason()) {
                 case UNMAPPED_DATA,
                         PREVENTION_PROGRAM_SCOPE,
+                        DOCUMENT_PROGRAM_SCOPE,
                         MERGED_PATIENT_SCOPE,
                         SOURCE_CHANGED,
                         AMBIGUOUS_SOURCE,

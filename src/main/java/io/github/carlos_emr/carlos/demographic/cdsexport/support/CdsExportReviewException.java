@@ -26,6 +26,11 @@ public final class CdsExportReviewException extends RuntimeException {
     public enum Reason {
         UNMAPPED_DATA,
         PREVENTION_PROGRAM_SCOPE,
+        /**
+         * A document of the chart is shown only inside a program that not every exporting identity
+         * works in, so the chart as those identities see it lacks it. The patient is held.
+         */
+        DOCUMENT_PROGRAM_SCOPE,
         MERGED_PATIENT_SCOPE,
         SOURCE_CHANGED,
         AMBIGUOUS_SOURCE,

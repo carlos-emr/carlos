@@ -79,6 +79,11 @@ public class DocumentDaoImpl extends AbstractDaoImpl<Document> implements Docume
     }
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient) {
+        return CdsExportPatientTableReadSupport.documentProgramRestrictions(entityManager, patient);
+    }
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportFileRows(int patient) {
         CdsExportPatientTableReadSupport.requireLocalDocumentAssociations(entityManager, patient);
         return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DOCUMENT_FILES, patient);

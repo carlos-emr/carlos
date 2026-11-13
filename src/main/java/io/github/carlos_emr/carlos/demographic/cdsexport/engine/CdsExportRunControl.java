@@ -60,6 +60,15 @@ public interface CdsExportRunControl {
         return false;
     }
 
+    /**
+     * Fresh program check for a document restricted to a program: true when every current
+     * identity works in that program, the rule the chart's document list applies. False holds the
+     * patient; it never grants anything, so an adapter without this check stays fail-closed.
+     */
+    default boolean documentProgramReadable(int patient, String program) {
+        return false;
+    }
+
     /** One bounded patient batch; adapters may share only this fresh authorization transaction. */
     default void authorizeNotes(
             CdsCategory category,

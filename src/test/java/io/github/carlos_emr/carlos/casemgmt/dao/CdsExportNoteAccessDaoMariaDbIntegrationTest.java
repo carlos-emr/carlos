@@ -376,6 +376,21 @@ class CdsExportNoteAccessDaoMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldReadADocumentProgram_throughAnyMembershipInIt() {
+        fixture(
+                () -> {
+                    // The chart's document list asks only whether the provider works in the
+                    // program; the role and the patient domain do not matter to it.
+                    assertThat(notes.canReadDocumentProgram(provider, id)).isFalse();
+                    membership(id, id + 1);
+                    assertThat(notes.canReadDocumentProgram(provider, id)).isTrue();
+                    assertThat(notes.canReadDocumentProgram(provider, id + 1)).isFalse();
+                    assertThat(notes.canReadDocumentProgram("", id)).isFalse();
+                    assertThat(notes.canReadDocumentProgram(null, id)).isFalse();
+                });
+    }
+
+    @Test
     void shouldDenyAmbiguousMembershipRoles_insteadOfDependingOnRowOrder() {
         fixture(
                 () -> {

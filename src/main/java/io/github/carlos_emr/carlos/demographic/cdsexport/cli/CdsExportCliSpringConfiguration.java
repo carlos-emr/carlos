@@ -181,6 +181,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     io.github.carlos_emr.carlos.casemgmt.dao.CaseManagementNoteLinkDAOImpl.class,
     CdsExportNoteSourceReader.class,
     CdsExportNoteScopeProjectionService.class,
+    CdsExportDocumentProgramScopeService.class,
     CdsExportConfigurationService.class,
     CdsExportAccessService.class,
     io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class,

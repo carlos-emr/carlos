@@ -617,6 +617,18 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                 documentRows.put(
                                         Integer.parseInt(row.fields().get("document_no")), row);
                         var natives = new ArrayList<NativeDocument>();
+                        // A document shown only inside a program is written when a fresh check
+                        // says every exporting identity works in it; each program so granted is
+                        // checked again after the documents are written.
+                        var granted = new java.util.TreeSet<String>();
+                        java.util.function.Predicate<String> readable =
+                                program -> {
+                                    boolean allowed =
+                                            control.documentProgramReadable(
+                                                    patient.patient(), program);
+                                    if (allowed) granted.add(program);
+                                    return allowed;
+                                };
                         for (var entry : documentRows.entrySet()) {
                             control.checkpoint();
                             if (usedFiles.contains(entry.getKey())) continue;
@@ -710,7 +722,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     content,
                                                     providers,
                                                     zone,
-                                                    reviews);
+                                                    reviews,
+                                                    readable);
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
                                             mapped.rows(),
@@ -774,7 +787,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                         prefix.toByteArray())),
                                                         providers,
                                                         zone,
-                                                        report.reviews());
+                                                        report.reviews(),
+                                                        readable);
                                 new CdsExportNativeFieldAssessmentValidator()
                                         .requireRepresentable(
                                                 mapped.rows(),
@@ -822,6 +836,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             totals[0]++;
                             totals[2]++;
                         }
+                        for (String program : granted)
+                            if (!control.documentProgramReadable(patient.patient(), program))
+                                throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
                         // Re-authenticates the whole captured values member before any staged
                         // attachment can be accepted with this patient's output.
                         captured.close();

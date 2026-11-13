@@ -1452,25 +1452,52 @@ public final class CdsExportPatientTableReadSupport {
         // A document_storage row is a database copy of a document's bytes that only an older
         // release wrote and no CARLOS screen reads: the chart shows the stored file, which is the
         // exported Report. It is LISTED (counted in the ReadMe), never a hold.
-        // Until document-specific current program authorization is qualified, refuse the whole
-        // selected source before any document metadata/body can enter encrypted capture.
-        var restricted =
-                query(
-                                em,
-                                """
-                                select 1,1 from document d where exists (select 1 from ctl_document c
-                                  where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
-                                and ((d.restrictToProgram is not null and d.restrictToProgram<>0)
-                                  or (d.restrictToProgram is null and d.program_id is not null))
-                                """)
-                        .setParameter("patient", patient)
-                        .setMaxResults(1)
-                        .getResultList();
-        if (!restricted.isEmpty())
+        // A document restricted to a program is not refused here: the Reports capture reads its
+        // restrictions first (documentProgramRestrictions), authorizes each program live before
+        // any document value is read, and proves the restrictions unchanged inside this snapshot.
+    }
+
+    /** At most this many program-restricted documents per chart are authorized one by one. */
+    public static final int MAXIMUM_PROGRAM_RESTRICTIONS = 100_000;
+
+    /**
+     * Restriction metadata only, before any document value is read: document number to program
+     * for each of the patient's documents the chart shows only to providers working in a program.
+     * That is the chart's own rule (EDocUtil program filtering, DocumentPatientLink): the
+     * restriction flag set and a program other than none or {@code -1}. A legacy NULL flag beside
+     * a program counts as restricted. No other column is read.
+     */
+    public static java.util.SortedMap<Integer, Integer> documentProgramRestrictions(
+            EntityManager em, int patient) {
+        patient(patient);
+        var found =
+                rows(
+                        query(
+                                        em,
+                                        """
+                                        select d.document_no, d.program_id from document d
+                                        where exists (select 1 from ctl_document c
+                                          where c.module='demographic' and c.module_id=:patient
+                                          and c.document_no=d.document_no)
+                                        and d.program_id is not null and d.program_id<>-1
+                                        and (d.restrictToProgram is null or d.restrictToProgram<>0)
+                                        order by d.document_no
+                                        """)
+                                .setParameter("patient", patient)
+                                .setMaxResults(MAXIMUM_PROGRAM_RESTRICTIONS + 1));
+        if (found.size() > MAXIMUM_PROGRAM_RESTRICTIONS)
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
-                            .CdsExportReviewException.Reason.UNMAPPED_DATA);
+                            .CdsExportReviewException.Reason.DOCUMENT_PROGRAM_SCOPE);
+        var result = new java.util.TreeMap<Integer, Integer>();
+        for (Object[] row : found)
+            if (row.length != 2
+                    || result.put(
+                                    Math.toIntExact(number(row[0])),
+                                    Math.toIntExact(number(row[1])))
+                            != null) invalid();
+        return java.util.Collections.unmodifiableSortedMap(result);
     }
 
     /** Extensions cannot disambiguate a reused measurement identity belonging to another chart's deleted record. */

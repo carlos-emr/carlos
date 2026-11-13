@@ -143,6 +143,13 @@ document that came from an earlier CDS import holds the patient
 (`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`), as a changed first reviewer already
 does.
 
+A document restricted to a program is exported when the exporting provider, and the operator
+when one runs the export, both work in that program (are members of it under Program
+Management), which is who the chart shows it to; a document flagged as restricted but without a
+program is shown to everyone and exported. When either does not work in the program, the
+patient is held with `CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`: add the provider to the program, or
+run the export as a provider who works in it, and export the patient again.
+
 Hospital Report Manager (HRM) reports filed to a chart are exported as Reports entries and no
 longer hold the patient. Each report is exported from its stored HRM message as the report
 viewer shows it: the report text, or the attached file (PDF, image) of a binary report; its

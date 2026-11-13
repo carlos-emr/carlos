@@ -260,6 +260,25 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         return programRole(provider, Long.parseLong(program), facility, filterOnFacility) != null;
     }
 
+    /**
+     * Whether the provider works in the program a document is restricted to: any
+     * {@code program_provider} membership in it, the rule the chart's document list and document
+     * links apply ({@code EDocUtil} program filtering, {@code DocumentPatientLink}). It reads no
+     * document and decides nothing about any other program.
+     */
+    public boolean canReadDocumentProgram(String provider, int program) {
+        if (provider == null || provider.isEmpty()) return false;
+        return !entityManager()
+                .createNativeQuery(
+                        "SELECT 1 FROM program_provider WHERE provider_no = :provider AND"
+                            + " program_id = :program")
+                .setParameter("provider", provider)
+                .setParameter("program", program)
+                .setMaxResults(1)
+                .getResultList()
+                .isEmpty();
+    }
+
     /** The provider's one membership role in a program inside the facility boundary, or null. */
     @SuppressWarnings("unchecked")
     private Long programRole(

@@ -59,6 +59,12 @@ public interface DocumentDao extends AbstractDao<Document>, CdsExportPatientTabl
     java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportFileRowsAfter(
             int patient, Long afterId, int limit);
 
+    /**
+     * CDS export restriction metadata only: document number to program for each of the
+     * patient's documents the chart shows only inside a program. No other column is read.
+     */
+    java.util.SortedMap<Integer, Integer> readCdsExportProgramRestrictions(int patient);
+
     public enum Module {
         DEMOGRAPHIC;
 

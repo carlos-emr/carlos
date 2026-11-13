@@ -185,7 +185,61 @@ class CdsExportNativeReportMapperUnitTest {
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
         assertThatThrownBy(() -> map(edit(document(), "status", "I")))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> map(edit(document(), "restrictToProgram", "1")))
+        // Without a live program check, a document shown only inside a program is held.
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        edit(
+                                                edit(document(), "restrictToProgram", "1"),
+                                                "program_id",
+                                                "57")))
+                .hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+    }
+
+    @Test
+    void shouldExportAProgramRestrictedDocument_whenTheLiveCheckSaysTheExportersWorkInIt()
+            throws Exception {
+        var restricted = edit(edit(document(), "restrictToProgram", "1"), "program_id", "57");
+        var asked = new java.util.ArrayList<String>();
+        var mapped =
+                mapper.map(
+                        27,
+                        restricted,
+                        link(),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"),
+                        CdsExportInboxReviewMapper.Reviews.NONE,
+                        program -> asked.add(program));
+        assertThat(asked).containsExactly("57");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+        // The restriction travels with every other document column in Notes.
+        assertThat(mapped.text().get("Notes")).contains("\"restrictToProgram\":\"1\"");
+        assertThatThrownBy(
+                        () ->
+                                mapper.map(
+                                        27,
+                                        restricted,
+                                        link(),
+                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                                        providers(),
+                                        ZoneId.of("America/Toronto"),
+                                        CdsExportInboxReviewMapper.Reviews.NONE,
+                                        program -> false))
+                .hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+        // The chart shows a flagged document with no program (NULL or -1) to everyone.
+        map(edit(document(), "restrictToProgram", "1"));
+        map(edit(edit(document(), "restrictToProgram", "1"), "program_id", "-1"));
+        assertThatThrownBy(() -> map(edit(document(), "restrictToProgram", "2")))
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
+        assertThatThrownBy(
+                        () ->
+                                map(
+                                        edit(
+                                                edit(document(), "restrictToProgram", "1"),
+                                                "program_id",
+                                                "x")))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW");
     }
 

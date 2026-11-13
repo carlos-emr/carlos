@@ -375,6 +375,22 @@ encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
 patient's output is accepted.
 
+A document restricted to a program (`restrictToProgram` set and a program other than none or
+`-1`; the chart shows a flagged document without a program to everyone) is exported when every
+current exporting identity, the effective provider and any operator, works in that program:
+any `program_provider` membership in it, the rule the chart's document list applies
+(`EDocUtil` program filtering, `DocumentPatientLink`). The Reports capture reads only document
+numbers and their programs first, in their own short transaction
+(`CdsExportDocumentProgramScopeService`); checks each program live before any document value is
+read (`CdsExportDocumentSourceReader.authorizeReadScope`, `CdsExportAccessService.canReadDocumentProgram`);
+and proves inside the capture snapshot that the restrictions are the ones it authorized (a
+change is `CDS_EXPORT_SOURCE_CHANGED`). The report mapper checks each program again, live,
+before the document is written, and every program so granted is checked once more after the
+patient's documents are written (a change is `CDS_EXPORT_ACCESS_CHANGED`). The restriction and
+program travel in Notes with every other document column. A program nobody exporting works in
+holds the patient with `CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, since the chart those identities see
+lacks the document; a malformed flag or program is `CDS_EXPORT_NATIVE_REPORT_PROGRAM_REQUIRES_REVIEW`.
+
 A native document report carries every review of the document. `document_review` and
 `DocumentExtraReviewer` are mapped sources and a DOC inbox route is captured as the logical
 table `providerLabRouting_documents` (its schema contract names the physical
@@ -2334,7 +2350,7 @@ The care observation component now captures complete patient-scoped measurements
 
 The care checkpoint passed all 4,764 coordinated checks across 360 requested suites, full Javadoc and WAR packaging, with zero failures, errors or skips. The exact packaged WAR (`402b06511a23bb3f8c0997be5674365e57440eff90fd96a9b5d1ba99dd4b4734`) then passed 50 installed care assertions and nine genuine clinical import assertions, without application-class overlays or metadata restamping. Both original care parents, all fifteen native observations across thirteen care kinds, every retained/native field, 40,000-character and empty goals, original numeric/date spelling, changed-native review and final callback access revocation were checked. Native rows and fixture grants were restored. The first stopped fixture lacked the legacy POSK vocabulary definition; its zero-write evidence remains preserved. A separate genuine ordinary import after restoring that definition in the disposable database supplied the successful proof. Native-only, edited and deleted care still require review; this evidence does not qualify a whole clinical export profile.
 
-Report occurrence assembly now binds original metadata, every temporal choice (including reviewer and OBR dates), complete embedded text/binary bytes and each referenced native file to its original sealed preparation. Owning document/link DAOs capture every physical column and reproduce the importer’s original composite receipts. A separate native file source streams bytes into encrypted capture within the same read-only patient snapshot; mapping reopens only authenticated export-owned bytes. No mutable document file is reopened during mapping. Shared or dangling ownership, unqualified program restrictions, separate reviewer history and database file-storage sidecars require explicit review before payload capture. Native-only or changed reports remain review cases.
+Report occurrence assembly now binds original metadata, every temporal choice (including reviewer and OBR dates), complete embedded text/binary bytes and each referenced native file to its original sealed preparation. Owning document/link DAOs capture every physical column and reproduce the importer’s original composite receipts. A separate native file source streams bytes into encrypted capture within the same read-only patient snapshot; mapping reopens only authenticated export-owned bytes. No mutable document file is reopened during mapping. Shared or dangling ownership requires explicit review before payload capture. (Superseded: program-restricted documents, reviewer history and `document_storage` rows are now exported or listed as described in the native document sections above.) Native-only or changed reports remain review cases.
 
 Original embedded and referenced representations remain separate. FilePath is replaced with a generated relative package member only after exact native/source digest and byte-length checks; a caller without an explicit attachment sink receives an error. Partial attachments are discarded if assembly fails. Tests caught and fixed a trailing Base64 error being swallowed by the default InputStream bulk adapter. Source/binding regressions passed 120 focused checks, actual MariaDB/CLI projection checks passed 12, and real directory-handle file capture passed 21 checks under the production UID, including symlink/traversal, truncation/growth, replacement, permission and close-time races. These runs overlap other component evidence and do not yet establish installed report or whole-profile qualification.
 

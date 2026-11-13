@@ -132,6 +132,7 @@ class CdsExportLegacyDaoWiringUnitTest {
                     CdsExportNoteSourceReader.class,
                     CdsExportNoteIssueLinkSourceReader.class,
                     CdsExportDocumentSourceReader.class,
+                    CdsExportDocumentProgramScopeService.class,
                     CdsExportDocumentFileSourceReader.class);
             context.refresh();
             assertThat(context.getBean(CdsExportDocumentSourceReader.class).count(27)).isEqualTo(5);
@@ -145,10 +146,16 @@ class CdsExportLegacyDaoWiringUnitTest {
                     context.getBean(CdsExportNoteSourceReader.class)
                             .forCapture(27, mock(CdsExportRunControl.class));
             assertThat(prepared.count(27)).isZero();
+            // The document restrictions come from the canonical owner as well.
+            var documentsPrepared =
+                    context.getBean(CdsExportDocumentSourceReader.class)
+                            .forCapture(27, mock(CdsExportRunControl.class));
+            assertThat(documentsPrepared.count(27)).isEqualTo(5);
+            verify(documents, org.mockito.Mockito.times(3)).readCdsExportProgramRestrictions(27);
             verify(issues).countCdsExportRows(27);
             verify(notes).countCdsExportIssueLinks(27);
             verify(notes).countCdsExportRows(27);
-            verify(documents).countCdsExportRows(27);
+            verify(documents, org.mockito.Mockito.times(2)).countCdsExportRows(27);
             verify(documents).countCdsExportFileRows(27);
             verifyNoInteractions(oldIssues, oldNotes, mergedDocuments);
         }

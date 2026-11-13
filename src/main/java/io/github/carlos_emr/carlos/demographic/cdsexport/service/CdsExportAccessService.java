@@ -276,6 +276,28 @@ public class CdsExportAccessService {
     }
 
     /**
+     * Fresh program check for a document restricted to a program. The chart shows such a document
+     * only to a provider who works in its program, so every current identity (the effective
+     * provider and any operator) must; the ordinary Reports chart rights are required as well. A
+     * false answer holds the patient; nothing here grants a document the chart would not show.
+     */
+    public boolean canReadDocumentProgram(
+            CdsExportActorDto actor, CdsExportCommand command, int patient, String program) {
+        if (program == null
+                || !program.matches("-?[0-9]{1,10}")
+                || command == null
+                || !command.categories().contains(CdsCategory.REPORTS)) deny();
+        long value = Long.parseLong(program);
+        if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) deny();
+        CurrentIdentity current = chartIdentity(actor, command, patient, CdsCategory.REPORTS);
+        return notes.canReadDocumentProgram(
+                        current.effective().getLoggedInProviderNo(), (int) value)
+                && (current.operator() == null
+                        || notes.canReadDocumentProgram(
+                                current.operator().getLoggedInProviderNo(), (int) value));
+    }
+
+    /**
      * Complete issue/catalogue reads use the live chart gate even for a patient with no native
      * notes.
      */

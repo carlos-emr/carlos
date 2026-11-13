@@ -125,6 +125,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 CdsExportSourceCatalogueDao.class,
                 DocumentDaoImpl.class,
                 CtlDocumentDaoImpl.class,
+                CdsExportDocumentProgramScopeService.class,
                 CdsExportDataSummaryReadDao.class,
                 io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao.class);
         // Sealed native-baseline witnesses need an installation key (IMP-1).
@@ -433,7 +434,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 status -> {
                     for (var reader :
                             List.of(
-                                    new CdsExportDocumentSourceReader(documents),
+                                    new CdsExportDocumentSourceReader(
+                                            documents,
+                                            context.getBean(
+                                                    CdsExportDocumentProgramScopeService.class)),
                                     new CdsExportDocumentLinkSourceReader(links))) {
                         assertThatCode(
                                         () ->
@@ -479,22 +483,99 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 .hasMessage("CDS_EXPORT_AMBIGUOUS_SOURCE");
     }
 
-    @Test
-    void shouldRequireReviewForUnqualifiedProgramRestrictions_beforeAnyDocumentPayload() {
+    private void restrict(String flag, String program) {
         sql.update(
-                "update document set restrictToProgram=1,program_id=57 where document_no=? and"
+                "update document set restrictToProgram=?,program_id=? where document_no=? and"
                         + " doctype=?",
+                flag,
+                program,
                 patient,
                 marker);
+    }
+
+    private SortedMap<Integer, Integer> restrictions() {
+        SortedMap<Integer, Integer> found =
+                read.execute(status -> documents.readCdsExportProgramRestrictions(patient));
+        return found;
+    }
+
+    private long counted(CdsExportNativeSourceReader reader) {
+        Long count = read.execute(status -> reader.count(patient));
+        return count;
+    }
+
+    /** A run control whose live document program check answers {@code allowed}. */
+    private static io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+            programs(boolean allowed, List<String> asked) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl() {
+            @Override
+            public void checkpoint() {}
+
+            @Override
+            public void captureCheckpoint() {}
+
+            @Override
+            public void authorizePatient(int patient) {}
+
+            @Override
+            public void authorizeCategory(
+                    int patient,
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category,
+                    boolean sensitiveLaboratory) {}
+
+            @Override
+            public boolean documentProgramReadable(int patient, String program) {
+                asked.add(program);
+                return allowed;
+            }
+        };
+    }
+
+    @Test
+    void shouldReadOnlyTheChartsProgramRestrictions_beforeAnyDocumentPayload() {
+        restrict("1", "57");
+        assertThat(restrictions()).containsExactly(entry(patient, 57));
+        // The chart shows a flagged document with no program (NULL or -1) to everyone, and an
+        // unflagged one whatever its program.
+        for (var unrestricted : List.of(List.of("1", "-1"), List.of("0", "57"))) {
+            restrict(unrestricted.get(0), unrestricted.get(1));
+            assertThat(restrictions()).isEmpty();
+        }
+        restrict("1", null);
+        assertThat(restrictions()).isEmpty();
+        // The rows themselves are no longer refused by the DAO; the capture decides.
+        restrict("1", "57");
+        List<CdsExportRawRowDto> rows =
+                read.execute(status -> documents.findCdsExportRowsAfter(patient, null, 32));
+        assertThat(rows).isNotEmpty();
+    }
+
+    @Test
+    void shouldCaptureARestrictedDocument_onlyAfterEveryProgramIsAuthorizedLive()
+            throws Exception {
+        Long expected = read.execute(status -> documents.countCdsExportRows(patient));
+        restrict("1", "57");
+        var reader =
+                new CdsExportDocumentSourceReader(
+                        documents, context.getBean(CdsExportDocumentProgramScopeService.class));
+        // A reader never prepared for this chart reads nothing restricted.
+        assertThatThrownBy(() -> counted(reader)).hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+        var asked = new ArrayList<String>();
+        var allowed = programs(true, asked);
+        var prepared = reader.forCapture(patient, allowed);
+        prepared.authorizeReadScope(patient, allowed);
+        assertThat(asked).containsExactly("57");
+        assertThat(counted(prepared)).isEqualTo(expected);
+        // Nobody exporting works in the program: the patient is held before any value is read.
+        var refused = reader.forCapture(patient, programs(false, new ArrayList<>()));
         assertThatThrownBy(
                         () ->
-                                read.execute(
-                                        status ->
-                                                documents.findCdsExportRowsAfter(
-                                                        patient, null, 32)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        assertThatThrownBy(() -> read.execute(status -> links.countCdsExportRows(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                                refused.authorizeReadScope(
+                                        patient, programs(false, new ArrayList<>())))
+                .hasMessage("CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE");
+        // A restriction changed after its program was authorized is caught in the snapshot.
+        restrict("1", "58");
+        assertThatThrownBy(() -> counted(prepared)).hasMessage("CDS_EXPORT_SOURCE_CHANGED");
     }
 
     @Test
