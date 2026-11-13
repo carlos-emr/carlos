@@ -199,4 +199,42 @@ class CdsExportMeasurementSourceReaderUnitTest {
         when(dao.countCdsExportRows(27)).thenReturn(0L);
         assertThat(new CdsExportDeletedMeasurementSourceReader(dao).count(27)).isZero();
     }
+
+    @Test
+    void shouldCheckMeasurementAssociationsOncePerSnapshot_insteadOfOnEveryDaoCall() {
+        // Before: every count, page and chunk call of all four measurement DAOs rescanned the
+        // unindexed measurementsDeleted table, many times per patient inside one snapshot.
+        var em = mock(jakarta.persistence.EntityManager.class);
+        var query = mock(jakarta.persistence.Query.class, RETURNS_SELF);
+        when(query.getResultList()).thenReturn(List.of());
+        when(em.createNativeQuery(anyString(), eq(Object[].class))).thenReturn(query);
+        org.springframework.transaction.support.TransactionSynchronizationManager
+                .initSynchronization();
+        org.springframework.transaction.support.TransactionSynchronizationManager
+                .setActualTransactionActive(true);
+        org.springframework.transaction.support.TransactionSynchronizationManager
+                .setCurrentTransactionReadOnly(true);
+        org.springframework.transaction.support.TransactionSynchronizationManager
+                .setCurrentTransactionIsolationLevel(java.sql.Connection.TRANSACTION_REPEATABLE_READ);
+        try {
+            for (int i = 0; i < 5; i++)
+                CdsExportPatientTableReadSupport.requireLocalMeasurementAssociations(em, 27);
+            verify(em, times(2)).createNativeQuery(anyString(), eq(Object[].class));
+            CdsExportPatientTableReadSupport.requireLocalMeasurementAssociations(em, 28);
+            verify(em, times(4)).createNativeQuery(anyString(), eq(Object[].class));
+        } finally {
+            for (var synchronization :
+                    org.springframework.transaction.support.TransactionSynchronizationManager
+                            .getSynchronizations())
+                synchronization.afterCompletion(
+                        org.springframework.transaction.support.TransactionSynchronization
+                                .STATUS_COMMITTED);
+            org.springframework.transaction.support.TransactionSynchronizationManager.clear();
+        }
+        // The snapshot ended: nothing remembered, so the next transaction checks again.
+        assertThat(
+                        org.springframework.transaction.support.TransactionSynchronizationManager
+                                .getResourceMap())
+                .isEmpty();
+    }
 }

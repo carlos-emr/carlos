@@ -1198,6 +1198,7 @@ public final class CdsExportPatientTableReadSupport {
     /** Extensions cannot disambiguate a reused measurement identity belonging to another chart's deleted record. */
     public static void requireLocalMeasurementAssociations(EntityManager em, int patient) {
         patient(patient);
+        if (measurementAssociationsVerified(patient)) return;
         var shared =
                 query(
                                 em,
@@ -1227,6 +1228,55 @@ public final class CdsExportPatientTableReadSupport {
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+        rememberMeasurementAssociations(patient);
+    }
+
+    /** Transaction resource key for the patients whose measurement associations were proven. */
+    private static final Object MEASUREMENT_ASSOCIATIONS = new Object();
+
+    /**
+     * The association check scans measurementsDeleted, which has no index on originalId or
+     * demographicNo, and every count, page and chunk call of the four measurement DAOs runs it.
+     * Inside one read-only REPEATABLE READ (or SERIALIZABLE) transaction every read sees the same
+     * snapshot, so a proof for a patient stays true until the transaction ends; it is remembered
+     * for that transaction only. Any other transaction checks on every call, as before.
+     */
+    private static boolean measurementAssociationsVerified(int patient) {
+        if (!snapshotTransaction()) return false;
+        return TransactionSynchronizationManager.getResource(MEASUREMENT_ASSOCIATIONS)
+                        instanceof java.util.Set<?> verified
+                && verified.contains(patient);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void rememberMeasurementAssociations(int patient) {
+        if (!snapshotTransaction() || !TransactionSynchronizationManager.isSynchronizationActive())
+            return;
+        var verified =
+                (java.util.Set<Integer>)
+                        TransactionSynchronizationManager.getResource(MEASUREMENT_ASSOCIATIONS);
+        if (verified == null) {
+            verified = new java.util.HashSet<>();
+            TransactionSynchronizationManager.bindResource(MEASUREMENT_ASSOCIATIONS, verified);
+            TransactionSynchronizationManager.registerSynchronization(
+                    new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCompletion(int status) {
+                            TransactionSynchronizationManager.unbindResourceIfPossible(
+                                    MEASUREMENT_ASSOCIATIONS);
+                        }
+                    });
+        }
+        verified.add(patient);
+    }
+
+    private static boolean snapshotTransaction() {
+        Integer level = TransactionSynchronizationManager.getCurrentTransactionIsolationLevel();
+        return TransactionSynchronizationManager.isActualTransactionActive()
+                && TransactionSynchronizationManager.isCurrentTransactionReadOnly()
+                && level != null
+                && (level == java.sql.Connection.TRANSACTION_REPEATABLE_READ
+                        || level == java.sql.Connection.TRANSACTION_SERIALIZABLE);
     }
 
     /**

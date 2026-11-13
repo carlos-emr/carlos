@@ -143,7 +143,10 @@ One patient's care capture is bounded by `cds.export.maxNativeRows` observations
 deleted rows; default and maximum 8,192) and by `cds.export.maxIndexBytes` of retained rows
 (default and maximum 64 MiB), which the extension and vocabulary rows count toward. A chart over
 either bound holds only that patient with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the
-job continues.
+job continues. The check that no measurement id is shared between a current and a deleted row
+of different charts scans `measurementsDeleted`, which has no index on `originalId` or
+`demographicNo`; it runs once per patient in each read-only REPEATABLE READ capture snapshot
+instead of on every count, page and chunk call. Indexing that table needs a forward migration.
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
