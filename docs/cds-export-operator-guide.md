@@ -141,7 +141,30 @@ report's Notes. Unacknowledged and unclaimed inbox routes are not exported. The 
 deleted document are not exported either, like the document. A review recorded in CARLOS on a
 document that came from an earlier CDS import holds the patient
 (`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`), as a changed first reviewer already
-does. Revised notes retain
+does.
+
+Hospital Report Manager (HRM) reports filed to a chart are exported as Reports entries and no
+longer hold the patient. Each report is exported from its stored HRM message as the report
+viewer shows it: the report text, or the attached file (PDF, image) of a binary report; its
+class and subclass, event and received dates, author, sending facility and facility report
+number, accompanying observations (OBR content), result status, message ID and recipient.
+Each provider sign-off with a sign-off time is a ReportReviewed with the provider's name, OHIP
+number and date; the exact sign-off times, the comments on the report (with their authors'
+names), its subclasses and the details CARLOS keeps about it (description, category, duplicate
+count, the patient identity the report named) are in the report's Notes. A deleted comment and
+unsigned inbox routing are not exported. A report whose stored message file is missing, or not
+recorded, is still exported from what CARLOS recorded about it (class, subclass, dates, facility
+report number, observations), with a Notes statement that its content could not be read; a
+stored file that is not a readable HRM message is attached exactly as stored (`xml`). Only an
+unusual link holds the patient: a link whose chart or report number is spelled other than
+CARLOS writes it (`CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a message holding more than one
+report (`CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW`), a sign-off state CARLOS never
+writes (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`), or more report details than Notes can
+carry (`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`). HRM files are read from `DOCUMENT_DIR` under the
+same storage rules as document files. HRM reports not yet matched to any chart are still left
+out and counted as unlinked inbox rows (see below).
+
+Revised notes retain
 the original and edits in one clinical occurrence. A clinical note whose latest
 revision is archived (removed from the active record) is still exported, because the
 encounter list still shows it, but its text begins with a statement that it is

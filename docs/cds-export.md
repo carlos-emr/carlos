@@ -331,6 +331,86 @@ exported from its import, a CARLOS inbox route is `INBOX_ROUTING_OF_AN_IMPORTED_
 (`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`). Every reviewer row belongs to exactly
 one captured document.
 
+Hospital Report Manager (HRM) reports are exported, not held. Every report linked to the
+selected patient is one CDS 5.2 Reports entry (`CdsExportHospitalReportOccurrenceService`, after
+the native and imported documents and before the data summaries). `HRMDocument`,
+`HRMDocumentComment`, `HRMDocumentSubClass` and `HRMDocumentToProvider` are mapped sources in the
+Reports scope, read through `CdsExportHospitalReportReadDao` (`Plan.HRM_REPORTS`,
+`HRM_REPORT_COMMENTS`, `HRM_REPORT_SUBCLASSES`, `HRM_REPORT_ROUTES`) with exactly the rows the
+inbox scope calls linked to the patient (`CdsExportIndirectPatientScopeReadSupport.owned`;
+`CdsExportHospitalReportPlanScopeUnitTest` compares the two in every pinned profile): a report
+named by an `HRMDocumentToDemographic` row of the patient (indexed `cds_patient_key`, report
+number compared numerically as the scope compares it). A report linked to two charts belongs to
+both. `HRMDocumentToDemographic` itself is now captured (`Plan.HRM_REPORT_LINKS`) instead of
+refused. Each report's stored message file is captured as the logical table `hrm_report_files`
+(`CdsExportHospitalReportFileSourceReader`, `Plan.HRM_REPORT_FILES`): `reportFile` is resolved as
+the report viewer resolves it (`HRMReportParser.parseReport`: an absolute path inside
+`DOCUMENT_DIR`, otherwise a name below it) and read through the same directory-relative, no-follow,
+trusted-storage stream as a native document, with a `state` of `READ`, `NOT_RECORDED`, `MISSING`
+or `UNSUPPORTED_NAME`. The mapper reads the message with the viewer's own parser
+(`HRMReportParser.unmarshal`: OntarioMD HRM 1.1.2 schema validation, secure JAXB source; its JAXB
+context and schema are now built once):
+
+- Media, Format, FileExtensionAndVersion, Class, SubClass, EventDateTime, ReceivedDateTime,
+  SourceAuthorPhysician (AuthorName, or AuthorFreeText when a part is missing or longer than 50),
+  SendingFacilityId, SendingFacilityReport, every OBRContent block and HRMResultStatus come from
+  the message's `ReportsReceived`; MessageUniqueID and RecipientName (the provider the message
+  was delivered to) from its first `TransactionInformation`. A message date with an offset keeps
+  it; one without is a clinic wall-clock time (`cds.export.clinicalZone`). SourceFacility is the
+  facility CARLOS recorded (`HRMDocument.sourceFacility`), as the legacy exporter wrote it.
+- TextContent is the report text. A binary report's decoded Media is attached at
+  `Reports/<hash>.<ext>` (FilePath, Format Binary), the extension decided from the declared
+  extension and the bytes (`CdsExportReportFileFormats`); FileExtensionAndVersion keeps the
+  message's own value.
+- Class falls back to `className`, then `reportType`, then Medical Records Report; SubClass to the
+  active accompanying subclass, then the first OBR description.
+- A sign-off (`HRMDocumentToProvider.signedOff` 1, `HRMModifyDocument2Action.signOff`) by a
+  provider the public lookup names (the lookup now also serves the signers and comment authors
+  of the patient's HRM reports), with a sign-off time, is a ReportReviewed (Name, OHIP number of
+  six digits, the date of `signedOffTimestamp` in the clinic zone); one per provider and date.
+  Every sign-off row travels whole in Notes (`signOffs`), keeping its exact time; an undated
+  sign-off, an unclaimed one or one by a provider the lookup cannot name stays in Notes only.
+  Unsigned routes (0 or NULL) are `UNSIGNED_HRM_INBOX_ROUTING_WORKFLOW`; any other `signedOff`
+  value holds the patient (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`).
+- Notes is `[CARLOS HRM report source context]` with the report row (`hrmReport`: description,
+  category id, duplicate count, parent report, recipient, the patient identity the report named,
+  class and subclass names, dates), its patient links, every comment that was not deleted, with
+  its author's public name (`comments`, `providers`), every accompanying subclass with its active
+  flag (`subClasses`), every sign-off, the message file state and the message values with no
+  element (`message`: ReviewedDateTime, ReviewingOHIPPhysicianId, every TransactionInformation
+  entry, and any value too long for its element). A comment with `deleted` 1 is not shown in the
+  chart (`HRMDocumentCommentDao.getCommentsForDocument`) and is accounted
+  `DELETED_HRM_COMMENT_NOT_SHOWN_IN_CHART`; a comment with another or no value travels. The
+  duplicate-detection digests and the storage location are operational. The message's own
+  patient block (name, health card, birth date, address) is the sender's identification of the
+  chart the report is filed to; the chart's identity is exported in Demographics and the report
+  row keeps the identity CARLOS recorded from it.
+
+An ordinary chart is never held for its HRM reports. A report whose file is not recorded,
+missing or has a name the stream refuses is exported from what CARLOS recorded about it: Format
+Text without Content, Class and SubClass from `className`/`subClassName`, EventDateTime from
+`reportDate`, ReceivedDateTime from `timeReceived`, SendingFacilityReport from
+`sourceFacilityReportNo`, HRMResultStatus from a one-letter `reportStatus`, the accompanying
+subclasses as OBRContent, and Notes beginning with a statement that the message could not be read.
+A stored file that is not an HRM message the viewer could show (it does not parse or validate, or
+is larger than 64 MiB) is attached exactly as stored (Format Binary, FileExtensionAndVersion `xml`)
+with a Notes statement; an empty file and a message with no report or no content give no Content.
+A link naming a report that no longer exists shows nothing in the chart and is accounted
+`HRM_LINK_TO_NO_STORED_REPORT_NOT_SHOWN_IN_CHART`. A link naming a chart that does not exist
+belongs to no chart; a report whose only links name such charts is unattributable and, as
+before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
+patient or report number is not spelled as its canonical decimal number (a legacy alias such as
+`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a message holding more than
+one report (CARLOS shows only the first; `CDS_EXPORT_HRM_REPORT_MULTIPLE_REPORTS_REQUIRES_REVIEW`),
+Notes over 32,000 characters (`CDS_EXPORT_HRM_REPORT_METADATA_CAPACITY`), a file over
+`cds.export.maxDocumentBytes` (`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE`) and an ambiguous
+wall-clock time. Untrusted storage still stops the job. The inventory expects one Reports
+occurrence per captured report (`carlos-native-occurrence-v1`, `HRMDocument`, id). The CDS
+importer never writes HRM tables (an imported report becomes a `document`), so an exported HRM
+report imported into CARLOS and exported again travels once, as that document's retained
+occurrence. HRM reports are exported in every province profile: the chart list shows them only
+in Ontario billing regions, but rows elsewhere are still chart data.
+
 Inbox rows that name no patient hold no chart. The presence check of a must-be-empty table
 reached through a parent (`CdsExportIndirectPatientScopeReadSupport`) used to treat every
 row whose parent chain reached no patient as possibly anyone's, so an HL7 lab that the
@@ -2145,9 +2225,10 @@ configuration remains lazy so metadata recovery is available independently.
 
 Report-selected capture now includes the complete physical hospital-report patient-link
 contract through its owning HRM DAO. Any patient-associated hospital report requires
-explicit review until its report adapter is available. An inner join cannot hide a
-dangling link, and numeric legacy spellings in the VARCHAR patient column are
-conservatively refused. Both absence checks share the actual patient snapshot;
+explicit review until its report adapter is available. (Superseded: HRM reports are now
+exported; see "Hospital Report Manager (HRM) reports are exported, not held" above.) An
+inner join cannot hide a dangling link, and numeric legacy spellings in the VARCHAR
+patient column are conservatively refused. Both absence checks share the actual patient snapshot;
 other patients' links stay outside that scope. Twenty-five affected real MariaDB,
 CLI-startup and source-recipe checks passed. The initial incremental CLI run found
 a stale derived V84 SQL resource; refreshing that build output from the committed
