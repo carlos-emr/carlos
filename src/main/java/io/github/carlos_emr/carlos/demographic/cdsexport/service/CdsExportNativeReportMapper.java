@@ -154,7 +154,9 @@ public final class CdsExportNativeReportMapper {
                         "EXACT_NATIVE_DOCUMENT_SOURCE_CONTEXT");
             }
         }
-        text.put("Media", "Download");
+        // Media is left out: nothing in the document row records how it was received (a
+        // scanned paper letter, a fax and an upload look alike). report_media, which only the
+        // REST document API writes and which has no defined code list, stays in Notes.
         if (html != null) {
             text.put("Format", "Text");
             text.put("FileExtensionAndVersion", content.extension());
@@ -264,7 +266,6 @@ public final class CdsExportNativeReportMapper {
     public void write(Result result, CdsExportXmlComposer.ContentWriter xml) throws IOException {
         for (String name :
                 List.of(
-                        "Media",
                         "Format",
                         "FileExtensionAndVersion",
                         "FilePath")) text(result, xml, name);

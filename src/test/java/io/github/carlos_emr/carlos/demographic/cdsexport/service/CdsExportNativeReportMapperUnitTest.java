@@ -356,6 +356,20 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
+    void shouldLeaveMediaOut_becauseNothingRecordsHowANativeDocumentArrived() throws Exception {
+        // A scanned paper consult would be Hardcopy and a faxed one neither; the document row
+        // records no channel, so claiming Download would be provenance the chart never held.
+        var reported = edit(document(), "report_media", "3");
+        var mapped = map(reported);
+        assertThat(mapped.text()).doesNotContainKey("Media");
+        String xml =
+                new String(
+                        render(CdsCategory.REPORTS, body -> mapper.write(mapped, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("<Media>").contains("\"report_media\":\"3\"");
+    }
+
+    @Test
     void shouldRejectImportedPrecisionAnchors_withoutInventingAFullDate() {
         assertThatThrownBy(() -> map(edit(document(), "cds_content_precision", "YEAR")))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");

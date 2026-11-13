@@ -545,6 +545,8 @@ class CdsExportNativeReportAssemblyUnitTest {
         String xml = assemble();
         var reports = reports(xml);
         assertThat(reports).hasSize(3);
+        // Nothing in the document records how it arrived (scanned, faxed or uploaded): no Media.
+        assertThat(xml).doesNotContain("<Media>");
         assertThat(reports.get(0))
                 .contains(
                         "<Format>Binary</Format>",
