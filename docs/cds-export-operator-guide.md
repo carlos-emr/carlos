@@ -133,9 +133,10 @@ to the exact arguments, and the provider still needs current clinical permission
 Every value the demographic screens write is exported; none holds the patient. The patient
 alert (the Alert box) is exported as an AlertsAndSpecialNeeds item when that category is
 selected. Details CDS 5.2 Demographics has no place for (preferred name, alias, pronoun, gender
-identity, the referral doctor, the nurse, resident and midwife, ethnicity, consents, paper-chart
-status, First Nations details, a site's own extra fields, and a phone extension or mobile number
-too long for the CDS phone element) travel exactly in one NewCategory record per patient,
+identity, the referral doctor, the nurse, resident and midwife, the "Date Joined" and health card
+"EFF Date", ethnicity, consents, paper-chart status, First Nations details, a site's own extra
+fields, and a phone extension or mobile number too long for the CDS phone element) travel exactly
+in one NewCategory record per patient,
 `CARLOS.NativeDemographic.v1`. Select NewCategory to send them; without it they are not
 exported and the ReadMe says so. A care-team provider is sent with the provider number and the
 provider's public name. Only a value containing a character no XML file can hold still holds the
@@ -143,13 +144,30 @@ patient; correct it on the demographic page and export again.
 
 The same holds for roster, pharmacy and contact values: a fee-for-service or clinic-defined
 roster status, a roster entry missing its date, a second preferred pharmacy, Phone 2 or Notes on
-a pharmacy, an inactive or internal contact, a specialist or dietician on the health care team,
-an e-mail with a "+", a SIN typed with spaces and a province of "Other" all travel in the
-`CARLOS.NativeDemographic.v1` record instead of holding the patient. Removed pharmacy links and
-deleted contacts are no longer in the chart and are not exported. A patient re-rostered without
-a termination is exported with the current enrolment; the earlier episode's snapshot stays in
-the audit arrangement. On a chart that came from an earlier CDS import, removing an imported
-contact or pharmacy preference still holds that patient for review.
+a pharmacy, an inactive or internal contact, an e-mail with a "+", a SIN typed with spaces and a
+province of "Other" all travel in the `CARLOS.NativeDemographic.v1` record instead of holding the
+patient. A specialist or dietician on the health care team (an external contact) is exported as
+a Demographics Contact whose purpose is the role ("Specialist", "Dietician"). Removed pharmacy
+links and deleted contacts are no longer in the chart and are not exported. A patient
+re-rostered without a termination is exported with the current enrolment; the earlier episode's
+snapshot stays in the audit arrangement. A roster entry missing its date is not written as an
+enrolment: the OntarioMD guide requires the date and CARLOS's own importer refuses one without
+it.
+
+A chart that came from an earlier CDS import and was then edited in CARLOS is exported like any
+other chart: the patient moved (a new city or postal code on an imported Formatted address, one
+with several street lines, or two addresses of one type), a new mobile number where the imported
+one had an extension, a phone of a type the file had twice, edited middle names, a value or date
+the import kept only in the file (a time-zone offset included), an edited patient note that was
+too long to import, re-rostering, a move to fee for service or another physician. The current
+CARLOS value is exported and the imported value it replaced stays in the import's protected
+source fields, listed as replaced in the export audit; it is not in the package. Unedited
+imported charts export exactly as before, and a save that leaves an imported-only value blank
+does not erase it. The imported enrolment history is always exported as imported, so a patient
+moved to fee for service without a termination still shows the imported enrolment in the file,
+with the fee-for-service state in the NewCategory record. Still held: removing an imported contact
+or pharmacy preference (review it), a value with a character no XML file can hold, and an
+imported chart that matched an existing CARLOS chart whose values the import cannot prove.
 
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported

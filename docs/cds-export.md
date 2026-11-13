@@ -91,8 +91,7 @@ status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in t
 are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`). Contacts follow the same
 pattern: a deleted association is not exported; an inactive, "Internal" (another patient),
 provider or specialist association (types 0, 1 and 3, whose names live in tables this export
-does not read) and a professional role ReferredPhysician and FamilyPhysician do not mean
-(Specialist, Dietician) travel in `related` with their contact, as do contact columns
+does not read) travel in `related` with their contact, as do contact columns
 Demographics/Contact has no element for (address, fax, CPSO number, specialty...), a note longer
 than 200 characters or distinct between contact and association, and an extension the phone
 element cannot hold. In the base row an untrimmed or doubled-space token is written collapsed,
@@ -110,6 +109,79 @@ missing (name, birth date, sex, status), duplicate or hidden extension rows, tie
 preferences, a dangling pharmacy or contact link, two family or two referring physicians, an
 unknown contact consent or purpose flag, and provider values (OHIP number over six characters,
 names over 50) on an enrolled physician.
+
+The health-care-team roles Specialist and Dietician (procontact.jsp) have no FamilyPhysician or
+ReferredPhysician meaning, but an active external contact (type 2) in such a role is a
+`Demographics/Contact`: `CdsExportProfessionalContactMapper.contactRoleAssociations` leaves it to
+the personal-contact mapper, which writes the role as `ContactPurpose/PurposeAsPlainText`
+(`HEALTH_CARE_TEAM_ROLE_AS_PLAIN_TEXT_PURPOSE`; the plain-text arm of `purposeEnumOrPlainText`
+holds 50 characters) with the contact's name, phones, e-mail and note, and carries its other
+`ProfessionalContact` columns. On an imported chart the contact is appended after the imported
+contacts, as a newly added personal contact is. A specialist whose contact is also the family or
+referring physician, an inactive or removed association and types 0, 1 and 3 keep their earlier
+handling (carried in `related`, or not in the chart).
+
+**Imported charts edited in CARLOS.** A chart imported from a CDS file and then edited through
+ordinary CARLOS screens is an ordinary chart and is not held for the edit. An unedited imported
+chart still exports its retained source exactly as before. After an edit the current CARLOS columns are the truth, as for a
+never-imported chart; the superseded source value is never silently dropped: it stays in the
+import's retained source fields, the receipt lists its field IDs as replaced, and the column's
+decision names the rule.
+
+- Addresses (`CdsExportDemographicAddressReconciler`): an edited part replaces its source part;
+  a street typed over several source lines becomes `Line1` and the other lines are superseded,
+  and a value typed over a part the importer kept source-only replaces it
+  (`EDITED_CURRENT_ADDRESS_PARTS_SUPERSEDE_SOURCE_PARTS`). A `Formatted` source with an edited
+  city, province or postal code, two source addresses of one type, or one the importer never
+  projected is replaced by the current `Structured` address
+  (`EDITED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS`); an address the user cleared (the forms'
+  default province alone records no address) exports no address of that type
+  (`CLEARED_CURRENT_ADDRESS_SUPERSEDES_SOURCE_ADDRESS`).
+- Phones (`CdsExportDemographicRetainedPhonesReconciler`): the current number replaces the
+  source phone, or the first of several source phones of its type
+  (`EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES`); an edited mobile supersedes a source mobile
+  extension CARLOS cannot store (`EDITED_CURRENT_PHONE_SUPERSEDES_SOURCE_EXTENSION`, recorded on
+  the mobile property row); a cleared number exports no phone of that type
+  (`CLEARED_CURRENT_PHONE_SUPERSEDES_SOURCE_PHONES`).
+- Names, scalars, dates and the note: edited middle names take the source's given `OtherName`
+  parts in order, surplus parts are removed and further names appended
+  (`EDITED_CURRENT_MIDDLE_NAMES_SUPERSEDE_SOURCE_PARTS`); a scalar or optional date typed over a
+  source-only one is written (`EDITED_CURRENT_SCALAR_SUPERSEDES_UNPROJECTED_SOURCE`,
+  `EDITED_CURRENT_DATE_SUPERSEDES_UNPROJECTED_SOURCE`); an edited date is a plain calendar date
+  and supersedes a source time-zone offset (`CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET`,
+  `EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET`); an edited patient note replaces the complete
+  source note the native column could not hold
+  (`EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE`).
+- Roster (`CdsExportRetainedEnrolmentReconciler`): the imported enrolment history exports as
+  imported, and native events recorded after it follow `CdsExportEnrolmentHistory`. Only RO and
+  TE are enrolment events; FS, clinic-defined statuses and NR with leftover values are carried in
+  the record's `roster` object. Per episode (start and physician) the latest native version
+  decides; an open episode exports while it is current or the source records its termination;
+  one the current state contradicts (re-rostered without a termination, cleared, moved to FS) or
+  dated after it is a superseded snapshot (`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`), its
+  provider `SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT`. No termination is invented, so a
+  patient moved to FS without a termination keeps the imported open enrolment in the file beside
+  the carried FS state. The four review rules for re-rostering, a cleared current enrolment, a
+  conflicting termination and a stale current state are gone, and an FS current state sharing an
+  archived event's provider no longer fails the job.
+
+An empty value a Master Record save writes over a column the importer left NULL is not an edit:
+a source-only value, part, address or phone is kept (`UNPROJECTED_SOURCE_*_KEPT_WITHOUT_A_CURRENT_*`),
+as is a source-only date with no current date, which used to hold even an unedited chart. Still
+held: an unproven import projection (a matched existing chart), an invalid retained source value
+that an unedited chart would replay, text no XML document can carry
+(`CURRENT_NATIVE_ADDRESS_REQUIRES_REVIEW`, `CURRENT_NATIVE_PHONE_REQUIRES_REVIEW`,
+`CURRENT_NATIVE_NAME_REQUIRES_REVIEW`...), a missing required value, an enrolled provider whose
+public values no CDS name can hold, and a mobile reconciliation with no current row to mark
+(now a patient hold, `CDS_EXPORT_DEMOGRAPHIC_MOBILE_RECONCILIATION_REQUIRES_REVIEW`, no longer a
+job failure). A removed imported contact or pharmacy preference stays a deliberate review. The
+superseded source values are not in the package itself: the NewCategory record is built from the
+current rows only, so they remain available through the retained import source and the receipt.
+
+An RO roster status without a roster date is still carried, not written as an
+`EnrolmentHistory` without `EnrollmentDate`: the schema makes the element optional, but the
+OntarioMD implementation guide requires the dates (see `cds-import-web.md`) and the CARLOS
+importer refuses such a history (`CDS_ENROLMENT_REQUIRED_VALUES_MISSING`).
 
 A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
 "Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
@@ -2274,8 +2346,9 @@ Separate name, birth-date, scalar, optional-date, health-card and address compon
 27 base-row fields without overlapping decisions. Unchanged source representations retain
 name-part boundaries, phone-independent details, address lines, formatted addresses and
 date offsets. The common calendar mapper uses the effective prepared date for accepted
-corrections and synthetic shifts; later native edits are not shifted again. Ambiguous
-compound-name/address edits and changes to source-only projections require review. A full
+corrections and synthetic shifts; later native edits are not shifted again. Compound-name and
+address edits and edits of source-only projections supersede the source (see "Imported charts
+edited in CARLOS"). A full
 health-card clear removes its complete subtree, and adding a card creates the required
 parent and children together. Province edits also reconcile the postal/ZIP choice.
 
@@ -2295,16 +2368,16 @@ property column and the note content/owner; unknown properties, care-team carrie
 other demographic fields remain explicit hand-offs. The seven-column historical
 `demographicExt` receipt omits its captured invisible generated key. Phone reconciliation
 checks that key independently instead of weakening the general witness guard. Original
-phone components and unprojected mobile extensions survive unchanged rows; ambiguous
-later edits require review. Missing note rows supply explicit blockers even when there is
+phone components and unprojected mobile extensions survive unchanged rows; later edits
+supersede them. Missing note rows supply explicit blockers even when there is
 no remaining native content field on which to attach a review outcome.
 
 For demographics-only jobs, note reconciliation compares the selected five cust columns
 against the historical full baseline through the reviewed partial comparator. It does not
 claim to verify the omitted alert column. Care-team fields remain separate native facts.
 The outer unotes frame is plain text; embedded delimiters are never parsed as markup or
-used to truncate a note. Null clears and empty notes remain distinct. Native edits to a
-source-only oversized note require review. Simultaneous core/phone/note changes are all
+used to truncate a note. Null clears and empty notes remain distinct. A native edit of a
+source-only oversized note supersedes it. Simultaneous core/phone/note changes are all
 withheld when any component requires review; remaining fields still prevent whole-chart
 qualification. Genuine imported-data edit/restoration fixtures cover both components.
 
@@ -2848,20 +2921,23 @@ extension, a warning level, or consent `0`, which is an instruction not to conta
 
 Two user-entered demographic dates are practice-administrative and have no CDS 5.2
 Demographics element: "Date Joined" (`date_joined`) and the health card "EFF Date"
-(`eff_date`; `HealthCard` carries only number, version, expiry and issuer). They are decided
-`OPERATIONAL` under `ADMINISTRATIVE_NOT_EXPORTED` and never hold a chart. Previously the first
-was silently dropped as operational identity and the second required review. Every package
-ReadMe carries the fixed line `Practice-administrative demographic fields "date joined" and
-"effective date" are not part of CDS 5.2 Demographics and are not exported.`, which the
-supporting-file validator requires.
+(`eff_date`; `HealthCard` carries only number, version, expiry and issuer). They are carried in
+the native demographic record `CARLOS.NativeDemographic.v1` under their column names
+(`NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`, or
+`NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` without NewCategory) and never hold a chart. They
+were first silently dropped (date_joined) or held (eff_date), then decided
+`ADMINISTRATIVE_NOT_EXPORTED`. On an imported chart `date_joined` is the import's execution time,
+carried as stored. Every package ReadMe carries the fixed line
+`CdsExportSupportingFilesComposer.ADMINISTRATIVE_DATES_NOTICE` (where the two dates travel),
+which the supporting-file validator requires.
 
 Where CDS 5.2 has an exact home for a value the CARLOS forms store, the mapper uses it. Title
 `RT_HON` is `NamePrefix` `RtHon`. A spoken language is the ISO 639-2 code that
 `spoken_languages_codes.properties` gives for the stored display name; the importer reverses that
 code with the same table. Middle names longer than one 50-character name part, up to the column's
 100, are written as their space-separated names in ordered `OtherName` GIV parts, which the
-importer joins back with single spaces. An imported chart whose edited middle names would need
-several parts is held for review. Two values still require review because no exact home exists:
+importer joins back with single spaces. An imported chart whose edited middle names need
+several parts writes them the same way, replacing the source parts. Two values still require review because no exact home exists:
 administrative gender `X` (Intersex), since the schema's `O` (Other) is imported back as `O` and
 would lose the distinction, and a postal code without a known Canadian or pinned US subdivision.
 
