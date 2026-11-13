@@ -34,9 +34,9 @@ public final class EFormSavedRenderResponse {
             LoggedInInfo user, EformContentUnavailableException failure, int fdid, String patient, String formId,
             EFormRenderApprovalService.Operation operation, EFormRenderApproval previous, boolean autoClose) {
         boolean edoc = operation == EFormRenderApprovalService.Operation.EDOC;
+        // In the page's language (#6162); the JSP encodes it.
         return missing(request, service, user, failure, fdid, patient, formId, operation, previous, autoClose,
-                edoc ? "This eForm could not be fully rendered, so it was not added to the patient's documents. Review the omissions below before archiving it."
-                        : "Some content of this eForm could not be rendered. Review the omissions below before downloading it.",
+                (edoc ? EFormRenderMessage.NOT_ADDED_TO_DOCUMENTS : EFormRenderMessage.NOT_DOWNLOADED).text(request),
                 edoc ? "eform/saveEFormAsEDoc" : "eform/downloadEFormPdf",
                 edoc ? "eform.renderMissingContent.btnApproveAndAddToDocuments" : "eform.renderMissingContent.btnApproveAndDownload");
     }

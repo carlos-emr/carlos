@@ -94,6 +94,34 @@ class AddEForm2ActionPdfWarningTest extends CarlosUnitTestBase {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.EnumSource(
+            value = io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.Operation.class,
+            names = {"EDOC", "DOWNLOAD"})
+    @DisplayName("should name the operation's own failure in the page's language when the saved eForm id is unreadable (#6162)")
+    void shouldReportTheOperationsFailureInFrench_whenTheSavedEformIdIsUnreadable(
+            io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.Operation operation) {
+        registerMock(io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.class,
+                org.mockito.Mockito.mock(io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.class));
+        request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
+        request.setPreferredLocales(java.util.List.of(java.util.Locale.CANADA_FRENCH, java.util.Locale.FRENCH));
+        var failure = new io.github.carlos_emr.carlos.utility.EformContentUnavailableException("incomplete", 42,
+                new io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport(1, 0, 0, 0, false, false, false, false));
+
+        String result = org.springframework.test.util.ReflectionTestUtils.invokeMethod(new AddEForm2Action(),
+                "offerRenderApproval", loggedInInfo, failure, "not-a-number", "123", operation,
+                "unused", "eform/unused", "unused.key");
+
+        var expected = operation == io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService.Operation.EDOC
+                ? io.github.carlos_emr.carlos.eform.util.EFormRenderMessage.EDOC_FAILURE
+                : io.github.carlos_emr.carlos.eform.util.EFormRenderMessage.DOWNLOAD_FAILURE;
+        assertThat(result).isEqualTo("error");
+        assertThat(request.getAttribute("error")).isEqualTo("true");
+        assertThat(request.getAttribute("errorMessage"))
+                .isEqualTo(expected.text(request))
+                .isNotEqualTo(expected.english());
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"setPdfError", "setPdfWarning", "buildPdfPreviewName"})
     void shouldBoundEveryPdfDiagnosticWithoutChangingItsFailureContract(String operation) {
         var failure = new IllegalStateException("PRIVATE_RENDERER_PATH",

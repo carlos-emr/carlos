@@ -694,6 +694,26 @@ class DocumentPreview2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should return the eForm render error in French when the browser prefers French (#6162)")
+    void shouldReturnFrenchErrorJson_whenTheBrowserPrefersFrench() throws Exception {
+        request.setParameter("method", "renderEFormPDF");
+        request.setParameter("eFormId", "42");
+        request.setParameter("demographicNo", "123");
+        request.addHeader("Accept-Language", "fr-CA,fr;q=0.9");
+        request.setPreferredLocales(java.util.List.of(java.util.Locale.CANADA_FRENCH, java.util.Locale.FRENCH));
+        when(mockEFormDataDao.find(42)).thenReturn(eFormData(123));
+        when(mockDocumentAttachmentManager.renderEform(mockLoggedInInfo, 42, (EFormRenderApproval) null))
+                .thenThrow(new io.github.carlos_emr.carlos.utility.PDFGenerationException("render failed"));
+
+        String result = action.execute();
+
+        assertThat(result).isEqualTo(ActionSupport.NONE);
+        assertThat(response.getContentAsString())
+                .isEqualTo("{\"errorCode\":\"eform_render_failed\","
+                        + "\"errorMessage\":\"Le rendu du PDF de l\u2019eForm a \u00e9chou\u00e9.\"}");
+    }
+
+    @Test
     @DisplayName("should disclose every incomplete eForm issue before issuing approval")
     void shouldDiscloseEveryIncompleteEformIssue_beforeIssuingApproval() throws Exception {
         request.setParameter("method", "renderEFormPDF");

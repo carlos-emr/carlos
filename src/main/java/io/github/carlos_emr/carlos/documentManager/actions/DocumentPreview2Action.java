@@ -6,6 +6,7 @@ import io.github.carlos_emr.carlos.eform.EFormUtil;
 import io.github.carlos_emr.carlos.encounter.data.EctFormData;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApproval;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderApprovalService;
+import io.github.carlos_emr.carlos.eform.util.EFormRenderMessage;
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -79,13 +80,11 @@ public class DocumentPreview2Action extends ActionSupport {
     private enum PreviewError {
         INVALID_REQUEST("invalid_request", "Invalid preview request."),
         EDOC_RENDER_FAILED("edoc_render_failed", "Failed to render document PDF."),
-        EFORM_RENDER_FAILED("eform_render_failed", "Failed to render eForm PDF."),
-        EFORM_RENDER_BUSY("eform_render_busy", "The eForm renderer is busy. Waiting for a preview slot."),
-        EFORM_APPROVAL_INVALID("eform_approval_invalid",
-                "The incomplete-render approval is invalid or expired. Render the preview again."),
-        EFORM_MISSING_CONTENT("eform_missing_content",
-                "This eForm could not be fully rendered because required content or behavior is missing. "
-                        + "You can render it only after approving the listed issues, but the document may be incomplete."),
+        // The eForm render messages come from the resource bundle, in the page's language (#6162).
+        EFORM_RENDER_FAILED("eform_render_failed", EFormRenderMessage.PREVIEW_RENDER_FAILED),
+        EFORM_RENDER_BUSY("eform_render_busy", EFormRenderMessage.PREVIEW_RENDER_BUSY),
+        EFORM_APPROVAL_INVALID("eform_approval_invalid", EFormRenderMessage.PREVIEW_APPROVAL_INVALID),
+        EFORM_MISSING_CONTENT("eform_missing_content", EFormRenderMessage.PREVIEW_MISSING_CONTENT),
         HRM_RENDER_FAILED("hrm_render_failed", "Failed to render HRM PDF."),
         LAB_RENDER_FAILED("lab_render_failed", "Failed to render lab PDF."),
         LAB_SOURCE_UNSUPPORTED("lab_source_unsupported",
@@ -94,10 +93,23 @@ public class DocumentPreview2Action extends ActionSupport {
 
         private final String code;
         private final String message;
+        private final EFormRenderMessage translated;
 
         PreviewError(String code, String message) {
             this.code = code;
             this.message = message;
+            this.translated = null;
+        }
+
+        PreviewError(String code, EFormRenderMessage translated) {
+            this.code = code;
+            this.message = translated.english();
+            this.translated = translated;
+        }
+
+        /** The message in the request's language where it has a bundle key, otherwise the fixed English. */
+        String message(HttpServletRequest request) {
+            return translated == null ? message : translated.text(request);
         }
     }
 
@@ -292,7 +304,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateRenderBusyResponse(String retryApproval) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorCode", PreviewError.EFORM_RENDER_BUSY.code);
-        json.put("errorMessage", PreviewError.EFORM_RENDER_BUSY.message);
+        json.put("errorMessage", PreviewError.EFORM_RENDER_BUSY.message(request));
         json.put("retryable", true);
         json.put("retryAfterSeconds", 2);
         json.put("renderApproval", retryApproval);
@@ -651,7 +663,7 @@ public class DocumentPreview2Action extends ActionSupport {
     private void generateResponse(HttpServletResponse response, PreviewError error) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorCode", error.code);
-        json.put("errorMessage", error.message);
+        json.put("errorMessage", error.message(request));
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         try {
@@ -674,7 +686,7 @@ public class DocumentPreview2Action extends ActionSupport {
             List<String> severeConsoleErrorDetails) {
         ObjectNode json = objectMapper.createObjectNode();
         json.put("errorCode", error.code);
-        json.put("errorMessage", error.message);
+        json.put("errorMessage", error.message(request));
         json.put("missingContent", true);
         json.put("renderApproval", approvalToken);
         json.put("failedContentResources", report.failedContentResources());

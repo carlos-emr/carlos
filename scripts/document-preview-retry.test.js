@@ -49,6 +49,19 @@ test('busy waits with jitter, then retries one request at a time until a real PD
     assert.equal(f.events[2][1].advisoryIssues, 1);
 });
 
+test('busy hands the server\'s translated busy message to the waiting handler', () => {
+    const f = fixture();
+    const messages = [];
+    f.controller.start('method=renderEFormPDF&eFormId=42&demographicNo=123',
+        { ...f.handlers, waiting: message => messages.push(message) });
+    const french = 'Le moteur de rendu des eForms est occupé. En attente d’une place pour l’aperçu.';
+    f.busy(0, null, { errorMessage: french });
+    f.timers[0].callback();
+    f.busy(1);
+    // A busy answer without a message leaves the page's own bundle line in place.
+    assert.deepEqual(messages, [french, undefined]);
+});
+
 test('rotates approval without duplicate parameters and preserves request scope', () => {
     const f = fixture(); f.start('method=renderEFormPDF&eFormId=42&demographicNo=123&renderApproval=old&renderApproval=older');
     f.busy(0, 'replacement'); f.timers[0].callback();

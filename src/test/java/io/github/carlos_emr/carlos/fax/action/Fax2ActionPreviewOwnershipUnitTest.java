@@ -13,7 +13,10 @@ import io.github.carlos_emr.carlos.commn.model.FaxConfig;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.NioFileManager;
+import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
+import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.commn.model.EFormData;
 import io.github.carlos_emr.carlos.commn.model.FaxJob;
 import io.github.carlos_emr.carlos.documentManager.DocumentAttachmentManager;
@@ -161,6 +164,47 @@ class Fax2ActionPreviewOwnershipUnitTest extends CarlosUnitTestBase {
             verifyNoInteractions(files);
             assertThat(claims).isEmpty();
         }
+    }
+
+    @Test
+    @DisplayName("should answer 500 in the viewer's language when a document cannot be staged for faxing")
+    void shouldAnswerInTheViewersLanguage_whenTheDocumentCannotBeStaged() throws Exception {
+        request.setMethod("POST");
+        request.addHeader("Accept-Language", "fr-CA");
+        request.setPreferredLocales(List.of(Locale.CANADA_FRENCH));
+        when(fax.getFaxGatewayAccounts(user)).thenReturn(List.of(mock(FaxConfig.class)));
+        when(links.findByDocumentNoAndModule(77, "demographic")).thenReturn(List.of(patientLink(10)));
+        NioFileManager files = createAndRegisterMock(NioFileManager.class);
+        when(files.createTempFileFrom(eq("owned.pdf"), any())).thenThrow(new IOException("FAKE no space left"));
+        EDoc document = new EDoc();
+        document.setFileName("owned.pdf");
+        document.setContentType("application/pdf");
+        document.setModule("demographic");
+        document.setModuleId("10");
+        claims.clear();
+        CarlosProperties properties = CarlosProperties.getInstance();
+        String previousDocumentDir = properties.getProperty("DOCUMENT_DIR");
+        properties.setProperty("DOCUMENT_DIR", directory.toString());
+        try (MockedStatic<EDocUtil> metadata = mockStatic(EDocUtil.class)) {
+            metadata.when(() -> EDocUtil.getDoc("77")).thenReturn(document);
+            Fax2Action action = new Fax2Action();
+            action.setTransactionType("DOCUMENT");
+            action.setTransactionId(77);
+            action.setDemographicNo(10);
+            assertThat(action.prepareFax()).isEqualTo(org.apache.struts2.ActionSupport.NONE);
+        } finally {
+            if (previousDocumentDir == null) {
+                properties.remove("DOCUMENT_DIR");
+            } else {
+                properties.setProperty("DOCUMENT_DIR", previousDocumentDir);
+            }
+        }
+        verify(files).createTempFileFrom(eq("owned.pdf"), any());
+        assertThat(response.getStatus()).isEqualTo(500);
+        // fax.document.msgNotPrepared in oscarResources_fr, not the English it had before #6162.
+        assertThat(response.getErrorMessage())
+                .isEqualTo("Le document n\u2019a pas pu \u00eatre pr\u00e9par\u00e9 pour la t\u00e9l\u00e9copie.");
+        assertThat(claims).isEmpty();
     }
 
     private CtlDocument patientLink(int patient) {
