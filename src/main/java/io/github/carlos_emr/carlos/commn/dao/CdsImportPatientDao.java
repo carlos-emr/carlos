@@ -60,6 +60,17 @@ public class CdsImportPatientDao extends AbstractDaoImpl<CdsImportPatient> {
     public long heldForRun(String runId) {
         return entityManager.createQuery("select count(p) from CdsImportPatient p where p.runId=:run and p.held=true", Long.class).setParameter("run", runId).getSingleResult();
     }
+    /**
+     * Whether an import run matched or wrote this chart, held or not.
+     * Answered from {@code idx_cds_patient_target_hold (target_demographic_no, held)}.
+     *
+     * @param demographicNo int the chart's demographic number
+     * @return boolean {@code true} when at least one import patient row targets this chart
+     */
+    public boolean target(int demographicNo) {
+        return !entityManager.createQuery("select p.id from CdsImportPatient p where p.targetDemographicNo=:demo", String.class)
+                .setParameter("demo", demographicNo).setMaxResults(1).getResultList().isEmpty();
+    }
     public boolean held(int demographicNo) {
         return entityManager.createQuery("select count(p) from CdsImportPatient p where p.targetDemographicNo=:demo and p.held=true", Long.class)
                 .setParameter("demo", demographicNo).getSingleResult()>0;
