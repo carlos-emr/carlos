@@ -301,9 +301,12 @@ recorded without a name is named "Other immunization or injection". The CARLOS i
 such an entry as `OtherA` again. This applies when the prevention configuration files `OtherA` as
 the shipped one does (an injection item under the Other heading). Another injection item without
 a declared type, or an `OtherA` your configuration files elsewhere, still holds the patient with
-`CATEGORY_NOT_PROVEN`; declare a `healthCanadaType` on that item of the configuration named by
-`PREVENTION_ITEMS` (ImmunizationType is written only for a CT-020 value) and export the held
-patients again in a new job.
+`CATEGORY_NOT_PROVEN`. Such items exist only if the server's prevention file (`PREVENTION_ITEMS`)
+was changed; no CARLOS screen creates one. Declare a `healthCanadaType` on that item of the file
+(ImmunizationType is written only for a CT-020 value) and export the held patients again in a new
+job. An Rh immune globulin injection recorded with the Rh Immune Globulin form is exported as an
+immunization named "Rh immune globulin", with its lot, route and site; its product, dosage and
+reason are in the CARLOS residual.
 
 Disease Registry entries and episodes (pregnancies included) export under ProblemList, after
 the Ongoing Concerns items. Before this release any chart with either was held. An active or
@@ -363,8 +366,9 @@ or more assigned diagnoses (all listed in its Notes, none in the single code ele
 free-text Age at Onset or an over-long Treatment, Exposure, Relationship or Problem Status (in the
 item's Notes). An item imported from a CDS file and then archived, edited, given a new issue or
 CPP date, or (for an encounter note) given a new observation date in CARLOS is also exported. An
-imported CPP item moved into another CPP section still holds the patient
-(`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW` under `CDS_EXPORT_UNMAPPED_DATA`).
+imported CPP item moved into another CPP section is exported under its new section, with the
+elements of its imported record kept in the CARLOS residual. An allergy reaction over 120
+characters is also sent in a CARLOS residual that a receiving CARLOS restores in full.
 
 A protected UTF-8 selection file directly inside the configured selection root
 has this shape:

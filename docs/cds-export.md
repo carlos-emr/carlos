@@ -211,7 +211,17 @@ name box is optional: an entry recorded without a name is named `Other immunizat
 injection`, its label on the prevention screen. It is never a PastHealth screening, so it no
 longer holds a PastHealth-only export either. Any other `injection` item without a declared type,
 and an `OtherA` a clinic files elsewhere, still holds the patient with `CATEGORY_NOT_PROVEN` unless
-an import receipt proves it. A clinic can still declare a `healthCanadaType` on the `OtherA` item
+an import receipt proves it. Neither can be created from CARLOS's screens: prevention items come
+only from the XML file `PREVENTION_ITEMS` names in the server configuration (`carlos.properties`,
+default the bundled `oscar/prevention/PreventionItems.xml`, whose only such item is `OtherA` under
+Other); the Prevention Manager page only hides items and stop signs, and `AddPrevention2Action`
+refuses a type the configuration does not define. Changing that file is a server configuration
+change. The one exception the save action makes is `RH`, which the Rh Immune Globulin form
+(`addRhInjection.jsp`) saves without a configured item: it is exported as an Immunizations entry
+without ImmunizationType named `Rh immune globulin` (rule `RH_IMMUNE_GLOBULIN`,
+`RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION`); its product, dosage, reason and every other row stay
+in `CARLOS.Prevention.Source.v1`. It held the patient as `UNKNOWN_TYPE` before. A clinic that
+configures an `RH` item has it classified by that item instead. A clinic can still declare a `healthCanadaType` on the `OtherA` item
 in the file `PREVENTION_ITEMS` names; ImmunizationType is exported only when that value is a
 CT-020 value; otherwise it is left out and the native type travels in the residual. Choose a value no other
 item declares: the importer files an incoming ImmunizationType under the last injection item
@@ -1545,10 +1555,15 @@ its active native state: its archive marker is rewritten from the native row, ne
 the source.
 A reaction longer than the standard Reaction element (120 characters; the Add Allergy page's box
 has no limit and the column is MEDIUMTEXT) is written in full in Notes, after the archived
-statement when there is one, labelled `Reaction:` (A22, `COMPLETE_LONG_REACTION_IN_NOTES`); only a
-reaction that would not fit Notes' text32K holds the patient
-(`LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW`). The CARLOS importer keeps that Notes in the
-retained source; it does not yet restore it to the native reaction. A brand allergen saved after
+statement when there is one, labelled `Reaction:`, for every receiver, and exactly in the
+`CARLOS.Allergy.Reaction.v1` residual (`string`, the text encoded as one JSON string literal as
+for `CARLOS.History.Narrative.v1`), with no Reaction element (A22,
+`COMPLETE_LONG_REACTION_IN_NOTES`). The CARLOS importer restores the carrier as the native reaction
+(`CdsAllergyResidualReader`, `CdsClinicalNormalizationService`) and refuses it beside a standard
+Reaction, so an export and import round-trips the exact text. On re-export of such an imported
+allergy the carrier is kept while the reaction is unchanged (`CdsExportPreparedAllergyMapper`,
+`CdsExportAllergyRetainedAssembler`). Only a reaction that would not fit Notes' text32K holds the
+patient (`LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW`). A brand allergen saved after
 the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
 is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
 one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`).
@@ -2481,12 +2496,20 @@ columns, authors and a PersonalHistory edit, the rules in `NATIVE_CONTEXT_RULES`
 
 `CdsExportHistoryImportedEditUnitTest` imports, edits and exports such items: archiving an
 imported CPP item and editing an imported PersonalHistory note were already absorbed by the
-native context (B10 settled), and the B5 edits above no longer hold. An imported item re-filed
-into another CPP section still holds the patient
-(`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW`): its retained elements belong to the
-old section and exporting it under the new one would drop them. A CPP item whose import date
-metadata or observation date changed outside the editors still holds
-(`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
+native context (B10 settled), and the B5 edits above no longer hold.
+
+An imported item a clinician re-filed into another CPP section (its category tag changed in the
+CPP editor) is exported under its current section, not held. `CdsExportHistoryOccurrenceService.plan`
+gives the occurrence its current category with `sourceCategory` set to the import's section; the
+occurrence is emitted as a native item from every revision (current text, extensions and codes in
+standard elements), and the import's section elements, read through the same authenticated and
+note-authorized `CdsExportHistoryRetainedSource`, travel exactly in its `CARLOS.NativeHistory.v1`
+context under `refiledImportedSource`: rule `REFILED_IMPORTED_ITEM_SOURCE_SECTION_CARRIED`, the
+source section name, and each element's path and exact value in source order (a date at the
+import's verified shift). Its receipt accounts those retained fields, so the source section's
+closure still holds, and nothing is presented twice. An unmoved imported item exports exactly as
+before. A CPP item whose import date metadata or observation date changed outside the editors
+still holds (`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
 
 ### Captured note access dependencies
 
