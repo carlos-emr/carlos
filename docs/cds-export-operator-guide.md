@@ -284,22 +284,26 @@ as the legacy exporter did, and the earlier versions do not hold the patient for
 
 A vaccine imported without a configured ImmunizationType is filed in CARLOS as `OtherA`
 ("Other immunization or injection"). It is exported as an immunization, from its original
-imported elements, because the import's own sealed receipt proves where it came from. The same
-proof keeps it out of a PastHealth-only export (it is a vaccine, not a screening) without holding
-the patient. If the receipt cannot be verified (an import from before native-baseline witnesses,
-or a receipt that no longer matches) or the vaccine's type was changed after the import, the
-patient is held. A receipt that cannot be opened because the native-baseline key is missing
+imported elements. With the shipped prevention configuration `OtherA` is itself classified as an
+immunization (see below); a configuration that files `OtherA` elsewhere relies on the import's
+own sealed receipt, which proves where the row came from and keeps it out of a PastHealth-only
+export (it is a vaccine, not a screening) without holding the patient. There, if the receipt
+cannot be verified (an import from before native-baseline witnesses, or a receipt that no longer
+matches), the patient is held. If the vaccine's type was changed after the import, the patient
+is held. A receipt that cannot be opened because the native-baseline key is missing
 stops the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`: restore the key files
 ([native-baseline witness key](cds-import-configuration.md#native-baseline-witness-key)) and
 resume.
 
-An `OtherA` entry recorded in CARLOS itself holds the patient with `CATEGORY_NOT_PROVEN`, because
-"other injection" does not say it was a vaccine. If your clinic records only vaccines under
-`OtherA`, set a non-blank `healthCanadaType` on the `OtherA` item of the prevention configuration
-named by `PREVENTION_ITEMS` (use a value no other item declares, for example `Other`); every
-`OtherA` entry is then exported as an immunization. ImmunizationType is written only for a
-CT-020 value, so with `Other` it is left out. Each entry still needs a recorded vaccine name.
-Export the held patients again in a new job after the change.
+An `OtherA` entry recorded in CARLOS itself ("Other immunization or injection") is exported as
+an immunization without an ImmunizationType, with its name, lot, route, site and dose; an entry
+recorded without a name is named "Other immunization or injection". The CARLOS importer files
+such an entry as `OtherA` again. This applies when the prevention configuration files `OtherA` as
+the shipped one does (an injection item under the Other heading). Another injection item without
+a declared type, or an `OtherA` your configuration files elsewhere, still holds the patient with
+`CATEGORY_NOT_PROVEN`; declare a `healthCanadaType` on that item of the configuration named by
+`PREVENTION_ITEMS` (ImmunizationType is written only for a CT-020 value) and export the held
+patients again in a new job.
 
 Disease Registry entries and episodes (pregnancies included) export under ProblemList, after
 the Ongoing Concerns items. Before this release any chart with either was held. An active or
@@ -339,9 +343,28 @@ write such a reason, so it means the data was changed outside CARLOS and needs c
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name
 and complete compound-strength text remain intact; the standard strength uses the
-database's first ingredient. Missing/ambiguous reference data requires review, and
-an unavailable reference service produces an explicit failure. Inspect diagnostics
-and restore that dependency before resuming; no DIN-free fallback hides an outage.
+database's first ingredient. A prescription whose DIN DrugRef no longer lists (a product
+removed from the installed drug dictionary), or a catalogue pick saved without a DIN, is
+exported without the DIN element, with its name and strength as written and the stored
+identifier in the CARLOS residual; it no longer holds the patient. A malformed or mismatched
+reference answer still requires review, and an unavailable reference service produces an
+explicit failure. Inspect diagnostics and restore that dependency before resuming; no DIN-free
+fallback hides an outage.
+
+Ordinary prescription, allergy and CPP entries no longer hold a patient when the screen saved
+values a CDS element cannot hold: "Past medication" Yes beside status Active (both are sent as
+saved); a treatment type that disagrees with the short-term box; the as-needed box without a
+frequency (sent as frequency `PRN`); a dispense interval over 10 or a protocol over 20 characters
+(left out of its element, kept in the CARLOS residual); a prescription recorded for an outside
+provider (sent without a prescriber; the outside name and number are in the CARLOS residual); an
+allergy reaction over 120 characters
+(sent in full in the allergy's Notes); a brand allergy saved without a DIN; a CPP item with two
+or more assigned diagnoses (all listed in its Notes, none in the single code element); a
+free-text Age at Onset or an over-long Treatment, Exposure, Relationship or Problem Status (in the
+item's Notes). An item imported from a CDS file and then archived, edited, given a new issue or
+CPP date, or (for an encounter note) given a new observation date in CARLOS is also exported. An
+imported CPP item moved into another CPP section still holds the patient
+(`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW` under `CDS_EXPORT_UNMAPPED_DATA`).
 
 A protected UTF-8 selection file directly inside the configured selection root
 has this shape:
@@ -409,12 +432,14 @@ or review those charts and export them in a new job. A failure that concerns the
 whole job (storage, recipient policy, audit arrangement, limits, runtime change)
 still stops it, and a job in which every patient was held produces no package.
 
-Some holds are fixed once in Administration rather than chart by chart. A patient whose
-most responsible physician has a practitioner number but no "Practitioner No. Type"
-(provider records created before the type was recorded, often after a migration) is held:
-the number may be the physician's CPSO number, which receivers use to match the physician,
-or a BC MSP or nursing number, so it is neither labelled CPSO nor dropped. Set the type on
-the provider record (Administration > Providers) and export those patients again.
+A provider record's format never holds a patient. A billing number (`ohip_no`) that is not
+exactly six digits (a BC MSP number, a placeholder, a longer number or one with spaces) is
+exported as no OHIP number; the provider is still named. A practitioner number with no
+"Practitioner No. Type", or a CPSO number with spaces or more than six characters, is not sent
+as PrimaryPhysicianCPSO. Receivers use the CPSO number to match the physician, so set the type
+and number on the provider record (Administration > Providers) before exporting if you want
+them sent. Only a provider name with a control character no CARLOS screen can enter still holds
+the patients that name it.
 
 A single chart with more measurements than one export holds
 (`cds.export.maxNativeRows` observations, default and maximum 8,192, or

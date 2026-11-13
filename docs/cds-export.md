@@ -113,8 +113,10 @@ names over 50) on an enrolled physician.
 A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
 "Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
 FI; a clinic-defined status is exported as stored. The primary physician's practitioner number
-becomes PrimaryPhysicianCPSO only when its recorded authority is CPSO; a number with no
-recorded authority holds the patient (see the operator guide). Once-daily "OD" is written as
+becomes PrimaryPhysicianCPSO only when its recorded authority is CPSO and it is a six-character
+token; a number with no recorded authority (`UNTYPED_REGISTRATION_NUMBER_NOT_ASSERTED`) or a
+CPSO number with spaces or more characters (`UNREPRESENTABLE_CPSO_NUMBER_NOT_ASSERTED`) is not
+asserted and no longer holds the patient. Once-daily "OD" is written as
 CT-024 "QD" on both the native and reconciled paths, and when a prescription's start date is
 marked unknown its date-precision rows travel in the medication residual instead of being
 counted as a StartDate.
@@ -169,9 +171,10 @@ elements without this residual, so a provider, reminder or status added after th
 the patient for review.
 
 An imported vaccine whose ImmunizationType was absent or not configured is filed by the CARLOS
-importer as the catch-all `OtherA` (review finding F10). The prevention configuration cannot
-prove `OtherA` is a vaccine, so the row is kept as an Immunizations occurrence only on the
-importer's own receipt (`CdsExportImmunizationImportReceipts`): an applied (`COMMITTED` or
+importer as the catch-all `OtherA` (review finding F10). The shipped prevention configuration now
+classifies `OtherA` as an immunization by itself (`CATCH_ALL_INJECTION`, below); a configuration
+that files `OtherA` elsewhere cannot prove it is a vaccine, so there the row is kept as an
+Immunizations occurrence only on the importer's own receipt (`CdsExportImmunizationImportReceipts`): an applied (`COMMITTED` or
 `ALREADY_COMPLETE`) `Immunizations` import unit of this patient whose receipt names exactly one
 `preventions` row, this one, and whose native-baseline witness, sealed under the installation
 key and bound to that receipt's digest, records the row's identifier and this patient. The same
@@ -184,7 +187,7 @@ repeatable-read snapshot, and the finished-capture reclassification re-proves th
 from the captured `cds_import_unit` rows, so both reach the same vaccine set. A legacy unit
 without a witness, a unit that was not applied, a rewritten receipt or tampered witness, and
 another patient's import prove nothing; the row then keeps its classification review
-(`CATEGORY_NOT_PROVEN` for `OtherA`). The importer's provenance extensions (`cdsName`,
+(`CATEGORY_NOT_PROVEN` for an `OtherA` filed outside the Other heading). The importer's provenance extensions (`cdsName`,
 `cdsType`, `cdsDatePrecision` and the others) are ordinary editable chart rows and are never
 proof. A witness that cannot be opened because the installation key is missing refuses the job
 with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`, as the retained index does. The occurrence is
@@ -194,17 +197,23 @@ absent one stays absent) whatever today's declaration for `OtherA` says; a nativ
 fails the baseline match and holds the patient with `PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, and
 every other native change keeps its existing reconciliation code. Any other imported type still
 needs today's declared type to equal the original ImmunizationType, or it holds the patient with
-the same code. A PastHealth export without
+the same code. Under a configuration that files `OtherA` elsewhere, a PastHealth export without
 Immunizations captures no Immunizations unit, so the row still holds it: it could be a screening.
 
-A native `OtherA` row, never imported, still holds the patient with `CATEGORY_NOT_PROVEN`; the
-exporter does not guess that an "other injection" is a vaccine. A clinic that records only
-vaccines under `OtherA` can say so in its prevention configuration: give the `OtherA` item (an
-`injection` layout outside the Screenings heading) a non-blank `healthCanadaType` in the file
-`PREVENTION_ITEMS` names, and the classification treats every `OtherA` row as a configured
-immunization. ImmunizationType is exported only when that value is a CT-020 value; otherwise it
-is left out and the native type travels in the residual, and a row without a recorded name still
-holds the patient because `OtherA` is never used as ImmunizationName. Choose a value no other
+A native `OtherA` row ("Other immunization or injection", A30) is exported as an Immunizations
+entry without ImmunizationType when the configuration files `OtherA` as the shipped one does (an
+`injection` item under the `Other` heading): rule `CATCH_ALL_INJECTION` in
+`CdsExportPreventionClassifier`, `CATCH_ALL_INJECTION_AS_UNTYPED_IMMUNIZATION` in the mapper. The
+injection layout records the vaccine fields (name, lot, manufacturer, route, site, dose), and an
+untyped Immunizations entry is exactly what the CARLOS importer writes back as `OtherA`, so the
+round trip is the same row; every native row also travels in `CARLOS.Prevention.Source.v1`. The
+name box is optional: an entry recorded without a name is named `Other immunization or
+injection`, its label on the prevention screen. It is never a PastHealth screening, so it no
+longer holds a PastHealth-only export either. Any other `injection` item without a declared type,
+and an `OtherA` a clinic files elsewhere, still holds the patient with `CATEGORY_NOT_PROVEN` unless
+an import receipt proves it. A clinic can still declare a `healthCanadaType` on the `OtherA` item
+in the file `PREVENTION_ITEMS` names; ImmunizationType is exported only when that value is a
+CT-020 value; otherwise it is left out and the native type travels in the residual. Choose a value no other
 item declares: the importer files an incoming ImmunizationType under the last injection item
 declaring it, so reusing another item's value would redirect those imports to `OtherA`.
 
@@ -1534,6 +1543,15 @@ replaced by the standard `Severity` when it is changed in CARLOS. An imported al
 `CARLOS.Allergy.Archived.v1` the import did not restore (the default, decision 9) is exported in
 its active native state: its archive marker is rewritten from the native row, never re-sent from
 the source.
+A reaction longer than the standard Reaction element (120 characters; the Add Allergy page's box
+has no limit and the column is MEDIUMTEXT) is written in full in Notes, after the archived
+statement when there is one, labelled `Reaction:` (A22, `COMPLETE_LONG_REACTION_IN_NOTES`); only a
+reaction that would not fit Notes' text32K holds the patient
+(`LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW`). The CARLOS importer keeps that Notes in the
+retained source; it does not yet restore it to the native reaction. A brand allergen saved after
+the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
+is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
+one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`).
 Age text and onset speed use `CARLOS.Allergy.AgeOfOnset.v1` and
 `CARLOS.Allergy.OnsetOfReaction.v1` string residuals: exact native age text retains leading
 zeroes without an inferred unit; onset labels are Unknown, Immediate, Gradual and Slow.
@@ -2426,6 +2444,50 @@ The trusted server setting `FILTER_ON_FACILITY` defaults to true, as in the char
 The packaged history-source component was checked through a genuine import of all seven history categories. Exact-WAR readback preserved every retained field, structured descriptions, separate notes, partial-date precision, clock fractions/offsets and author/reviewer dates. Actual program membership revocation, revocation at the end of a note-body stream, and locking of that note all refused the public source-reader entry point. These 32 component assertions do not qualify native note/issue/revision reconciliation or a clinical export profile.
 
 
+### CPP values and edits of imported history that no longer hold a chart
+
+`CdsExportNativeHistoryMapper` writes what a standard CPP element cannot hold in the item's Notes
+instead of holding the patient; the exact rows still travel in `CARLOS.NativeHistory.v1`:
+
+- A FamilyHistory, PastHealth or ProblemList item with several assigned diagnoses (A24) writes no
+  DiagnosisProcedureCode/DiagnosisCode rather than choosing one, and lists every code in Notes
+  (`Coded diagnoses:` then one `system code description` per line).
+- A CPP extension value its element cannot hold exactly (A25): a free-text Age at Onset
+  ("childhood", "40s", a risk factor's "0", since AgeAtOnset is `xs:nonNegativeInteger` and
+  AgeOfOnset `xs:positiveInteger`), Treatment or Problem Description over 250 characters, Exposure
+  Details over 120, Relationship or Problem Status over 50. The element is left out and Notes holds
+  `Age at Onset:` (the key) and the exact value. Notes keeps the long narrative first when there is
+  one, and the archived statement leads it. An invalid Life Stage (a select) still holds.
+- A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
+  a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
+  schema-aware reader keeps it anyway (A26); the exact description is in the context.
+
+An item that came from a CDS import and was then edited in CARLOS goes through the native revision
+context (`CdsExportHistoryFieldReconciler.reconcileNative`, B5 and B10). The strict guard still
+proves the item is the imported one (same sealed preparation, baseline, category tag and, for a
+CPP item, the import's date metadata rows), and now tolerates, besides archive state, audit
+columns, authors and a PersonalHistory edit, the rules in `NATIVE_CONTEXT_RULES`:
+
+- the editing provider's program team (`CLINICAL_TEAM_RECONCILIATION_REQUIRED`), which every
+  native note treats as operational;
+
+- a CPP extension added or changed in the CPP editor (`NEW_OR_CHANGED_CLINICAL_EXTENSION_REQUIRES_RECONCILIATION`),
+  written as its standard element over the imported one or, when it does not fit, in Notes;
+- an issue assigned to or removed from the item (`CHANGED_ISSUE_ASSOCIATION_IN_NATIVE_CONTEXT`):
+  a diagnosis assigned in CARLOS becomes the item's code when the imported record had none, and
+  is named in Notes (after the imported Notes) when it had one, which stays the coded element; an
+  encounter note carries its issues in its revision details;
+- a changed observation date of an imported encounter note, written as EventDateTime.
+
+`CdsExportHistoryImportedEditUnitTest` imports, edits and exports such items: archiving an
+imported CPP item and editing an imported PersonalHistory note were already absorbed by the
+native context (B10 settled), and the B5 edits above no longer hold. An imported item re-filed
+into another CPP section still holds the patient
+(`CDS_EXPORT_NATIVE_HISTORY_CATEGORY_CHANGED_REQUIRES_REVIEW`): its retained elements belong to the
+old section and exporting it under the new one would drop them. A CPP item whose import date
+metadata or observation date changed outside the editors still holds
+(`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
+
 ### Captured note access dependencies
 
 The encrypted native-source manifest can now carry each note’s patient, native identity, program and reporter-role dependencies. These are saved identities, not saved grants. Native capture prepares an immutable patient scope after category authorization, checks the prepared reader’s table/category/dependency identity, and verifies captured note scope fields independently during readback. Recovery and buffered final-row callbacks recheck the exact captured note dependencies through the common authorization boundary. A missing scope, another patient or note, changed program/role, locked or unknown lock flag, oversized metadata, missing field or expired validator refuses completion. Existing tables omit the empty note metadata property and retain their prior serialized manifest shape. The physical note reader is now integrated; issue/revision reconciliation still remains, and no clinical profile is enabled by these infrastructure checks.
@@ -2883,6 +2945,21 @@ reads the unit back (#3958), and the same rendering applies to imported prescrip
 duration was edited in CARLOS. Unknown status and a false past-medication flag do not establish
 current treatment. Unbound import-provenance markers require review.
 
+The Rx page saves several values independently, and the exporter no longer holds a patient when
+they disagree (A18-A20, `CdsExportNativeMedicationMapper.CONTEXT_RULES`): "Past medication" Yes
+beside status Active, or No beside Completed or Aborted (`CONFLICTING_MEDICATION_CURRENTNESS`),
+writes both standard elements as stored; a treatment type that disagrees with the hidden
+short-term box (`CONFLICTING_NATIVE_TREATMENT_TYPE_INDICATOR`) writes the chosen TreatmentType; a
+PRN frequency or treatment with the as-needed box unticked (`CONFLICTING_NATIVE_AS_NEEDED_INDICATOR`)
+writes them as chosen, and the as-needed box with no frequency at all writes the CT-024 frequency
+`PRN`, which the CARLOS importer reads back as the as-needed flag. A dispense interval longer than
+DispenseInterval's 10 characters, or a protocol or prior protocol longer than 20, leaves that
+element out (`RESIDUAL_ONLY_WHEN_OVERLONG`); never truncated. A prescription recorded with the
+"outside provider" box (`CONFLICTING_PRESCRIBER_NAME`/`CONFLICTING_PRESCRIBER_IDENTIFIER`: the
+outside name and number differ from the recording CARLOS provider) has no PrescribedBy, since the
+recorder did not write it and the outside name is one string a personNameSimple cannot hold
+without splitting it. In every case the exact columns travel in `CARLOS.Medication.Source.v1`.
+
 `CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
 CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies
 "Active"), a natively archived prescription is exported as no longer current: re-prescribed,
@@ -2956,9 +3033,15 @@ Database-selected native prescriptions also capture an immutable public DrugRef 
 short scalar discovery transaction closes before any network call. Only the DIN and the public
 lookup option enter the existing native XML-RPC protocol; patient identity, names, dose, SIG and
 chart data are never sent. Capture compares the prepared scalar identities/code/catalogue keys
-with the actual patient snapshot. Changed inputs, unknown codes and malformed reference products
+with the actual patient snapshot. Changed inputs and malformed or mismatched reference products
 refuse qualification; network/protocol outages remain distinct I/O failures. Custom prescriptions
-with no native catalogue selection keep unqualified identifiers as source context.
+with no native catalogue selection keep unqualified identifiers as source context. A catalogue
+selection whose stored identifier is not an eight-digit DIN, or whose DIN DrugRef answers with no
+product (a product no longer in the installed dictionary; `RxDrugRef.getDrugByDIN` returns null,
+#5006), gets no public reference and is exported the same way (A21): authored name and strength as
+stored, no DrugIdentificationNumber, and `GCN_SEQNO` and `regional_identifier` exactly in
+`CARLOS.Medication.Source.v1` with `"regionalIdentifierAuthority":"UNQUALIFIED"` and
+`"catalogueReference":"NOT_IN_DRUG_REFERENCE"`. Such a chart was held before.
 
 Representative DINs may legitimately differ from the authored medication name and native
 strength text (guide10.1). The exporter preserves those source values and, as guide10.5 requires,
