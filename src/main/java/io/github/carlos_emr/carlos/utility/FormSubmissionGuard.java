@@ -88,6 +88,11 @@ public final class FormSubmissionGuard {
     public enum Scope {
         /** {@code appointment/AddRecord} from the Add Appointment popup. */
         APPOINTMENT_ADD,
+        /**
+         * {@code appointment/appointmentgrouprecords}: Add Group Appointment, Group Update, Group
+         * Cancel and Group Delete on the Group Appointment page.
+         */
+        APPOINTMENT_GROUP,
         /** {@code billing/CA/ON/BillingONSave} from the Ontario bill review page. */
         BILLING_ON_SAVE,
         /** {@code demographic/DemographicAddRecord} from the Add Demographic form. */

@@ -55,6 +55,36 @@ confirmation would report a message as sent that never was, so the compose page 
 with HTTP 409, what was submitted and `messenger.CreateMessage.msgChangedAfterSend`; that
 rendering has a new token, and sending from it delivers the changed message once.
 
+The Group Appointment page (`appointment/appointmentgrouprecords`) uses `APPOINTMENT_GROUP` for
+its four group actions: Add Group Appointment, Group Update, Group Cancel and Group Delete. Group
+Update needs it most: its first click removes the appointments it names and books them again, so
+a second click of the same page met changed versions and was answered with the 409 appointment
+conflict page, telling a user whose change had saved that nothing was saved. The actions still
+write from the page's scriptlet, so the gate, `ViewAppointmentSelfPost2Action`, holds the claim
+(`AppointmentGroupSubmission`):
+
+- After its method and privilege checks, and before the page validates or writes anything, the
+  gate claims the posted token. A request without one is rendered through the route's `success`
+  result exactly as before.
+- For a claimed request the gate runs the page itself, with the claim in a request attribute, and
+  closes the claim once the page has run, however it ended. The page reports
+  `AppointmentGroupSubmission.storageStarted()` before the first booking (Add Group Appointment
+  commits each booking on its own) or before its group-edit transaction commits, and `saved()`
+  with the action's name once the writes are durable.
+- A repeat of the same action is answered with `groupSaved` (`appointmentGroupSaved.jsp`), the
+  page the first save ended on: the success message, a refresh of the day sheet and the popup
+  closing. Another action of a saved rendering (Group Cancel after Group Update) is refused as
+  `STALE`; the update's page would report a cancellation that never happened.
+- A press that wrote nothing (nothing ticked, a rolled-back group edit, or the page's own refusal
+  of a stale form) leaves the token free. A rendering that has not saved therefore still reaches
+  the stale-form check, and a form another user's change overtook is answered with the 409
+  appointment conflict page as before.
+- The page echoes every posted field into its form. It skips a posted `carlosFormSubmission` (the
+  Add Appointment form's) and renders its own.
+
+The repeat-booking pages are not guarded this way; they keep the stored-row comparison described
+under "Stale Edit Appointment forms" below.
+
 ### When a token is freed for a retry
 
 The claim frees the token only when the attempt provably wrote nothing:
@@ -104,7 +134,9 @@ sent once (the CSRF, authorization and WAF matrices). The replayed token is alre
 families drop it (`carlosFormSubmission: null`) and replay the unguarded request. A check that
 must prove the guard itself renders a new form instead. `double-submit-*` checks the rapid
 activations and the reload, and `double-submit-intentional-adds` checks that a later add still
-works.
+works. `appointment-group-copy-cut` presses Add Group Appointment and Group Update a second time
+while the first response is held back, and expects the popup to close with one booking per
+provider.
 
 ## Stale Master Record edits: `DemographicEditVersion`
 
@@ -155,7 +187,9 @@ clicked on the day sheet, was silently undone.
   compares the version with the anchor row it already locks.
 - A stale form whose fields the appointment already holds is not a conflict: it is the second
   click on a form whose first submission was saved (the browser shows the later response). The
-  action writes nothing and answers with the normal result page.
+  action writes nothing and answers with the normal result page. The Group Appointment page cannot
+  compare that way, because Group Update replaces the rows it names; it recognises the second
+  click by its `FormSubmissionGuard` token instead (see above).
 - Any other mismatch is refused before anything is written: HTTP 409 and
   `/WEB-INF/jsp/appointment/appointmentEditConflict.jsp` (result `editConflict`), which says that
   nothing was saved, refreshes the day sheet behind the popup and offers to reopen the appointment

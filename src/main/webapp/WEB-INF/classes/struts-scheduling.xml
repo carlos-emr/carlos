@@ -186,6 +186,9 @@
         </action>
         <action name="appointment/appointmentgrouprecords" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentgrouprecords.jsp</result>
+            <!-- A repeat of a rendering whose group action saved (FormSubmissionGuard): the first save's result page. -->
+            <result name="groupSaved">/WEB-INF/jsp/appointment/appointmentGroupSaved.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="appointment/appointmentrepeatbooking" class="io.github.carlos_emr.carlos.appointment.gate.ViewAppointmentSelfPost2Action">
             <result name="success">/WEB-INF/jsp/appointment/appointmentrepeatbooking.jsp</result>
