@@ -145,7 +145,7 @@ final class CdsExportNativeLaboratoryParser {
             // Default primitive rules trim/correct authored text. Retain source lexical values;
             // interpreted fields and all destination constraints are qualified by the mapper.
             parser.setValidationContext(new ValidationContextImpl());
-            Message message = parser.parse(text);
+            Message message = parser.parse(segmentBreaks(text));
             var segments = new ArrayList<Segment>();
             collect(message, segments, 0, checkpoint);
             if (segments.isEmpty() || !segments.getFirst().getName().equals("MSH")) invalid();
@@ -335,6 +335,20 @@ final class CdsExportNativeLaboratoryParser {
         for (var queue : lines.values())
             if (!queue.isEmpty()) review("CDS_EXPORT_NATIVE_LAB_SEGMENT_ALIGNMENT");
         return raw;
+    }
+
+    /**
+     * The stored message with every line break as HAPI's segment separator (CR), the way CARLOS's
+     * own lab handlers read it. HAPI ends a segment only at CR, but a report uploaded inside an
+     * XML file (Excelleris ON and PATHL7 wrap each message in CDATA) is stored as the XML parser
+     * returns it, with LF between segments; ExcellerisOntarioHandler, PATHL7Handler, CMLHandler
+     * and the others therefore parse {@code hl7Body.replaceAll("\n", "\r\n")}. Read as stored,
+     * such a message is one long MSH segment with no PID or OBR. HL7 v2 text never carries a
+     * literal line break inside a field (it is escaped as {@code \.br\} or {@code \X0A\}), so the
+     * conversion changes no value, and {@link #raw} already splits the raw lines the same way.
+     */
+    static String segmentBreaks(String text) {
+        return text.replace("\r\n", "\r").replace('\n', '\r');
     }
 
     /** HAPI's own unescaping: only the delimiter escapes; formatting escapes stay as written. */

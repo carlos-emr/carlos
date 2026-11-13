@@ -334,7 +334,10 @@ them as one more ResultReviewer, and an inbox comment on it travels whole in a N
 record (`CARLOS.ImportedLaboratoryReview.v1`), so NewCategory must be selected for such a
 chart.
 
-Lab feeds are exported as CARLOS received them. A structured numeric result (such as ">60"
+Lab feeds are exported as CARLOS received them. A report uploaded inside an XML file (Excelleris
+ON, PATHL7) is stored with a line feed between its segments and is read the way CARLOS's lab
+display reads it; before this release every such report held its patient with
+`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`. Export those patients again. A structured numeric result (such as ">60"
 for eGFR, or a titre "1:20") is the result text with its unit. An embedded document (the PDF
 pathology, cytology and histology reports LifeLabs sends through Excelleris) is a Lab Report
 under Reports, attached as the decoded file, with the report's accession number in its Notes

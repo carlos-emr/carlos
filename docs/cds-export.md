@@ -3026,7 +3026,17 @@ document (`hl7TextMessage` + `lab:ordinal`) and requests review when Reports is 
 time with hour or minute precision (`YYYYMMDDHH[MM]`, with or without an offset) is exported as
 its FullDate; seconds are never invented. An OBR without OBX (a pending, cancelled or fee order)
 adds no observation; a message with no order or not one patient still requires review
-(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). An observation with neither OBX-14 nor OBR-7 is
+(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). Every line break of the stored message is a segment
+break, as CARLOS's own lab handlers read it (`CdsExportNativeLaboratoryParser.segmentBreaks`):
+HAPI ends a segment only at CR, but a report uploaded inside an XML file (Excelleris ON and
+PATHL7 wrap each message in CDATA) is stored as the XML parser returns it, with LF between
+segments, and `ExcellerisOntarioHandler`, `PATHL7Handler`, `CMLHandler` and the others parse
+`hl7Body.replaceAll("\n", "\r\n")`. Read as stored, such a report was one long MSH segment
+with no PID or OBR, so every Excelleris ON upload held its patient with
+`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE` (census charts A27ED, an embedded PDF, and A27SN, an
+SN titre). HL7 v2 never carries a literal line break inside a field (it is escaped as `\.br\`
+or `\X0A\`), so the conversion changes no value; the tests read the repository samples as
+the upload stores them (`CdsExportNativeLaboratoryFeedUnitTest.stored`). An observation with neither OBX-14 nor OBR-7 is
 given the report date the chart lists: `hl7TextInfo.obr_date`, which `MessageUploader` stores
 from the handler's `getServiceDate()` (OBR-6 for `EpsilonHandler`) or, when that is empty,
 `getMsgDate()` (MSH-7), reformatted to `yyyy-MM-dd HH:mm:ss` (an unparseable date fails the

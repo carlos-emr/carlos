@@ -66,6 +66,19 @@ class CdsExportNativeLaboratoryFeedUnitTest {
         return messages;
     }
 
+    /**
+     * The messages of a repository sample file exactly as the lab upload screen stores them. An
+     * Excelleris ON file is XML: {@code ExcellerisOntarioHandler.parse} stores each message's
+     * CDATA text as the XML parser returns it, so its segments end with LF (XML line-end
+     * normalization turns CR LF and CR into LF), never with the CR {@link #fixture} rebuilds.
+     */
+    static List<String> stored(String resource) throws IOException {
+        var messages = new ArrayList<String>();
+        for (String message : fixture(resource))
+            messages.add(message.replace('\r', '\n'));
+        return messages;
+    }
+
     /** The MSH segment and one patient's PID, OBR, OBX and NTE segments of a batch file. */
     static String patient(String batch, int patient) {
         var segments = batch.split("\r");
@@ -127,6 +140,72 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                                         .containsEntry("ResultValue", "1:20")
                                         .containsEntry("ReferenceRangeText", "< 1:40"));
         assertThat(values).hasSize(source.parsed().observations().size());
+    }
+
+    @Test
+    void shouldExportAnUploadedExcellerisTitre_fromItsLfSeparatedStoredText() throws Exception {
+        // Census chart FAKE-C2N-A27SN: this message uploaded through the lab upload screen was
+        // held as CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE. Read as stored, HAPI saw one MSH
+        // segment (it ends a segment only at CR), so no PID and no OBR.
+        String text = stored("Excelleris-ON/excellerisON-Micro.xml").get(2);
+        assertThat(text).doesNotContain("\r").contains("\nPID|").contains("\nOBR|");
+        var handler = new io.github.carlos_emr.carlos.lab.ca.all.parsers.ExcellerisOntarioHandler();
+        handler.init(text);
+        assertThat(handler.getOBRCount()).isEqualTo(1);
+        var source = source(text);
+        var values = new CdsExportNativeLaboratoryMapper().map(source, TORONTO);
+        assertThat(values).hasSize(handler.getOBXCount(0)).hasSize(4);
+        assertThat(values)
+                .filteredOn(value -> "29953-7".equals(value.text().get("LabTestCode")))
+                .singleElement()
+                .satisfies(
+                        value ->
+                                assertThat(value.text())
+                                        .containsEntry("ResultValue", "1:20")
+                                        .containsEntry("ReferenceRangeText", "< 1:40"));
+        // The same report stored with CR or CR LF separators reads identically.
+        var cr = new CdsExportNativeLaboratoryMapper().map(source(text.replace('\n', '\r')), TORONTO);
+        var crlf =
+                new CdsExportNativeLaboratoryMapper()
+                        .map(source(text.replace("\n", "\r\n")), TORONTO);
+        assertThat(cr.stream().map(value -> value.text()).toList())
+                .isEqualTo(values.stream().map(value -> value.text()).toList())
+                .isEqualTo(crlf.stream().map(value -> value.text()).toList());
+    }
+
+    @Test
+    void shouldExportAnUploadedExcellerisPdf_fromItsLfSeparatedStoredText() throws Exception {
+        // Census chart FAKE-C2N-A27ED: an Excelleris ON report whose only result is an embedded
+        // PDF, stored by the lab upload screen with LF between segments.
+        String text = stored("Excelleris-ON/Accession Format Update_ Clinical Phase 1 QA.xml").get(4);
+        assertThat(text).doesNotContain("\r").contains("\nOBX|1|ED|PDF^PDF||JVBERi0");
+        var handler = new io.github.carlos_emr.carlos.lab.ca.all.parsers.ExcellerisOntarioHandler();
+        handler.init(text);
+        assertThat(handler.getOBRCount()).isEqualTo(1);
+        var source = source(text);
+        assertThat(source.parsed().documents())
+                .extracting(CdsExportNativeLaboratoryParser.Observation::ordinal)
+                .containsExactly("1:1:0");
+        assertThat(source.parsed().observations()).isEmpty();
+        assertThat(new CdsExportNativeLaboratoryMapper().map(source, TORONTO)).isEmpty();
+        var payload = CdsExportLaboratoryDocumentMapper.payload(source, 0);
+        assertThat(new String(payload.bytes(), 0, 5, StandardCharsets.US_ASCII)).isEqualTo("%PDF-");
+        var mapper = new CdsExportLaboratoryDocumentMapper();
+        String path = "Reports/" + "c".repeat(64) + ".pdf";
+        var report =
+                mapper.map(
+                        source,
+                        0,
+                        payload,
+                        path,
+                        "pdf",
+                        TORONTO,
+                        CdsExportInboxReviewMapper.Reviews.NONE);
+        assertThat(report.text())
+                .containsEntry("Format", "Binary")
+                .containsEntry("Class", "Lab Report")
+                .containsEntry("FilePath", path);
+        assertThat(render(CdsCategory.REPORTS, body -> mapper.write(report, body))).isNotEmpty();
     }
 
     @Test
