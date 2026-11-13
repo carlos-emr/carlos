@@ -270,13 +270,31 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[2]++;
                     }
-                    for (var nativeSource :
+                    var laboratorySources =
                             laboratories.nativeSources(
-                                    lease, patient, tables, source, index, bounds, control)) {
-                        var assessments = CdsExportNativeLaboratoryMapper.assessments(nativeSource);
+                                    lease, patient, tables, source, index, bounds, control);
+                    // A commented inbox route travels whole in its report's supporting record.
+                    var laboratoryRoutes =
+                            laboratorySources.isEmpty()
+                                    ? Map.<String, List<CdsExportCapturedTextRowDto>>of()
+                                    : laboratories.routes(
+                                            lease, patient, tables, source, bounds, control);
+                    for (var nativeSource : laboratorySources) {
+                        var carried =
+                                CdsExportInboxReviewMapper.carried(
+                                        laboratoryRoutes.getOrDefault(nativeSource.id(), List.of()));
+                        var assessments =
+                                new LinkedHashMap<
+                                        CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
+                                        CdsExportNativeLaboratoryMapper.assessments(nativeSource));
+                        assessments.putAll(
+                                CdsExportInboxReviewMapper.carriedFields(
+                                        carried, "NewCategory/ResidualInfo"));
+                        var assessedRows = new ArrayList<>(nativeSource.rows());
+                        assessedRows.addAll(carried);
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
-                                        nativeSource.rows(),
+                                        assessedRows,
                                         assessments,
                                         1_000_000,
                                         control::checkpoint);
@@ -297,7 +315,8 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         identity,
                                         body ->
                                                 new CdsExportNativeLaboratoryMapper()
-                                                        .writeSupporting(nativeSource, body)));
+                                                        .writeSupporting(
+                                                                nativeSource, carried, body)));
                         output.accept(
                                 new CdsExportClinicalOccurrenceService.Receipt(
                                         identity,

@@ -39,6 +39,7 @@ public final class CdsExportPublicProviderMapper {
         NOTE_PARTICIPANT("ParticipatingProviders"),
         NOTE_SIGNER("MyClinicalNotesContent"),
         REPORT_REVIEWER("ReportReviewed"),
+        RESULT_REVIEWER("ResultReviewer"),
         PRIMARY_PHYSICIAN("PrimaryPhysician"),
         ENROLLED_PHYSICIAN("Enrolment/EnrolmentHistory/EnrolledToPhysician");
         private final String path;

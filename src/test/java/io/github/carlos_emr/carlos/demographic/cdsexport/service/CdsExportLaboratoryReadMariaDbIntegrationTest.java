@@ -117,7 +117,8 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                 CdsLaboratoryResultDao.class,
                 Hl7TextMessageDaoImpl.class,
                 Hl7TextInfoDaoImpl.class,
-                PatientLabRoutingDaoImpl.class);
+                PatientLabRoutingDaoImpl.class,
+                CdsExportReviewerReadDao.class);
         context.refresh();
         results = context.getBean(CdsLaboratoryResultDao.class);
         read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
@@ -166,6 +167,13 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     void cleanup() throws Exception {
         try {
             if (owned) {
+                sql.update(
+                        "delete from providerLabRouting where id between ? and ? and lab_no in"
+                                + " (?,?)",
+                        patient + 10,
+                        patient + 19,
+                        patient,
+                        patient + 1);
                 sql.update(
                         "delete from cds_laboratory_result where runId=? and sourcePath=?",
                         run,
@@ -331,6 +339,54 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                                                 context.getBean(PatientLabRoutingDao.class)
                                                         .countCdsExportRows(patient)))
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldReadEveryInboxRouteOfThePatientsHl7Labs_andNoOtherRoute() {
+        String insert =
+                "insert into"
+                    + " providerLabRouting(id,lab_no,lab_type,provider_no,status,comment,timestamp)"
+                    + " values(?,?,?,?,?,?,'2026-07-10 16:45:00')";
+        sql.update(insert, patient + 10, patient, "HL7", "999998", "A", "Repeat in 3 months");
+        sql.update(insert, patient + 11, patient, "HL7", "0", "N", "");
+        // A document with the same number, another patient's lab, and a type spelled otherwise.
+        sql.update(insert, patient + 12, patient, "DOC", "999998", "N", "");
+        sql.update(insert, patient + 13, patient + 1, "HL7", "999998", "A", "");
+        sql.update(insert, patient + 14, patient, "hl7", "999998", "A", "");
+        var reviewers = context.getBean(CdsExportReviewerReadDao.class);
+        var plan = CdsExportPatientTableReadSupport.Plan.LABORATORY_REVIEWERS;
+        Long count = read.execute(status -> reviewers.count(plan, patient));
+        assertThat(count).isEqualTo(2L);
+        var page = read.execute(status -> reviewers.page(plan, patient, null, 32));
+        assertThat(page).extracting(row -> row.id())
+                .containsExactly((long) patient + 10, (long) patient + 11);
+        var first = page.getFirst().cells();
+        assertThat(first.keySet()).containsExactlyInAnyOrderElementsOf(plan.columns());
+        assertThat(new String(first.get("comment").inlineBytes(), StandardCharsets.UTF_8))
+                .isEqualTo("Repeat in 3 months");
+        assertThat(new String(first.get("timestamp").inlineBytes(), StandardCharsets.UTF_8))
+                .isEqualTo("2026-07-10 16:45:00");
+        String table = read.execute(status -> reviewers.schema(plan).table());
+        assertThat(table).isEqualTo("providerLabRouting");
+        // The public provider lookup names every provider a routed lab of the patient names.
+        var factory = context.getBean(jakarta.persistence.EntityManagerFactory.class);
+        List<String> providers =
+                read.execute(
+                        status ->
+                                CdsExportProviderReadSupport.page(
+                                                EntityManagerFactoryUtils
+                                                        .getTransactionalEntityManager(factory),
+                                                patient,
+                                                Set.of("LaboratoryResults"),
+                                                null,
+                                                32)
+                                        .stream()
+                                        .map(row -> row.id())
+                                        .toList());
+        assertThat(providers).containsExactly("999998");
+        // Nothing is read outside the caller's read-only patient snapshot.
+        assertThatThrownBy(() -> reviewers.count(plan, patient))
+                .isInstanceOf(RuntimeException.class);
     }
 
     @Test

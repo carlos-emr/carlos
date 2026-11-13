@@ -12,6 +12,7 @@
   "CdsExportDocumentReadMariaDbIntegrationTest",
   "CdsExportDocumentReceiptUnitTest",
   "CdsExportDocumentRepresentationUnitTest",
+  "CdsExportLaboratoryReviewerMappingUnitTest",
   "CdsExportNativeReportAssemblyUnitTest",
   "CdsExportReportFileFormatsUnitTest",
   "CdsExportReportOccurrenceServiceUnitTest",

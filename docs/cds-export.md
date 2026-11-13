@@ -336,6 +336,38 @@ The diagnostic report lists them as `unlinkedSourceRows`, the ReadMe as "Unlinke
 tables not exported" (checked again by the supporting-files validator), and the log line
 `CDS_EXPORT_UNLINKED_SOURCE_ROWS` names tables and counts. No migration was needed.
 
+Native HL7 reports carry their inbox acknowledgements. `providerLabRouting` is a mapped
+source: `Plan.LABORATORY_REVIEWERS` captures every route of the patient's HL7 labs, scoped as
+the presence scope scopes them (a `patientLabRouting` row of the same lab number and
+exactly the type HL7 owned by the patient), through `CdsExportReviewerReadDao` (which first
+proves the lab associations as the other laboratory DAOs do) and
+`CdsExportLaboratoryReviewerSourceReader`; the public provider lookup now also serves
+LaboratoryResults with every provider those routes name. `CdsExportInboxReviewMapper` decides
+each route. Status `A` (acknowledged, `CommonLabResultData.updateReportStatus`) by a real
+provider is a review: a `LaboratoryResults/ResultReviewer` on every result of the report
+(the XSD allows it unbounded, after CollectionDateTime), with Name from the provider row,
+OHIPPhysicianId only for a six-digit OHIP number (`CdsExportPublicProviderMapper`; the legacy
+exporter wrote any number up to six characters) and DateTimeResultReviewed from the route's
+`timestamp` as a clinic-zone clock; identical provider-and-time acknowledgements write one
+element. `N` (new), `F` (filed), `X` (removed from an inbox) and a blank legacy status are
+`UNACKNOWLEDGED_INBOX_ROUTING_WORKFLOW`, provider `0` or blank is
+`UNCLAIMED_INBOX_ROUTING_PLACEHOLDER`, the identity and report link columns are
+`LOCAL_INBOX_ROUTING_IDENTITY_AND_REPORT_LINK` and `mrpDemographicNo` is
+`MRP_RULE_ROUTING_PROVENANCE`, all operational. Any other status, or an acknowledgement whose
+provider has no provider row, holds the patient. A comment (on any route) is clinical text
+about the report: the route travels whole, as one more `providerLabRouting` row, in the
+report's `CARLOS.NativeLaboratory.v1` residual, which is per report rather than per result, so
+the comment is neither repeated on every result nor squeezed into PhysiciansNotes; its fields
+are then accounted as carried. A report nobody commented on has an unchanged residual.
+`timestamp` is a MariaDB TIMESTAMP, which the capture session renders in its time zone; it
+is read as clinic wall-clock time like every native clock, so the database session time zone
+must match `cds.export.clinicalZone`. Routes of an imported (retained) lab are accounted as
+`INBOX_ROUTING_OF_AN_IMPORTED_LABORATORY_RESULT` without holding the patient: the retained
+occurrence is written from the imported elements, which keep the sending EMR's reviewers, and
+cannot gain an element. A comment on such a route holds the patient
+(`CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW`). Every route is owned by exactly one
+captured report.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). A download re-verifies

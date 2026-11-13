@@ -96,6 +96,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportLaboratoryInfoSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.PatientLabRoutingDaoImpl.class,
     CdsExportLaboratoryRoutingSourceReader.class,
+    io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao.class,
+    CdsExportLaboratoryReviewerSourceReader.class,
     io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyService
             .class,
     CdsExportImportOptionsSourceReader.class,

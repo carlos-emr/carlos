@@ -49,6 +49,8 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
                         CdsCategory.APPOINTMENTS,
                         CdsCategory.MEDICATIONS_AND_TREATMENTS));
         categories.add(CdsCategory.REPORTS);
+        // Providers whose acknowledgement of a lab is exported as its ResultReviewer.
+        categories.add(CdsCategory.LABORATORY_RESULTS);
         return Set.copyOf(categories);
     }
 
@@ -92,6 +94,8 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
         if (selected.contains(CdsCategory.MEDICATIONS_AND_TREATMENTS)) required.add("prescription");
         if (selected.contains(CdsCategory.REPORTS))
             required.addAll(Set.of("document", "ctl_document"));
+        if (selected.contains(CdsCategory.LABORATORY_RESULTS))
+            required.addAll(Set.of("patientLabRouting", "providerLabRouting"));
         return Set.copyOf(required);
     }
 

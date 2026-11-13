@@ -50,6 +50,10 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
     private static final CdsCategory CATEGORY = CdsCategory.LABORATORY_RESULTS;
     private static final Set<String> TABLES =
             Set.of("cds_laboratory_result", "hl7TextMessage", "hl7TextInfo", "patientLabRouting");
+    /** Inbox routes of the patient's HL7 reports and the public providers they name. */
+    static final String ROUTES = "providerLabRouting";
+
+    private static final Set<String> REVIEW_TABLES = Set.of(ROUTES, "provider");
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeRowReceiptReader witnesses;
@@ -118,6 +122,7 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 || patientKey == null
                 || !patientKey.matches("[0-9a-f]{64}")
                 || !tables.containsAll(TABLES)
+                || !tables.containsAll(REVIEW_TABLES)
                 || !tables.equals(source.capture().tables().keySet())) invalid();
         new CdsExportMergeScopeValidator(captures)
                 .requireUnmerged(
@@ -125,6 +130,16 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         var captured = readCurrent(lease, patient, tables, source, bounds, control);
         var current = captured.rows();
         var exact = captured.witnesses();
+        var routes = routes(lease, patient, tables, source, bounds, control);
+        for (String lab : routes.keySet())
+            if (!current.containsKey(key("hl7TextMessage", lab))) invalid();
+        var providers =
+                routes.isEmpty()
+                        ? Map.<String, CdsExportCapturedTextRowDto>of()
+                        : new CdsExportPublicProviderReader(captures)
+                                .read(lease, patient, tables, source, bounds, control);
+        // Every inbox route is accounted by the occurrence of the report it routes.
+        var routed = new HashSet<String>();
         long[] counts = {0, 0, 0};
         values.withValues(
                 lease,
@@ -258,8 +273,21 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                         prepared.requisition(),
                                         row.fields().get("requisitionDate"),
                                         row.fields().get("requisitionPrecision"))) invalid();
-                        var assessments = assess(current, actual);
-                        var assessedRows = actual.stream().map(current::get).toList();
+                        var assessments =
+                                new LinkedHashMap<
+                                        CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
+                                        assess(current, actual));
+                        var assessedRows =
+                                new ArrayList<>(actual.stream().map(current::get).toList());
+                        // A CARLOS inbox route of an imported result is inbox workflow: the
+                        // retained occurrence keeps the reviewers the sending EMR recorded.
+                        var importedRoutes =
+                                lab == null ? List.<CdsExportCapturedTextRowDto>of() : routes.getOrDefault(lab, List.of());
+                        assessments.putAll(CdsExportInboxReviewMapper.imported(importedRoutes));
+                        for (var route : importedRoutes) {
+                            if (!routed.add(nativeId(route))) invalid();
+                            assessedRows.add(route);
+                        }
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
                                         assessedRows, assessments, 1_000_000, control::checkpoint);
@@ -319,16 +347,25 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                             .zone();
                     for (var nativeSource : nativeSources) {
                         var mapper = new CdsExportNativeLaboratoryMapper();
-                        var assessments = CdsExportNativeLaboratoryMapper.assessments(nativeSource);
+                        var nativeRoutes = routes.getOrDefault(nativeSource.id(), List.of());
+                        for (var route : nativeRoutes)
+                            if (!routed.add(nativeId(route))) invalid();
+                        var reviews =
+                                CdsExportInboxReviewMapper.laboratory()
+                                        .map(nativeRoutes, List.of(), providers, zone);
+                        var assessments =
+                                CdsExportNativeLaboratoryMapper.assessments(nativeSource, reviews);
+                        var assessedRows = new ArrayList<>(nativeSource.rows());
+                        assessedRows.addAll(reviews.rows());
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
-                                        nativeSource.rows(),
+                                        assessedRows,
                                         assessments,
                                         1_000_000,
                                         control::checkpoint);
                         for (var row : nativeSource.rows())
                             if (!owned.add(key(row.table(), nativeId(row)))) invalid();
-                        var mapped = mapper.map(nativeSource, zone);
+                        var mapped = mapper.map(nativeSource, zone, reviews);
                         if (mapped.size() != nativeSource.parsed().observations().size()) invalid();
                         for (var value : mapped) {
                             String id = nativeSource.id() + ":" + value.ordinal();
@@ -365,6 +402,9 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                         if (field.category() == CATEGORY) expectedFields.add(field.id());
                     if (!consumed.equals(expectedFields)) invalid();
                     if (!owned.equals(current.keySet())) review();
+                    long routeCount = 0;
+                    for (var list : routes.values()) routeCount += list.size();
+                    if (routed.size() != routeCount) review();
                     streams.requireActive();
                     captures.authorizeSources(lease, patient, tables, control);
                     patient.require(lease);
@@ -464,6 +504,70 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
         }
         sources.sort(Comparator.comparing(NativeSource::id));
         return List.copyOf(sources);
+    }
+
+    /**
+     * The inbox routes of the patient's HL7 reports, by report number, from the authenticated
+     * capture ({@code Plan.LABORATORY_REVIEWERS}). Read like the public provider lookup: the
+     * routes have no historical receipt, and each one is accounted by its report's occurrence.
+     */
+    Map<String, List<CdsExportCapturedTextRowDto>> routes(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        patient.require(lease);
+        var scope = source.capture().tables().get(ROUTES);
+        var columns = Set.copyOf(CdsExportPatientTableReadSupport.Plan.LABORATORY_REVIEWERS.columns());
+        if (scope == null || !scope.columns().equals(columns)) invalid();
+        if (scope.rows() > bounds.nativeRows()) limit();
+        var result = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        var ids = new HashSet<String>();
+        long[] memory = {0};
+        var read =
+                rows.forEach(
+                        lease,
+                        patient,
+                        tables,
+                        ROUTES,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        67_108_864,
+                        control,
+                        row -> {
+                            control.checkpoint();
+                            if (!row.table().equals(ROUTES)
+                                    || !row.fields().keySet().equals(columns)
+                                    || !row.exactNumbers().isEmpty()
+                                    || !"HL7".equals(row.fields().get("lab_type"))
+                                    || !ids.add(nativeId(row))) invalid();
+                            String lab = row.fields().get("lab_no");
+                            try {
+                                long number = Long.parseLong(lab);
+                                if (number < 1 || !Long.toString(number).equals(lab)) invalid();
+                            } catch (NumberFormatException malformed) {
+                                invalid();
+                            }
+                            for (var value : row.fields().values())
+                                if (value != null)
+                                    memory[0] =
+                                            Math.addExact(
+                                                    memory[0],
+                                                    value.getBytes(StandardCharsets.UTF_8).length
+                                                            + 64L);
+                            memory[0] = Math.addExact(memory[0], 1024L);
+                            if (ids.size() > bounds.nativeRows() || memory[0] > bounds.indexBytes())
+                                limit();
+                            result.computeIfAbsent(lab, ignored -> new ArrayList<>()).add(row);
+                        });
+        if (!read.equals(source.capture()) || ids.size() != scope.rows()) invalid();
+        var copy = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        result.forEach((lab, list) -> copy.put(lab, List.copyOf(list)));
+        return Collections.unmodifiableMap(copy);
     }
 
     private record Captured(

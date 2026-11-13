@@ -134,6 +134,7 @@ public final class CdsExportProviderReadSupport {
                         "Appointments",
                         "MedicationsAndTreatments"));
         supported.add("Reports");
+        supported.add("LaboratoryResults");
         if (patient < 1
                 || categories == null
                 || categories.isEmpty()
@@ -173,6 +174,16 @@ public final class CdsExportProviderReadSupport {
                             + " c.document_no=r.document_no where c.module='demographic' and"
                             + " CAST(c.module_id AS DECIMAL(65,0))=:patient and"
                             + " r.reviewer=d.provider_no)");
+        // Every provider an HL7 report of the patient was routed to, whatever the route's status
+        // (Plan.LABORATORY_REVIEWERS); the laboratory mapper exports only acknowledgements.
+        if (categories.contains("LaboratoryResults"))
+            selected.add(
+                    "exists (select 1 from providerLabRouting w where w.lab_type='HL7' and"
+                        + " CAST(w.lab_type AS BINARY)=CAST('HL7' AS BINARY) and"
+                        + " w.provider_no=d.provider_no and w.lab_no in (select r.lab_no from"
+                        + " patientLabRouting r where r.demographic_no=:patient and"
+                        + " r.lab_type='HL7' and CAST(r.lab_type AS BINARY)=CAST('HL7' AS"
+                        + " BINARY)))");
         // Native collation matches are captured as candidates; the mapper must still prove exact
         // raw reference identity.
         return "(d.provider_no<>'' and (" + String.join(" or ", selected) + "))";

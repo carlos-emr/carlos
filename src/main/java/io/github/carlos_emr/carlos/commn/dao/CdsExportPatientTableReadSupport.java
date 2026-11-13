@@ -209,6 +209,26 @@ public final class CdsExportPatientTableReadSupport {
                 "id",
                 "demographic_no",
                 List.of("created", "dateModified", "demographic_no", "id", "lab_no", "lab_type")),
+        /**
+         * Inbox routes of the patient's HL7 reports: the provider each report was routed to, the
+         * provider's status (new, filed, removed, acknowledged), its time and comment. Scoped as
+         * the indirect presence scope scopes them: a {@code patientLabRouting} row of the same
+         * lab number and exactly the same type, here HL7, owned by the patient. Every status is
+         * captured; the laboratory mapper decides which route is a review.
+         */
+        LABORATORY_REVIEWERS(
+                "providerLabRouting",
+                "id",
+                null,
+                List.of(
+                        "comment",
+                        "id",
+                        "lab_no",
+                        "lab_type",
+                        "mrpDemographicNo",
+                        "provider_no",
+                        "status",
+                        "timestamp")),
         CASE_ISSUES(
                 "casemgmt_issue",
                 "id",
@@ -1040,6 +1060,14 @@ public final class CdsExportPatientTableReadSupport {
                         + ")";
             if (this == LABORATORY_ROUTING)
                 return "d.`demographic_no`=:patient and d.`lab_type`='HL7'";
+            // The collation comparisons let the type and patient indexes drive the semi-join;
+            // the byte comparisons keep a type spelled differently out, as the presence scope
+            // does (CdsExportIndirectPatientScopeReadSupport).
+            if (this == LABORATORY_REVIEWERS)
+                return "d.`lab_type`='HL7' and CAST(d.`lab_type` AS BINARY)=CAST('HL7' AS BINARY)"
+                        + " and d.`lab_no` in (select r.`lab_no` from `patientLabRouting` r where"
+                        + " r.`demographic_no`=:patient and r.`lab_type`='HL7' and"
+                        + " CAST(r.`lab_type` AS BINARY)=CAST('HL7' AS BINARY))";
             if (this == LABORATORY_MESSAGES || this == LABORATORY_INFORMATION) {
                 String lab = this == LABORATORY_MESSAGES ? "d.`lab_id`" : "d.`lab_no`";
                 return "(exists (select 1 from `patientLabRouting` r where r.`lab_type`='HL7' and"

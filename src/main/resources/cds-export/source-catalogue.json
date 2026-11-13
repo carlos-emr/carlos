@@ -431,7 +431,7 @@
     "provider": "MAPPED_SOURCE",
     "providerArchive": "OPERATIONAL",
     "providerExt": "OPERATIONAL",
-    "providerLabRouting": "REQUIRE_EMPTY",
+    "providerLabRouting": "MAPPED_SOURCE",
     "providerLabRoutingFavorites": "OPERATIONAL",
     "providerLabRoutingLock": "OPERATIONAL",
     "provider_default_program": "REFERENCE",
@@ -569,6 +569,8 @@
       "patientLabRouting",
       "hl7TextMessage",
       "hl7TextInfo",
+      "providerLabRouting",
+      "provider",
       "clinical_timezone"
     ],
     "Appointments": [
@@ -1418,6 +1420,11 @@
     "ichppccode": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
     "icd9": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
     "icd10": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
-    "Episode": "Coded episodes, pregnancies included, are exported as ProblemList (ProblemList scope; read plan EPISODES): Current as Active, Complete as Resolved, start and end dates as OnsetDate and ResolutionDate, the description and notes in standard elements. Episodes saved as Deleted are accounted, not exported; any other status holds the patient for review."
+    "Episode": "Coded episodes, pregnancies included, are exported as ProblemList (ProblemList scope; read plan EPISODES): Current as Active, Complete as Resolved, start and end dates as OnsetDate and ResolutionDate, the description and notes in standard elements. Episodes saved as Deleted are accounted, not exported; any other status holds the patient for review.",
+    "HRMDocumentComment": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "providerLabRouting": "Inbox routing of lab and document reports. A route of one of a selected patient's HL7 labs (patientLabRouting of the same lab number and type) is captured in the LaboratoryResults scope: an acknowledgement (status A) by a real provider is exported as ResultReviewer, a comment travels whole in the native laboratory residual record, and new, filed, removed and unclaimed routes are operational inbox workflow. A DOC route is scoped through its document's ctl_document chart link. A route linked to no patient (an unmatched lab, an unfiled incoming document) is in no chart: it is counted per job, never read. A route whose link is broken holds every patient.",
+    "HRMDocumentToProvider": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "HRMDocumentSubClass": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "HRMDocument": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient."
   }
 }

@@ -173,6 +173,22 @@ With it, a copied result whose report is not routed to the patient holds the pat
 and export again. Excluding a required supporting category requests review; the exporter
 does not silently expand the accepted selection.
 
+A lab's inbox acknowledgements are exported. Every provider who acknowledged an HL7 report
+(Acknowledge in the inbox or lab view) appears as a ResultReviewer on every result of that
+report, with the provider's name, the OHIP number when the provider record holds a six-digit
+OHIP billing number, and the acknowledgement date and time. An acknowledgement or inbox
+comment is never lost: the routing row that carries it travels whole in the report's
+NewCategory supporting record (`CARLOS.NativeLaboratory.v1`), with its provider number,
+status and time. Routes that are new, filed without acknowledging, removed from an inbox or
+waiting in the unclaimed inbox are inbox workflow and are not exported. A route with a
+status CARLOS does not write (anything but new, filed, removed, acknowledged or blank) or an
+acknowledgement by a provider number with no provider record holds the patient. A lab that
+came from an earlier CDS import is exported from its imported elements, which keep the
+reviewers the sending EMR recorded; a CARLOS inbox route of such a lab is inbox workflow and
+does not hold the patient, but one carrying a comment does
+(`CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW`), because the imported result has
+no place for it.
+
 Vaccines export under Immunizations. Prevention screenings (the Screenings types and
 OtherB) export only under PastHealth, so a package without the history categories carries no
 screening history; its ReadMe says so. Superseded or removed prevention versions are not

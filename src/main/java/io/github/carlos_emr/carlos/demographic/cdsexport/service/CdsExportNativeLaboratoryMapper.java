@@ -61,10 +61,22 @@ final class CdsExportNativeLaboratoryMapper {
             Map<String, CdsExportDateDto> dates,
             String flag,
             boolean enumFlag,
-            boolean blocked) {
+            boolean blocked,
+            List<CdsExportInboxReviewMapper.Review> reviewers) {
         Value {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
+            reviewers = List.copyOf(reviewers);
+        }
+
+        Value(
+                String ordinal,
+                Map<String, String> text,
+                Map<String, CdsExportDateDto> dates,
+                String flag,
+                boolean enumFlag,
+                boolean blocked) {
+            this(ordinal, text, dates, flag, enumFlag, blocked, List.of());
         }
 
         @Override
@@ -74,6 +86,19 @@ final class CdsExportNativeLaboratoryMapper {
     }
 
     List<Value> map(CdsExportLaboratoryOccurrenceService.NativeSource source, ZoneId zone)
+            throws IOException {
+        return map(source, zone, CdsExportInboxReviewMapper.Reviews.NONE);
+    }
+
+    /**
+     * Maps every observation of one report. A report's acknowledgements are reviews of the whole
+     * report, so every result of it carries the same ResultReviewer elements; comments travel in
+     * the report's supporting record ({@link #writeSupporting}).
+     */
+    List<Value> map(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            ZoneId zone,
+            CdsExportInboxReviewMapper.Reviews reviews)
             throws IOException {
         try {
             var result = new ArrayList<Value>();
@@ -194,7 +219,14 @@ final class CdsExportNativeLaboratoryMapper {
                         source.parsed().blockedMessage()
                                 || "BLOCKED".equals(scalar(obx, 13, 0, 1));
                 result.add(
-                        new Value(observation.ordinal(), text, dates, flag, enumFlag, blocked));
+                        new Value(
+                                observation.ordinal(),
+                                text,
+                                dates,
+                                flag,
+                                enumFlag,
+                                blocked,
+                                reviews.reviewers()));
             }
             return List.copyOf(result);
         } catch (HL7Exception failure) {
@@ -205,7 +237,16 @@ final class CdsExportNativeLaboratoryMapper {
 
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
             CdsExportLaboratoryOccurrenceService.NativeSource source) throws IOException {
+        return assessments(source, CdsExportInboxReviewMapper.Reviews.NONE);
+    }
+
+    /** The report's own rows, and its inbox routes and their providers as {@code reviews} decided them. */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            CdsExportInboxReviewMapper.Reviews reviews)
+            throws IOException {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        result.putAll(reviews.fields());
         for (var row : source.rows()) {
             var assessed = new CdsExportNativeFieldAssessments(row, result);
             for (var entry : row.fields().entrySet()) {
@@ -248,6 +289,19 @@ final class CdsExportNativeLaboratoryMapper {
                 CdsExportNativeHistoryXmlWriter.dateContents(xml, value.dates().get(name));
                 xml.end();
             }
+        for (var reviewer : value.reviewers()) {
+            xml.start("cds", "ResultReviewer");
+            xml.start("cds", "Name");
+            xml.element("cds_dt", "FirstName", reviewer.provider().firstName());
+            xml.element("cds_dt", "LastName", reviewer.provider().lastName());
+            xml.end();
+            if (reviewer.provider().ohipNumber() != null)
+                xml.element("cds", "OHIPPhysicianId", reviewer.provider().ohipNumber());
+            xml.start("cds", "DateTimeResultReviewed");
+            CdsExportNativeHistoryXmlWriter.dateContents(xml, reviewer.reviewed());
+            xml.end();
+            xml.end();
+        }
         xml.start("cds", "ResultNormalAbnormalFlag");
         xml.element(
                 "cds_dt",
@@ -268,6 +322,20 @@ final class CdsExportNativeLaboratoryMapper {
             CdsExportLaboratoryOccurrenceService.NativeSource source,
             CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
+        writeSupporting(source, List.of(), xml);
+    }
+
+    /**
+     * The complete source message, metadata and patient routing, followed by every inbox route of
+     * the report that carries a comment, whole, so no acknowledgement or inbox comment is lost.
+     * A route without a comment adds no row: the record of a report nobody commented on is
+     * unchanged.
+     */
+    void writeSupporting(
+            CdsExportLaboratoryOccurrenceService.NativeSource source,
+            List<CdsExportCapturedTextRowDto> carried,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
         xml.element("cds", "CategoryName", "CARLOS.NativeLaboratory.v1");
         xml.element(
                 "cds",
@@ -277,6 +345,10 @@ final class CdsExportNativeLaboratoryMapper {
         var rows = new ArrayList<Map<String, Object>>();
         for (var row : source.rows())
             rows.add(Map.of("table", row.table(), "fields", row.fields()));
+        for (var row : CdsExportInboxReviewMapper.carried(carried)) {
+            if (!row.table().equals("providerLabRouting")) throw new IOException("CDS_EXPORT_NATIVE_LAB_ROUTE_INVALID");
+            rows.add(Map.of("table", row.table(), "fields", new TreeMap<>(row.fields())));
+        }
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,
                 "CARLOS.Laboratory.v1",

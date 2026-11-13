@@ -48,6 +48,7 @@ public final class CdsExportSourceSchemaValidator {
                     "hl7TextMessage",
                     "hl7TextInfo",
                     "patientLabRouting",
+                    "providerLabRouting",
                     "casemgmt_issue",
                     "issue",
                     "casemgmt_issue_notes",
