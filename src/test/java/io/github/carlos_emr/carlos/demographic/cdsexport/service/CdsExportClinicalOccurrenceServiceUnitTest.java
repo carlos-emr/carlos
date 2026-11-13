@@ -332,7 +332,9 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
             throws Exception {
         var f = nativeOnly();
         var fields = new LinkedHashMap<>(f.nativeRows.getFirst().fields());
-        fields.put("severity_of_reaction", "3");
+        // Native "Severe" now travels in a residual; an invalid drug/non-drug flag still has no
+        // representation and must hold the patient.
+        fields.put("nonDrug", "2");
         f.nativeRows =
                 List.of(
                         new CdsExportCapturedTextRowDto(
