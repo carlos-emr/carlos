@@ -19,7 +19,11 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    zone to the configured clinical zone. Give the web JVM the same effective
    locale and default zone; different runtime bindings prevent shared recovery.
    Original import fingerprints and metadata must never be rewritten to force
-   compatibility.
+   compatibility. After an upgrade, a READY package stays downloadable until it
+   expires; it does not depend on the build that made it. A job that was queued or
+   still running when the export implementation changed ends in review with
+   `CDS_EXPORT_RUNTIME_CHANGED` and must be submitted again. Rebuilding identical
+   source (a new build date or build number only) does not change the binding.
 2. Keep `cds.export.enabled=false` until the deployment's permissions, policies,
    storage and recipient-tool checks are complete. Import enablement is independent.
    Export does not require enabling import or entering an import maintenance window.

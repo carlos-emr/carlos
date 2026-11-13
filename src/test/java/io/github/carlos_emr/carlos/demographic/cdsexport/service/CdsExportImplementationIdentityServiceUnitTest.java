@@ -49,7 +49,12 @@ class CdsExportImplementationIdentityServiceUnitTest {
         write(BASE + "commn/dao/AdditionalSource.class", "SOURCE");
         write("cds-export/source-schema/demographic.json", "{}");
         write("db/migration/common/V1.0.1__fixture.sql", "SELECT 1;");
-        for (String name : RESOURCES) write(name, "RESOURCE " + name);
+        for (String name : RESOURCES)
+            write(
+                    name,
+                    name.equals("carlos-build.properties")
+                            ? "build.version=fixture\nbuild.date=fixture\n"
+                            : "RESOURCE " + name);
     }
 
     private void write(String name, String text) throws Exception {
@@ -93,6 +98,26 @@ class CdsExportImplementationIdentityServiceUnitTest {
             assertThat(
                             new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64))
                                     .current())
+                    .isNotEqualTo(first);
+        }
+    }
+
+    @Test
+    void shouldKeepIdentity_whenOnlyTheBuildTimestampJobOrNumberChanges() throws Exception {
+        fixture();
+        write("carlos-build.properties", "build.version=2026.08.0\nbuild.date=2026-11-01T10:00:00Z\nbuild.job=\nbuild.number=\n");
+        String first;
+        try (var loader = loader()) {
+            first = new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current();
+        }
+        write("carlos-build.properties", "build.version=2026.08.0\nbuild.date=2026-11-13T02:00:00Z\nbuild.job=nightly\nbuild.number=42\n");
+        try (var loader = loader()) {
+            assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current())
+                    .isEqualTo(first);
+        }
+        write("carlos-build.properties", "build.version=2026.08.1\nbuild.date=2026-11-13T02:00:00Z\n");
+        try (var loader = loader()) {
+            assertThat(new CdsExportImplementationIdentityService(loader, () -> "a".repeat(64)).current())
                     .isNotEqualTo(first);
         }
     }

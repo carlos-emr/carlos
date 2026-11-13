@@ -217,7 +217,7 @@ public class CdsExportService {
                 .toList();
     }
 
-    /** A retained package requires its validated implementation; READY alone is not availability. */
+    /** READY alone is not availability: a package whose job document is unreadable is not offered. */
     private CdsExportJobDto runtimeChecked(CdsExportJobDto row) {
         if (row.state()
                         != io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState
@@ -225,11 +225,9 @@ public class CdsExportService {
                 || !row.artifactAvailable()) return row;
         String code = null;
         try {
-            var intent = ledger.document(row.id());
-            var engine = engines.find(intent.command().profile());
-            if (engine == null
-                    || !intent.compatibilityDigest().equals(engine.compatibilityDigest()))
-                code = "CDS_EXPORT_RUNTIME_CHANGED";
+            // A published package does not depend on the build that made it (decision 8); only
+            // an unreadable or unbound job document makes its artifact unavailable here.
+            ledger.document(row.id());
         } catch (IllegalStateException malformed) {
             if (!Set.of("CDS_EXPORT_JOB_DOCUMENT_INVALID", "CDS_EXPORT_JOB_BINDING_INVALID")
                     .contains(malformed.getMessage() == null ? "" : malformed.getMessage()))

@@ -43,7 +43,6 @@ public class CdsExportArtifactService {
     private final CdsExportDisclosureScopeService scopes;
     private final CdsExportDisclosurePolicyService disclosure;
     private final CdsExportAccessService access;
-    private final CdsExportEngineRegistry engines;
     private final java.util.Properties settings = new java.util.Properties();
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -53,10 +52,9 @@ public class CdsExportArtifactService {
             CdsExportDisclosureScopeService scopes,
             CdsExportDisclosurePolicyService disclosure,
             CdsExportAccessService access,
-            CdsExportEngineRegistry engines,
             @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
                     java.util.Properties settings) {
-        this(ledger, stores, scopes, disclosure, access, engines);
+        this(ledger, stores, scopes, disclosure, access);
         this.settings.putAll(Objects.requireNonNull(settings));
     }
 
@@ -65,14 +63,12 @@ public class CdsExportArtifactService {
             CdsExportStagingFactory stores,
             CdsExportDisclosureScopeService scopes,
             CdsExportDisclosurePolicyService disclosure,
-            CdsExportAccessService access,
-            CdsExportEngineRegistry engines) {
+            CdsExportAccessService access) {
         this.ledger = Objects.requireNonNull(ledger);
         this.stores = Objects.requireNonNull(stores);
         this.scopes = Objects.requireNonNull(scopes);
         this.disclosure = Objects.requireNonNull(disclosure);
         this.access = Objects.requireNonNull(access);
-        this.engines = Objects.requireNonNull(engines);
     }
 
     /** Caller has reconstructed the current observer in the original provider/facility scope. */
@@ -109,12 +105,16 @@ public class CdsExportArtifactService {
         }
     }
 
+    /**
+     * A ready package is already validated and encrypted to its pinned recipient, so retrieving
+     * it does not depend on the application build that made it (maintainer decision 8): an
+     * upgrade must not strand a finished transfer. Retrieval still requires current observation
+     * and disclosure scope, the accepted recipient/audit policy, the original store binding and
+     * the published artifact digest.
+     */
     private void authority(CdsExportActorDto actor, CdsExportJobDocumentDto intent) {
         access.requireObserve(actor, intent);
         access.requireScope(actor, intent.command());
-        var engine = engines.find(intent.command().profile());
-        if (engine == null || !intent.compatibilityDigest().equals(engine.compatibilityDigest()))
-            throw new IllegalStateException("CDS_EXPORT_RUNTIME_CHANGED");
         disclosure.resolveAccepted(intent, Instant.now());
     }
 

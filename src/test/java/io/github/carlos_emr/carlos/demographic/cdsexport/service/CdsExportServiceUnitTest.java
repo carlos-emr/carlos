@@ -194,7 +194,7 @@ class CdsExportServiceUnitTest {
     }
 
     @Test
-    void shouldMarkAnOldBuildPackageUnavailable_inStatusAndSavedHistory() {
+    void shouldKeepAnOldBuildPackageAvailable_inStatusAndSavedHistory() {
         var ready =
                 new CdsExportJobDto(
                         RUN,
@@ -223,10 +223,10 @@ class CdsExportServiceUnitTest {
                                 "b".repeat(64),
                                 "c".repeat(64)));
         var status = service.observe(viewer, RUN);
+        // Decision 8: a published package stays available after an upgrade changes the build.
         assertThat(status.state()).isEqualTo(CdsExportState.READY);
-        assertThat(status.artifactAvailable()).isFalse();
-        assertThat(status.complete()).isFalse();
-        assertThat(status.safeCode()).isEqualTo("CDS_EXPORT_RUNTIME_CHANGED");
+        assertThat(status.artifactAvailable()).isTrue();
+        assertThat(status.safeCode()).isNull();
         assertThat(service.history(viewer, "", 25)).containsExactly(status);
     }
 

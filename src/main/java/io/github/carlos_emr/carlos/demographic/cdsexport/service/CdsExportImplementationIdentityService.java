@@ -113,7 +113,8 @@ public class CdsExportImplementationIdentityService {
                 URL resource = loader.getResource(name);
                 if (resource == null || !resource.toExternalForm().equals(origin + name))
                     unavailable();
-                add(entries, name, resource, buffer, total);
+                if (name.equals("carlos-build.properties")) buildVersion(entries, name, resource);
+                else add(entries, name, resource, buffer, total);
             }
             for (Class<?> dependency :
                     List.of(
@@ -141,6 +142,25 @@ public class CdsExportImplementationIdentityService {
         } catch (IOException | java.net.URISyntaxException failed) {
             throw new IllegalStateException("CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE");
         }
+    }
+
+    /**
+     * Build identity contributes its version only. build.date, build.job and build.number
+     * change on every build of the same source, and binding them made a rebuild of identical
+     * code look like a different exporter, ending every pending job as RUNTIME_CHANGED.
+     */
+    private static void buildVersion(Map<String, String> entries, String name, URL resource)
+            throws IOException {
+        var properties = new java.util.Properties();
+        try (var input = resource.openStream()) {
+            properties.load(new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8));
+        }
+        String version = properties.getProperty("build.version");
+        if (version == null || version.isBlank() || version.length() > 128) unavailable();
+        var digest = CdsImportKeys.digest();
+        CdsImportKeys.add(digest, "build.version=" + version);
+        var previous = entries.putIfAbsent(name, HexFormat.of().formatHex(digest.digest()));
+        if (previous != null) unavailable();
     }
 
     private static void add(

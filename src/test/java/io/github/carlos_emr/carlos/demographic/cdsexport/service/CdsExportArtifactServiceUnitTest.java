@@ -147,8 +147,7 @@ class CdsExportArtifactServiceUnitTest {
                         stores,
                         scopes,
                         disclosure,
-                        access,
-                        new CdsExportEngineRegistry(List.of(engine)));
+                        access);
     }
 
     private static CdsExportStagedFileDto file(String purpose) {
@@ -219,7 +218,6 @@ class CdsExportArtifactServiceUnitTest {
                         scopes,
                         disclosure,
                         access,
-                        new CdsExportEngineRegistry(List.of(engine)),
                         settings);
         assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
                 .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
@@ -255,11 +253,15 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseDelivery_whenTheInstalledEngineIsNoLongerQualified() {
+    void shouldDeliverAReadyPackage_afterTheApplicationBuildOrEngineChanged() throws Exception {
+        // Decision 8: an encrypted, published package does not depend on the build that made it.
         when(engine.qualifiedProfiles()).thenReturn(Set.of());
-        assertThatThrownBy(() -> service.open(actor, lease.runId(), "package"))
-                .hasMessage("CDS_EXPORT_ENGINE_IDENTITY_CHANGED");
-        verify(ledger, never()).beginDownload(anyString(), anyString());
+        when(engine.compatibilityDigest()).thenReturn("9".repeat(64));
+        try (var download = service.open(actor, lease.runId(), "package")) {
+            assertThat(download.bytes()).isPositive();
+        }
+        verify(ledger).beginDownload(anyString(), anyString());
+        verify(disclosure, atLeastOnce()).resolveAccepted(any(), any());
     }
 
     @Test
