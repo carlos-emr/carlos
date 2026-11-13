@@ -155,6 +155,18 @@ See [Jasper/OpenPDF migration](jasperreports-openpdf3.md).
 
 ### Reports, charts and local customizations
 
+- Report by Template now has limits for each report (and for a whole report sequence together):
+  10,000 rows, 30 seconds, 10 MB of page, 256 columns, 64K characters per value and 32 queries.
+  A report over a limit is refused with a message that names the limit. Practice-wide lists in
+  large clinics may need narrower criteria. Administrators can change four limits in
+  `carlos.properties`: `report_by_template.max_rows` (up to 100,000), `.timeout_seconds` (up to
+  300), `.max_html_mb` (up to 50) and `.max_columns` (up to 2,000). The CSV and XLSX downloads stop
+  at 5 MB for each query (`.max_csv_mb` can only lower this): a larger result is still shown on the
+  page, with a note that its downloads are held back. A larger `.max_html_mb` needs more server
+  memory (three to four times the setting for each report running at once), and the packaged proxy
+  stops waiting after 300 seconds.
+- A form report, a demographic or antenatal CSV download, or a clinical report that passes its row,
+  size or time limit now shows a message saying so and what to do, instead of an error page.
 - BC CSV exports use ungrouped decimal money (for example `1234.50`) and
   `dd-MMM-yy` dates. Update downstream parsers that assumed localized values.
 - Dx Research XLSX exports use string cells. Report by Template and Clinical

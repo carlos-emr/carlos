@@ -56,7 +56,22 @@
     Vector[] vecField = formConfig.getAllFieldNameValue(SAVE_AS, reportId);
     Vector vecFieldCaption = vecField[1];
     Vector vecFieldName = vecField[0];
-    Vector vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+    // A row, size or time refusal is the user's to fix by narrowing the filters: show it on this
+    // page instead of the error page (#5850). Any other failure still goes to the error page.
+    Vector vecFieldValue;
+    boolean reportLimitRefused = false;
+    try {
+        vecFieldValue = (new RptReportCreator()).query(psql.getSql(), vecFieldCaption, psql.getParamsArray());
+    } catch (java.sql.SQLException e) {
+        if (!ReportLimitRefusal.isRefusal(e)) {
+            throw e;
+        }
+        // Logged like the CSV download and the clinical report: no report SQL or patient data.
+        io.github.carlos_emr.carlos.utility.MiscUtils.getLogger()
+                .warn("Form report refused by its row, size or time limit");
+        vecFieldValue = new Vector();
+        reportLimitRefused = true;
+    }
 
 %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
@@ -130,6 +145,9 @@
 
 
     <hr>
+    <% if (reportLimitRefused) { %>
+    <p class="report-limit-refused" role="alert"><fmt:message key="report.limitRefused"/></p>
+    <% } else { %>
     <table BORDER="0" CELLPADDING="1" CELLSPACING="1" WIDTH="100%"
            class="sortable tabular_list">
         <thead>
@@ -151,6 +169,7 @@
         </tr>
         <% } %>
     </table>
+    <% } %>
 
     <script language="javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/css.js">
     <script language="javascript" src="<%= request.getContextPath() %>/commons/scripts/sort_table/common.js">

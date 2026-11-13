@@ -316,6 +316,8 @@ class RptDownloadCSVServletTest {
             assertThat(response.getStatus()).isEqualTo(500);
             assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
             assertThat(response.getContentAsString()).isEmpty();
+            assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE))
+                    .as("a failure is not a report too large").isNull();
         }
     }
 
@@ -333,6 +335,77 @@ class RptDownloadCSVServletTest {
         new RptDownloadCSVServlet().service(request, response);
         assertThat(response.getStatus()).isEqualTo(413);
         assertThat(response.getContentAsString()).isEmpty();
+        // The error page reads this marker to say what to do (#5850).
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest(name = "{0}")
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"row limit", "deadline"})
+    void shouldAnswer413WithWhatToDo_whenTheReportIsRefusedByItsLimit(String refusal) throws Exception {
+        // #5850: a row, size or time refusal used to become a 500 "Unable to generate report".
+        java.sql.SQLException thrown = "row limit".equals(refusal)
+                ? new ConfiguredReportQuery.LimitExceededException("Report row budget exceeded; narrow the report filters")
+                : new java.sql.SQLTimeoutException("Report query deadline exceeded");
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(thrown);
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+        new RptDownloadCSVServlet().service(request, response);
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getErrorMessage()).isEqualTo(RptDownloadCSVServlet.LIMIT_REFUSAL_MESSAGE);
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+    }
+
+    /** #5850: a form report's refusal arrives wrapped in a ServletException, and still answers 413. */
+    @Test
+    void shouldAnswer413WithWhatToDo_whenAFormReportIsRefusedByItsLimit() throws Exception {
+        MockHttpServletRequest request = baseRequest();
+        request.getSession(true);
+        request.setParameter("id", "5549");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+
+        try (var reports = mockConstruction(RptReportItem.class, (report, context) ->
+                     when(report.getReportName(anyString())).thenReturn("FAKE form report"));
+             var queries = mockConstruction(RptFormQuery.class, (query, context) ->
+                     when(query.getQueryStr(anyString(), any())).thenReturn(new ParameterizedSql("select 1", List.of())));
+             var configs = mockConstruction(RptReportConfigData.class, (config, context) ->
+                     when(config.getAllFieldNameValue(anyString(), anyString())).thenReturn(new Vector[]{
+                             new Vector<>(List.of("value")), new Vector<>(List.of("value"))}));
+             var readers = mockConstruction(RptReportCreator.class, (reader, context) ->
+                     when(reader.query(anyString(), any(Vector.class), any(Object[].class))).thenThrow(
+                             new ConfiguredReportQuery.LimitExceededException("Report row budget exceeded; narrow the report filters")))) {
+            new RptDownloadCSVServlet().service(request, response);
+            assertThat(readers.constructed()).hasSize(1);
+        }
+
+        assertThat(response.getStatus()).isEqualTo(413);
+        assertThat(response.getErrorMessage()).isEqualTo(RptDownloadCSVServlet.LIMIT_REFUSAL_MESSAGE);
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE)).isEqualTo(Boolean.TRUE);
+    }
+
+    /** A demographic report that fails for another reason is a 500, not a report too large. */
+    @Test
+    void shouldAnswer500WithoutTheMarker_whenTheDemographicReportFailsOtherwise() throws Exception {
+        configuredQueryMock.when(() -> ConfiguredReportQuery.read(
+                        org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.any(Object[].class)))
+                .thenThrow(new java.sql.SQLException("synthetic read failure"));
+        var request = baseRequest(); request.getSession(true);
+        request.setParameter("demoReport", "true"); request.setParameter("last_name", "on");
+        addFilter(request, 1, "demographic.demographic_no=42", "unused", "");
+        var response = new org.springframework.mock.web.MockHttpServletResponse();
+
+        new RptDownloadCSVServlet().service(request, response);
+
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getErrorMessage()).isEqualTo("Unable to generate report");
+        assertThat(response.getContentAsString()).isEmpty();
+        assertThat(request.getAttribute(RptDownloadCSVServlet.REPORT_TOO_LARGE_ATTRIBUTE))
+                .as("a failure is not a report too large").isNull();
     }
 
     @Test

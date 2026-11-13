@@ -42,6 +42,8 @@
 
 <%@ taglib uri="jakarta.tags.functions" prefix="fn" %>
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<fmt:setBundle basename="oscarResources"/>
 
 <security:oscarSec roleName="<%=roleName$%>"
                    objectName="_admin,_report" rights="r" reverse="<%=true%>">
@@ -89,6 +91,7 @@
             }
 
         </style>
+        <link href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/reportByTemplateLayout.css" rel="stylesheet">
     </head>
     <%
 
@@ -97,38 +100,55 @@
         List<String> sqlList = new ArrayList<String>();
         List<String> htmlList = new ArrayList<String>();
         List<String> csvList = new ArrayList<String>();
+        // Which queries' CSV went over the CSV limit and is held back (#5849, D260).
+        List<Boolean> csvWithheldList = new ArrayList<Boolean>();
 
         if (curreport.isSequence()) {
             for (int x = 0; x < sequenceLength; x++) {
                 sqlList.add((String) request.getAttribute("sql-" + x));
                 htmlList.add((String) request.getAttribute("resultsethtml-" + x));
                 csvList.add((String) request.getAttribute("csv-" + x));
+                csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld-" + x)));
             }
         } else {
             sqlList.add((String) request.getAttribute("sql"));
             htmlList.add((String) request.getAttribute("resultsethtml"));
             csvList.add((String) request.getAttribute("csv"));
+            csvWithheldList.add(Boolean.TRUE.equals(request.getAttribute("csvWithheld")));
         }
 
         pageContext.setAttribute("htmlList", htmlList);
+        pageContext.setAttribute("csvWithheldList", csvWithheldList);
+        pageContext.setAttribute("sequenced", curreport.isSequence());
 
     %>
 
-    <body onunload="clearSession();">
+    <body class="rbt-page" onunload="clearSession();">
 
         <%@ include file="rbtTopNav.jspf" %>
 
-    <h3>
+    <h3 id="rbtReportHeading">
         ${carlos:forHtml(reportobject.title)}<br>
         <small>${carlos:forHtml(reportobject.description)}</small>
     </h3>
 
     <c:if test="${not empty errormsg}">
-        <div class="alert alert-warning" role="alert">${carlos:forHtml(errormsg)}</div>
+        <div class="alert alert-warning" role="alert">
+        <%-- A limit refusal names its limit in the user's language (#5849); other errors keep their English text. --%>
+        <c:choose>
+            <c:when test="${not empty errormsgKey}"><fmt:message key="${errormsgKey}"><fmt:param value="${errormsgArg}"/></fmt:message></c:when>
+            <c:otherwise>${carlos:forHtml(errormsg)}</c:otherwise>
+        </c:choose>
+        </div>
     </c:if>
 
-    <div class="reportBorderDiv row">
-        <c:forEach items="${ htmlList }" var="htmlOut">
+    <div class="reportBorderDiv row" role="region" aria-labelledby="rbtReportHeading" tabindex="0">
+        <c:forEach items="${ htmlList }" var="htmlOut" varStatus="query">
+            <%-- Shown above a result whose CSV went over the CSV limit, so its downloads are held back (#5849, D260).
+                 In a sequence it names the query, as the export buttons below do. --%>
+            <c:if test="${csvWithheldList[query.index]}">
+                <div class="alert alert-info" role="status"><c:if test="${sequenced}"><strong><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${query.count}"/></fmt:message>:</strong> </c:if><fmt:message key="report.byTemplate.csvWithheld"><fmt:param value="${csvWithheldMb}"/></fmt:message></div>
+            </c:if>
             <c:choose>
                 <c:when test="${ not fn:startsWith(htmlOut, '<table') }">
                     <div class="alert alert-danger">
@@ -153,13 +173,14 @@
             <%
                 for (int x = 0; x < csvList.size(); x++) {
                     if (csvList.get(x) == null || csvList.get(x).isEmpty()) continue;
+                    pageContext.setAttribute("queryNumber", x + 1);
             %>
 
             <form style="display:inline;" action="${pageContext.request.contextPath}/oscarReport/reportByTemplate/generateOutFilesAction" method="post">
-                <%if (x > 1) { %>
-                <label><%=(x + 1)%>
-                </label>
-                <%}%>
+                <%-- Every export in a sequence names its query; a query whose CSV is held back has none (#5849). --%>
+                <c:if test="${sequenced}">
+                <span class="align-middle"><fmt:message key="report.byTemplate.queryNumber"><fmt:param value="${queryNumber}"/></fmt:message></span>
+                </c:if>
                 <input type="hidden" class="btn btn-secondary" name="csv" value="<carlos:encode value='<%= csvList.get(x) %>' context="htmlAttribute"/>">
                 <input type="submit" class="btn btn-secondary" name="getCSV" value="Export to CSV">
                 <input type="submit" class="btn btn-secondary" name="getXLS" value="Export to XLSX">

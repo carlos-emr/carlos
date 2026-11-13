@@ -22,7 +22,8 @@ public final class ReportTemplateBudgetProbe {
      * Runs one synthetic scenario against a disposable MariaDB schema with sequence tables.
      * Requires REPORT_PROBE_JDBC_URL, REPORT_PROBE_USER and REPORT_PROBE_PASSWORD.
      *
-     * @param args one scenario: 10, 10000, 100000, large-cell, timeout or stream-timeout
+     * @param args one scenario: 10, 10000, 100000, large-cell, timeout, stream-timeout or maximums (every
+     *             carlos.properties limit at its maximum, #5849; run it with a larger heap, see the doc)
      * @throws Exception if configuration, JDBC access or rendering fails
      * @throws AssertionError if the expected limit or timely interruption is not observed
      */
@@ -51,8 +52,16 @@ public final class ReportTemplateBudgetProbe {
             case "10" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_10";
             case "10000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_10000";
             case "100000" -> "SELECT seq, REPEAT('é', 64) AS sample FROM seq_1_to_100000";
+            // About 41 MiB of HTML and 39 MiB of CSV: under the 50 MiB page maximum, so the report completes,
+            // and over the 5 MiB CSV limit, so its CSV is held back.
+            case "maximums" -> "SELECT seq, REPEAT('é', 200) AS sample FROM seq_1_to_100000";
             default -> throw new IllegalArgumentException("Unsupported probe scenario");
         };
+        ReportResultBudget.Limits limits = scenario.equals("maximums")
+                ? new ReportResultBudget.Limits(ReportResultBudget.MAX_ROWS_CEILING,
+                        ReportResultBudget.TIMEOUT_SECONDS_CEILING, ReportResultBudget.MAX_HTML_MB_CEILING * 1024 * 1024,
+                        ReportResultBudget.MAX_COLUMNS_CEILING, SQLReporter.MAX_CSV_EXPORT_LENGTH)
+                : ReportResultBudget.Limits.defaults();
         System.gc();
         long baseline = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage().getUsed();
         var heapPools = ManagementFactory.getMemoryPoolMXBeans().stream()
@@ -60,16 +69,17 @@ public final class ReportTemplateBudgetProbe {
         heapPools.forEach(pool -> pool.resetPeakUsage());
         long started = System.nanoTime();
         String outcome;
-        ReportResultBudget budget = new ReportResultBudget();
+        ReportResultBudget budget = new ReportResultBudget(limits);
         try (ResultSet rs = LegacyJdbcQuery.getBoundedReportResultSet(new ParameterizedSql(sql, List.of()),
-                ReportResultBudget.MAX_ROWS + 1, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(
-                        scenario.contains("timeout") ? 1 : ReportResultBudget.TIMEOUT_SECONDS))) {
+                limits.maxRows() + 1, System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(
+                        scenario.contains("timeout") ? 1 : limits.timeoutSeconds()))) {
             if (scenario.equals("stream-timeout") && System.nanoTime() - started > 500_000_000L) {
                 throw new AssertionError("Streaming query must return before the deadline expires");
             }
             try {
-                String[] output = budget.render(rs, null);
-                outcome = "complete html=" + output[0].length() + " csv=" + output[1].length();
+                ReportResultBudget.Rendered output = budget.render(rs, null);
+                outcome = "complete html=" + output.html().length() + " csv=" + output.csv().length()
+                        + " csvWithheld=" + output.csvWithheld();
             } catch (ReportResultBudget.LimitExceededException e) {
                 outcome = "limited: " + e.getMessage();
             }
@@ -97,6 +107,9 @@ public final class ReportTemplateBudgetProbe {
         }
         if ((scenario.equals("100000") || scenario.equals("large-cell")) && !outcome.startsWith("limited:")) {
             throw new AssertionError("Expected row or cell budget exhaustion");
+        }
+        if (scenario.equals("maximums") && !(outcome.startsWith("complete") && outcome.endsWith("csvWithheld=true"))) {
+            throw new AssertionError("Expected the report to complete with its CSV held back");
         }
     }
 }

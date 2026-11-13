@@ -11,7 +11,10 @@
 // an edit whose SQL is a write statement is refused when saved (the stored template and the
 // database are unchanged and the typed XML stays in the textarea), a write statement already stored
 // in a template is refused at run time and writes nothing, and the confirm()-gated delete removes
-// the row.
+// the row. Limits (#5849): a report over the row, cell or page-size limit returns to the configuration
+// with a message naming that limit and no export; a report whose CSV is over 5 MB is still shown, with a
+// note and no CSV/XLSX download; in a sequence only the large query's downloads are held back, the note
+// names that query and the remaining download names its own.
 // Fixtures: the owned synthetic patient (runWorkflow) plus a second owned FAKE patient with the
 // same marker surname; one template titled with the marker. Cleanup deletes only marker rows and
 // asserts they are gone. Group membership and upload validation live in
@@ -47,10 +50,19 @@ function parseCsv(text) {
   return rows;
 }
 
-function templateXml(title, description, query, params = '') {
-  return `<report title="${title}" description="${description}" active="1">`
+function templateXml(title, description, query, params = '', sequence = false) {
+  return `<report title="${title}" description="${description}" active="1"${sequence ? ' sequence="true"' : ''}>`
     + `<query>${query}</query>${params}</report>`;
 }
+
+// The English limit messages (oscarResources_en, #5849). The page's locale may group the digits with a comma,
+// a period, a space, a no-break space or a narrow no-break space.
+const LIMIT_TEXT = {
+  rows: /This report has more than 10[,.\s\u00a0\u202f]?000 rows, the most a report may return\./,
+  cell: /A value in this report is longer than 65[,.\s\u00a0\u202f]?536 characters, the most a report cell may hold\./,
+  html: /This report is larger than 10 MB, the most a report page may show\./,
+};
+const CSV_HELD_BACK = 'too large to download as CSV or XLSX (more than 5 MB)';
 
 async function workflow(s) {
   const title = `${s.marker} RBT`;
@@ -307,13 +319,14 @@ async function workflow(s) {
     h.assert(templateRow().length === 1, 'Deleting one template removed another');
   });
 
-  await s.step('oversized template results show their limit and offer no empty export', async () => {
+  await s.step('a report over the page-size limit names that limit and offers no empty export', async () => {
     const limitTitle = `${s.marker} RBT limit`;
-    const select = "SELECT REPEAT('x', 5242881) AS synthetic_limit";
+    // About 12 MB of page: its CSV passes 5 MB first and is held back, then the 10 MB page limit refuses it.
+    const select = "SELECT REPEAT('x', 60000) AS synthetic_limit FROM seq_1_to_200";
     const id = await uploadTemplate(templateXml(limitTitle, `${s.marker} limit probe`, select), limitTitle);
     await openFromLibrary(limitTitle, id);
     await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'Result report (limit)');
-    await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
+    await frame.locator('.alert-danger', {hasText: LIMIT_TEXT.html}).waitFor();
     h.assert(await frame.locator('input[name="getCSV"],input[name="getXLS"]').count() === 0,
       'An oversized result offered an empty export');
     h.assert(await frame.locator('table#report2').count() === 0, 'An oversized result rendered partial rows');
@@ -361,23 +374,67 @@ async function workflow(s) {
     await deleteFromConfiguration(id, guardedTitle);
   });
 
-  for (const [budget, sql] of [
-    ['row', 'SELECT seq FROM seq_1_to_10001'],
-    ['cell', "SELECT REPEAT('x', 65537) AS sample"],
-    ['CSV byte', "SELECT REPEAT('é', 32768) AS sample FROM seq_1_to_81"],
+  for (const [budget, sql, text] of [
+    ['row', 'SELECT seq FROM seq_1_to_10001', LIMIT_TEXT.rows],
+    ['cell', "SELECT REPEAT('x', 65537) AS sample", LIMIT_TEXT.cell],
   ]) {
-    await s.step(`${budget} budget refuses oversized output with a narrow-your-search response`, async () => {
+    await s.step(`${budget} limit refuses oversized output with a message that names the limit`, async () => {
       const budgetTitle = `${s.marker} RBT ${budget} budget`;
       const id = await uploadTemplate(templateXml(budgetTitle, `${s.marker} bounded report probe`, sql), budgetTitle);
       await openFromLibrary(budgetTitle, id);
-      await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), `${budget} budget refusal`);
-      await frame.locator('.alert-danger', {hasText: 'Please narrow your search criteria.'}).waitFor();
+      await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), `${budget} limit refusal`);
+      await frame.locator('.alert-danger', {hasText: text}).waitFor();
       h.assert(await frame.locator('table#report2').count() === 0, 'An oversized report exposed partial result rows');
       h.assert(await frame.locator('input[name="csv"], input[name="getCSV"], input[name="getXLS"]').count() === 0,
         'An oversized report exposed a CSV download');
       await deleteFromConfiguration(id, budgetTitle);
     });
   }
+
+  // About 5.06 MB of CSV: one query's downloads are over the 5 MB limit, while its page (10 MB limit) is not.
+  const largeCsv = "SELECT REPEAT('é', 32768) AS sample FROM seq_1_to_81";
+
+  await s.step('a report whose CSV is over 5 MB is shown with a note and without its downloads', async () => {
+    const csvTitle = `${s.marker} RBT CSV byte budget`;
+    const id = await uploadTemplate(templateXml(csvTitle, `${s.marker} bounded report probe`, largeCsv), csvTitle);
+    await openFromLibrary(csvTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'CSV limit result');
+    await frame.locator('table#report2').waitFor();
+    // DataTables may page the rows, so check the first value rather than counting rows.
+    h.assert((await frame.locator('table#report2 tbody tr').first().locator('td').first().innerText()) === 'é'.repeat(32768),
+      'The report with a held-back CSV did not show its values');
+    const note = frame.locator('.alert-info[role="status"]');
+    h.assert(await note.count() === 1 && (await note.innerText()).includes(CSV_HELD_BACK),
+      'The report did not say its CSV and XLSX downloads are held back');
+    h.assert(await frame.locator('.alert-danger, .alert-warning').count() === 0, 'A held-back CSV was shown as an error');
+    h.assert(await frame.locator('input[name="csv"], input[name="getCSV"], input[name="getXLS"]').count() === 0,
+      'A report over the CSV limit still offered a download');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (CSV limit)');
+    await deleteFromConfiguration(id, csvTitle);
+  });
+
+  await s.step('in a sequence only the large query is held back, and the note and remaining download name their query', async () => {
+    const sequenceTitle = `${s.marker} RBT CSV sequence`;
+    const xml = templateXml(sequenceTitle, `${s.marker} sequence probe`, `${largeCsv}; SELECT 'small' AS sample`, '', true);
+    const id = await uploadTemplate(xml, sequenceTitle);
+    await openFromLibrary(sequenceTitle, id);
+    await frameClick(frame.locator('input[type="submit"][value="Run Query"]'), 'CSV limit sequence result');
+    await frame.locator('table#report2').nth(1).waitFor();
+    h.assert(await frame.locator('table#report2').count() === 2, 'The sequence did not show both results');
+    const note = frame.locator('.alert-info[role="status"]');
+    h.assert(await note.count() === 1, 'The sequence did not show exactly one held-back note');
+    const noteText = await note.innerText();
+    h.assert(noteText.startsWith('Query 1:') && noteText.includes(CSV_HELD_BACK),
+      'The held-back note did not name the first query');
+    const exports = frame.locator('form:has(input[name="getCSV"])');
+    h.assert(await exports.count() === 1 && (await exports.innerText()).includes('Query 2'),
+      'The sequence did not offer exactly the second query\'s download, named as such');
+    const file = await download('input[name="getCSV"]');
+    assert.deepEqual(parseCsv(file.bytes.toString('utf8')), [['sample'], ['small']],
+      'The remaining download is not the second query\'s CSV');
+    await leaveResult(frame.locator('input[type="button"][value="Back"]'), 'Back (CSV limit sequence)');
+    await deleteFromConfiguration(id, sequenceTitle);
+  });
 }
 
 if (require.main === module) runWorkflow('report-by-template', workflow, {openPatient: true, openMaster: false});
