@@ -94,6 +94,12 @@ public final class CdsExportNativeHistoryMapper {
         };
     }
 
+    /**
+     * Internal text key (never a wire element) holding an item's Notes statements: extension
+     * values its standard elements cannot hold, and its coded diagnoses when there are several.
+     */
+    static final String STATEMENTS = "NativeStatements";
+
     static final String ARCHIVED_CLINICAL_NOTE_STATEMENT =
             "[CARLOS: this note was archived (removed from the active record) in its latest"
                     + " revision. It is kept for the record and is not a current note.]";
@@ -171,6 +177,8 @@ public final class CdsExportNativeHistoryMapper {
         var text = new LinkedHashMap<String, String>();
         var dates = new LinkedHashMap<String, CdsExportDateDto>();
         var bodies = new ArrayList<String>();
+        // CPP extension values the standard element cannot hold exactly (A25): written in Notes.
+        var overflow = new LinkedHashSet<String>();
         long previous = 0;
         String uuid = null;
         List<Map<String, String>> attachedTo = List.of();
@@ -301,7 +309,8 @@ public final class CdsExportNativeHistoryMapper {
                             Outcome.MAPPED,
                             metadataPath(category),
                             "COMPLETE_NATIVE_NOTE_EXTENSION");
-                if (revision == current) extension(category, key, value, date, text, dates);
+                if (revision == current)
+                    extension(category, key, value, date, text, dates, overflow);
             }
             if (!extensions.isEmpty()) detail.put("extensions", extensions);
             var issues = new ArrayList<Map<String, String>>();
@@ -373,7 +382,12 @@ public final class CdsExportNativeHistoryMapper {
             metadata.add(detail);
         }
         String json = JSON.writeValueAsString(versioned("revisions", metadata));
-        var coding = code(category, current);
+        var codes = codes(category, current);
+        // DiagnosisProcedureCode and DiagnosisCode hold one code. An item with several assigned
+        // diagnoses (A24) writes none of them there rather than choosing one: every code is
+        // listed in Notes, and each issue's complete facts stay in the revision context.
+        var coding = codes.size() == 1 ? codes.getFirst() : null;
+        if (codes.size() > 1) overflow.add(codedDiagnoses(codes));
         String body = bodies.getLast();
         boolean archived = "1".equals(current.note().value().fields().get("archived"));
         if (category == CdsCategory.CLINICAL_NOTES) {
@@ -407,12 +421,13 @@ public final class CdsExportNativeHistoryMapper {
         } else {
             String path = bodyPath(category);
             int cap = bodyMaximum(category);
+            int notesCap = category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000;
+            var notes = new ArrayList<String>();
             if (body.codePointCount(0, body.length()) <= cap) put(text, path, body);
             else if (category != CdsCategory.ALERTS_AND_SPECIAL_NEEDS) {
-                int notesCap = category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000;
                 if (!CdsExportNativeFieldAssessments.legal(body, notesCap))
                     review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
-                put(text, "Notes", body);
+                notes.add(body);
                 // Notes alone is not the item's text to a CARLOS importer; the versioned carrier
                 // lets it restore the narrative instead of a placeholder.
                 text.put("NativeNarrative", body);
@@ -424,6 +439,18 @@ public final class CdsExportNativeHistoryMapper {
                         new CdsExportFieldAssessmentDto(
                                 prior.presence(), prior.outcome(), "Notes", prior.rule()));
             } else review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
+            notes.addAll(overflow);
+            // The statements alone, for an imported item whose narrative is unchanged: the native
+            // reconciler adds them to the imported Notes (CdsExportHistoryNativeReconciler).
+            if (!overflow.isEmpty()) text.put(STATEMENTS, String.join("\n\n", overflow));
+            if (!notes.isEmpty()) {
+                String joined = String.join("\n\n", notes);
+                if (!CdsExportNativeFieldAssessments.legal(
+                        joined,
+                        category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS ? 1000 : notesCap))
+                    review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
+                put(text, "Notes", joined);
+            }
         }
         if (decisions.values().stream().anyMatch(v -> v.outcome() == Outcome.REQUIRES_REVIEW))
             review("CDS_EXPORT_NATIVE_HISTORY_UNMAPPED_FIELD");
@@ -763,11 +790,15 @@ public final class CdsExportNativeHistoryMapper {
         return context;
     }
 
-    private static CdsExportNativeHistoryDto.Code code(
+    /**
+     * The distinct diagnosis codes linked to the current revision of a FamilyHistory, PastHealth
+     * or ProblemList item, in link order; empty for any other category.
+     */
+    private static List<CdsExportNativeHistoryDto.Code> codes(
             CdsCategory category, CdsExportHistoryFieldReconciler.Current current)
             throws IOException {
         if (!Set.of(CdsCategory.FAMILY_HISTORY, CdsCategory.PAST_HEALTH, CdsCategory.PROBLEM_LIST)
-                .contains(category)) return null;
+                .contains(category)) return List.of();
         var codes = new LinkedHashSet<CdsExportNativeHistoryDto.Code>();
         for (var link : current.links()) {
             var issue = current.patientIssues().get(link.fields().get("id"));
@@ -791,16 +822,39 @@ public final class CdsExportNativeHistoryMapper {
             codes.add(
                     new CdsExportNativeHistoryDto.Code(system, value, codeDescription(definition)));
         }
-        if (codes.size() > 1) review("CDS_EXPORT_NATIVE_HISTORY_MULTIPLE_DIAGNOSES_REQUIRE_REVIEW");
-        return codes.isEmpty() ? null : codes.iterator().next();
+        return List.copyOf(codes);
     }
 
+    /** Names every diagnosis code of an item, one per line, for its Notes. */
+    static String codedDiagnoses(List<CdsExportNativeHistoryDto.Code> codes) {
+        var lines = new ArrayList<String>();
+        for (var code : codes)
+            lines.add(
+                    code.system()
+                            + " "
+                            + code.value()
+                            + (code.description().isEmpty() ? "" : " " + code.description()));
+        return "Coded diagnoses:\n" + String.join("\n", lines);
+    }
+
+    /**
+     * The issue description for StandardCodeDescription, an xs:token. A description with edge,
+     * repeated or line-break spaces (the seeded ICSW420, for one) is written in the form a
+     * schema-aware reader keeps anyway: spaces collapsed and trimmed (A26). The exact catalogue
+     * description travels in the native context with the issue's other facts.
+     */
     private static String codeDescription(Map<String, String> definition) throws IOException {
         String description = definition.get("description");
         if (description == null) return "";
-        if (!token(description, 250))
+        String normalized = tokenValue(description);
+        if (!token(normalized, 250))
             review("CDS_EXPORT_NATIVE_HISTORY_CODE_DESCRIPTION_REQUIRES_REVIEW");
-        return description;
+        return normalized;
+    }
+
+    /** The xs:token value of a string: tab, line feed and carriage return become spaces, runs collapse, edges trim. */
+    static String tokenValue(String value) {
+        return value.replaceAll("[\t\n\r ]+", " ").strip();
     }
 
     private static void extension(
@@ -809,7 +863,8 @@ public final class CdsExportNativeHistoryMapper {
             String value,
             String date,
             Map<String, String> text,
-            Map<String, CdsExportDateDto> dates)
+            Map<String, CdsExportDateDto> dates,
+            Set<String> overflow)
             throws IOException {
         String datePath =
                 switch (key) {
@@ -877,15 +932,29 @@ public final class CdsExportNativeHistoryMapper {
                     case "LifeStage" -> 1;
                     default -> 50;
                 };
-        if (!CdsExportNativeFieldAssessments.legal(value, maximum))
-            review("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CAPACITY");
-        if (target.equals("LifeStage") && !Set.of("N", "I", "C", "T", "A").contains(value))
-            review("CDS_EXPORT_NATIVE_HISTORY_LIFE_STAGE_REQUIRES_REVIEW");
-        if ((target.equals("AgeAtOnset") || target.equals("AgeOfOnset"))
-                && (!value.matches("[0-9]+")
-                        || target.equals("AgeOfOnset")
-                                && new java.math.BigInteger(value).signum() == 0))
-            review("CDS_EXPORT_NATIVE_HISTORY_AGE_REQUIRES_REVIEW");
+        if (target.equals("LifeStage")) {
+            // A select (N, I, C, T, A); any other value is not one CARLOS's editor writes.
+            if (!Set.of("N", "I", "C", "T", "A").contains(value))
+                review("CDS_EXPORT_NATIVE_HISTORY_LIFE_STAGE_REQUIRES_REVIEW");
+            put(text, target, value);
+            return;
+        }
+        boolean fits = CdsExportNativeFieldAssessments.legal(value, maximum);
+        // AgeAtOnset is an xs:nonNegativeInteger and AgeOfOnset an xs:positiveInteger, but the CPP
+        // editor's Age at Onset is free text ("childhood", "40s", a risk factor's "0").
+        if (target.equals("AgeAtOnset") || target.equals("AgeOfOnset"))
+            fits &=
+                    value.matches("[0-9]+")
+                            && !(target.equals("AgeOfOnset")
+                                    && new java.math.BigInteger(value).signum() == 0);
+        if (!fits) {
+            // A25: the CPP editor sets no maximum length or format on these boxes. A value the
+            // element cannot hold exactly is omitted from it, never truncated; it is written,
+            // labelled, in the item's Notes for every receiver, and exactly in the revision's
+            // extension facts in CARLOS.NativeHistory.v1.
+            overflow.add(key + ":\n" + value);
+            return;
+        }
         put(text, target, value);
     }
 

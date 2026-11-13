@@ -651,6 +651,138 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
+    void shouldListEveryAssignedDiagnosis_inNotesInsteadOfHoldingTheItem() throws Exception {
+        // A24: "Assign issues" on a CPP item can link two diagnoses; the single DiagnosisCode
+        // element holds neither rather than one chosen arbitrarily, and no patient is held.
+        var item =
+                uiNote(
+                        91,
+                        "Diabetes and hypertension",
+                        "10034",
+                        List.of(
+                                uiIssue(41, 68, "10034"),
+                                uiIssue(43, 51, "10034"),
+                                uiIssue(44, 52, "10034")),
+                        List.of(
+                                catalogue(68, "Concerns", "system"),
+                                catalogue(51, "250", "icd9"),
+                                catalogue(52, "401", "icd9")));
+        var result = map(CdsCategory.PROBLEM_LIST, List.of(item));
+        assertThat(result.value().code()).isNull();
+        assertThat(result.value().text())
+                .containsEntry(
+                        "Notes",
+                        "Coded diagnoses:\nicd9 250 DIABETES MELLITUS\nicd9 401 401 entry");
+        assertThat(result.value().metadata()).contains("\"definition.code\":\"401\"");
+        String xml = new String(render(result.value()), StandardCharsets.UTF_8);
+        assertThat(xml).doesNotContain("DiagnosisCode").contains("Coded diagnoses:");
+    }
+
+    @Test
+    void shouldWriteFreeTextAndOverlongCppExtensions_inNotesInsteadOfHoldingTheItem()
+            throws Exception {
+        // A25: the CPP editor's boxes are free text without a maximum length.
+        var family =
+                List.of(
+                        extension(101, "Age at Onset", "childhood"),
+                        extension(102, "Treatment", "T".repeat(251)),
+                        extension(103, "Relationship", "R".repeat(51)));
+        var result =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(note(91, "Asthma", "FamHistory", family)));
+        assertThat(result.value().text())
+                .doesNotContainKeys("AgeAtOnset", "Treatment", "Relationship")
+                .containsEntry(
+                        "Notes",
+                        "Age at Onset:\nchildhood\n\nTreatment:\n"
+                                + "T".repeat(251)
+                                + "\n\nRelationship:\n"
+                                + "R".repeat(51));
+        // The exact extension rows still travel in the revision context.
+        assertThat(result.value().metadata()).contains("childhood");
+        render(result.value());
+        var risk =
+                List.of(
+                        extension(101, "Age at Onset", "0"),
+                        extension(102, "Exposure Details", "E".repeat(121)));
+        var riskResult =
+                map(
+                        CdsCategory.RISK_FACTORS,
+                        List.of(note(91, "Smoking", "RiskFactors", risk)));
+        assertThat(riskResult.value().text())
+                .doesNotContainKeys("AgeOfOnset", "ExposureDetails")
+                .containsEntry(
+                        "Notes",
+                        "Age at Onset:\n0\n\nExposure Details:\n" + "E".repeat(121));
+        render(riskResult.value());
+        var problem =
+                List.of(
+                        extension(101, "Problem Status", "S".repeat(51)),
+                        extension(102, "Problem Description", "D".repeat(251)));
+        var problemResult =
+                map(
+                        CdsCategory.PROBLEM_LIST,
+                        List.of(note(91, "Back pain", "Concerns", problem)));
+        assertThat(problemResult.value().text())
+                .doesNotContainKeys("ProblemStatus", "ProblemDescription")
+                .containsKey("Notes");
+        render(problemResult.value());
+        // A numeric age that fits is still the standard element.
+        var fitting =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(
+                                note(
+                                        91,
+                                        "Asthma",
+                                        "FamHistory",
+                                        List.of(extension(101, "Age at Onset", "40")))));
+        assertThat(fitting.value().text()).containsEntry("AgeAtOnset", "40").doesNotContainKey("Notes");
+    }
+
+    @Test
+    void shouldWriteATokenNormalizedCodeDescription_andKeepTheExactOneInTheContext()
+            throws Exception {
+        // A26: the seeded ICSW420 description ends with a space; StandardCodeDescription is a token.
+        var definition =
+                row(
+                        Plan.ISSUE_CATALOGUE,
+                        51,
+                        Map.of(
+                                "code",
+                                "ICSW420",
+                                "type",
+                                "icd9",
+                                "description",
+                                "Social  worker\tissue "));
+        var issue =
+                row(
+                        Plan.CASE_ISSUES,
+                        41,
+                        Map.of("demographic_no", "27", "issue_id", "51", "resolved", "0"));
+        var standalone = mapper.mapIssue(27, issue, definition);
+        assertThat(standalone.value().code().description()).isEqualTo("Social worker issue");
+        assertThat(standalone.value().metadata()).contains("Social  worker\\tissue ");
+        render(standalone.value());
+        var item =
+                uiNote(
+                        91,
+                        "Worker follow-up",
+                        "10034",
+                        List.of(uiIssue(41, 68, "10034"), uiIssue(43, 51, "10034")),
+                        List.of(catalogue(68, "MedHistory", "system"), definition));
+        var linked = map(CdsCategory.PAST_HEALTH, List.of(item));
+        assertThat(linked.value().code().description()).isEqualTo("Social worker issue");
+        render(linked.value());
+    }
+
+    private static CdsExportHistoryFieldReconciler.Row extension(long id, String key, String value) {
+        return row(
+                Plan.CASE_NOTE_EXT, id, Map.of("note_id", "91", "key_val", key, "value", value));
+    }
+
+    @Test
     void shouldRefuseUnqualifiedIssueProgramOwnership_andSqlNullNoteBodies() throws Exception {
         var issue =
                 row(
