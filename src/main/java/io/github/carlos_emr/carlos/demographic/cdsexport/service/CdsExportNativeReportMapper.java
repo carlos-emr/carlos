@@ -126,27 +126,23 @@ public final class CdsExportNativeReportMapper {
         details.put("document", source);
         details.put("link", link.fields());
         for (var entry :
-                Map.of(
-                                "contentdatetime",
-                                "EventDateTime",
-                                "receivedDate",
-                                "ReceivedDateTime",
-                                "sent_date_time",
-                                "SentDateTime")
+                Map.of("receivedDate", "ReceivedDateTime", "sent_date_time", "SentDateTime")
                         .entrySet()) {
             String value = source.get(entry.getKey());
             if (value != null && !value.isEmpty())
                 dates.put(entry.getValue(), CdsExportNativeHistoryMapper.clock(value, zone));
         }
+        // The report's event is the date the clinician recorded (observationdate), as the legacy
+        // exporter wrote it. contentdatetime is the instant the file entered CARLOS
+        // (EDoc.preliminaryProcessing), which for a scanned or faxed letter is days or years
+        // later: it is the receipt time, never the clinical event, and a difference between the
+        // two is normal rather than a conflict. Both stay in the document source context.
         String observed = source.get("observationdate");
-        if (observed != null && !observed.isEmpty()) {
-            var date = CdsExportNativeHistoryMapper.clock(observed, zone);
-            if (dates.containsKey("EventDateTime")) {
-                String left = dates.get("EventDateTime").lexical().substring(0, 10),
-                        right = date.lexical().substring(0, 10);
-                if (!left.equals(right)) review("CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT");
-            } else dates.put("EventDateTime", date);
-        }
+        if (observed != null && !observed.isEmpty())
+            dates.put("EventDateTime", CdsExportNativeHistoryMapper.clock(observed, zone));
+        String content = source.get("contentdatetime");
+        if (content != null && !content.isEmpty() && !dates.containsKey("ReceivedDateTime"))
+            dates.put("ReceivedDateTime", CdsExportNativeHistoryMapper.clock(content, zone));
         for (var entry :
                 Map.of("source", "SourceAuthorPhysician", "sourceFacility", "SourceFacility")
                         .entrySet()) {

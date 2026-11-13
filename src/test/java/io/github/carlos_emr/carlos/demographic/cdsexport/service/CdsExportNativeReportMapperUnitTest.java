@@ -213,9 +213,31 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldRejectConflictingEventDatesAndImportedPrecisionAnchors_withoutInventingAFullDate() {
-        assertThatThrownBy(() -> map(edit(document(), "contentdatetime", "2026-07-08 12:30:00")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_EVENT_DATES_CONFLICT");
+    void shouldUseTheRecordedObservationDate_andTreatTheUploadInstantAsReceipt() throws Exception {
+        // A letter dated 2026-03-01, faxed in and filed on 2026-03-05: review R1.
+        var faxed =
+                map(
+                        edit(
+                                edit(
+                                        edit(document(), "observationdate", "2026-03-01"),
+                                        "contentdatetime",
+                                        "2026-03-05 10:14:00"),
+                                "receivedDate",
+                                null));
+        assertThat(faxed.dates().get("EventDateTime").lexical()).startsWith("2026-03-01");
+        assertThat(faxed.dates().get("ReceivedDateTime").lexical()).startsWith("2026-03-05T10:14");
+        // A recorded received date wins over the upload instant.
+        var received =
+                map(
+                        edit(
+                                edit(document(), "observationdate", "2026-03-01"),
+                                "contentdatetime",
+                                "2026-03-05 10:14:00"));
+        assertThat(received.dates().get("ReceivedDateTime").lexical()).startsWith("2026-07-10");
+    }
+
+    @Test
+    void shouldRejectImportedPrecisionAnchors_withoutInventingAFullDate() {
         assertThatThrownBy(() -> map(edit(document(), "cds_content_precision", "YEAR")))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");
     }

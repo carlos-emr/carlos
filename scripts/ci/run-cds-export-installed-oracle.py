@@ -187,7 +187,8 @@ def report_expected() -> dict[str, str]:
     return {
         "c:Media": "Download", "c:Format": "Binary", "c:FileExtensionAndVersion": "txt",
         "c:Class": "Consultant Report", "c:SubClass": "consult",
-        "c:EventDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
+        # The recorded observation date, not the upload instant (review R1).
+        "c:EventDateTime/d:FullDate": "2026-07-09",
         "c:ReceivedDateTime/d:FullDate": "2026-07-10",
         "c:SourceAuthorPhysician/c:AuthorFreeText": "Dr. Native Source Author",
         "c:SourceFacility": "Native consultation clinic",
