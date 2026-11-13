@@ -4561,6 +4561,20 @@
       "notes": "Owns a synthetic patient; proves real chart closure releases the note lock and explicit harness teardown completes before browser shutdown."
     },
     {
+      "name": "echart-cds-source-links",
+      "script": "scripts/echart-cds-source-links-playwright-checks.js",
+      "tiers": [
+        "core"
+      ],
+      "assertsDatabase": true,
+      "provinces": [
+        "all"
+      ],
+      "timeoutSec": 180,
+      "env": [],
+      "fixtures": "Owned FAKE-PW patient no import touched: its chart must show no CDS source link or timing note anywhere. The check then inserts two synthetic cds_import_field rows for that patient (ClinicalNotes, NewCategory; ids derived from the marker, no parent ledger rows, so the insert suspends foreign-key checks for its own statement) and asserts each link appears in the notes toolbar for its own category while the header, the CPP boxes and the notes below the toolbar stay where they were. Cleanup deletes the two rows by id and asserts them gone before the patient is released. Do not point it at a database with a CDS import in progress."
+    },
+    {
       "name": "consultation-response-attachments",
       "script": "scripts/consultation-response-attachments-playwright-checks.js",
       "tiers": [

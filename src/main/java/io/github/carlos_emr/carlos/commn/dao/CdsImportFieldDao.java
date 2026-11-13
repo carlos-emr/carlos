@@ -118,6 +118,23 @@ public class CdsImportFieldDao extends AbstractDaoImpl<CdsImportField>
         entityManager.clear();
     }
 
+    /**
+     * Categories in which the patient has at least one preserved source field.
+     * Answered from {@code idx_cds_field_category (demographic_no, category, id)} without reading a field
+     * row, so an ordinary chart render can ask it for a patient no import ever touched.
+     *
+     * @param demographicNo int the patient's demographic number
+     * @return List&lt;String&gt; the distinct source categories, empty when the patient has none
+     */
+    public List<String> categories(int demographicNo) {
+        return entityManager
+                .createQuery(
+                        "select distinct f.category from CdsImportField f where f.demographicNo=:demo",
+                        String.class)
+                .setParameter("demo", demographicNo)
+                .getResultList();
+    }
+
     public List<CdsImportField> page(
             int demographicNo, String category, String afterId, int limit) {
         return entityManager
