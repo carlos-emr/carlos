@@ -54,6 +54,8 @@
 <%@page import="io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao" %>
 <%@page import="io.github.carlos_emr.carlos.commn.model.Appointment" %>
 <%@page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentEditConflict" %>
+<%@page import="io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentGroupSubmission" %>
+<%@page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@page import="io.github.carlos_emr.carlos.commn.dao.MyGroupDao" %>
 
 <%@page import="io.github.carlos_emr.carlos.commn.model.Provider" %>
@@ -151,6 +153,9 @@
                 a.setUrgency(request.getParameter("urgency"));
                 a.setReasonCode(Integer.parseInt(request.getParameter("reasonCode")));
 
+                // Each booking commits on its own: from the first one on, this rendering's token
+                // (claimed by the gate, see AppointmentGroupSubmission) is spent even if a later one fails.
+                AppointmentGroupSubmission.storageStarted(request);
                 appointmentDao.persist(a);
                 rowsAffected = 1;
                 // Booked: audited under the appointment and its patient, like the Add Appointment popup.
@@ -340,6 +345,9 @@
                 if (rowsAffected != 1) break;
             }
             if (rowsAffected == 1) bSucc = true;
+            // The token's claim learns whether these writes commit or roll back; a press that wrote
+            // nothing leaves this rendering free to be submitted again.
+            if (bSucc) AppointmentGroupSubmission.storageStarted(request);
             groupTxManager.commit(groupTx);
             groupTxEnded = true;
             for (String[] entry : groupAudit) {
@@ -355,6 +363,8 @@
         }
 
         if (bSucc) {
+            // The writes are durable: a repeat of this rendering ends on this result page without writing.
+            AppointmentGroupSubmission.saved(request);
 %>
 <h1><fmt:message key="appointment.appointmentgrouprecords.msgAddSuccess"/></h1>
 <script LANGUAGE="JavaScript">
@@ -465,6 +475,9 @@
     <form name="groupappt" method="POST"
           action="<%=request.getContextPath() %>/appointment/appointmentgrouprecords" onSubmit="return onSub();">
         <input type="hidden" name="groupappt" value="">
+        <%-- One save per rendering (FormSubmissionGuard): a repeat of a saved group action ends as that save did. --%>
+        <input type="hidden" name="<%= FormSubmissionGuard.PARAMETER %>"
+               value="<carlos:encode value='<%= FormSubmissionGuard.issue(session, FormSubmissionGuard.Scope.APPOINTMENT_GROUP, null) %>' context="htmlAttribute"/>">
 
         <%
             Properties otherAppt = new Properties();
@@ -535,7 +548,8 @@
             String csrfTokenName = CsrfGuard.getInstance().getTokenName();
             for (Enumeration e = request.getParameterNames(); e.hasMoreElements(); ) {
                 temp = e.nextElement().toString();
-                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName))
+                if (temp.equals("dboperation") || temp.equals("displaymode") || temp.equals("search_mode") || temp.equals("chart_no") || temp.equals(csrfTokenName)
+                        || temp.equals(FormSubmissionGuard.PARAMETER))
                     continue;
                 out.println("<input type=\"hidden\" name=\"" + SafeEncode.forHtmlAttribute(temp) + "\" value=\"" + SafeEncode.forHtmlAttribute(request.getParameter(temp) == null ? "" : request.getParameter(temp)) + "\">");
             }

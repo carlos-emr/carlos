@@ -21,13 +21,18 @@
  */
 package io.github.carlos_emr.carlos.appointment.gate;
 
+import java.io.IOException;
+
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 
+import io.github.carlos_emr.carlos.appointment.pageUtil.AppointmentGroupSubmission;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.utility.FormSubmissionGuard;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
@@ -47,6 +52,13 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  * into dedicated {@code *2Action} classes is flagged for follow-up — in-JSP
  * {@code <security:oscarSec>} taglibs remain as second-line defense.
  *
+ * <p>On the Group Appointment page ({@code appointmentgrouprecords}) a group
+ * action that writes is also claimed against the page's one-time submission
+ * token ({@link FormSubmissionGuard}, see {@link AppointmentGroupSubmission})
+ * before the page validates or writes anything, so a double click, a slow
+ * re-click or a reload of the result saves once and ends on the first save's
+ * result page. A post without a token keeps the previous behaviour.</p>
+ *
  * @since 2026-04-14
  */
 public final class ViewAppointmentSelfPost2Action extends ActionSupport {
@@ -60,7 +72,11 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
      *
      * @return {@link #SUCCESS} when authorized and the method is allowed;
      *         {@link #NONE} after sending 405 for unsupported methods or
-     *         mutation intent over GET/HEAD
+     *         mutation intent over GET/HEAD, or after running the Group
+     *         Appointment page for a claimed group action;
+     *         {@link AppointmentGroupSubmission#SAVED_RESULT} or
+     *         {@link FormSubmissionGuard#REFUSED_RESULT} for a group action
+     *         whose token was already spent
      * @throws SecurityException when the session is missing or the caller
      *         lacks {@code _appointment w}
      * @throws Exception propagated from Struts I/O
@@ -105,6 +121,57 @@ public final class ViewAppointmentSelfPost2Action extends ActionSupport {
             response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "Mutation requires POST");
             return NONE;
         }
+        // Only the Group Appointment page carries this token; the repeat-booking pages keep their own
+        // handling of a repeated group action (RecurringAppointmentService).
+        String groupOperation = uri != null && uri.endsWith("/appointmentgrouprecords")
+                ? AppointmentGroupSubmission.operation(request) : null;
+        if (groupOperation != null) {
+            return groupWrite(request, response, groupOperation);
+        }
         return SUCCESS;
+    }
+
+    /**
+     * Claims the Group Appointment page's token for a group action that writes, after the method
+     * and privilege checks and before the page validates or writes anything (issue #4225).
+     *
+     * <ul>
+     *   <li>no token: the page runs as before ({@link #SUCCESS});</li>
+     *   <li>claimed: the page runs here, reporting its writes to the claim, and the claim is closed
+     *       however the page ended, so a failure that wrote nothing frees the form again;</li>
+     *   <li>this rendering already saved this action: nothing runs, and the first save's result page
+     *       answers ({@link AppointmentGroupSubmission#SAVED_RESULT});</li>
+     *   <li>this rendering already saved another action, the first save's outcome is unknown or still
+     *       running, or the token is not one this session issued for the page: nothing runs, HTTP 409
+     *       ({@link FormSubmissionGuard#refuse}).</li>
+     * </ul>
+     *
+     * <p>A rendering that has not saved still reaches the page's own stale-form check, so a form
+     * another user's change overtook is refused with the appointment conflict page as before.</p>
+     */
+    private String groupWrite(HttpServletRequest request, HttpServletResponse response, String operation)
+            throws ServletException, IOException {
+        FormSubmissionGuard.Attempt attempt = FormSubmissionGuard.attempt(request.getSession(),
+                request.getParameter(FormSubmissionGuard.PARAMETER), FormSubmissionGuard.Scope.APPOINTMENT_GROUP,
+                null, FormSubmissionGuard.DEFAULT_WAIT_MILLIS);
+        switch (attempt.verdict()) {
+            case ABSENT -> {
+                return SUCCESS;
+            }
+            case PROCEED -> { }
+            case ALREADY_SAVED -> {
+                // Another button of a saved rendering is not a repeat: nothing of it was saved, and
+                // the first action's success page would report it as done.
+                return operation.equals(attempt.result()) ? AppointmentGroupSubmission.SAVED_RESULT
+                        : FormSubmissionGuard.refuse(request, response, FormSubmissionGuard.Verdict.STALE);
+            }
+            default -> {
+                return FormSubmissionGuard.refuse(request, response, attempt.verdict());
+            }
+        }
+        try (FormSubmissionGuard.Claim claim = attempt.claim()) {
+            AppointmentGroupSubmission.render(request, response, claim);
+        }
+        return NONE;
     }
 }
