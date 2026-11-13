@@ -53,13 +53,27 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
     private final CdsExportNativeCaptureService captures;
     private final CdsExportStagingFactory stores;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsExportDataSummaryOccurrenceService dataSummaries;
 
+    /** Without data summaries: a capture that holds data-summary tables is refused. */
     public CdsExportReportOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses,
             CdsExportNativeCaptureService captures,
             CdsExportStagingFactory stores) {
+        this(values, verification, witnesses, captures, stores, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportReportOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportStagingFactory stores,
+            CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this.dataSummaries = dataSummaries;
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses);
@@ -87,21 +101,46 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             CdsExportClinicalOccurrenceService.Receipts output)
             throws IOException {
         var result = new CdsExportClinicalOccurrenceService.Result[1];
+        long[] summaries = {0};
+        if (CdsExportDataSummaryOccurrenceService.captured(requiredTables) && dataSummaries == null)
+            invalid();
         xml.source(
-                emitter ->
-                        result[0] =
-                                assemble(
+                emitter -> {
+                    result[0] =
+                            assemble(
+                                    lease,
+                                    patient,
+                                    patientKey,
+                                    requiredTables,
+                                    source,
+                                    payloadManifest,
+                                    bounds,
+                                    control,
+                                    emitter,
+                                    output);
+                    // Data-summary records (registration point): after the native and imported
+                    // documents, in the same Reports source scope.
+                    if (dataSummaries != null)
+                        summaries[0] =
+                                dataSummaries.append(
                                         lease,
                                         patient,
                                         patientKey,
                                         requiredTables,
                                         source,
-                                        payloadManifest,
                                         bounds,
                                         control,
                                         emitter,
-                                        output));
-        return Objects.requireNonNull(result[0]);
+                                        output);
+                });
+        var documents = Objects.requireNonNull(result[0]);
+        return new CdsExportClinicalOccurrenceService.Result(
+                documents.sourceManifestSha256(),
+                documents.category(),
+                Math.addExact(documents.nativeRows(), summaries[0]),
+                documents.importedRows(),
+                Math.addExact(documents.nativeOnlyRows(), summaries[0]),
+                documents.retainedSourceFields());
     }
 
     // Cleanup only throws without a primary failure; otherwise its error is suppressed on that

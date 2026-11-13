@@ -57,7 +57,9 @@ public class CdsExportPatientInventoryService {
     private final CdsExportCareOccurrenceService care;
     private final CdsExportLaboratoryOccurrenceService laboratories;
     private final CdsExportPrescriptionOccurrenceService prescriptions;
+    private final CdsExportDataSummaryOccurrenceService dataSummaries;
 
+    /** Without data summaries: a capture that holds data-summary tables is refused. */
     public CdsExportPatientInventoryService(
             CdsExportRetainedIndexService indices,
             CdsExportNativeRowReceiptReader rows,
@@ -65,6 +67,19 @@ public class CdsExportPatientInventoryService {
             CdsExportCareOccurrenceService care,
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions) {
+        this(indices, rows, histories, care, laboratories, prescriptions, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportPatientInventoryService(
+            CdsExportRetainedIndexService indices,
+            CdsExportNativeRowReceiptReader rows,
+            CdsExportHistoryInventoryService histories,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this.dataSummaries = dataSummaries;
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
         this.histories = Objects.requireNonNull(histories);
@@ -268,6 +283,16 @@ public class CdsExportPatientInventoryService {
                             "prescription",
                             prescription.prescription().fields().get("script_no")),
                     budget);
+        }
+        // Data-summary records (registration point): one Reports occurrence per planned record.
+        if (CdsExportDataSummaryOccurrenceService.captured(tables)) {
+            if (dataSummaries == null
+                    || !lease.document().command().categories().contains(CdsCategory.REPORTS))
+                invalid();
+            for (var identity :
+                    dataSummaries.identities(
+                            lease, patient, patientKey, tables, source, bounds, control))
+                add(expected, identity, budget);
         }
         var mapper = new CdsExportRetainedFieldMapper();
         for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {

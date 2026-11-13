@@ -1,0 +1,482 @@
+/**
+ * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ *
+ * This software is published under the GPL GNU General Public License.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ *
+ * CARLOS EMR Project
+ * https://github.com/carlos-emr/carlos
+ */
+package io.github.carlos_emr.carlos.demographic.cdsexport.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportSourceCatalogueDao;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
+import io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Group;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Row;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryRegistry.Kind;
+import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
+import io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfTestServices;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.TreeMap;
+import javax.sql.DataSource;
+import org.apache.commons.dbcp2.BasicDataSource;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.orm.jpa.JpaTransactionManager;
+import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
+import org.springframework.orm.jpa.persistenceunit.PersistenceManagedTypes;
+import org.springframework.orm.jpa.support.PersistenceAnnotationBeanPostProcessor;
+import org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.TransactionTemplate;
+
+/**
+ * A chart with ticklers, a consent, a Rourke revision with checkbox values, an eForm, a
+ * consultation, an e-mail, a patient photo and a removed-feature record, written as CARLOS writes
+ * them, now passes the source gate; every data-summary table is captured from the pinned physical
+ * contract into the authenticated capture, grouped into records, rendered to validated PDFs and
+ * emitted as schema-valid Reports with every field assessed; the removed-feature rows are counted
+ * for the ReadMe.
+ */
+@Tag("integration")
+@Tag("cds-export")
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(
+        named = "cds.export.test.properties",
+        matches = ".+")
+class CdsExportDataSummaryMariaDbIntegrationTest {
+    @Configuration
+    @EnableTransactionManagement(proxyTargetClass = true)
+    static class Config {}
+
+    private static final byte[] PNG =
+            Base64.getDecoder()
+                    .decode(
+                            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
+
+    private BasicDataSource source;
+    private AnnotationConfigApplicationContext context;
+    private JdbcTemplate sql;
+    private TransactionTemplate read;
+    private CdsExportSourceCatalogueDao catalogue;
+    private CdsExportDataSummaryReadDao summaries;
+    private final int patient =
+            580_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
+
+    @BeforeEach
+    void setup() throws Exception {
+        var settings = new Properties();
+        try (var input =
+                Files.newInputStream(Path.of(System.getProperty("cds.export.test.properties")))) {
+            settings.load(input);
+        }
+        if (!"true".equals(settings.getProperty("ownedDisposableDatabase"))
+                || !settings.getProperty("jdbcUrl", "")
+                        .matches("jdbc:mariadb://[^/]+/cds_export_test(?:\\?.*)?"))
+            throw new IllegalArgumentException("Owned disposable care database required");
+        source = new BasicDataSource();
+        source.setMaxTotal(4);
+        source.setUrl(settings.getProperty("jdbcUrl"));
+        source.setUsername(settings.getProperty("jdbcUser"));
+        source.setPassword(settings.getProperty("jdbcPassword"));
+        sql = new JdbcTemplate(source);
+        context = new AnnotationConfigApplicationContext();
+        context.register(Config.class);
+        context.registerBean("dataSource", DataSource.class, () -> source);
+        context.registerBean(
+                "entityManagerFactory",
+                LocalContainerEntityManagerFactoryBean.class,
+                () -> {
+                    var factory = new LocalContainerEntityManagerFactoryBean();
+                    factory.setDataSource(source);
+                    factory.setPersistenceUnitName("entityManagerFactory");
+                    factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+                    factory.setManagedTypes(PersistenceManagedTypes.of());
+                    factory.setJpaPropertyMap(
+                            Map.of(
+                                    "hibernate.hbm2ddl.auto",
+                                    "none",
+                                    "hibernate.dialect",
+                                    "org.hibernate.dialect.MariaDBDialect",
+                                    "hibernate.show_sql",
+                                    "false"));
+                    return factory;
+                });
+        context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
+        context.registerBean(
+                "transactionManager",
+                JpaTransactionManager.class,
+                () ->
+                        new JpaTransactionManager(
+                                context.getBean(jakarta.persistence.EntityManagerFactory.class)));
+        context.register(CdsExportSourceCatalogueDao.class, CdsExportDataSummaryReadDao.class);
+        context.refresh();
+        catalogue = context.getBean(CdsExportSourceCatalogueDao.class);
+        summaries = context.getBean(CdsExportDataSummaryReadDao.class);
+        read =
+                new TransactionTemplate(
+                        context.getBean(org.springframework.transaction.PlatformTransactionManager.class));
+        read.setReadOnly(true);
+        read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
+        read.setTimeout(120);
+    }
+
+    @AfterEach
+    void cleanup() throws Exception {
+        try {
+            if (sql != null) {
+                sql.update("delete from tickler_comments where id=?", patient);
+                sql.update("delete from tickler_update where id=?", patient);
+                sql.update("delete from tickler where tickler_no=?", patient);
+                sql.update("delete from Consent where id=?", patient);
+                sql.update("delete from form_boolean_value where form_id=?", patient);
+                sql.update("delete from formRourke2020 where ID=?", patient);
+                sql.update("delete from eform_values where id=?", patient);
+                sql.update("delete from eform_data where fdid=?", patient);
+                sql.update("delete from consultationRequestExt where id=?", patient);
+                sql.update("delete from consultdocs where id=?", patient);
+                sql.update("delete from consultationRequests where requestId=?", patient);
+                sql.update("delete from emailAttachment where id=?", patient);
+                sql.update("delete from emailLog where id=?", patient);
+                sql.update("delete from client_image where image_id=?", patient);
+                sql.update("delete from CdsHospitalisationDays where id=?", patient);
+                sql.update("delete from DrugProduct where name=?", "synthetic-" + patient);
+            }
+        } finally {
+            if (context != null) context.close();
+            if (source != null) source.close();
+        }
+    }
+
+    /** Rows shaped as the CARLOS screens and DAOs write them, all for one synthetic patient. */
+    private void chart() {
+        sql.update(
+                "insert into tickler(tickler_no,demographic_no,program_id,message,status,update_date,"
+                        + "service_date,creator,priority,task_assigned_to,creation_date)"
+                        + " values(?,?,0,?,'A',now(),'2024-03-10 09:30:00','999998','Normal','999998',now())",
+                patient,
+                patient,
+                "Call about results <b>unusual</b>\r\nsecond line 😀");
+        sql.update(
+                "insert into tickler_comments(id,tickler_no,message,provider_no,update_date)"
+                        + " values(?,?,'Left a message','999998',now())",
+                patient,
+                patient);
+        sql.update(
+                "insert into tickler_update(id,tickler_no,status,provider_no,update_date)"
+                        + " values(?,?,'C','999998',now())",
+                patient,
+                patient);
+        sql.update(
+                "insert into Consent(id,demographic_no,consent_type_id,explicit,optout,consent_date,"
+                        + "last_entered_by,deleted) values(?,?,1,1,0,'2024-04-01 10:00:00','999998',0)",
+                patient,
+                patient);
+        sql.update(
+                "insert into formRourke2020(ID,demographic_no,formCreated,formEdited)"
+                        + " values(?,?,'2024-01-01',now())",
+                patient,
+                patient);
+        sql.update(
+                "insert into form_boolean_value(form_name,form_id,field_name,value)"
+                        + " values('formRourke2020',?,'p1_hearing',1),('formRourke2020',?,'p1_vision',null),"
+                        + "('formRourke2017',?,'p1_hearing',1)",
+                patient,
+                patient,
+                patient);
+        sql.update(
+                "insert into eform_data(fdid,fid,form_name,subject,demographic_no,status,form_date,"
+                        + "form_time,form_provider,form_data,patient_independent,showLatestFormOnly,roleType)"
+                        + " values(?,1,'Synthetic eForm','',?,1,'2024-05-06','13:00:00','999998',?,0,0,'')",
+                patient,
+                patient,
+                "<html><body><input name=\"weight\" value=\"70\"></body></html>");
+        sql.update(
+                "insert into eform_values(id,fdid,fid,demographic_no,var_name,var_value)"
+                        + " values(?,?,1,?,'weight','70')",
+                patient,
+                patient,
+                patient);
+        sql.update(
+                "insert into consultationRequests(requestId,demographicNo,referalDate,reason,"
+                        + "lastUpdateDate,status,urgency,providerNo,serviceId)"
+                        + " values(?,?,'2024-07-08','Synthetic reason',now(),'1','2','999998',1)",
+                patient,
+                patient);
+        sql.update(
+                "insert into consultationRequestExt(id,requestId,name,value,dateCreated)"
+                        + " values(?,?,'ebs','true','2024-07-08')",
+                patient,
+                patient);
+        sql.update(
+                "insert into consultdocs(id,requestId,document_no,doctype,provider_no,attach_date)"
+                        + " values(?,?,1,'D','999998','2024-07-08')",
+                patient,
+                patient);
+        sql.update(
+                "insert into emailLog(id,demographicNo,fromEmail,toEmail,subject,body,status,"
+                        + "timestamp,providerNo) values(?,?,'clinic@example.invalid',"
+                        + "'patient@example.invalid','Synthetic subject',?,'SUCCESS','2024-11-03 01:30:00','999998')",
+                patient,
+                patient,
+                Base64.getEncoder().encode("Your results are ready.".getBytes(StandardCharsets.UTF_8)));
+        sql.update(
+                "insert into emailAttachment(id,logId,fileName,filePath,documentType,documentId)"
+                        + " values(?,?,'letter.pdf','/synthetic/letter.pdf','DOC',1)",
+                patient,
+                patient);
+        sql.update(
+                "insert into client_image(image_id,demographic_no,image_type,contents,update_date)"
+                        + " values(?,?,'png',?,now())",
+                patient,
+                patient,
+                Base64.getEncoder().encode(PNG));
+        sql.update(
+                "insert into CdsHospitalisationDays(id,clientId,admitted) values(?,?,'2024-02-29')",
+                patient,
+                patient);
+        sql.update(
+                "insert into DrugProduct(name,code,amount,lastUpdateDate,lastUpdateUser)"
+                        + " values(?,'synthetic',1,now(),'999998')",
+                "synthetic-" + patient);
+    }
+
+    private void stableLegacy(Runnable work) {
+        try (var held =
+                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
+                        .acquireUnpooled(
+                                java.sql.DriverManager.getConnection(
+                                        source.getUrl(), source.getUsername(), source.getPassword()))) {
+            work.run();
+        } catch (java.sql.SQLException failed) {
+            throw new IllegalStateException("OWNED_SOURCE_SNAPSHOT_LOCK_FAILED", failed);
+        }
+    }
+
+    private record Captured(
+            Map<String, List<Row>> rows,
+            List<CdsExportListedSourceDto> listed,
+            List<CdsExportListedSourceDto> clinic) {}
+
+    /** The same steps as the native capture, on the actual database, read back from the sealed bytes. */
+    private Captured capture() {
+        var result = new Captured[1];
+        stableLegacy(
+                () ->
+                        result[0] =
+                                read.execute(
+                                        status -> {
+                                            try {
+                                                catalogue.readSourceSchema();
+                                                // The chart is no longer refused at the source gate.
+                                                catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {});
+                                                return captureInside();
+                                            } catch (java.io.IOException failed) {
+                                                throw new java.io.UncheckedIOException(failed);
+                                            }
+                                        }));
+        return result[0];
+    }
+
+    private Captured captureInside() throws java.io.IOException {
+        var readers = new TreeMap<String, CdsExportNativeSourceReader>();
+        for (var reader : CdsExportDataSummarySourceReader.readers(summaries))
+            readers.put(reader.table(), reader);
+        assertThat(readers.keySet()).containsExactlyInAnyOrderElementsOf(CdsExportDataSummaryRegistry.tables());
+        var plan = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
+        var validator = new CdsExportSourceSchemaValidator();
+        for (var reader : readers.values()) {
+            String digest = validator.verify(reader.table(), reader.schema(), reader.columns());
+            assertThat(validator.acceptedSha256(reader.table(), reader.columns())).contains(digest);
+            long rows = reader.count(patient);
+            reader.requireCapacity(rows, 1_000_000);
+            plan.put(reader.table(), new CdsExportNativeCaptureReader.Table(reader.columns(), rows));
+        }
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        new CdsExportNativeCaptureComposer()
+                .compose(
+                        values,
+                        index,
+                        readers.keySet(),
+                        1_000_000,
+                        1L << 30,
+                        () -> {},
+                        writer -> {
+                            for (var reader : readers.values()) {
+                                writer.beginTable(reader.table(), reader.columns(), plan.get(reader.table()).rows());
+                                reader.capture(patient, writer, () -> {});
+                                writer.endTable();
+                            }
+                        });
+        var collector = new CdsExportDataSummaryRowsReader.Collector(readers.keySet());
+        new CdsExportNativeCaptureReader()
+                .scan(
+                        new ByteArrayInputStream(values.toByteArray()),
+                        new ByteArrayInputStream(index.toByteArray()),
+                        plan,
+                        1_000_000,
+                        1L << 30,
+                        () -> {},
+                        collector);
+        collector.finish();
+        var listed = summaries.listed(patient, () -> {});
+        var clinic = summaries.listedClinicSources();
+        return new Captured(collector.rows(), listed, clinic);
+    }
+
+    @Test
+    void shouldExportAChartWithFormsTicklersMessagesAndPhoto_asDataSummaryReports() throws Exception {
+        chart();
+        var captured = capture();
+        var groups = CdsExportDataSummaryPlanner.plan(captured.rows(), ZoneId.of("America/Toronto"));
+        var byKind = new LinkedHashMap<Kind, List<Group>>();
+        for (var group : groups) byKind.computeIfAbsent(group.kind(), k -> new ArrayList<>()).add(group);
+        assertThat(byKind.keySet())
+                .containsExactlyInAnyOrder(
+                        Kind.ENCOUNTER_FORM,
+                        Kind.EFORM,
+                        Kind.CONSULTATION_REQUEST,
+                        Kind.TICKLER,
+                        Kind.EMAIL,
+                        Kind.PATIENT_PHOTO,
+                        Kind.CONSENT);
+        assertThat(groups).noneMatch(Group::detached);
+        var tickler = byKind.get(Kind.TICKLER).getFirst();
+        assertThat(tickler.rows()).extracting(Row::table).containsExactly("tickler", "tickler_comments", "tickler_update");
+        assertThat(tickler.rows().getFirst().text("message"))
+                .isEqualTo("Call about results <b>unusual</b>\r\nsecond line 😀");
+        var rourke = byKind.get(Kind.ENCOUNTER_FORM).getFirst();
+        assertThat(rourke.subClass()).isEqualTo("formRourke2020 revision 1 of 1");
+        assertThat(rourke.rows()).extracting(Row::table)
+                .containsExactly("formRourke2020", "form_boolean_value", "form_boolean_value");
+        // The checkbox naming the 2017 form with the same id belongs to no revision of this chart
+        // (exact form_name bytes), so it is not captured for this patient at all.
+        assertThat(captured.rows().get("form_boolean_value"))
+                .extracting(row -> row.text("form_name"))
+                .containsOnly("formRourke2020");
+        // SQL NULL stays distinct from a stored value in the captured checkbox.
+        assertThat(rourke.rows().get(2).values().get("value").storage())
+                .isEqualTo(CdsExportDataSummaryPlanner.Storage.SQL_NULL);
+        assertThat(byKind.get(Kind.EFORM).getFirst().rows()).extracting(Row::table)
+                .containsExactly("eform_data", "eform_values");
+        assertThat(byKind.get(Kind.CONSULTATION_REQUEST).getFirst().rows()).extracting(Row::table)
+                .containsExactly("consultationRequests", "consultationRequestExt", "consultdocs");
+        assertThat(byKind.get(Kind.EMAIL).getFirst().rows()).extracting(Row::table)
+                .containsExactly("emailLog", "emailAttachment");
+        var photo = byKind.get(Kind.PATIENT_PHOTO).getFirst();
+        assertThat(photo.hasImage()).isTrue();
+        assertThat(photo.rows().getFirst().values().get("contents").content())
+                .isEqualTo(Base64.getEncoder().encode(PNG));
+
+        // Every record renders to a validated PDF and is a schema-valid Reports entry whose every
+        // captured field is assessed.
+        var pdfs = new CdsExportDataSummaryPdfService(HtmlPdfTestServices.newService());
+        var header =
+                CdsExportDataSummaryHtmlComposer.Patient.of(
+                        Map.of("demographic_no", Integer.toString(patient), "last_name", "Fixture", "first_name", "Synthetic"));
+        String key = "a".repeat(64);
+        var sections = new ArrayList<CdsExportXmlComposer.Section>();
+        var patientRow = new LinkedHashMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(column -> patientRow.put(column, null));
+        patientRow.putAll(
+                Map.of(
+                        "first_name", "Synthetic",
+                        "last_name", "Fixture",
+                        "year_of_birth", "1980",
+                        "month_of_birth", "01",
+                        "date_of_birth", "01",
+                        "patient_status", "AC",
+                        "sex", "U"));
+        var demographics =
+                new CdsExportDemographicMapper().map(new CdsExportDemographicRowDto(27, patientRow));
+        sections.add(
+                new CdsExportXmlComposer.Section(
+                        new CdsExportIdentityDto(key, CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                        writer -> new CdsExportDemographicXmlWriter().write(demographics, writer)));
+        for (var group : groups) {
+            byte[] pdf = pdfs.render(group, header);
+            CdsExportDataSummaryPdfService.requirePdf(pdf);
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            group.rows().stream().map(Row::assessed).toList(),
+                            CdsExportDataSummaryOccurrenceService.assessments(group),
+                            1_000_000,
+                            () -> {});
+            sections.add(
+                    new CdsExportXmlComposer.Section(
+                            CdsExportDataSummaryOccurrenceService.identity(key, group),
+                            writer ->
+                                    CdsExportDataSummaryOccurrenceService.write(
+                                            group, "Reports/" + group.table() + "-" + group.id() + ".pdf", writer)));
+        }
+        var xml = new ByteArrayOutputStream();
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS);
+        new CdsExportXmlComposer()
+                .compose(
+                        xml,
+                        "d".repeat(64),
+                        key,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        sections.iterator(),
+                        ignored -> {},
+                        16L << 20,
+                        () -> {});
+        var checked =
+                new CdsExportXmlValidator()
+                        .validate(
+                                new ByteArrayInputStream(xml.toByteArray()),
+                                "27",
+                                selected,
+                                "2026.08.0-test",
+                                CdsLogicalProfile.ONTARIO_MD_5_2,
+                                CdsExportXmlLimitsDto.defaults(),
+                                ignored -> {},
+                                () -> {});
+        assertThat(checked.occurrences().get(CdsCategory.REPORTS)).isEqualTo((long) groups.size());
+
+        // The removed-feature record is listed for this chart and never refused; the unlinked one
+        // is listed for the whole job.
+        assertThat(captured.listed()).contains(new CdsExportListedSourceDto("CdsHospitalisationDays", 1));
+        assertThat(captured.clinic()).anySatisfy(listed -> assertThat(listed.table()).isEqualTo("DrugProduct"));
+    }
+}

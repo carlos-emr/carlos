@@ -53,6 +53,11 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration(proxyBeanMethods = false)
 @Profile("cds-export-cli")
 @EnableTransactionManagement(proxyTargetClass = true)
+// The one HTML-to-PDF module prints the CDS data summaries; its beans are package-private.
+@org.springframework.context.annotation.ComponentScan(
+        basePackageClasses =
+                io.github.carlos_emr.carlos.documentManager.htmlpdf.service.HtmlPdfRenderService
+                        .class)
 @org.springframework.context.annotation.EnableAspectJAutoProxy(proxyTargetClass = true)
 @Import({
     CdsExportAuditPersister.class,
@@ -62,6 +67,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportSourceCatalogueReader.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao.class,
     CdsExportListedSourceReader.class,
+    CdsExportDataSummaryOccurrenceService.class,
+    CdsExportDataSummaryPdfService.class,
     io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class,
     CdsExportHospitalReportScopeSourceReader.class,
     io.github.carlos_emr.carlos.commn.dao.CtlDocumentDaoImpl.class,
