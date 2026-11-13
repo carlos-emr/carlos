@@ -212,6 +212,79 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     }
 
     @Test
+    void shouldNotPresentTheImportedDiagnosis_asCurrentAfterALongNativeEdit() throws Exception {
+        String revised =
+                ("COPD GOLD 3 confirmed on spirometry; the earlier asthma diagnosis was revised. ")
+                        .repeat(5);
+        var fields =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.PROBLEM_LIST, "Notes[1]", "mild intermittent"));
+        var result = reconcile(CdsCategory.PROBLEM_LIST, "Concerns", fields, revised, false);
+        String xml =
+                new String(
+                        render(CdsCategory.PROBLEM_LIST, result.content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .doesNotContain("<ProblemDiagnosisDescription>")
+                .contains(
+                        "mild intermittent",
+                        "[Current native narrative]",
+                        revised.strip(),
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        // A CARLOS importer restores the current text, not the old description.
+        assertThat(xml).contains(CdsNativeExtensionContract.encodeNarrative(revised));
+        // The superseded description is accounted for, and kept in the residual context.
+        assertThat(result.replacedFields()).contains(fields.getFirst().id());
+        assertThat(xml).contains("originalImportedProjection");
+        // A short edit replaces the description and removes nothing else.
+        var shortEdit =
+                reconcile(CdsCategory.PROBLEM_LIST, "Concerns", fields, "COPD GOLD 3", false);
+        assertThat(
+                        new String(
+                                render(CdsCategory.PROBLEM_LIST, shortEdit.content()),
+                                StandardCharsets.UTF_8))
+                .contains(
+                        "<ProblemDiagnosisDescription>COPD GOLD 3</ProblemDiagnosisDescription>",
+                        "mild intermittent")
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_NARRATIVE);
+    }
+
+    @Test
+    void shouldReplaceAnImportedNarrativeCarrier_whenTheEditFitsTheDescription()
+            throws Exception {
+        String imported = "Original imported narrative";
+        var fields =
+                List.of(
+                        field(CdsCategory.FAMILY_HISTORY, "Notes[1]", imported),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Name[1]",
+                                CdsNativeExtensionContract.HISTORY_NARRATIVE),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/DataType[1]",
+                                "string"),
+                        field(
+                                CdsCategory.FAMILY_HISTORY,
+                                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                                CdsNativeExtensionContract.encodeNarrative(imported)));
+        var result = reconcile(CdsCategory.FAMILY_HISTORY, "FamHistory", fields, "Short", false);
+        String xml =
+                new String(
+                        render(CdsCategory.FAMILY_HISTORY, result.content()),
+                        StandardCharsets.UTF_8);
+        // A stale carrier would make a CARLOS importer restore the old text.
+        assertThat(xml)
+                .contains("Short", "[Superseded imported narrative]\n" + imported)
+                .doesNotContain(CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        assertThat(result.replacedFields()).contains(fields.get(3).id());
+    }
+
+    @Test
     void shouldRetainUnrelatedLongVendorNames_whileAddingKnownNativeHistoryMarkers()
             throws Exception {
         String vendorName = "Unrelated.Vendor." + "x".repeat(20000);

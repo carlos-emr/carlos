@@ -114,6 +114,27 @@ final class CdsExportHistoryNativeReconciler {
             boolean edited =
                     !CdsExportCaseManagementProjectionEvidence.matches(
                             original, "note", current.note().value().fields().get("note"));
+            String description =
+                    switch (category) {
+                        case FAMILY_HISTORY -> "ProblemDiagnosisProcedureDescription";
+                        case PAST_HEALTH -> "PastHealthProblemDescriptionOrProcedures";
+                        case PROBLEM_LIST -> "ProblemDiagnosisDescription";
+                        case RISK_FACTORS -> "RiskFactor";
+                        default -> null;
+                    };
+            // An edit longer than the description element leaves the current text in Notes and
+            // the narrative carrier. The imported description is then superseded: kept, it would
+            // present the old diagnosis as the current one. It stays in the residual context
+            // (originalImportedProjection), as a description replaced by a shorter edit does.
+            if (edited
+                    && description != null
+                    && nativeValue.text().containsKey("NativeNarrative")
+                    && !nativeValue.text().containsKey(description)) {
+                String root = CdsExportRetainedOccurrencePath.root(sourceFields.getFirst(), category);
+                if (sourceFields.stream()
+                        .anyMatch(f -> f.sourcePath().equals(root + "/" + description + "[1]")))
+                    replace(changes, sourceFields, description + "[1]", null);
+            }
             for (var entry : nativeValue.text().entrySet()) {
                 String name = entry.getKey(), value = entry.getValue();
                 if (name.equals("NativePersonalNarrative") || name.equals("NativeNarrative"))
@@ -236,6 +257,16 @@ final class CdsExportHistoryNativeReconciler {
                             sourceFields,
                             element.substring(0, element.length() - "/Content[1]".length()),
                             null);
+                    // That import's Notes held the item's text, now superseded by the shorter
+                    // current description; say so rather than offer it as notes on the new text.
+                    String previous = read(sourceFields, "Notes[1]", values, 64000, checkpoint);
+                    if (previous != null) {
+                        String labelled = "[Superseded imported narrative]\n" + previous;
+                        if (!CdsExportNativeFieldAssessments.legal(
+                                labelled, category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000))
+                            review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+                        replace(changes, sourceFields, "Notes[1]", xml -> xml.text(labelled));
+                    }
                 }
             }
             if (!residual) {
