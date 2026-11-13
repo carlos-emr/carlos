@@ -33,7 +33,10 @@ on:
       - 'scripts/ci/**'
       - 'debian/assets/tomcat/**'
       - '.github/actions/dev-container/**'
-  workflow_dispatch:
+  # No workflow_dispatch: this job runs the carlos-ctl commit named by the
+  # committed pin, a ref computed at run time, so a manual run from the default
+  # branch would execute it with default-branch cache scope (CodeQL cache
+  # poisoning). Pull requests and release pushes cover every qualifying head.
 
 permissions:
   contents: read
