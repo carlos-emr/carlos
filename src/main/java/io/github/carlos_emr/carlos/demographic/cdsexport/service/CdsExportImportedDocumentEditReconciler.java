@@ -42,15 +42,18 @@ import java.util.*;
  * {@code EDocUtil.editDocumentSQL}) rewrites exactly the {@link #EDIT_PAGE_COLUMNS}: type,
  * class, subclass, description, source author and facility, the HTML ({@code ""}), responsible
  * provider, public flag, abnormal flag and received date on every save; the reviewer and review
- * time on a review, or else the update time and observation date. A change anywhere else (a
- * replaced file, the program restriction, the patient link) is not an edit-page edit and still
- * requires review.
+ * time on a review, or else the update time and observation date; and, when a replacement file
+ * is uploaded, the stored file name, content type and page count. A change anywhere else (the
+ * program restriction, the patient link, the status) is not an edit-page edit and still requires
+ * review.
  *
  * <p>The user's edit supersedes the source, as for the other imported-chart edits. A first review
  * stored on the row becomes one more ReportReviewed appended after the imported ones. A class,
  * subclass, source author, source facility, observation date or received date the user changed
  * replaces that element of the retained report with the current value, or removes it when the
- * user cleared it. Every changed column travels in the report's CARLOS edit context with its
+ * user cleared it. A replacement file is the report's content: the Reports assembler attaches
+ * the current bytes, and the imported file's name, content type and SHA-256 travel in context
+ * ({@value #REPLACED_FILE}). Every changed column travels in the report's CARLOS edit context with its
  * current value and the imported value it superseded: the exact imported element text of a
  * replaced element, the imported value the import receipt proves (by its SHA-256) for a column
  * the import set, or that digest when no value can be proved. A column the page turned from SQL
@@ -76,12 +79,22 @@ final class CdsExportImportedDocumentEditReconciler {
                     "updatedatetime",
                     "observationdate",
                     "abnormal",
-                    "receivedDate");
+                    "receivedDate",
+                    // A replacement file ("File", ALLOW_UPDATE_DOCUMENT_CONTENT): its stored name,
+                    // content type and page count. The content time of an imported document is
+                    // kept (cds_content_precision is set), so it never changes here.
+                    "docfilename",
+                    "contenttype",
+                    "number_of_pages");
+
+    /** The columns a replacement file writes. */
+    static final Set<String> FILE_COLUMNS = Set.of("docfilename", "contenttype", "number_of_pages");
 
     static final String SUPERSEDES = "CARLOS_EDIT_SUPERSEDES_IMPORTED_VALUE";
     static final String CARRIED = "CARLOS_EDIT_OF_IMPORTED_DOCUMENT_IN_SOURCE_CONTEXT";
     static final String CLEARED = "CARLOS_EDIT_CLEARED_IMPORTED_VALUE";
     static final String EMPTY_FORM_VALUE = "EMPTY_EDIT_FORM_VALUE_FOR_AN_ABSENT_IMPORTED_VALUE";
+    static final String REPLACED_FILE = "REPLACED_IMPORTED_DOCUMENT_FILE_EXPORTED_CURRENT";
 
     /** The retained element each edited column supersedes. */
     private static final Map<String, String> ELEMENTS =
@@ -264,6 +277,21 @@ final class CdsExportImportedDocumentEditReconciler {
                 // The page posts "" for a value the row did not have: not an edit.
                 state.operational(column, EMPTY_FORM_VALUE);
                 rule = EMPTY_FORM_VALUE;
+            } else if (FILE_COLUMNS.contains(column)) {
+                // The current file is the report's content (the Reports assembler attaches it);
+                // the imported file's identity travels in context ("replacedFile").
+                state.set(
+                        column,
+                        empty(value) ? Outcome.ABSENT : Outcome.MAPPED,
+                        empty(value)
+                                ? ""
+                                : switch (column) {
+                                    case "docfilename" -> "Reports/FilePath";
+                                    case "contenttype" -> "Reports/FileExtensionAndVersion";
+                                    default -> "Reports/Notes";
+                                },
+                        REPLACED_FILE);
+                rule = REPLACED_FILE;
             } else if (column.equals("reviewer") || column.equals("reviewdatetime")) {
                 // Decided below, once both columns are known; an "Update" clears the review.
                 String number = row.get("reviewer");
@@ -429,6 +457,28 @@ final class CdsExportImportedDocumentEditReconciler {
                 return null;
             }
         }
+    }
+
+    /** Whether the import wrote {@code value} to {@code column}, as the sealed baseline proves. */
+    static boolean wrote(CdsNativeRowState baseline, String column, String value) {
+        if (value == null) return false;
+        for (int i = 0; i < baseline.columns().size(); i++)
+            if (baseline.columns().get(i).name().equals(column)) {
+                var cell = baseline.cells().get(i);
+                byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+                return !cell.sqlNull()
+                        && cell.bytes() == bytes.length
+                        && HexFormat.of()
+                                .formatHex(CdsImportKeys.digest().digest(bytes))
+                                .equals(cell.sha256());
+            }
+        return false;
+    }
+
+    /** The IDs of the retained fields under {@code path} (relative to the report root). */
+    static Set<String> priorIds(List<CdsExportRetainedFieldDto> fields, String path)
+            throws IOException {
+        return prior(fields, root(fields), path).keySet();
     }
 
     /** The retained fields under {@code path}, by ID, with their path relative to the report. */

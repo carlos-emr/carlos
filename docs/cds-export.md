@@ -645,14 +645,38 @@ superseding the source (`CdsExportImportedDocumentEditReconciler`). The page
 `doctype`, `docClass`, `docSubClass`, `docdesc`, `source`, `sourceFacility`, `docxml` (always
 `""`: the page's `EDoc` carries no HTML), `responsible`, `public1`, `abnormal` and
 `receivedDate` on every save, plus `reviewer` and `reviewdatetime` on a review or
-`updatedatetime` and `observationdate` on a plain Update; the file columns change only with a
-replacement file. The type select offers the configured types (`ctl_doctype`), which do not
+`updatedatetime` and `observationdate` on a plain Update; a replacement file ("File", when
+`ALLOW_UPDATE_DOCUMENT_CONTENT` allows it) also writes `docfilename` (the upload's name with an
+`EDoc` time prefix), `contenttype` and `number_of_pages`, while `contentdatetime` is kept because
+an imported row has `cds_content_precision`. The type select offers the configured types (`ctl_doctype`), which do not
 include the import's `CDS` unless a clinic adds it, so a save normally also changes `doctype`;
 text inputs post `""` for a missing value. `editedDocuments` accepts a
 report unit whose only non-unchanged references are document rows with `CHANGED_ROW`, a
 qualified field comparison and changed columns inside that set, and reads each row's
-import-time state from the unit's sealed native baseline; anything else (a replaced file, a
-program restriction, a missing baseline) still requires review (`CDS_EXPORT_UNMAPPED_DATA`).
+import-time state from the unit's sealed native baseline; anything else (a program
+restriction, a changed status or link, a missing baseline) still requires review
+(`CDS_EXPORT_UNMAPPED_DATA`).
+
+A replaced file is the report's content (`REPLACED_IMPORTED_DOCUMENT_FILE_EXPORTED_CURRENT`).
+The representation whose document no longer has the import's file name is found by its sealed
+baseline (`CdsExportImportedDocumentEditReconciler.wrote`: the baseline's `docfilename` digest
+is the import's `cds-<unit>-<variant>-<digest>.<ext>`), and its captured file is accepted as it
+now is instead of against the import's digest. Its current bytes are staged and attached through
+the native attachment path at `Reports/<hash>.<ext>`, declared by their own signature
+(`CdsExportReportFileFormats.extension`): a referenced representation's FilePath names them; an
+embedded-only report's Content is removed and a FilePath added; an embedded representation
+beside a referenced one (whose FilePath is taken) becomes inline `Content/Media`, bounded at
+32 MiB (`CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY`)
+(`CdsExportReportOccurrenceService.representationChanges`, `inlineReplacement`). With one
+representation, `FileExtensionAndVersion` follows the replacement and `Format` becomes Binary.
+The replaced elements are the receipt's replaced fields. The file's captured content is
+`MAPPED` under the same rule, the row's file columns carry it too, and the report's edit
+context gains `replacedFile`: the representation, the imported name, content type, SHA-256 and
+length (from the preparation and proved by the baseline), and the current name, type, SHA-256
+and length. The edit page never deletes the imported file, so its bytes stay in the document
+directory under the import's name, and for an embedded representation also in the retained
+source; neither is put in the package, because the chart no longer shows it, and its identity
+travels in the context.
 `bind` then checks only the unchanged columns against the preparation. For each changed column:
 a first review is one more appended `ReportReviewed` (`FIRST_REVIEWER_RECORDED_AFTER_IMPORT`);
 a class, subclass, source author, source facility, observation date or received date the

@@ -350,6 +350,219 @@ class CdsExportImportedDocumentEditUnitTest {
                 .isInstanceOf(CdsExportReviewException.class);
     }
 
+    /** A replacement file the document edit page stored (EDoc prefixes the upload time). */
+    private static final String REPLACEMENT = "20260308114500scan.pdf";
+    private static final byte[] REPLACEMENT_BYTES =
+            "%PDF-1.4\n% replacement scan\n".getBytes(StandardCharsets.US_ASCII);
+    private static final String RELATIVE = "Reports/" + "d".repeat(64) + ".pdf";
+
+    private static CdsExportCapturedDocumentFiles.File replacementFile() throws Exception {
+        String digest =
+                HexFormat.of()
+                        .formatHex(
+                                java.security.MessageDigest.getInstance("SHA-256")
+                                        .digest(REPLACEMENT_BYTES));
+        return new CdsExportCapturedDocumentFiles.File(
+                91,
+                REPLACEMENT,
+                new CdsExportCapturedFieldDto(
+                        CdsExportDocumentFileSourceReader.TABLE,
+                        CdsExportPatientTableSourceReader.key(91),
+                        "content",
+                        CdsExportCapturedFieldDto.Kind.BINARY,
+                        0,
+                        REPLACEMENT_BYTES.length,
+                        digest));
+    }
+
+    private static CdsExportRetainedFieldDto retainedField(
+            List<CdsExportRetainedFieldDto> fields, String relative) {
+        return fields.stream()
+                .filter(field -> field.sourcePath().endsWith("/Reports[1]/" + relative))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    @Test
+    void shouldAttachTheReplacementFile_andCarryTheImportedFilesIdentity() throws Exception {
+        // "File" on the edit page: a new stored name and content type (and its page count);
+        // the content time of an imported document is kept.
+        var current = new TreeMap<>(imported());
+        current.put("docfilename", REPLACEMENT);
+        current.put("contenttype", "application/pdf");
+        current.put("number_of_pages", "1");
+        current.put("doctype", "consult");
+        var baseline = state(imported());
+        // The sealed baseline proves which representation the replaced row held.
+        assertThat(CdsExportImportedDocumentEditReconciler.wrote(baseline, "docfilename", FILE))
+                .isTrue();
+        assertThat(CdsExportImportedDocumentEditReconciler.wrote(baseline, "docfilename", REPLACEMENT))
+                .isFalse();
+        var fields = retained(false);
+        var row = document(current);
+        var now = state(current);
+        var edited = CdsNativeRowComparison.compare(baseline, now).changedColumns();
+        // The replacement is a PDF too, so the stored content type is unchanged.
+        assertThat(edited).contains("docfilename", "number_of_pages").doesNotContain("contenttype");
+        CdsExportReportOccurrenceService.bind(row, link(), PREPARED, VARIANT, FILE, 27, edited);
+        var edit =
+                new CdsExportImportedDocumentEditReconciler()
+                        .reconcile(
+                                row,
+                                baseline,
+                                now,
+                                CdsExportImportedDocumentEditReconciler.imported(
+                                        PREPARED, VARIANT, FILE),
+                                fields,
+                                inline(),
+                                providers(),
+                                ZONE);
+        assertThat(
+                        edit.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "document",
+                                                CdsExportPatientTableSourceReader.key(91),
+                                                "docfilename")))
+                .satisfies(
+                        decision -> {
+                            assertThat(decision.rule())
+                                    .isEqualTo(CdsExportImportedDocumentEditReconciler.REPLACED_FILE);
+                            assertThat(decision.destination()).isEqualTo("Reports/FilePath");
+                        });
+        var context = new LinkedHashMap<>(edit.context());
+        context.put(
+                "replacedFile",
+                CdsExportReportOccurrenceService.replacedFile(
+                        VARIANT, FILE, row, replacementFile()));
+        var changes =
+                new ArrayList<>(
+                        CdsExportReportOccurrenceService.representationChanges(
+                                "referenced",
+                                true,
+                                1,
+                                "Binary",
+                                fields,
+                                retainedField(fields, "FilePath[1]"),
+                                RELATIVE,
+                                "pdf"));
+        changes.addAll(edit.changes());
+        var assessments = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        var rows = new ArrayList<CdsExportCapturedTextRowDto>(List.of(row));
+        assertThat(
+                        CdsExportReportOccurrenceService.importedReviews(
+                                List.of(),
+                                providers(),
+                                ZONE,
+                                fields,
+                                changes,
+                                assessments,
+                                rows,
+                                new CdsExportReportOccurrenceService.Edits(
+                                        edit.reviewers(), List.of(context), edit.fields())))
+                .isNull();
+        var prepared =
+                new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
+        // The imported file path and declaration are replaced; every other field is retained.
+        assertThat(prepared.replacedFields())
+                .containsExactlyInAnyOrder(
+                        retainedField(fields, "FilePath[1]").id(),
+                        retainedField(fields, "FileExtensionAndVersion[1]").id());
+        var all = new HashSet<>(prepared.retainedFields());
+        all.addAll(prepared.replacedFields());
+        assertThat(all)
+                .containsExactlyInAnyOrderElementsOf(
+                        fields.stream().map(CdsExportRetainedFieldDto::id).toList());
+        String xml =
+                new String(render(CdsCategory.REPORTS, prepared.content()), StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "<FilePath>" + RELATIVE + "</FilePath>",
+                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>",
+                        "\"replacedFile\":{\"rule\":\"REPLACED_IMPORTED_DOCUMENT_FILE_EXPORTED_CURRENT\"",
+                        "\"imported\":{\"docfilename\":\"" + FILE + "\",\"contenttype\":\"application/pdf\",\"sha256\":\"" + "a".repeat(64),
+                        "\"current\":{\"docfilename\":\"" + REPLACEMENT + "\"",
+                        replacementFile().content().sha256());
+    }
+
+    @Test
+    void shouldAttachAReplacedEmbeddedContent_orWriteItInlineBesideAReferencedFile()
+            throws Exception {
+        var fields = new ArrayList<CdsExportRetainedFieldDto>();
+        fields.add(field("Reports[1]/Format[1]", "Text"));
+        fields.add(field("Reports[1]/FileExtensionAndVersion[1]", "txt"));
+        fields.add(field("Reports[1]/Content[1]/TextContent[1]", "Imported letter"));
+        fields.add(field("Reports[1]/Class[1]", "Consultant Report"));
+        // Embedded only: the Content gives way to the attached replacement, declared as it is.
+        var changes =
+                CdsExportReportOccurrenceService.representationChanges(
+                        "embedded", true, 1, "Text", fields, null, RELATIVE, "pdf");
+        var prepared =
+                new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
+        assertThat(prepared.replacedFields())
+                .containsExactlyInAnyOrder(
+                        retainedField(fields, "Format[1]").id(),
+                        retainedField(fields, "FileExtensionAndVersion[1]").id(),
+                        retainedField(fields, "Content[1]/TextContent[1]").id());
+        String attached =
+                new String(render(CdsCategory.REPORTS, prepared.content()), StandardCharsets.UTF_8);
+        assertThat(attached)
+                .contains(
+                        "<Format>Binary</Format>",
+                        "<FilePath>" + RELATIVE + "</FilePath>",
+                        "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>")
+                .doesNotContain("Imported letter");
+        // Beside a referenced file (a Binary report with Media and FilePath) the FilePath is
+        // taken: the replacement is the inline Media.
+        var both = new ArrayList<CdsExportRetainedFieldDto>();
+        both.add(field("Reports[1]/Format[1]", "Binary"));
+        both.add(field("Reports[1]/FileExtensionAndVersion[1]", "pdf"));
+        both.add(field("Reports[1]/FilePath[1]", "Reports/" + "c".repeat(64) + ".pdf"));
+        both.add(field("Reports[1]/Content[1]/Media[1]", "unused"));
+        both.add(field("Reports[1]/Class[1]", "Consultant Report"));
+        var inlineChange =
+                CdsExportReportOccurrenceService.inlineReplacement(both, REPLACEMENT_BYTES);
+        var inlined =
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(both, inline(), List.of(inlineChange), () -> {});
+        assertThat(inlined.replacedFields())
+                .containsExactly(retainedField(both, "Content[1]/Media[1]").id());
+        assertThat(
+                        new String(
+                                render(CdsCategory.REPORTS, inlined.content()),
+                                StandardCharsets.UTF_8))
+                .contains(Base64.getEncoder().encodeToString(REPLACEMENT_BYTES))
+                .doesNotContain("unused");
+    }
+
+    @Test
+    void shouldPointAnUnreplacedImportedReportAtItsFile_exactlyAsBefore() throws Exception {
+        var fields = retained(false);
+        var changes =
+                CdsExportReportOccurrenceService.representationChanges(
+                        "referenced",
+                        false,
+                        1,
+                        "Binary",
+                        fields,
+                        retainedField(fields, "FilePath[1]"),
+                        RELATIVE,
+                        "pdf");
+        // Only the FilePath names the package member, as before this change.
+        assertThat(changes)
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("FilePath[1]");
+        var prepared =
+                new CdsExportRetainedSectionWriter().prepareChanges(fields, inline(), changes, () -> {});
+        assertThat(prepared.replacedFields())
+                .containsExactly(retainedField(fields, "FilePath[1]").id());
+        // An unreplaced embedded representation needs no change at all.
+        assertThat(
+                        CdsExportReportOccurrenceService.representationChanges(
+                                "embedded", false, 2, "Binary", fields, null, RELATIVE, "pdf"))
+                .isEmpty();
+    }
+
     private static CdsExportRetainedReceiptVerificationDto changed(
             CdsExportRetainedIndexDto.Reference reference, Map<String, String> current) {
         var now = state(current);

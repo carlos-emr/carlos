@@ -200,8 +200,11 @@ separate Text report, "CARLOS reviews of an imported report", beside it. A Notes
 edited through the document's edit page is exported too: the review is one more
 ReportReviewed, an edited class, subclass, source author or facility, observation date or
 received date is exported as it now reads, and every edited value (description and type
-included) travels with the value it replaced in the same Notes or separate report. Replacing an
-imported document's file still holds the patient (`CDS_EXPORT_UNMAPPED_DATA`).
+included) travels with the value it replaced in the same Notes or separate report. When the
+file of an imported document was replaced on the edit page, the current file is exported as the
+report's content, and the name, type and SHA-256 fingerprint of the file the import brought
+travel with it. The imported file itself is still in CARLOS's document directory (the edit
+page does not delete it) but is not put in the package, since the chart no longer shows it.
 
 A document restricted to a program is exported when the exporting provider, and the operator
 when one runs the export, both work in that program (are members of it under Program

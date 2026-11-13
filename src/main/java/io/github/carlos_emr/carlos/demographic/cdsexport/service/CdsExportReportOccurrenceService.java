@@ -470,6 +470,29 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                                 .get(
                                                                                         "docfilename")))
                                                 .toList();
+                                // A file replaced on the document edit page: the row the import
+                                // wrote this representation to, as its sealed baseline proves.
+                                boolean replaced = false;
+                                if (matches.isEmpty()) {
+                                    matches =
+                                            refs.stream()
+                                                    .filter(ref -> ref.table().equals("document"))
+                                                    .filter(
+                                                            ref ->
+                                                                    editedBaselines.containsKey(ref.id())
+                                                                            && CdsExportImportedDocumentEditReconciler
+                                                                                    .wrote(
+                                                                                            editedBaselines
+                                                                                                    .get(
+                                                                                                            ref
+                                                                                                                    .id()),
+                                                                                            "docfilename",
+                                                                                            expectedFilename))
+                                                    .map(ref -> current.get(key(ref.table(), ref.id())))
+                                                    .filter(Objects::nonNull)
+                                                    .toList();
+                                    replaced = matches.size() == 1;
+                                }
                                 if (matches.size() != 1) review();
                                 var document = matches.getFirst();
                                 int documentId =
@@ -483,8 +506,12 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                 if (file == null
                                         || link == null
                                         || !usedFiles.add(documentId)
-                                        || file.content().bytes() != variant.length()
-                                        || !file.content().sha256().equals(variant.digest()))
+                                        || (replaced
+                                                ? file.content().bytes() < 1
+                                                : file.content().bytes() != variant.length()
+                                                        || !file.content()
+                                                                .sha256()
+                                                                .equals(variant.digest())))
                                     review();
                                 var baseline =
                                         editedBaselines.get(document.fields().get("document_no"));
@@ -561,7 +588,12 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         if (prior == null) changes.add(change);
                                     }
                                     editReviewers.addAll(edit.reviewers());
-                                    editContexts.add(edit.context());
+                                    var context = new LinkedHashMap<>(edit.context());
+                                    if (replaced)
+                                        context.put(
+                                                "replacedFile",
+                                                replacedFile(variant, expectedFilename, document, file));
+                                    editContexts.add(context);
                                     editFields.putAll(edit.fields());
                                     var present = new HashSet<String>();
                                     for (var row : nativeRows)
@@ -579,20 +611,40 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         invalid();
                                     unitReviews.add(row);
                                 }
-                                assessFile(file, variant.name(), fileAssessments);
-                                if (variant.name().equals("referenced")) {
-                                    if (sourceValues.filePath() == null
-                                            || sourceValues.originalFilePath() == null
-                                            || sourceValues.originalFilePath().isBlank()) invalid();
-                                    String relative =
-                                            "Reports/"
-                                                    + CdsImportKeys.hash(
-                                                            "cds-export-report-file-v1",
-                                                            patientKey,
-                                                            address,
-                                                            variant.name())
-                                                    + "."
-                                                    + variant.extension();
+                                // A replaced embedded representation beside a referenced one has
+                                // no free FilePath: its current bytes become the inline Media.
+                                boolean inline =
+                                        replaced
+                                                && variant.name().equals("embedded")
+                                                && sourceValues.variants().containsKey("referenced");
+                                if (replaced)
+                                    assessFile(
+                                            file,
+                                            inline ? "Reports/Content" : "Reports/FilePath",
+                                            CdsExportImportedDocumentEditReconciler.REPLACED_FILE,
+                                            fileAssessments);
+                                else assessFile(file, variant.name(), fileAssessments);
+                                if (inline) {
+                                    byte[] bytes =
+                                            currentBytes(
+                                                    captured, file, control, patient.patient());
+                                    changes.add(inlineReplacement(fields, bytes));
+                                    // Media is binary content (a report with a FilePath already is).
+                                    if (!"Binary".equals(prepared.values().get("Format")))
+                                        changes.add(
+                                                new CdsExportRetainedSectionWriter.Change(
+                                                        "Format[1]",
+                                                        CdsExportImportedDocumentEditReconciler
+                                                                .priorIds(fields, "Format[1]"),
+                                                        content -> content.text("Binary")));
+                                } else if (variant.name().equals("referenced") || replaced) {
+                                    if (variant.name().equals("referenced")
+                                            && (sourceValues.filePath() == null
+                                                    || sourceValues.originalFilePath() == null
+                                                    || sourceValues.originalFilePath().isBlank()))
+                                        invalid();
+                                    var prefix =
+                                            new ByteArrayOutputStream(CdsExportReportFileFormats.PREFIX);
                                     var copied =
                                             store.stage(
                                                     "REPORT_ATTACHMENT",
@@ -611,29 +663,51 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                             transfer(
                                                                     input,
                                                                     outputBytes,
-                                                                    control::checkpoint);
+                                                                    control::checkpoint,
+                                                                    prefix);
                                                         }
                                                     });
                                     attachments.add(copied);
-                                    if (copied.plaintextBytes() != variant.length()
-                                            || !copied.plaintextSha256().equals(variant.digest()))
-                                        invalid();
+                                    // The imported bytes, or the replacement the chart now shows.
+                                    if (replaced
+                                            ? copied.plaintextBytes() != file.content().bytes()
+                                                    || !copied.plaintextSha256()
+                                                            .equals(file.content().sha256())
+                                            : copied.plaintextBytes() != variant.length()
+                                                    || !copied.plaintextSha256()
+                                                            .equals(variant.digest())) invalid();
+                                    // A replacement is declared by what its own bytes are.
+                                    String extension =
+                                            replaced
+                                                    ? CdsExportReportFileFormats.extension(
+                                                            document.fields().get("docfilename"),
+                                                            document.fields().get("contenttype"),
+                                                            prefix.toByteArray())
+                                                    : variant.extension();
+                                    String relative =
+                                            "Reports/"
+                                                    + CdsImportKeys.hash(
+                                                            "cds-export-report-file-v1",
+                                                            patientKey,
+                                                            address,
+                                                            variant.name())
+                                                    + "."
+                                                    + extension;
                                     streams.requireActive();
                                     control.authorizeCategory(patient.patient(), category(), false);
                                     output.attachment(
                                             identity,
                                             new CdsExportPackageMemberDto(relative, copied));
-                                    String root =
-                                            CdsExportRetainedOccurrencePath.root(
-                                                    sourceValues.filePath(), category());
-                                    changes.add(
-                                            new CdsExportRetainedSectionWriter.Change(
-                                                    sourceValues
-                                                            .filePath()
-                                                            .sourcePath()
-                                                            .substring(root.length() + 1),
-                                                    Set.of(sourceValues.filePath().id()),
-                                                    content -> content.text(relative)));
+                                    changes.addAll(
+                                            representationChanges(
+                                                    variant.name(),
+                                                    replaced,
+                                                    sourceValues.variants().size(),
+                                                    prepared.values().get("Format"),
+                                                    fields,
+                                                    sourceValues.filePath(),
+                                                    relative,
+                                                    extension));
                                 }
                             }
                             // The retained report keeps the reviewers the sending EMR recorded.
@@ -1537,6 +1611,153 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         var links = new CdsExportNativeFieldAssessments(link, output);
         for (String column : link.fields().keySet())
             links.operational(column, "EXACT_ACTIVE_PATIENT_DOCUMENT_ASSOCIATION");
+    }
+
+    /**
+     * The retained-report changes that point an imported report at its attached file: the
+     * imported FilePath now names the package member; a replaced file (the document edit page's
+     * "File") of an embedded-only report takes the Content's place, and with one representation
+     * the report's FileExtensionAndVersion and Format follow the replacement. An unreplaced
+     * embedded representation needs no change.
+     */
+    static List<CdsExportRetainedSectionWriter.Change> representationChanges(
+            String variant,
+            boolean replaced,
+            int representations,
+            String format,
+            List<CdsExportRetainedFieldDto> fields,
+            CdsExportRetainedFieldDto filePath,
+            String relative,
+            String extension)
+            throws IOException {
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        if (variant.equals("referenced")) {
+            if (filePath == null) invalid();
+            String root = CdsExportRetainedOccurrencePath.root(filePath, CdsCategory.REPORTS);
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            filePath.sourcePath().substring(root.length() + 1),
+                            Set.of(filePath.id()),
+                            content -> content.text(relative)));
+        } else if (replaced) {
+            // The only representation was embedded: its Content gives way to the attachment.
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "Content[1]",
+                            CdsExportImportedDocumentEditReconciler.priorIds(fields, "Content[1]"),
+                            null));
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "FilePath[1]", Set.of(), content -> content.text(relative)));
+        }
+        if (replaced && representations == 1) {
+            // One representation: the report's declarations follow the replacement.
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "FileExtensionAndVersion[1]",
+                            CdsExportImportedDocumentEditReconciler.priorIds(
+                                    fields, "FileExtensionAndVersion[1]"),
+                            content -> content.text(extension)));
+            if (!"Binary".equals(format))
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "Format[1]",
+                                CdsExportImportedDocumentEditReconciler.priorIds(fields, "Format[1]"),
+                                content -> content.text("Binary")));
+        }
+        return List.copyOf(changes);
+    }
+
+    /** The inline Media of a replaced embedded representation beside a referenced one. */
+    static CdsExportRetainedSectionWriter.Change inlineReplacement(
+            List<CdsExportRetainedFieldDto> fields, byte[] bytes) throws IOException {
+        byte[] copy = bytes.clone();
+        return new CdsExportRetainedSectionWriter.Change(
+                "Content[1]",
+                CdsExportImportedDocumentEditReconciler.priorIds(fields, "Content[1]"),
+                content -> {
+                    content.start("cds_dt", "Media");
+                    content.binary(new ByteArrayInputStream(copy));
+                    content.end();
+                });
+    }
+
+    /**
+     * The imported file's identity, sealed in the receipt baseline and the import's preparation,
+     * beside the replacement the chart now shows.
+     */
+    static Map<String, Object> replacedFile(
+            CdsReportNativeDto.Variant variant,
+            String importedName,
+            CdsExportCapturedTextRowDto document,
+            CdsExportCapturedDocumentFiles.File file) {
+        var imported = new LinkedHashMap<String, Object>();
+        imported.put("docfilename", importedName);
+        imported.put("contenttype", variant.mime());
+        imported.put("sha256", variant.digest());
+        imported.put("bytes", variant.length());
+        var current = new LinkedHashMap<String, Object>();
+        current.put("docfilename", document.fields().get("docfilename"));
+        current.put("contenttype", document.fields().get("contenttype"));
+        current.put("sha256", file.content().sha256());
+        current.put("bytes", file.content().bytes());
+        var result = new LinkedHashMap<String, Object>();
+        result.put("rule", CdsExportImportedDocumentEditReconciler.REPLACED_FILE);
+        result.put("representation", variant.name());
+        result.put("imported", imported);
+        result.put("current", current);
+        return result;
+    }
+
+    /** The replacement bytes of an inline representation, read once and bounded. */
+    private static byte[] currentBytes(
+            CdsExportCapturedValues captured,
+            CdsExportCapturedDocumentFiles.File file,
+            CdsExportRunControl control,
+            int patient)
+            throws IOException {
+        if (file.content().bytes() > INLINE_CONTENT_BYTES)
+            throw new CdsExportMappingReviewException(
+                    "CDS_EXPORT_IMPORTED_REPORT_REPLACED_CONTENT_CAPACITY");
+        var buffer = new ByteArrayOutputStream();
+        try (var input =
+                captured.open(
+                        file.content(),
+                        control::checkpoint,
+                        () -> control.authorizeCategory(patient, CdsCategory.REPORTS, false))) {
+            transfer(input, buffer, control::checkpoint);
+        }
+        byte[] bytes = buffer.toByteArray();
+        if (bytes.length != file.content().bytes()) invalid();
+        return bytes;
+    }
+
+    /** The largest replacement written inline as Media (32 MiB, as the composer bounds it). */
+    private static final long INLINE_CONTENT_BYTES = 32L << 20;
+
+    /** One captured file's fields, under {@code rule}, exported at {@code destination}. */
+    private static void assessFile(
+            CdsExportCapturedDocumentFiles.File file,
+            String destination,
+            String rule,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> output)
+            throws IOException {
+        String key = file.content().recordKey();
+        for (String column : Set.of("document_no", "filename", "content")) {
+            var assessment =
+                    new CdsExportFieldAssessmentDto(
+                            column.equals("content") && file.content().bytes() == 0
+                                    ? Presence.EMPTY
+                                    : Presence.VALUE,
+                            column.equals("content") ? Outcome.MAPPED : Outcome.OPERATIONAL,
+                            column.equals("content") ? destination : "",
+                            rule);
+            if (output.putIfAbsent(
+                            new CdsExportNativeFieldKeyDto(
+                                    CdsExportDocumentFileSourceReader.TABLE, key, column),
+                            assessment)
+                    != null) invalid();
+        }
     }
 
     private static void assessFile(
