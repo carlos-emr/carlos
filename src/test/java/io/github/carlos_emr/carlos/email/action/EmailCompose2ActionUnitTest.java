@@ -276,6 +276,64 @@ class EmailCompose2ActionUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    @DisplayName("should delete the eForm's prepared file when a later attachment is refused, and still give the draft back")
+    void shouldDiscardPreparedAttachments_whenLaterAttachmentIsRefused() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        List<EmailAttachment> eForm = file("A");
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(eForm);
+        // A document of another patient is refused like one that cannot be found.
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
+                .thenThrow(new PDFGenerationException("FAKE attachment refused"))
+                .thenReturn(List.of());
+
+        assertThat(prepare(keyA).getAttribute("FAKE-result")).isEqualTo("eFormError");
+
+        verify(emailComposeManager).discardPreparedAttachments(eForm);
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+    }
+
+    @Test
+    @DisplayName("should delete the files prepared before a missing attachment privilege refuses the window")
+    void shouldDiscardPreparedAttachments_whenAttachmentPrivilegeMissing() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        List<EmailAttachment> eForm = file("A");
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(eForm);
+        when(emailComposeManager.prepareEDocAttachments(any(), any(), any()))
+                .thenThrow(new SecurityException("missing required sec object (_edoc)"));
+
+        assertThatThrownBy(() -> prepare(keyA)).isInstanceOf(SecurityException.class);
+
+        verify(emailComposeManager).discardPreparedAttachments(eForm);
+    }
+
+    @Test
+    @DisplayName("should delete the prepared files when they cannot be staged because the session ended")
+    void shouldDiscardPreparedAttachments_whenStagingFails() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        List<EmailAttachment> eForm = file("A");
+        // The session ends while the attachments are being prepared, so staging them throws.
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenAnswer(invocation -> {
+            session.invalidate();
+            return eForm;
+        });
+
+        assertThatThrownBy(() -> prepare(keyA)).isInstanceOf(IllegalStateException.class);
+
+        verify(emailComposeManager).discardPreparedAttachments(eForm);
+    }
+
+    @Test
+    @DisplayName("should keep the prepared files when the window opens")
+    void shouldKeepPreparedAttachments_whenComposeSucceeds() throws Exception {
+        String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));
+        when(emailComposeManager.prepareEFormAttachments(any(), eq("20001"), any(), any())).thenReturn(file("A"));
+
+        assertShowsWindow(prepare(keyA), "10001", "20001", false, "A");
+
+        verify(emailComposeManager, never()).discardPreparedAttachments(any());
+    }
+
+    @Test
     @DisplayName("should show the generic message, not the error's text, when attachment preparation throws unexpectedly")
     void shouldShowGenericMessage_whenAttachmentPreparationThrowsUnexpectedly() throws Exception {
         String keyA = EmailComposeStaging.stage(session, "40001", draft("10001", "20001", false, "A"));

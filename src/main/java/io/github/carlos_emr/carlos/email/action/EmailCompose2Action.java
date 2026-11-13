@@ -300,7 +300,9 @@ public class EmailCompose2Action extends ActionSupport {
         } catch (SecurityException e) {
             // A missing privilege is a refusal, not a preparation failure: it goes to the access-denied
             // page rather than the generic "try again" message. The draft still goes back, like any
-            // failure after take().
+            // failure after take(). The attachment types already prepared are deleted: a retry
+            // renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             throw e;
         } catch (PDFGenerationException | RuntimeException e) {
@@ -311,6 +313,9 @@ public class EmailCompose2Action extends ActionSupport {
             // exceptionTrace gives the types and code locations, never a message.
             logger.error("Unable to prepare the eForm email; causeType={}, reference={}{}",
                     e.getClass().getName(), reference, LogSafe.exceptionTrace(e));
+            // A later attachment type was refused (another patient's record) or failed after the
+            // earlier ones were rendered: delete those, as a retry renders them again.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
             restoreDraft.run();
             return emailComposeError(request, EmailFailureMessage.format(LocaleUtils.resolveBundleLocale(request),
                     EmailFailureMessage.EFORM_ATTACHMENTS_KEY, reference));
@@ -342,8 +347,15 @@ public class EmailCompose2Action extends ActionSupport {
         // Stage this window's attachments under its own key, bound to this patient (#4425). The send
         // takes exactly this entry, so another window's compose or resend cannot change what this
         // window sends.
-        EmailAttachmentStaging.Staged stagedAttachments =
-                EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        EmailAttachmentStaging.Staged stagedAttachments;
+        try {
+            stagedAttachments = EmailAttachmentStaging.stage(session, demographicNo, emailAttachmentList);
+        } catch (RuntimeException e) {
+            // Nothing was staged (for example, the session ended meanwhile), so no window can send
+            // these files: delete them now rather than leave them to the purge job.
+            emailComposeManager.discardPreparedAttachments(emailAttachmentList);
+            throw e;
+        }
         request.setAttribute("emailAttachmentList", stagedAttachments.prepared().attachments());
         request.setAttribute(EmailAttachmentStaging.KEY_ATTRIBUTE, stagedAttachments.key());
 

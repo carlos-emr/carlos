@@ -1,5 +1,6 @@
 package io.github.carlos_emr.carlos.managers;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -140,12 +141,14 @@ public class EmailComposeManager {
         }
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (Integer eFormId : patientAttachmentIds(DocumentType.EFORM, attachedEFormIds, demographicNo)) {
-            Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
-            if (eFormPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, eFormId, getFileSize(eFormPDFPath)));
+        renderOrDiscard(emailAttachments, () -> {
+            for (Integer eFormId : patientAttachmentIds(DocumentType.EFORM, attachedEFormIds, demographicNo)) {
+                Path eFormPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.EFORM, eFormId);
+                if (eFormPDFPath != null) {
+                    emailAttachments.add(new EmailAttachment(eFormPDFPath.getFileName().toString(), eFormPDFPath.toString(), DocumentType.EFORM, eFormId, getFileSize(eFormPDFPath)));
+                }
             }
-        }
+        });
 
         return emailAttachments;
     }
@@ -177,13 +180,15 @@ public class EmailComposeManager {
         List<String> attachedEDocIds = convertToList(attachedDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (Integer eDocId : patientAttachmentIds(DocumentType.DOC, attachedEDocIds, demographicNo)) {
-            Path eDocPDFPath = applicationTempFile(
-                    documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId));
-            if (eDocPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, eDocId, getFileSize(eDocPDFPath)));
+        renderOrDiscard(emailAttachments, () -> {
+            for (Integer eDocId : patientAttachmentIds(DocumentType.DOC, attachedEDocIds, demographicNo)) {
+                Path eDocPDFPath = applicationTempFile(
+                        documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.DOC, eDocId));
+                if (eDocPDFPath != null) {
+                    emailAttachments.add(new EmailAttachment(eDocPDFPath.getFileName().toString(), eDocPDFPath.toString(), DocumentType.DOC, eDocId, getFileSize(eDocPDFPath)));
+                }
             }
-        }
+        });
 
         return emailAttachments;
     }
@@ -215,6 +220,67 @@ public class EmailComposeManager {
     }
 
     /**
+     * Deletes the files of attachments that were prepared for a compose window which then failed.
+     *
+     * <p>Attachment types are prepared one after another, so when a later one is refused (another
+     * patient's record, a missing privilege) or fails to render, the earlier types' PDFs are
+     * already in the application temp tree. (A type that fails part way deletes its own earlier
+     * files, through this method, before the failure reaches the caller.) The window gets its draft
+     * back for a retry, and each retry renders them again; without this they stay until
+     * {@code ApplicationTempPurgeJob} sweeps them. Only files inside the application temp tree are
+     * deleted (the attachment preview's own rule), so a stored document can never be. A file that
+     * cannot be deleted is logged with its exception class only, never its path, and left to the
+     * purge job.</p>
+     *
+     * @param prepared List&lt;EmailAttachment&gt; the attachments prepared so far; {@code null} or empty
+     *        does nothing
+     */
+    public void discardPreparedAttachments(List<EmailAttachment> prepared) {
+        if (prepared == null) {
+            return;
+        }
+        for (EmailAttachment attachment : prepared) {
+            String filePath = attachment == null ? null : attachment.getFilePath();
+            if (filePath == null || filePath.isBlank()) {
+                continue;
+            }
+            File owned;
+            try {
+                // The checked, canonical file is the one deleted, never the path as stored.
+                owned = PathValidationUtils.validateApplicationTempPath(new File(filePath));
+            } catch (SecurityException outsideTempTree) {
+                continue;
+            }
+            try {
+                nioFileManager.deleteTempFile(owned.getPath());
+            } catch (RuntimeException e) {
+                logger.warn("A prepared email attachment could not be deleted; causeType={}", e.getClass().getName());
+            }
+        }
+    }
+
+    /** One attachment type's render loop, filling that type's list. */
+    @FunctionalInterface
+    private interface AttachmentLoop {
+        void run() throws PDFGenerationException;
+    }
+
+    /**
+     * Runs one attachment type's render loop. If it fails part way, the files it already put in
+     * {@code emailAttachments} are deleted before the same failure goes on: that list is never
+     * returned, so the caller's clean-up cannot reach them.
+     */
+    private void renderOrDiscard(List<EmailAttachment> emailAttachments, AttachmentLoop loop)
+            throws PDFGenerationException {
+        try {
+            loop.run();
+        } catch (PDFGenerationException | RuntimeException e) {
+            discardPreparedAttachments(emailAttachments);
+            throw e;
+        }
+    }
+
+    /**
      * Prepares laboratory result attachments for email composition by rendering them as PDF documents.
      *
      * This method converts selected laboratory results into PDF format for email attachment.
@@ -241,12 +307,14 @@ public class EmailComposeManager {
         List<String> attachedLabIds = convertToList(attachedLabs);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (Integer labId : patientAttachmentIds(DocumentType.LAB, attachedLabIds, demographicNo)) {
-            Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, labId);
-            if (labPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, labId, getFileSize(labPDFPath)));
+        renderOrDiscard(emailAttachments, () -> {
+            for (Integer labId : patientAttachmentIds(DocumentType.LAB, attachedLabIds, demographicNo)) {
+                Path labPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.LAB, labId);
+                if (labPDFPath != null) {
+                    emailAttachments.add(new EmailAttachment(labPDFPath.getFileName().toString(), labPDFPath.toString(), DocumentType.LAB, labId, getFileSize(labPDFPath)));
+                }
             }
-        }
+        });
 
         return emailAttachments;
     }
@@ -283,12 +351,14 @@ public class EmailComposeManager {
         List<String> attachedHRMIds = convertToList(attachedHRMDocuments);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (Integer hrmId : patientAttachmentIds(DocumentType.HRM, attachedHRMIds, demographicNo)) {
-            Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
-            if (hrmPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, hrmId, getFileSize(hrmPDFPath)));
+        renderOrDiscard(emailAttachments, () -> {
+            for (Integer hrmId : patientAttachmentIds(DocumentType.HRM, attachedHRMIds, demographicNo)) {
+                Path hrmPDFPath = documentAttachmentManager.renderDocument(loggedInInfo, DocumentType.HRM, hrmId);
+                if (hrmPDFPath != null) {
+                    emailAttachments.add(new EmailAttachment(hrmPDFPath.getFileName().toString(), hrmPDFPath.toString(), DocumentType.HRM, hrmId, getFileSize(hrmPDFPath)));
+                }
             }
-        }
+        });
 
         return emailAttachments;
     }
@@ -317,12 +387,14 @@ public class EmailComposeManager {
         List<String> attachedFormIds = convertToList(attachedForms);
 
         List<EmailAttachment> emailAttachments = new ArrayList<>();
-        for (String formId : attachedFormIds) {
-            Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
-            if (formPDFPath != null) {
-                emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
+        renderOrDiscard(emailAttachments, () -> {
+            for (String formId : attachedFormIds) {
+                Path formPDFPath = formsManager.renderForm(request, response, Integer.parseInt(formId), demographicId);
+                if (formPDFPath != null) {
+                    emailAttachments.add(new EmailAttachment(formPDFPath.getFileName().toString(), formPDFPath.toString(), DocumentType.FORM, Integer.parseInt(formId), getFileSize(formPDFPath)));
+                }
             }
-        }
+        });
 
         return emailAttachments;
     }
