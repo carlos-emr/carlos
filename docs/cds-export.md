@@ -1292,8 +1292,21 @@ stays the lossless accounting. Two printers are registered (web context by compo
   packaged sample path, for example) is not an omission: the letter prints without a logo, as the
   clinic's own Print does, and no Note is added. An installed logo that cannot be read (larger than
   4 MiB, unreadable, or not an image) is reported. A request whose consultant is a health-care-team
-  contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) is
-  refused with `CONSULTANT_CONTACT_UNSUPPORTED`. The letter prints only part of the record (not the
+  contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints
+  that contact as the chart's Print does (`EctConsultationFormRequestUtil.estRequestFromId`,
+  `CdsExportConsultationLetterComposer.consultant`): `CdsExportPrintedFormReadDao.teamLink` reads
+  the `DemographicContact` link (type, category, contact id) and `contact` the `Contact` row; a
+  professional `ProfessionalContact` (type 2, category "professional" in any case) is applied to
+  the directory specialist whose `specId` is the contact's id, keeping its salutation and
+  letters, by `ProfessionalSpecialist.applyProfessionalContact`, the code the chart's
+  `DemographicContactCreator` runs. Borrowing an unrelated directory row's salutation and letters
+  (and printing "null" for a contact with no work phone) is the chart's inherited behaviour, kept
+  so the exported letter is the one the chart prints; correcting it is a chart change the export
+  would then follow. Any other link, or a contact row that is gone, prints the
+  specialist `specId` names, as the chart does. Where the chart's own Print fails (the link row is
+  gone or untyped, its contact id is not a number, the row is a personal `Contact`, no directory
+  specialist has the contact's id, or the contact has no CPSO number) the letter is refused with
+  `CONSULTANT_CONTACT_UNAVAILABLE`. The letter prints only part of the record (not the
   other extension rows, attachment references, status or source); the request's data summary
   already lists every one of its rows and values, so no further supplementary summary is needed.
   The request path is pinned by
@@ -1325,7 +1338,7 @@ and record id.
 A printed form that cannot be made never holds the patient: the record is exported as its data
 summary, whose Notes end with "could not be produced (<category>)". Categories are fixed codes
 (`NOT_AUTHORIZED`, `TEXT_OVERFLOW`, `UNSUPPORTED_CHARACTER`, `FONT_UNAVAILABLE`,
-`FORM_MAPPING_MISMATCH`, `CONSULTANT_CONTACT_UNSUPPORTED`, `RENDER_FAILED`), never PHI. The
+`FORM_MAPPING_MISMATCH`, `CONSULTANT_CONTACT_UNAVAILABLE`, `RENDER_FAILED`), never PHI. The
 inventory (`identities`) prints each eligible record to decide whether its printed entry is
 expected; the emission prints it again. Both printers are functions of the captured record and
 the reference values, so they reach the same answer; an answer that differs between the two

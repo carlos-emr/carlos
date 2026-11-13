@@ -103,13 +103,17 @@ class CdsExportConsultationLetterComposerUnitTest {
     }
 
     private static Group request(String signature, String contact) {
+        return request(signature, contact, "9001");
+    }
+
+    private static Group request(String signature, String contact, String specId) {
         return new Group(
                 Kind.CONSULTATION_REQUEST,
                 "consultationRequests",
                 "5",
                 List.of(
                         row("consultationRequests", 5, "requestId", "5", "referalDate", "2024-02-03",
-                                "patientWillBook", "0", "urgency", "1", "serviceId", "3", "specId", "9001",
+                                "patientWillBook", "0", "urgency", "1", "serviceId", "3", "specId", specId,
                                 "demographicContactId", contact, "providerNo", "101", "appointmentDate", "2024-03-01",
                                 "appointmentTime", "14:05:00", "appointmentInstructions", "A1",
                                 "reason", "Synthetic reason", "clinicalInfo", "Clinical text",
@@ -239,14 +243,108 @@ class CdsExportConsultationLetterComposerUnitTest {
         assertThat(printed.notes()).containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
     }
 
-    @Test
-    void shouldRefuseTheLetter_whenTheConsultantIsAHealthCareTeamContact() throws Exception {
+    /** A professional health-care-team contact (TYPE_CONTACT 2) with every value the letter shows. */
+    private void teamContact(String category) {
         property("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
+        when(references.teamLink(12)).thenReturn(new CdsExportPrintedFormReadDao.TeamLink(2, category, "40"));
+        when(references.contact(40)).thenReturn(new CdsExportPrintedFormReadDao.Contact(
+                "ProfessionalContact", "Nora", "NURSE", "8 Care Rd", "Suite 2", "Testville", "A1A 1A1", "ON",
+                "Canada", "555-0500", "12", "555-0501", "12345"));
+        // The chart's converter starts from the directory specialist with the contact's id.
+        when(references.specialist(40)).thenReturn(new CdsExportPrintedFormReadDao.Specialist(
+                "Dr.", "Other", "DIRECTORY", "NP", "1 Elsewhere", "555-0900", "555-0901"));
+    }
+
+    @Test
+    void shouldPrintAHealthCareTeamContact_asTheChartsPrintShowsIt() throws Exception {
+        teamContact("professional");
+        var request = request("44", "12", null);
+        var printed = composer.print(request, plan(request, png()));
+
+        assertThat(printed.notes()).isEmpty();
+        var consultant = composer.consultant(request.rows().getFirst());
+        assertThat(consultant.name()).isEqualTo("Dr. NURSE, Nora NP");
+        assertThat(consultant.phone()).isEqualTo("555-0500 ext 12");
+        assertThat(consultant.fax()).isEqualTo("555-0501");
+        assertThat(consultant.address()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada,");
+        try (var pdf = Loader.loadPDF(printed.pdf())) {
+            String text = new PDFTextStripper().getText(pdf);
+            assertThat(text).contains("Dr. NURSE, Nora NP", "555-0500 ext 12", "555-0501", "8 Care Rd Suite 2")
+                    .doesNotContain("DIRECTORY");
+        }
+    }
+
+    @Test
+    void shouldMatchTheCategoryInAnyCase_withAContactThatHasNoWorkPhoneOrDirectoryLetters() throws Exception {
+        teamContact("Professional");
+        when(references.contact(40)).thenReturn(new CdsExportPrintedFormReadDao.Contact(
+                "ProfessionalContact", "Nora", "NURSE", null, null, "Testville", null, "ON", null, null, null,
+                null, " 12345 "));
+        when(references.specialist(40)).thenReturn(new CdsExportPrintedFormReadDao.Specialist(
+                null, "Other", "DIRECTORY", null, null, null, null));
+
+        var consultant = composer.consultant(request("44", "12", null).rows().getFirst());
+
+        assertThat(consultant.name()).isEqualTo("NURSE, Nora");
+        // The chart joins a missing work phone as the text "null"; the letter shows what it shows.
+        assertThat(consultant.phone()).isEqualTo("null");
+        assertThat(consultant.fax()).isNull();
+        assertThat(consultant.address()).isEqualTo(", Testville, , ON, ,");
+    }
+
+    @Test
+    void shouldPrintTheDirectorySpecialist_whenTheTeamLinkIsNotAProfessionalContact() throws Exception {
+        property("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
+        // A team link to a directory specialist (TYPE_PROFESSIONALSPECIALIST) prints the specialist
+        // the request names, as does a personal contact or a contact row that is gone.
+        for (var link : List.of(
+                new CdsExportPrintedFormReadDao.TeamLink(3, "professional", "9001"),
+                new CdsExportPrintedFormReadDao.TeamLink(2, "personal", "40"),
+                new CdsExportPrintedFormReadDao.TeamLink(2, "professional", "41"))) {
+            when(references.teamLink(12)).thenReturn(link);
+            assertThat(composer.consultant(request("44", "12").rows().getFirst()).name())
+                    .isEqualTo("Dr. SPECIALIST, Sam MD");
+        }
+        when(references.teamLink(12)).thenReturn(new CdsExportPrintedFormReadDao.TeamLink(2, "professional", "41"));
+        assertThat(composer.consultant(request("44", "12", null).rows().getFirst())).isNull();
+    }
+
+    @Test
+    void shouldIgnoreTheTeamLink_whenTheHealthCareTeamIsOff() throws Exception {
+        property("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "false");
         var request = request("44", "12");
 
-        assertThatThrownBy(() -> composer.print(request, plan(request, png())))
-                .isInstanceOf(CdsExportDataSummaryOccurrenceService.PrintRefusal.class)
-                .hasMessage("CONSULTANT_CONTACT_UNSUPPORTED");
+        assertThat(composer.consultant(request.rows().getFirst()).name()).isEqualTo("Dr. SPECIALIST, Sam MD");
+        org.mockito.Mockito.verify(references, org.mockito.Mockito.never()).teamLink(org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    @Test
+    void shouldRefuseTheLetter_whenTheChartCannotResolveTheTeamContact() throws Exception {
+        var request = request("44", "12", null);
+        var plan = plan(request, png());
+        List<Runnable> unprintable = List.of(
+                // The link row is gone, or holds no type: the chart cannot load the request.
+                () -> when(references.teamLink(12)).thenReturn(null),
+                () -> when(references.teamLink(12)).thenReturn(
+                        new CdsExportPrintedFormReadDao.TeamLink(null, "professional", "40")),
+                // The id it stores is not a number.
+                () -> when(references.teamLink(12)).thenReturn(
+                        new CdsExportPrintedFormReadDao.TeamLink(2, "professional", "forty")),
+                // A personal Contact row under a professional link fails the chart's cast.
+                () -> when(references.contact(40)).thenReturn(new CdsExportPrintedFormReadDao.Contact(
+                        "Contact", "Nora", "NURSE", null, null, null, null, null, null, null, null, null, null)),
+                // No directory specialist has the contact's id, or the contact has no CPSO number.
+                () -> when(references.specialist(40)).thenReturn(null),
+                () -> when(references.contact(40)).thenReturn(new CdsExportPrintedFormReadDao.Contact(
+                        "ProfessionalContact", "Nora", "NURSE", null, null, null, null, null, null, null, null,
+                        null, null)));
+        for (var change : unprintable) {
+            teamContact("professional");
+            change.run();
+            assertThatThrownBy(() -> composer.print(request, plan))
+                    .isInstanceOf(CdsExportDataSummaryOccurrenceService.PrintRefusal.class)
+                    .hasMessage("CONSULTANT_CONTACT_UNAVAILABLE");
+        }
     }
 
     @Test

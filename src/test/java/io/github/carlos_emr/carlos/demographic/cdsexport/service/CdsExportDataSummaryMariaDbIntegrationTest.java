@@ -192,6 +192,9 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 sql.update("delete from client_image where image_id=?", patient);
                 sql.update("delete from CdsHospitalisationDays where id=?", patient);
                 sql.update("delete from DrugProduct where name=?", "synthetic-" + patient);
+                sql.update("delete from DemographicContact where id=?", patient);
+                sql.update("delete from Contact where id=?", patient);
+                sql.update("delete from professionalSpecialists where specId=?", patient);
             }
         } finally {
             if (context != null) context.close();
@@ -690,6 +693,65 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         sql.update("delete from labRequestReportLink where id in (?,?)", patient, patient + 1);
         sql.update("delete from patientLabRouting where lab_no=? and demographic_no=?", patient, patient);
         sql.update("delete from admission where am_id in (?,?)", patient, patient + 1);
+    }
+
+    @Test
+    void shouldPrintAHealthCareTeamConsultant_fromTheContactTablesAsTheChartReadsThem()
+            throws Exception {
+        // A professional contact on the patient's health care team, as the contact screens write
+        // it, and the directory specialist whose id the chart's converter reads beside it.
+        sql.update(
+                "insert into DemographicContact(id,facilityId,creator,updateDate,deleted,demographicNo,"
+                        + "contactId,role,type,category,consentToContact,active,mrp)"
+                        + " values(?,0,'999998',now(),0,?,?,'Nurse Practitioner',2,'professional',1,1,0)",
+                patient,
+                patient,
+                Integer.toString(patient));
+        sql.update(
+                "insert into Contact(id,type,lastName,firstName,address,address2,city,province,country,"
+                        + "postal,workPhone,workPhoneExtension,fax,cpso,deleted)"
+                        + " values(?,'ProfessionalContact','NURSE','Nora','8 Care Rd','Suite 2','Testville',"
+                        + "'ON','Canada','A1A 1A1','555-0500','12','555-0501','12345',0)",
+                patient);
+        sql.update(
+                "insert into professionalSpecialists(specId,fName,lName,proLetters,salutation,lastUpdated,"
+                        + "institutionId,departmentId,hideFromView,deleted)"
+                        + " values(?,'Other','DIRECTORY','NP','Dr.',now(),0,0,0,0)",
+                patient);
+        var references =
+                context.getBean(io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.class);
+
+        assertThat(references.teamLink(patient))
+                .isEqualTo(
+                        new io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.TeamLink(
+                                2, "professional", Integer.toString(patient)));
+        assertThat(references.contact(patient))
+                .isEqualTo(
+                        new io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.Contact(
+                                "ProfessionalContact", "Nora", "NURSE", "8 Care Rd", "Suite 2", "Testville",
+                                "A1A 1A1", "ON", "Canada", "555-0500", "12", "555-0501", "12345"));
+        assertThat(references.teamLink(patient + 1)).isNull();
+        assertThat(references.contact(patient + 1)).isNull();
+
+        var key = io.github.carlos_emr.CarlosProperties.getInstance();
+        String previous = key.getProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS");
+        key.setProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true");
+        try {
+            var values = new LinkedHashMap<String, CdsExportDataSummaryPlanner.Value>();
+            values.put("requestId", CdsExportDataSummaryPlanner.Value.text(Integer.toString(patient)));
+            values.put("demographicContactId", CdsExportDataSummaryPlanner.Value.text(Integer.toString(patient)));
+            values.put("specId", CdsExportDataSummaryPlanner.Value.sqlNull());
+            var request =
+                    new Row("consultationRequests", CdsExportPatientTableSourceReader.key(patient), values);
+            var consultant = new CdsExportConsultationLetterComposer(references).consultant(request);
+            assertThat(consultant.name()).isEqualTo("Dr. NURSE, Nora NP");
+            assertThat(consultant.phone()).isEqualTo("555-0500 ext 12");
+            assertThat(consultant.fax()).isEqualTo("555-0501");
+            assertThat(consultant.address()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada,");
+        } finally {
+            if (previous == null) key.remove("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS");
+            else key.setProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", previous);
+        }
     }
 
     @Test

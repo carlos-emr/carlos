@@ -315,6 +315,86 @@ public class ProfessionalSpecialist extends AbstractModel<Integer> implements Se
         return buf.toString();
     }
 
+    /**
+     * Takes a professional contact's details in this specialist's place: what a consultation letter
+     * shows for a health-care-team contact. {@code DemographicContactCreator} applies it for the
+     * chart's consultation Print and the contact editor, and the CDS export's printed letter
+     * ({@code CdsExportConsultationLetterComposer}) applies the same values, so the two print the
+     * same consultant.
+     *
+     * <p>The names, address, e-mail, phone, fax, CPSO number, specialty, private phone and cell
+     * phone become the contact's; the salutation, professional letters and everything else this
+     * specialist holds stay. The address is the street (with the second line after a space), city,
+     * postal code, province and country, each followed by ", " (the setter trims the last). The
+     * phone is the work phone, then " ext " and the extension when there is one; a contact with no
+     * work phone gives the text {@code "null"}, as it always has.
+     *
+     * @param contact the professional contact
+     * @throws NullPointerException when the contact has no CPSO number (the chart's Print fails)
+     * @since 2026-11-13
+     */
+    public void applyProfessionalContact(ProfessionalContact contact) {
+        String address = contact.getAddress();
+        String addressTwo = contact.getAddress2();
+        String postal = contact.getPostal();
+        String city = contact.getCity();
+        String province = contact.getProvince();
+        String country = contact.getCountry();
+        String workExt = contact.getWorkPhoneExtension();
+
+        StringBuilder stringBuilder = new StringBuilder("");
+
+        if (address != null) {
+            stringBuilder.append(address.trim());
+        }
+
+        if (addressTwo != null) {
+            stringBuilder.append(" ");
+            stringBuilder.append(addressTwo.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (city != null) {
+            stringBuilder.append(city.trim());
+
+        }
+        stringBuilder.append(", ");
+
+        if (postal != null) {
+            stringBuilder.append(postal.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (province != null) {
+            stringBuilder.append(province.trim());
+        }
+        stringBuilder.append(", ");
+
+        if (country != null) {
+            stringBuilder.append(country.trim());
+        }
+
+        stringBuilder.append(", ");
+
+        if (workExt == null || workExt.isEmpty()) {
+            workExt = "";
+        } else {
+            workExt = " ext " + workExt;
+        }
+
+        setStreetAddress(stringBuilder.toString());
+        setFirstName(contact.getFirstName());
+        setLastName(contact.getLastName());
+        setEmailAddress(contact.getEmail());
+        setPhoneNumber(contact.getWorkPhone() + workExt);
+        setFaxNumber(contact.getFax());
+        setReferralNo(contact.getCpso().trim());
+        setSpecialtyType(contact.getSpecialty());
+        setPrivatePhoneNumber(contact.getResidencePhone());
+        setCellPhoneNumber(contact.getCellPhone());
+    }
+
     public String getPrivatePhoneNumber() {
         return privatePhoneNumber;
     }

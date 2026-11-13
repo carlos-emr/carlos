@@ -274,75 +274,21 @@ public class DemographicContactCreator {
 
         Integer contactId = contact.getId();
         ProfessionalSpecialist professionalSpecialist = null;
-        String address = contact.getAddress();
-        String addressTwo = contact.getAddress2();
-        String postal = contact.getPostal();
-        String city = contact.getCity();
-        String province = contact.getProvince();
-        String country = contact.getCountry();
-        String workExt = contact.getWorkPhoneExtension();
-
-        StringBuilder stringBuilder = new StringBuilder("");
-
-        if (address != null) {
-            stringBuilder.append(address.trim());
-        }
-
-        if (addressTwo != null) {
-            stringBuilder.append(" ");
-            stringBuilder.append(addressTwo.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (city != null) {
-            stringBuilder.append(city.trim());
-
-        }
-        stringBuilder.append(", ");
-
-        if (postal != null) {
-            stringBuilder.append(postal.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (province != null) {
-            stringBuilder.append(province.trim());
-        }
-        stringBuilder.append(", ");
-
-        if (country != null) {
-            stringBuilder.append(country.trim());
-        }
-
-        stringBuilder.append(", ");
 
         if (contactId == null) {
             contactId = 0;
         }
 
-        if (workExt == null || workExt.isEmpty()) {
-            workExt = "";
-        } else {
-            workExt = " ext " + workExt;
-        }
-
+        // A positive id reads the directory specialist with that same id, whose salutation and
+        // letters stay; a missing one fails here, as it always has.
         if (contactId > 0) {
             professionalSpecialist = professionalSpecialistDao.find(contactId);
         } else {
             professionalSpecialist = new ProfessionalSpecialist();
         }
 
-        professionalSpecialist.setStreetAddress(stringBuilder.toString());
-        professionalSpecialist.setFirstName(contact.getFirstName());
-        professionalSpecialist.setLastName(contact.getLastName());
-        professionalSpecialist.setEmailAddress(contact.getEmail());
-        professionalSpecialist.setPhoneNumber(contact.getWorkPhone() + workExt);
-        professionalSpecialist.setFaxNumber(contact.getFax());
-        professionalSpecialist.setReferralNo(contact.getCpso().trim());
-        professionalSpecialist.setSpecialtyType(contact.getSpecialty());
-        professionalSpecialist.setPrivatePhoneNumber(contact.getResidencePhone());
-        professionalSpecialist.setCellPhoneNumber(contact.getCellPhone());
+        // Shared with the CDS export's printed consultation letter, which must show the same consultant.
+        professionalSpecialist.applyProfessionalContact(contact);
 
         return professionalSpecialist;
     }

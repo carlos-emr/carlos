@@ -29,9 +29,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * The reference values a printed consultation letter shows that are not part of the patient's
- * record: the clinic letterhead, the consultation service and specialist directory, provider
- * names and billing numbers, program names and the appointment-instruction label, plus the
- * patient's current cell phone (kept in {@code demographicExt}). These are the lookups the
+ * record: the clinic letterhead, the consultation service and specialist directory, a
+ * health-care-team consultant (its {@code DemographicContact} link and {@code Contact} row),
+ * provider names and billing numbers, program names and the appointment-instruction label, plus
+ * the patient's current cell phone (kept in {@code demographicExt}). These are the lookups the
  * clinician's own Print makes, read once per letter in a short read-only transaction with bound
  * parameters only. Every method answers {@code null} (never a guess) when the row is absent or the
  * match is not unique.
@@ -54,6 +55,22 @@ public class CdsExportPrintedFormReadDao {
 
     /** A provider's name and billing number. */
     public record Provider(String firstName, String lastName, String billingNumber) {}
+
+    /**
+     * A health-care-team link ({@code DemographicContact}) as the chart's consultation Print reads
+     * it: the kind of row it names ({@code type}, null when not stored), its category and the id
+     * of the row it names, as stored.
+     */
+    public record TeamLink(Integer type, String category, String contactId) {}
+
+    /**
+     * A {@code Contact} row: its stored subtype (the {@code type} discriminator, {@code
+     * ProfessionalContact} for a professional) and the values a consultation letter shows.
+     */
+    public record Contact(
+            String subtype, String firstName, String lastName, String address, String address2,
+            String city, String postal, String province, String country, String workPhone,
+            String workPhoneExtension, String fax, String cpso) {}
 
     public Clinic clinic() {
         var rows = rows(CdsExportPatientTableReadSupport.query(entityManager,
@@ -94,6 +111,31 @@ public class CdsExportPrintedFormReadDao {
         if (rows.size() != 1) return null;
         Object[] row = rows.getFirst();
         return new Provider(text(row[0]), text(row[1]), text(row[2]));
+    }
+
+    /** The health-care-team link a consultation request names, by its id. */
+    public TeamLink teamLink(int id) {
+        var rows = rows(CdsExportPatientTableReadSupport.query(entityManager,
+                "select type,category,contactId from DemographicContact where id=:id")
+                .setParameter("id", id)
+                .setMaxResults(2));
+        if (rows.size() != 1) return null;
+        Object[] row = rows.getFirst();
+        return new TeamLink(row[0] == null ? null : ((Number) row[0]).intValue(), text(row[1]), text(row[2]));
+    }
+
+    /** The contact a health-care-team link names, by its id, whatever its subtype. */
+    public Contact contact(int id) {
+        var rows = rows(CdsExportPatientTableReadSupport.query(entityManager,
+                "select type,firstName,lastName,address,address2,city,postal,province,country,workPhone,"
+                        + "workPhoneExtension,fax,cpso from Contact where id=:id")
+                .setParameter("id", id)
+                .setMaxResults(2));
+        if (rows.size() != 1) return null;
+        Object[] row = rows.getFirst();
+        return new Contact(text(row[0]), text(row[1]), text(row[2]), text(row[3]), text(row[4]), text(row[5]),
+                text(row[6]), text(row[7]), text(row[8]), text(row[9]), text(row[10]), text(row[11]),
+                text(row[12]));
     }
 
     public String program(int programId) {
