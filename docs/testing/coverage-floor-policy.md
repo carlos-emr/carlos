@@ -225,8 +225,8 @@ tests.
 
 PR #6167 merges `main` into `release/2026.08` and adds the corrections from the
 promotion review, and brings in `release/2026.08` through #6182. Its Java source tree
-is `3dcb925489fa3a961a8e26b1e572e836cc64b3c2`. A fresh Ubuntu 26.04/OpenJDK
-25.0.5.0.3 full H2 run at `2e2a941435537de4e31281ca30965ef2d2f0aa45` executes
+is `bb8a8f74d2b7b480067797e566376a66133ee605`. A fresh Ubuntu 26.04/OpenJDK
+25.0.5.0.3 full H2 run at `39d8376e1490c2b16475f843ad72af4a8b5f5e94` executes
 36,899 cases in one Surefire run with zero failures/errors and 217 registered
 skips. This baseline has no retakes and no additional lane: execution data,
 coverage XML and the report inventory all come from that single run.
@@ -235,10 +235,11 @@ The refresh binds 804 source floors and eight nonexecutable exclusions to that
 source and report. The two new exclusions are documentation-only package-info
 files changed in this comparison: `documentManager/htmlpdf/support`
 (`XhtmlDomUnitTest` exercises the rules it documents) and `admin/service`
-(`SecurityRecordUpdateServiceUnitTest`). The floors were refreshed three times in this
+(`SecurityRecordUpdateServiceUnitTest`). The floors were refreshed four times in this
 PR. The first refresh added 55 sources new to the comparison and raised 74
 metrics; the second, after the last product changes, added 15 and raised 4; the
-third, after merging `release/2026.08` through #6182, added 3 and raised none.
+third, after merging `release/2026.08` through #6182, added 3 and raised none;
+the fourth, after a log line was sanitized, added none and raised 1.
 Higher historical metrics and every required refusal line are retained, no
 waiver is added and no threshold is lowered. Freshness passes.
 

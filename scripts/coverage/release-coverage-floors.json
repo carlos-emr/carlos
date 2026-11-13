@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "3dcb925489fa3a961a8e26b1e572e836cc64b3c2",
-  "comparisonSha256": "b5bf1301f7f7272b5379d366d5cfd867e676608eda2a25c330898c0088e630a0",
-  "baselineCommit": "2e2a941435537de4e31281ca30965ef2d2f0aa45",
-  "baselineSourceTree": "3dcb925489fa3a961a8e26b1e572e836cc64b3c2",
-  "baselineReportSha256": "fe7867fa746bbf0af8ef23b0a12b8d1655414040dbf4723082194ef63851093f",
+  "sourceTree": "bb8a8f74d2b7b480067797e566376a66133ee605",
+  "comparisonSha256": "1bfdf2e27a524b95d6e1b759e517b9a1c46be9378b2aba16c8e513e281d1042f",
+  "baselineCommit": "39d8376e1490c2b16475f843ad72af4a8b5f5e94",
+  "baselineSourceTree": "bb8a8f74d2b7b480067797e566376a66133ee605",
+  "baselineReportSha256": "35b9aae9cd2ccf6bacf1c8a2d90ca08378fab70f11d3bafe9421d94502528c6d",
   "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of release/2026.08 (through #6182) with main merged in and the promotion-review corrections of PR #6167: one Surefire run of 36,899 cases with three forks, zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
     "tests": 36899,
@@ -13,7 +13,7 @@
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "1a95b41ea7554b9f81b6dd9891f496c0a03c4f1db993272053c29cab24568bcb",
+  "baselineTestReportsSha256": "44426354fe8013daf20d835aae2f45d703ec7aac77370a11561237c068910ae2",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -71,9 +71,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/admin/web/SecurityUpdate2Action.java": {
       "lines": 100.0,
-      "instructions": 98.98989898989899,
+      "instructions": 98.99497487437186,
       "branches": 90.0,
-      "sourceBlob": "bd48b75e31a493c10a448e5713a3f14edc66e2cf"
+      "sourceBlob": "a839320decf0e64fba002d245a9c132d2e6bd8f8"
     },
     "src/main/java/io/github/carlos_emr/carlos/app/AppOAuth1Config.java": {
       "lines": 100.0,
@@ -4898,5 +4898,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "2e2a941435537de4e31281ca30965ef2d2f0aa45"
+  "baselineTestRunCommit": "39d8376e1490c2b16475f843ad72af4a8b5f5e94"
 }
