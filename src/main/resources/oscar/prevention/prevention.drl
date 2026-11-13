@@ -47,7 +47,8 @@
 //   - Key methods:
 //     Age:       getAgeInMonths(), getAgeInYears()
 //     History:   getNumberOfPreventionType(String), getHowManyMonthsSinceLast(String),
-//                getHowManyDaysSinceLast(String), getAgeInMonthsLastPreventionTypeGiven(String)
+//                getHowManyDaysSinceLast(String), getCalendarDaysSinceLast(String),
+//                getAgeInMonthsLastPreventionTypeGiven(String), getPreventionData(String)
 //     Status:    isPreventionNever(String), isNextDateSet(String), isPassedNextDate(String),
 //                isInelligible(String), isLastPreventionWithinRange(String, String, String),
 //                isTodayinDateRange(String, String)
@@ -72,10 +73,11 @@
 //
 // SCHEDULE REFERENCE (based on NACI Canadian Immunization Schedule):
 //   Childhood (2-18 months):  DTaP-IPV (5 doses), Hib (3-4 doses), Pneu-C (4 doses),
-//                              Rota (2 doses), MMR (2 doses), MMR-Var (1 dose), Var (1 dose)
+//                              Rota (2 doses; 3 when a dose was Rot-5), MMR (2 doses), MMR-Var (1 dose),
+//                              Var (1 dose)
 //   School-age (4-6 years):   DTaP-IPV booster, Tdap-IPV, Var catch-up
-//   Adolescent (12-18 years): Men-C-C, HPV (3 doses)
-//   Adult:                    Tdap (10-year booster), Td (10-year repeat), Inf (annual 65+)
+//   Adolescent (12-18 years): Men-C-C, HPV (3 doses), Tdap at 14-16 (10 years after the school booster)
+//   Adult:                    one Tdap at 18 or older, Td (10-year repeat), Inf (annual 65+)
 //   Women's health:           HPV-CERVIX (5-year cycle, 25-69), PAP (3-year cycle, 25-69),
 //                              MAM (2-year cycle, 40-74)
 //   Colorectal screening:     FOBT/FIT (2-year cycle, 45-74), Colonoscopy (10-year)
@@ -86,12 +88,26 @@
 //   - Inf 1: Hardcoded 2005-2006 flu season date range (historical, not updated)
 //   - "Rota 1"/"Rota 2" use System.out.println() instead of prev.log()
 //   - DTaP-IPV 4.1: Conditions duplicate DTaP-IPV 3.1 (checks count==2, not count==3)
-//   - DTaP-IPV 5/6: Warning says "Needs Third" but these are 5th/6th dose rules
+//   - DTaP-IPV 5: Warning says "Needs Third" but this is the 5th dose rule (rule 6 removed, #5048)
 //   - Men-C-C 1: Log message says "Pneu-C 4" (copy-paste artifact)
 //   - HPV-CERVIX 3: Typo in message "Neighter" should be "Neither"
 //   - "FOBT Inelligible": Misspelling of "Ineligible" in rule name and message
 //   - isInelligible(): Method name also misspelled (matches rule convention)
 //   - PAP rules require HPV-CERVIX to be "never" before activating (prioritizes HPV-CERVIX)
+//
+// CANADIAN IMMUNIZATION GUIDE, NOT MODELLED (#5048): the tetanus, pertussis and rotavirus rules follow the guide
+// except for these, which a clinician review may decide on:
+//   - Tdap in every pregnancy (ideally at 27 to 32 weeks): pregnancy is not a prevention fact.
+//   - NACI's October 2026 hepatitis B statement, not yet in the guide's chapters.
+//   - A refused or "ineligible" tetanus record counts as a dose: it stops "Needs Tdap" and "Needs adult Tdap
+//     (one dose)" when dated in their age range, and restarts the 10-year Td clock, except a refused or
+//     "ineligible" Tdap, which "Td 1" and "Td 2" leave out so that dismissing the adult Tdap does not silence an
+//     overdue Td.
+//   - Rotavirus: a refused record still counts in "Rota 1"/"Rota 2"'s record count.
+//   - A teen of 17 with no booster dose on file gets no Tdap reminder (owner's decision: "Tdap 2" covers 14-16).
+//   - Catch-up primary series for children 7 years and older. Of the guide's catch-up schedule for 7 to 17 (Part 1,
+//     Table 3), only "Tdap ... 10 years after last dose of Tdap-IPV" is modelled, through "Tdap 1".
+//   - Provincial schedules that differ from the national guide (a clinic rules file can change them).
 //
 // Converted from Drools 2.0 XML format to Drools 7.x DRL text format.
 // Original XML used <rule-set>, <parameter>, <java:condition>, <java:consequence>.
@@ -99,16 +115,134 @@
 package prevention.rules;
 
 import io.github.carlos_emr.carlos.prevention.Prevention;
+import io.github.carlos_emr.carlos.prevention.PreventionItem;
 
 // --------------------------------------------------------------------------
-// DTaP-IPV: Diphtheria-Tetanus-Pertussis-Polio (6 age-window rules + 3 next-date overrides)
+// Shared conditions (#5048): DRL functions, so that a condition several rules need is written once.
+// An absent prevention type gives -1 for its age at the last dose and for the months since it.
+// --------------------------------------------------------------------------
+
+// The adult Tdap is due: 18 or older, no Tdap or Tdap-IPV given at 18 years (216 months) or later, and the Tdap not
+// marked "never remind". Used by "Tdap 3", and by "Td 1" and "Td 2", which wait while it is due.
+function boolean adultTdapDue(Prevention prev) {
+    return prev.getAgeInYears() >= 18
+        && prev.getAgeInMonthsLastPreventionTypeGiven("Tdap") < 216
+        && prev.getAgeInMonthsLastPreventionTypeGiven("Tdap-IPV") < 216
+        && !prev.isPreventionNever("Tdap");
+}
+
+// The most recent 4-6-year booster dose (see "Tdap 1") is 10 or more years old.
+function boolean teenBoosterTenYearsOld(Prevention prev) {
+    return (prev.getHowManyMonthsSinceLast("DTaP-IPV") == -1 || prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120)
+        && (prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120)
+        && (prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV-Hib") < 48
+            || prev.getHowManyMonthsSinceLast("DTaP-IPV-Hib") >= 120)
+        && (prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48
+            || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120);
+}
+
+// Age in whole calendar days, in the server's time zone, or -1 without a birth date: the rotavirus first dose is
+// limited in weeks, which whole months cannot express.
+function int ageInDays(Prevention prev) {
+    java.util.Date dob = prev.getDOB();
+    if (dob == null) {
+        return -1;
+    }
+    java.time.ZoneId zone = java.time.ZoneId.systemDefault();
+    return (int) java.time.temporal.ChronoUnit.DAYS.between(
+        java.time.Instant.ofEpochMilli(dob.getTime()).atZone(zone).toLocalDate(), java.time.LocalDate.now(zone));
+}
+
+// Whether a record is a dose given: not a refusal (1) or "ineligible" (2).
+function boolean isDoseGiven(PreventionItem record) {
+    int status = record.getRefusedStatus();
+    return status != 1 && status != 2;
+}
+
+// Doses given of one type: its records that are not a refusal or "ineligible".
+function int dosesGiven(Prevention prev, String type) {
+    java.util.Vector records = prev.getPreventionData(type);
+    int given = 0;
+    for (int i = 0; i < records.size(); i++) {
+        if (isDoseGiven((PreventionItem) records.get(i))) {
+            given++;
+        }
+    }
+    return given;
+}
+
+// The date of the latest dose given of one type, or null when there is none.
+function java.util.Date lastDoseGiven(Prevention prev, String type) {
+    java.util.Vector records = prev.getPreventionData(type);
+    java.util.Date last = null;
+    for (int i = 0; i < records.size(); i++) {
+        PreventionItem record = (PreventionItem) records.get(i);
+        java.util.Date given = record.getDatePreformed();
+        if (isDoseGiven(record) && given != null && (last == null || given.after(last))) {
+            last = given;
+        }
+    }
+    return last;
+}
+
+// Whole months from the latest dose given of one type to now, counted as Prevention.getHowManyMonthsSinceLast
+// counts them, or -1 when there is none.
+function int monthsSinceLastDoseGiven(Prevention prev, String type) {
+    java.util.Date last = lastDoseGiven(prev, type);
+    if (last == null) {
+        return -1;
+    }
+    java.util.Date now = java.util.Calendar.getInstance().getTime();
+    java.util.Calendar month = java.util.Calendar.getInstance();
+    month.setTime(last);
+    int months = 0;
+    while (!month.getTime().after(now)) {
+        month.add(java.util.Calendar.MONTH, 1);
+        months++;
+    }
+    return Math.max(months - 1, 0);
+}
+
+// A rotavirus refusal or "ineligible" record, under any of the three names, dated on or after the latest dose given:
+// a decline of the next dose. One dated before the doses (declined, then accepted) does not stop the reminder.
+function boolean rotaDeclinedSinceLastDose(Prevention prev) {
+    String[] names = {"Rota", "Rota-1", "Rota-5"};
+    java.util.Date lastDose = null;
+    for (String name : names) {
+        java.util.Date given = lastDoseGiven(prev, name);
+        if (given != null && (lastDose == null || given.after(lastDose))) {
+            lastDose = given;
+        }
+    }
+    if (lastDose == null) {
+        return false;
+    }
+    for (String name : names) {
+        java.util.Vector records = prev.getPreventionData(name);
+        for (int i = 0; i < records.size(); i++) {
+            PreventionItem record = (PreventionItem) records.get(i);
+            java.util.Date date = record.getDatePreformed();
+            if (!isDoseGiven(record) && date != null && !date.before(lastDose)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// --------------------------------------------------------------------------
+// DTaP-IPV: Diphtheria-Tetanus-Pertussis-Polio (5 age-window rules + 3 next-date overrides)
 // NACI Schedule: 2mo, 4mo, 6mo, 18mo booster, 4-6yr booster
 // Age range: 2-72 months (6 years) for primary series
 // Also checks DTaP-IPV-Hib combination vaccine count (rules 1, 4)
 // Minimum intervals: 2 months between doses 1-3, 12 months before dose 4
-// Rules 5-6: Catch-up logic for 4-6yr and 14-16yr if last dose was before 48 months
-// QUIRK: Rules 4.1 duplicates 3.1 conditions (count==2); rules 5-6 say "Needs Third"
-//   but are actually for 5th/6th doses (copy-paste artifacts from original XML)
+// Rule 5: Catch-up logic for 4-6yr if last dose was before 48 months. The former rule 6 (14-16yr, "Needs Third
+//   DTaP-IPV /HIB") is removed (#5048): the teen dose is the Tdap ("Tdap 1", "Tdap 2"), not a DTaP-IPV.
+// QUIRK: Rules 4.1 duplicates 3.1 conditions (count==2); rule 5 says "Needs Third"
+//   but is actually for the 5th dose (copy-paste artifact from original XML)
+// The next-date overrides 2.1, 3.1 and 4.1 stop at 7 years (84 months) and need a birth date: DTaP-IPV is a
+//   childhood product (the catalogue's age range ends at 6), so an adult's old record raises no DTaP-IPV reminder
+//   beside the adult Tdap (#5048).
 // --------------------------------------------------------------------------
 rule "DTaP-IPV 1"
     when
@@ -140,6 +274,7 @@ end
 rule "DTaP-IPV 2.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 1 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
@@ -165,6 +300,7 @@ end
 rule "DTaP-IPV 3.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 2 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
@@ -190,6 +326,7 @@ end
 rule "DTaP-IPV 4.1"
     when
         prev : Prevention()
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 84 )
         eval( prev.isPassedNextDate("DTaP-IPV") )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 2 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 2 )
@@ -204,20 +341,6 @@ rule "DTaP-IPV 5"
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 48 )
         eval( prev.getAgeInMonths() < 72 )
-        eval( prev.getNumberOfPreventionType("DTaP-IPV") == 4 )
-        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1 )
-        eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48 )
-        eval( !prev.isPreventionNever("DTaP-IPV") )
-    then
-        prev.log("DTaP-IPV 3");
-        prev.addWarning("DTaP-IPV", "Needs Third DTaP-IPV /HIB");
-end
-
-rule "DTaP-IPV 6"
-    when
-        prev : Prevention()
-        eval( prev.getAgeInMonths() >= 168 )
-        eval( prev.getAgeInMonths() < 192 )
         eval( prev.getNumberOfPreventionType("DTaP-IPV") == 4 )
         eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 1 )
         eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV") <= 48 )
@@ -245,20 +368,25 @@ rule "Tdap-IPV 1"
 end
 
 // --------------------------------------------------------------------------
-// Rota: Rotavirus vaccine (2 rules)
-// NACI Schedule: 2 doses at 2mo and 4mo (must complete by 8 months of age)
-// Strict upper age limits: dose 1 by 5mo, dose 2 by 6mo
-// QUIRK: Uses System.out.println() instead of prev.log() (original code)
-// Uses isNextDateSet() for dose 2 sequencing
-// MULTI-TYPE NOTE: Rule 1 counts Rota-1 (Rotarix) and Rota-5 (RotaTeq) as
-//   equivalent to generic Rota for the first-dose check. This allows records
-//   entered with product-specific codes to satisfy the rule.
+// Rota: Rotavirus vaccine (5 rules)
+// NACI Schedule: 2 doses at 2mo and 4mo for Rot-1 (Rotarix), 3 doses otherwise; must complete by 8 months of age
+// Upper age limits: dose 1 before 15 weeks (105 days); doses 2 and 3 before 8mo, at least 4 weeks (28 calendar
+//   days) after the dose before (#5048)
+// QUIRK: "Rota 1"/"Rota 2" use System.out.println() instead of prev.log() (original code)
+// "Rota 2.1": a next date set on dose 1 takes precedence over the 4-week interval
+// A refused or "ineligible" record is not a dose: it raises no second-dose reminder (#5048)
+// "Rota 3"/"Rota 3.1": the third dose unless both doses given were Rot-1, timed and limited as the second (#5048)
+// MULTI-TYPE NOTE: Rules 1, 2 and 2.1 count Rota-1 (Rotarix) and Rota-5 (RotaTeq) as
+//   equivalent to generic Rota. This allows records entered with product-specific
+//   codes to satisfy the rules.
 // --------------------------------------------------------------------------
+// Canadian Immunization Guide, Rotavirus vaccine: "Vaccination should not be initiated in infants aged 15 weeks or
+// older" (#5048): from 2 months of age to the day before 15 weeks (105 days).
 rule "Rota 1"
     when
         prev : Prevention()
         eval( prev.getAgeInMonths() >= 2 )
-        eval( prev.getAgeInMonths() < 5 )
+        eval( ageInDays(prev) < 105 )
         eval( prev.getNumberOfPreventionType("Rota")
             + prev.getNumberOfPreventionType("Rota-1")
             + prev.getNumberOfPreventionType("Rota-5")
@@ -270,24 +398,105 @@ rule "Rota 1"
 end
 
 // Rota 2 times the second dose, and reads "never remind" and the next date, from the dose under any of the three
-// names. It still needs a next date on that dose; whether it should is a separate clinical question.
+// names. Canadian Immunization Guide, Rotavirus vaccine: "The minimum interval between doses of RV vaccine is
+// 4 weeks" and "All doses of RV vaccine should be administered before 8 months of age" (#5048). This follows the
+// national guide; a clinic whose province ends the series earlier (24 weeks) uses its own rules file. A next date set
+// on the first dose takes precedence, as for flu: "Rota 2.1" reminds once that date has passed, but by the owner's
+// decision never before day 28, so a next date set earlier than the minimum interval waits for day 28.
 rule "Rota 2"
     when
         prev : Prevention()
-        eval( prev.getAgeInMonths() >= 4 )
-        eval( prev.getAgeInMonths() <= 6 )
+        // An unknown birth date gives age 0, which would keep the reminder up for good.
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
         eval( prev.getNumberOfPreventionType("Rota")
             + prev.getNumberOfPreventionType("Rota-1")
             + prev.getNumberOfPreventionType("Rota-5")
             == 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota") == -1 || prev.getHowManyMonthsSinceLast("Rota") >= 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota-1") == -1 || prev.getHowManyMonthsSinceLast("Rota-1") >= 1 )
-        eval( prev.getHowManyMonthsSinceLast("Rota-5") == -1 || prev.getHowManyMonthsSinceLast("Rota-5") >= 1 )
+        eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
         eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
-        eval( prev.isNextDateSet("Rota") || prev.isNextDateSet("Rota-1") || prev.isNextDateSet("Rota-5") )
+        // The one record is a dose given, not a refusal (1) or "ineligible" (2).
+        eval( prev.getRefusedStatus("Rota") != 1 && prev.getRefusedStatus("Rota") != 2 )
+        eval( prev.getRefusedStatus("Rota-1") != 1 && prev.getRefusedStatus("Rota-1") != 2 )
+        eval( prev.getRefusedStatus("Rota-5") != 1 && prev.getRefusedStatus("Rota-5") != 2 )
+        eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
     then
         System.out.println("Rota 2");
         prev.addWarning("Rota", "Needs Second Rota vaccine");
+end
+
+rule "Rota 2.1"
+    when
+        prev : Prevention()
+        // An unknown birth date gives age 0, which would keep the reminder up for good.
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
+        eval( prev.getNumberOfPreventionType("Rota")
+            + prev.getNumberOfPreventionType("Rota-1")
+            + prev.getNumberOfPreventionType("Rota-5")
+            == 1 )
+        eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
+        eval( prev.getRefusedStatus("Rota") != 1 && prev.getRefusedStatus("Rota") != 2 )
+        eval( prev.getRefusedStatus("Rota-1") != 1 && prev.getRefusedStatus("Rota-1") != 2 )
+        eval( prev.getRefusedStatus("Rota-5") != 1 && prev.getRefusedStatus("Rota-5") != 2 )
+        eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
+            || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
+            || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+        // Never before the 4-week minimum interval, whatever the next date says.
+        eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
+    then
+        prev.log("Rota 2.1");
+        prev.addWarning("Rota", "Needs Second Rota vaccine");
+end
+
+// Canadian Immunization Guide, Rotavirus vaccine: Rot-1 (Rotarix) is 2 doses and Rot-5 (RotaTeq) 3; "If any dose in
+// the series was Rot-5 vaccine, a total of 3 doses." Two doses given (refused and "ineligible" records left out),
+// not both recorded as Rota-1, the latest record of each name a dose given, 4 weeks after the second dose and before
+// 8 months of age (#5048). A dose under the plain "Rota" name is an unknown product and counts as possibly Rot-5
+// (owner's decision): only a series that is all Rot-1 ends at two doses. As for the second dose, a next date set on
+// the second dose decides when the reminder starts ("Rota 3.1"), never before day 28.
+rule "Rota 3"
+    when
+        prev : Prevention()
+        // An unknown birth date gives age 0, which would keep the reminder up for good.
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
+        eval( dosesGiven(prev, "Rota") + dosesGiven(prev, "Rota-1") + dosesGiven(prev, "Rota-5") == 2 )
+        // Not an all-Rot-1 series: a Rot-5 or an unknown-product ("Rota") dose was given.
+        eval( dosesGiven(prev, "Rota-5") + dosesGiven(prev, "Rota") >= 1 )
+        eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
+        // No refusal or "ineligible" record on or after the second dose: a decline of the third.
+        eval( !rotaDeclinedSinceLastDose(prev) )
+        eval( !prev.isNextDateSet("Rota") && !prev.isNextDateSet("Rota-1") && !prev.isNextDateSet("Rota-5") )
+        eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
+    then
+        prev.log("Rota 3");
+        prev.addWarning("Rota", "Needs Third Rota vaccine");
+end
+
+rule "Rota 3.1"
+    when
+        prev : Prevention()
+        // An unknown birth date gives age 0, which would keep the reminder up for good.
+        eval( prev.getDOB() != null && prev.getAgeInMonths() < 8 )
+        eval( dosesGiven(prev, "Rota") + dosesGiven(prev, "Rota-1") + dosesGiven(prev, "Rota-5") == 2 )
+        // Not an all-Rot-1 series: a Rot-5 or an unknown-product ("Rota") dose was given.
+        eval( dosesGiven(prev, "Rota-5") + dosesGiven(prev, "Rota") >= 1 )
+        eval( !prev.isPreventionNever("Rota") && !prev.isPreventionNever("Rota-1") && !prev.isPreventionNever("Rota-5") )
+        eval( !rotaDeclinedSinceLastDose(prev) )
+        eval( (prev.isNextDateSet("Rota") && prev.isPassedNextDate("Rota"))
+            || (prev.isNextDateSet("Rota-1") && prev.isPassedNextDate("Rota-1"))
+            || (prev.isNextDateSet("Rota-5") && prev.isPassedNextDate("Rota-5")) )
+        // Never before the 4-week minimum interval, whatever the next date says.
+        eval( prev.getNumberOfPreventionType("Rota") == 0 || prev.getCalendarDaysSinceLast("Rota") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-1") == 0 || prev.getCalendarDaysSinceLast("Rota-1") >= 28 )
+        eval( prev.getNumberOfPreventionType("Rota-5") == 0 || prev.getCalendarDaysSinceLast("Rota-5") >= 28 )
+    then
+        prev.log("Rota 3.1");
+        prev.addWarning("Rota", "Needs Third Rota vaccine");
 end
 
 // --------------------------------------------------------------------------
@@ -703,29 +912,99 @@ rule "Var 4"
 end
 
 // --------------------------------------------------------------------------
-// Tdap / Td: Adult Tetanus-Diphtheria boosters (3 rules)
-// NACI Schedule: Tdap once in adulthood, then Td every 10 years
-// Tdap 1: First adult acellular pertussis booster, >=120mo (10yr) since last DTaP-IPV
-// Td 1: First tetanus-diphtheria booster, >=120mo since last Tdap
+// Tdap / Td: Tetanus-diphtheria(-pertussis) boosters (5 rules)
+// Canadian Immunization Guide, Tetanus toxoid: a DTaP-IPV or Tdap-IPV booster at 4-6 years, "10 years later, a
+//   booster dose of Tdap vaccine at 14 to 16 years of age", then "A booster dose of Td vaccine is recommended every
+//   10 years". Pertussis vaccine: "Adults who have not received an adult dose of pertussis-containing vaccine should
+//   receive one dose of Tdap vaccine, which can be administered regardless of the interval since the last dose of
+//   tetanus and diphtheria toxoid-containing vaccine."
+// Tdap 1: age 14 to 17, no Tdap on file, and the most recent 4-6-year booster dose is >=120mo (10yr) old (#5048).
+//   A booster given late follows the guide's catch-up schedule for children 7 to 17 (Part 1, Table 3: "Tdap ... 10
+//   years after last dose of Tdap-IPV"): a booster given at 7 is followed by the teen Tdap at 17. One given at 10
+//   raises no teen reminder (10 years would be 20); the adult Tdap ("Tdap 3") is due from 18.
+//   Booster doses are DTaP-IPV and Tdap-IPV, and DTaP-IPV-Hib or the older TdP-IPV-Hib when given at 4 years
+//   (48 months) or later: the CIG does not need a separate 4-6-year booster after a fourth dose given after the
+//   fourth birthday. Infant doses of the -Hib products (2, 4, 6, 18 months) do not start the 10-year clock.
+// Tdap 2: age 14 to 16, no Tdap on file and no 4-6-year booster dose on file (infant doses of the -Hib products do
+//   not count): the teen dose is due, and childhood records are often missing (owner's decision, #5048). Exclusive
+//   with "Tdap 1", which needs a booster dose on file.
+//   Neither rule counts the other childhood products in PreventionItems.xml (DTaP, DT-IPV, DTaP-Hib, DTaP-IPV-HB,
+//   DTaP-IPV-Hib-HB) as the 4-6-year booster: a teen whose school booster was recorded under one of them is asked
+//   for the Tdap at 14 to 16 ("Tdap 2"), but not ten years after that booster later on ("Tdap 1"). A Td or Td-IPV
+//   on file does not count either: it has no pertussis component, so the teen is still asked for the Tdap.
+// Tdap 3: the adult Tdap, once (#5048). Age 18 or older and no Tdap or Tdap-IPV given at 18 or later, whatever
+//   the interval since the last tetanus vaccine, unless the Tdap is marked "never remind". A teen dose given at 14
+//   to 16 does not count: an 18-year-old who had it is reminded. Message "Needs adult Tdap (one dose)".
+//   While it is due, "Td 1" and "Td 2" wait: the one Tdap dose is also the 10-year tetanus booster, so the patient
+//   sees one tetanus reminder, not "Needs adult Tdap (one dose)" beside "Needs Td" or "Needs repeat Td".
+// Td 1: no Td on file, and the most recent of the booster-age tetanus products is >=120mo old (#5048): Tdap,
+//   Td-IPV and Tdap-IPV, and TdP-IPV-Hib only when given at 4 years (48 months) or later, as in "Tdap 1". The
+//   older TdP-IPV-Hib is also an infant combination (2, 4, 18 months): its infant doses must not ask a child of
+//   11 or 12 for a Td. By decision, both reminders show when both apply under 18: a teen whose last tetanus vaccine
+//   is a 10-year-old Tdap-IPV school booster, with no Tdap since, sees "Needs Tdap" and "Needs Td".
 // Td 2: Repeat Td booster every 10 years; checks ALL tetanus-containing vaccines:
 //   Tdap, Td, Td-IPV, TdP-IPV-Hib, Tdap-IPV (any resets the 10-year clock)
-// NOTE: No age restrictions on adult boosters - applies to all ages
+// A vaccine type the patient never had (-1 months) does not count as a recent one.
+// "Td 1" and "Td 2" count only Tdap doses given: a refused or "ineligible" Tdap record, the natural way to dismiss
+//   the adult Tdap, does not restart their 10-year clock (#5048).
+// NOTE: "Td 1" and "Td 2" have no age limit; from 18 they wait while "Tdap 3" is due.
 // --------------------------------------------------------------------------
 rule "Tdap 1"
     when
         prev : Prevention()
+        eval( prev.getAgeInYears() >= 14 && prev.getAgeInYears() < 18 )
         eval( prev.getNumberOfPreventionType("Tdap") == 0 )
-        eval( prev.getHowManyMonthsSinceLast("DTaP-IPV") >= 120 )
+        // A booster dose on file; an absent type gives -1 for its age at the last dose.
+        eval( prev.getNumberOfPreventionType("DTaP-IPV") + prev.getNumberOfPreventionType("Tdap-IPV") >= 1
+            || prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV-Hib") >= 48
+            || prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") >= 48 )
+        // Ten years after it.
+        eval( teenBoosterTenYearsOld(prev) )
     then
         prev.log("Tdap 1");
         prev.addWarning("Tdap", "Needs Tdap");
 end
 
+rule "Tdap 2"
+    when
+        prev : Prevention()
+        eval( prev.getAgeInYears() >= 14 && prev.getAgeInYears() <= 16 )
+        eval( prev.getNumberOfPreventionType("Tdap") == 0 )
+        // No booster dose on file; an absent type gives -1 for its age at the last dose.
+        eval( prev.getNumberOfPreventionType("DTaP-IPV") + prev.getNumberOfPreventionType("Tdap-IPV") == 0 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("DTaP-IPV-Hib") < 48 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 )
+    then
+        prev.log("Tdap 2");
+        prev.addWarning("Tdap", "Needs Tdap");
+end
+
+rule "Tdap 3"
+    when
+        prev : Prevention()
+        eval( adultTdapDue(prev) )
+    then
+        prev.log("Tdap 3");
+        prev.addWarning("Tdap", "Needs adult Tdap (one dose)");
+end
+
 rule "Td 1"
     when
         prev : Prevention()
+        // The adult Tdap, while due, is the tetanus reminder ("Tdap 3").
+        eval( !adultTdapDue(prev) )
         eval( prev.getNumberOfPreventionType("Td") == 0 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        // TdP-IPV-Hib counts only when its last dose was given at 48 months or later; an absent type gives -1.
+        // A Tdap counts only as a dose given, not a refusal or "ineligible".
+        eval( dosesGiven(prev, "Tdap")
+            + prev.getNumberOfPreventionType("Td-IPV")
+            + prev.getNumberOfPreventionType("Tdap-IPV")
+            >= 1
+            || prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") >= 48 )
+        eval( monthsSinceLastDoseGiven(prev, "Tdap") == -1 || monthsSinceLastDoseGiven(prev, "Tdap") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
+        eval( prev.getAgeInMonthsLastPreventionTypeGiven("TdP-IPV-Hib") < 48 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
+        eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
     then
         prev.log("Td 1");
         prev.addWarning("Td", "Needs Td");
@@ -736,9 +1015,11 @@ end
 rule "Td 2"
     when
         prev : Prevention()
+        // The adult Tdap, while due, is the tetanus reminder ("Tdap 3").
+        eval( !adultTdapDue(prev) )
         eval( prev.getNumberOfPreventionType("Td") >= 1 )
         eval( prev.getHowManyMonthsSinceLast("Td") >= 120 )
-        eval( prev.getHowManyMonthsSinceLast("Tdap") == -1 || prev.getHowManyMonthsSinceLast("Tdap") >= 120 )
+        eval( monthsSinceLastDoseGiven(prev, "Tdap") == -1 || monthsSinceLastDoseGiven(prev, "Tdap") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Td-IPV") == -1 || prev.getHowManyMonthsSinceLast("Td-IPV") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") == -1 || prev.getHowManyMonthsSinceLast("TdP-IPV-Hib") >= 120 )
         eval( prev.getHowManyMonthsSinceLast("Tdap-IPV") == -1 || prev.getHowManyMonthsSinceLast("Tdap-IPV") >= 120 )
