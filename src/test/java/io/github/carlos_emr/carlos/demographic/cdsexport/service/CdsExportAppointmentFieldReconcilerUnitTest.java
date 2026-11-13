@@ -384,10 +384,46 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                                         "AppointmentPurpose")));
         assertThat(reconcile().mapping().value().purpose())
                 .isEqualTo("Follow-Up " + originalPurpose);
-        // A label that would carry the purpose past the 250 characters CDS allows still holds.
+        // Updated: a label that would carry the purpose past the 250 characters CDS allows used to
+        // hold the patient (CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY). The purpose is now
+        // kept exactly and the label opens AppointmentNotes.
         originalPurpose = "Q".repeat(245);
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().purpose()).isEqualTo(originalPurpose);
+        assertThat(result.mapping().value().notes())
+                .isEqualTo("Reason: Follow-Up\n" + originalNotes);
+        assertThat(result.preparedPaths()).contains("AppointmentPurpose");
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+        var decisions = result.mapping().fields();
+        var code =
+                decisions.get(
+                        new CdsExportNativeFieldKeyDto(
+                                "appointment", row(current).recordKey(), "reasonCode"));
+        assertThat(code.rule()).isEqualTo("SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY");
+        assertThat(code.destination()).isEqualTo("AppointmentNotes");
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment", row(current).recordKey(), "reason"))
+                                .rule())
+                .isEqualTo("VERIFIED_UNCHANGED_PREPARED_PURPOSE");
+        var plan =
+                new CdsExportAppointmentRetainedAssembler()
+                        .prepare(27, result, index, checked, fields, values(), () -> {});
+        var record = parse(plan.content()).get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstText(record, "AppointmentPurpose", 250)).isEqualTo(originalPurpose);
+        assertThat(parser.firstText(record, "AppointmentNotes", 32000))
+                .startsWith("Reason: Follow-Up")
+                .endsWith("notes");
+        var accounted = new HashSet<>(plan.retainedFields());
+        accounted.addAll(plan.replacedFields());
+        assertThat(accounted)
+                .isEqualTo(
+                        fields.stream()
+                                .map(CdsExportRetainedFieldDto::id)
+                                .collect(java.util.stream.Collectors.toSet()));
     }
 
     private CdsExportAppointmentLookupsDto withReasonItem(CdsExportCapturedTextRowDto item) {

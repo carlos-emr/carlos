@@ -36,10 +36,13 @@ import java.util.*;
  * Reconciles current appointment fields against proved import projections. Effective captured
  * calendar/clock values replace source timing so prior import options cannot be undone. A
  * reason-list label chosen in CARLOS prefixes the preserved imported purpose, as the day sheet
- * shows it. Unknown native extras, calendar history, aliases and missing projection evidence
- * need review.
+ * shows it; when both do not fit AppointmentPurpose the label opens AppointmentNotes instead.
+ * Unknown native extras, calendar history, aliases and missing projection evidence need review.
  */
 public final class CdsExportAppointmentFieldReconciler {
+    /** Rule of a reason-list label carried in AppointmentNotes beside a long imported purpose. */
+    static final String LABEL_IN_NOTES = "SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY";
+
     public record Result(
             String sourceManifestSha256,
             String unitAddress,
@@ -169,6 +172,9 @@ public final class CdsExportAppointmentFieldReconciler {
         var prior = new HashSet<String>();
         var current = new HashSet<String>();
         String purpose = candidate.value() == null ? null : candidate.value().purpose();
+        // A reason-list label that does not fit before a long imported purpose (CDS allows 250
+        // characters): written as the first line of AppointmentNotes instead.
+        String labelInNotes = null;
         if (!difference.changedColumns().contains("reason")) {
             // Imports never set reasonCode. A reason-list label chosen later is shown on the day
             // sheet before the reason, so the label prefixes the preserved imported purpose.
@@ -196,11 +202,33 @@ public final class CdsExportAppointmentFieldReconciler {
                         Outcome.MAPPED,
                         "AppointmentPurpose",
                         "VERIFIED_UNCHANGED_PREPARED_PURPOSE");
+            } else if (!CdsExportNativeFieldAssessments.legal(
+                    purpose == null || purpose.isEmpty() ? label : label + " " + purpose, 250)) {
+                // The imported purpose can use all 250 characters CDS allows, so the label the
+                // day sheet shows before it may not fit beside it. Neither is cut: the imported
+                // purpose stays exactly in AppointmentPurpose and the label is the first line of
+                // AppointmentNotes ("Reason: <label>").
+                if (!CdsExportNativeFieldAssessments.legal(label, Integer.MAX_VALUE))
+                    review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
+                labelInNotes = label;
+                prior.add("AppointmentPurpose");
+                mark(
+                        row,
+                        fields,
+                        "reasonCode",
+                        Outcome.MAPPED,
+                        "AppointmentNotes",
+                        LABEL_IN_NOTES);
+                mark(
+                        row,
+                        fields,
+                        "reason",
+                        Outcome.MAPPED,
+                        "AppointmentPurpose",
+                        "VERIFIED_UNCHANGED_PREPARED_PURPOSE");
             } else {
                 // The day sheet's "label reason"; the preserved purpose is kept exactly after it.
                 purpose = purpose == null || purpose.isEmpty() ? label : label + " " + purpose;
-                if (!CdsExportNativeFieldAssessments.legal(purpose, 250))
-                    review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
                 current.add("AppointmentPurpose");
                 mark(
                         row,
@@ -232,6 +260,14 @@ public final class CdsExportAppointmentFieldReconciler {
                     "AppointmentNotes",
                     "VERIFIED_UNCHANGED_PREPARED_NOTES");
         } else current.add("AppointmentNotes");
+        if (labelInNotes != null) {
+            String line = "Reason: " + labelInNotes;
+            notes = notes == null || notes.isEmpty() ? line : line + "\n" + notes;
+            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
+                review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
+            prior.remove("AppointmentNotes");
+            current.add("AppointmentNotes");
+        }
         var provider = candidate.value() == null ? null : candidate.value().provider();
         if (!difference.changedColumns().contains("provider_no")) {
             if (prepared.providerNo() != null
