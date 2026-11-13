@@ -684,10 +684,10 @@
                             </tr>
                             <tr>
                                 <td><label for="docDesc_<%=docId%>"><fmt:message key="dms.documentReport.msgDocDesc"/>:</label></td>
-                                <%-- maxlength counts UTF-16 units and document.docdesc code points, so it is twice the
-                                     column; documentMetadataSave.js and ManageDocument2Action refuse a longer description. --%>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. documentMetadataSave.js and ManageDocument2Action refuse a description longer
+                                     than Document.DESCRIPTION_MAX_LENGTH code points. --%>
                                 <td><input id="docDesc_<%=docId%>" type="text" name="documentDescription"
-                                           maxlength="<%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH * 2 %>"
                                            value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"
                                            onfocus="this.select(); this.setAttribute('data-original-value', this.value)"
                                            onblur="if (this.value.trim() === '') this.value = this.getAttribute('data-original-value')"></td>

@@ -1197,11 +1197,11 @@
                                 <td colspan="2"><label for="documentDescription"><fmt:message key="dms.incomingDocs.description"/>:</label></td>
                             </tr>
                             <tr>
-                                <%-- maxlength counts UTF-16 units and document.docdesc code points, so it is twice the
-                                     column; checkDocument() and ManageDocument2Action refuse a longer description. --%>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. checkDocument() and ManageDocument2Action refuse a description longer than
+                                     Document.DESCRIPTION_MAX_LENGTH code points. --%>
                                 <td colspan="2"><input tabIndex="<%=tabIndex++%>" type="text" style="width:100%;"
                                                        id="documentDescription" name="documentDescription" value=""
-                                                       maxlength="<%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH * 2 %>"
                                                        onfocus="setDescriptionIfEmpty();"/></td>
                             </tr>
                             <tr>

@@ -162,7 +162,8 @@ test('the report page publishes the column length and the localized message on t
     '../src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp'), 'utf8');
   assert.match(jsp, /<label for="descriptionField_<%=hrmReportId %>_hrm">/);
   assert.match(jsp, /data-max-code-points="<%= HRMDocument\.DESCRIPTION_MAX_LENGTH %>"/);
-  assert.match(jsp, /maxlength="<%= HRMDocument\.DESCRIPTION_MAX_LENGTH \* 2 %>"/);
+  // No maxlength: a browser would clip a paste in UTF-16 units before the code-point check runs.
+  assert.doesNotMatch(jsp, /descriptionField_[^>]*maxlength=/);
   assert.match(jsp, /data-too-long-message="\$\{carlos:forHtmlAttribute\(hrmDescriptionTooLongText\)\}"/);
   assert.match(jsp, /<fmt:message key="dms\.error\.descriptionTooLong" var="hrmDescriptionTooLongText"\/>/);
 });
