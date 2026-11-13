@@ -238,6 +238,19 @@ class CdsImportLedgerMariaDbIntegrationTest {
                 CdsImportFileService.class,
                 CdsImportReportService.class,
                 CdsTargetReceiptService.class);
+        // Native-baseline witnesses are sealed under an installation key (IMP-1).
+        ctx.registerBean(
+                CdsImportConfigurationService.class,
+                () ->
+                        new CdsImportConfigurationService(new Properties()) {
+                            @Override
+                            public io.github.carlos_emr.carlos.demographic.cds.security
+                                            .CdsNativeBaselineKeys
+                                    nativeBaselineKeys() {
+                                return io.github.carlos_emr.carlos.demographic.cds.security
+                                        .CdsNativeBaselineTestKeys.keys();
+                            }
+                        });
         ctx.refresh();
         try {
             sql = new JdbcTemplate(ctx.getBean(DataSource.class));
@@ -869,12 +882,24 @@ class CdsImportLedgerMariaDbIntegrationTest {
         }
     }
 
+    /** Import policy with the synthetic native-baseline key that seals witnesses (IMP-1). */
+    static CdsImportConfigurationService keyed(Properties policy) {
+        return new CdsImportConfigurationService(policy) {
+            @Override
+            public io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+                    nativeBaselineKeys() {
+                return io.github.carlos_emr.carlos.demographic.cds.security
+                        .CdsNativeBaselineTestKeys.keys();
+            }
+        };
+    }
+
     static void verifyDeadOwnerResume(Properties jdbc) throws Exception {
         Properties policy = new Properties();
         policy.setProperty("cds.import.enabled", "true");
         policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
-        var config = new CdsImportConfigurationService(policy);
+        var config = keyed(policy);
         var actor = new CdsImportActorDto("fixture", "999998", "999998", null, null, null);
         var command =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand(
@@ -1827,7 +1852,7 @@ class CdsImportLedgerMariaDbIntegrationTest {
         policy.setProperty("cds.import.enabled", "true");
         policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
-        var config = new CdsImportConfigurationService(policy);
+        var config = keyed(policy);
         var coordinators = new CdsImportCoordinatorService(physical);
         var maintenance = new CdsImportMaintenanceService(physical, config);
         try (physical;

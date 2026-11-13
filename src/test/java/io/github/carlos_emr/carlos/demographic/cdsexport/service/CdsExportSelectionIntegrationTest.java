@@ -195,9 +195,14 @@ class CdsExportSelectionIntegrationTest {
                 io.github.carlos_emr.carlos.commn.dao.AppointmentStatusDaoImpl.class,
                 io.github.carlos_emr.carlos.commn.dao.LookupListItemDaoImpl.class,
                 io.github.carlos_emr.carlos.PMmodule.dao.ProviderDaoImpl.class,
-                io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class,
-                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService
-                        .class);
+                io.github.carlos_emr.carlos.commn.dao.AppointmentArchiveDaoImpl.class);
+        // Sealed native-baseline witnesses need an installation key (IMP-1).
+        context.registerBean(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
+                () ->
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsTargetReceiptService(
+                                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys()));
         context.refresh();
         selections = context.getBean(CdsExportSelectionService.class);
         dao = context.getBean(PagingDao.class);

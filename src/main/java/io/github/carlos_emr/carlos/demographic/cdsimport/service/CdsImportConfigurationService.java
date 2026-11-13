@@ -52,7 +52,35 @@ public class CdsImportConfigurationService {
         this.properties.putAll(properties);
     }
 
+    private volatile io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            nativeBaselineKeys;
+
     public boolean enabled() { return Boolean.parseBoolean(value("cds.import.enabled", "false")); }
+
+    /** Installation keys that seal native-baseline witnesses; files are read only when needed. */
+    public io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            nativeBaselineKeys() {
+        var keys = nativeBaselineKeys;
+        if (keys == null) {
+            keys =
+                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+                            .fromProperties(properties);
+            nativeBaselineKeys = keys;
+        }
+        return keys;
+    }
+
+    /**
+     * Refuses an import attempt before any claim or clinical write when the active baseline key
+     * is not configured or not readable (IMP-1): no unit may commit an unsealed witness.
+     */
+    public void requireNativeBaselineKey() {
+        try {
+            nativeBaselineKeys().requireActiveKey();
+        } catch (java.io.IOException unavailable) {
+            throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+        }
+    }
 
     public void requireEnabled() {
         if (!enabled()) throw new CdsImportException("IMPORT_ADMISSION_DISABLED");

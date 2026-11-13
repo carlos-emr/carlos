@@ -120,9 +120,14 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
                 MeasurementDaoImpl.class,
                 MeasurementsExtDaoImpl.class,
                 MeasurementsDeletedDaoImpl.class,
-                MeasurementTypeDaoImpl.class,
-                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService
-                        .class);
+                MeasurementTypeDaoImpl.class);
+        // Sealed native-baseline witnesses need an installation key (IMP-1).
+        context.registerBean(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
+                () ->
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsTargetReceiptService(
+                                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys()));
         context.refresh();
         measurements = context.getBean(MeasurementDao.class);
         extensions = context.getBean(MeasurementsExtDao.class);

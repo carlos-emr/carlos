@@ -111,7 +111,12 @@ class CdsExportRetainedIndexServiceUnitTest {
                             for (var row : data.values()) out.accept(row);
                             return mock(CdsExportNativeCaptureDto.class);
                         });
-        service = new CdsExportRetainedIndexService(rows, captures);
+        service =
+                new CdsExportRetainedIndexService(
+                        rows,
+                        captures,
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
         baseline();
     }
 
@@ -601,7 +606,12 @@ class CdsExportRetainedIndexServiceUnitTest {
                             }
                             return mock(CdsExportNativeCaptureDto.class);
                         });
-        service = new CdsExportRetainedIndexService(rows, captures);
+        service =
+                new CdsExportRetainedIndexService(
+                        rows,
+                        captures,
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
         return service.index(
                 lease, patient, selected, manifest, 10000, 8L << 20, 1000, 4L << 20, control);
     }

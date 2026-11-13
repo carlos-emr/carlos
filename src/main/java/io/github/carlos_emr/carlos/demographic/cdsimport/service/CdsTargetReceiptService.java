@@ -87,6 +87,20 @@ public class CdsTargetReceiptService {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    private final io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            baselineKeys;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsTargetReceiptService(CdsImportConfigurationService configuration) {
+        this(configuration.nativeBaselineKeys());
+    }
+
+    /** Explicit keys, for wiring outside the import context (qualification tools, tests). */
+    public CdsTargetReceiptService(
+            io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys) {
+        baselineKeys = java.util.Objects.requireNonNull(keys);
+    }
+
     public record Reference(String table, String id, String digest) {}
 
     private record Captured(
@@ -164,9 +178,15 @@ public class CdsTargetReceiptService {
                     JSON.writeValueAsString(Map.of("protocol", 2, "refs", captured.references()));
             if (encoded.length() > 65536) throw new CdsImportException("TARGET_RECEIPT_TOO_LARGE");
             String targetDigest = digest(encoded);
-            String baseline =
-                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                            .encode(encoded, targetDigest, captured.states());
+            String baseline;
+            try {
+                baseline =
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                                .seal(encoded, targetDigest, captured.states(), baselineKeys);
+            } catch (java.io.IOException unavailable) {
+                // The witness is never stored unsealed and a unit never commits without it.
+                throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+            }
             return new CdsImportReceiptDto(encoded, targetDigest, false, baseline);
         } catch (IllegalArgumentException failure) {
             throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, failure);
@@ -182,14 +202,23 @@ public class CdsTargetReceiptService {
                 || receipt.targetReferences().length() > 65536
                 || !digest(receipt.targetReferences()).equals(receipt.targetDigest())) return false;
         try {
-            var baseline =
-                    receipt.nativeBaseline() == null
-                            ? null
-                            : io.github.carlos_emr.carlos.demographic.cds.contract
-                                    .CdsNativeBaselineCodec.decode(
-                                    receipt.nativeBaseline(),
-                                    receipt.targetReferences(),
-                                    receipt.targetDigest());
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.Document
+                    baseline;
+            try {
+                baseline =
+                        receipt.nativeBaseline() == null
+                                ? null
+                                : io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsNativeBaselineCodec.unseal(
+                                        receipt.nativeBaseline(),
+                                        receipt.targetReferences(),
+                                        receipt.targetDigest(),
+                                        baselineKeys);
+            } catch (java.io.IOException unavailable) {
+                if ("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE".equals(unavailable.getMessage()))
+                    throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                throw unavailable;
+            }
             JsonNode document = JSON.readTree(receipt.targetReferences());
             JsonNode references = document.path("refs");
             if (document.path("protocol").asInt() != 2

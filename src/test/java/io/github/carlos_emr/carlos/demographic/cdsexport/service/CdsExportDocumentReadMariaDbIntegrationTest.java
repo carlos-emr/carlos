@@ -130,9 +130,14 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         .HRMDocumentToDemographicDao
                         .class,
                 DocumentDaoImpl.class,
-                CtlDocumentDaoImpl.class,
-                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService
-                        .class);
+                CtlDocumentDaoImpl.class);
+        // Sealed native-baseline witnesses need an installation key (IMP-1).
+        context.registerBean(
+                io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
+                () ->
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsTargetReceiptService(
+                                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys()));
         context.refresh();
         catalogue = context.getBean(CdsExportSourceCatalogueDao.class);
         hospitalReports =

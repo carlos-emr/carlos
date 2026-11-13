@@ -363,7 +363,8 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                 targetDao, "entityManager");
         var receipts =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.service
-                        .CdsTargetReceiptService();
+                        .CdsTargetReceiptService(
+                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys());
         org.springframework.test.util.ReflectionTestUtils.setField(receipts, "entityManager", em);
         var write = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
         write.setTimeout(30);
@@ -398,10 +399,11 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                             .cds
                             .contract
                             .CdsNativeBaselineCodec
-                            .decode(
+                            .unseal(
                                     original.nativeBaseline(),
                                     original.targetReferences(),
-                                    original.targetDigest())
+                                    original.targetDigest(),
+                                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                             .rows()
                             .stream()
                             .filter(row -> row.table().equals("drugs"))
@@ -416,10 +418,11 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                             .cds
                             .contract
                             .CdsNativeBaselineCodec
-                            .decode(
+                            .unseal(
                                     currentReceipt.nativeBaseline(),
                                     currentReceipt.targetReferences(),
-                                    currentReceipt.targetDigest())
+                                    currentReceipt.targetDigest(),
+                                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                             .rows()
                             .stream()
                             .filter(row -> row.table().equals("drugs"))
@@ -472,7 +475,15 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
             var unit = new LinkedHashMap<>(tables.get("cds_import_unit").get(unitId).fields());
             unit.put("target_references", original.targetReferences());
             unit.put("target_digest", original.targetDigest());
-            unit.put("native_baseline", original.nativeBaseline());
+            // The retained index holds the unsealed witness; the stored form is sealed (IMP-1).
+            unit.put(
+                    "native_baseline",
+                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                            .unsealedText(
+                                    original.nativeBaseline(),
+                                    original.targetReferences(),
+                                    original.targetDigest(),
+                                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys()));
             tables.put(
                     "cds_import_unit",
                     Map.of(

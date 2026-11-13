@@ -238,6 +238,8 @@ public class CdsImportExecutionService {
                     || !job.optionsDigest()
                             .equals(CdsImportJobService.optionsDigest(document.command())))
                 throw new CdsImportException("IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE");
+            // IMP-1: a unit never commits an unsealed field witness, so refuse before any claim.
+            configuration.requireNativeBaselineKey();
             try (var owner = maintenance.acquire()) {
                 safety.verify(owner);
                 attemptBudget.run();

@@ -53,6 +53,106 @@ class CdsNativeBaselineCodecUnitTest {
     }
 
     @Test
+    void shouldStoreOnlyASealedWitness_thatCarriesNoReversiblePerColumnDigest() throws Exception {
+        // IMP-1: an unsalted per-column SHA-256 of a sex, birth date or health card column can be
+        // reversed by enumeration, so the stored form must not contain any of them.
+        var row = vector();
+        String receipt = receipt(row, false);
+        var keys = io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys();
+        String sealed = CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), keys);
+        for (var cell : row.cells())
+            if (cell.sha256() != null) assertThat(sealed).doesNotContain(cell.sha256());
+        assertThat(sealed).contains("\"protocol\":3", "\"keyId\":\"test-active\"");
+        assertThat(sealed).doesNotContain("\"rows\"", "\"cells\"", "\"bytes\"");
+        assertThat(CdsNativeBaselineCodec.unseal(sealed, receipt, sha(receipt), keys).rows())
+                .containsExactly(row);
+        assertThat(
+                        CdsNativeBaselineCodec.decode(
+                                        CdsNativeBaselineCodec.unsealedText(
+                                                sealed, receipt, sha(receipt), keys),
+                                        receipt,
+                                        sha(receipt))
+                                .rows())
+                .containsExactly(row);
+        // Two seals of the same witness differ (fresh nonce); both open.
+        String again = CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), keys);
+        assertThat(again).isNotEqualTo(sealed);
+        assertThat(CdsNativeBaselineCodec.unseal(again, receipt, sha(receipt), keys).rows())
+                .containsExactly(row);
+    }
+
+    @Test
+    void shouldOpenAWitnessWithTheKeyItRecords_afterTheActiveKeyRotates() throws Exception {
+        var row = vector();
+        String receipt = receipt(row, false);
+        var keys = io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys();
+        String sealed = CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), keys);
+        var rotated =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .rotated();
+        assertThat(CdsNativeBaselineCodec.unseal(sealed, receipt, sha(receipt), rotated).rows())
+                .containsExactly(row);
+        assertThat(CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), rotated))
+                .contains("\"keyId\":\"test-retired\"");
+    }
+
+    @Test
+    void shouldRefuseClearly_whenTheInstallationKeyIsMissing() throws Exception {
+        var row = vector();
+        String receipt = receipt(row, false);
+        var none = io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.none();
+        assertThatThrownBy(
+                        () -> CdsNativeBaselineCodec.seal(receipt, sha(receipt), List.of(row), none))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessage("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE");
+        String sealed =
+                CdsNativeBaselineCodec.seal(
+                        receipt,
+                        sha(receipt),
+                        List.of(row),
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(sealed, receipt, sha(receipt), none))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessage("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE");
+        var properties = new java.util.Properties();
+        properties.setProperty("cds.nativeBaseline.activeKey", "configured");
+        assertThatThrownBy(
+                        () ->
+                                io.github.carlos_emr.carlos.demographic.cds.security
+                                        .CdsNativeBaselineKeys.fromProperties(properties)
+                                        .requireActiveKey())
+                .hasMessage("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE");
+    }
+
+    @Test
+    void shouldRefuseUnsealedTamperedOrRebound_storedWitnesses() throws Exception {
+        var row = vector();
+        String receipt = receipt(row, false);
+        String digest = sha(receipt);
+        var keys = io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys();
+        String plain = CdsNativeBaselineCodec.encode(receipt, digest, List.of(row));
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(plain, receipt, digest, keys))
+                .isInstanceOf(IllegalArgumentException.class);
+        String sealed = CdsNativeBaselineCodec.seal(receipt, digest, List.of(row), keys);
+        var tree = new com.fasterxml.jackson.databind.ObjectMapper().readTree(sealed);
+        byte[] body = java.util.Base64.getDecoder().decode(tree.get("sealed").textValue());
+        body[0] ^= 1;
+        String tampered =
+                sealed.replace(
+                        tree.get("sealed").textValue(),
+                        java.util.Base64.getEncoder().encodeToString(body));
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(tampered, receipt, digest, keys))
+                .isInstanceOf(IllegalArgumentException.class);
+        String relabelled = sealed.replace("\"keyId\":\"test-active\"", "\"keyId\":\"test-retired\"");
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(relabelled, receipt, digest, keys))
+                .isInstanceOf(IllegalArgumentException.class);
+        String other = receipt(row, true);
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.unseal(sealed, other, sha(other), keys))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void shouldDetectOnlyTheChangedSqlProjection_andKeepNullDistinctFromEmpty() {
         var previous = vector();
         var values = new ArrayList<>(previous.cells());

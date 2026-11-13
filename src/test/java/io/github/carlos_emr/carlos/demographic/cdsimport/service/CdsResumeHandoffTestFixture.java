@@ -51,7 +51,17 @@ final class CdsResumeHandoffTestFixture {
         policy.setProperty("cds.import.enabled", "true");
         policy.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
         policy.setProperty("cds.import.maintenanceMode", "true");
-        var config = new CdsImportConfigurationService(policy);
+        // Native-baseline witnesses are sealed under an installation key (IMP-1).
+        var config =
+                new CdsImportConfigurationService(policy) {
+                    @Override
+                    public io.github.carlos_emr.carlos.demographic.cds.security
+                                    .CdsNativeBaselineKeys
+                            nativeBaselineKeys() {
+                        return io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys();
+                    }
+                };
         var physical = new OscarTrackingBasicDataSource();
         physical.setDriverClassName("org.mariadb.jdbc.Driver");
         physical.setUrl(url);

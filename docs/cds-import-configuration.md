@@ -32,6 +32,43 @@ Roots must pass engine ownership, permissions, filesystem and no-symlink checks.
 alone does not establish readiness. Originals/journals are mode `0600`; verified published
 documents are mode `0640` in the document-store group.
 
+## Native-baseline witness key
+
+Each committed import unit stores a field witness of every native row it wrote
+(`cds_import_unit.native_baseline`, copied to `cds_import_checkpoint`), which the exporter
+uses to tell which native columns changed since import. Its per-column SHA-256 and byte
+length are reversible for low-entropy PHI, so the witness is stored only sealed with
+AES-256-GCM under a per-installation key held outside the database. The import and export
+(web and both CLIs) read the same two properties:
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `cds.nativeBaseline.keyRoot` | none | Absolute directory holding `<keyId>.key` files. |
+| `cds.nativeBaseline.activeKey` | none | Key ID (`[A-Za-z0-9][A-Za-z0-9_-]{0,63}`) that seals new witnesses. |
+
+Provision it like the CDS export master key: each key file holds exactly 32 random bytes, is
+owned by root and readable by the service group only (for example `root:carlos 0640` below a
+root-owned `0750` directory); a group- or world-writable file or ancestor, a symlink or a
+writable service-owned file is refused. For example:
+
+```bash
+sudo install -d -o root -g carlos -m 0750 /etc/carlos-emr/cds-baseline-keys
+sudo sh -c 'umask 0137; head -c 32 /dev/urandom > /etc/carlos-emr/cds-baseline-keys/k2026a.key'
+sudo chown root:carlos /etc/carlos-emr/cds-baseline-keys/k2026a.key
+# carlos.properties
+cds.nativeBaseline.keyRoot=/etc/carlos-emr/cds-baseline-keys
+cds.nativeBaseline.activeKey=k2026a
+```
+
+An import attempt refuses before any claim or clinical write with
+`NATIVE_BASELINE_KEY_UNAVAILABLE` when the active key is missing or unreadable; a unit never
+commits an unsealed witness. Each witness records its key ID: to rotate, add a new key file and
+change `activeKey`, and keep retired key files while their imports may still be exported.
+Removing every key makes old witnesses unreadable; the exporter then fails with
+`CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE` rather than guess. Escrow the key files with the
+other installation secrets: they are deliberately not in the database or its backups. Packaged
+installs need `carlos-ctl` to provision the directory and an initial key (a companion change).
+
 ## Source registration and delegation
 
 Replace placeholders with deployment-owned identifiers. Comma-separated lists are trimmed,

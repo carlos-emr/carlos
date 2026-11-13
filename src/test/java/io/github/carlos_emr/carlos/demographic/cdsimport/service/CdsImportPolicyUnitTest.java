@@ -107,6 +107,26 @@ class CdsImportPolicyUnitTest {
     }
 
     @Test
+    void shouldRefuseAnImportAttempt_whenTheNativeBaselineKeyIsNotConfigured() {
+        // IMP-1: a unit must never commit an unsealed field witness.
+        for (String[] settings :
+                new String[][] {
+                    {},
+                    {"cds.nativeBaseline.activeKey", "k2026a"},
+                    {"cds.nativeBaseline.keyRoot", "relative/keys", "cds.nativeBaseline.activeKey", "k"},
+                    {"cds.nativeBaseline.keyRoot", "/nonexistent/cds-keys", "cds.nativeBaseline.activeKey", "k"},
+                    {"cds.nativeBaseline.keyRoot", "/nonexistent/cds-keys", "cds.nativeBaseline.activeKey", "../k"}
+                }) {
+            Properties properties = new Properties();
+            for (int i = 0; i < settings.length; i += 2)
+                properties.setProperty(settings[i], settings[i + 1]);
+            assertThatThrownBy(() -> config(properties).requireNativeBaselineKey())
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("NATIVE_BASELINE_KEY_UNAVAILABLE");
+        }
+    }
+
+    @Test
     void shouldRequireExplicitClinicalZone_whenImportAdmissionIsEnabled() {
         Properties properties = new Properties();
         properties.setProperty("cds.import.enabled", "true");

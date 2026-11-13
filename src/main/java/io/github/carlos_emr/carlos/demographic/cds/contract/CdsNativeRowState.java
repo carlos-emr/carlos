@@ -25,10 +25,16 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Field witnesses from the same SQL projections as a protocol-2 native receipt. No native
- * values are stored here. These witnesses prove which SQL projections changed; they do
- * not assert a clinical mapping. Optional IEEE witnesses are separate from the unchanged
- * SQL-display receipt and contain only a codec-bound hash, never a dose or its raw bits.
+ * Field witnesses from the same SQL projections as a protocol-2 native receipt. These
+ * witnesses prove which SQL projections changed; they do not assert a clinical mapping.
+ * Optional IEEE witnesses are separate from the unchanged SQL-display receipt and contain
+ * only a codec-bound hash, never a dose or its raw bits.
+ *
+ * <p>A cell holds no value text, but its unsalted SHA-256 and byte length are value
+ * equivalents for low-entropy columns (sex, birth date parts, health card or SIN number,
+ * postal code, phone): enumeration recovers them. Treat a row state as PHI. It is stored only
+ * sealed under a per-installation key ({@link CdsNativeBaselineCodec#seal}) and must never be
+ * logged, rendered or written anywhere else in plaintext.
  */
 public record CdsNativeRowState(
         String table, String id, List<CdsNativeRowDigest.Column> columns, List<Cell> cells) {

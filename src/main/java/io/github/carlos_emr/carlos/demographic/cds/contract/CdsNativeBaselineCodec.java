@@ -32,15 +32,38 @@ import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Set;
+import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys;
 
 /**
  * Additional versioned field witnesses bound to the exact, unchanged protocol-2 receipt.
  * Absence is a legacy/unknown baseline, never permission to backfill from current rows.
  * Every supplied row must reconstruct its receipt digest and the complete referenced-row
  * set. Stored receipt JSON and its digest are not rewritten or reinterpreted.
+ *
+ * <p>The witness document holds an unsalted per-column SHA-256 and byte length, which can be
+ * reversed by enumeration for low-entropy PHI. It is therefore stored only as a protocol-3
+ * envelope ({@link #seal}): AES-256-GCM under a per-installation key held outside the database
+ * ({@link CdsNativeBaselineKeys}), with the key ID recorded in the envelope and the receipt
+ * digest bound as associated data. {@link #unseal} is the only reader of stored values and
+ * refuses an unsealed document; {@link #encode}/{@link #decode} handle the plaintext document
+ * only in memory (for example in an export's retained index after unsealing).
  */
 public final class CdsNativeBaselineCodec {
     public static final int MAX_BYTES = 8 << 20;
+
+    /** Base64 of an at-most-8-MiB document plus its envelope fields. */
+    public static final int MAX_SEALED_BYTES = 12 << 20;
+
+    private static final String SEALED_DOMAIN = "carlos-cds-native-baseline-v3";
+    private static final java.security.SecureRandom NONCES = new java.security.SecureRandom();
+
+    /** The stored form: a sealed witness document and the key that sealed it. */
+    public record Envelope(int protocol, String keyId, String nonce, String sealed) {
+        @Override
+        public String toString() {
+            return "CdsNativeBaselineCodec.Envelope[protected]";
+        }
+    }
     private static final JsonMapper JSON =
             JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()
@@ -114,6 +137,118 @@ public final class CdsNativeBaselineCodec {
                         .anyMatch(cell -> cell.exactNumeric() != null)) invalid();
         verify(document, references, targetDigest);
         return document;
+    }
+
+    /**
+     * Seals a verified witness document for storage under the active installation key. A
+     * missing key refuses ({@code CDS_NATIVE_BASELINE_KEY_UNAVAILABLE}); nothing is stored
+     * unsealed.
+     */
+    public static String seal(
+            String references,
+            String targetDigest,
+            List<CdsNativeRowState> rows,
+            CdsNativeBaselineKeys keys)
+            throws IOException {
+        java.util.Objects.requireNonNull(keys);
+        String plaintext = encode(references, targetDigest, rows);
+        String keyId = keys.activeKeyId();
+        byte[] nonce = new byte[12];
+        NONCES.nextBytes(nonce);
+        byte[] sealed;
+        try {
+            var cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(
+                    javax.crypto.Cipher.ENCRYPT_MODE,
+                    keys.key(keyId),
+                    new javax.crypto.spec.GCMParameterSpec(128, nonce));
+            cipher.updateAAD(associated(keyId, targetDigest));
+            sealed = cipher.doFinal(plaintext.getBytes(StandardCharsets.UTF_8));
+        } catch (java.security.GeneralSecurityException failure) {
+            throw new IOException("CDS_NATIVE_BASELINE_SEAL_FAILED");
+        }
+        var encoder = java.util.Base64.getEncoder();
+        String encoded =
+                JSON.writeValueAsString(
+                        new Envelope(
+                                3,
+                                keyId,
+                                encoder.encodeToString(nonce),
+                                encoder.encodeToString(sealed)));
+        if (encoded.length() > MAX_SEALED_BYTES) invalid();
+        return encoded;
+    }
+
+    /** Opens a stored witness with the key it names and verifies it against its receipt. */
+    public static Document unseal(
+            String stored, String references, String targetDigest, CdsNativeBaselineKeys keys)
+            throws IOException {
+        return decode(unsealedText(stored, references, targetDigest, keys), references, targetDigest);
+    }
+
+    /**
+     * The verified plaintext document of a stored witness, for in-memory consumers that decode
+     * it later with {@link #decode}. Never write the result back to storage.
+     */
+    public static String unsealedText(
+            String stored, String references, String targetDigest, CdsNativeBaselineKeys keys)
+            throws IOException {
+        java.util.Objects.requireNonNull(keys);
+        if (stored == null
+                || stored.isEmpty()
+                || stored.length() > MAX_SEALED_BYTES
+                || targetDigest == null
+                || !targetDigest.matches("[0-9a-f]{64}")) invalid();
+        JsonNode tree = JSON.readTree(stored);
+        // An unsealed (protocol 1 or 2) document is refused: no released build stored one,
+        // and accepting it would let a database writer replace a sealed witness unnoticed.
+        exact(tree, Set.of("protocol", "keyId", "nonce", "sealed"));
+        if (!tree.get("protocol").isIntegralNumber()
+                || !tree.get("protocol").canConvertToInt()
+                || tree.get("protocol").intValue() != 3) invalid();
+        String keyId = text(tree, "keyId");
+        byte[] nonce, sealed;
+        try {
+            var decoder = java.util.Base64.getDecoder();
+            nonce = decoder.decode(text(tree, "nonce"));
+            sealed = decoder.decode(text(tree, "sealed"));
+        } catch (IllegalArgumentException malformed) {
+            throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        }
+        if (nonce.length != 12 || sealed.length < 16) invalid();
+        var key = keys.key(keyId);
+        byte[] plaintext;
+        try {
+            var cipher = javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(
+                    javax.crypto.Cipher.DECRYPT_MODE,
+                    key,
+                    new javax.crypto.spec.GCMParameterSpec(128, nonce));
+            cipher.updateAAD(associated(keyId, targetDigest));
+            plaintext = cipher.doFinal(sealed);
+        } catch (javax.crypto.AEADBadTagException tampered) {
+            throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        } catch (java.security.GeneralSecurityException failure) {
+            throw new IOException("CDS_NATIVE_BASELINE_SEAL_FAILED");
+        }
+        if (plaintext.length > MAX_BYTES) invalid();
+        String text;
+        try {
+            text =
+                    StandardCharsets.UTF_8
+                            .newDecoder()
+                            .decode(java.nio.ByteBuffer.wrap(plaintext))
+                            .toString();
+        } catch (java.nio.charset.CharacterCodingException malformed) {
+            throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        }
+        decode(text, references, targetDigest);
+        return text;
+    }
+
+    private static byte[] associated(String keyId, String targetDigest) {
+        return (SEALED_DOMAIN + "\0" + keyId + "\0" + targetDigest)
+                .getBytes(StandardCharsets.UTF_8);
     }
 
     private static void verify(Document document, String references, String targetDigest)

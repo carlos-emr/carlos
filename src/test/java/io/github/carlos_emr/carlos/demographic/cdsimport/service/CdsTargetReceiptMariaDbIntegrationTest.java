@@ -104,7 +104,8 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                                 call ->
                                         ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0))
                                                 .execute(connection));
-                var service = new CdsTargetReceiptService();
+                var service = new CdsTargetReceiptService(
+                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys());
                 org.springframework.test.util.ReflectionTestUtils.setField(
                         service, "entityManager", entityManager);
                 var receipt = service.capture(java.util.Map.of("casemgmt_note_ext", extensionId));
@@ -156,16 +157,18 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                                 call ->
                                         ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0))
                                                 .execute(connection));
-                var service = new CdsTargetReceiptService();
+                var service = new CdsTargetReceiptService(
+                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys());
                 org.springframework.test.util.ReflectionTestUtils.setField(
                         service, "entityManager", entityManager);
                 var original = service.capture(java.util.Map.of("demographic", "1"));
                 var baseline =
                         io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                                .decode(
+                                .unseal(
                                         original.nativeBaseline(),
                                         original.targetReferences(),
-                                        original.targetDigest())
+                                        original.targetDigest(),
+                                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                                 .rows()
                                 .getFirst();
                 assertThat(baseline.digest())
@@ -178,10 +181,11 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                 var changed = service.capture(java.util.Map.of("demographic", "1"));
                 var current =
                         io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                                .decode(
+                                .unseal(
                                         changed.nativeBaseline(),
                                         changed.targetReferences(),
-                                        changed.targetDigest())
+                                        changed.targetDigest(),
+                                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                                 .rows()
                                 .getFirst();
                 assertThat(
@@ -343,7 +347,8 @@ class CdsTargetReceiptMariaDbIntegrationTest {
                             call ->
                                     ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0))
                                             .execute(connection));
-            var service = new CdsTargetReceiptService();
+            var service = new CdsTargetReceiptService(
+                        io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys());
             org.springframework.test.util.ReflectionTestUtils.setField(
                     service, "entityManager", entityManager);
             var original = service.capture(java.util.Map.of("demographic", "1"));
@@ -368,18 +373,20 @@ class CdsTargetReceiptMariaDbIntegrationTest {
             assertThat(service.verify(changed)).isTrue();
             var baseline =
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                            .decode(
+                            .unseal(
                                     original.nativeBaseline(),
                                     original.targetReferences(),
-                                    original.targetDigest())
+                                    original.targetDigest(),
+                                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                             .rows()
                             .getFirst();
             var current =
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
-                            .decode(
+                            .unseal(
                                     changed.nativeBaseline(),
                                     changed.targetReferences(),
-                                    changed.targetDigest())
+                                    changed.targetDigest(),
+                                    io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys())
                             .rows()
                             .getFirst();
             assertThat(

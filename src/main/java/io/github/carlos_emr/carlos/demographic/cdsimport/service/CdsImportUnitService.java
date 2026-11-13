@@ -71,13 +71,18 @@ public class CdsImportUnitService {
     private final CdsImportCheckpointDao checkpoints;
     private final TransactionTemplate transaction;
 
+    private final io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+            baselineKeys;
+
     public CdsImportUnitService(
             CdsImportLedgerService ledger,
             CdsImportUnitDao units,
             CdsImportPatientDao patients,
             CdsImportDependencyDao dependencies,
             CdsImportCheckpointDao checkpoints,
-            PlatformTransactionManager manager) {
+            PlatformTransactionManager manager,
+            CdsImportConfigurationService configuration) {
+        this.baselineKeys = configuration.nativeBaselineKeys();
         this.ledger = ledger;
         this.units = units;
         this.patients = patients;
@@ -244,11 +249,16 @@ public class CdsImportUnitService {
         CdsImportKeys.digestValue(receipt.targetDigest(), "target digest");
         if (receipt.nativeBaseline() != null)
             try {
-                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.decode(
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec.unseal(
                         receipt.nativeBaseline(),
                         receipt.targetReferences(),
-                        receipt.targetDigest());
-            } catch (java.io.IOException | IllegalArgumentException invalid) {
+                        receipt.targetDigest(),
+                        baselineKeys);
+            } catch (java.io.IOException unavailable) {
+                if ("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE".equals(unavailable.getMessage()))
+                    throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, unavailable);
+            } catch (IllegalArgumentException invalid) {
                 throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, invalid);
             }
     }
