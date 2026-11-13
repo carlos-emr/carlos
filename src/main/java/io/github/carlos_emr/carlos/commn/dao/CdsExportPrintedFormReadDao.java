@@ -70,7 +70,7 @@ public class CdsExportPrintedFormReadDao {
     public record Contact(
             String subtype, String firstName, String lastName, String address, String address2,
             String city, String postal, String province, String country, String workPhone,
-            String workPhoneExtension, String fax, String cpso) {}
+            String workPhoneExtension, String fax) {}
 
     public Clinic clinic() {
         var rows = rows(CdsExportPatientTableReadSupport.query(entityManager,
@@ -128,14 +128,13 @@ public class CdsExportPrintedFormReadDao {
     public Contact contact(int id) {
         var rows = rows(CdsExportPatientTableReadSupport.query(entityManager,
                 "select type,firstName,lastName,address,address2,city,postal,province,country,workPhone,"
-                        + "workPhoneExtension,fax,cpso from Contact where id=:id")
+                        + "workPhoneExtension,fax from Contact where id=:id")
                 .setParameter("id", id)
                 .setMaxResults(2));
         if (rows.size() != 1) return null;
         Object[] row = rows.getFirst();
         return new Contact(text(row[0]), text(row[1]), text(row[2]), text(row[3]), text(row[4]), text(row[5]),
-                text(row[6]), text(row[7]), text(row[8]), text(row[9]), text(row[10]), text(row[11]),
-                text(row[12]));
+                text(row[6]), text(row[7]), text(row[8]), text(row[9]), text(row[10]), text(row[11]));
     }
 
     public String program(int programId) {

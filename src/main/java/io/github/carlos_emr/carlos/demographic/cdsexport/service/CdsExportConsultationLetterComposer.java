@@ -60,10 +60,10 @@ import org.springframework.stereotype.Service;
  * the letter says so in its Notes and in its data summary's Notes. A configured logo that is not installed
  * is not an omission: the letter prints without a logo, as the clinic's own Print does.
  *
- * <p>A request whose consultant is a health-care-team contact prints that contact as the chart
- * does ({@link #consultant}). One the chart itself cannot print, because the contact it names is
- * gone or cannot be read, is not printed ({@value #CONTACT_UNAVAILABLE}); its data summary carries
- * every value and says why, and the patient is not held.
+ * <p>A request whose consultant is a health-care-team contact prints that contact with its own
+ * values, as the chart does ({@link #consultant}). One whose link no longer exists or is malformed
+ * is not printed ({@value #CONTACT_UNAVAILABLE}); its data summary carries every value and says
+ * why, and the patient is not held.
  *
  * @since 2026-11-13
  */
@@ -71,10 +71,10 @@ import org.springframework.stereotype.Service;
 public class CdsExportConsultationLetterComposer implements CdsExportDataSummaryOccurrenceService.Printer {
     static final String TABLE = "consultationRequests";
     static final String SUB_CLASS = "Consultation request letter";
-    /** A health-care-team consultant the chart's own Print cannot resolve (see {@link #consultant}). */
+    /** A health-care-team link that no longer exists or is malformed (see {@link #consultant}). */
     static final String CONTACT_UNAVAILABLE = "CONSULTANT_CONTACT_UNAVAILABLE";
 
-    /** The {@code Contact} subtype the chart's Print reads a professional team contact as. */
+    /** The {@code Contact} subtype of a professional contact (its JPA discriminator). */
     private static final String PROFESSIONAL_CONTACT = "ProfessionalContact";
     static final String SIGNATURE_NOTE =
             "The provider's signature image could not be included in the printed letter"
@@ -252,16 +252,18 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
      * The consultant the chart's consultation Print shows ({@code
      * EctConsultationFormRequestUtil.estRequestFromId}). With {@code
      * ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS} on, a request whose health-care-team link
-     * ({@code demographicContactId}) is a professional {@code Contact} (type {@code
-     * TYPE_CONTACT}, category "professional", any letter case) shows that contact ({@link
-     * #teamContact}); a link to a directory specialist, a provider or a personal contact, or to a
-     * contact row that is gone, shows the directory specialist the request's {@code specId} names,
-     * as every other request does. The link's deleted, active and consent flags are not read: the
-     * chart's Print does not read them either.
+     * ({@code demographicContactId}) is a professional contact (type {@code TYPE_CONTACT},
+     * category "professional" in any letter case) shows that contact with its own values ({@link
+     * ProfessionalSpecialist#healthCareTeamConsultant}, the chart's own code). Any other link (a
+     * directory specialist's, a provider's, a personal one) shows the directory specialist the
+     * request's {@code specId} names, as every other request does. The link's deleted, active and
+     * consent flags are not read: the chart's Print does not read them either.
      *
-     * <p>Refused ({@value #CONTACT_UNAVAILABLE}) exactly where the chart's Print fails: the link
-     * row is gone or has no type (the request cannot be loaded), or the id it stores is not a
-     * number.
+     * <p>Refused ({@value #CONTACT_UNAVAILABLE}) only for a link that no longer exists or is
+     * malformed: the link row is gone or untyped, or a professional contact link's contact id is
+     * not a number or names no professional contact (a contact row that is gone, or a personal
+     * one, which the consultation form never offers). The chart prints such a request without a
+     * consultant; the export carries it as its data summary instead.
      */
     // FindSecBugs IMPROPER_UNICODE: the category is compared case-insensitively exactly as the chart's Print compares it; not a security decision.
     @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "the category is compared case-insensitively exactly as the chart's Print compares it; not a security decision")
@@ -270,53 +272,23 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         if (link != null
                 && CarlosProperties.getInstance()
                         .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true")) {
-            Integer id;
-            try {
-                id = Integer.valueOf(link);
-            } catch (NumberFormatException notAnId) {
-                id = null;
-            }
+            Integer id = integer(link);
             var team = id == null ? null : references.teamLink(id);
             if (team == null || team.type() == null) throw unavailable();
-            int contactId;
-            try {
-                // The chart parses the stored id before it reads anything else.
-                contactId = Integer.parseInt(team.contactId());
-            } catch (NumberFormatException unreadable) {
-                throw unavailable();
-            }
             if (team.type() == DemographicContact.TYPE_CONTACT
                     && DemographicContact.CATEGORY_PROFESSIONAL.equalsIgnoreCase(team.category())) {
-                var contact = references.contact(contactId);
-                if (contact != null) return teamContact(contactId, contact);
+                Integer contactId = integer(team.contactId());
+                var contact = contactId == null ? null : references.contact(contactId);
+                if (contact == null || !PROFESSIONAL_CONTACT.equals(contact.subtype())) throw unavailable();
+                return teamContact(contact);
             }
         }
         return specialist(number(request.text("specId")));
     }
 
-    /**
-     * A professional health-care-team contact as the chart's Print shows it: {@code
-     * DemographicContactCreator} starts from the directory specialist whose id is the contact's id
-     * (none for an id below 1), keeping its salutation and professional letters, and applies the
-     * contact's names, address, phone and fax ({@link
-     * ProfessionalSpecialist#applyProfessionalContact}, the same code). Refused ({@value
-     * #CONTACT_UNAVAILABLE}) where that fails: the row is not a professional contact (the chart's
-     * cast fails), no directory specialist has the contact's id, or the contact has no CPSO
-     * number.
-     */
-    private ConsultationLetterDto.Specialist teamContact(
-            int contactId, CdsExportPrintedFormReadDao.Contact found) throws IOException {
-        if (!PROFESSIONAL_CONTACT.equals(found.subtype())) throw unavailable();
-        var specialist = new ProfessionalSpecialist();
-        if (contactId > 0) {
-            var directory = references.specialist(contactId);
-            if (directory == null) throw unavailable();
-            specialist.setSalutation(directory.salutation());
-            specialist.setProfessionalLetters(directory.letters());
-        }
-        if (found.cpso() == null) throw unavailable();
+    /** A professional health-care-team contact as the letter shows it: its own values only. */
+    private static ConsultationLetterDto.Specialist teamContact(CdsExportPrintedFormReadDao.Contact found) {
         var contact = new ProfessionalContact();
-        contact.setId(contactId);
         contact.setFirstName(found.firstName());
         contact.setLastName(found.lastName());
         contact.setAddress(found.address());
@@ -328,13 +300,21 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         contact.setWorkPhone(found.workPhone());
         contact.setWorkPhoneExtension(found.workPhoneExtension());
         contact.setFax(found.fax());
-        contact.setCpso(found.cpso());
-        specialist.applyProfessionalContact(contact);
+        var consultant = ProfessionalSpecialist.healthCareTeamConsultant(contact);
         return new ConsultationLetterDto.Specialist(
-                specialist.getFormattedTitle(),
-                specialist.getPhoneNumber(),
-                specialist.getFaxNumber(),
-                specialist.getStreetAddress());
+                consultant.getFormattedTitle(),
+                consultant.getPhoneNumber(),
+                consultant.getFaxNumber(),
+                consultant.getStreetAddress());
+    }
+
+    /** A stored integer id, or null when the text is not one (as the chart's parse refuses it). */
+    private static Integer integer(String value) {
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException notAnId) {
+            return null;
+        }
     }
 
     private static CdsExportDataSummaryOccurrenceService.PrintRefusal unavailable() {

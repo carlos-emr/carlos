@@ -263,6 +263,15 @@ public class DemographicContactCreator {
         return contact;
     }
 
+    /**
+     * The directory specialist a contact-editor form edits, with the form's values applied: the
+     * {@code professionalSpecialists} row whose id is the contact's id (a new one for an id below
+     * 1), as {@code Contact2Action} saves it for a {@code TYPE_PROFESSIONALSPECIALIST} contact.
+     * Not for a consultation letter's health-care-team consultant, whose id is a {@code Contact}
+     * id: that is {@link ProfessionalSpecialist#healthCareTeamConsultant}.
+     *
+     * @throws SecurityException without {@code _demographic} read rights
+     */
     public static ProfessionalSpecialist convertProfessionalContactAsProfessionalSpecialist(LoggedInInfo loggedInInfo, ProfessionalContact contact) {
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
             throw new SecurityException("missing required sec object (_demographic)");
@@ -279,15 +288,16 @@ public class DemographicContactCreator {
             contactId = 0;
         }
 
-        // A positive id reads the directory specialist with that same id, whose salutation and
-        // letters stay; a missing one fails here, as it always has.
+        // The contact editor shows a directory specialist as a contact whose id is the
+        // specialist's own (TYPE_PROFESSIONALSPECIALIST), so a positive id is that row and its
+        // edits are merged into it. Never use this for a Contact-table contact: its id names no
+        // specialist. A consultation letter uses ProfessionalSpecialist.healthCareTeamConsultant.
         if (contactId > 0) {
             professionalSpecialist = professionalSpecialistDao.find(contactId);
         } else {
             professionalSpecialist = new ProfessionalSpecialist();
         }
 
-        // Shared with the CDS export's printed consultation letter, which must show the same consultant.
         professionalSpecialist.applyProfessionalContact(contact);
 
         return professionalSpecialist;

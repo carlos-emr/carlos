@@ -1295,23 +1295,31 @@ stays the lossless accounting. Two printers are registered (web context by compo
   contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints
   that contact as the chart's Print does (`EctConsultationFormRequestUtil.estRequestFromId`,
   `CdsExportConsultationLetterComposer.consultant`): `CdsExportPrintedFormReadDao.teamLink` reads
-  the `DemographicContact` link (type, category, contact id) and `contact` the `Contact` row; a
-  professional `ProfessionalContact` (type 2, category "professional" in any case) is applied to
-  the directory specialist whose `specId` is the contact's id, keeping its salutation and
-  letters, by `ProfessionalSpecialist.applyProfessionalContact`, the code the chart's
-  `DemographicContactCreator` runs. Borrowing an unrelated directory row's salutation and letters
-  (and printing "null" for a contact with no work phone) is the chart's inherited behaviour, kept
-  so the exported letter is the one the chart prints; correcting it is a chart change the export
-  would then follow. Any other link, or a contact row that is gone, prints the
-  specialist `specId` names, as the chart does. Where the chart's own Print fails (the link row is
-  gone or untyped, its contact id is not a number, the row is a personal `Contact`, no directory
-  specialist has the contact's id, or the contact has no CPSO number) the letter is refused with
-  `CONSULTANT_CONTACT_UNAVAILABLE`. The letter prints only part of the record (not the
+  the `DemographicContact` link (type, category, contact id) and `contact` the `Contact` row, and
+  a professional `ProfessionalContact` (type 2, category "professional" in any case) becomes the
+  consultant through `ProfessionalSpecialist.healthCareTeamConsultant`, the code the chart's Print
+  runs too. It shows the contact's own values only: its name (a contact has no salutation or
+  professional letters), the address parts it has, its work phone with any extension, and its
+  fax. No directory specialist is read, so one that shares the contact's number is never
+  borrowed, and a missing value prints blank, never "null". No CPSO number is needed (contacts a
+  CDS import creates have none). Earlier releases took the salutation and letters of the
+  directory specialist with the contact's number and could not print without one or without a
+  CPSO number; the chart and the export are corrected together. Any other link (a directory
+  specialist's, a provider's, a personal one) prints the specialist `specId` names, as the chart
+  does. A personal contact cannot be a consultant: the consultation form offers only the patient's
+  professional contacts (`DemographicManager.getHealthCareTeam`) and saves only those
+  (`ConsultationConsultantSelection`). Only a link that no longer exists or is malformed refuses
+  the letter with `CONSULTANT_CONTACT_UNAVAILABLE`: the link row is gone or untyped, or a
+  professional contact link's id is not a number or names no professional contact (the row is
+  gone or personal). The chart prints such a request without a consultant; the export carries it
+  as its data summary, whose Notes give the code, and never holds the patient. The letter prints
+  only part of the record (not the
   other extension rows, attachment references, status or source); the request's data summary
   already lists every one of its rows and values, so no further supplementary summary is needed.
   The request path is pinned by
   `ConsultationPDFCreatorRequestPathUnitTest` (page text, drawing instructions and images) and
-  prints exactly as before: it resolves the same letter with the same lookups.
+  prints a directory specialist's letter exactly as before; its health-care-team letter is the
+  corrected one above.
 - `CdsExportRourkeChartComposer` prints the current (latest saved) `formRourke2017` or
   `formRourke2020` revision through the form's fixed Jasper pages (`Rourke2017PdfReport`,
   `Rourke2020PdfReport`; bundled DejaVu fonts only, a character DejaVu lacks or clipped text refuses

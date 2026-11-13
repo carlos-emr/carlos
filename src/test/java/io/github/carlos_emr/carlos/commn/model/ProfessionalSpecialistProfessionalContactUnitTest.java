@@ -22,15 +22,15 @@
 package io.github.carlos_emr.carlos.commn.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 /**
- * Pins the consultant a health-care-team professional contact becomes on a consultation letter:
- * the chart's Print ({@code DemographicContactCreator}) and the CDS export's printed letter both
- * apply {@link ProfessionalSpecialist#applyProfessionalContact}, so they show the same values.
+ * Pins how a professional contact becomes a specialist: the consultant a consultation letter shows
+ * for a health-care-team contact ({@link ProfessionalSpecialist#healthCareTeamConsultant}, used by
+ * the chart's Print and the CDS export's printed letter) and the directory specialist the contact
+ * editor saves ({@link ProfessionalSpecialist#applyProfessionalContact}).
  */
 @Tag("unit")
 class ProfessionalSpecialistProfessionalContactUnitTest {
@@ -57,7 +57,49 @@ class ProfessionalSpecialistProfessionalContactUnitTest {
     }
 
     @Test
-    void shouldTakeTheContactsDetails_andKeepTheSalutationAndLetters() {
+    void shouldShowOnlyTheContactsOwnValues_asAHealthCareTeamConsultant() {
+        var consultant = ProfessionalSpecialist.healthCareTeamConsultant(contact());
+
+        // A contact has no salutation or letters, and none are borrowed from a directory row.
+        assertThat(consultant.getId()).isNull();
+        assertThat(consultant.getSalutation()).isNull();
+        assertThat(consultant.getProfessionalLetters()).isNull();
+        assertThat(consultant.getFormattedTitle()).isEqualTo("NURSE, Nora");
+        assertThat(consultant.getStreetAddress()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada");
+        assertThat(consultant.getPhoneNumber()).isEqualTo("555-0500 ext 12");
+        assertThat(consultant.getFaxNumber()).isEqualTo("555-0501");
+        assertThat(consultant.getEmailAddress()).isEqualTo("nurse@example.invalid");
+        assertThat(consultant.getReferralNo()).isEqualTo("12345");
+        assertThat(consultant.getSpecialtyType()).isEqualTo("Nurse Practitioner");
+        assertThat(consultant.getPrivatePhoneNumber()).isEqualTo("555-0502");
+        assertThat(consultant.getCellPhoneNumber()).isEqualTo("555-0503");
+    }
+
+    @Test
+    void shouldLeaveMissingValuesEmpty_withoutACpsoNumber() {
+        // As a CDS import creates a team contact: names only.
+        var contact = new ProfessionalContact();
+        contact.setFirstName("Nora");
+        contact.setLastName("NURSE");
+        contact.setWorkPhoneExtension("12");
+
+        var consultant = ProfessionalSpecialist.healthCareTeamConsultant(contact);
+
+        assertThat(consultant.getFormattedTitle()).isEqualTo("NURSE, Nora");
+        assertThat(consultant.getStreetAddress()).isEmpty();
+        assertThat(consultant.getPhoneNumber()).isNull();
+        assertThat(consultant.getFaxNumber()).isNull();
+        assertThat(consultant.getReferralNo()).isNull();
+
+        contact.setCity("Testville");
+        contact.setProvince("ON");
+        assertThat(ProfessionalSpecialist.healthCareTeamConsultant(contact).getStreetAddress())
+                .isEqualTo("Testville, ON");
+    }
+
+    @Test
+    void shouldKeepTheEditedSpecialistsTitleAndAddressPositions_whenTheContactEditorSavesIt() {
+        // The contact editor edits a directory specialist shown as a contact: its own row.
         var specialist = new ProfessionalSpecialist();
         specialist.setSalutation("Dr.");
         specialist.setProfessionalLetters("NP");
@@ -68,37 +110,19 @@ class ProfessionalSpecialistProfessionalContactUnitTest {
         assertThat(specialist.getFormattedTitle()).isEqualTo("Dr. NURSE, Nora NP");
         assertThat(specialist.getStreetAddress()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada,");
         assertThat(specialist.getPhoneNumber()).isEqualTo("555-0500 ext 12");
-        assertThat(specialist.getFaxNumber()).isEqualTo("555-0501");
-        assertThat(specialist.getEmailAddress()).isEqualTo("nurse@example.invalid");
         assertThat(specialist.getReferralNo()).isEqualTo("12345");
-        assertThat(specialist.getSpecialtyType()).isEqualTo("Nurse Practitioner");
-        assertThat(specialist.getPrivatePhoneNumber()).isEqualTo("555-0502");
-        assertThat(specialist.getCellPhoneNumber()).isEqualTo("555-0503");
     }
 
     @Test
-    void shouldJoinWhatTheChartAlwaysJoined_whenTheContactLacksAPhoneOrAddress() {
+    void shouldStoreNoPhoneOrReferralNumber_whenTheEditorFormHasNone() {
         var contact = contact();
-        contact.setAddress(null);
-        contact.setAddress2(null);
-        contact.setPostal(null);
-        contact.setCountry(null);
         contact.setWorkPhone(null);
-        contact.setWorkPhoneExtension("");
+        contact.setCpso(null);
         var specialist = new ProfessionalSpecialist();
 
         specialist.applyProfessionalContact(contact);
 
-        assertThat(specialist.getStreetAddress()).isEqualTo(", Testville, , ON, ,");
-        assertThat(specialist.getPhoneNumber()).isEqualTo("null");
-    }
-
-    @Test
-    void shouldFail_whenTheContactHasNoCpsoNumber() {
-        var contact = contact();
-        contact.setCpso(null);
-
-        assertThatThrownBy(() -> new ProfessionalSpecialist().applyProfessionalContact(contact))
-                .isInstanceOf(NullPointerException.class);
+        assertThat(specialist.getPhoneNumber()).isNull();
+        assertThat(specialist.getReferralNo()).isNull();
     }
 }

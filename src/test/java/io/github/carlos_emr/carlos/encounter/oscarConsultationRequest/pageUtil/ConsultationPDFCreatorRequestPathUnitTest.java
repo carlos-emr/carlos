@@ -91,6 +91,8 @@ class ConsultationPDFCreatorRequestPathUnitTest {
     private MockedConstruction<ClinicData> clinics;
     private final List<String[]> restored = new ArrayList<>();
     private Scenario scenario;
+    /** The consultant the form loaded; null for the pinned scenarios' directory specialist. */
+    private ProfessionalSpecialist consultant;
 
     private record Scenario(
             String letterheadName,
@@ -165,6 +167,27 @@ class ConsultationPDFCreatorRequestPathUnitTest {
         assertThat(fingerprint).isEqualTo(PROGRAM_FINGERPRINT);
     }
 
+    @Test
+    @DisplayName("prints a health-care-team contact with its own values, without a borrowed title or the text null")
+    void shouldPrintAHealthCareTeamContact_withItsOwnValuesOnly() throws Exception {
+        scenario = new Scenario("-1", "", "", "", "0", false, false);
+        // As a CDS import creates a team contact: no work phone, fax or CPSO number. Its id is
+        // also a directory specialist's, which the letter must not borrow from.
+        var contact = new io.github.carlos_emr.carlos.commn.model.ProfessionalContact();
+        contact.setId(9001);
+        contact.setFirstName("Nora");
+        contact.setLastName("NURSE");
+        contact.setCity("Testville");
+        contact.setProvince("ON");
+        consultant = ProfessionalSpecialist.healthCareTeamConsultant(contact);
+
+        try (PDDocument pdf = Loader.loadPDF(print())) {
+            String text = new PDFTextStripper().getText(pdf).replace("\r", "");
+            assertThat(text).contains("Consultant: NURSE, Nora\n", "Address: Testville, ON\n")
+                    .doesNotContain("null", "Dr.", "Specialist, Sam");
+        }
+    }
+
     private byte[] print() throws Exception {
         if (scenario.logo()) {
             Path logo = temp.resolve("logo.png");
@@ -233,7 +256,7 @@ class ConsultationPDFCreatorRequestPathUnitTest {
         specialist.setPhoneNumber("555-0400");
         specialist.setFaxNumber("555-0401");
         specialist.setStreetAddress("7 Consult Way<br>Testville");
-        when(form.getProfessionalSpecialist()).thenReturn(specialist);
+        when(form.getProfessionalSpecialist()).thenReturn(consultant != null ? consultant : specialist);
         when(form.getServiceName("3")).thenReturn("Synthetic Service");
         when(form.getAppointmentInstructionsLabel()).thenReturn("Please reply with an appointment");
         when(form.getLetterheadAddress()).thenReturn(scenario.letterheadAddress());

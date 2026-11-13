@@ -624,14 +624,15 @@ letter whose stored signature image or installed clinic logo
 Notes say so (`SIGNATURE_UNAVAILABLE`, `LOGO_UNAVAILABLE`); nothing is substituted.
 When the configured logo file is not installed (the packaged sample path is not),
 the letter prints without a logo, as the clinic's own Print does, and nothing is
-noted. A request whose consultant is a contact on the patient's health care team
-(`ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints that contact's name, phone, fax
-and address exactly as the chart's own Print shows them, including the salutation and
-professional letters the chart takes from the directory specialist whose number matches the
-contact's. When the chart itself cannot print the letter (the contact link or contact was
-removed from the database, is not a professional contact, has no CPSO number, or no directory
-specialist has the contact's number), the request travels as its data summary with
-`CONSULTANT_CONTACT_UNAVAILABLE`; the patient is not held. The
+noted. A request whose consultant is a professional contact on the patient's health care team
+(`ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) prints that contact's own name, phone, fax
+and address, as the chart's own Print now does too; a value the contact lacks prints blank, and
+no CPSO number is needed, so contacts brought in by a CDS import print as well. (Earlier releases
+showed the title of an unrelated directory specialist with the same number, or could not print
+the letter at all; both the chart and the export are corrected.) A personal contact cannot be
+chosen as a consultant. When the contact link was removed from the database or is damaged (it
+names a contact that no longer exists or one that is not professional), the request travels as
+its data summary with `CONSULTANT_CONTACT_UNAVAILABLE`; the patient is not held. The
 Rourke pages print in the bundled DejaVu fonts, but the Java runtime still needs
 its font libraries (freetype and fontconfig) and at least one installed system font
 to load them; a server image without fonts exports these records as data summaries

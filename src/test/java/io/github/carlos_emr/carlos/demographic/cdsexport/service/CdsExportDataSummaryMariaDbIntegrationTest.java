@@ -699,7 +699,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
     void shouldPrintAHealthCareTeamConsultant_fromTheContactTablesAsTheChartReadsThem()
             throws Exception {
         // A professional contact on the patient's health care team, as the contact screens write
-        // it, and the directory specialist whose id the chart's converter reads beside it.
+        // it, and a directory specialist that happens to share its id, which is never printed.
         sql.update(
                 "insert into DemographicContact(id,facilityId,creator,updateDate,deleted,demographicNo,"
                         + "contactId,role,type,category,consentToContact,active,mrp)"
@@ -729,7 +729,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 .isEqualTo(
                         new io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.Contact(
                                 "ProfessionalContact", "Nora", "NURSE", "8 Care Rd", "Suite 2", "Testville",
-                                "A1A 1A1", "ON", "Canada", "555-0500", "12", "555-0501", "12345"));
+                                "A1A 1A1", "ON", "Canada", "555-0500", "12", "555-0501"));
         assertThat(references.teamLink(patient + 1)).isNull();
         assertThat(references.contact(patient + 1)).isNull();
 
@@ -744,10 +744,10 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
             var request =
                     new Row("consultationRequests", CdsExportPatientTableSourceReader.key(patient), values);
             var consultant = new CdsExportConsultationLetterComposer(references).consultant(request);
-            assertThat(consultant.name()).isEqualTo("Dr. NURSE, Nora NP");
+            assertThat(consultant.name()).isEqualTo("NURSE, Nora");
             assertThat(consultant.phone()).isEqualTo("555-0500 ext 12");
             assertThat(consultant.fax()).isEqualTo("555-0501");
-            assertThat(consultant.address()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada,");
+            assertThat(consultant.address()).isEqualTo("8 Care Rd Suite 2, Testville, A1A 1A1, ON, Canada");
         } finally {
             if (previous == null) key.remove("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS");
             else key.setProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", previous);
