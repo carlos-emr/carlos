@@ -122,7 +122,13 @@ to the exact arguments, and the provider still needs current clinical permission
 
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported
-HL7 ORU results, and document reports with their attachments. Revised notes retain
+HL7 ORU results, and document reports with their attachments. A document is exported as
+the chart shows it: an uploaded or scanned document as its file, declared with the type its
+stored name or content type gives when the file's bytes bear that out (otherwise as the type
+the bytes show, or `bin`), and an Add HTML or Add Link document as its stored HTML text. A
+deleted document, or one whose patient link was deleted, is not exported and does not hold
+the patient. The package does not say how a document was received (Media), because CARLOS
+does not record it. Revised notes retain
 the original and edits in one clinical occurrence. A clinical note whose latest
 revision is archived (removed from the active record) is still exported, because the
 encounter list still shows it, but its text begins with a statement that it is

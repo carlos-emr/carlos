@@ -148,6 +148,35 @@ of different charts scans `measurementsDeleted`, which has no index on `original
 `demographicNo`; it runs once per patient in each read-only REPEATABLE READ capture snapshot
 instead of on every count, page and chunk call. Indexing that table needs a forward migration.
 
+
+Native document reports carry what the chart shows for each document
+(`CdsExportDocumentRepresentation`). An uploaded, scanned or faxed document is exported as its
+stored file: Format Binary, FilePath to a `Reports/` package member, and a
+FileExtensionAndVersion taken from the stored file name's extension when it names a recognised
+format, otherwise from the stored `contenttype`, each kept only when the file's leading bytes
+bear it out; bytes that contradict both are declared as what their signature shows, or as the
+opaque `bin` (`CdsExportReportFileFormats`). The guide, the exporter's XML validator and the
+CARLOS importer all require a declaration for a Binary report, so an unrecognised file is
+declared `bin` rather than left undeclared or held. An Add HTML or Add Link document
+(`AddEditHtml2Action`: status `H`, content in `document.docxml`, no file) is exported as Format
+Text with that HTML as `Content/TextContent` and FileExtensionAndVersion `html`, because the
+chart renders a non-blank `docxml` instead of any file; a link document's stored page carries its
+URL. Media is left out, since nothing in the document records how it was received. Capture reads
+only the files of live documents whose content is a file (`Plan.DOCUMENT_FILES`). A soft-deleted
+document (`status = 'D'`, `EDocUtil.deleteDocument`) or a deleted patient link is not shown in the
+chart and is not exported, as the legacy exporter exported active documents only; its document
+and link rows stay in the capture, every field gets the `DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART`
+disposition, and it is neither an expected occurrence nor a reason to hold the patient. One
+document's problem holds only its patient: an HTML document with no stored HTML or an unknown
+document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), blank stored HTML
+(`..._STORED_HTML_REQUIRES_REVIEW`), an empty file (`..._FILE_EMPTY`), a missing file
+(`..._FILE_MISSING`), an unsupported stored name (`..._FILENAME_UNSUPPORTED`) or a file over
+`cds.export.maxDocumentBytes` (`..._FILE_TOO_LARGE`). An untrusted `DOCUMENT_DIR` stops the job
+with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED`. Attachments are copied from the patient's
+encrypted capture through one authenticated pass of its values member
+(`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
+patient's output is accepted.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture
