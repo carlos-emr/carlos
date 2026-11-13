@@ -101,12 +101,13 @@ public final class ReadingAidArtifact {
     /**
      * Builds the artifact of {@code approval} for the exact {@code originalBytes} it was approved
      * against; {@code approvalId} is the sender's opaque reference to the persisted approval.
+     * The sender must obtain this id from the matching persisted approval row, whose random id is
+     * independent of the reviewer. Incidental character overlap with a provider number is valid.
      *
      * @throws IllegalStateException when there is no approval, or the original is not the approved one
-     * @throws IllegalArgumentException when the approved content does not fit the contract's limits, when
-     *         {@code approvalId} carries the reviewer's provider number (the contract keeps the id opaque
-     *         and never derived from the reviewer), or when no patient notice exists in the summary's
-     *         language (the notice version's language tag must be the aid's language)
+     * @throws IllegalArgumentException when the approved content or approval id does not fit the
+     *         contract's limits, or when no patient notice exists in the summary's language
+     *         (the notice version's language tag must be the aid's language)
      */
     public static ReadingAidArtifact of(DocumentSummaryReviewBinding.Approval approval, byte[] originalBytes, String approvalId) {
         if (approval == null) throw new IllegalStateException("A recorded clinician approval is required.");
@@ -114,8 +115,6 @@ public final class ReadingAidArtifact {
             throw new IllegalStateException("The original is not the document this summary was approved against.");
         }
         label(approvalId, 64);
-        String reviewerId = approval.reviewerId();
-        if (reviewerId != null && !reviewerId.isBlank() && approvalId.contains(reviewerId)) throw invalid();
         String language = approval.language();
         if (language == null || !LANGUAGE.matcher(language).matches()) throw invalid();
         if (!language.split("-", 2)[0].equals(noticeLanguage(DocumentSummaryReviewBinding.noticeVersion(language)))) {

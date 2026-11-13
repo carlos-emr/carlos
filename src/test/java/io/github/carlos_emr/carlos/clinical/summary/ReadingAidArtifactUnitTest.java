@@ -164,10 +164,31 @@ class ReadingAidArtifactUnitTest {
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, edited, "apr-1")).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, null, "apr-1")).isInstanceOf(IllegalStateException.class);
         assertThatThrownBy(() -> ReadingAidArtifact.of(approval, ORIGINAL, " ")).isInstanceOf(IllegalArgumentException.class);
-        // The approval id is opaque: one that carries the reviewer's provider number is refused.
-        assertThatThrownBy(() -> ReadingAidArtifact.of(approval, ORIGINAL, "apr-" + approval.reviewerId() + "-9d2e"))
-                .isInstanceOf(IllegalArgumentException.class);
         assertThat(ReadingAidArtifact.of(approval, ORIGINAL, "apr-FAKE0001-9d2e").size()).isPositive();
+    }
+
+    @Test
+    void acceptsAnIndependentOpaqueIdEvenWhenItContainsTheReviewersProviderNumber() {
+        JsonNode v = VECTORS.get("manifest_claims");
+        var pair = new ReadingAidArtifact.Pair(v.get("pair").get("pair_id").asText(),
+                v.get("pair").get("original_delivery_id").asText());
+        // Both ids have the store generator's exact shape. They are fixed independent random
+        // outcomes, not ids constructed by a production caller from the reviewer number.
+        for (String[] c : new String[][]{
+                {"2", "apr-aaaaaaaaaaaaaaaaaaaaaaa2"},
+                {"4242", "apr-aaaaaaaaaaaaaaaaaaaa4242"}}) {
+            var approval = approval(summary(VECTORS.get("reading_aid")), "en", ORIGINAL, c[0]);
+            var artifact = ReadingAidArtifact.of(approval, ORIGINAL, c[1]);
+            var claims = artifact.manifestClaims(pair, routing(v), v.get("created_at").asLong(),
+                    v.get("expires_at").asLong(), "FAKE-kid");
+            @SuppressWarnings("unchecked") Map<String, Object> approvalClaim = (Map<String, Object>) claims.get("approval");
+            assertThat(approvalClaim).as("reviewer %s", c[0])
+                    .containsOnlyKeys("id", "reviewer_role", "reviewed_at")
+                    .containsEntry("id", c[1]).containsEntry("reviewer_role", "clinician")
+                    .containsEntry("reviewed_at", REVIEWED.getEpochSecond());
+            assertThat(new String(artifact.json(), StandardCharsets.UTF_8))
+                    .doesNotContain("FAKE-Reviewer", "FAKE-model");
+        }
     }
 
     @Test
@@ -324,10 +345,15 @@ class ReadingAidArtifactUnitTest {
     }
 
     private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary, String language, byte[] original) {
+        return approval(summary, language, original, "4242");
+    }
+
+    private static DocumentSummaryReviewBinding.Approval approval(DocumentSummary summary, String language,
+            byte[] original, String reviewerId) {
         var source = DocumentSummaryReviewBinding.capture(SCOPE, META, original);
         var draft = new DocumentSummaryReviewBinding(Clock.fixed(GENERATED, ZoneOffset.UTC)).prepare(source, summary, "FAKE-model", language);
         var provider = mock(Provider.class);
-        when(provider.getProviderNo()).thenReturn("4242");
+        when(provider.getProviderNo()).thenReturn(reviewerId);
         when(provider.getFormattedName()).thenReturn("FAKE-Reviewer, Demo");
         var actor = mock(LoggedInInfo.class);
         when(actor.getLoggedInProvider()).thenReturn(provider);
