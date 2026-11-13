@@ -146,6 +146,19 @@ class CdsExportDemographicCaptureContractUnitTest {
         for (var plan :
                 io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
                         .values()) {
+            if (plan
+                    == io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
+                            .DOCUMENT_FILES) {
+                // The file-pointer projection CdsExportDocumentFileSourceReader pages: it is
+                // never a captured table (capture reads and schema-verifies DOCUMENTS), so it
+                // only has to stay a projection of that verified table.
+                var documents =
+                        io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport
+                                .Plan.DOCUMENTS;
+                assertThat(plan.table()).isEqualTo(documents.table());
+                assertThat(documents.columns()).containsAll(plan.columns());
+                continue;
+            }
             var columns =
                     new java.util.ArrayList<
                             io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column>();
