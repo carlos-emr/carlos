@@ -27,11 +27,26 @@ import java.util.Map;
 /**
  * Actual validated XML inventory, bound to its staged bytes. Categories outside the selected
  * scope are absent, not zero. ReportsText/ReportsBinary count representations, not extra sections.
+ * {@code dataSummaries} counts the data-summary Reports per record kind label, in kind order;
+ * {@code listed} names the removed-feature tables holding this patient's rows that were not
+ * exported.
  */
 public record CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
         Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
-        String xmlSha256, long xmlBytes) {
+        String xmlSha256, long xmlBytes, Map<String, Long> dataSummaries,
+        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {
+    public CdsExportPatientSummaryDto(CdsExportPatientFileDto patient,
+            Map<CdsCategory, Long> occurrences, Long textReports, Long binaryReports,
+            String xmlSha256, long xmlBytes) {
+        this(patient, occurrences, textReports, binaryReports, xmlSha256, xmlBytes, Map.of(),
+                java.util.List.of());
+    }
+
     public CdsExportPatientSummaryDto {
+        dataSummaries = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dataSummaries));
+        listed = java.util.List.copyOf(listed);
+        if (dataSummaries.values().stream().anyMatch(value -> value == null || value < 1))
+            throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SUMMARY_INVALID");
         occurrences = Map.copyOf(occurrences);
         if (xmlSha256 == null || !xmlSha256.matches("[0-9a-f]{64}") || xmlBytes < 1
                 || occurrences.values().stream().anyMatch(value -> value < 0)) {

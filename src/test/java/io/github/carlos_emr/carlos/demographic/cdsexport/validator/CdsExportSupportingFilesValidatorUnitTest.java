@@ -202,6 +202,82 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
+    void shouldListDataSummariesAndListedTables_andRefuseAReadmeThatDropsOne() throws Exception {
+        // Decision 6 and 20: the receiver sees, per patient, how many records travel as CARLOS
+        // data summaries and which removed-feature tables held rows that were not exported, and for
+        // the whole job which unlinked removed-feature tables were not exported.
+        var listedClinic =
+                List.of(new io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto("DrugProduct", 3));
+        var withListed =
+                new CdsExportPackageMetadataDto(
+                        metadata.exportRoot(),
+                        metadata.physicianGroup(),
+                        metadata.groupContactInformation(),
+                        metadata.applicationVersion(),
+                        metadata.exportTime(),
+                        metadata.clinicalZone(),
+                        metadata.profile(),
+                        metadata.categories(),
+                        metadata.auditAccessDescription(),
+                        List.of(),
+                        List.of(),
+                        listedClinic);
+        var summaries = new java.util.LinkedHashMap<String, Long>();
+        summaries.put("Encounter form", 80L);
+        summaries.put("Tickler", 1L);
+        var listed =
+                List.of(new io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto("CdsHospitalisationDays", 2));
+        var complete = metadata;
+        var plain = actual;
+        metadata = withListed;
+        actual =
+                List.of(
+                        new CdsExportSupportingFilesValidator.Patient(
+                                plain.getFirst().relativePath(),
+                                plain.getFirst().naming(),
+                                plain.getFirst().xml(),
+                                summaries,
+                                listed));
+        var text = new ByteArrayOutputStream();
+        new CdsExportSupportingFilesComposer()
+                .compose(
+                        text,
+                        new ByteArrayOutputStream(),
+                        withListed,
+                        physicians.iterator(),
+                        List.of(
+                                        new CdsExportPatientSummaryDto(
+                                                plain.getFirst().naming(),
+                                                plain.getFirst().xml().occurrences(),
+                                                null,
+                                                null,
+                                                plain.getFirst().xml().xmlSha256(),
+                                                plain.getFirst().xml().xmlBytes(),
+                                                summaries,
+                                                listed))
+                                .iterator(),
+                        () -> {});
+        readMe = text.toByteArray();
+        assertThat(new String(readMe, StandardCharsets.UTF_8))
+                .contains(
+                        CdsExportSupportingFilesComposer.DATA_SUMMARY_NOTICE,
+                        CdsExportSupportingFilesComposer.LISTED_NOTICE,
+                        "Listed clinic tables not exported: \"1\"\nListed clinic table not exported: \"DrugProduct: 3 rows\"\n",
+                        "Patient data summary records: \"Encounter form: 80\"\nPatient data summary records: \"Tickler: 1\"\n",
+                        "Patient listed table not exported: \"CdsHospitalisationDays: 2 rows\"\n");
+        assertThat(validate().patientFiles()).isEqualTo(1);
+        byte[] intact = readMe;
+        readMe = replace(intact, "Patient listed table not exported: \"CdsHospitalisationDays: 2 rows\"\n", "");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        readMe = replace(intact, "Tickler: 1", "Tickler: 2");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        readMe = replace(intact, "DrugProduct: 3 rows", "DrugProduct: 4 rows");
+        assertThatThrownBy(this::validate).isInstanceOf(java.io.IOException.class);
+        metadata = complete;
+        actual = plain;
+    }
+
+    @Test
     void shouldRefuseAReadmeThatDropsTheAdministrativeFieldsNotice_fromItsFixedText() {
         readMe =
                 replace(

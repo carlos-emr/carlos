@@ -76,9 +76,13 @@ public class CdsExportClinicalPackageService {
             CdsExportPatientDocumentService.Document document,
             CdsExportPatientFileDto naming,
             String relative,
-            List<CdsExportNoteAccessDto> notes) {
+            List<CdsExportNoteAccessDto> notes,
+            Map<String, Long> dataSummaries,
+            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {
         private PatientFile {
             notes = List.copyOf(notes);
+            dataSummaries = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(dataSummaries));
+            listed = List.copyOf(listed);
         }
     }
 
@@ -92,7 +96,9 @@ public class CdsExportClinicalPackageService {
     private final CdsExportPackageInventoryService inventories;
     private final CdsExportDisclosurePolicyService disclosure;
     private final CdsExportAuditPersister audit;
+    private final CdsExportDataSummaryOccurrenceService dataSummaries;
 
+    /** Without data summaries: a capture that holds data-summary tables is refused. */
     public CdsExportClinicalPackageService(
             CdsExportStagingFactory stores,
             CdsExportCohortService cohorts,
@@ -104,6 +110,34 @@ public class CdsExportClinicalPackageService {
             CdsExportPackageInventoryService inventories,
             CdsExportDisclosurePolicyService disclosure,
             CdsExportAuditPersister audit) {
+        this(
+                stores,
+                cohorts,
+                ledger,
+                captures,
+                payloads,
+                documents,
+                naming,
+                inventories,
+                disclosure,
+                audit,
+                null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportClinicalPackageService(
+            CdsExportStagingFactory stores,
+            CdsExportCohortService cohorts,
+            CdsExportLedgerService ledger,
+            CdsExportNativeCaptureService captures,
+            CdsExportRetainedPayloadService payloads,
+            CdsExportPatientDocumentService documents,
+            CdsExportPatientFileBindingService naming,
+            CdsExportPackageInventoryService inventories,
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportAuditPersister audit,
+            CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this.dataSummaries = dataSummaries;
         this.stores = Objects.requireNonNull(stores);
         this.cohorts = Objects.requireNonNull(cohorts);
         this.ledger = Objects.requireNonNull(ledger);
@@ -218,7 +252,14 @@ public class CdsExportClinicalPackageService {
                                     4096L + 8L * relative.length() + 512L * notes.size());
                     if (metadataBytes[0] > limits.metadataBytes()) limit();
                     if (files.putIfAbsent(
-                                    relative, new PatientFile(document, name, relative, notes))
+                                    relative,
+                                    new PatientFile(
+                                            document,
+                                            name,
+                                            relative,
+                                            notes,
+                                            captured.dataSummaries(),
+                                            captured.listed()))
                             != null) ambiguous();
                     String priorName =
                             billingNames.putIfAbsent(
@@ -266,7 +307,8 @@ public class CdsExportClinicalPackageService {
                             lease.document().command().categories(),
                             policy.auditAccessDescription(),
                             List.copyOf(held.values()),
-                            localSources);
+                            localSources,
+                            captures.listedClinicSources());
             var byPatient = new TreeMap<Integer, PatientFile>();
             for (var file : files.values())
                 if (byPatient.putIfAbsent(file.document().patient(), file) != null
@@ -365,7 +407,9 @@ public class CdsExportClinicalPackageService {
                                                                                 + file.relative(),
                                                                         file.naming(),
                                                                         file.document()
-                                                                                .validation()))
+                                                                                .validation(),
+                                                                        file.dataSummaries(),
+                                                                        file.listed()))
                                                 .iterator(),
                                         Math.min(limits.patients(), 1_000_000),
                                         limits.patients(),
@@ -535,7 +579,9 @@ public class CdsExportClinicalPackageService {
     private record Captured(
             CdsExportPatientCaptureDto source,
             CdsExportPatientDocumentService.Document document,
-            CdsExportPatientFileDto name) {}
+            CdsExportPatientFileDto name,
+            Map<String, Long> dataSummaries,
+            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed) {}
 
     /** One selected patient's capture, retained payload, finished document and file binding. */
     private Captured capturePatient(
@@ -591,7 +637,53 @@ public class CdsExportClinicalPackageService {
         for (var attachment : document.attachments()) outputs.add(attachment.file());
         own(owned, metadataBytes, limits.metadataBytes(), outputs);
         var name = naming.bind(lease, patient, tables, source, document, bounds, control);
-        return new Captured(source, document, name);
+        // Per-patient ReadMe facts from the same sealed capture: the data-summary records per kind
+        // (the same plan the Reports emission used) and the listed removed-feature tables.
+        if (CdsExportDataSummaryOccurrenceService.captured(tables) && dataSummaries == null)
+            invalid();
+        var summaries =
+                dataSummaries == null
+                        ? Map.<String, Long>of()
+                        : dataSummaries.kinds(lease, patient, tables, source, bounds, control);
+        return new Captured(
+                source, document, name, summaries, listed(lease, patient, tables, source, bounds, control));
+    }
+
+    /** The captured listed-table counts of one patient, read back from the sealed capture. */
+    private List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (!tables.contains(CdsExportListedSourceReader.TABLE)) return List.of();
+        var result = new ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>();
+        new CdsExportCapturedTextRowsReader(captures)
+                .forEach(
+                        lease,
+                        patient,
+                        tables,
+                        CdsExportListedSourceReader.TABLE,
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        4096,
+                        control,
+                        row -> {
+                            String table = row.fields().get("table_name"),
+                                    rows = row.fields().get("row_count");
+                            if (table == null
+                                    || !table.equals(row.recordKey())
+                                    || rows == null
+                                    || !rows.matches("[1-9][0-9]{0,18}")
+                                    || result.size() >= 1024) invalid();
+                            result.add(
+                                    new io.github.carlos_emr.carlos.commn.dto
+                                            .CdsExportListedSourceDto(table, Long.parseLong(rows)));
+                        });
+        return List.copyOf(result);
     }
 
     /**
@@ -755,7 +847,9 @@ public class CdsExportClinicalPackageService {
                                     reports ? xml.textReports() : null,
                                     reports ? xml.binaryReports() : null,
                                     xml.xmlSha256(),
-                                    xml.xmlBytes());
+                                    xml.xmlBytes(),
+                                    file.dataSummaries(),
+                                    file.listed());
                         })
                 .toList();
     }

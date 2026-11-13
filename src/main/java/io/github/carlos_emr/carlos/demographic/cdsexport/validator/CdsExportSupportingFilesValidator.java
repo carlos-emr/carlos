@@ -51,7 +51,24 @@ public final class CdsExportSupportingFilesValidator {
 
     /** The relative path is the actual ZIP entry, including its named export container. */
     public record Patient(
-            String relativePath, CdsExportPatientFileDto naming, CdsExportXmlValidationDto xml) {
+            String relativePath,
+            CdsExportPatientFileDto naming,
+            CdsExportXmlValidationDto xml,
+            java.util.Map<String, Long> dataSummaries,
+            java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto>
+                    listed) {
+        public Patient {
+            dataSummaries =
+                    java.util.Collections.unmodifiableMap(
+                            new java.util.LinkedHashMap<>(dataSummaries));
+            listed = java.util.List.copyOf(listed);
+        }
+
+        public Patient(
+                String relativePath, CdsExportPatientFileDto naming, CdsExportXmlValidationDto xml) {
+            this(relativePath, naming, xml, java.util.Map.of(), java.util.List.of());
+        }
+
         @Override
         public String toString() {
             return "CdsExportSupportingFilesValidator.Patient[protected]";
@@ -142,6 +159,15 @@ public final class CdsExportSupportingFilesValidator {
                 "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.");
         text.exact(
                 "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.");
+        text.exact(CdsExportSupportingFilesComposer.DATA_SUMMARY_NOTICE);
+        text.exact(CdsExportSupportingFilesComposer.LISTED_NOTICE);
+        text.field(
+                "Listed clinic tables not exported",
+                Long.toString(metadata.listedClinicSources().size()));
+        for (var listed : metadata.listedClinicSources())
+            text.field(
+                    "Listed clinic table not exported",
+                    listed.table() + ": " + listed.rows() + " rows");
         String header =
                 "PatientID,"
                         + Arrays.stream(CdsCategory.values())
@@ -194,6 +220,14 @@ public final class CdsExportSupportingFilesValidator {
                 if (!senderIds.add(pending.xml().senderPatientId())) invalid();
                 text.field("Patient file", relative);
                 text.field("Patient XML SHA256", pending.xml().xmlSha256());
+                for (var summary : pending.dataSummaries().entrySet())
+                    text.field(
+                            "Patient data summary records",
+                            summary.getKey() + ": " + summary.getValue());
+                for (var listed : pending.listed())
+                    text.field(
+                            "Patient listed table not exported",
+                            listed.table() + ": " + listed.rows() + " rows");
                 validateEvent(csv.required(), pending.xml(), metadata.categories());
                 pending = next(patientFiles, checkpoint);
             }

@@ -45,6 +45,18 @@ import java.util.Objects;
 public final class CdsExportSupportingFilesComposer {
     /** ReadMe field naming where CARLOS prevention screenings travel in a CDS package. */
     public static final String SCREENINGS = "Prevention screenings (exported only as PastHealth)";
+
+    /** How the receiver reads the per-patient data-summary counts. */
+    public static final String DATA_SUMMARY_NOTICE =
+            "Patient data summary records count CARLOS records that CDS 5.2 cannot represent"
+                    + " (encounter forms, eForms, consultations, ticklers, messages, consents and"
+                    + " similar); each is a Reports entry holding a CARLOS data summary PDF of the"
+                    + " record's stored fields, not an original document.";
+
+    /** How the receiver reads the listed removed-feature tables. */
+    public static final String LISTED_NOTICE =
+            "Listed tables not exported hold records of removed CARLOS features; their rows were"
+                    + " neither read nor exported, and the count is the number of rows.";
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsExportPathComposer paths = new CdsExportPathComposer();
 
@@ -116,6 +128,14 @@ public final class CdsExportSupportingFilesComposer {
         // demographic mapper decides them ADMINISTRATIVE_NOT_EXPORTED; the receiver is told here.
         readMe.write(
                 "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.\n");
+        readMe.write(DATA_SUMMARY_NOTICE + "\n");
+        readMe.write(LISTED_NOTICE + "\n");
+        line(
+                readMe,
+                "Listed clinic tables not exported",
+                Long.toString(metadata.listedClinicSources().size()));
+        for (var listed : metadata.listedClinicSources())
+            line(readMe, "Listed clinic table not exported", listed.table() + ": " + listed.rows() + " rows");
 
         eventLog.write("PatientID");
         for (CdsCategory category : CdsCategory.values()) eventLog.write("," + category.wireName());
@@ -153,6 +173,16 @@ public final class CdsExportSupportingFilesComposer {
                 validatePatient(patient, metadata);
                 line(readMe, "Patient file", metadata.exportRoot() + "/" + relative);
                 line(readMe, "Patient XML SHA256", patient.xmlSha256());
+                for (var summary : patient.dataSummaries().entrySet())
+                    line(
+                            readMe,
+                            "Patient data summary records",
+                            summary.getKey() + ": " + summary.getValue());
+                for (var listed : patient.listed())
+                    line(
+                            readMe,
+                            "Patient listed table not exported",
+                            listed.table() + ": " + listed.rows() + " rows");
                 event(eventLog, patient);
                 count = Math.incrementExact(count);
                 totalPatients = Math.incrementExact(totalPatients);
