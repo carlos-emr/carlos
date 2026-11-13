@@ -183,6 +183,74 @@ class CdsExportCareImportedDeletionUnitTest {
                                 .CdsExportReviewException.class);
     }
 
+    @Test
+    void shouldExportImportedCareBesideAChartLargerThanOneWindow_withEveryRowClaimedOnce()
+            throws Exception {
+        // Issue #6200 (CARE-5). Before, this chart (the import, its corrected weight and 9,000
+        // flowsheet weights) was held with CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED.
+        delete(WEIGHT, 7, 40);
+        current.put(
+                "measurements:9", row(Plan.MEASUREMENTS_CURRENT, 9, measurement(9, "WT", "72", "in kg")));
+        build();
+        var fixture =
+                new CdsExportCareCaptureFixture(
+                        EnumSet.of(
+                                CdsCategory.DEMOGRAPHICS,
+                                CdsCategory.CARE_ELEMENTS,
+                                CdsCategory.NEW_CATEGORY));
+        current.values().forEach(fixture::add);
+        fixture.add(CdsExportCareCaptureFixture.vocabulary(1, "WT"));
+        for (long id = 100_000; id < 109_000; id++)
+            fixture.add(CdsExportCareCaptureFixture.measurement(id, "WT", "70"));
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            CdsExportRetainedValuesService.Work work = call.getArgument(10);
+                            work.use(index, fields, values());
+                            return null;
+                        })
+                .when(fixture.values)
+                .withValues(
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anySet(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.anyInt(),
+                        org.mockito.ArgumentMatchers.anyLong(),
+                        org.mockito.ArgumentMatchers.any(),
+                        org.mockito.ArgumentMatchers.any());
+        org.mockito.Mockito.when(
+                        fixture.verification.verify(
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anySet(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.any(),
+                                org.mockito.ArgumentMatchers.anyLong(),
+                                org.mockito.ArgumentMatchers.anyLong(),
+                                org.mockito.ArgumentMatchers.anyInt(),
+                                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(checked);
+        var composed =
+                fixture.compose(fixture.service(), CdsExportCareCaptureFixture.bounds(8192));
+        // The imported CareElements without its deleted weight, the correction and every
+        // flowsheet weight; the deleted version is accounted, never exported.
+        assertThat(composed.result().importedRows()).isEqualTo(1);
+        assertThat(composed.result().nativeOnlyRows()).isEqualTo(9_001);
+        assertThat(composed.xml().occurrences().get(CdsCategory.CARE_ELEMENTS)).isEqualTo(9_002L);
+        var imported =
+                composed.receipts().stream()
+                        .filter(receipt -> receipt.importedUnit() != null)
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(imported.replacedFields()).isEqualTo(ids("Weight[1]"));
+        assertThat(imported.retainedFields()).isEqualTo(ids("Height[1]"));
+        // The imported rows were read on their own, and the rest of the chart in windows.
+        assertThat(fixture.witnessScans).isEqualTo(3);
+    }
+
     private CdsExportCareOccurrenceService.ImportedParent assemble() throws Exception {
         return assemble(claims());
     }
@@ -488,12 +556,9 @@ class CdsExportCareImportedDeletionUnitTest {
                 .put(key, new CdsExportCapturedTextRowDto(plan.table(), key, row));
     }
 
-    private static CdsExportNativeRowReceiptDto demographicWitness() {
-        var columns = List.of(new CdsNativeRowDigest.Column("demographic_no", "INT", 11, 0));
-        var cells = List.of(new CdsNativeRowState.Cell(false, 2, sha("27")));
-        var state = new CdsNativeRowState("demographic", "27", columns, cells);
-        return new CdsExportNativeRowReceiptDto(
-                "demographic", "27", CdsExportPatientTableSourceReader.key(27), state.digest(), state);
+    /** The witness of the patient's captured demographic row, as the capture records it. */
+    private static CdsExportNativeRowReceiptDto demographicWitness() throws Exception {
+        return CdsExportCareCaptureFixture.witness(CdsExportCareCaptureFixture.demographic());
     }
 
     private static CdsExportNativeRowReceiptDto witness(CdsExportCapturedTextRowDto row) {

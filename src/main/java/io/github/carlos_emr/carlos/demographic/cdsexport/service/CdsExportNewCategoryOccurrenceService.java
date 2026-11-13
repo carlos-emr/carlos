@@ -257,59 +257,66 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                         counts[0]++;
                         counts[2]++;
                     }
-                    for (var nativeSource :
-                            care.nativeSources(
-                                    lease, patient, tables, source, index, bounds, control)) {
-                        // Deleted and superseded versions are accounted by the CareElements
-                        // assembly and never exported (CdsExportNativeCareMapper.retired).
-                        if (nativeSource.deleted()) continue;
-                        var mapped =
-                                new CdsExportNativeCareMapper()
-                                        .map(
-                                                patient.patient(),
-                                                nativeSource.observation(),
-                                                nativeSource.extensions(),
-                                                nativeSource.definitions());
-                        new CdsExportNativeFieldAssessmentValidator()
-                                .requireRepresentable(
-                                        mapped.rows(),
-                                        mapped.fields(),
-                                        1_000_000,
-                                        control::checkpoint);
-                        var identity =
-                                new CdsExportIdentityDto(
-                                        patientKey,
-                                        category(),
-                                        CdsImportKeys.hash(
-                                                "carlos-native-occurrence-v1",
+                    // Window by window, never the whole chart's measurements at once.
+                    care.forEachNativeSource(
+                            lease,
+                            patient,
+                            tables,
+                            source,
+                            index,
+                            bounds,
+                            control,
+                            nativeSource -> {
+                                // Deleted and superseded versions are accounted by the CareElements
+                                // assembly and never exported (CdsExportNativeCareMapper.retired).
+                                if (nativeSource.deleted()) return;
+                                var mapped =
+                                        new CdsExportNativeCareMapper()
+                                                .map(
+                                                        patient.patient(),
+                                                        nativeSource.observation(),
+                                                        nativeSource.extensions(),
+                                                        nativeSource.definitions());
+                                new CdsExportNativeFieldAssessmentValidator()
+                                        .requireRepresentable(
+                                                mapped.rows(),
+                                                mapped.fields(),
+                                                1_000_000,
+                                                control::checkpoint);
+                                var identity =
+                                        new CdsExportIdentityDto(
+                                                patientKey,
+                                                category(),
+                                                CdsImportKeys.hash(
+                                                        "carlos-native-occurrence-v1",
+                                                        nativeSource.table(),
+                                                        nativeSource.id()));
+                                streams.requireActive();
+                                control.authorizeCategory(
+                                        patient.patient(), CdsCategory.CARE_ELEMENTS, false);
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                xml.emit(
+                                        new CdsExportXmlComposer.Section(
+                                                identity,
+                                                body ->
+                                                        new CdsExportNativeCareMapper()
+                                                                .writeSupporting(mapped, body)));
+                                output.accept(
+                                        new CdsExportClinicalOccurrenceService.Receipt(
+                                                identity,
+                                                index.sourceManifestSha256(),
                                                 nativeSource.table(),
-                                                nativeSource.id()));
-                        streams.requireActive();
-                        control.authorizeCategory(
-                                patient.patient(), CdsCategory.CARE_ELEMENTS, false);
-                        control.authorizeCategory(patient.patient(), category(), false);
-                        xml.emit(
-                                new CdsExportXmlComposer.Section(
-                                        identity,
-                                        body ->
-                                                new CdsExportNativeCareMapper()
-                                                        .writeSupporting(mapped, body)));
-                        output.accept(
-                                new CdsExportClinicalOccurrenceService.Receipt(
-                                        identity,
-                                        index.sourceManifestSha256(),
-                                        nativeSource.table(),
-                                        nativeSource.id(),
-                                        null,
-                                        mapped.fields(),
-                                        Set.of(),
-                                        Set.of()));
-                        control.authorizeCategory(
-                                patient.patient(), CdsCategory.CARE_ELEMENTS, false);
-                        control.authorizeCategory(patient.patient(), category(), false);
-                        counts[0]++;
-                        counts[2]++;
-                    }
+                                                nativeSource.id(),
+                                                null,
+                                                mapped.fields(),
+                                                Set.of(),
+                                                Set.of()));
+                                control.authorizeCategory(
+                                        patient.patient(), CdsCategory.CARE_ELEMENTS, false);
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                counts[0]++;
+                                counts[2]++;
+                            });
                     var laboratorySources =
                             laboratories.nativeSources(
                                     lease, patient, tables, source, index, bounds, control);

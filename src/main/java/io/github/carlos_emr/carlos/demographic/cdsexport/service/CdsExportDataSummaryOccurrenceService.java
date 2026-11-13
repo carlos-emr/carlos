@@ -920,7 +920,9 @@ public class CdsExportDataSummaryOccurrenceService {
 
     /**
      * The data summaries' share of the patient's reconciliation audit, whose size is bounded per
-     * patient ({@code maxIndexBytes}) and stops the whole job when exceeded. The audit groups a
+     * patient ({@code maxIndexBytes} plus an allowance per occurrence, {@link
+     * CdsExportPatientDocumentService#auditLimit}) and stops the whole job when exceeded. This
+     * check stays against {@code maxIndexBytes} alone, the stricter of the two. The audit groups a
      * record's field decisions by table and assessment, so its size grows with rows and column
      * names, not with one line per field; a long encounter-form history fits. Only a chart whose
      * data summaries alone would still take most of the budget is held, with this code, instead of

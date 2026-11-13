@@ -54,6 +54,13 @@ final class CdsExportNativeCarePlanner {
         }
     }
 
+    /**
+     * The occurrences of the given rows: every current measurement no import names, and every
+     * deleted version, each with its extensions and (current ones) the vocabulary rows of its
+     * type and instruction, in the rows' own order. The rows are one window of the chart
+     * (CdsExportCapturedCareRowsReader): every row of an owner is in the same window, so the
+     * lookups are complete. They are indexed once, not searched again for every observation.
+     */
     List<Occurrence> plan(
             CdsExportRetainedIndexDto index,
             Map<String, CdsExportCapturedTextRowDto> current,
@@ -63,6 +70,20 @@ final class CdsExportNativeCarePlanner {
         for (String address : index.appliedUnits())
             for (var ref : index.references().getOrDefault(address, List.of()))
                 if (ref.table().equals("measurements")) imported.add(ref.id());
+        var extensionsOf = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
+        var definitionsOf = new HashMap<List<String>, List<CdsExportCapturedTextRowDto>>();
+        for (var other : current.values()) {
+            if (other.table().equals("measurementsExt")
+                    && other.fields().get("measurement_id") != null)
+                extensionsOf
+                        .computeIfAbsent(
+                                other.fields().get("measurement_id"), ignored -> new ArrayList<>())
+                        .add(other);
+            if (other.table().equals("measurementType"))
+                definitionsOf
+                        .computeIfAbsent(vocabulary(other), ignored -> new ArrayList<>())
+                        .add(other);
+        }
         var result = new ArrayList<Occurrence>();
         for (var row : current.values()) {
             checkpoint.run();
@@ -73,21 +94,15 @@ final class CdsExportNativeCarePlanner {
             String id = row.fields().get("id");
             // Deletion leaves the extensions keyed by the removed observation's original id.
             String owner = deleted ? row.fields().get("originalId") : id;
-            var extensions = new ArrayList<CdsExportCapturedTextRowDto>();
-            var definitions = new ArrayList<CdsExportCapturedTextRowDto>();
-            for (var other : current.values()) {
-                if (other.table().equals("measurementsExt")
-                        && owner != null
-                        && owner.equals(other.fields().get("measurement_id"))) extensions.add(other);
-                // The vocabulary is captured for current observations and accounted by them; a
-                // deleted version is never exported, so it borrows no dictionary row.
-                if (!deleted
-                        && other.table().equals("measurementType")
-                        && Objects.equals(row.fields().get("type"), other.fields().get("type"))
-                        && Objects.equals(
-                                row.fields().get("measuringInstruction"),
-                                other.fields().get("measuringInstruction"))) definitions.add(other);
-            }
+            var extensions =
+                    owner == null ? List.<CdsExportCapturedTextRowDto>of()
+                            : extensionsOf.getOrDefault(owner, List.of());
+            // The vocabulary is captured for current observations and accounted by them; a
+            // deleted version is never exported, so it borrows no dictionary row.
+            var definitions =
+                    deleted
+                            ? List.<CdsExportCapturedTextRowDto>of()
+                            : definitionsOf.getOrDefault(vocabulary(row), List.of());
             result.add(
                     new Occurrence(
                             row.table(),
@@ -99,6 +114,11 @@ final class CdsExportNativeCarePlanner {
         }
         result.sort(Comparator.comparing(Occurrence::table).thenComparing(Occurrence::id));
         return List.copyOf(result);
+    }
+
+    /** The type and instruction a vocabulary row describes; null-safe, as the match always was. */
+    private static List<String> vocabulary(CdsExportCapturedTextRowDto row) {
+        return Arrays.asList(row.fields().get("type"), row.fields().get("measuringInstruction"));
     }
 
     /**

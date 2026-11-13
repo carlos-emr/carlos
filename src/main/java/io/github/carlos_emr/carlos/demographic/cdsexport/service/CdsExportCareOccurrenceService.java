@@ -21,8 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
-import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
-import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsCareElementDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
@@ -32,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappin
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
@@ -40,13 +37,14 @@ import org.springframework.stereotype.Service;
 /** Original care parents and all child observations share one private source assembly; unknown/changed native care requires review. */
 @Service
 public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurrenceAssembler {
-    private static final Set<String> TABLES =
-            Set.of(
-                    "measurements",
-                    "measurementsExt",
-                    "measurementsDeleted",
-                    "measurementType",
-                    "demographic");
+    private static final Set<String> TABLES = CdsExportCapturedCareRowsReader.TABLES;
+
+    /**
+     * Holds a chart whose current measurements would take its occurrence index past its
+     * per-patient capacity (CdsExportPatientInventoryService): about 65,000 measurements at the
+     * installed maximum, not a chart entered through the screens.
+     */
+    static final String PATIENT_LIMIT = "CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED";
     private static final Pattern CHILD =
             Pattern.compile("^([A-Za-z]+)\\[([1-9][0-9]{0,17})\\](?=/|$)");
     private final CdsExportRetainedValuesService values;
@@ -60,11 +58,21 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses,
             CdsExportNativeCaptureService captures) {
+        this(values, verification, witnesses, captures, new CdsExportCapturedTextRowsReader(captures));
+    }
+
+    /** Lets a test supply the captured rows without composing an encrypted capture. */
+    CdsExportCareOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportCapturedTextRowsReader rows) {
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses);
         this.captures = Objects.requireNonNull(captures);
-        rows = new CdsExportCapturedTextRowsReader(captures);
+        this.rows = Objects.requireNonNull(rows);
     }
 
     @Override
@@ -128,8 +136,6 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
         var captured = captureCareRows(lease, patient, tables, source, bounds, control);
-        var current = captured.current();
-        var exact = captured.exact();
         long[] totals = {0, 0, 0};
         values.withValues(
                 lease,
@@ -159,14 +165,19 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                     var dependencies = retainedDependencies(index, bounds, control);
                     var parents = dependencies.parents();
                     var expectedChildren = dependencies.expectedChildren();
+                    // Rows claimed by the imported parents; the native windows add their own.
                     var owned = new HashSet<String>();
                     var consumed = new HashSet<String>();
                     var childDone = new HashSet<String>();
                     var dictionary = new HashSet<String>();
+                    // Only the rows an import names are read for the imported parents; every
+                    // other observation is read in its window below.
+                    var importedRows = parents.isEmpty() ? null : importedRows(captured, index);
                     for (var parent : parents.entrySet()) {
                         control.checkpoint();
                         String address = parent.getKey();
-                        requireParentEvidence(patient.patient(), address, index, checked, exact);
+                        requireParentEvidence(
+                                patient.patient(), address, index, checked, importedRows.exact());
                         var assembled =
                                 importedParent(
                                         patient.patient(),
@@ -176,8 +187,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                                         index,
                                         checked,
                                         retained,
-                                        current,
-                                        exact,
+                                        importedRows.current(),
+                                        importedRows.exact(),
                                         new Claims(owned, consumed, childDone, dictionary),
                                         streams,
                                         control::checkpoint);
@@ -208,97 +219,115 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         totals[0]++;
                         totals[1] = Math.addExact(totals[1], assembled.sourceFields());
                     }
-                    for (var nativeSource :
-                            new CdsExportNativeCarePlanner()
-                                    .plan(index, current, control::checkpoint)) {
-                        if (nativeSource.deleted()) {
-                            // Accounted, never exported; the extensions the deletion left
-                            // behind are owned here so the completeness gate still closes.
-                            var retired =
-                                    CdsExportNativeCareMapper.retired(
-                                            patient.patient(), nativeSource);
+                    var importedOwned = Set.copyOf(owned);
+                    long importedSeen = 0;
+                    for (int window = 0; window < captured.windows(); window++) {
+                        var slice = captured.window(window);
+                        var current = slice.current();
+                        requireOwners(patient.patient(), current);
+                        // Rows claimed in this window; together with the imported claims that
+                        // fall in it, they must be exactly the window's own rows.
+                        var claimed = new HashSet<String>();
+                        for (var nativeSource :
+                                new CdsExportNativeCarePlanner()
+                                        .plan(index, current, control::checkpoint)) {
+                            if (nativeSource.deleted()) {
+                                // Accounted, never exported; the extensions the deletion left
+                                // behind are owned here so the completeness gate still closes.
+                                var retired =
+                                        CdsExportNativeCareMapper.retired(
+                                                patient.patient(), nativeSource);
+                                new CdsExportNativeFieldAssessmentValidator()
+                                        .requireRepresentable(
+                                                retiredRows(nativeSource),
+                                                retired,
+                                                1_000_000,
+                                                control::checkpoint);
+                                for (var extension : nativeSource.extensions())
+                                    claim(key(extension.table(), id(extension)), importedOwned, claimed);
+                                continue;
+                            }
+                            if (!lease.document()
+                                    .command()
+                                    .categories()
+                                    .contains(CdsCategory.NEW_CATEGORY)) review();
+                            var mapped =
+                                    new CdsExportNativeCareMapper()
+                                            .map(
+                                                    patient.patient(),
+                                                    nativeSource.observation(),
+                                                    nativeSource.extensions(),
+                                                    nativeSource.definitions());
+                            for (var row : mapped.rows()) {
+                                String rowKey = key(row.table(), id(row));
+                                if (row.table().equals("measurementType")) dictionary.add(rowKey);
+                                else claim(rowKey, importedOwned, claimed);
+                            }
+                            if (nativeSource.element() != null
+                                    && !nativeSource.element().equals(mapped.element())) review();
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
-                                            retiredRows(nativeSource),
-                                            retired,
+                                            mapped.rows(),
+                                            mapped.fields(),
                                             1_000_000,
                                             control::checkpoint);
-                            for (var extension : nativeSource.extensions())
-                                if (!owned.add(key(extension.table(), id(extension)))) invalid();
-                            continue;
+                            if (mapped.element() == null) continue;
+                            var identity =
+                                    new CdsExportIdentityDto(
+                                            patientKey,
+                                            category(),
+                                            CdsImportKeys.hash(
+                                                    "carlos-native-occurrence-v1",
+                                                    nativeSource.table(),
+                                                    nativeSource.id()));
+                            streams.requireActive();
+                            control.authorizeCategory(patient.patient(), category(), false);
+                            xml.emit(
+                                    new CdsExportXmlComposer.Section(
+                                            identity,
+                                            body ->
+                                                    new CdsExportNativeCareMapper()
+                                                            .writeCare(mapped, body)));
+                            output.accept(
+                                    new CdsExportClinicalOccurrenceService.Receipt(
+                                            identity,
+                                            index.sourceManifestSha256(),
+                                            nativeSource.table(),
+                                            nativeSource.id(),
+                                            null,
+                                            mapped.fields(),
+                                            Set.of(),
+                                            Set.of()));
+                            control.authorizeCategory(patient.patient(), category(), false);
+                            totals[0]++;
+                            totals[2]++;
                         }
-                        if (!lease.document()
-                                .command()
-                                .categories()
-                                .contains(CdsCategory.NEW_CATEGORY)) review();
-                        var mapped =
-                                new CdsExportNativeCareMapper()
-                                        .map(
-                                                patient.patient(),
-                                                nativeSource.observation(),
-                                                nativeSource.extensions(),
-                                                nativeSource.definitions());
-                        for (var row : mapped.rows()) {
-                            String rowKey = key(row.table(), id(row));
-                            if (row.table().equals("measurementType")) dictionary.add(rowKey);
-                            else if (!owned.add(rowKey)) invalid();
-                        }
-                        if (nativeSource.element() != null
-                                && !nativeSource.element().equals(mapped.element())) review();
-                        new CdsExportNativeFieldAssessmentValidator()
-                                .requireRepresentable(
-                                        mapped.rows(),
-                                        mapped.fields(),
-                                        1_000_000,
-                                        control::checkpoint);
-                        if (mapped.element() == null) continue;
-                        var identity =
-                                new CdsExportIdentityDto(
-                                        patientKey,
-                                        category(),
-                                        CdsImportKeys.hash(
-                                                "carlos-native-occurrence-v1",
-                                                nativeSource.table(),
-                                                nativeSource.id()));
-                        streams.requireActive();
-                        control.authorizeCategory(patient.patient(), category(), false);
-                        xml.emit(
-                                new CdsExportXmlComposer.Section(
-                                        identity,
-                                        body ->
-                                                new CdsExportNativeCareMapper()
-                                                        .writeCare(mapped, body)));
-                        output.accept(
-                                new CdsExportClinicalOccurrenceService.Receipt(
-                                        identity,
-                                        index.sourceManifestSha256(),
-                                        nativeSource.table(),
-                                        nativeSource.id(),
-                                        null,
-                                        mapped.fields(),
-                                        Set.of(),
-                                        Set.of()));
-                        control.authorizeCategory(patient.patient(), category(), false);
-                        totals[0]++;
-                        totals[2]++;
+                        var expectedNative = new HashSet<String>();
+                        current.forEach(
+                                (key, row) -> {
+                                    if (Set.of("measurements", "measurementsExt")
+                                            .contains(row.table())) expectedNative.add(key);
+                                });
+                        for (String key : expectedNative)
+                            if (importedOwned.contains(key)) {
+                                claimed.add(key);
+                                importedSeen++;
+                            }
+                        if (!claimed.equals(expectedNative)) review();
                     }
-                    var expectedNative = new HashSet<String>();
-                    current.forEach(
-                            (key, row) -> {
-                                if (Set.of("measurements", "measurementsExt").contains(row.table()))
-                                    expectedNative.add(key);
-                            });
+                    // Every row an imported parent claimed is a row of exactly one window.
+                    if (importedSeen != importedOwned.size()) invalid();
                     var expectedDictionary = new HashSet<String>();
-                    current.forEach(
-                            (key, row) -> {
-                                if (row.table().equals("measurementType"))
-                                    expectedDictionary.add(key);
-                            });
+                    captured.vocabulary()
+                            .forEach(
+                                    (key, row) -> {
+                                        if (row.table().equals("measurementType"))
+                                            expectedDictionary.add(key);
+                                    });
                     var expectedSource = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category()) expectedSource.add(field.id());
                     if (!childDone.equals(expectedChildren)
-                            || !owned.equals(expectedNative)
                             || !dictionary.equals(expectedDictionary)) review();
                     if (!consumed.equals(expectedSource)) invalid();
                     streams.requireActive();
@@ -314,6 +343,26 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 totals[0] - totals[2],
                 totals[2],
                 totals[1]);
+    }
+
+    /** A native claim of one row, which no imported parent and no other occurrence may share. */
+    private static void claim(String key, Set<String> imported, Set<String> claimed)
+            throws IOException {
+        if (imported.contains(key) || !claimed.add(key)) invalid();
+    }
+
+    /** The rows the applied imports name: their observations and the extensions named by id. */
+    private static CdsExportCapturedCareRowsReader.Slice importedRows(
+            CdsExportCapturedCareRowsReader.Capture captured, CdsExportRetainedIndexDto index)
+            throws IOException {
+        var observations = new HashSet<String>();
+        var extensions = new HashSet<String>();
+        for (String address : index.appliedUnits())
+            for (var ref : index.references().getOrDefault(address, List.of())) {
+                if (ref.table().equals("measurements")) observations.add(ref.id());
+                if (ref.table().equals("measurementsExt")) extensions.add(ref.id());
+            }
+        return captured.owners(observations, extensions);
     }
 
     /** Claims shared by every imported parent and the native passes of one patient's assembly. */
@@ -749,9 +798,12 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         if (source.capture().tables().get("measurementsDeleted").rows() == 0) return Set.of();
         control.authorizeCategory(patient.patient(), category(), false);
         var captured = captureCareRows(lease, patient, tables, source, bounds, control);
+        var dependencies = retainedDependencies(index, bounds, control);
         var result =
-                removedImportedParents(
-                        retainedDependencies(index, bounds, control), index, captured.current());
+                dependencies.parents().isEmpty()
+                        ? Set.<String>of()
+                        : removedImportedParents(
+                                dependencies, index, importedRows(captured, index).current());
         control.authorizeCategory(patient.patient(), category(), false);
         return result;
     }
@@ -775,41 +827,53 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         return Set.copyOf(result);
     }
 
-    /** Complete source membership for inventory/supporting data, without reading mapper output. */
-    List<CdsExportNativeCarePlanner.Occurrence> nativeSources(
+    /** One planned native observation, delivered while its window is held. */
+    @FunctionalInterface
+    interface NativeSources {
+        void accept(CdsExportNativeCarePlanner.Occurrence occurrence) throws IOException;
+    }
+
+    /**
+     * Complete source membership for inventory/supporting data, without reading mapper output.
+     * Occurrences arrive window by window (CdsExportCapturedCareRowsReader), current
+     * observations in the decimal order of their ids, so no list of the whole chart is built;
+     * every row of a window is verified against its witness before its occurrences are given.
+     * Callers keep what they derive private until the whole patient succeeds.
+     */
+    void forEachNativeSource(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
             CdsExportPatientCaptureDto source,
             CdsExportRetainedIndexDto index,
             CdsExportClinicalOccurrenceService.Bounds bounds,
-            CdsExportRunControl control)
+            CdsExportRunControl control,
+            NativeSources sources)
             throws IOException {
-        if (!lease.document().command().categories().contains(CdsCategory.CARE_ELEMENTS))
-            return List.of();
+        Objects.requireNonNull(sources);
+        if (!lease.document().command().categories().contains(CdsCategory.CARE_ELEMENTS)) return;
         if (!tables.containsAll(TABLES)) invalid();
         if (source.capture().tables().get("measurements").rows() == 0
-                && source.capture().tables().get("measurementsDeleted").rows() == 0)
-            return List.of();
+                && source.capture().tables().get("measurementsDeleted").rows() == 0) return;
         control.authorizeCategory(patient.patient(), category(), false);
         var captured = captureCareRows(lease, patient, tables, source, bounds, control);
-        var result =
-                new CdsExportNativeCarePlanner()
-                        .plan(index, captured.current(), control::checkpoint);
-        control.authorizeCategory(patient.patient(), category(), false);
-        return result;
-    }
-
-    private record CapturedCare(
-            Map<String, CdsExportCapturedTextRowDto> current,
-            Map<String, CdsExportNativeRowReceiptDto> exact) {
-        @Override
-        public String toString() {
-            return "CapturedCare[protected]";
+        for (int window = 0; window < captured.windows(); window++) {
+            var current = captured.window(window).current();
+            requireOwners(patient.patient(), current);
+            for (var occurrence :
+                    new CdsExportNativeCarePlanner().plan(index, current, control::checkpoint))
+                sources.accept(occurrence);
         }
+        control.authorizeCategory(patient.patient(), category(), false);
     }
 
-    private CapturedCare captureCareRows(
+    /**
+     * The first pass over the patient's captured care rows (CdsExportCapturedCareRowsReader).
+     * A window holds at most {@code nativeRows} measurement rows and about {@code indexBytes} of
+     * rows; a chart with more is read in several windows, never held for its size. The rows of
+     * a chart that fits one window are kept and verified here, as before.
+     */
+    private CdsExportCapturedCareRowsReader.Capture captureCareRows(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
@@ -817,91 +881,44 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             CdsExportClinicalOccurrenceService.Bounds bounds,
             CdsExportRunControl control)
             throws IOException {
-        var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
-        var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        var budget = new Budget(bounds);
-        var scanned =
-                rows.forEachTable(
-                        lease,
-                        patient,
-                        tables,
-                        TABLES,
-                        source.manifest(),
-                        bounds.fields(),
-                        bounds.bytes(),
-                        67_108_864,
-                        control,
-                        row -> {
-                            String id = id(row);
-                            if (!row.fields().keySet().equals(columns(row.table()))
-                                    || !row.exactNumbers().isEmpty()) invalid();
-                            budget.add(row);
-                            if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
-                        });
-        if (!scanned.equals(source.capture())) invalid();
-        var proof =
-                witnesses.scan(
-                        lease,
-                        patient,
-                        tables,
-                        source,
-                        bounds.fields(),
-                        bounds.bytes(),
-                        control,
-                        row -> {
-                            if (!TABLES.contains(row.table())) return;
-                            // Witnesses must match the rows already admitted by the budget.
-                            if (exact.size() >= current.size()) invalid();
-                            if (exact.putIfAbsent(key(row.table(), row.id()), row) != null)
-                                invalid();
-                        });
-        if (!proof.sourceManifestSha256().equals(source.manifest().plaintextSha256())
-                || !current.keySet().equals(exact.keySet())) invalid();
-        for (var entry : current.entrySet()) verify(entry.getValue(), exact.get(entry.getKey()));
-        for (String table : TABLES)
-            if (current.values().stream().filter(row -> row.table().equals(table)).count()
-                    != source.capture().tables().get(table).rows()) invalid();
-        var demographic = current.get(key("demographic", Integer.toString(patient.patient())));
-        if (demographic == null || source.capture().tables().get("demographic").rows() != 1)
-            invalid();
-        requireOwners(patient.patient(), current);
-        return new CapturedCare(current, exact);
-    }
-
-    /**
-     * One patient's care capture budget. The observation count (current and deleted rows) is
-     * bounded by {@code nativeRows}; extension and vocabulary rows, which a chronic chart can
-     * multiply, count only toward the retained-row memory bound ({@code indexBytes}). A chart
-     * over either bound is a fact about that patient: it is held for review and named, and the
-     * job continues, instead of stopping every patient with RESOURCE_LIMIT.
-     */
-    static final class Budget {
-        private final long observations, bytes;
-        private long seen, used;
-
-        Budget(CdsExportClinicalOccurrenceService.Bounds bounds) {
-            observations = bounds.nativeRows();
-            bytes = bounds.indexBytes();
-        }
-
-        void add(CdsExportCapturedTextRowDto row) throws CdsExportMappingReviewException {
-            if (Set.of("measurements", "measurementsDeleted").contains(row.table())) seen++;
-            used = Math.addExact(used, 1024L + row.fields().size() * 256L);
-            for (String value : row.fields().values())
-                if (value != null)
-                    used =
-                            Math.addExact(
-                                    used, value.getBytes(StandardCharsets.UTF_8).length + 64L);
-            if (seen > observations || used > bytes)
-                throw new CdsExportMappingReviewException(
-                        "CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
-        }
+        return new CdsExportCapturedCareRowsReader(
+                        patient.patient(),
+                        consumer ->
+                                rows.forEachTable(
+                                        lease,
+                                        patient,
+                                        tables,
+                                        TABLES,
+                                        source.manifest(),
+                                        bounds.fields(),
+                                        bounds.bytes(),
+                                        67_108_864,
+                                        control,
+                                        consumer),
+                        consumer ->
+                                witnesses.scan(
+                                        lease,
+                                        patient,
+                                        tables,
+                                        source,
+                                        bounds.fields(),
+                                        bounds.bytes(),
+                                        control,
+                                        consumer),
+                        source.capture(),
+                        source.manifest().plaintextSha256(),
+                        control::checkpoint)
+                .capture(
+                        new CdsExportCapturedCareRowsReader.Limits(
+                                bounds.nativeRows(), bounds.indexBytes()));
     }
 
     /**
      * Every captured extension belongs to exactly one of this patient's observations: a current
      * measurement, or the measurementsDeleted row whose originalId it still carries. An id that
      * names both, or two deleted rows, cannot be attributed and holds the patient for review.
+     * The first pass decides this for the whole chart; each window, which holds every row of
+     * its owners, is checked again before it is planned.
      */
     static void requireOwners(int patient, Map<String, CdsExportCapturedTextRowDto> current)
             throws IOException {
@@ -988,77 +1005,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
         }
     }
 
-    private static Set<String> columns(String table) throws IOException {
-        if (table.equals("demographic")) {
-            var columns = new HashSet<>(CdsExportDemographicRowDto.COLUMNS);
-            columns.add("demographic_no");
-            return Set.copyOf(columns);
-        }
-        return Set.copyOf(
-                switch (table) {
-                    case "measurements" ->
-                            CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT.columns();
-                    case "measurementsExt" ->
-                            CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_EXT.columns();
-                    case "measurementType" ->
-                            CdsExportPatientTableReadSupport.Plan.MEASUREMENT_TYPES.columns();
-                    case "measurementsDeleted" ->
-                            CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_DELETED.columns();
-                    default -> throw new IOException("CDS_EXPORT_CARE_OCCURRENCE_INVALID");
-                });
-    }
-
     private static String id(CdsExportCapturedTextRowDto row) throws IOException {
-        String value =
-                row.fields().get(row.table().equals("demographic") ? "demographic_no" : "id");
-        try {
-            long id = Long.parseLong(value);
-            if (id < 1
-                    || !Long.toString(id).equals(value)
-                    || !(row.table().equals("demographic")
-                                    ? String.format(Locale.ROOT, "%010d", id)
-                                    : CdsExportPatientTableSourceReader.key(id))
-                            .equals(row.recordKey())) invalid();
-        } catch (NumberFormatException malformed) {
-            invalid();
-        }
-        return value;
-    }
-
-    private static void verify(
-            CdsExportCapturedTextRowDto row, CdsExportNativeRowReceiptDto witness)
-            throws IOException {
-        if (witness == null
-                || witness.state() == null
-                || witness.partial()
-                || !Objects.equals(witness.digest(), witness.state().digest())
-                || !row.table().equals(witness.table())
-                || !id(row).equals(witness.id())
-                || !row.recordKey().equals(witness.recordKey())
-                || !row.fields()
-                        .keySet()
-                        .equals(
-                                Set.copyOf(
-                                        witness.state().columns().stream()
-                                                .map(CdsNativeRowDigest.Column::name)
-                                                .toList()))) invalid();
-        for (int i = 0; i < witness.state().columns().size(); i++) {
-            var column = witness.state().columns().get(i);
-            var cell = witness.state().cells().get(i);
-            String value = row.fields().get(column.name());
-            if (cell.exactNumeric() != null || CdsExactNumeric.codec(column.type()) != null)
-                invalid();
-            if (value == null) {
-                if (!cell.sqlNull()) invalid();
-            } else {
-                byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-                if (cell.sqlNull()
-                        || bytes.length != cell.bytes()
-                        || !HexFormat.of()
-                                .formatHex(CdsImportKeys.digest().digest(bytes))
-                                .equals(cell.sha256())) invalid();
-            }
-        }
+        return CdsExportCapturedCareRowsReader.id(row);
     }
 
     private static String key(String table, String id) {

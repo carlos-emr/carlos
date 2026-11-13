@@ -635,16 +635,10 @@ class CdsExportPatientInventoryServiceUnitTest {
             throws Exception {
         var f = fixture(CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
         var observation = CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg");
-        when(f.careInventory.nativeSources(any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(
-                        List.of(
-                                new CdsExportNativeCarePlanner.Occurrence(
-                                        "measurements",
-                                        "91",
-                                        "Weight",
-                                        observation,
-                                        List.of(),
-                                        List.of())));
+        careSources(
+                f,
+                new CdsExportNativeCarePlanner.Occurrence(
+                        "measurements", "91", "Weight", observation, List.of(), List.of()));
         var inventory = capture(f);
         assertThat(inventory.identities()).hasSize(3);
         assertThat(
@@ -658,21 +652,66 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseNativeObservationsWhenTheirSupportingClinicalContextIsExcluded()
+    void shouldRefuseNativeObservations_whenTheirSupportingClinicalContextIsExcluded()
             throws Exception {
         var f = fixture(CdsCategory.CARE_ELEMENTS);
         var observation = CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg");
-        when(f.careInventory.nativeSources(any(), any(), anySet(), any(), any(), any(), any()))
-                .thenReturn(
-                        List.of(
-                                new CdsExportNativeCarePlanner.Occurrence(
-                                        "measurements",
-                                        "91",
-                                        "Weight",
-                                        observation,
-                                        List.of(),
-                                        List.of())));
+        careSources(
+                f,
+                new CdsExportNativeCarePlanner.Occurrence(
+                        "measurements", "91", "Weight", observation, List.of(), List.of()));
         assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
+    void shouldHoldOnlyThatChart_whenItsMeasurementsPassThePatientOccurrenceCapacity()
+            throws Exception {
+        // The fixture's occurrence capacity is 1,000 (maxIndexRows); every weight is a
+        // CareElements and a NewCategory occurrence. Before, the inventory stopped the whole
+        // job with RESOURCE_LIMIT; the care capture had held the chart much earlier, at 8,192.
+        var f = fixture(CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
+        var weights = new ArrayList<CdsExportNativeCarePlanner.Occurrence>();
+        for (int id = 1; id <= 499; id++)
+            weights.add(
+                    new CdsExportNativeCarePlanner.Occurrence(
+                            "measurements",
+                            Integer.toString(id),
+                            "Weight",
+                            CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg"),
+                            List.of(),
+                            List.of()));
+        careSources(f, weights.toArray(CdsExportNativeCarePlanner.Occurrence[]::new));
+        assertThat(capture(f).identities()).hasSize(999);
+        weights.add(
+                new CdsExportNativeCarePlanner.Occurrence(
+                        "measurements",
+                        "500",
+                        "Weight",
+                        CdsExportNativeCareMapperUnitTest.observation("WT", "70", "kg"),
+                        List.of(),
+                        List.of()));
+        careSources(f, weights.toArray(CdsExportNativeCarePlanner.Occurrence[]::new));
+        assertThatThrownBy(() -> capture(f))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
+    }
+
+    /** The care service streams its occurrences to the inventory, window by window. */
+    private static void careSources(
+            CdsExportPatientPipelineFixture f,
+            CdsExportNativeCarePlanner.Occurrence... occurrences)
+            throws IOException {
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            CdsExportCareOccurrenceService.NativeSources sink =
+                                    call.getArgument(7);
+                            for (var occurrence : occurrences) sink.accept(occurrence);
+                            return null;
+                        })
+                .when(f.careInventory)
+                .forEachNativeSource(any(), any(), anySet(), any(), any(), any(), any(), any());
     }
 
     @Test

@@ -45,6 +45,18 @@ class CdsExportPatientDocumentServiceUnitTest {
     }
 
     @Test
+    void shouldAllowEveryOccurrenceItsAuditLines_beyondTheIndexBound() {
+        // Before, maxIndexBytes alone bounded the audit, and a chart of about 11,000
+        // measurements (two receipts and two dispositions each) stopped the whole job here.
+        var bounds = new CdsExportClinicalOccurrenceService.Bounds(1000, 1 << 20, 1000, 64L << 20, 8192, 1000);
+        assertThat(CdsExportPatientDocumentService.auditLimit(bounds, 0)).isEqualTo(64L << 20);
+        assertThat(CdsExportPatientDocumentService.auditLimit(bounds, 131_072))
+                .isEqualTo((64L << 20) + 131_072L * 16_384);
+        assertThatThrownBy(() -> CdsExportPatientDocumentService.auditLimit(bounds, -1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void shouldReopenAndValidateTheFinishedEncryptedXml_beforeReturningPrivateDocumentEvidence()
             throws Exception {
         var f = fixture();

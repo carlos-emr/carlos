@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -343,30 +344,6 @@ public class CdsExportPatientInventoryService {
                                 id),
                         budget);
         }
-        for (var observation :
-                care.nativeSources(lease, patient, tables, source, index, bounds, control)) {
-            // A deleted or superseded version is accounted, never an expected occurrence.
-            if (observation.deleted()) continue;
-            if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
-                review();
-            if (observation.element() != null)
-                add(
-                        expected,
-                        nativeIdentity(
-                                patientKey,
-                                CdsCategory.CARE_ELEMENTS,
-                                observation.table(),
-                                observation.id()),
-                        budget);
-            add(
-                    expected,
-                    nativeIdentity(
-                            patientKey,
-                            CdsCategory.NEW_CATEGORY,
-                            observation.table(),
-                            observation.id()),
-                    budget);
-        }
         for (var laboratory :
                 laboratories.nativeSources(
                         lease, patient, tables, source, index, bounds, control)) {
@@ -519,6 +496,42 @@ public class CdsExportPatientInventoryService {
             if (!sourceFields.add(field.id())) invalid();
             budget.add();
         }
+        // Native measurements are counted last, window by window: when they take the patient's
+        // occurrence index past its capacity the chart is held for its size and the job goes on,
+        // instead of stopping every patient with RESOURCE_LIMIT. Nothing else counts after them.
+        care.forEachNativeSource(
+                lease,
+                patient,
+                tables,
+                source,
+                index,
+                bounds,
+                control,
+                observation -> {
+                    // A deleted or superseded version is accounted, never an expected occurrence.
+                    if (observation.deleted()) return;
+                    if (!lease.document()
+                            .command()
+                            .categories()
+                            .contains(CdsCategory.NEW_CATEGORY)) review();
+                    if (observation.element() != null)
+                        addCare(
+                                expected,
+                                nativeIdentity(
+                                        patientKey,
+                                        CdsCategory.CARE_ELEMENTS,
+                                        observation.table(),
+                                        observation.id()),
+                                budget);
+                    addCare(
+                            expected,
+                            nativeIdentity(
+                                    patientKey,
+                                    CdsCategory.NEW_CATEGORY,
+                                    observation.table(),
+                                    observation.id()),
+                            budget);
+                });
         if (expected.stream()
                         .filter(identity -> identity.category() == CdsCategory.DEMOGRAPHICS)
                         .count()
@@ -625,6 +638,20 @@ public class CdsExportPatientInventoryService {
         budget.add();
     }
 
+    /**
+     * One native measurement occurrence. The occurrence index of a patient is bounded (each
+     * identity is held with its disposition and receipt until the document is proven); a chart
+     * whose measurements take it past that bound is a fact about that patient, held with {@link
+     * CdsExportCareOccurrenceService#PATIENT_LIMIT}, not a reason to stop the job.
+     */
+    private static void addCare(
+            Set<CdsExportIdentityDto> identities, CdsExportIdentityDto identity, Budget budget)
+            throws IOException {
+        if (budget.full())
+            throw new CdsExportMappingReviewException(CdsExportCareOccurrenceService.PATIENT_LIMIT);
+        add(identities, identity, budget);
+    }
+
     private static final class Budget {
         private final long rows, bytes;
         private long used;
@@ -637,6 +664,11 @@ public class CdsExportPatientInventoryService {
         void add() {
             if (++used > rows || used > bytes / 512)
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
+        }
+
+        /** True when one more identity would pass the patient's occurrence capacity. */
+        boolean full() {
+            return used + 1 > rows || used + 1 > bytes / 512;
         }
     }
 
