@@ -91,6 +91,12 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                     .decode(
                             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==");
 
+    /** Larger than any page's inline share, so both reads use verified byte ranges. */
+    private static final String LONG_TEXT = "Ongoing concern \u00e9 \ud83d\ude00 ".repeat(4_000) + "END";
+
+    private static final String EFORM_HTML =
+            "<html><body><input name=\"weight\" value=\"70\">" + LONG_TEXT + "</body></html>";
+
     private BasicDataSource source;
     private AnnotationConfigApplicationContext context;
     private JdbcTemplate sql;
@@ -168,6 +174,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 sql.update("delete from Consent where id=?", patient);
                 sql.update("delete from form_boolean_value where form_id=?", patient);
                 sql.update("delete from formRourke2020 where ID=?", patient);
+                sql.update("delete from formRourke2009 where ID=? and demographic_no=?", patient, patient);
                 sql.update("delete from eform_values where id=?", patient);
                 sql.update("delete from eform_data where fdid=?", patient);
                 sql.update("delete from consultationRequestExt where id=?", patient);
@@ -227,7 +234,15 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                         + " values(?,1,'Synthetic eForm','',?,1,'2024-05-06','13:00:00','999998',?,0,0,'')",
                 patient,
                 patient,
-                "<html><body><input name=\"weight\" value=\"70\"></body></html>");
+                EFORM_HTML);
+        // The legacy 1,227-column form (Aria on ON) is read in column groups, and a value
+        // larger than its group's inline share is read in verified byte ranges.
+        sql.update(
+                "insert into formRourke2009(ID,demographic_no,formCreated,formEdited,p4_problems48m)"
+                        + " values(?,?,'2023-06-07',now(),?)",
+                patient,
+                patient,
+                LONG_TEXT);
         sql.update(
                 "insert into eform_values(id,fdid,fid,demographic_no,var_name,var_value)"
                         + " values(?,?,1,?,'weight','70')",
@@ -383,7 +398,21 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         assertThat(tickler.rows()).extracting(Row::table).containsExactly("tickler", "tickler_comments", "tickler_update");
         assertThat(tickler.rows().getFirst().text("message"))
                 .isEqualTo("Call about results <b>unusual</b>\r\nsecond line 😀");
-        var rourke = byKind.get(Kind.ENCOUNTER_FORM).getFirst();
+        var rourke =
+                byKind.get(Kind.ENCOUNTER_FORM).stream()
+                        .filter(group -> group.table().equals("formRourke2020"))
+                        .findFirst()
+                        .orElseThrow();
+        var legacy =
+                byKind.get(Kind.ENCOUNTER_FORM).stream()
+                        .filter(group -> group.table().equals("formRourke2009"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(legacy.subClass()).isEqualTo("formRourke2009 revision 1 of 1");
+        assertThat(legacy.rows().getFirst().values()).hasSize(1227);
+        assertThat(legacy.rows().getFirst().text("p4_problems48m")).isEqualTo(LONG_TEXT);
+        assertThat(byKind.get(Kind.EFORM).getFirst().rows().getFirst().text("form_data"))
+                .isEqualTo(EFORM_HTML);
         assertThat(rourke.subClass()).isEqualTo("formRourke2020 revision 1 of 1");
         assertThat(rourke.rows()).extracting(Row::table)
                 .containsExactly("formRourke2020", "form_boolean_value", "form_boolean_value");
