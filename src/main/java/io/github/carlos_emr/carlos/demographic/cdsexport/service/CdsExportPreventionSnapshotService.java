@@ -43,7 +43,8 @@ import org.springframework.transaction.support.*;
  * nested or foreign transactions cannot reuse this state. This is selection, not captured evidence
  * or permission. Finished encrypted source must independently reprove the complete partition.
  *
- * <p>When Immunizations is selected, a row the classification cannot place is an immunization if
+ * <p>When Immunizations or PastHealth is selected, a row the classification cannot place is an
+ * immunization (so never a screening) if
  * an authenticated import receipt proves it was imported from a CDS Immunizations element. The
  * receipts are the patient's {@code cds_import_unit} rows read through their owning DAO in this
  * same snapshot, the rows the capture itself copies, so the finished-capture reclassification
@@ -121,8 +122,9 @@ public class CdsExportPreventionSnapshotService {
     }
 
     /**
-     * @param receipts whether Immunizations is selected, so the capture copies the patient's
-     *     Immunizations import units and an import receipt may prove an unplaced row
+     * @param receipts whether a prevention category (Immunizations or PastHealth) is selected,
+     *     so the capture copies the patient's Immunizations import units and an import receipt may
+     *     prove an unplaced row
      */
     State prepare(int patient, Runnable checkpoint, boolean receipts) throws IOException {
         Object owner = transaction();

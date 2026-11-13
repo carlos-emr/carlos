@@ -181,9 +181,9 @@ as the legacy exporter did, and the earlier versions do not hold the patient for
 
 A vaccine imported without a configured ImmunizationType is filed in CARLOS as `OtherA`
 ("Other immunization or injection"). It is exported as an immunization, from its original
-imported elements, because the import's own sealed receipt proves where it came from; select
-Immunizations (a PastHealth-only export still holds such a patient, because the row could be a
-screening). If the receipt cannot be verified (an import from before native-baseline witnesses,
+imported elements, because the import's own sealed receipt proves where it came from. The same
+proof keeps it out of a PastHealth-only export (it is a vaccine, not a screening) without holding
+the patient. If the receipt cannot be verified (an import from before native-baseline witnesses,
 or a receipt that no longer matches) or the vaccine's type was changed after the import, the
 patient is held. A receipt that cannot be opened because the native-baseline key is missing
 stops the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`: restore the key files

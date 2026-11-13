@@ -429,7 +429,10 @@ class CdsExportPreventionClassificationServiceUnitTest {
     }
 
     @Test
-    void shouldNotConsultImportReceipts_whenImmunizationsIsNotSelected() throws Exception {
+    void shouldProveAnImportedCatchAllVaccine_forAPastHealthOnlyExportWithoutHolding()
+            throws Exception {
+        // The receipt proves the row is a vaccine, so it is never a possible screening: the
+        // PastHealth-only export leaves it out instead of holding the patient (review F10).
         units =
                 List.of(
                         CdsExportImmunizationImportReceiptFixture.unit(
@@ -438,20 +441,19 @@ class CdsExportPreventionClassificationServiceUnitTest {
                                 io.github.carlos_emr.carlos.demographic.cds.security
                                         .CdsNativeBaselineTestKeys.keys()));
         var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PAST_HEALTH));
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.representable()).isTrue();
+    }
+
+    @Test
+    void shouldStillHoldANativeCatchAllVaccine_forAPastHealthOnlyExport() throws Exception {
+        units = List.of();
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PAST_HEALTH));
         assertThat(result.reviews())
                 .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
-        verify(rows, never())
-                .forEach(
-                        any(),
-                        any(),
-                        anySet(),
-                        eq("cds_import_unit"),
-                        any(),
-                        anyLong(),
-                        anyLong(),
-                        anyInt(),
-                        any(),
-                        any());
+        assertThat(result.representable()).isFalse();
     }
 
     private CdsExportLeaseDto lease(Set<CdsCategory> categories) {

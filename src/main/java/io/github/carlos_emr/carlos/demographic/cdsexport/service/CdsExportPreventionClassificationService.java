@@ -33,8 +33,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Complete frozen metadata classification after both authenticated EOFs, protected configuration
- * and final live authority. No clinical serialization or coverage claim. With Immunizations
- * selected, a row the classification cannot place is an immunization when an authenticated
+ * and final live authority. No clinical serialization or coverage claim. With Immunizations or
+ * PastHealth selected, a row the classification cannot place is an immunization when an authenticated
  * import receipt among the captured {@code cds_import_unit} rows proves it was imported from a
  * CDS Immunizations element, exactly as capture-time selection decided
  * ({@link CdsExportImmunizationImportReceipts}).
@@ -206,8 +206,9 @@ public class CdsExportPreventionClassificationService {
 
     /**
      * Candidate rows proved by the captured Immunizations import receipts. The capture copies the
-     * patient's Immunizations units only when that category is selected, which is also the only
-     * case in which capture-time selection consults them.
+     * patient's Immunizations units whenever a prevention category is selected, the same case in
+     * which capture-time selection consults them; a proved vaccine is then an immunization, so it
+     * never holds a PastHealth-only export.
      */
     private Set<Integer> imported(
             CdsExportLeaseDto lease,
@@ -219,7 +220,9 @@ public class CdsExportPreventionClassificationService {
             CdsExportRunControl control,
             Set<Integer> candidates)
             throws IOException {
-        if (!lease.document().command().categories().contains(CdsCategory.IMMUNIZATIONS)
+        if (Collections.disjoint(
+                        lease.document().command().categories(),
+                        Set.of(CdsCategory.IMMUNIZATIONS, CdsCategory.PAST_HEALTH))
                 || !requiredTables.contains(CdsExportImmunizationImportReceipts.TABLE))
             return Set.of();
         var proof =

@@ -94,7 +94,9 @@ importer's own receipt (`CdsExportImmunizationImportReceipts`): an applied (`COM
 key and bound to that receipt's digest, records the row's identifier and this patient. The same
 rule covers any unrestricted row the classification cannot place (an unknown, unresolved or
 conflicting type), never a program-restricted row, and it never moves a row the classification
-did place. Capture-time selection reads the units through `CdsImportUnitDao` in the capture's
+did place. The proof applies whenever Immunizations or PastHealth is selected, so a proved
+vaccine is never taken for a possible screening in a PastHealth-only export. Capture-time
+selection reads the units through `CdsImportUnitDao` in the capture's
 repeatable-read snapshot, and the finished-capture reclassification re-proves the partition
 from the captured `cds_import_unit` rows, so both reach the same vaccine set. A legacy unit
 without a witness, a unit that was not applied, a rewritten receipt or tampered witness, and

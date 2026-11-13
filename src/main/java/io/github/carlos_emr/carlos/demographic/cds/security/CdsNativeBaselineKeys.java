@@ -43,8 +43,9 @@ import javax.crypto.spec.SecretKeySpec;
  * and readable by the service group (for example root:carlos 0640 below a root-owned 0750
  * directory). {@code cds.nativeBaseline.activeKey} names the key that seals new witnesses; a
  * sealed witness records its key ID, so a retired key must stay in the root while any witness
- * sealed with it is still needed. Destroying every key makes old witnesses unreadable (the
- * exporter then treats them as absent evidence and asks for review).
+ * sealed with it is still needed. A witness whose key is missing cannot be opened: an export
+ * that needs it stops with {@code CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE} (restore the key
+ * file to continue), so a destroyed key is never mistaken for a chart without imported data.
  *
  * <p>A missing or unreadable key is a clear refusal ({@code CDS_NATIVE_BASELINE_KEY_UNAVAILABLE}),
  * never a fallback to an unsealed witness. Key bytes and paths never enter a message or log.
