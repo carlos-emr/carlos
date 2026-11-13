@@ -529,11 +529,19 @@ and number on the provider record (Administration > Providers) before exporting 
 them sent. Only a provider name with a control character no CARLOS screen can enter still holds
 the patients that name it.
 
-A single chart with more measurements than one export holds
-(`cds.export.maxNativeRows` observations, default and maximum 8,192, or
-`cds.export.maxIndexBytes` of captured measurement rows, default and maximum 64 MiB)
-is held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are
-still exported.
+A chart with many measurements (years of INR, glucose or blood pressure flowsheet
+entries) is exported whole. The export reads its measurements in windows of
+`cds.export.maxNativeRows` measurements (default and maximum 8,192) and about
+`cds.export.maxIndexBytes` of rows (default and maximum 64 MiB), so a larger chart
+takes longer but never holds more than one window of measurement rows in memory; these
+settings no longer hold a patient. Only a
+chart whose measurements take it past the per-patient occurrence capacity (about
+65,000 measurements at the default and maximum `cds.export.maxIndexBytes`, far beyond
+a chart entered through the screens) is held with
+`CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are still exported.
+Upgrading applies migration `V1.0.59.44`, which indexes `measurementsDeleted` (deleted
+and superseded measurements) by patient and by original measurement id. On a clinic
+with many refiled lab results the index build adds a little time to the upgrade.
 
 An appointment that came from an earlier CDS import and was later deleted, or cut to be
 pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's archive copy of

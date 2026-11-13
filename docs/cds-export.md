@@ -598,14 +598,59 @@ results too, and only `Hl7textResultsData` writes `lab_no`. The hold stays for r
 outside the screens. When LaboratoryResults is not selected, filed results are not exported: the operator
 excluded laboratory results.
 
-One patient's care capture is bounded by `cds.export.maxNativeRows` observations (current and
-deleted rows; default and maximum 8,192) and by `cds.export.maxIndexBytes` of retained rows
-(default and maximum 64 MiB), which the extension and vocabulary rows count toward. A chart over
-either bound holds only that patient with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the
-job continues. The check that no measurement id is shared between a current and a deleted row
-of different charts scans `measurementsDeleted`, which has no index on `originalId` or
-`demographicNo`; it runs once per patient in each read-only REPEATABLE READ capture snapshot
-instead of on every count, page and chunk call. Indexing that table needs a forward migration.
+A chart's measurements are exported however many there are; a long-standing chart (years of
+INR, glucose or blood pressure flowsheet entries) is no longer held for its size (#6200,
+CARE-5). The care assembly does not load them at once (`CdsExportCapturedCareRowsReader`). A
+first pass over the authenticated capture validates every measurement, deleted version,
+extension, vocabulary and demographic row and keeps only a compact index, a few longs a row:
+the counts, unique ids, the extension owner rules and each owner's weight. Rows are grouped by
+owner (a current measurement's id, a deleted version's `originalId`, an extension's
+`measurement_id`), in the decimal order of the owner ids that the exported occurrences follow,
+into windows of at most `cds.export.maxNativeRows` measurement rows (current and deleted;
+default and maximum 8,192) and about `cds.export.maxIndexBytes` of rows (default and maximum
+64 MiB). One owner's rows are never split. Each window is read again from the capture, every
+one of its rows is checked against its native-row witness before use, and only then is it
+planned, mapped, emitted and claimed; the vocabulary and the demographic row are held with every
+window. A chart that fits in one window (every chart the former per-chart bound admitted) is
+read and verified exactly as before, in the same two passes, and its output is byte-identical; a
+larger one costs one more row pass and one witness pass per window, so the time grows with the
+chart and the rows held at once do not. The owner rules for the whole chart (an extension owned by no
+observation, or by a current and a deleted one) are decided in the first pass, before any window
+is read. Imported care values are read on their own, as many rows as the retained import index
+names. The inventory and the NewCategory supporting records receive the native occurrences window
+by window too (`forEachNativeSource`), never as one list. The completeness gates are checked per
+window: every current measurement and extension row is claimed exactly once, by an imported value
+or by a native occurrence of its own window; every row an imported value claimed falls in exactly
+one window; and every captured vocabulary row is claimed by some observation.
+
+What stays bounded per patient is the occurrence index all categories share: the identity,
+disposition and receipt of every occurrence are held until the patient's document is proven, at
+most `cds.export.maxIndexRows` and `maxIndexBytes` / 512 of them (131,072 at the installed
+maximum). A current measurement is one or two occurrences (its NewCategory record, and its
+CareElements value when it has an exact standard form), and native measurements are counted
+last, so only a chart whose measurements take it past that capacity, about 65,000 standard
+measurements in a chart with little else or nine a day for twenty years, is held with
+`CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the job continues. That is a ceiling of
+memory, not of the care capture, and far above a chart entered through the screens; before,
+the inventory would have stopped the whole job with `RESOURCE_LIMIT` there (the care capture
+held the chart much earlier, at 8,192 observations). The patient's reconciliation audit,
+streamed to an encrypted staged file, is bounded by `maxIndexBytes` plus 16 KiB for each
+expected occurrence (`CdsExportPatientDocumentService.auditLimit`): a native measurement's two
+receipts and dispositions take about 6 KiB, so `maxIndexBytes` alone would have stopped the job
+at about 11,000 measurements. The per-patient capture bounds (`cds.export.maxCapturedFields`, default 1,000,000
+and up to 100,000,000; `cds.export.maxCapturedBytes`) and every per-job limit still apply; a
+measurement is ten captured fields.
+
+`measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
+which also follows `originalId`) and by original measurement id (the check that no measurement
+id is shared between a current and a deleted row of different charts). Migration
+`common/V1.0.59.44` indexes it by `demographicNo` and by `originalId, demographicNo` (CARE-4);
+before it each of those reads scanned the table, once per page, and the check for an id deleted
+from two charts joined the table to itself without an index. The current-or-deleted check is
+two branches, one for each side the patient owns, each driven by a patient index and probing the
+other table by id, instead of one `OR` across both tables that no index could serve. It still
+runs once per patient in each read-only REPEATABLE READ capture snapshot, not on every count,
+page and chunk call.
 
 
 Native document reports carry what the chart shows for each document
@@ -924,7 +969,7 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.43`, following
+The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.44`, following
 the release's common `V1.0.59.37`. All 87 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
@@ -967,6 +1012,7 @@ line; those changes are not part of this release pair.
 | `V1.0.59.41` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
 | `V1.0.59.42` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
 | `V1.0.59.43` | Protected record of patients held back from an export package (chart number and safe code only) | — |
+| `V1.0.59.44` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for
