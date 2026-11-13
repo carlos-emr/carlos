@@ -468,6 +468,11 @@ public class DemographicExportAction42Action extends ActionSupport {
         // Sharing Center - holds the ID that will 'potentially' be exported.
         int documentExportId = 0;
 
+        // The per-patient loop below writes PHI XML into this request's own directory before the
+        // archive exists. A failure part way through (the prevention readers now fail visibly
+        // instead of returning an empty list) must not leave those files behind or go unaudited.
+        // The switch keeps its original indentation to keep the legacy body's history readable.
+        try {
         switch (template) {
             case CMS4:
                 File exportDirectory = createTemporaryExportDirectory(tmpDir);
@@ -2840,6 +2845,23 @@ public class DemographicExportAction42Action extends ActionSupport {
                 // otherwise "succeed" here having exported nothing at all.
                 throw new IllegalStateException("No export implementation for supported template " + template);
         }
+        } catch (IllegalStateException failure) {
+            discardExportDirectory(tmpDir);
+            if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(failure.getMessage())) {
+                writeExportAuditLog(loggedInInfo, list.size(), "error", "<unavailable>", failure.getClass().getSimpleName());
+                throw failure;
+            }
+            writeExportAuditLog(loggedInInfo, list.size(), "prevention_source_unavailable", "<unavailable>", null);
+            if (!response.isCommitted()) {
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
+                        "Prevention records could not be read; no export was produced.");
+            }
+            return NONE;
+        } catch (RuntimeException failure) {
+            discardExportDirectory(tmpDir);
+            writeExportAuditLog(loggedInInfo, list.size(), "error", "<unavailable>", failure.getClass().getSimpleName());
+            throw failure;
+        }
 
         String exportedIds = null;
         String exportOutcome = ffwd;
@@ -2886,6 +2908,28 @@ public class DemographicExportAction42Action extends ActionSupport {
         // When a file was streamed to the response, return null to prevent Struts
         // from rendering a JSP result into the already-committed response.
         return fileStreamed ? null : ffwd;
+    }
+
+    /**
+     * Removes this request's own random export directory and everything written into it, without
+     * following links. Cleanup failure is logged by type only: the paths hold patient files.
+     */
+    // FindSecBugs PATH_TRAVERSAL_IN: the directory is TMP_DIR plus this request's random suffix
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "the directory is TMP_DIR plus this request's random suffix")
+    static void discardExportDirectory(String tmpDir) {
+        try {
+            java.nio.file.Path root = java.nio.file.Path.of(tmpDir);
+            if (!java.nio.file.Files.isDirectory(root, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                return;
+            }
+            try (java.util.stream.Stream<java.nio.file.Path> walk = java.nio.file.Files.walk(root)) {
+                for (java.nio.file.Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    java.nio.file.Files.deleteIfExists(path);
+                }
+            }
+        } catch (IOException | RuntimeException cleanup) {
+            logger.error("Legacy export temporary directory could not be removed: {}", cleanup.getClass().getSimpleName());
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: temporary export directory path is derived from trusted TMP_DIR configuration plus a random suffix
