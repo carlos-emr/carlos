@@ -191,6 +191,8 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPreventionScopeMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPreventionScopePlannerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPreventionSnapshotServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportProblemRegistryMapperUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportProblemRegistryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportProblemRegistryReadMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportProfessionalContactMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPublicProviderMapperUnitTest",

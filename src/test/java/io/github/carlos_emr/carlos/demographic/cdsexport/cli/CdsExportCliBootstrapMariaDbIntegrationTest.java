@@ -119,6 +119,21 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service
                                             .CdsExportAppointmentReasonCodeSourceReader.class))
                     .isNotNull();
+            // ProblemList requires the Disease Registry, episode and code-table captures and
+            // their occurrence service in the CLI transport too.
+            for (Class<?> registry :
+                    List.of(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportDiseaseRegistrySourceReader.class,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportDiseaseRegistryPrecisionSourceReader.class,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportEpisodeSourceReader.class,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportDiagnosisCodeReferenceSourceReader.class,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                    .CdsExportProblemRegistryOccurrenceService.class))
+                assertThat(context.getBean(registry)).isNotNull();
             assertThat(
                             context.getBean(
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service

@@ -34,7 +34,7 @@
     "DrugProduct": "LISTED",
     "EFormDocs": "DOCUMENT",
     "EFormReportTool": "REFERENCE",
-    "Episode": "REQUIRE_EMPTY",
+    "Episode": "MAPPED_SOURCE",
     "Facility": "REFERENCE",
     "FaxClientLog": "OPERATIONAL",
     "FlowSheetUserCreated": "REFERENCE",
@@ -241,7 +241,7 @@
     "dxCodeTranslations": "REFERENCE",
     "dx_associations": "REFERENCE",
     "dxphcpgroup": "REFERENCE",
-    "dxresearch": "REQUIRE_EMPTY",
+    "dxresearch": "MAPPED_SOURCE",
     "eChart": "REQUIRE_EMPTY",
     "eform": "REFERENCE",
     "eform_data": "DOCUMENT",
@@ -731,7 +731,11 @@
       "casemgmt_issue_notes",
       "issue",
       "provider",
-      "clinical_timezone"
+      "clinical_timezone",
+      "dxresearch",
+      "dxresearch_precision",
+      "Episode",
+      "diagnosis_code_reference"
     ],
     "RiskFactors": [
       "casemgmt_note",
@@ -777,9 +781,6 @@
     "DigitalSignature": [
       "demographicId"
     ],
-    "Episode": [
-      "demographicNo"
-    ],
     "GroupNoteLink": [
       "demographicNo"
     ],
@@ -820,9 +821,6 @@
       "demographic_no"
     ],
     "diseases": [
-      "demographic_no"
-    ],
-    "dxresearch": [
       "demographic_no"
     ],
     "eChart": [
@@ -1414,6 +1412,12 @@
     "ticklerdocs": "Exported as a CARLOS data-summary Report (tickler (data summary)): every column of each patient row is rendered with its exact value. Attachment references listed with the tickler; attached items export on their own.",
     "waitingList": "Exported as a CARLOS data-summary Report (data summary): every column of each patient row is rendered with its exact value. Patient-specific list membership with a free-text note; no CDS element.",
     "wcb": "Exported as a CARLOS data-summary Report (encounter form (BC-WCB)): every column of each patient row is rendered with its exact value. Clinical injury report (diagnosis, clinic info, capability) filed as an encounter form; billing part stays operational.",
-    "workflow": "Exported as a CARLOS data-summary Report (data summary): every column of each patient row is rendered with its exact value. Patient-specific pregnancy Rh workflow state and completion date; state machine output, so a data-summary line (not a native element)."
+    "workflow": "Exported as a CARLOS data-summary Report (data summary): every column of each patient row is rendered with its exact value. Patient-specific pregnancy Rh workflow state and completion date; state machine output, so a data-summary line (not a native element).",
+    "dxresearch": "Disease Registry entries are exported as ProblemList (ProblemList scope; read plan DISEASE_REGISTRY): status A as Active, C as Resolved with the update date as ResolutionDate, the start date at its stored partial_date precision, and the code with its public code-table description. Status D entries are deleted from the registry list and are accounted, not exported.",
+    "diagnosticcode": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
+    "ichppccode": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
+    "icd9": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
+    "icd10": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
+    "Episode": "Coded episodes, pregnancies included, are exported as ProblemList (ProblemList scope; read plan EPISODES): Current as Active, Complete as Resolved, start and end dates as OnsetDate and ResolutionDate, the description and notes in standard elements. Episodes saved as Deleted are accounted, not exported; any other status holds the patient for review."
   }
 }

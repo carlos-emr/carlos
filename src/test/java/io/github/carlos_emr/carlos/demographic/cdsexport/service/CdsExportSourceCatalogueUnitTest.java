@@ -157,6 +157,30 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
+    void shouldExportTheDiseaseRegistryAndEpisodes_insteadOfHoldingEveryChartThatHasThem() {
+        // Before: both were REQUIRE_EMPTY with a direct patient scope, so any patient with a
+        // Disease Registry entry or an episode was held from export.
+        var catalogue = CdsExportSourceCatalogue.current();
+        for (String table : List.of("dxresearch", "Episode")) {
+            assertThat(catalogue.tables().get(table))
+                    .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
+            assertThat(catalogue.patientScopes()).doesNotContainKey(table);
+        }
+        assertThat(catalogue.required(Set.of(CdsCategory.PROBLEM_LIST)))
+                .contains(
+                        "dxresearch",
+                        "dxresearch_precision",
+                        "Episode",
+                        "diagnosis_code_reference");
+        // The code tables are read only for a patient's own codes and stay reference data.
+        for (String table : List.of("icd9", "icd10", "ichppccode", "diagnosticcode"))
+            assertThat(catalogue.tables().get(table))
+                    .isEqualTo(CdsExportSourceCatalogue.Disposition.REFERENCE);
+        assertThat(catalogue.required(Set.of(CdsCategory.PAST_HEALTH)))
+                .doesNotContain("dxresearch", "Episode");
+    }
+
+    @Test
     void shouldRefuseTheUnclassifiedSourcePresence_atBothIndependentCountAndValueBoundaries() {
         doThrow(
                         new CdsExportReviewException(

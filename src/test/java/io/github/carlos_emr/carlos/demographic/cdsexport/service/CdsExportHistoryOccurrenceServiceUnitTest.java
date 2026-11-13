@@ -181,7 +181,17 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
         var result = new TreeMap<String, Set<String>>();
         for (String table : CdsExportPreventionSources.SCREENING_REQUIRED)
             result.put(table, Set.of("id"));
-        if (catalogue) result.put("clinical_source_catalogue", Set.of("catalogueSha256"));
+        if (catalogue) {
+            result.put("clinical_source_catalogue", Set.of("catalogueSha256"));
+            // The catalogue makes ProblemList capture the Disease Registry and episodes too.
+            result.putAll(registryTables());
+        }
+        return result;
+    }
+
+    private static Map<String, Set<String>> registryTables() {
+        var result = new TreeMap<String, Set<String>>();
+        for (String table : CdsExportProblemRegistrySources.TABLES) result.put(table, Set.of("id"));
         return result;
     }
 
@@ -243,9 +253,11 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                         any(), any(), anyString(), anySet(), any(), any(), any(), any(), any(),
                         any()))
                 .thenReturn(2L);
+        var registries = mock(CdsExportProblemRegistryOccurrenceService.class);
         service =
                 new CdsExportHistoryOccurrenceService(
-                        captures, receipts, revisions, values, verification, screenings);
+                        captures, receipts, revisions, values, verification, screenings,
+                        registries);
         prepareCapture(screeningTables(true));
         var results = new EnumMap<CdsCategory, CdsExportClinicalOccurrenceService.Result>(
                 CdsCategory.class);
@@ -263,6 +275,62 @@ class CdsExportHistoryOccurrenceServiceUnitTest {
                 .append(
                         eq(lease), eq(patient), eq(PATIENT), eq(tables), eq(source), any(),
                         eq(bounds), eq(control), any(), any());
+    }
+
+    @Test
+    void shouldEmitRegistryEntriesAndEpisodes_atTheProblemListWirePosition() throws Exception {
+        var registries = mock(CdsExportProblemRegistryOccurrenceService.class);
+        when(registries.append(
+                        any(), any(), anyString(), anySet(), any(), any(), any(), any(), any(),
+                        any()))
+                .thenReturn(3L);
+        service =
+                new CdsExportHistoryOccurrenceService(
+                        captures, receipts, revisions, values, verification, null, registries);
+        prepareCapture(registryTables());
+        var results = new EnumMap<CdsCategory, CdsExportClinicalOccurrenceService.Result>(
+                CdsCategory.class);
+        compose(
+                source -> {
+                    for (var category : CdsCategory.values())
+                        if (CdsExportNoteSourceReader.CATEGORIES.contains(category))
+                            results.put(category, source.append(category, ignored -> {}));
+                },
+                false);
+        assertThat(results.get(CdsCategory.PROBLEM_LIST).nativeRows()).isEqualTo(3);
+        assertThat(results.get(CdsCategory.PROBLEM_LIST).nativeOnlyRows()).isEqualTo(3);
+        assertThat(results.get(CdsCategory.PAST_HEALTH).nativeRows()).isZero();
+        verify(registries, times(1))
+                .append(
+                        eq(lease), eq(patient), eq(PATIENT), eq(tables), eq(source), any(),
+                        eq(bounds), eq(control), any(), any());
+    }
+
+    @Test
+    void shouldRefuseCapturedRegistryEntries_withoutARegistryAssembler() throws Exception {
+        prepareCapture(registryTables());
+        assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .hasMessage("CDS_EXPORT_HISTORY_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseACataloguedProblemListCapture_thatLeftOutTheRegistry() throws Exception {
+        var extra = new TreeMap<String, Set<String>>();
+        for (String table : CdsExportPreventionSources.SCREENING_REQUIRED)
+            extra.put(table, Set.of("id"));
+        extra.put("clinical_source_catalogue", Set.of("catalogueSha256"));
+        service =
+                new CdsExportHistoryOccurrenceService(
+                        captures,
+                        receipts,
+                        revisions,
+                        values,
+                        verification,
+                        mock(CdsExportScreeningOccurrenceService.class),
+                        mock(CdsExportProblemRegistryOccurrenceService.class));
+        prepareCapture(extra);
+        assertThatThrownBy(() -> compose(CdsExportHistoryOccurrenceServiceUnitTest::all, false))
+                .hasMessage("CDS_EXPORT_HISTORY_OCCURRENCE_SCOPE_INVALID");
     }
 
     @Test

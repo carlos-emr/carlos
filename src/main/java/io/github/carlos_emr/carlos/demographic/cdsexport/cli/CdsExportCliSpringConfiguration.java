@@ -131,6 +131,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportDiseaseRegistryPrecisionSourceReader.class,
     CdsExportEpisodeSourceReader.class,
     CdsExportDiagnosisCodeReferenceSourceReader.class,
+    CdsExportProblemRegistryOccurrenceService.class,
     CdsExportPreventionConfigurationLoader.class,
     CdsExportPreventionSnapshotService.class,
     CdsExportPreventionConfigurationSourceReader.class,

@@ -197,6 +197,94 @@ class CdsExportPatientInventoryServiceUnitTest {
                 state);
     }
 
+    /** A registry or episode witness whose authenticated state carries the native status. */
+    private static CdsExportNativeRowReceiptDto problem(String table, int id, String status) {
+        var columns =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                                .Column("status", "VARCHAR", 25, 0));
+        var cells =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState
+                                .Cell(
+                                status == null,
+                                status == null ? 0 : status.length(),
+                                status == null
+                                        ? null
+                                        : HexFormat.of()
+                                                .formatHex(
+                                                        CdsImportKeys.digest()
+                                                                .digest(
+                                                                        status.getBytes(
+                                                                                java.nio.charset
+                                                                                        .StandardCharsets
+                                                                                        .UTF_8)))));
+        var state =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        table, Integer.toString(id), columns, cells);
+        return new CdsExportNativeRowReceiptDto(
+                table,
+                Integer.toString(id),
+                CdsExportPatientTableSourceReader.key(id),
+                state.digest(),
+                state);
+    }
+
+    private static CdsExportIdentityDto problemIdentity(String table, int id) {
+        return new CdsExportIdentityDto(
+                "c".repeat(64),
+                CdsCategory.PROBLEM_LIST,
+                CdsImportKeys.hash("carlos-native-occurrence-v1", table, Integer.toString(id)));
+    }
+
+    // Before: dxresearch and Episode were REQUIRE_EMPTY, so a chart with a Disease Registry entry
+    // or an episode was held. Now each current one is one expected ProblemList item; a deleted one
+    // is accounted by its occurrence service and holds no one.
+    @Test
+    void shouldExpectOneProblemPerCurrentRegistryEntryAndEpisode_forPatientInventory()
+            throws Exception {
+        var f = fixture(CdsExportNoteSourceReader.CATEGORIES.toArray(CdsCategory[]::new));
+        f.nativeRows.add(problem("Episode", 6, "Current"));
+        f.nativeRows.add(problem("Episode", 10, "Deleted"));
+        f.nativeRows.add(problem("dxresearch", 5, "A"));
+        f.nativeRows.add(problem("dxresearch", 7, "C"));
+        f.nativeRows.add(problem("dxresearch", 8, "D"));
+        // An unknown status stays expected; its occurrence service holds the patient.
+        f.nativeRows.add(problem("dxresearch", 9, null));
+        // Start-date precision rows belong to their entry's occurrence.
+        f.nativeRows.add(problem("dxresearch_precision", 11, null));
+        var problems =
+                capture(f).identities().stream()
+                        .filter(identity -> identity.category() == CdsCategory.PROBLEM_LIST)
+                        .toList();
+        assertThat(problems)
+                .containsExactlyInAnyOrder(
+                        problemIdentity("Episode", 6),
+                        problemIdentity("dxresearch", 5),
+                        problemIdentity("dxresearch", 7),
+                        problemIdentity("dxresearch", 9));
+    }
+
+    @Test
+    void shouldRefuseCapturedRegistryEntries_whenProblemListWasNotRequested() throws Exception {
+        var f = fixture(CdsCategory.IMMUNIZATIONS);
+        f.nativeRows.add(problem("dxresearch", 5, "A"));
+        assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_PATIENT_INVENTORY_INVALID");
+    }
+
+    @Test
+    void shouldRefuseARegistryWitness_withoutTheStateThatShowsItsStatus() throws Exception {
+        var f = fixture(CdsExportNoteSourceReader.CATEGORIES.toArray(CdsCategory[]::new));
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "dxresearch",
+                        "5",
+                        CdsExportPatientTableSourceReader.key(5),
+                        CdsExportPatientPipelineFixture.HASH));
+        assertThatThrownBy(() -> capture(f))
+                .hasMessage("CDS_EXPORT_PROBLEM_REGISTRY_WITNESS_REQUIRED");
+    }
+
     @Test
     void shouldLeaveSupersededPreventionVersions_outOfTheExpectedOccurrences() throws Exception {
         var categories = new ArrayList<>(CdsExportNoteSourceReader.CATEGORIES);

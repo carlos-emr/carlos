@@ -22,9 +22,18 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.dto.*;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -258,6 +267,228 @@ class CdsExportProblemRegistryReadMariaDbIntegrationTest {
                             assertThat(reference.referenceCode()).isEqualTo("250");
                             assertThat(reference.description()).isNotBlank();
                         });
+    }
+
+    /**
+     * The real stored values (date, datetime, timestamp, tinyint and text renderings), the real
+     * JDBC receipt recipes and the reference lookup, captured as the export captures them, read
+     * back, witnessed and assembled into schema-valid ProblemList items without a review hold.
+     */
+    @Test
+    void shouldExportTheRealCapturedRowsAsValidProblems_throughWitnessedAssembly() throws Exception {
+        var readers = new ArrayList<CdsExportNativeSourceReader>(readers());
+        readers.add(new CdsExportDiagnosisCodeReferenceSourceReader(registry));
+        readers.sort(Comparator.comparing(CdsExportNativeSourceReader::table));
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
+        var expected = new TreeMap<String, CdsExportNativeCaptureReader.Table>();
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        var tables = new TreeSet<String>();
+                        for (var reader : readers) tables.add(reader.table());
+                        new CdsExportNativeCaptureComposer()
+                                .compose(
+                                        values,
+                                        index,
+                                        tables,
+                                        100_000,
+                                        64L << 20,
+                                        () -> {},
+                                        writer -> {
+                                            for (var reader : readers) {
+                                                long count = reader.count(patient);
+                                                writer.beginTable(
+                                                        reader.table(), reader.columns(), count);
+                                                reader.capture(patient, writer);
+                                                writer.endTable();
+                                                scopes.put(
+                                                        reader.table(),
+                                                        new CdsExportCapturedTableDto(
+                                                                reader.columns(),
+                                                                count,
+                                                                "a".repeat(64),
+                                                                reader.receiptColumns()));
+                                                expected.put(
+                                                        reader.table(),
+                                                        new CdsExportNativeCaptureReader.Table(
+                                                                reader.columns(), count));
+                                            }
+                                        });
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+        String manifest = "b".repeat(64);
+        var capture = mock(CdsExportNativeCaptureDto.class);
+        when(capture.tables()).thenReturn(scopes);
+        when(capture.values())
+                .thenReturn(new CdsExportStagedFileDto("1".repeat(64), "SOURCE_VALUES", manifest, 1));
+        when(capture.index())
+                .thenReturn(new CdsExportStagedFileDto("2".repeat(64), "SOURCE_INDEX", manifest, 1));
+        var captures = mock(CdsExportNativeCaptureService.class);
+        when(captures.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
+                .thenAnswer(
+                        call -> {
+                            new CdsExportNativeCaptureReader()
+                                    .scan(
+                                            new ByteArrayInputStream(values.toByteArray()),
+                                            new ByteArrayInputStream(index.toByteArray()),
+                                            expected,
+                                            100_000,
+                                            64L << 20,
+                                            () -> {},
+                                            call.getArgument(7));
+                            return capture;
+                        });
+        var source =
+                new CdsExportPatientCaptureDto(
+                        capture,
+                        new CdsExportStagedFileDto("3".repeat(64), "SOURCE_MANIFEST", manifest, 1));
+        var categories = EnumSet.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PROBLEM_LIST);
+        var command =
+                new CdsExportCommand(
+                        "registry-capture",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(patient),
+                        categories,
+                        "receiver",
+                        "audit");
+        var lease =
+                new CdsExportLeaseDto(
+                        UUID.randomUUID().toString(),
+                        1,
+                        manifest,
+                        new CdsExportJobDocumentDto(
+                                2,
+                                new CdsExportActorDto("agent", "999998", null, null),
+                                command,
+                                manifest,
+                                "sender",
+                                manifest,
+                                manifest,
+                                new CdsExportStorageBindingDto("primary", "primary", manifest)));
+        var retained =
+                new CdsExportRetainedIndexDto(
+                        manifest,
+                        0,
+                        0,
+                        Map.of("cds_import_unit", Map.of(), "cds_import_field", Map.of()),
+                        Set.of(),
+                        Map.of(),
+                        Map.of());
+        var cohort = mock(CdsExportCohortService.Patient.class);
+        when(cohort.patient()).thenReturn(patient);
+        var receipts = new ArrayList<CdsExportClinicalOccurrenceService.Receipt>();
+        var output = new ByteArrayOutputStream();
+        String key = "c".repeat(64);
+        long[] emitted = {-1};
+        new CdsExportXmlComposer()
+                .composeFromSource(
+                        output,
+                        manifest,
+                        key,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        categories,
+                        emitter -> {
+                            emitter.emit(demographic(key, Integer.toString(patient)));
+                            emitted[0] =
+                                    new CdsExportProblemRegistryOccurrenceService(
+                                                    captures,
+                                                    new CdsExportNativeRowReceiptReader(captures))
+                                            .append(
+                                                    lease,
+                                                    cohort,
+                                                    key,
+                                                    scopes.keySet(),
+                                                    source,
+                                                    retained,
+                                                    new CdsExportClinicalOccurrenceService.Bounds(
+                                                            100_000, 64L << 20, 1000, 8L << 20,
+                                                            100, 1000),
+                                                    mock(CdsExportRunControl.class),
+                                                    emitter,
+                                                    receipts::add);
+                        },
+                        ignored -> {},
+                        8L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(output.toByteArray()),
+                        Integer.toString(patient),
+                        categories,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+        // Two current registry entries of a reviewed system, one of an unlisted system and the
+        // completed episode; the deleted entry and the deleted episode are accounted, not sent.
+        assertThat(emitted[0]).isEqualTo(4);
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::table)
+                .containsExactly("Episode", "dxresearch", "dxresearch", "dxresearch");
+        var factory = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance();
+        factory.setNamespaceAware(true);
+        var xml = factory.newDocumentBuilder().parse(new ByteArrayInputStream(output.toByteArray()));
+        assertThat(texts(xml, "cds", "ProblemStatus"))
+                .containsExactly("Resolved", "Active", "Resolved", "Active");
+        assertThat(texts(xml, "cds_dt", "StandardCode"))
+                .containsExactly("E119", "250", "001", "44054006");
+        assertThat(texts(xml, "cds_dt", "StandardCodingSystem"))
+                .containsExactly("icd10", "ICD9", "ichppccode", "SnomedCore");
+        assertThat(texts(xml, "cds_dt", "YearOnly")).containsExactly("2020");
+        assertThat(texts(xml, "cds_dt", "FullDate"))
+                .contains("2024-09-30", "2024-07-01", "2019-05-01");
+        // The 81,000-character episode notes exceed Notes (text64K) and travel whole in the
+        // residual instead of being clipped.
+        assertThat(texts(xml, "cds", "Notes")).isEmpty();
+        assertThat(receipts.getFirst().fields())
+                .anySatisfy(
+                        (field, decision) -> {
+                            assertThat(field.column()).isEqualTo("notes");
+                            assertThat(decision.destination())
+                                    .isEqualTo(CdsExportProblemRegistryMapper.RESIDUAL);
+                        });
+    }
+
+    private static List<String> texts(org.w3c.dom.Document xml, String namespace, String name) {
+        var found = xml.getElementsByTagNameNS(namespace, name);
+        var result = new ArrayList<String>();
+        for (int i = 0; i < found.getLength(); i++) result.add(found.item(i).getTextContent());
+        return result;
+    }
+
+    private static CdsExportXmlComposer.Section demographic(String key, String vendorId) {
+        return new CdsExportXmlComposer.Section(
+                new CdsExportIdentityDto(key, CdsCategory.DEMOGRAPHICS, "f".repeat(64)),
+                xml -> {
+                    xml.start("cds", "Names");
+                    xml.start("cds_dt", "LegalName");
+                    xml.attribute("", "namePurpose", "L");
+                    for (var part :
+                            List.of(Map.entry("FirstName", "GIV"), Map.entry("LastName", "FAMC"))) {
+                        xml.start("cds_dt", part.getKey());
+                        xml.element("cds_dt", "Part", "Fixture");
+                        xml.element("cds_dt", "PartType", part.getValue());
+                        xml.end();
+                    }
+                    xml.end();
+                    xml.end();
+                    xml.element("cds", "DateOfBirth", "1980-01-02");
+                    xml.element("cds", "Gender", "U");
+                    xml.element("cds", "UniqueVendorIdSequence", vendorId);
+                    xml.start("cds", "PersonStatusCode");
+                    xml.element("cds", "PersonStatusAsEnum", "A");
+                    xml.end();
+                });
     }
 
     @Test

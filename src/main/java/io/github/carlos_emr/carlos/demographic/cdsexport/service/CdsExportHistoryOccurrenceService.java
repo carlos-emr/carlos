@@ -36,6 +36,8 @@ import org.springframework.stereotype.Service;
  * linked issue and retained source field has a disposition before private output can succeed.
  * PastHealth also carries the patient's native screenings (non-immunization preventions), as
  * the legacy exporter did; they are emitted at the same wire position after the notes.
+ * ProblemList likewise carries the patient's Disease Registry entries and coded episodes after
+ * the CPP Concerns items ({@link CdsExportProblemRegistryOccurrenceService}).
  */
 @Service
 public class CdsExportHistoryOccurrenceService {
@@ -82,6 +84,7 @@ public class CdsExportHistoryOccurrenceService {
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportScreeningOccurrenceService screenings;
+    private final CdsExportProblemRegistryOccurrenceService registries;
 
     /** Without a screening assembler; a capture that holds screening rows is then refused. */
     public CdsExportHistoryOccurrenceService(
@@ -93,7 +96,7 @@ public class CdsExportHistoryOccurrenceService {
         this(captures, witnesses, revisions, values, verification, null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /** Without a registry assembler; a capture that holds registry or episode rows is then refused. */
     public CdsExportHistoryOccurrenceService(
             CdsExportNativeCaptureService captures,
             CdsExportNativeRowReceiptReader witnesses,
@@ -101,12 +104,25 @@ public class CdsExportHistoryOccurrenceService {
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportScreeningOccurrenceService screenings) {
+        this(captures, witnesses, revisions, values, verification, screenings, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportHistoryOccurrenceService(
+            CdsExportNativeCaptureService captures,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNoteRevisionInventoryService revisions,
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportScreeningOccurrenceService screenings,
+            CdsExportProblemRegistryOccurrenceService registries) {
         this.captures = Objects.requireNonNull(captures);
         this.witnesses = Objects.requireNonNull(witnesses);
         this.revisions = Objects.requireNonNull(revisions);
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.screenings = screenings;
+        this.registries = registries;
     }
 
     @FunctionalInterface
@@ -208,6 +224,12 @@ public class CdsExportHistoryOccurrenceService {
                             && tables.contains("clinical_source_catalogue")
                             && !tables.containsAll(CdsExportPreventionSources.SCREENING_REQUIRED))
                         invalid();
+                    // Likewise the catalogue makes ProblemList capture the Disease Registry and
+                    // episodes; a catalogued capture without them must not export ProblemList.
+                    if (selected.contains(CdsCategory.PROBLEM_LIST)
+                            && tables.contains("clinical_source_catalogue")
+                            && !tables.containsAll(CdsExportProblemRegistrySources.TABLES))
+                        invalid();
                     new CdsExportMergeScopeValidator(captures)
                             .requireUnmerged(
                                     lease,
@@ -294,6 +316,7 @@ public class CdsExportHistoryOccurrenceService {
                                                 source,
                                                 bounds,
                                                 screenings,
+                                                registries,
                                                 inventory,
                                                 context,
                                                 index,
@@ -334,6 +357,7 @@ public class CdsExportHistoryOccurrenceService {
         private final CdsExportPatientCaptureDto source;
         private final CdsExportClinicalOccurrenceService.Bounds bounds;
         private final CdsExportScreeningOccurrenceService screenings;
+        private final CdsExportProblemRegistryOccurrenceService registries;
         private final CdsExportNoteRevisionPlanner.Result inventory;
         private final CdsExportHistoryCurrentContext context;
         private final CdsExportRetainedIndexDto index;
@@ -356,6 +380,7 @@ public class CdsExportHistoryOccurrenceService {
                 CdsExportPatientCaptureDto source,
                 CdsExportClinicalOccurrenceService.Bounds bounds,
                 CdsExportScreeningOccurrenceService screenings,
+                CdsExportProblemRegistryOccurrenceService registries,
                 CdsExportNoteRevisionPlanner.Result inventory,
                 CdsExportHistoryCurrentContext context,
                 CdsExportRetainedIndexDto index,
@@ -375,6 +400,7 @@ public class CdsExportHistoryOccurrenceService {
             this.source = source;
             this.bounds = bounds;
             this.screenings = screenings;
+            this.registries = registries;
             this.inventory = inventory;
             this.context = context;
             this.index = index;
@@ -594,6 +620,24 @@ public class CdsExportHistoryOccurrenceService {
                         count++;
                         fields = Math.addExact(fields, accounted.size());
                     }
+                if (category == CdsCategory.PROBLEM_LIST
+                        && !Collections.disjoint(tables, CdsExportProblemRegistrySources.TABLES)) {
+                    if (registries == null) invalid();
+                    long registered =
+                            registries.append(
+                                    lease,
+                                    patient,
+                                    patientKey,
+                                    tables,
+                                    source,
+                                    index,
+                                    bounds,
+                                    control,
+                                    xml,
+                                    output);
+                    count = Math.addExact(count, registered);
+                    nativeOnly = Math.addExact(nativeOnly, registered);
+                }
                 if (category == CdsCategory.PAST_HEALTH
                         && !Collections.disjoint(
                                 tables, CdsExportPreventionSources.SCREENING_TABLES)) {

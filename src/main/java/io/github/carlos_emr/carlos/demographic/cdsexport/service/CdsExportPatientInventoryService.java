@@ -46,7 +46,10 @@ public class CdsExportPatientInventoryService {
                     // Every captured screening row is one PastHealth procedure occurrence.
                     CdsExportPreventionSources.SCREENINGS, CdsCategory.PAST_HEALTH,
                     "cds_laboratory_result", CdsCategory.LABORATORY_RESULTS,
-                    "appointment", CdsCategory.APPOINTMENTS);
+                    "appointment", CdsCategory.APPOINTMENTS,
+                    // Every current Disease Registry entry and episode is one ProblemList item.
+                    CdsExportProblemRegistrySources.REGISTRY, CdsCategory.PROBLEM_LIST,
+                    CdsExportProblemRegistrySources.EPISODES, CdsCategory.PROBLEM_LIST);
     private static final Set<String> PREVENTIONS =
             Set.of("preventions", CdsExportPreventionSources.SCREENINGS);
     private static final Set<CdsCategory> RETAINED =
@@ -142,6 +145,14 @@ public class CdsExportPatientInventoryService {
                                 // accounted by its occurrence service but never exported.
                                 if (PREVENTIONS.contains(row.table())
                                         && CdsExportPreventionVersions.superseded(row)) {
+                                    if (!superseded.add(row.table() + "/" + row.id())) invalid();
+                                    budget.add();
+                                    return;
+                                }
+                                // A deleted registry entry or episode is captured and accounted
+                                // by its occurrence service but is not a current chart fact.
+                                if (category == CdsCategory.PROBLEM_LIST
+                                        && CdsExportProblemRegistrySources.removed(row)) {
                                     if (!superseded.add(row.table() + "/" + row.id())) invalid();
                                     budget.add();
                                     return;
