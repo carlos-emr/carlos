@@ -157,8 +157,7 @@ public class SecurityUpdate2Action extends ActionSupport {
 
         switch (securityRecordUpdateService.update(edit)) {
             case SAVED -> {
-                // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- the session is only read (literal key "user"); the request values go to the OscarLog audit row through LogAction.addLog, and nothing here writes to the session
-                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY,
+                LogAction.addLog((String) request.getSession().getAttribute("user"), LogConst.UPDATE, LogConst.CON_SECURITY, // nosemgrep: java.servlets.security.tainted-session-from-http-request.tainted-session-from-http-request -- the session is only read (literal key "user"); the request values go to the OscarLog audit row through LogAction.addLog, and nothing here writes to the session
                         request.getParameter("security_no") + "->" + rawUserName, request.getRemoteAddr());
                 return outcome(request, OUTCOME_SAVED);
             }
