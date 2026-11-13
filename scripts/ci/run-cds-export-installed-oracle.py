@@ -181,7 +181,7 @@ def laboratory_equal(record) -> bool:
 
 def report_expected() -> dict[str, str]:
     return {
-        "c:Media": "Download", "c:Format": "Binary", "c:FileExtensionAndVersion": "txt",
+        "c:Format": "Binary", "c:FileExtensionAndVersion": "txt",
         "c:Class": "Consultant Report", "c:SubClass": "consult",
         # The recorded observation date, not the upload instant (review R1).
         "c:EventDateTime/d:FullDate": "2026-07-09",
@@ -202,6 +202,9 @@ def report_equal(record) -> bool:
     report = reports[0]
     if any(len(report.findall(path, NS)) != 1 or report.find(path, NS).text != value
            for path, value in report_expected().items()):
+        return False
+    # Nothing in the document records how it was received, so no Media is claimed (review R4).
+    if report.findall("c:Media", NS):
         return False
     notes = report.find("c:Notes", NS).text
     prefix = "[CARLOS native report source context]\n"
