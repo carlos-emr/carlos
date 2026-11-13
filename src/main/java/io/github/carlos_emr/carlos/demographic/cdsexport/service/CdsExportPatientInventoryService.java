@@ -182,6 +182,7 @@ public class CdsExportPatientInventoryService {
         var sourceFields = new HashSet<String>();
         var superseded = new HashSet<String>();
         var appointments = new HashSet<String>();
+        var documentDigests = new HashMap<String, String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
                 rows.scan(
@@ -229,6 +230,7 @@ public class CdsExportPatientInventoryService {
                                         budget);
                             } else if (row.table().equals("document")) {
                                 if (!documents.add(row.id())) invalid();
+                                documentDigests.put(row.id(), row.digest());
                                 if (CdsExportDocumentRepresentation.removed(row))
                                     removedDocuments.add(row.id());
                                 budget.add();
@@ -423,7 +425,9 @@ public class CdsExportPatientInventoryService {
             }
         // Reviews recorded in CARLOS on an imported report that already has its own Notes: one
         // supplementary Reports record (CdsExportReportOccurrenceService.importedReviews).
-        for (String address : reviewedImportedReports(lease, patient, tables, source, index, bounds, control))
+        for (String address :
+                reviewedImportedReports(
+                        lease, patient, tables, source, index, bounds, control, documentDigests))
             add(
                     expected,
                     new CdsExportIdentityDto(
@@ -506,7 +510,11 @@ public class CdsExportPatientInventoryService {
     /**
      * The applied imported report units whose retained fields include their own Notes and whose
      * documents have a review row CARLOS carries whole ({@link
-     * CdsExportInboxReviewMapper#carriedByReport}): each gets a supplementary Reports record.
+     * CdsExportInboxReviewMapper#carriedByReport}) or a row CARLOS edited (its current digest is
+     * not the import's, {@link CdsExportImportedDocumentEditReconciler}): each gets a
+     * supplementary Reports record.
+     *
+     * @param documentDigests current witness digest of every captured document row, by number
      */
     private List<String> reviewedImportedReports(
             CdsExportLeaseDto lease,
@@ -515,7 +523,8 @@ public class CdsExportPatientInventoryService {
             CdsExportPatientCaptureDto source,
             CdsExportRetainedIndexDto index,
             CdsExportClinicalOccurrenceService.Bounds bounds,
-            CdsExportRunControl control)
+            CdsExportRunControl control,
+            Map<String, String> documentDigests)
             throws IOException {
         if (captures == null
                 || !lease.document().command().categories().contains(CdsCategory.REPORTS)
@@ -528,14 +537,17 @@ public class CdsExportPatientInventoryService {
             if (parent != null && path != null && pattern.matcher(path).matches()) noted.add(parent);
         }
         var documents = new HashMap<String, String>();
+        var reviewed = new TreeSet<String>();
         for (String address : noted) {
             if (!index.appliedUnits().contains(address)) continue;
             for (var reference : index.references().getOrDefault(address, List.of()))
-                if (reference.table().equals("document"))
+                if (reference.table().equals("document")) {
                     documents.put(reference.id(), address);
+                    String now = documentDigests.get(reference.id());
+                    if (now != null && !now.equals(reference.digest())) reviewed.add(address);
+                }
         }
         if (documents.isEmpty()) return List.of();
-        var reviewed = new TreeSet<String>();
         var read =
                 new CdsExportCapturedTextRowsReader(captures)
                         .forEachTable(

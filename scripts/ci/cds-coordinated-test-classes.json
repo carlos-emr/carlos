@@ -155,6 +155,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationXmlWriterUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImplementationIdentityServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImportOptionsSourceReaderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImportedDocumentEditUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImportedReviewAppendUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportLaboratoryReadMariaDbIntegrationTest",

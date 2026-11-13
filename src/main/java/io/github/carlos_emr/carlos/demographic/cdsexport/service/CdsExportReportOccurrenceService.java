@@ -344,7 +344,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                                 .get(
                                                                                         "document_no")));
                         // Reviews recorded in CARLOS on an imported document are mapped too.
-                        boolean reviewing = hasNative || !reviewers.isEmpty();
+                        // So are an edited imported document's first reviewer and edits.
+                        boolean reviewing =
+                                hasNative || !reviewers.isEmpty() || !checked.reviewUnits().isEmpty();
                         var providers =
                                 reviewing
                                         ? new CdsExportPublicProviderReader(captures)
@@ -375,7 +377,11 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             + ":"
                                             + unit.fields().get("unit_key");
                             if (!index.appliedUnits().contains(address)) continue;
-                            if (!checked.unchangedUnits().contains(address)) review();
+                            // An unchanged unit, or one whose only change is an edit-page edit of
+                            // its document rows (anything else still holds the patient).
+                            var editedBaselines =
+                                    CdsExportImportedDocumentEditReconciler.editedDocuments(
+                                            address, index, checked);
                             var refs = index.references().get(address);
                             var compared = checked.units().get(address);
                             if (refs == null
@@ -425,6 +431,23 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     "carlos-retained-occurrence-v1", address));
                             var changes = new ArrayList<>(sourceValues.changes());
                             var unitReviews = new ArrayList<CdsExportCapturedTextRowDto>();
+                            var fields =
+                                    new CdsExportRetainedOccurrenceFields()
+                                            .fieldsFor(
+                                                    patient.patient(),
+                                                    category(),
+                                                    address,
+                                                    index,
+                                                    checked,
+                                                    retained,
+                                                    control::checkpoint);
+                            var editReviewers = new ArrayList<CdsExportNativeReportMapper.Reviewed>();
+                            var editContexts = new ArrayList<Map<String, Object>>();
+                            var editFields =
+                                    new LinkedHashMap<
+                                            CdsExportNativeFieldKeyDto,
+                                            CdsExportFieldAssessmentDto>();
+                            var editedElements = new HashMap<String, String>();
                             for (var variant : sourceValues.variants().values()) {
                                 String expectedFilename =
                                         "cds-"
@@ -463,6 +486,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         || file.content().bytes() != variant.length()
                                         || !file.content().sha256().equals(variant.digest()))
                                     review();
+                                var baseline =
+                                        editedBaselines.get(document.fields().get("document_no"));
                                 for (var row : List.of(document, link)) {
                                     String nativeKey = key(row.table(), id(row, patient.patient()));
                                     var ref =
@@ -475,22 +500,76 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                                     reference.id())
                                                                             .equals(nativeKey))
                                                     .toList();
+                                    // An edited document is the row the verified receipt saw.
+                                    String expectedDigest =
+                                            row == document && baseline != null
+                                                    ? currentDigest(compared, ref)
+                                                    : ref.size() == 1 ? ref.getFirst().digest() : null;
                                     if (ref.size() != 1
                                             || !owned.add(nativeKey)
-                                            || !ref.getFirst()
-                                                    .digest()
-                                                    .equals(exact.get(nativeKey).digest()))
+                                            || !Objects.equals(
+                                                    expectedDigest, exact.get(nativeKey).digest()))
                                         review();
                                     nativeRows.add(row);
                                 }
+                                var currentState =
+                                        exact.get(key("document", Integer.toString(documentId)))
+                                                .state();
+                                // An edit is decided column by column, from the full row state.
+                                if (baseline != null && currentState == null) review();
+                                Set<String> editedColumns =
+                                        baseline == null
+                                                ? Set.of()
+                                                : io.github.carlos_emr.carlos.demographic.cds
+                                                        .contract.CdsNativeRowComparison.compare(
+                                                                baseline, currentState)
+                                                        .changedColumns();
                                 bind(
                                         document,
                                         link,
                                         prepared,
                                         variant,
                                         expectedFilename,
-                                        patient.patient());
+                                        patient.patient(),
+                                        editedColumns);
                                 assess(document, link, assessments);
+                                if (baseline != null) {
+                                    // The user's edit supersedes the imported value.
+                                    var edit =
+                                            new CdsExportImportedDocumentEditReconciler()
+                                                    .reconcile(
+                                                            document,
+                                                            baseline,
+                                                            currentState,
+                                                            CdsExportImportedDocumentEditReconciler
+                                                                    .imported(
+                                                                            prepared,
+                                                                            variant,
+                                                                            expectedFilename),
+                                                            fields,
+                                                            streams,
+                                                            providers,
+                                                            zone);
+                                    for (var change : edit.changes()) {
+                                        String text = edit.elements().get(change.relativePath());
+                                        String prior =
+                                                editedElements.putIfAbsent(change.relativePath(), text);
+                                        // Two representations edited to different values.
+                                        if (prior != null && !prior.equals(text))
+                                            throw new CdsExportMappingReviewException(
+                                                    "CDS_EXPORT_IMPORTED_REPORT_EDIT_CONFLICT");
+                                        if (prior == null) changes.add(change);
+                                    }
+                                    editReviewers.addAll(edit.reviewers());
+                                    editContexts.add(edit.context());
+                                    editFields.putAll(edit.fields());
+                                    var present = new HashSet<String>();
+                                    for (var row : nativeRows)
+                                        present.add(row.table() + "/" + row.recordKey());
+                                    for (var row : edit.rows())
+                                        if (present.add(row.table() + "/" + row.recordKey()))
+                                            nativeRows.add(row);
+                                }
                                 // Reviews and inbox routes recorded in CARLOS after the import,
                                 // decided below for the whole occurrence.
                                 for (var row :
@@ -557,16 +636,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     content -> content.text(relative)));
                                 }
                             }
-                            var fields =
-                                    new CdsExportRetainedOccurrenceFields()
-                                            .fieldsFor(
-                                                    patient.patient(),
-                                                    category(),
-                                                    address,
-                                                    index,
-                                                    checked,
-                                                    retained,
-                                                    control::checkpoint);
                             // The retained report keeps the reviewers the sending EMR recorded.
                             // Each review recorded in CARLOS afterwards (an inbox acknowledgement,
                             // a review record) is one more ReportReviewed appended after them, so
@@ -582,7 +651,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             fields,
                                             changes,
                                             assessments,
-                                            nativeRows);
+                                            nativeRows,
+                                            new Edits(editReviewers, editContexts, editFields));
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
                                             nativeRows,
@@ -981,73 +1051,131 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
             List<CdsExportCapturedTextRowDto> nativeRows)
             throws IOException {
-        if (rows.isEmpty()) return null;
+        return importedReviews(
+                rows, providers, zone, fields, changes, assessments, nativeRows, Edits.NONE);
+    }
+
+    /**
+     * What CARLOS edits of an imported report's document rows add to its reviews: the first
+     * reviewers stored on the rows, each edited row's edit context and the decisions for its
+     * changed columns ({@link CdsExportImportedDocumentEditReconciler}).
+     */
+    record Edits(
+            List<CdsExportNativeReportMapper.Reviewed> reviewers,
+            List<Map<String, Object>> contexts,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        static final Edits NONE = new Edits(List.of(), List.of(), Map.of());
+
+        Edits {
+            reviewers = List.copyOf(reviewers);
+            contexts = List.copyOf(contexts);
+            fields = Map.copyOf(fields);
+        }
+
+        @Override
+        public String toString() {
+            return "Edits[protected]";
+        }
+    }
+
+    /** As above, with the reviewers and edit contexts of edited document rows. */
+    static ImportedReviews importedReviews(
+            List<CdsExportCapturedTextRowDto> rows,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            java.time.ZoneId zone,
+            List<CdsExportRetainedFieldDto> fields,
+            List<CdsExportRetainedSectionWriter.Change> changes,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            List<CdsExportCapturedTextRowDto> nativeRows,
+            Edits edits)
+            throws IOException {
+        if (rows.isEmpty() && edits.contexts().isEmpty()) return null;
         var reviews =
-                CdsExportInboxReviewMapper.report()
-                        .map(
-                                rows.stream()
-                                        .filter(
-                                                row ->
-                                                        row.table()
-                                                                .equals(
-                                                                        CdsExportDocumentRouteSourceReader
-                                                                                .TABLE))
-                                        .toList(),
-                                rows.stream()
-                                        .filter(
-                                                row ->
-                                                        !row.table()
-                                                                .equals(
-                                                                        CdsExportDocumentRouteSourceReader
-                                                                                .TABLE))
-                                        .toList(),
-                                providers,
-                                zone);
-        nativeRows.addAll(reviews.rows());
+                rows.isEmpty()
+                        ? CdsExportInboxReviewMapper.Reviews.NONE
+                        : CdsExportInboxReviewMapper.report()
+                                .map(
+                                        rows.stream()
+                                                .filter(
+                                                        row ->
+                                                                row.table()
+                                                                        .equals(
+                                                                                CdsExportDocumentRouteSourceReader
+                                                                                        .TABLE))
+                                                .toList(),
+                                        rows.stream()
+                                                .filter(
+                                                        row ->
+                                                                !row.table()
+                                                                        .equals(
+                                                                                CdsExportDocumentRouteSourceReader
+                                                                                        .TABLE))
+                                                .toList(),
+                                        providers,
+                                        zone);
+        var present = new HashSet<String>();
+        for (var row : nativeRows) present.add(row.table() + "/" + row.recordKey());
+        for (var row : reviews.rows())
+            if (present.add(row.table() + "/" + row.recordKey())) nativeRows.add(row);
         long next = CdsExportInboxReviewMapper.nextOrdinal(fields, CdsCategory.REPORTS, "ReportReviewed");
-        var written = new HashSet<String>();
-        for (var review : reviews.reviewers()) {
-            var reviewed =
+        // The first review stored on a document row comes first, then every later review.
+        var appended = new ArrayList<>(edits.reviewers());
+        for (var review : reviews.reviewers())
+            appended.add(
                     new CdsExportNativeReportMapper.Reviewed(
                             review.provider(),
                             new CdsExportDateDto(
                                     CdsExportDateDto.Precision.DATE,
-                                    review.reviewed().lexical().substring(0, 10)));
+                                    review.reviewed().lexical().substring(0, 10))));
+        var written = new HashSet<String>();
+        for (var reviewed : appended) {
             // The element holds a date: the same provider on the same day is written once.
-            if (!written.add(review.providerNo() + "\u0000" + reviewed.date().lexical())) continue;
+            if (!written.add(
+                    reviewed.provider().firstName()
+                            + "\u0000"
+                            + reviewed.provider().lastName()
+                            + "\u0000"
+                            + reviewed.provider().ohipNumber()
+                            + "\u0000"
+                            + reviewed.date().lexical())) continue;
             changes.add(
                     new CdsExportRetainedSectionWriter.Change(
                             "ReportReviewed[" + next++ + "]",
                             Set.of(),
                             body -> CdsExportNativeReportMapper.reviewedContent(body, reviewed)));
         }
-        if (reviews.carried().isEmpty()) {
-            assessments.putAll(reviews.fields());
+        var decided = new LinkedHashMap<>(reviews.fields());
+        decided.putAll(edits.fields());
+        if (reviews.carried().isEmpty() && edits.contexts().isEmpty()) {
+            assessments.putAll(decided);
             return null;
         }
+        var details = CdsExportInboxReviewMapper.carriedContext(reviews);
+        if (!edits.contexts().isEmpty()) details.put("edits", edits.contexts());
         String context =
                 com.fasterxml.jackson.databind.json.JsonMapper.builder()
                         .build()
-                        .writeValueAsString(CdsExportInboxReviewMapper.carriedContext(reviews));
+                        .writeValueAsString(details);
+        String what = edits.contexts().isEmpty() ? "reviews" : "reviews and edits";
         if (!importedNotes(fields)) {
-            String notes = "[CARLOS reviews recorded after the import]\n" + context;
+            String notes = "[CARLOS " + what + " recorded after the import]\n" + context;
             if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
                 throw new CdsExportMappingReviewException(
                         "CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY");
             changes.add(
                     new CdsExportRetainedSectionWriter.Change(
                             "Notes[1]", Set.of(), body -> body.text(notes)));
-            assessments.putAll(reviews.fields());
+            assessments.putAll(decided);
             return null;
         }
         var relocated =
-                CdsExportInboxReviewMapper.relocated(
-                        reviews.fields(), "Reports/Notes", "Reports/Content");
+                CdsExportInboxReviewMapper.relocated(decided, "Reports/Notes", "Reports/Content");
         assessments.putAll(relocated);
         String text =
-                "CARLOS data summary: reviews and inbox comments recorded in CARLOS on a report"
-                        + " from an earlier CDS import. The report itself is exported from its"
-                        + " imported elements.\n"
+                "CARLOS data summary: "
+                        + what
+                        + " recorded in CARLOS on a report from an earlier CDS import. The report"
+                        + " itself is exported from its imported elements.\n"
                         + context;
         if (!CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
             throw new CdsExportMappingReviewException(
@@ -1315,44 +1443,65 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             String filename,
             int patient)
             throws IOException {
+        bind(document, link, prepared, variant, filename, patient, Set.of());
+    }
+
+    /**
+     * Binds the document row to the values the import wrote. A column the document edit page
+     * changed after the import ({@code edited}, verified against the sealed baseline) is not
+     * compared: {@link CdsExportImportedDocumentEditReconciler} decides it.
+     */
+    static void bind(
+            CdsExportCapturedTextRowDto document,
+            CdsExportCapturedTextRowDto link,
+            CdsReportNativeDto prepared,
+            CdsReportNativeDto.Variant variant,
+            String filename,
+            int patient,
+            Set<String> edited)
+            throws IOException {
         var row = document.fields();
-        var metadata = prepared.values();
-        String source = metadata.get("NativeSourceAuthor");
-        if (source != null && source.codePointCount(0, source.length()) > 60) source = null;
-        String subclass = metadata.get("SubClass"),
-                description =
-                        (subclass == null || subclass.isBlank() ? "Imported report" : subclass)
-                                + (prepared.variants().size() == 1
-                                        ? ""
-                                        : " (" + variant.name() + " representation)")
-                                + (variant.mediaReviewRequired()
-                                        ? " (source media review required)"
-                                        : "");
-        if (!"CDS".equals(row.get("doctype"))
-                || !"A".equals(row.get("status"))
-                || !filename.equals(row.get("docfilename"))
-                || !Objects.equals(metadata.get("Class"), row.get("docClass"))
-                || !Objects.equals(subclass, row.get("docSubClass"))
-                || !Objects.equals(metadata.get("SourceFacility"), row.get("sourceFacility"))
-                || !Objects.equals(source, row.get("source"))
-                || !variant.mime().equals(row.get("contenttype"))
-                || !prepared.event().precision().name().equals(row.get("cds_content_precision"))
-                || !description.equals(row.get("docdesc"))) invalid();
+        var imported = CdsExportImportedDocumentEditReconciler.imported(prepared, variant, filename);
+        for (String column :
+                List.of(
+                        "doctype",
+                        "status",
+                        "docfilename",
+                        "docClass",
+                        "docSubClass",
+                        "sourceFacility",
+                        "source",
+                        "contenttype",
+                        "cds_content_precision",
+                        "docdesc"))
+            if (!edited.contains(column) && !Objects.equals(imported.get(column), row.get(column)))
+                invalid();
         if (variant.mediaReviewRequired()
-                || !"0".equals(row.get("abnormal"))
-                || !"0".equals(row.get("public1"))
+                || !edited.contains("abnormal") && !"0".equals(row.get("abnormal"))
+                || !edited.contains("public1") && !"0".equals(row.get("public1"))
                 || !"0".equals(row.get("restrictToProgram"))
+                // The edit page stores "" for the HTML of a file document: never content.
                 || !empty(row.get("docxml"))
                 || !empty(row.get("report_media"))
-                || !empty(row.get("responsible"))
-                || !empty(row.get("reviewer"))
-                || row.get("reviewdatetime") != null
+                || !edited.contains("responsible") && !empty(row.get("responsible"))
+                || !edited.contains("reviewer") && !empty(row.get("reviewer"))
+                || !edited.contains("reviewdatetime") && row.get("reviewdatetime") != null
                 || row.get("appointment_no") != null && !row.get("appointment_no").equals("0"))
             review();
         if (!"demographic".equals(link.fields().get("module"))
                 || !Integer.toString(patient).equals(link.fields().get("module_id"))
                 || !row.get("document_no").equals(link.fields().get("document_no"))
                 || !"A".equals(link.fields().get("status"))) invalid();
+    }
+
+    /** The digest the verified receipt saw for the one reference in {@code ref}. */
+    private static String currentDigest(
+            List<CdsExportRetainedReceiptVerificationDto.CheckedReference> compared,
+            List<CdsExportRetainedIndexDto.Reference> ref) {
+        if (ref.size() != 1) return null;
+        for (var checked : compared)
+            if (checked.expected().equals(ref.getFirst())) return checked.currentDigest();
+        return null;
     }
 
     private static void assess(

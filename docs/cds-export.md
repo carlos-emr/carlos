@@ -622,10 +622,44 @@ are added as `Notes[1]` when the unit has no imported Notes. When it has, the No
 never rewritten: the rows travel in a supplementary Text report ("CARLOS reviews of an imported
 report", identity `importedReviewsId(address)`, fields relocated to `Reports/Content`), which
 the inventory expects for every unit whose retained fields include `Notes[1]` and whose
-documents have a carried row (`CdsExportInboxReviewMapper.carriedByReport`). Notes past 32,000
-characters hold the patient (`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). A changed
-first reviewer (`bind`, written by the document edit page) still changes the imported document
-row and requires review. Every reviewer row belongs to exactly one captured document.
+documents have a carried row (`CdsExportInboxReviewMapper.carriedByReport`) or a row whose
+current digest differs from the import's. Notes past 32,000 characters hold the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). Every reviewer row belongs to exactly one
+captured document.
+
+An imported document edited through the document edit page is exported, the user's edit
+superseding the source (`CdsExportImportedDocumentEditReconciler`). The page
+(`AddEditDocument2Action.editDocument`, `EDocUtil.editDocumentSQL`) rewrites exactly
+`doctype`, `docClass`, `docSubClass`, `docdesc`, `source`, `sourceFacility`, `docxml` (always
+`""`: the page's `EDoc` carries no HTML), `responsible`, `public1`, `abnormal` and
+`receivedDate` on every save, plus `reviewer` and `reviewdatetime` on a review or
+`updatedatetime` and `observationdate` on a plain Update; the file columns change only with a
+replacement file. The type select offers the configured types (`ctl_doctype`), which do not
+include the import's `CDS` unless a clinic adds it, so a save normally also changes `doctype`;
+text inputs post `""` for a missing value. `editedDocuments` accepts a
+report unit whose only non-unchanged references are document rows with `CHANGED_ROW`, a
+qualified field comparison and changed columns inside that set, and reads each row's
+import-time state from the unit's sealed native baseline; anything else (a replaced file, a
+program restriction, a missing baseline) still requires review (`CDS_EXPORT_UNMAPPED_DATA`).
+`bind` then checks only the unchanged columns against the preparation. For each changed column:
+a first review is one more appended `ReportReviewed` (`FIRST_REVIEWER_RECORDED_AFTER_IMPORT`);
+a class, subclass, source author, source facility, observation date or received date the
+element can hold replaces `Class[1]`, `SubClass[1]`, `SourceAuthorPhysician[1]`,
+`SourceFacility[1]`, `EventDateTime[1]` or `ReceivedDateTime[1]`
+(`CARLOS_EDIT_SUPERSEDES_IMPORTED_VALUE`; dates as FullDate, which is what the page edits), a
+cleared one removes it (`CARLOS_EDIT_CLEARED_IMPORTED_VALUE`), and a value the element cannot
+hold (an unlisted class, a subclass over 60 characters) leaves the imported element and is
+carried; description, type, responsible provider, flags and update time are carried
+(`CARLOS_EDIT_OF_IMPORTED_DOCUMENT_IN_SOURCE_CONTEXT`); SQL NULL turned into `""` is not an
+edit (`EMPTY_EDIT_FORM_VALUE_FOR_AN_ABSENT_IMPORTED_VALUE`). Every changed column goes in an
+`edits` entry of the report's CARLOS context (`[CARLOS reviews and edits recorded after the
+import]`, appended Notes or the supplementary report) with its current value and the imported
+value: the value the import is known to write when its SHA-256 matches the sealed baseline,
+SQL NULL or `""`, or else the baseline's digest and length; a replaced element's exact imported
+text is under `supersededElements`. Replaced elements are the receipt's replaced fields, so
+retained and replaced fields still cover the whole unit. Two representations edited to
+different values hold (`CDS_EXPORT_IMPORTED_REPORT_EDIT_CONFLICT`). An unedited imported
+document is unchanged.
 
 Hospital Report Manager (HRM) reports are exported, not held. Every report linked to the
 selected patient is one CDS 5.2 Reports entry (`CdsExportHospitalReportOccurrenceService`, after

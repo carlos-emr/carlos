@@ -58,7 +58,7 @@ class CdsExportImportedReviewAppendUnitTest {
     private static final ZoneId ZONE = ZoneId.of("America/Toronto");
     private static final String RUN = "11111111-1111-4111-8111-111111111111";
 
-    private static CdsExportRetainedFieldDto field(String relative, String value) {
+    static CdsExportRetainedFieldDto field(String relative, String value) {
         String[] parts = relative.split("/");
         var category = CdsCategory.fromWireName(parts[0].substring(0, parts[0].indexOf('[')));
         var type = CdsWireSchema.schemaModel().element("cds", category.wireName());
@@ -99,7 +99,7 @@ class CdsExportImportedReviewAppendUnitTest {
                 null);
     }
 
-    private static CdsExportRetainedSectionWriter.Values inline() {
+    static CdsExportRetainedSectionWriter.Values inline() {
         return new CdsExportRetainedSectionWriter.Values() {
             @Override
             public Reader text(CdsExportRetainedFieldDto field) {
