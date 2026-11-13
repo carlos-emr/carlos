@@ -142,7 +142,8 @@ public class CdsClinicalNormalizationService {
         // M6: the native strength column holds only the standard Strength. A description naming
         // other strengths (a combination product such as "875 mg / 125 mg", where Strength is
         // the first ingredient) means the native strength is incomplete, so the prescription is
-        // not renewable until reconciled.
+        // not renewable until reconciled. The same strength restated per dosage unit ("500
+        // mg/capsule") is not another strength (#6197).
         boolean otherStrengths = describesOtherStrengths(description, strengthAmount, strengthUnit);
         if (otherStrengths)
             diagnostics.add(
@@ -384,31 +385,97 @@ public class CdsClinicalNormalizationService {
         return value;
     }
 
-    // A strength is an amount and a unit, optionally per a quantity ("250 mg/5 mL").
+    private static final String STRENGTH_AMOUNT = "[0-9]+(?:[.,][0-9]+)?";
+    private static final String STRENGTH_UNIT =
+            "[A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*";
+
+    // A strength is an amount and a unit, optionally per a quantity: a measured quantity
+    // ("250 mg/5 mL", a concentration) or one dosage unit ("500 mg/capsule"). Groups: amount,
+    // unit, per-quantity amount (optional), per-quantity unit.
     private static final Pattern STRENGTH_TOKEN =
             Pattern.compile(
-                    "([0-9]+(?:[.,][0-9]+)?)\\s*([A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*"
-                            + "(?:\\s*/\\s*(?:[0-9]+(?:[.,][0-9]+)?)?\\s*"
-                            + "[A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*)?)");
+                    "("
+                            + STRENGTH_AMOUNT
+                            + ")\\s*("
+                            + STRENGTH_UNIT
+                            + ")(?:\\s*/\\s*("
+                            + STRENGTH_AMOUNT
+                            + ")?\\s*("
+                            + STRENGTH_UNIT
+                            + "))?");
 
-    /** True when the description names a strength other than the standard Strength. */
+    /** The standard Strength/UnitOfMeasure, which may itself be per a quantity ("mg/5 mL"). */
+    private static final Pattern STRENGTH_UNIT_TEXT =
+            Pattern.compile(
+                    "("
+                            + STRENGTH_UNIT
+                            + ")(?:\\s*/\\s*("
+                            + STRENGTH_AMOUNT
+                            + ")?\\s*("
+                            + STRENGTH_UNIT
+                            + "))?");
+
+    /**
+     * Words naming one dosage unit (#6197). "500 mg/capsule", "500mg / tab" or "500 mg/1 tablet"
+     * restates the per-unit strength 500 mg and names no other strength. A measured quantity
+     * ("/5 mL"), a rate ("/h"), another ingredient ("/125 mg") or more than one unit ("/2
+     * tablets") is not a dosage unit, so such a description still names another strength.
+     */
+    private static final Set<String> DOSAGE_UNITS =
+            Set.of(
+                    "tablet", "tablets", "tab", "tabs", "capsule", "capsules", "cap", "caps",
+                    "caplet", "caplets", "pill", "pills", "lozenge", "lozenges", "troche",
+                    "troches", "suppository", "suppositories", "supp", "supps", "patch",
+                    "patches", "dose", "doses", "puff", "puffs", "actuation", "actuations",
+                    "spray", "sprays", "vial", "vials", "ampoule", "ampoules", "ampule",
+                    "ampules", "amp", "amps", "sachet", "sachets", "packet", "packets");
+
+    /**
+     * True when the description names a strength other than the standard Strength (M6). A
+     * combination ("875 mg / 125 mg") or a concentration ("250 mg/5 mL" beside Strength 250 mg,
+     * whose native column would lose the volume) is another strength. The same amount and unit
+     * restated per one dosage unit ("500 mg/capsule", "500 mg per tablet") is not.
+     */
     static boolean describesOtherStrengths(String description, String amount, String unit) {
         if (description == null || blank(amount) || blank(unit)) return false;
-        String standard = strengthKey(amount.strip(), unit.strip());
+        String standard = standardStrengthKey(amount.strip(), unit.strip());
         if (standard == null) return false;
         var matcher = STRENGTH_TOKEN.matcher(description);
         while (matcher.find()) {
-            String token = strengthKey(matcher.group(1), matcher.group(2));
+            String token =
+                    strengthKey(
+                            matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4));
             if (token != null && !token.equals(standard)) return true;
         }
         return false;
     }
 
-    private static String strengthKey(String amount, String unit) {
+    private static String standardStrengthKey(String amount, String unit) {
+        var parsed = STRENGTH_UNIT_TEXT.matcher(unit);
+        if (parsed.matches())
+            return strengthKey(amount, parsed.group(1), parsed.group(2), parsed.group(3));
+        // A unit outside the strength grammar ("MG (base)") is compared as exact text, so any
+        // strength the description names reads as another one.
+        String number = strengthAmount(amount);
+        return number == null ? null : number + " " + Ascii.toLowerCase(unit.replaceAll("\\s+", ""));
+    }
+
+    private static String strengthKey(
+            String amount, String unit, String perAmount, String perUnit) {
+        String number = strengthAmount(amount);
+        if (number == null) return null;
+        String key = number + " " + Ascii.toLowerCase(unit);
+        if (perUnit == null) return key;
+        String per = Ascii.toLowerCase(perUnit);
+        String count = perAmount == null ? null : strengthAmount(perAmount);
+        if (perAmount != null && count == null) return null;
+        if (DOSAGE_UNITS.contains(per) && (count == null || count.equals("1"))) return key;
+        return key + "/" + (count == null ? "" : count) + per;
+    }
+
+    private static String strengthAmount(String amount) {
         try {
-            return new BigDecimal(amount.replace(',', '.')).stripTrailingZeros().toPlainString()
-                    + " "
-                    + Ascii.toLowerCase(unit.replaceAll("\\s+", ""));
+            return new BigDecimal(amount.replace(',', '.')).stripTrailingZeros().toPlainString();
         } catch (NumberFormatException notNumeric) {
             return null;
         }
