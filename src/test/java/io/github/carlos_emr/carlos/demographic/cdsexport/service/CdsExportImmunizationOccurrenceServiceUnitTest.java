@@ -70,6 +70,44 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     @Test
+    void shouldAccountForADeletedVaccineVersion_withoutExportingItOrHoldingThePatient()
+            throws Exception {
+        var f = fixture(false, null);
+        var current = f.parents.getFirst();
+        var fields = new TreeMap<>(current.fields());
+        fields.put("id", "16");
+        fields.put("deleted", "1");
+        var superseded = row("preventions", fields);
+        var child = new TreeMap<String, String>();
+        child.put("id", "40");
+        child.put("prevention_id", "16");
+        child.put("keyval", "comments");
+        child.put("val", "Entered on the wrong chart");
+        var extension = row("preventionsExt", child);
+        f.parents = List.of(superseded, current);
+        f.auxiliary = List.of(extension);
+        f.witnesses = List.of(witness(superseded), witness(extension), witness(current));
+        f.selection = Set.of(16, 17);
+        f.scopes.put("preventions", table("preventions", 2));
+        f.scopes.put("preventionsExt", table("preventionsExt", 1));
+        var records = parse(compose(f, false));
+        assertThat(records.stream().filter(r -> r.section().equals("Immunizations"))).hasSize(1);
+        assertThat(f.receipts).singleElement().satisfies(r -> assertThat(r.nativeId()).isEqualTo("17"));
+        assertThat(f.result.nativeRows()).isEqualTo(1);
+        verify(f.captures).authorizeSources(f.lease, f.patient, f.tables, f.control);
+    }
+
+    @Test
+    void shouldStillHoldAnUnknownDeletedFlag_forReview() throws Exception {
+        var f = fixture(false, null);
+        var fields = new TreeMap<>(f.parents.getFirst().fields());
+        fields.put("deleted", "2");
+        f.parents = List.of(row("preventions", fields));
+        f.witnesses = List.of(witness(f.parents.getFirst()));
+        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    @Test
     void
             shouldVerifyImportedEditedNotesKeepSourceCodeDateAndVendorFieldsAndAccount_forEveryRetainedField()
                     throws Exception {

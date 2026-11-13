@@ -398,9 +398,40 @@ class CdsExportScreeningOccurrenceServiceUnitTest {
                 .hasMessage("CDS_EXPORT_SCREENING_OCCURRENCE_SCOPE_INVALID");
     }
 
+    // An edit soft-deletes the old version and inserts the new one: the old version (30, with
+    // its own result and precision rows) is accounted but not exported, and holds no one.
     @Test
-    void shouldHoldADeletedScreening_forReview() {
-        parents = List.of(parent(31, Map.of("deleted", "1")), parents.get(1));
+    void shouldExportOnlyTheCurrentVersion_ofAnEditedScreening() throws Exception {
+        var superseded = parent(30, Map.of("deleted", "1", "refused", "0"));
+        parents = List.of(superseded, parents.get(0), parents.get(1));
+        var oldResult = extension(40, 30, "result", "normal");
+        var oldDate = precision(50, 30, "YYYY");
+        var aux = new ArrayList<>(auxiliary);
+        aux.add(0, oldResult);
+        aux.add(oldDate);
+        auxiliary = aux;
+        witnesses.add(witness(superseded));
+        witnesses.add(witness(oldResult));
+        witnesses.add(witness(oldDate));
+        selection = Set.of(30, 31, 32);
+        var xml = compose();
+        assertThat(emitted).isEqualTo(2);
+        assertThat(receipts)
+                .extracting(CdsExportClinicalOccurrenceService.Receipt::identity)
+                .containsExactly(identity("31"), identity("32"));
+        var factory = DocumentBuilderFactory.newDefaultInstance();
+        factory.setNamespaceAware(true);
+        assertThat(
+                        factory.newDocumentBuilder()
+                                .parse(new ByteArrayInputStream(xml))
+                                .getElementsByTagNameNS("cds", "PastHealth")
+                                .getLength())
+                .isEqualTo(2);
+    }
+
+    @Test
+    void shouldStillHoldAnUnknownDeletedFlag_forReview() {
+        parents = List.of(parent(31, Map.of("deleted", "2")), parents.get(1));
         witnesses.removeIf(witness -> witness.id().equals("31"));
         witnesses.add(witness(parents.get(0)));
         assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_UNMAPPED_DATA");

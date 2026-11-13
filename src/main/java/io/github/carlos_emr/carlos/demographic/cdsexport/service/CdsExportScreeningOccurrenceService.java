@@ -37,8 +37,9 @@ import org.springframework.stereotype.Service;
  * occurrence, inside the history source session that owns the PastHealth wire position. The
  * capture closure is re-proved from the frozen classification first: every screening of the
  * partition must be captured, every captured row must be witnessed, and every field must have
- * a disposition before any receipt is accepted. A screening is never silently omitted: it is
- * emitted or the patient is held for review.
+ * a disposition before any receipt is accepted. A current screening is never silently
+ * omitted: it is emitted or the patient is held for review. A superseded or removed version is
+ * accounted field by field and not exported (see {@link CdsExportPreventionVersions}).
  */
 @Service
 public class CdsExportScreeningOccurrenceService {
@@ -239,7 +240,8 @@ public class CdsExportScreeningOccurrenceService {
                         != source.capture().tables().get(parentTable).rows()
                                 + auxiliaryKeys.size()) scope();
         var seen = new HashSet<Integer>();
-        long[] counts = new long[2];
+        // 0 emitted, 1 assessed fields, 2 superseded versions (accounted, not exported)
+        long[] counts = new long[3];
         var finished =
                 rows.forEach(
                         lease,
@@ -271,6 +273,19 @@ public class CdsExportScreeningOccurrenceService {
                                 if (witness == null) scope();
                                 CdsExportImmunizationProjectionEvidence.verifyCurrent(
                                         entry, witness);
+                            }
+                            if (CdsExportPreventionVersions.superseded(row)) {
+                                // An edited or deleted screening version: accounted, never
+                                // exported, and no reason to hold the patient.
+                                var retired = CdsExportPreventionVersions.dispositions(current);
+                                new CdsExportNativeFieldAssessmentValidator()
+                                        .requireRepresentable(
+                                                current, retired, 1_000_000, control::checkpoint);
+                                if (retired.size() != 16 + 4L * child.size() + 5L * dates.size())
+                                    scope();
+                                counts[1] = Math.addExact(counts[1], retired.size());
+                                counts[2]++;
+                                return;
                             }
                             var mapping =
                                     new CdsExportScreeningMapper()
@@ -314,7 +329,7 @@ public class CdsExportScreeningOccurrenceService {
                         });
         long expected =
                 Math.addExact(
-                        Math.multiplyExact(counts[0], 16),
+                        Math.multiplyExact(Math.addExact(counts[0], counts[2]), 16),
                         Math.addExact(
                                 Math.multiplyExact(lookup[2], 4),
                                 Math.multiplyExact(lookup[3], 5)));
@@ -323,7 +338,8 @@ public class CdsExportScreeningOccurrenceService {
                 || !extensions.isEmpty()
                 || !precision.isEmpty()
                 || !exact.isEmpty()
-                || counts[0] != source.capture().tables().get(parentTable).rows()
+                || Math.addExact(counts[0], counts[2])
+                        != source.capture().tables().get(parentTable).rows()
                 || counts[1] != expected) scope();
         captures.authorizeSources(lease, patient, tables, control);
         patient.require(lease);

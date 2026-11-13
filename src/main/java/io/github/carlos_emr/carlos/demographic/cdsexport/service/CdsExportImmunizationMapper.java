@@ -102,8 +102,14 @@ public final class CdsExportImmunizationMapper {
         for (String column :
                 List.of("id", "demographic_no", "lastUpdateDate", "creation_date", "creator"))
             source.operational(column, "CAPTURED_NATIVE_IDENTITY_OR_STORAGE_AUDIT");
-        if ("0".equals(source.raw("deleted")))
-            source.operational("deleted", "EXPLICIT_ACTIVE_NATIVE_RECORD");
+        String deleted = source.raw("deleted");
+        if ("0".equals(deleted)) source.operational("deleted", "EXPLICIT_ACTIVE_NATIVE_RECORD");
+        // A legacy NULL flag records no deletion: the row is the current version.
+        else if (deleted == null) source.operational("deleted", "NO_RECORDED_DELETION");
+        // The occurrence service never maps a superseded native version; reaching here means an
+        // imported occurrence whose row was later edited or removed, which needs review.
+        else if ("1".equals(deleted))
+            source.review("deleted", "", "SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT");
         else source.review("deleted", "ResidualInfo", "ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
         if ("0".equals(source.raw("never")))
             source.operational("never", "NO_NATIVE_REMINDER_SUPPRESSION");

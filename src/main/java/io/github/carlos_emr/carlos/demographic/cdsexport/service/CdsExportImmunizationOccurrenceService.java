@@ -213,7 +213,8 @@ public class CdsExportImmunizationOccurrenceService
                 || !definitions.sourceManifestSha256().equals(source.manifest().plaintextSha256())
                 || !selection.configurationSha256().equals(definitions.configurationSha256())
                 || !selection.catalogueSha256().equals(definitions.catalogueSha256())) scope();
-        long[] counts = new long[5];
+        // 0 emitted, 1 imported, 2 native-only, 3 retained fields, 4 assessed fields, 5 superseded
+        long[] counts = new long[6];
         values.withValues(
                 lease,
                 patient,
@@ -388,6 +389,27 @@ public class CdsExportImmunizationOccurrenceService
                                             receiptRows.add(witness);
                                         }
                                         String importedUnit = imported.remove(id);
+                                        if (importedUnit == null
+                                                && CdsExportPreventionVersions.superseded(row)) {
+                                            // An edited or deleted native version: accounted,
+                                            // never exported, and no reason to hold the patient.
+                                            var retired =
+                                                    CdsExportPreventionVersions.dispositions(
+                                                            current);
+                                            new CdsExportNativeFieldAssessmentValidator()
+                                                    .requireRepresentable(
+                                                            current,
+                                                            retired,
+                                                            1_000_000,
+                                                            control::checkpoint);
+                                            if (retired.size()
+                                                    != 16
+                                                            + 4L * child.size()
+                                                            + 5L * dates.size()) scope();
+                                            counts[4] = Math.addExact(counts[4], retired.size());
+                                            counts[5]++;
+                                            return;
+                                        }
                                         Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>
                                                 fields;
                                         CdsExportXmlComposer.Content content;
@@ -487,7 +509,7 @@ public class CdsExportImmunizationOccurrenceService
                                     });
                     long expected =
                             Math.addExact(
-                                    Math.multiplyExact(counts[0], 16),
+                                    Math.multiplyExact(Math.addExact(counts[0], counts[5]), 16),
                                     Math.addExact(
                                             Math.multiplyExact(lookup[2], 4),
                                             Math.multiplyExact(lookup[3], 5)));
@@ -496,7 +518,8 @@ public class CdsExportImmunizationOccurrenceService
                             || !extensions.isEmpty()
                             || !precision.isEmpty()
                             || !exact.isEmpty()
-                            || counts[0] != source.capture().tables().get("preventions").rows()
+                            || Math.addExact(counts[0], counts[5])
+                                    != source.capture().tables().get("preventions").rows()
                             || counts[4] != expected) scope();
                     if (!imported.isEmpty()) review();
                     var expectedFields = new HashSet<String>();

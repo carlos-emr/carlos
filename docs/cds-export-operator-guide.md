@@ -113,6 +113,13 @@ It carries generic observations, deletion history, complete original lab message
 printed script history. Excluding a required supporting category requests review;
 the exporter does not silently expand the accepted selection.
 
+Vaccines export under Immunizations. Prevention screenings (the Screenings types and
+OtherB) export only under PastHealth, so a package without the history categories carries no
+screening history; its ReadMe says so. Superseded or removed prevention versions are not
+exported: when a prevention is edited, CARLOS keeps the earlier version as a deleted row, and a
+deleted prevention is also only flagged. Only the current version of each prevention is sent,
+as the legacy exporter did, and the earlier versions do not hold the patient for review.
+
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name
 and complete compound-strength text remain intact; the standard strength uses the

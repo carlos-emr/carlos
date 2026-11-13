@@ -178,10 +178,25 @@ class CdsExportImmunizationMapperUnitTest {
     void
             shouldVerifyArchivedAndUnknownArchiveStatesCannotBecomeActiveEvents_forImmunizationMapperContract()
                     throws Exception {
-        for (String flag : Arrays.asList("1", "x", null, "")) {
+        // NULL left this list: a legacy NULL flag records no deletion, so the row is current
+        // (see the next test). "1" reaches the mapper only for an imported occurrence whose row
+        // was later edited or removed; the occurrence service skips native superseded versions.
+        for (String flag : Arrays.asList("1", "x", "")) {
             parent.put("deleted", flag);
             assertThat(map().value()).isNull();
         }
+        parent.put("deleted", "1");
+        assertThat(decision(map(), "preventions", "deleted").rule())
+                .isEqualTo("SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT");
+    }
+
+    @Test
+    void shouldTreatALegacyNullDeletedFlag_asTheCurrentVersion() throws Exception {
+        parent.put("deleted", null);
+        var result = map();
+        assertThat(result.value()).isNotNull();
+        assertThat(decision(result, "preventions", "deleted").rule())
+                .isEqualTo("NO_RECORDED_DELETION");
     }
 
     @Test

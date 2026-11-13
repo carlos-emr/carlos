@@ -28,11 +28,21 @@ spaces escaped, so `xs:token` normalization cannot change them. Screenings are c
 their own logical tables (`preventions_screening`, `preventionsExt_screening`,
 `prevention_precision_screening`) beside the classification inputs shared with Immunizations,
 so every screening has its own expected PastHealth identity and row witnesses; a missing,
-duplicated or unwitnessed row refuses the patient. As on the vaccine path, deleted (including
-superseded edited) rows, program-restricted rows, rows whose type is not a proven screening,
-unknown status codes, duplicate result/reason/comments extensions and unsupported date
-precision hold the patient for review, and any unclassifiable prevention row also holds a
-PastHealth export because it may be a screening. Without PastHealth, screenings are an explicit
+duplicated or unwitnessed row refuses the patient. Program-restricted rows, rows whose type is
+not a proven screening, unknown status codes, duplicate result/reason/comments extensions and
+unsupported date precision hold the patient for review, and any unclassifiable prevention row
+also holds a PastHealth export because it may be a screening.
+
+Superseded or removed prevention versions are not exported, for vaccines and screenings alike.
+CARLOS never edits a prevention in place: an edit soft-deletes the old row (`deleted = '1'`)
+and inserts the new version, and a delete only sets the flag. The legacy exporter read only
+`deleted = '0'` rows (`PreventionDao.findNotDeletedByDemographicId`). These versions stay in the
+capture and are witnessed; every field of the version, its extensions and its precision rows
+gets the `SUPERSEDED_OR_REMOVED_PREVENTION_VERSION` disposition, the field-closure count covers
+them, and they are neither an expected occurrence nor a reason to hold the patient. A legacy
+NULL flag records no deletion and is current. Any other flag value holds the patient. An
+imported vaccine whose row was later edited or removed also still holds the patient: its import
+unit's retained source fields can only be accounted by an emitted occurrence. Without PastHealth, screenings are an explicit
 scope exclusion, and the ReadMe field `Prevention screenings (exported only as PastHealth)`
 says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedHistory) note
 whose text is the description and whose observation date is the ProcedureDate; Notes and the

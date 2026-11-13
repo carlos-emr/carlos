@@ -37,8 +37,9 @@ import java.util.*;
  * status and the "Result:"/"Reason:" extension lines; ProcedureDate is the recorded calendar date
  * at its recorded precision; Notes are the comments. The complete native parent, extension and
  * precision rows also travel in a CARLOS residual, so every captured field is MAPPED there unless
- * a rule below requires review. Deleted rows follow the vaccine path (review), and a row whose
- * frozen classification is not a screening never becomes one here.
+ * a rule below requires review. Superseded or removed versions are never mapped (see
+ * {@link CdsExportPreventionVersions}), and a row whose frozen classification is not a
+ * screening never becomes one here.
  */
 public final class CdsExportScreeningMapper {
     static final String RESIDUAL = "PastHealth/ResidualInfo",
@@ -98,7 +99,12 @@ public final class CdsExportScreeningMapper {
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var rows = new ArrayList<CdsExportCapturedTextRowDto>();
         var source = carried(row, decisions, rows);
-        if (!"0".equals(source.raw("deleted")))
+        String deleted = source.raw("deleted");
+        // "0" and a legacy NULL are the current version (carried as recorded). The occurrence
+        // service never maps a superseded version ("1"); any other value needs review.
+        if ("1".equals(deleted))
+            source.review("deleted", "", "SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT");
+        else if (!CdsExportPreventionVersions.current(deleted))
             source.review("deleted", RESIDUAL, "ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
         String restriction = source.raw("restrictToProgram");
         if (!("0".equals(restriction) || restriction == null && source.raw("programNo") == null))

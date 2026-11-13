@@ -47,6 +47,8 @@ public class CdsExportPatientInventoryService {
                     CdsExportPreventionSources.SCREENINGS, CdsCategory.PAST_HEALTH,
                     "cds_laboratory_result", CdsCategory.LABORATORY_RESULTS,
                     "appointment", CdsCategory.APPOINTMENTS);
+    private static final Set<String> PREVENTIONS =
+            Set.of("preventions", CdsExportPreventionSources.SCREENINGS);
     private static final Set<CdsCategory> RETAINED =
             Set.of(CdsCategory.REPORTS, CdsCategory.CARE_ELEMENTS, CdsCategory.NEW_CATEGORY);
     private final CdsExportRetainedIndexService indices;
@@ -101,6 +103,7 @@ public class CdsExportPatientInventoryService {
         var notes = new HashSet<String>();
         var documents = new HashSet<String>();
         var sourceFields = new HashSet<String>();
+        var superseded = new HashSet<String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
                 rows.scan(
@@ -117,6 +120,14 @@ public class CdsExportPatientInventoryService {
                             if (category != null) {
                                 if (!lease.document().command().categories().contains(category))
                                     invalid();
+                                // An edited or deleted prevention version is captured and
+                                // accounted by its occurrence service but never exported.
+                                if (PREVENTIONS.contains(row.table())
+                                        && CdsExportPreventionVersions.superseded(row)) {
+                                    if (!superseded.add(row.table() + "/" + row.id())) invalid();
+                                    budget.add();
+                                    return;
+                                }
                                 // A screening's identity names its physical prevention row.
                                 add(
                                         expected,

@@ -159,11 +159,84 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     private static CdsExportNativeRowReceiptDto screening(String table, int id) {
+        return screening(table, id, "0");
+    }
+
+    /** A witness whose authenticated state carries the native deleted flag. */
+    private static CdsExportNativeRowReceiptDto screening(String table, int id, String deleted) {
+        var columns =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                                .Column("deleted", "VARCHAR", 255, 0),
+                        new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigest
+                                .Column("id", "VARCHAR", 255, 0));
+        var cells = new ArrayList<io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell>();
+        for (String value : Arrays.asList(deleted, Integer.toString(id)))
+            cells.add(
+                    new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState.Cell(
+                            value == null,
+                            value == null ? 0 : value.length(),
+                            value == null
+                                    ? null
+                                    : HexFormat.of()
+                                            .formatHex(
+                                                    CdsImportKeys.digest()
+                                                            .digest(
+                                                                    value.getBytes(
+                                                                            java.nio.charset
+                                                                                    .StandardCharsets
+                                                                                    .UTF_8)))));
+        var state =
+                new io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowState(
+                        table, Integer.toString(id), columns, cells);
         return new CdsExportNativeRowReceiptDto(
                 table,
                 Integer.toString(id),
                 CdsExportPatientTableSourceReader.key(id),
-                CdsExportPatientPipelineFixture.HASH);
+                state.digest(),
+                state);
+    }
+
+    @Test
+    void shouldLeaveSupersededPreventionVersions_outOfTheExpectedOccurrences() throws Exception {
+        var categories = new ArrayList<>(CdsExportNoteSourceReader.CATEGORIES);
+        categories.add(CdsCategory.IMMUNIZATIONS);
+        var f = fixture(categories.toArray(CdsCategory[]::new));
+        f.nativeRows.add(screening("preventions", 28, "1"));
+        f.nativeRows.add(screening("preventions", 29, null));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 30, "1"));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 31, "0"));
+        f.nativeRows.add(screening(CdsExportPreventionSources.SCREENINGS, 32, "2"));
+        var identities = capture(f).identities();
+        assertThat(identities)
+                .contains(
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.IMMUNIZATIONS,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "29")),
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.PAST_HEALTH,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "31")),
+                        // An unknown flag stays expected; its occurrence service holds it.
+                        new CdsExportIdentityDto(
+                                "c".repeat(64),
+                                CdsCategory.PAST_HEALTH,
+                                CdsImportKeys.hash(
+                                        "carlos-native-occurrence-v1", "preventions", "32")));
+        assertThat(identities).hasSize(4);
+    }
+
+    @Test
+    void shouldRefuseAPreventionWitness_withoutTheStateThatShowsItsVersion() throws Exception {
+        var f = fixture(CdsCategory.IMMUNIZATIONS);
+        f.nativeRows.add(
+                new CdsExportNativeRowReceiptDto(
+                        "preventions", "28", "28", CdsExportPatientPipelineFixture.HASH));
+        assertThatThrownBy(() -> capture(f))
+                .hasMessage("CDS_EXPORT_PREVENTION_VERSION_WITNESS_REQUIRED");
     }
 
     @Test

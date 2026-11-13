@@ -309,18 +309,23 @@ class CdsExportScreeningMapperUnitTest {
         render(mapped.value());
     }
 
+    // Superseded or removed versions (deleted = "1") are skipped by the occurrence service and
+    // never reach the mapper there; a legacy NULL flag is the current version. Only an unknown
+    // flag still holds the patient (the earlier rule held "1" and NULL as well).
     @Test
-    void shouldHoldADeletedScreeningForReview_exactlyAsTheVaccinePathDoes() throws Exception {
-        for (String deleted : Arrays.asList("1", null)) {
-            var values = new HashMap<String, String>();
-            values.put("deleted", deleted);
-            var row = parent(31, values);
-            var result = map(row, List.of(), List.of());
-            assertThat(result.representable()).isFalse();
-            assertThat(field(result, row, "deleted").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
-            assertThat(field(result, row, "deleted").rule())
-                    .isEqualTo("ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
-        }
+    void shouldHoldOnlyAnUnknownDeletedFlag_forReview() throws Exception {
+        var values = new HashMap<String, String>();
+        values.put("deleted", null);
+        var current = map(parent(31, values), List.of(), List.of());
+        assertThat(current.representable()).isTrue();
+        var unknown = parent(31, Map.of("deleted", "2"));
+        var result = map(unknown, List.of(), List.of());
+        assertThat(result.representable()).isFalse();
+        assertThat(field(result, unknown, "deleted").rule())
+                .isEqualTo("ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER");
+        var superseded = parent(31, Map.of("deleted", "1"));
+        assertThat(field(map(superseded, List.of(), List.of()), superseded, "deleted").rule())
+                .isEqualTo("SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT");
     }
 
     @Test
