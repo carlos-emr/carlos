@@ -49,6 +49,9 @@ import org.springframework.transaction.support.TransactionTemplate;
         named = "cds.export.test.properties",
         matches = ".+")
 class CdsExportDocumentReadMariaDbIntegrationTest {
+    /** A note id no test or demo row uses: a link to it reaches no chart. */
+    private static final int ORPHAN_NOTE = 2_000_000_011;
+
     @Configuration
     @EnableTransactionManagement(proxyTargetClass = true)
     static class Config {}
@@ -253,13 +256,14 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         catalogue.requireUnclassifiedSourcesEmpty(
                                                 patient, () -> {});
                                     }));
-            // A clinical source remains subject to the same fail-closed closure check. (The
-            // cumulative patient profile, the Disease Registry and the legacy immunization
-            // schedule used here before are now exported; a group-note link is still unreviewed.)
+            // A clinical source remains subject to the same fail-closed closure check. Every
+            // patient-linked table is now exported, listed or operational, so the example is a
+            // note link whose note does not exist: it could belong to any chart, so it holds.
             sql.update(
-                    "insert into GroupNoteLink(noteId,demographicNo,anonymous,active) values(?,?,0,1)",
+                    "insert into casemgmt_note_link(id,table_name,table_id,note_id,other_id)"
+                            + " values(?,5,1,?,'orphan')",
                     patient,
-                    patient);
+                    ORPHAN_NOTE);
             try {
                 stableLegacy(
                         () ->
@@ -274,9 +278,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
             } finally {
                 sql.update(
-                        "delete from GroupNoteLink where noteId=? and demographicNo=?",
+                        "delete from casemgmt_note_link where id=? and note_id=?",
                         patient,
-                        patient);
+                        ORPHAN_NOTE);
             }
         } finally {
             if (linkCreated)
@@ -762,13 +766,15 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
-        // A group-note link is still unreviewed and must stay empty. The cumulative patient
-        // profile, the Disease Registry and the legacy immunization schedule this test used
-        // before are now exported (data summaries and ProblemList).
+        // A note link whose note does not exist could belong to any chart, so it still holds.
+        // The patient-linked tables this test used before (the cumulative patient profile, the
+        // Disease Registry, the legacy immunization schedule, group-note links) are now
+        // exported or operational.
         sql.update(
-                "insert into GroupNoteLink(noteId,demographicNo,anonymous,active) values(?,?,0,1)",
+                "insert into casemgmt_note_link(id,table_name,table_id,note_id,other_id)"
+                        + " values(?,5,1,?,'orphan')",
                 patient,
-                patient);
+                ORPHAN_NOTE);
         try {
             assertThatThrownBy(
                             () ->
@@ -779,9 +785,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from GroupNoteLink where noteId=? and demographicNo=?",
+                    "delete from casemgmt_note_link where id=? and note_id=?",
                     patient,
-                    patient);
+                    ORPHAN_NOTE);
         }
     }
 
@@ -968,9 +974,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
-        // Group-note links are still unreviewed; the CAISI hospitalisation days, the episodes and
-        // the legacy immunization schedule used here before are now listed and exported.
+    void shouldHoldNeitherChart_forAGroupNoteSharedWithAnotherPatient() {
+        // A group-note link only shows another chart's note, read-only, in the recipient's
+        // chart; the note is exported once with the chart that wrote it, so the link is
+        // operational and holds neither the recipient nor anyone else.
         sql.update(
                 "insert into GroupNoteLink(id,noteId,demographicNo,anonymous,active)"
                         + " values(?,?,?,0,1)",
@@ -980,8 +987,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         try {
             requireCatalogueScope();
             sql.update("update GroupNoteLink set demographicNo=? where id=?", patient, patient);
-            assertThatThrownBy(this::requireCatalogueScope)
-                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+            requireCatalogueScope();
         } finally {
             sql.update(
                     "delete from GroupNoteLink where id=? and demographicNo in (?,?)",

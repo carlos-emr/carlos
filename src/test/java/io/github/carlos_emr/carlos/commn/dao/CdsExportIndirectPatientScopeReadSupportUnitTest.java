@@ -134,8 +134,8 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
         execute("insert into casemgmt_note values(10,1),(11,2)");
         execute("insert into casemgmt_note_link values(20,5,700,10,null),(21,12,82,11,null)");
         // Mapped now: each chart captures its own notes' links and nothing else.
-        assertThat(count("casemgmt_note_link", owned("casemgmt_note_link", 1))).isEqualTo(1);
-        assertThat(count("casemgmt_note_link", owned("casemgmt_note_link", 2))).isEqualTo(1);
+        assertThat(count("casemgmt_note_link", ownedPredicate("casemgmt_note_link", 1))).isEqualTo(1);
+        assertThat(count("casemgmt_note_link", ownedPredicate("casemgmt_note_link", 2))).isEqualTo(1);
         assertThat(unattributable("casemgmt_note_link")).isZero();
         // A link whose note is missing, or whose note names no patient, still holds every chart.
         execute("insert into casemgmt_note_link values(22,5,701,99,null)");
@@ -146,7 +146,7 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
         assertThat(blocked("casemgmt_note_link", 1)).isTrue();
     }
 
-    private String owned(String table, int patient) {
+    private String ownedPredicate(String table, int patient) {
         return CdsExportIndirectPatientScopeReadSupport.owned(table, profile)
                 .replace(":patient", Integer.toString(patient));
     }
