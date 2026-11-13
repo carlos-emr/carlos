@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "6af0b2847a86b47205fb075dd43cfeaa770fec97",
-  "comparisonSha256": "191adf3a8a35caea63a28de3125a1a2d827f7ccbc5e561711e8bb1e22ded5027",
-  "baselineCommit": "1f99f6215ab1dc449a4f9291c3abe2734a3b4fa4",
-  "baselineSourceTree": "6af0b2847a86b47205fb075dd43cfeaa770fec97",
-  "baselineReportSha256": "b0489ba7385476bb45a1312677d1da7956226e631bb340a4f9f839e05c42db22",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of release/2026.08 with main merged in and the promotion-review corrections of PR #6167: one Surefire run of 36,757 cases with three forks, zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "4c1558034df08979c048aa9a3cac7f40fb5a2fe5",
+  "comparisonSha256": "98bd5886c851dab2a6ebe5c2b005165f0a809403d21ccd279312863e09088d62",
+  "baselineCommit": "c15dfae068ec120d25303eb27ec1782deb3fac91",
+  "baselineSourceTree": "4c1558034df08979c048aa9a3cac7f40fb5a2fe5",
+  "baselineReportSha256": "3eaead18fe078342bd48853938718b28b57ed440b2966ba745dfd60f3e55ccbd",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of release/2026.08 with main merged in and the promotion-review corrections of PR #6167: one Surefire run of 36,870 cases with three forks, zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
-    "tests": 36757,
+    "tests": 36870,
     "skipped": 217,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "5cb61c42163dfafb04c22abda131f72ce179a0b8bd77975068d90f9a077e3e4c",
+  "baselineTestReportsSha256": "16574a4edda8d2d2a617011ff6de3fcd5f6f07ba8700a2ce6481c2b300f3691e",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -57,6 +57,24 @@
       "branches": 100.0,
       "sourceBlob": "5a0d4aa2164252350beb1ce6f3f4916353924d62"
     },
+    "src/main/java/io/github/carlos_emr/carlos/admin/service/SecurityRecordUpdateCommand.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c7751dd75f8304e8ee5ba100f8e0b1fd4c69f53a"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/service/SecurityRecordUpdateService.java": {
+      "lines": 100.0,
+      "instructions": 99.12663755458516,
+      "branches": 75.0,
+      "sourceBlob": "09abccf2222bec7062d8c3c318296f19bfb665af"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/web/SecurityUpdate2Action.java": {
+      "lines": 100.0,
+      "instructions": 98.98989898989899,
+      "branches": 90.0,
+      "sourceBlob": "bd48b75e31a493c10a448e5713a3f14edc66e2cf"
+    },
     "src/main/java/io/github/carlos_emr/carlos/app/AppOAuth1Config.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -93,6 +111,12 @@
       "branches": 100.0,
       "sourceBlob": "928ba8c3ff97ccc88e1a171ee6853e67480bd2b1"
     },
+    "src/main/java/io/github/carlos_emr/carlos/appointment/gate/ViewAppointmentSelfPost2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 91.66666666666667,
+      "sourceBlob": "398ffb97b9651a71b677f8801e639a869ff7a355"
+    },
     "src/main/java/io/github/carlos_emr/carlos/appointment/pageUtil/AppointmentAddRecord2Action.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -116,6 +140,12 @@
       "instructions": 96.1038961038961,
       "branches": 81.57894736842105,
       "sourceBlob": "373570897b0612bb3d413dcf5383538fd73be918"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/appointment/pageUtil/AppointmentGroupSubmission.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "0369111431f077c6af5a326c4f209d84ef9f4423"
     },
     "src/main/java/io/github/carlos_emr/carlos/appointment/pageUtil/AppointmentUpdateRecord2Action.java": {
       "lines": 88.17204301075269,
@@ -1215,6 +1245,18 @@
       "branches": 100.0,
       "sourceBlob": "ac50dfae566b379d27ac7625248163d8ae0ce6e6"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/SecurityDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "1cfe44b49702e5a7ca168fd231c14a46d10d8ee0"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/SecurityDaoImpl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "c29cee6b7239fc64bad0f2ff89b90b3f416ed87d"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/SecurityTokenDao.java": {
       "lines": 93.10344827586206,
       "instructions": 84.39716312056737,
@@ -1335,6 +1377,12 @@
       "branches": 100.0,
       "sourceBlob": "01ee2514b396170fe296ea2a5c5f50db8358c624"
     },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/Document.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 75.0,
+      "sourceBlob": "099cfbfff42442ffbae05e32dc63fdb195078166"
+    },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": {
       "lines": 100.0,
       "instructions": 100.0,
@@ -1370,6 +1418,12 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "e462d06ea27c93c615f824082b5d188e01fa977d"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/model/MessageTbl.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "bd136a4b252334ad3abb73133fccd61bcaafabbf"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/model/OceanSetting.java": {
       "lines": 100.0,
@@ -1765,7 +1819,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "3ac61f788044e54c2061ffac30bff1d042a3c1ae"
+      "sourceBlob": "1f8b7ac70158393e54391632190fba52357ccb53"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/AddEditHtml2Action.java": {
+      "lines": 100.0,
+      "instructions": 97.1830985915493,
+      "branches": 87.5,
+      "sourceBlob": "79a787cfa847985da0e94e2b143d5be788ddefc8"
     },
     "src/main/java/io/github/carlos_emr/carlos/documentManager/actions/DmsInboxManage2Action.java": {
       "lines": 100.0,
@@ -2851,13 +2911,13 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "fcce97babe4729c42ba12500d55571cecb4d8cee"
+      "sourceBlob": "89bdcc8eac3736cff117b6f8165b4e57763f8590"
     },
     "src/main/java/io/github/carlos_emr/carlos/log/LogConst.java": {
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "a8f0fbb7c3d3b977c3e49dab099fea5bb05c6329"
+      "sourceBlob": "4dd41a644597775a91ce032b30d36f8c75c3018a"
     },
     "src/main/java/io/github/carlos_emr/carlos/login/AppOAuth1Config.java": {
       "lines": 100.0,
@@ -3154,10 +3214,16 @@
       "sourceBlob": "1c1910e5a8fa219ec2a5b8a3ed492865d426b490"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgCreateMessage2Action.java": {
-      "lines": 96.0,
-      "instructions": 94.90445859872611,
-      "branches": 71.11111111111111,
-      "sourceBlob": "046481eef00ae4f752f9c413013bc13f4a7283b7"
+      "lines": 96.29629629629629,
+      "instructions": 95.15151515151516,
+      "branches": 72.34042553191489,
+      "sourceBlob": "44141be177ae80c66841421c43e24bd582d3a8e9"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgHandleMessages2Action.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "36a8289e496171b37495d7c8de9a816a2874932b"
     },
     "src/main/java/io/github/carlos_emr/carlos/messenger/pageUtil/MsgPdfAttachmentResolver.java": {
       "lines": 100.0,
@@ -3459,6 +3525,12 @@
       "branches": 70.0,
       "sourceBlob": "4e39075cd500c9084b85e2a37486fbfc72daf9d5"
     },
+    "src/main/java/io/github/carlos_emr/carlos/report/UsageReportSupport.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "02472482060b6cd2562c6ef569a46154c3f13f22"
+    },
     "src/main/java/io/github/carlos_emr/carlos/report/data/ConfiguredReportQuery.java": {
       "lines": 99.04761904761905,
       "instructions": 96.60377358490567,
@@ -3491,9 +3563,9 @@
     },
     "src/main/java/io/github/carlos_emr/carlos/report/data/RptByExampleData.java": {
       "lines": 100.0,
-      "instructions": 71.42857142857143,
+      "instructions": 92.85714285714286,
       "branches": 50.0,
-      "sourceBlob": "992a2de4ed6724f932a1c2e9a2254456e30e2e6c"
+      "sourceBlob": "e050e082f3d11680e2cace6f4643c5cf89a71c62"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/data/RptReportConfigData.java": {
       "lines": 33.333333333333336,
@@ -3632,6 +3704,12 @@
       "instructions": 0.0,
       "branches": 0.0,
       "sourceBlob": "bbf8db9f5b91769360e6f22f19f746d8a2468854"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptByExample2Action.java": {
+      "lines": 97.14285714285714,
+      "instructions": 96.92307692307692,
+      "branches": 100.0,
+      "sourceBlob": "00f0f908330b988f0f2c9964e07038078fe69b6d"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/pageUtil/RptDemographicReport2Action.java": {
       "lines": 100.0,
@@ -3865,7 +3943,7 @@
       "lines": 100.0,
       "instructions": 100.0,
       "branches": 100.0,
-      "sourceBlob": "b0914774cf40b63fc61c7c48e03a59d4bffb40c5"
+      "sourceBlob": "1a0e4d70b4bcb99631546c02371e6c13ca5271ad"
     },
     "src/main/java/io/github/carlos_emr/carlos/utility/ImportZipInputStream.java": {
       "lines": 100.0,
@@ -4736,6 +4814,18 @@
       "instructions": 100.0,
       "branches": 100.0,
       "sourceBlob": "aa62d526d7be5eb7f3b0c2ff44e141e0d997ef90"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/www/admin/SecurityEditVersion.java": {
+      "lines": 90.0,
+      "instructions": 94.3089430894309,
+      "branches": 100.0,
+      "sourceBlob": "63543a5d72f99f8fa887a57d2626917e10e1a900"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/www/admin/SecurityUpdatePinHandler.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "81801574511e707904e5b88eb14174066b82201a"
     }
   },
   "exclusions": {
@@ -4780,9 +4870,15 @@
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/documentManager/htmlpdf/support/XhtmlDomUnitTest.java"
       ]
+    },
+    "src/main/java/io/github/carlos_emr/carlos/admin/service/package-info.java": {
+      "reason": "Package documentation only (Javadoc, no annotations): it has no executable Java bytecode. The services it documents are exercised by the package's unit tests.",
+      "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/admin/service/SecurityRecordUpdateServiceUnitTest.java"
+      ]
     }
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "1f99f6215ab1dc449a4f9291c3abe2734a3b4fa4"
+  "baselineTestRunCommit": "c15dfae068ec120d25303eb27ec1782deb3fac91"
 }
