@@ -237,4 +237,39 @@ class CdsExportCareOccurrenceServiceUnitTest {
                                 .CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
     }
+
+    @Test
+    void shouldNameADeletedImportedObservation_insteadOfAGenericUnmappedReview() {
+        // Before: deleting an imported care measurement (the only way to correct one) held the
+        // patient as generic unmapped data. Its retained source would present the deleted value
+        // as current, so the patient is still held, now with a code that says why.
+        var refs =
+                List.of(
+                        new CdsExportRetainedIndexDto.Reference("measurements", "7", "a".repeat(64)),
+                        new CdsExportRetainedIndexDto.Reference(
+                                "measurementsExt", "20", "b".repeat(64)));
+        var current = new HashMap<String, CdsExportCapturedTextRowDto>();
+        assertThat(CdsExportCareOccurrenceService.importedObservationDeleted(refs, current))
+                .isFalse();
+        var deleted = new HashMap<String, String>();
+        deleted.put("id", "40");
+        deleted.put("originalId", "7");
+        deleted.put("demographicNo", "27");
+        current.put(
+                "measurementsDeleted:40",
+                new CdsExportCapturedTextRowDto(
+                        "measurementsDeleted", CdsExportPatientTableSourceReader.key(40), deleted));
+        assertThat(CdsExportCareOccurrenceService.importedObservationDeleted(refs, current))
+                .isTrue();
+        current.put(
+                "measurements:7",
+                new CdsExportCapturedTextRowDto(
+                        "measurements",
+                        CdsExportPatientTableSourceReader.key(7),
+                        new HashMap<>(observation)));
+        assertThat(CdsExportCareOccurrenceService.importedObservationDeleted(refs, current))
+                .isFalse();
+        assertThat(CdsExportCareOccurrenceService.importedObservationDeleted(null, current))
+                .isFalse();
+    }
 }

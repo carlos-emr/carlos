@@ -212,9 +212,18 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         for (var child : children.entrySet())
                             if (child.getValue().getFirst().equals(address)) {
                                 control.checkpoint();
-                                if (!childDone.add(child.getKey())
-                                        || !checked.unchangedUnits().contains(child.getKey()))
+                                if (!childDone.add(child.getKey())) review();
+                                if (!checked.unchangedUnits().contains(child.getKey())) {
+                                    // No UI edits a measurement in place; a clinician corrects
+                                    // an imported one by deleting it. Its retained source would
+                                    // present the deleted value as current, so the chart is held
+                                    // with a code that says why.
+                                    if (importedObservationDeleted(
+                                            index.references().get(child.getKey()), current))
+                                        throw new CdsExportMappingReviewException(
+                                                "CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED");
                                     review();
+                                }
                                 var unit = units.get(child.getKey());
                                 var info = unit.fields();
                                 if (!Objects.equals(
@@ -744,6 +753,24 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                 throw new CdsExportMappingReviewException(
                         "CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS");
         }
+    }
+
+    /**
+     * True when an imported care child's observation is no longer a current measurement but a
+     * captured measurementsDeleted row carries its id as originalId.
+     */
+    static boolean importedObservationDeleted(
+            List<CdsExportRetainedIndexDto.Reference> refs,
+            Map<String, CdsExportCapturedTextRowDto> current) {
+        if (refs == null) return false;
+        for (var ref : refs) {
+            if (!ref.table().equals("measurements")
+                    || current.containsKey(key("measurements", ref.id()))) continue;
+            for (var row : current.values())
+                if (row.table().equals("measurementsDeleted")
+                        && ref.id().equals(row.fields().get("originalId"))) return true;
+        }
+        return false;
     }
 
     private static List<CdsExportCapturedTextRowDto> retiredRows(

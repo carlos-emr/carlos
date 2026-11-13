@@ -121,7 +121,12 @@ and of those extensions gets the `DELETED_OR_SUPERSEDED_OBSERVATION_VERSION` dis
 are accounted, never an expected occurrence, and no reason to hold the patient, and they need no
 NewCategory selection. An extension whose id names both a current and a deleted observation, or
 two deleted ones, holds the patient (`CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS`); an
-original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`).
+original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`). No CARLOS screen
+edits a measurement in place, so a clinician corrects an imported care value by deleting it; the
+imported CareElements parent is written from its retained source, which would present the deleted
+value as current, so that patient is held with
+`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED` (other changes to an imported observation
+still hold it as `CDS_EXPORT_UNMAPPED_DATA`).
 
 An HL7 result that `Hl7textResultsData.fileMeasurements` filed as a measurement (one row per
 OBX with `lab_no`, test name, abnormal flag, lab, accession, range and blocked extensions) is a

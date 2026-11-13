@@ -242,6 +242,12 @@ A single chart with more measurements than one export holds
 is held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are
 still exported.
 
+A care value that came from an earlier CDS import and was later deleted in the
+chart holds the patient (`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED`):
+the import's original element would present the deleted value as current. Review
+the chart; exporting it requires a maintainer decision on how the corrected value
+should travel.
+
 Every chart the export read is in the normal chart audit (`log`): an `EXPORT`
 row for each patient of a prepared package, and a `read` row marked
 `CDS_EXPORT_CHART_ACCESS ... outcome=HELD` for a held patient or `outcome=STOPPED`
