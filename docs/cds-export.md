@@ -67,7 +67,10 @@ a PDF "CARLOS data summary" that lists every stored field of the record and its 
 the exact value. The 37 tables ruled `LISTED` belong to removed features: they are never read or
 exported and never hold a patient; the encrypted ReadMe names each table and the number of the
 patient's rows in it (and, for listed tables with no patient link, the number of rows for the whole
-job). See [Data summaries and listed tables](#data-summaries-and-listed-tables).
+job). See [Data summaries and listed tables](#data-summaries-and-listed-tables). Each eForm the
+chart lists also travels as the form itself, rendered at export time beside its data summary;
+removed and patient-independent eForms are counted, not exported (see
+[eForms: the rendered form beside the data summary](#eforms-the-rendered-form-beside-the-data-summary)).
 
 Native vaccines are exported as Immunizations exactly as the prevention form records them. The
 name is the recorded brand name, or the configured prevention type when the name is blank;
@@ -776,6 +779,92 @@ Report classes chosen (a maintainer decision, recorded per kind in the registry)
 for consultation responses; Other Letter for consultation requests, e-mails, faxes and messages;
 Lab Report for the legacy laboratory reports and their requisition links; Medical Records Report
 for every other kind.
+
+### eForms: the rendered form beside the data summary
+
+Plan item 2.5, under the maintainer's decision that every current eForm instance of a patient is
+exported and that a patient with eForms is never refused or held for them.
+
+**Which eForms.** The eForms the chart lists: `eform_data` rows of the patient with `status` not 0
+and `patient_independent` 0, the rows `EFormDataDao.findByDemographicIdCurrent(patient, true)`
+shows. Each keeps its data summary (Kind `EFORM`, the lossless record of every stored value) and
+gains a second Reports entry holding the form as CARLOS displays it. A removed instance (`status`
+0: deleted, or the earlier version an edit replaced) and a patient-independent instance are not
+exported by either path (`CdsExportDataSummaryOccurrenceService.withheld`): the record and the
+rows that belong to it (`eform_values`, `EFormDocs`) are still captured, every field is assessed
+`OPERATIONAL` under `CARLOS_EFORM_REMOVED_NOT_EXPORTED` or
+`CARLOS_EFORM_PATIENT_INDEPENDENT_NOT_EXPORTED` and validated, no receipt or identity is made, and
+the ReadMe counts them per patient as `Patient records not exported: <label>: <n>`
+(`CdsExportPatientSummaryDto.notExported`, written by `CdsExportSupportingFilesComposer` and
+re-read by `CdsExportSupportingFilesValidator`). Before this change such rows were exported as
+data summaries. A child row whose eForm is not in the chart still becomes its own record, as for
+every data-summary kind.
+
+**Capture.** The rendered forms are the synthetic Reports table `native_eform_renderings`
+(`CdsExportEformRenderingSourceReader`, schema `TRUSTED_EFORM_RENDERINGS`, in `requiredScopes`):
+one row per listed eForm with `fdid`, `outcome` (`RENDERED` or `UNAVAILABLE`), `reason` (empty or a
+`CdsExportEformRenderService.Reason` code), the saving provider's `author_first_name` and
+`author_last_name`, and `content` (the PDF, or empty). A browser render takes seconds and reads the
+eForm through the web application, so it cannot run inside the capture's repeatable-read snapshot.
+`forCapture` therefore renders before the source transaction, and the PDF goes straight to a new
+capture spool (`CdsExportNativeSourceReader.Spool`): members encrypted under the job's staging key,
+readable only by that capture, never published and erased when the capture ends, successful or not
+(`CdsExportNativeCaptureService`). Rendered bytes are never held in heap. Inside the snapshot the
+listed eForms are read again (`CdsExportEformRenderReadDao`): a render is captured only when the
+row's digest (every stored column a render reads, the form HTML through its SHA-256, SQL NULL
+distinct from empty) equals the digest it was rendered from. An eForm edited, replaced or added in
+between is captured as `CHANGED`.
+
+**Rendering.** `CdsExportEformRenderService` calls `EFormBrowserPdfService.renderSavedEformPdf`
+with no approval: an omission the renderer would deliver only after a clinician's exact approval
+makes the render `INCOMPLETE`; nothing is ever approved for the export. The identity is the job's
+effective provider from `CdsExportRunControl.authorizeRendering` (the same fresh Reports and chart
+checks as every other read, `CdsExportAccessService.requireEformRendering`), re-obtained for every
+render; the renderer checks `_eform` again and never runs as a system identity. Throttle: one export
+render at a time per JVM (a fair semaphore; the renderer has two global slots, so a clinician's
+print or fax keeps one), at least `cds.export.eformRenderIntervalMillis` apart (default 250 ms).
+Each render is bounded by the renderer's deadlines (slot wait 30 s, browser start 30 s, render
+90 s); three consecutive browser failures or timeouts open a five-minute breaker
+(`RENDERER_UNAVAILABLE`). Each attempt is timed, and a PHI-free line per chart records counts and
+times (`CDS_EXPORT_EFORM_RENDERS`). A capacity refusal is `RENDERER_BUSY`, a larger PDF than
+`cds.export.maxDocumentBytes` `TOO_LARGE`, a process without the renderer bean (the command line)
+`NOT_IN_THIS_PROCESS`. Only a `SecurityException` (changed authorization), cancellation and a
+spool write failure leave the render path, as on every other export path. A render without a
+request derives its base URL from Tomcat's connector (see `docs/eform-browser-pdf-renderer.md`,
+"Base URL for renders without a request").
+
+**Emission.** `CdsExportDataSummaryOccurrenceService.append` reads the captured outcomes
+(`CdsExportEformRenderings`) and requires one per listed eForm and none for anything else
+(`CDS_EXPORT_EFORM_RENDERING_SCOPE_INVALID`). A rendered eForm emits, after its data summary, a
+Reports entry with its own identity (`carlos-native-occurrence-v1` over `native_eform_renderings`
+and the fdid): Media Download, Format Binary, FileExtensionAndVersion pdf, FilePath of an attachment
+copied from the authenticated capture into encrypted staging, Class `Medical Records Report`,
+SubClass the form name when it fits the 60-character SubClass (else `eForm`), EventDateTime the
+form date and time at their true precision, SourceAuthorPhysician/AuthorName the saving provider
+when both names are present, and Notes stating it is the form as CARLOS displays it, plus the
+eForm's "additional information" (subject). Its receipt assesses the eForm row and the render
+outcome row: `form_data` and `content` `MAPPED` to `Reports/FilePath`, the name, subject, date,
+time and provider `MAPPED` to the elements above when written, everything else `OPERATIONAL`
+(`CARLOS_EFORM_VALUE_IN_DATA_SUMMARY`, `CARLOS_EFORM_RENDER_OUTCOME`). An unavailable render adds
+to the eForm's data summary, in Notes and as a paragraph under the summary's statement, "The eForm
+as CARLOS displays it could not be rendered for this export (<reason>), so this data summary is its
+only Report."; the outcome row joins that receipt with `reason` `MAPPED` to `Reports/Notes`. The
+inventory expects the second identity for every captured rendered form. A job accepted before this
+table existed has no renderings and keeps the data summaries alone.
+
+**Authorization.** Reports now also require `_eform` read, by name at admission and for each
+patient, like `_dxresearch` with ProblemList (`CdsExportAccessService.EFORM_READ`): Reports carry
+every eForm's values and form, so a provider without the eForm screen's read right cannot export
+them.
+
+**Command line.** The CLI JVM has no Tomcat and no renderer: render tokens live in the web JVM's
+`EFormRenderTokenService`. A foreground `export` or `resume` of a job that selects Reports
+(`CdsExportService.rendererHandoffMillis`) first leaves the durable job to the web dispatcher, which
+discovers queued jobs every five seconds, and only polls its status; it prints `HANDOFF`. If the job
+stays unclaimed for `cds.export.cliRendererHandoffSeconds` (default 120), the CLI prints
+`HANDOFF_FALLBACK` and runs it itself; every eForm then carries the `NOT_IN_THIS_PROCESS` note. A
+job the web worker owns is never claimed by the CLI while its lease lives; an expired lease makes it
+unclaimed again. Detached submissions always leave the job to the web worker.
 
 ### Legacy records of older releases
 
@@ -1835,7 +1924,10 @@ actor identity is not a saved permission grant. Status, cancel, resume, history,
 reports and protected download must survive restart.
 
 Foreground CLI execution uses the same engine with both background dispatchers
-disabled in its dedicated Spring context. Detached submission must report
+disabled in its dedicated Spring context. A job that selects Reports is first left to
+the online web worker, which renders eForms, and run by the CLI only when no worker
+claims it within `cds.export.cliRendererHandoffSeconds` (see "eForms: the rendered
+form beside the data summary"). Detached submission must report
 waiting if no compatible persistent worker is available. Stopping a foreground
 wait is distinct from cancelling the job. The same submission identity recovers
 the original run after a lost acknowledgment.

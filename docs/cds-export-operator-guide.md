@@ -33,8 +33,10 @@ XML validation does not establish clinical completeness or OntarioMD certificati
    permission; it preserves an existing customized grant/denial on replay.
    A saved job ID or Unix root identity does not replace clinical authorization.
    Selecting Laboratory Results also requires read access to `_lab_sensitive`,
-   which no role receives by default, and selecting ProblemList requires read
-   access to `_dxresearch` (the Disease Registry). Admission checks every selected category's
+   which no role receives by default, selecting ProblemList requires read
+   access to `_dxresearch` (the Disease Registry), and selecting Reports requires read
+   access to `_eform` (Reports carry every eForm of the chart; the doctor role has it by
+   default). Admission checks every selected category's
    role-level right and refuses a missing one by name (CLI exit 3, browser
    "Export refused" notice naming the right) before anything is accepted.
 4. Configure `cds.export.clinicalZone` explicitly and consistently with the clinic
@@ -436,6 +438,25 @@ Rourke visits, for example) export in full. Only a chart with more than 100,000
 rows or 400,000 fields in one such table, or whose summary cannot be printed
 completely, is held with a `CDS_EXPORT_DATA_SUMMARY_*` code.
 
+eForms get more than a data summary. Every eForm the chart lists also travels as the
+form itself: a second Reports entry holding a PDF of the saved eForm as CARLOS displays
+it (SubClass the form name, the form's date, the provider who saved it as author, and
+the "additional information" in Notes), rendered when the export runs by the same
+Chromium renderer that prints and faxes eForms. The data summary stays: it is the
+record of every stored value. A render never holds a patient. When the form cannot be
+rendered completely, its data summary carries a short note saying so and why (the
+renderer could not show all of the form's content, rendering timed out, the rendering
+browser failed or was unavailable, the eForm changed while the export ran, the
+rendered form was too large, or the export ran outside the web application); the
+export never approves an incomplete form the way a clinician can when printing. eForms
+the chart no longer lists (deleted, or replaced by an edit) and patient-independent
+eForms are not exported; the ReadMe counts them per patient as "Patient records not
+exported".
+
+Rendering needs the web application's renderer (see "eForm rendering" below), so
+browser-submitted exports render eForms and command-line exports hand their job to the
+web application when it is running.
+
 Records written by older OSCAR releases, which installations upgraded from them still
 hold, travel the same way instead of holding the patient:
 
@@ -496,6 +517,37 @@ table, a local backup copy) do not block an export. They are listed by name and
 estimated row count in the package ReadMe and in a protected log line
 (`CDS_EXPORT_UNREVIEWED_LOCAL_TABLES`), and their contents are not exported. The
 package-created `_carlos_demo_seed_complete` marker is ruled local operational.
+
+### eForm rendering
+
+The export renders eForms in the web application, through the eForm renderer of
+`docs/eform-browser-pdf-renderer.md` (on the packaged install the
+`carlos-emr-render-browser` service). Check it with the renderer's startup probe in the
+application log before a large export. Renders run one at a time, so a clinician's print
+or fax always keeps the renderer's other slot; each takes a few seconds and is bounded
+by the renderer's own limits (30 seconds to wait for a slot, 30 to start the browser,
+90 to render). After three browser failures or timeouts in a row the export stops
+asking the renderer for five minutes and those eForms carry the "could not be rendered"
+note. The application log records, for each chart with eForms, one line
+`CDS_EXPORT_EFORM_RENDERS rendered=<n> unavailable=<n> renderMs=<total> longestMs=<max>`
+(counts and times only).
+
+| Property | Default | Meaning |
+| --- | --- | --- |
+| `cds.export.eformRenderIntervalMillis` | `250` | Pause between two export renders (0 to 60000). |
+| `cds.export.maxDocumentBytes` | 1 GiB | Also bounds one rendered eForm; a larger one is noted, not held. |
+| `cds.export.cliRendererHandoffSeconds` | `120` | How long a foreground command-line export that selects Reports leaves its job to the web application before running it itself (0 to 86400; 0 never hands off). |
+| `eform_pdf_browser_base_url` | derived | Where the renderer reaches the application. A render without a request uses `http://127.0.0.1:<port>/<context>` from Tomcat's single plain-HTTP connector (18080 on the packaged install); set it when Tomcat has several plain connectors or only TLS. |
+
+The command-line process cannot render. A foreground `--export` or `--resume` that
+selects Reports prints `{"event":"HANDOFF",...}` and waits while the running web
+application claims the job (it looks for queued jobs every few seconds) and exports it,
+eForms rendered. If no web application claims the job within
+`cds.export.cliRendererHandoffSeconds` (the web application is stopped, export is
+disabled there, or it is busy with another export), the command prints
+`{"event":"HANDOFF_FALLBACK",...}` and exports the job itself: every eForm is still in
+the package through its data summary, noted "the export ran outside the web
+application". `--detach` always leaves the job to the web application.
 
 ## Receive and decrypt the package
 
