@@ -154,7 +154,10 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 () ->
                         new JpaTransactionManager(
                                 context.getBean(jakarta.persistence.EntityManagerFactory.class)));
-        context.register(CdsExportSourceCatalogueDao.class, CdsExportDataSummaryReadDao.class);
+        context.register(
+                CdsExportSourceCatalogueDao.class,
+                CdsExportDataSummaryReadDao.class,
+                io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.class);
         context.refresh();
         catalogue = context.getBean(CdsExportSourceCatalogueDao.class);
         summaries = context.getBean(CdsExportDataSummaryReadDao.class);
@@ -219,8 +222,8 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 patient,
                 patient);
         sql.update(
-                "insert into formRourke2020(ID,demographic_no,formCreated,formEdited)"
-                        + " values(?,?,'2024-01-01',now())",
+                "insert into formRourke2020(ID,demographic_no,provider_no,formCreated,formEdited)"
+                        + " values(?,?,'999998','2024-01-01',now())",
                 patient,
                 patient);
         sql.update(
@@ -438,6 +441,37 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 .isEqualTo(Base64.getEncoder().encode(PNG));
 
         assertThat(emit(groups)).isEqualTo((long) groups.size());
+
+        // The current consultation request and Rourke 2020 revision also print as CARLOS prints
+        // them, from the captured rows and this installation's reference tables.
+        var references =
+                context.getBean(io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.class);
+        var demographic =
+                Map.of(
+                        "demographic_no", Integer.toString(patient),
+                        "last_name", "FIXTURE",
+                        "first_name", "SYNTHETIC",
+                        "year_of_birth", "2024",
+                        "month_of_birth", "01",
+                        "date_of_birth", "15");
+        var plan =
+                new CdsExportDataSummaryOccurrenceService.Plan(
+                        groups, CdsExportDataSummaryHtmlComposer.Patient.of(demographic), demographic);
+        var consultation = byKind.get(Kind.CONSULTATION_REQUEST).getFirst();
+        var letterComposer = new CdsExportConsultationLetterComposer(references);
+        assertThat(letterComposer.prints(consultation)).isTrue();
+        var letter = letterComposer.print(consultation, plan);
+        CdsExportDataSummaryPdfService.requirePdf(letter.pdf());
+        assertThat(letter.event().lexical()).isEqualTo("2024-07-08");
+        var chartComposer = new CdsExportRourkeChartComposer(references);
+        assertThat(chartComposer.prints(rourke)).isTrue();
+        var chart = chartComposer.print(rourke, plan);
+        CdsExportDataSummaryPdfService.requirePdf(chart.pdf());
+        assertThat(chart.event().lexical()).isEqualTo("2024-01-01");
+        assertThat(chart.subClass()).isEqualTo("Rourke Baby Record 2020");
+        try (var pdf = org.apache.pdfbox.Loader.loadPDF(chart.pdf())) {
+            assertThat(new org.apache.pdfbox.text.PDFTextStripper().getText(pdf)).contains("FIXTURE, SYNTHETIC");
+        }
 
         // The removed-feature record is listed for this chart and never refused; the unlinked one
         // is listed for the whole job.

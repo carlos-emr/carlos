@@ -189,7 +189,7 @@ final class CdsExportDataSummaryPlanner {
             return kind.label();
         }
 
-        /** The document title. */
+        /** The document title; a revision names its number and, when stored, when it was saved. */
         String title() {
             if (detached)
                 return "CARLOS data summary: " + kind.label() + " (" + table + " record)";
@@ -198,12 +198,37 @@ final class CdsExportDataSummaryPlanner {
                         + kind.label()
                         + " "
                         + table
-                        + " (revision "
-                        + revision
-                        + " of "
-                        + revisions
+                        + " ("
+                        + revisionLabel().substring(0, 1).toLowerCase(java.util.Locale.ROOT)
+                        + revisionLabel().substring(1)
                         + ")";
             return "CARLOS data summary: " + kind.label();
+        }
+
+        /**
+         * "Revision n of m", followed by ", saved <stored save time>" when the revision row holds a
+         * valid one, so a reader can tell the revisions of one form apart; empty for a record that
+         * is not a revision.
+         */
+        String revisionLabel() {
+            if (detached || revisions == 0) return "";
+            String saved = saved();
+            return "Revision " + revision + " of " + revisions + (saved == null ? "" : ", saved " + saved);
+        }
+
+        /**
+         * The stored time this revision was saved, as stored (a local wall-clock value), or null:
+         * {@code formEdited} of an encounter form, {@code timeStamp} of a legacy encounter and
+         * {@code save_date} of an immunization schedule.
+         */
+        String saved() {
+            if (rows.isEmpty()) return null;
+            String value = rows.getFirst().text(SAVED.getOrDefault(table, "formEdited"));
+            if (value == null
+                    || !value.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(?: [0-9]{2}:[0-9]{2}:[0-9]{2})?(?:\\.[0-9]{1,6})?")
+                    || value.startsWith("0000"))
+                return null;
+            return value.length() > 19 ? value.substring(0, 19) : value;
         }
 
         boolean hasImage() {
@@ -222,6 +247,9 @@ final class CdsExportDataSummaryPlanner {
             return "CdsExportDataSummaryPlanner.Group[protected]";
         }
     }
+
+    /** The save-time column of the revisioned tables that do not use {@code formEdited}. */
+    private static final Map<String, String> SAVED = Map.of("eChart", "timeStamp", "immunizations", "save_date");
 
     private CdsExportDataSummaryPlanner() {}
 

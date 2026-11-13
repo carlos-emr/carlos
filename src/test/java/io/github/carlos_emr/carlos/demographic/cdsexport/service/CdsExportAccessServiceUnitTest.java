@@ -305,6 +305,34 @@ class CdsExportAccessServiceUnitTest {
     }
 
     @Test
+    void shouldAnswerARecordObjectCheck_byRoleAndPatientRightsOfEveryIdentity() {
+        var command =
+                new CdsExportCommand(
+                        "record-rights",
+                        "100",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        java.util.Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS),
+                        "recipient",
+                        "audit");
+        var actor = access.webActor(session, command);
+        assertThat(access.canReadRecordObject(actor, command, 27, "_con")).isTrue();
+        // A missing patient-level form right leaves the record as its data summary: false, not denied.
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_form"), eq("r"), eq("27"))).thenReturn(false);
+        assertThat(access.canReadRecordObject(actor, command, 27, "_form")).isFalse();
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_con"), eq("r"), isNull())).thenReturn(false);
+        assertThat(access.canReadRecordObject(actor, command, 27, "_con")).isFalse();
+        // Only the reviewed record objects are answered, and Reports must be selected.
+        assertThatThrownBy(() -> access.canReadRecordObject(actor, command, 27, "_admin"))
+                .isInstanceOf(SecurityException.class);
+        assertThatThrownBy(() -> access.canReadRecordObject(actor, noteCommand("100"), 27, "_con"))
+                .isInstanceOf(SecurityException.class);
+    }
+
+    @Test
     void shouldAuthorizeAll8192ExactNoteScopes_withOneIdentityAndOneSharedProgramGrant() {
         var command = noteCommand("100");
         var actor = access.webActor(session, command);

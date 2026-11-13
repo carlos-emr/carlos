@@ -292,8 +292,13 @@ class CdsExportDataSummaryPlannerUnitTest {
                         "immunizations revision 1 of 1",
                         "Patient relationship");
         assertThat(groups.get(1).id()).isEqualTo("4");
-        assertThat(groups.get(1).title()).isEqualTo("CARLOS data summary: Legacy encounter eChart (revision 1 of 2)");
+        assertThat(groups.get(1).title())
+                .isEqualTo("CARLOS data summary: Legacy encounter eChart (revision 1 of 2, saved 2005-01-02 10:00:00)");
+        assertThat(groups.get(1).revisionLabel()).isEqualTo("Revision 1 of 2, saved 2005-01-02 10:00:00");
+        assertThat(groups.get(2).revisionLabel()).isEqualTo("Revision 2 of 2, saved 2005-06-07 10:00:00");
         assertThat(groups.get(3).kind()).isEqualTo(Kind.IMMUNIZATION_SCHEDULE);
+        assertThat(groups.get(3).revisionLabel()).isEqualTo("Revision 1 of 1, saved 2003-04-05");
+        assertThat(groups.get(4).revisionLabel()).isEmpty();
         assertThat(groups.get(4).event()).isNull();
     }
 

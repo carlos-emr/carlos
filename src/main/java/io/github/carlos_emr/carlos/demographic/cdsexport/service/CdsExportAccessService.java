@@ -308,6 +308,33 @@ public class CdsExportAccessService {
                                 current.operator().getLoggedInProviderNo(), (int) value));
     }
 
+    /** The record security objects a printed form may require ({@link #canReadRecordObject}). */
+    static final java.util.Set<String> RECORD_OBJECTS = java.util.Set.of("_con", "_form");
+
+    /**
+     * Fresh check that every current identity (the effective provider and any operator) may read
+     * a record's own security object for the patient, at role and patient level, after the
+     * ordinary Reports chart gates (which still throw). The chart requires it before it shows or
+     * prints a consultation ({@code _con}) or an encounter form ({@code _form}); a false answer
+     * leaves that record exported as its data summary only and grants nothing.
+     */
+    public boolean canReadRecordObject(
+            CdsExportActorDto actor, CdsExportCommand command, int patient, String object) {
+        if (object == null
+                || !RECORD_OBJECTS.contains(object)
+                || command == null
+                || !command.categories().contains(CdsCategory.REPORTS)) deny();
+        CurrentIdentity current = chartIdentity(actor, command, patient, CdsCategory.REPORTS);
+        for (var context :
+                current.operator() == null
+                        ? java.util.List.of(current.effective())
+                        : java.util.List.of(current.effective(), current.operator()))
+            if (!security.hasPrivilegeReadOnly(context, object, "r", null)
+                    || !security.hasPrivilegeReadOnly(context, object, "r", Integer.toString(patient)))
+                return false;
+        return true;
+    }
+
     /**
      * Complete issue/catalogue reads use the live chart gate even for a patient with no native
      * notes.

@@ -69,6 +69,17 @@ public interface CdsExportRunControl {
         return false;
     }
 
+    /**
+     * Fresh check that every current identity may read the record's own security object for the
+     * patient (consultations {@code _con}, encounter forms {@code _form}), as the chart requires
+     * before it shows or prints that record. Only the clinician's printed form of a record
+     * depends on it: false leaves the record exported as its data summary and never grants
+     * anything, so an adapter without this check stays fail-closed.
+     */
+    default boolean recordReadable(int patient, String object) {
+        return false;
+    }
+
     /** One bounded patient batch; adapters may share only this fresh authorization transaction. */
     default void authorizeNotes(
             CdsCategory category,

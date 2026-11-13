@@ -829,8 +829,8 @@ summary states that a value is held and withheld and never prints it or its leng
 that it has a page. A render that fails, prints replacement glyphs, or loses an embedded photo or
 signature holds the patient (`CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED` /
 `CDS_EXPORT_DATA_SUMMARY_RENDER_INCOMPLETE`). `CdsExportDataSummaryOccurrenceService.Renderer` is
-the per-kind seam for a faithful rendering (eForm, consultation letter, Rourke chart) that can
-replace the data summary of one kind without changing capture or emission.
+the per-kind seam for a rendering that replaces the data summary of one kind without changing
+capture or emission; the printed forms below are added beside the summary instead.
 
 **Emission.** `CdsExportDataSummaryOccurrenceService` emits each record after the native and
 imported documents, in the Reports source scope: Media `Download`, Format `Binary`,
@@ -941,6 +941,78 @@ stays unclaimed for `cds.export.cliRendererHandoffSeconds` (default 120), the CL
 `HANDOFF_FALLBACK` and runs it itself; every eForm then carries the `NOT_IN_THIS_PROCESS` note. A
 job the web worker owns is never claimed by the CLI while its lease lives; an expired lease makes it
 unclaimed again. Detached submissions always leave the job to the web worker.
+
+**Revision labels.** A revisioned record (every encounter-form table, the legacy eChart and the
+encounter immunization schedule) keeps SubClass "<table> revision n of m" (60 characters at most);
+its PDF title and its Notes add the stored save time, "Revision n of m, saved <time>"
+(`formEdited`, `timeStamp` or `save_date` as stored, a local wall-clock value), so revisions of
+one form can be told apart. A revision whose save time is absent or zero is labelled without it.
+
+**Printed forms beside data summaries.** A `CdsExportDataSummaryOccurrenceService.Printer` adds the
+record as CARLOS EMR prints it as a second Reports entry, after the record's data summary, which
+stays the lossless accounting. Two printers are registered (web context by component scan, CLI in
+`CdsExportCliSpringConfiguration`):
+
+- `CdsExportConsultationLetterComposer` prints every consultation request (`consultationRequests`
+  root, not detached) through `ConsultationPDFCreator`'s request-free path
+  (`ConsultationPDFCreator(ConsultationLetterDto, OutputStream)` and `printLetter()`). The
+  request's own values come from the captured request row, its `letterheadTitle` extension and the
+  captured demographic row; the reference values the chart's Print looks up (clinic letterhead,
+  consultation service, specialist directory, provider names and billing numbers, program name,
+  appointment-instruction label and the patient's current `demo_cell`) are read by
+  `CdsExportPrintedFormReadDao` in a short read-only transaction. The stored signature is the
+  patient's captured `DigitalSignature` row the request names; the logo is the configured
+  `faxLogoInConsultation` file. When either is requested but cannot be included, `printLetter()`
+  reports it (`ConsultationPDFCreator.Omission`) and both Notes say `SIGNATURE_UNAVAILABLE` /
+  `LOGO_UNAVAILABLE`: nothing is substituted. A request whose consultant is a health-care-team
+  contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) is
+  refused with `CONSULTANT_CONTACT_UNSUPPORTED`. The letter prints only part of the record (not the
+  other extension rows, attachment references, status or source); the request's data summary
+  already lists every one of its rows and values, so no further supplementary summary is needed.
+  The request path is pinned by
+  `ConsultationPDFCreatorRequestPathUnitTest` (page text, drawing instructions and images) and
+  prints exactly as before: it resolves the same letter with the same lookups.
+- `CdsExportRourkeChartComposer` prints the current (latest saved) `formRourke2017` or
+  `formRourke2020` revision through the form's fixed Jasper pages (`Rourke2017PdfReport`,
+  `Rourke2020PdfReport`; bundled DejaVu fonts only, a character DejaVu lacks or clipped text refuses
+  the PDF). The captured revision row is read into the form's own entity (every persistent field
+  from its stored column; a missing column refuses with `FORM_MAPPING_MISMATCH`) with its captured
+  `form_boolean_value` rows, so `toProperties()` fills the pages exactly as the clinician's print
+  does; the child's name, date of birth, gestational age and FSA come from the captured demographic
+  row as `FrmRourke2017Record`/`FrmRourke2020Record` set them. Text with no stored value prints
+  blank and a checkbox with no stored value prints as an empty box (the 2020 form's own properties
+  cannot hold either); the data summary still shows SQL NULL.
+
+A printed entry is expected and emitted only when `CdsExportRunControl.recordReadable` answers that
+every current identity holds the record's read object (`_con`, `_form`) at role and patient level
+(`CdsExportAccessService.canReadRecordObject`, after the ordinary Reports chart gates). Its
+Reports content, in schema order, is Media `Download`, Format `Binary`, FileExtensionAndVersion
+`pdf`, FilePath (staged as `REPORT_ATTACHMENT` under `Reports/`), the kind's Class, the printer's
+SubClass, EventDateTime from the record's own date (`referalDate`, `formCreated`),
+SourceAuthorPhysician/AuthorFreeText with the record's provider ("LAST, FIRST") and Notes beginning
+"CARLOS printed form:". Its receipt assesses the stored values it used for that metadata `MAPPED`
+to their element under `CARLOS_PRINTED_FORM_METADATA`; every field stays accounted by the data
+summary's own receipt as well. Its identity is `carlos-printed-form-occurrence-v1` over the table
+and record id.
+
+A printed form that cannot be made never holds the patient: the record is exported as its data
+summary, whose Notes end with "could not be produced (<category>)". Categories are fixed codes
+(`NOT_AUTHORIZED`, `TEXT_OVERFLOW`, `UNSUPPORTED_CHARACTER`, `FONT_UNAVAILABLE`,
+`FORM_MAPPING_MISMATCH`, `CONSULTANT_CONTACT_UNSUPPORTED`, `RENDER_FAILED`), never PHI. The
+inventory (`identities`) prints each eligible record to decide whether its printed entry is
+expected; the emission prints it again. Both printers are functions of the captured record and
+the reference values, so they reach the same answer; an answer that differs between the two
+(access revoked mid-export, an infrastructure fault) fails the patient's document like any other
+inventory/emission mismatch. The package ReadMe counts data summaries only.
+
+`CdsExportPrintedPdf` makes the printed PDF reproducible: OpenPDF (directly and inside Jasper)
+writes the current time as creation and modification dates, a time-based file identifier and a
+random six-letter tag on each font subset. The export removes the dates, derives the identifier
+from the table and record id, and renames the subset tags in file order, so an unchanged record
+gives the same bytes. The data summary PDF itself (`HtmlPdfRenderService`) is not normalized.
+
+Consultation responses, other encounter forms and every earlier form revision remain data
+summaries only.
 
 ### Legacy records of older releases
 

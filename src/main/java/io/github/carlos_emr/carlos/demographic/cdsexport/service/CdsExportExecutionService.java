@@ -385,6 +385,13 @@ public class CdsExportExecutionService {
         }
 
         @Override
+        public boolean recordReadable(int patient, String object) {
+            outsideCapture();
+            return access.canReadRecordObject(
+                    lease.document().actor(), lease.document().command(), patient, object);
+        }
+
+        @Override
         public void authorizeNotes(
                 CdsCategory category,
                 java.util.List<

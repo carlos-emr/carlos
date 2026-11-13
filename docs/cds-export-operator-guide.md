@@ -452,8 +452,37 @@ Reports is selected, each record is exported as a Reports entry holding a PDF
 with the exact value, clearly marked as not an original document. The one
 exception is the password and password hint of an encrypted e-mail: the summary
 says a value is held but never prints it. Each saved
-encounter form is one record, labelled "revision n of m". The ReadMe counts each
-patient's data summaries by kind. When Reports is not selected these records are
+encounter form is one record, labelled "revision n of m" (Notes and the summary
+title add "saved <time>" when the revision stores its save time). The ReadMe counts each
+patient's data summaries by kind.
+
+Two kinds of record also travel as the clinician prints them, as a second Reports
+entry beside their data summary (which stays the complete record):
+
+- each consultation request: the consultation letter CARLOS prints (Report class
+  Other Letter, SubClass "Consultation request letter", the referral date and the
+  referring provider);
+- the current (latest saved) Rourke Baby Record 2017 or 2020 revision: its four
+  printed pages (Report class Medical Records Report, SubClass "Rourke Baby Record
+  2017"/"2020", the form date and the form's provider). Earlier revisions stay data
+  summaries only.
+
+The printed entry is made only when the exporting provider (and the operator, for a
+delegated export) holds read rights on consultations (`_con`) or forms (`_form`) for
+the patient; without them the record still travels as its data summary. A printed
+form that cannot be produced never holds the patient: the data summary's Notes say
+"could not be produced" with a reason category (`NOT_AUTHORIZED`, `TEXT_OVERFLOW`,
+`UNSUPPORTED_CHARACTER`, `FONT_UNAVAILABLE`, `FORM_MAPPING_MISMATCH`,
+`CONSULTANT_CONTACT_UNSUPPORTED`, `RENDER_FAILED`), never a value. A consultation
+letter whose stored signature image or configured clinic logo
+(`faxLogoInConsultation`; the packaged sample path is not installed) cannot be read
+is still exported, without it, and both Notes say so (`SIGNATURE_UNAVAILABLE`,
+`LOGO_UNAVAILABLE`); nothing is substituted. A request whose consultant is a
+health-care-team contact rather than a directory specialist is not printed. The
+Rourke pages print in the bundled DejaVu fonts, but the Java runtime still needs
+its font libraries (freetype and fontconfig) and at least one installed system font
+to load them; a server image without fonts exports these records as data summaries
+with `FONT_UNAVAILABLE`. When Reports is not selected these records are
 not exported, like any other unselected category. Long form histories (years of
 Rourke visits, for example) export in full. Only a chart with more than 100,000
 rows or 400,000 fields in one such table, or whose summary cannot be printed

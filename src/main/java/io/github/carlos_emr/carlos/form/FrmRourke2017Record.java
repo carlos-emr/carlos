@@ -460,6 +460,14 @@ public class FrmRourke2017Record extends FrmRecord implements JasperReportPdfPri
     }
 
     private int calculateGestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
+        return gestationalAgeInWeeks(pregnancyStartDate, birthDate);
+    }
+
+    /**
+     * The gestational age the Rourke 2017 form prints, counted as this form always has: whole weeks
+     * from the start of gestation that end before the birth date, less one.
+     */
+    public static int gestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
 
         if (birthDate.before(pregnancyStartDate)) {
             return 0;

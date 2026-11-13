@@ -89,21 +89,39 @@ public final class Rourke2020PdfReport {
 
         public enum Reason { FONT_UNAVAILABLE, UNSUPPORTED_CHARACTER, TEXT_OVERFLOW }
 
+        private final Reason reason;
+
         public RenderingException(Reason reason) {
-            super(messageFor(reason));
+            this(reason, "Rourke 2020");
+        }
+
+        /** The same failure for another fixed Rourke edition ({@link Rourke2017PdfReport}). */
+        public RenderingException(Reason reason, String form) {
+            super(messageFor(reason, form));
+            this.reason = reason;
+        }
+
+        /** Why nothing was printed; a fixed category that never carries record values. */
+        public Reason reason() {
+            return reason;
         }
 
         // PMD 7.13 cannot parse a switch expression directly inside super(...).
-        private static String messageFor(Reason reason) {
+        private static String messageFor(Reason reason, String form) {
             return switch (reason) {
-                case FONT_UNAVAILABLE -> "Rourke 2020 PDF font unavailable. Ask your administrator to restore "
+                case FONT_UNAVAILABLE -> form + " PDF font unavailable. Ask your administrator to restore "
                         + "the bundled DejaVu report fonts and retry.";
-                case UNSUPPORTED_CHARACTER -> "Rourke 2020 PDF cannot display one or more entered characters with DejaVu. "
+                case UNSUPPORTED_CHARACTER -> form + " PDF cannot display one or more entered characters with DejaVu. "
                         + "Ask your administrator for assistance; no PDF was generated.";
-                case TEXT_OVERFLOW -> "Rourke 2020 PDF text does not fit a form field. "
+                case TEXT_OVERFLOW -> form + " PDF text does not fit a form field. "
                         + "Ask your administrator to review the report layout; no PDF was generated.";
             };
         }
+    }
+
+    /** The report context both fixed Rourke editions print in: a missing font is an error. */
+    static JasperReportsContext context() {
+        return REPORT_CONTEXT;
     }
 
     private static JasperReportsContext reportContext() {
@@ -147,60 +165,71 @@ public final class Rourke2020PdfReport {
     }
 
     private static FontFamily fontFamily() {
+        return fontFamily("Rourke 2020");
+    }
+
+    /** The bundled DejaVu family, or {@code FONT_UNAVAILABLE} naming {@code form}. */
+    static FontFamily fontFamily(String form) {
         try {
-            return loadFontFamily();
+            return loadFontFamily(form);
         } catch (RenderingException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+            throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
         }
     }
 
-    private static FontFamily loadFontFamily() {
+    private static FontFamily loadFontFamily(String form) {
         FontInfo info = FontUtil.getInstance(REPORT_CONTEXT).getFontInfo(FONT_NAME, Locale.ROOT);
-        if (info == null) throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+        if (info == null) throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
         FontFamily family = info.getFontFamily();
         if (!"Identity-H".equals(family.getPdfEncoding()) || !Boolean.TRUE.equals(family.isPdfEmbedded())) {
-            throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+            throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
         }
         FontFace[] faces = {family.getNormalFace(), family.getBoldFace(),
                 family.getItalicFace(), family.getBoldItalicFace()};
         for (FontFace face : faces) {
             // Require the classpath extension even if the OS happens to install the same family.
             if (face == null || face.getTtf() == null || !face.getTtf().startsWith("net/sf/jasperreports/fonts/dejavu/")) {
-                throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+                throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
             }
-            if (face.getFont() == null) throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+            if (face.getFont() == null) throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
         }
         return family;
     }
 
     private static JasperPrint fill(JasperReport report, Map<String, Object> parameters, FontFamily family)
             throws JRException {
+        return fill(report, parameters, family, "Rourke 2020");
+    }
+
+    /** Fills one page and refuses it when any text would print in another face, lose a character or clip. */
+    static JasperPrint fill(JasperReport report, Map<String, Object> parameters, FontFamily family, String form)
+            throws JRException {
         JasperPrint print = JasperFillManager.getInstance(REPORT_CONTEXT)
                 .fill(report, parameters, new JREmptyDataSource());
-        for (var page : print.getPages()) validateText(page.getElements(), family);
+        for (var page : print.getPages()) validateText(page.getElements(), family, form);
         return print;
     }
 
-    private static void validateText(List<JRPrintElement> elements, FontFamily family) {
+    private static void validateText(List<JRPrintElement> elements, FontFamily family, String form) {
         for (JRPrintElement element : elements) {
-            if (element instanceof JRPrintFrame frame) validateText(frame.getElements(), family);
+            if (element instanceof JRPrintFrame frame) validateText(frame.getElements(), family, form);
             if (!(element instanceof JRPrintText text)) continue;
             String original = text.getOriginalText();
             if (original == null || original.isBlank()) continue;
             if (!FONT_NAME.equals(text.getFontName())) {
-                throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE);
+                throw new RenderingException(RenderingException.Reason.FONT_UNAVAILABLE, form);
             }
             Font font = text.isBold()
                     ? (text.isItalic() ? family.getBoldItalicFace() : family.getBoldFace()).getFont()
                     : (text.isItalic() ? family.getItalicFace() : family.getNormalFace()).getFont();
             if (original.codePoints().anyMatch(cp -> cp != '\n' && cp != '\r' && cp != '\t' && !font.canDisplay(cp))) {
-                throw new RenderingException(RenderingException.Reason.UNSUPPORTED_CHARACTER);
+                throw new RenderingException(RenderingException.Reason.UNSUPPORTED_CHARACTER, form);
             }
             Integer cut = text.getTextTruncateIndex();
             if ((cut != null && !original.substring(cut).isBlank()) || text.getFontSize() < MIN_FONT_SIZE) {
-                throw new RenderingException(RenderingException.Reason.TEXT_OVERFLOW);
+                throw new RenderingException(RenderingException.Reason.TEXT_OVERFLOW, form);
             }
         }
     }

@@ -195,6 +195,13 @@ public class CdsExportArtifactService {
                     }
 
                     @Override
+                    public boolean recordReadable(int patient, String object) {
+                        probe();
+                        return access.canReadRecordObject(
+                                actor, lease.document().command(), patient, object);
+                    }
+
+                    @Override
                     public void authorizeNotes(
                             CdsCategory category, java.util.List<CdsExportNoteAccessDto> notes) {
                         probe();

@@ -74,6 +74,10 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     io.github.carlos_emr.carlos.commn.dao.CdsExportEformRenderReadDao.class,
     CdsExportEformRenderService.class,
     CdsExportEformRenderingSourceReader.class,
+    // The clinician's printed consultation letters and Rourke charts beside their data summaries.
+    io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.class,
+    CdsExportConsultationLetterComposer.class,
+    CdsExportRourkeChartComposer.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportHospitalReportReadDao.class,
     CdsExportHospitalReportScopeSourceReader.class,
     CdsExportHospitalReportSourceReader.class,

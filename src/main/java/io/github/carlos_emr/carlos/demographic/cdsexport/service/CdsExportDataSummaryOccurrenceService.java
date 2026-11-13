@@ -31,6 +31,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPackageMemberDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientCaptureDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -59,8 +61,16 @@ import org.springframework.stereotype.Service;
  * credential is withheld and assessed OPERATIONAL) and checked by {@link
  * CdsExportNativeFieldAssessmentValidator}; the inventory, the emission and the package ReadMe use
  * the same deterministic plan. The document of a kind comes from a {@link Renderer}: the data
- * summary by default, and a faithful rendering (an eForm, a consultation letter, a Rourke chart)
- * can replace it for one kind without changing capture or emission.
+ * summary by default, and a faithful rendering can replace it for one kind without changing
+ * capture or emission.
+ *
+ * <p>A record a {@link Printer} prints (a current consultation request, the current Rourke 2017 or
+ * 2020 revision) also gets the clinician's own printed document as a second Reports entry beside
+ * its data summary, which stays the lossless accounting. The printed entry is made only when every
+ * current identity may read the record's own security object, and a printed form that cannot be
+ * produced never holds the patient: the data summary is exported with a note naming the reason
+ * category. A printer is a function of the captured record, so the inventory and the emission
+ * reach the same answer.
  *
  * <p>eForms (plan item 2.5). Only the eForms the chart lists are exported: a removed instance
  * (status 0: deleted, or replaced by an edit) or a patient-independent one is never a Reports
@@ -129,17 +139,118 @@ public class CdsExportDataSummaryOccurrenceService {
 
     static final String EFORM_TABLE = "eform_data";
 
+    /** The Notes of a printed form, followed by its own notes. */
+    static final String PRINTED_NOTES =
+            "CARLOS printed form: the attached PDF is this record as CARLOS EMR prints it, rendered"
+                    + " from the stored record when it was exported. The CARLOS data summary of the"
+                    + " same record lists every stored value.";
+
+    /** The assessment rule of a stored value a printed form uses as its Reports metadata. */
+    static final String PRINTED_METADATA_RULE = "CARLOS_PRINTED_FORM_METADATA";
+
+    /** The reason category recorded when the exporting identities may not read the record. */
+    static final String NOT_AUTHORIZED = "NOT_AUTHORIZED";
+
+    /** The reason category of any other printing failure. */
+    static final String RENDER_FAILED = "RENDER_FAILED";
+
+    /**
+     * The clinician's own printed document of a record, exported as its own Reports entry beside
+     * the record's data summary.
+     */
+    interface Printer {
+        /**
+         * True when this printer prints the record. It must depend on the captured record alone,
+         * so the inventory and the emission agree.
+         */
+        boolean prints(CdsExportDataSummaryPlanner.Group group);
+
+        /** The security object the chart requires to read the record. */
+        String readObject();
+
+        /**
+         * The printed record, rendered from the captured record and the reference values the
+         * chart's own Print uses; a deterministic function of them.
+         *
+         * @throws PrintRefusal when the record cannot be printed completely, with its category
+         */
+        Printed print(CdsExportDataSummaryPlanner.Group group, Plan plan) throws IOException;
+    }
+
+    /**
+     * A printed record: its PDF, its Reports SubClass, event date and author as the chart shows
+     * them, the root-row columns that supplied that metadata (column to Reports element) and
+     * sentences naming anything requested that it could not show (a signature, a logo).
+     */
+    record Printed(
+            byte[] pdf,
+            String subClass,
+            CdsExportDateDto event,
+            String author,
+            Map<String, String> metadata,
+            List<String> notes) {
+        Printed {
+            Objects.requireNonNull(pdf);
+            Objects.requireNonNull(subClass);
+            metadata = java.util.Collections.unmodifiableMap(new TreeMap<>(metadata));
+            notes = List.copyOf(notes);
+            if (subClass.isBlank() || subClass.length() > 60 || author != null && author.length() > 120)
+                throw new IllegalArgumentException("CDS_EXPORT_PRINTED_FORM_METADATA_INVALID");
+        }
+
+        Printed withPdf(byte[] bytes) {
+            return new Printed(bytes, subClass, event, author, metadata, notes);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportDataSummaryOccurrenceService.Printed[protected]";
+        }
+    }
+
+    /** A record that cannot be printed completely; the reason is a fixed category, never PHI. */
+    static final class PrintRefusal extends IOException {
+        private static final long serialVersionUID = 1L;
+        private final String reason;
+
+        PrintRefusal(String reason) {
+            super(reason);
+            if (reason == null || !reason.matches("[A-Z][A-Z_]{1,63}"))
+                throw new IllegalArgumentException("CDS_EXPORT_PRINTED_FORM_REASON_INVALID");
+            this.reason = reason;
+        }
+
+        String reason() {
+            return reason;
+        }
+    }
+
+    /** The printed form of one record, or why it could not be made. */
+    record PrintOutcome(Printed printed, String reason) {
+        @Override
+        public String toString() {
+            return "CdsExportDataSummaryOccurrenceService.PrintOutcome[protected]";
+        }
+    }
+
     private final CdsExportNativeCaptureService captures;
     private final CdsExportStagingFactory stores;
     private final Renderer summaries;
     private final Map<CdsExportDataSummaryRegistry.Kind, Renderer> renderings;
+    private final List<Printer> printers;
 
     @Autowired
     public CdsExportDataSummaryOccurrenceService(
             CdsExportNativeCaptureService captures,
             CdsExportStagingFactory stores,
-            CdsExportDataSummaryPdfService pdfs) {
-        this(captures, stores, Objects.requireNonNull(pdfs)::render, Map.of());
+            CdsExportDataSummaryPdfService pdfs,
+            ObjectProvider<Printer> printers) {
+        this(
+                captures,
+                stores,
+                Objects.requireNonNull(pdfs)::render,
+                Map.of(),
+                printers.orderedStream().toList());
     }
 
     CdsExportDataSummaryOccurrenceService(
@@ -147,31 +258,51 @@ public class CdsExportDataSummaryOccurrenceService {
             CdsExportStagingFactory stores,
             Renderer summaries,
             Map<CdsExportDataSummaryRegistry.Kind, Renderer> renderings) {
+        this(captures, stores, summaries, renderings, List.of());
+    }
+
+    CdsExportDataSummaryOccurrenceService(
+            CdsExportNativeCaptureService captures,
+            CdsExportStagingFactory stores,
+            Renderer summaries,
+            Map<CdsExportDataSummaryRegistry.Kind, Renderer> renderings,
+            List<Printer> printers) {
         this.captures = Objects.requireNonNull(captures);
         this.stores = Objects.requireNonNull(stores);
         this.summaries = Objects.requireNonNull(summaries);
         this.renderings = Map.copyOf(renderings);
+        this.printers = List.copyOf(printers);
     }
 
     /**
-     * The exported records, the captured records that are not exported, the patient header and,
-     * when asked for, each listed eForm's captured render outcome by eForm identity.
+     * The exported records, the captured records that are not exported, the patient header, the
+     * patient's captured demographic row (the printed forms show the patient as the chart does)
+     * and, when asked for, each listed eForm's captured render outcome by eForm identity.
      */
     record Plan(
             List<CdsExportDataSummaryPlanner.Group> groups,
             CdsExportDataSummaryHtmlComposer.Patient patient,
             List<Hidden> withheld,
-            Map<String, CdsExportEformRenderings.Rendering> renderings) {
+            Map<String, CdsExportEformRenderings.Rendering> renderings,
+            Map<String, String> demographic) {
         Plan {
             groups = List.copyOf(groups);
             withheld = List.copyOf(withheld);
             renderings = java.util.Collections.unmodifiableMap(new TreeMap<>(renderings));
+            demographic = java.util.Collections.unmodifiableMap(new java.util.HashMap<>(demographic));
         }
 
         Plan(
                 List<CdsExportDataSummaryPlanner.Group> groups,
                 CdsExportDataSummaryHtmlComposer.Patient patient) {
-            this(groups, patient, List.of(), Map.of());
+            this(groups, patient, List.of(), Map.of(), Map.of());
+        }
+
+        Plan(
+                List<CdsExportDataSummaryPlanner.Group> groups,
+                CdsExportDataSummaryHtmlComposer.Patient patient,
+                Map<String, String> demographic) {
+            this(groups, patient, List.of(), Map.of(), demographic);
         }
 
         @Override
@@ -233,7 +364,8 @@ public class CdsExportDataSummaryOccurrenceService {
                 exported,
                 CdsExportDataSummaryHtmlComposer.Patient.of(read.demographic()),
                 withheld,
-                renderings);
+                renderings,
+                read.demographic());
     }
 
     /**
@@ -293,7 +425,17 @@ public class CdsExportDataSummaryOccurrenceService {
             throws IOException {
         var result = new ArrayList<CdsExportIdentityDto>();
         var plan = plan(lease, patient, tables, source, bounds, control, true);
-        for (var group : plan.groups()) result.add(identity(patientKey, group));
+        for (var group : plan.groups()) {
+            control.checkpoint();
+            result.add(identity(patientKey, group));
+            // The printed form is expected only when it can be printed; the emission prints the
+            // same captured record again and reaches the same answer.
+            var outcome = printed(group, plan, patient.patient(), control);
+            if (outcome != null && outcome.printed() != null) {
+                result.add(printedIdentity(patientKey, group));
+                java.util.Arrays.fill(outcome.printed().pdf(), (byte) 0);
+            }
+        }
         // One more Reports entry for each listed eForm whose rendered form was captured.
         for (var rendering : plan.renderings().values())
             if (rendering.rendered()) result.add(renderedIdentity(patientKey, rendering.fdid()));
@@ -399,13 +541,16 @@ public class CdsExportDataSummaryOccurrenceService {
                 var assessments = new LinkedHashMap<>(assessments(group));
                 var rows = new ArrayList<CdsExportCapturedTextRowDto>();
                 for (var row : group.rows()) rows.add(row.assessed());
-                String notes = NOTES;
+                // The clinician's printed form of the record, when it has one; the summary says
+                // whether it was produced.
+                var outcome = printed(group, plan, patient.patient(), control);
+                String notes = notes(group, outcome);
                 var summary = group;
                 if (rendering != null && !rendering.rendered()) {
                     // The rendered form is unavailable: this summary says so, on the PDF and in
                     // Notes, with a fixed reason and never a patient value.
                     String note = unavailableNote(rendering.reason());
-                    notes = NOTES + " " + note;
+                    notes = notes + " " + note;
                     summary = group.withNotice(note);
                     rows.add(rendering.row());
                     assessments.putAll(unavailableAssessments(rendering));
@@ -456,6 +601,12 @@ public class CdsExportDataSummaryOccurrenceService {
                             attachments,
                             control,
                             xml,
+                            output);
+                    emitted++;
+                }
+                if (outcome != null && outcome.printed() != null) {
+                    emitPrinted(
+                            patientKey, group, outcome.printed(), source, store, attachments, xml,
                             output);
                     emitted++;
                 }
@@ -794,16 +945,177 @@ public class CdsExportDataSummaryOccurrenceService {
 
     static final String AUDIT_LIMIT = "CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT";
 
+    /**
+     * The printed form of a record a printer prints: null when no printer prints it, otherwise
+     * the printed PDF (made reproducible) or the reason category it could not be made. Whether
+     * the exporting identities may read the record is checked afresh each time.
+     */
+    PrintOutcome printed(
+            CdsExportDataSummaryPlanner.Group group,
+            Plan plan,
+            int patient,
+            CdsExportRunControl control) {
+        Printer printer = null;
+        for (var candidate : printers)
+            if (candidate.prints(group)) {
+                if (printer != null)
+                    throw new IllegalStateException("CDS_EXPORT_PRINTED_FORM_PRINTER_AMBIGUOUS");
+                printer = candidate;
+            }
+        if (printer == null) return null;
+        if (!control.recordReadable(patient, printer.readObject()))
+            return new PrintOutcome(null, NOT_AUTHORIZED);
+        try {
+            var printed = printer.print(group, plan);
+            byte[] pdf =
+                    CdsExportPrintedPdf.reproducible(
+                            printed.pdf(),
+                            CdsImportKeys.hash(
+                                    "cds-export-printed-form-pdf-v1", group.table(), group.id()));
+            CdsExportDataSummaryPdfService.requirePdf(pdf);
+            return new PrintOutcome(printed.withPdf(pdf), null);
+        } catch (PrintRefusal refused) {
+            return new PrintOutcome(null, refused.reason());
+        } catch (SecurityException denied) {
+            throw denied;
+        } catch (IOException | RuntimeException failed) {
+            // The data summary still carries every stored value; only the category is recorded.
+            return new PrintOutcome(null, RENDER_FAILED);
+        }
+    }
+
+    /** The data summary's Notes: the statement, the revision and what became of its printed form. */
+    static String notes(CdsExportDataSummaryPlanner.Group group, PrintOutcome outcome) {
+        var notes = new StringBuilder(NOTES);
+        String revision = group.revisionLabel();
+        if (!revision.isEmpty()) notes.append(' ').append(revision).append('.');
+        if (outcome != null && outcome.printed() != null) {
+            notes.append(" The record as CARLOS EMR prints it is exported as a separate Reports entry (")
+                    .append(outcome.printed().subClass())
+                    .append(").");
+            for (String note : outcome.printed().notes()) notes.append(' ').append(note);
+        } else if (outcome != null)
+            notes.append(" The record as CARLOS EMR prints it could not be produced (")
+                    .append(outcome.reason())
+                    .append("); this summary carries every stored value.");
+        return notes.toString();
+    }
+
+    /** Stages and emits the printed form of a record as its own Reports entry and receipt. */
+    private static void emitPrinted(
+            String patientKey,
+            CdsExportDataSummaryPlanner.Group group,
+            Printed printed,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> attachments,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output)
+            throws IOException {
+        byte[] pdf = printed.pdf();
+        var staged = store.stage("REPORT_ATTACHMENT", outputBytes -> outputBytes.write(pdf));
+        attachments.add(staged);
+        java.util.Arrays.fill(pdf, (byte) 0);
+        var identity = printedIdentity(patientKey, group);
+        String relative =
+                "Reports/"
+                        + CdsImportKeys.hash(
+                                "cds-export-printed-form-file-v1",
+                                patientKey,
+                                group.table(),
+                                group.id())
+                        + ".pdf";
+        output.attachment(identity, new CdsExportPackageMemberDto(relative, staged));
+        xml.emit(
+                new CdsExportXmlComposer.Section(
+                        identity, body -> writePrinted(group, printed, relative, body)));
+        output.accept(
+                new CdsExportClinicalOccurrenceService.Receipt(
+                        identity,
+                        source.manifest().plaintextSha256(),
+                        group.table(),
+                        group.id(),
+                        null,
+                        printedAssessments(group, printed),
+                        Set.of(),
+                        Set.of()));
+    }
+
+    /**
+     * The printed form's own field decisions: each stored value of the record's root row that
+     * supplied its Reports metadata, mapped to that element. Every field of the record stays
+     * accounted by the data summary as well.
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> printedAssessments(
+            CdsExportDataSummaryPlanner.Group group, Printed printed) {
+        var root = group.rows().getFirst();
+        var result = new TreeMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>(
+                java.util.Comparator.comparing(CdsExportNativeFieldKeyDto::column));
+        printed.metadata()
+                .forEach(
+                        (column, destination) -> {
+                            var value = root.values().get(column);
+                            if (value == null)
+                                throw new IllegalStateException(
+                                        "CDS_EXPORT_PRINTED_FORM_METADATA_INVALID");
+                            result.put(
+                                    new CdsExportNativeFieldKeyDto(
+                                            root.table(), root.recordKey(), column),
+                                    new CdsExportFieldAssessmentDto(
+                                            presence(value),
+                                            Outcome.MAPPED,
+                                            destination,
+                                            PRINTED_METADATA_RULE));
+                        });
+        return java.util.Collections.unmodifiableMap(new LinkedHashMap<>(result));
+    }
+
+    /** The printed form's Reports content in CDS 5.2 schema order. */
+    static void writePrinted(
+            CdsExportDataSummaryPlanner.Group group,
+            Printed printed,
+            String relative,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.element("cds", "Media", "Download");
+        xml.element("cds", "Format", "Binary");
+        xml.element("cds", "FileExtensionAndVersion", "pdf");
+        xml.element("cds", "FilePath", relative);
+        xml.element("cds", "Class", group.kind().reportClass());
+        xml.element("cds", "SubClass", printed.subClass());
+        if (printed.event() != null) {
+            xml.start("cds", "EventDateTime");
+            CdsExportNativeHistoryXmlWriter.dateContents(xml, printed.event());
+            xml.end();
+        }
+        if (printed.author() != null && !printed.author().isBlank()) {
+            xml.start("cds", "SourceAuthorPhysician");
+            xml.element("cds", "AuthorFreeText", printed.author());
+            xml.end();
+        }
+        var notes = new StringBuilder(PRINTED_NOTES);
+        for (String note : printed.notes()) notes.append(' ').append(note);
+        xml.element("cds", "Notes", notes.toString());
+    }
+
+    static CdsExportIdentityDto printedIdentity(
+            String patientKey, CdsExportDataSummaryPlanner.Group group) {
+        return new CdsExportIdentityDto(
+                patientKey,
+                CdsCategory.REPORTS,
+                CdsImportKeys.hash("carlos-printed-form-occurrence-v1", group.table(), group.id()));
+    }
+
     /** Reports content in CDS 5.2 schema order. */
     static void write(
             CdsExportDataSummaryPlanner.Group group,
             String relative,
             CdsExportXmlComposer.ContentWriter xml)
             throws IOException {
-        write(group, relative, NOTES, xml);
+        write(group, relative, notes(group, null), xml);
     }
 
-    /** Reports content in CDS 5.2 schema order, with these Notes. */
+    /** Reports content in CDS 5.2 schema order, with the record's Notes. */
     static void write(
             CdsExportDataSummaryPlanner.Group group,
             String relative,

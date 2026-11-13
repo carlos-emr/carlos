@@ -419,7 +419,7 @@ public class FrmRourke2020Record extends FrmRecord implements JasperReportPdfPri
     }
 
     /** Counts completed calendar weeks, including a birth exactly on a weekly boundary. */
-    static int calculateGestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
+    public static int calculateGestationalAgeInWeeks(Date pregnancyStartDate, Date birthDate) {
         Calendar start = Calendar.getInstance();
         start.setTime(pregnancyStartDate);
         Calendar end = Calendar.getInstance();
