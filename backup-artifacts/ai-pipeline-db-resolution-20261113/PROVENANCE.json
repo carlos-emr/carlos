@@ -1,0 +1,156 @@
+{
+  "purpose": "Unvalidated work preservation only; not a resolved merge, schema contract, migration allocation, or deployment input.",
+  "diffBase": "6b3f979a05300be6e93c7f09e1ebe7e8b251e4e1",
+  "incomingMergeHead": "9609b113cdc96b5ecd8b1f48d15a075e2b894a59",
+  "patchSha256": "9b754d3b75151d126cd644e4c8db97ffd193726373139d0e9725e370208105b5",
+  "patchPaths": [
+    ".devcontainer/db/scripts/populate_db.sh",
+    "database/mysql/migration/README.md",
+    "database/mysql/migration/common/README.md",
+    "scripts/flyway-merge-order.txt",
+    "database/mysql/schema-contract/bc.json",
+    "database/mysql/schema-contract/on.json"
+  ],
+  "originalIndexSha256": "ed5af48f5b45cecf483cde3447def483fb525aa4be7ef6279fdcc2f74f4a31ae",
+  "originalUnmergedEntries": [
+    {
+      "path": "database/mysql/schema-contract/bc.json",
+      "stage": "1",
+      "blob": "090c15cbb81e9cd9b6c64fb835c40bf8d2cf3392"
+    },
+    {
+      "path": "database/mysql/schema-contract/bc.json",
+      "stage": "2",
+      "blob": "45d2e048b0d422b9bb122b01e6ca621c4b253d0d"
+    },
+    {
+      "path": "database/mysql/schema-contract/bc.json",
+      "stage": "3",
+      "blob": "f2831d77dc3347ec12873762d15e31b6f1ad6a17"
+    },
+    {
+      "path": "database/mysql/schema-contract/on.json",
+      "stage": "1",
+      "blob": "87a12de308bbfbd3961cb76049b0b0df98d71239"
+    },
+    {
+      "path": "database/mysql/schema-contract/on.json",
+      "stage": "2",
+      "blob": "6804cc2e2d194ed852d4e13c2ac4de04fe4bffa1"
+    },
+    {
+      "path": "database/mysql/schema-contract/on.json",
+      "stage": "3",
+      "blob": "39b4cb04002a611089a4318628d41dc6e5db7164"
+    }
+  ],
+  "capturedSourceRows": [
+    {
+      "path": ".devcontainer/db/scripts/populate_db.sh",
+      "classification": "unique-staged-merge-resolution",
+      "protectedOrDatabase": true,
+      "headBlob": "f69822ef13796317ef714366faa335452869e78d",
+      "mergeHeadBlob": "cf70d57b1db6bb9007f4c98c92fe055a00569ad6",
+      "indexStages": {
+        "0": {
+          "mode": "100755",
+          "blob": "1c1bcada6283bce4df6d50de660c548d52c1ed75"
+        }
+      },
+      "workingBlob": "1c1bcada6283bce4df6d50de660c548d52c1ed75",
+      "workingSha256": "854d74e69861998d25e903576125bf0c0614b717b6e711cc48e0394452d81667"
+    },
+    {
+      "path": "database/mysql/migration/README.md",
+      "classification": "unique-staged-merge-resolution",
+      "protectedOrDatabase": true,
+      "headBlob": "a76fade2ad2836e4111a76d2e4e47edbf673a5f1",
+      "mergeHeadBlob": "cd8adc3a162498858479637988e897bed2bf71b1",
+      "indexStages": {
+        "0": {
+          "mode": "100644",
+          "blob": "4962a69677e2da3cb6693495fc5aaf7748b6f9a4"
+        }
+      },
+      "workingBlob": "4962a69677e2da3cb6693495fc5aaf7748b6f9a4",
+      "workingSha256": "bf7fda2dc987cb24c1b15b9b139154db7d3415178c754272a54a397b84b3617f"
+    },
+    {
+      "path": "database/mysql/migration/common/README.md",
+      "classification": "unique-staged-merge-resolution",
+      "protectedOrDatabase": true,
+      "headBlob": "76276be5f864d6523d654f580a9e6b23796073ea",
+      "mergeHeadBlob": "34331165266b807329d3a8300f9b8b7d2673850c",
+      "indexStages": {
+        "0": {
+          "mode": "100644",
+          "blob": "3973938fdd2ca74f6134cf2170d92823b11aa343"
+        }
+      },
+      "workingBlob": "3973938fdd2ca74f6134cf2170d92823b11aa343",
+      "workingSha256": "07d20c7da80429ef1192d37449336c0b513fc41e13cc203758c0bae11c3f6b1e"
+    },
+    {
+      "path": "database/mysql/schema-contract/bc.json",
+      "classification": "UNRESOLVED-contract-excluded",
+      "protectedOrDatabase": true,
+      "headBlob": "45d2e048b0d422b9bb122b01e6ca621c4b253d0d",
+      "mergeHeadBlob": "f2831d77dc3347ec12873762d15e31b6f1ad6a17",
+      "indexStages": {
+        "1": {
+          "mode": "100644",
+          "blob": "090c15cbb81e9cd9b6c64fb835c40bf8d2cf3392"
+        },
+        "2": {
+          "mode": "100644",
+          "blob": "45d2e048b0d422b9bb122b01e6ca621c4b253d0d"
+        },
+        "3": {
+          "mode": "100644",
+          "blob": "f2831d77dc3347ec12873762d15e31b6f1ad6a17"
+        }
+      },
+      "workingBlob": "dea17cc5925c87568a00fe2a14895adce0d030d5",
+      "workingSha256": "a6d2505053c4e0d405673d86cba99825d23b93826fc069701e74169b116480e7"
+    },
+    {
+      "path": "database/mysql/schema-contract/on.json",
+      "classification": "UNRESOLVED-contract-excluded",
+      "protectedOrDatabase": true,
+      "headBlob": "6804cc2e2d194ed852d4e13c2ac4de04fe4bffa1",
+      "mergeHeadBlob": "39b4cb04002a611089a4318628d41dc6e5db7164",
+      "indexStages": {
+        "1": {
+          "mode": "100644",
+          "blob": "87a12de308bbfbd3961cb76049b0b0df98d71239"
+        },
+        "2": {
+          "mode": "100644",
+          "blob": "6804cc2e2d194ed852d4e13c2ac4de04fe4bffa1"
+        },
+        "3": {
+          "mode": "100644",
+          "blob": "39b4cb04002a611089a4318628d41dc6e5db7164"
+        }
+      },
+      "workingBlob": "4b4553ebdb688adfbefeb6c63d85b3126e0ceb2a",
+      "workingSha256": "735d7f19e8fe3b690650c876bd7ae35bc2076eec6817913476652b6b030b985b"
+    },
+    {
+      "path": "scripts/flyway-merge-order.txt",
+      "classification": "unique-staged-merge-resolution",
+      "protectedOrDatabase": true,
+      "headBlob": "6dff6ad83e0b6b5b42d4234844cd99e93b3358be",
+      "mergeHeadBlob": "f745a951f2550039d08ab2522ba70666696c1728",
+      "indexStages": {
+        "0": {
+          "mode": "100644",
+          "blob": "5de25e9e3e147dd6c66d007da8f92e269bc624ca"
+        }
+      },
+      "workingBlob": "5de25e9e3e147dd6c66d007da8f92e269bc624ca",
+      "workingSha256": "53ef7003aa377df63f5a2719509e3643bf21468565d0539c08f3b7cdcfa1010b"
+    }
+  ],
+  "validation": "UNRUN; no database, schema or migration execution; original worktree and index unchanged."
+}
