@@ -327,8 +327,10 @@ public class OscarTrackingBasicDataSource extends BasicDataSource {
         try {
             Properties configured = MariaDbJdbcCompatibility.settings(url, new Properties()).properties();
             return configured.containsKey("connectionTimeZone") || configured.containsKey("timezone");
-        } catch (SQLException _) {
-            throw new IllegalArgumentException("Invalid database connection configuration");
+        } catch (SQLException invalid) {
+            // The compatibility boundary emits only fixed reason codes/option
+            // names. Preserve those diagnostics instead of discarding the cause.
+            throw new IllegalArgumentException(invalid.getMessage());
         }
     }
 

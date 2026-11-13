@@ -6,11 +6,59 @@ on:
   push:
     branches: ['release/2026.08']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Exact annotated release tag whose completed draft candidate will be qualified
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 jobs:
+  qualification:
+    name: Release candidate qualification
+    if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+    # The reviewed matrix requires native package installations and loopback
+    # clinical fixtures. Use the dedicated disposable qualification runner;
+    # ordinary hosted tooling runs can never authorize publication.
+    runs-on: [self-hosted, linux, x64, carlos-release-qualification]
+    timeout-minutes: 1440
+    permissions:
+      actions: read
+      contents: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Require dispatch on the tag's own workflow ref
+        env:
+          DISPATCH_REF: ${{ github.ref }}
+        run: test "$DISPATCH_REF" = "refs/tags/$RELEASE_TAG"
+      - name: Install the hash-pinned evidence parser
+        run: python3 -m pip install --require-hashes -r scripts/ci/requirements.txt
+      - name: Execute and reverify the full reviewed qualification matrix
+        run: |
+          python3 scripts/ci/run-release-qualification.py --repo "$REPO" --tag "$RELEASE_TAG" \
+            --output target/release-qualification
+      - name: Preserve sanitized raw evidence and immutable candidate identity
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: target/release-qualification/
+          if-no-files-found: error
+          retention-days: 30
+
   evidence-contracts:
     name: Evidence adapters and reviewed matrix
     runs-on: ubuntu-24.04

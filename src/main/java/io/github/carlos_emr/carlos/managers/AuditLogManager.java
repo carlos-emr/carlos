@@ -28,144 +28,32 @@
  */
 package io.github.carlos_emr.carlos.managers;
 
-import io.github.carlos_emr.carlos.utility.LogSafe;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.temporal.ChronoUnit;
-import java.util.Calendar;
-import java.util.Date;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
-import org.apache.logging.log4j.Logger;
-import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
-import io.github.carlos_emr.carlos.utility.LoggedInInfo;
-import io.github.carlos_emr.carlos.utility.MiscUtils;
-import io.github.carlos_emr.carlos.utility.SpringUtils;
-import org.springframework.stereotype.Service;
-
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.log.LogAction;
+import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.SpringUtils;
+import java.util.Date;
+import java.util.Properties;
+import org.springframework.stereotype.Service;
 
+/** Compatibility entry point for the administrator's retention-controlled audit purge. */
 @Service
 public class AuditLogManager {
-
-    Logger logger = MiscUtils.getLogger();
-
-    String minDays = CarlosProperties.getInstance().getProperty("log.purge.minDays", String.valueOf(365 * 10));
-    String mysqldump = CarlosProperties.getInstance().getProperty("log.purge.mysqldump");
-    String outputDirectory = CarlosProperties.getInstance().getProperty("log.purge.outputdir");
-    String daysFromNowToRemove = CarlosProperties.getInstance().getProperty("log.purge.daysfromnowtopurge");
-
-    String user = CarlosProperties.getInstance().getProperty("db_username");
-    String password = CarlosProperties.getInstance().getProperty("db_password");
-    String dbName = CarlosProperties.getInstance().getProperty("db_name").substring(0, CarlosProperties.getInstance().getProperty("db_name").indexOf("?"));
-
-
-    // FindSecBugs COMMAND_INJECTION: Runtime.exec receives an argv array from trusted config and server-formatted date.
-    // Do not add request-controlled command arguments under this suppression.
-    @SuppressFBWarnings(value = "COMMAND_INJECTION", justification = "Runtime.exec uses an argv array built from trusted deployment config and a server-formatted date; no shell expansion or request-controlled command")
+    /**
+     * Backs up and removes rows through the selected calendar date. Configuration
+     * is resolved only when invoked: a plain db_name must never break bean startup.
+     * Failed/uncertain attempts retain protected backups and report failure.
+     */
     public int purgeAuditLog(LoggedInInfo loggedInInfo, Date endDateToPurge) throws Exception {
-
-        if (outputDirectory == null || outputDirectory.isEmpty()) {
-            outputDirectory = CarlosProperties.getInstance().getProperty("DOCUMENT_DIR");
+        CarlosProperties configured = CarlosProperties.getInstance();
+        Properties settings = new Properties();
+        for (String name : new String[] {"log.purge.minDays", "log.purge.mysqldump", "log.purge.outputdir", "DOCUMENT_DIR"}) {
+            String value = configured.getProperty(name);
+            if (value != null && !value.isBlank()) settings.setProperty(name, value);
         }
-        if (mysqldump == null) {
-            logger.warn("No mysqldump command has been defined. Please set log.purge.mysqldump in the properties file");
-            throw new Exception("No mysqldump command has been defined. Please set log.purge.mysqldump in the properties file");
-        }
-        Integer iMinDays = null;
-        try {
-            iMinDays = Integer.parseInt(minDays);
-        } catch (NumberFormatException e) {
-            logger.warn("property log.purge.minDays should be set to a number");
-            throw new Exception("property log.purge.minDays should be set to a number");
-        }
-
-
-        Calendar c = Calendar.getInstance();
-        c.setTime(endDateToPurge);
-        c.set(Calendar.HOUR_OF_DAY, 23);
-        c.set(Calendar.MINUTE, 59);
-        c.set(Calendar.SECOND, 59);
-        endDateToPurge = c.getTime();
-
-        logger.info("Purge will be for all data BEFORE and INCLUDING " + endDateToPurge);
-
-        int numDays = (int) ChronoUnit.DAYS.between(
-                endDateToPurge.toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
-                LocalDate.now());
-        if (numDays < iMinDays) {
-            logger.warn("purge aborted because specified date is within " + numDays);
-            throw new Exception("purge aborted because specified date is within " + numDays);
-        }
-
-        SimpleDateFormat formatter2 = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        SimpleDateFormat formatter3 = new SimpleDateFormat("yyyyMMddHHmmss");
-
-        String filename = outputDirectory + "/OSCAR_AUDIR_LOG_PURGE_FILE_" + formatter3.format(endDateToPurge) + ".sql";
-
-        String vars[] = new String[9];
-        vars[0] = mysqldump;
-        vars[1] = "--user=" + user;
-        vars[2] = "--password=" + password;
-        vars[3] = "-w";
-        vars[4] = "dateTime < '" + formatter2.format(endDateToPurge) + "'";
-        vars[5] = "-t";
-        vars[6] = "--result-file=" + filename;
-        vars[7] = dbName;
-        vars[8] = "log";
-
-        Integer exitValue = null;
-
-
-        try {
-            String s = null;
-
-            Process p = Runtime.getRuntime().exec(vars);
-
-            BufferedReader stdInput = new BufferedReader(new InputStreamReader(p.getInputStream()));
-
-            BufferedReader stdError = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-
-            logger.info("Here is the standard output of the command:\n");
-            while ((s = stdInput.readLine()) != null) {
-                logger.info(s);
-            }
-
-            logger.info("Here is the standard error of the command (if any):\n");
-            while ((s = stdError.readLine()) != null) {
-                logger.info(s);
-            }
-
-            exitValue = p.waitFor();
-        } catch (IOException e) {
-            logger.error("Error running mysqldump command. Aborting!: {}", LogSafe.exceptionTrace(e));
-            throw new Exception(e);
-        } catch (InterruptedException e) {
-            logger.error("Error running mysqldump command. Aborting!: {}", LogSafe.exceptionTrace(e));
-            throw new Exception(e);
-        }
-
-        if (exitValue != 0) {
-            logger.warn("Error running mysqldump command. Received an exit value of " + exitValue);
-            throw new Exception("Error running mysqldump command. Received an exit value of " + exitValue);
-        }
-
-        logger.info("Backed up audit log which will be purged to");
-
-        LogAction.addLogSynchronous(loggedInInfo, "AuditLogManager.purgeAuditLog", formatter2.format(endDateToPurge));
-
-        OscarLogDao oscarLogDao = SpringUtils.getBean(OscarLogDao.class);
-        int numRecordAffected = oscarLogDao.purgeLogEntries(endDateToPurge);
-
-        logger.info("removed  " + numRecordAffected + " records");
-
-        return numRecordAffected;
+        return SpringUtils.getBean(AuditLogPurgeService.class).purge(settings, endDateToPurge,
+                () -> LogAction.addLogStrict(loggedInInfo, "AuditLogManager.purgeAuditLog", null, null, null,
+                        java.time.Instant.ofEpochMilli(endDateToPurge.getTime())
+                                .atZone(java.time.ZoneId.systemDefault()).toLocalDate().toString()));
     }
 }

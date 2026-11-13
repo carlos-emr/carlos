@@ -1,5 +1,33 @@
 # CARLOS 2026.08 release notes
 
+## Installation, configuration and release hardening
+
+Packaged starts reconcile the mandatory modern-chart flag before Tomcat, even
+after deferred configure or configuration restore. A second check as the service
+user validates the effective configuration and original encryption key. Root
+never repairs a legacy home override; startup names conflicting files and refuses
+an unusable override or missing key. See [key recovery](startup-encryption-key.md)
+and [chart cutover](modern-chart-cutover.md).
+
+Upgrades preserve the published beta6/beta7 Tomcat conffile bytes, avoiding a
+comment-only dpkg prompt on edited hosts. Hosts that installed intermediate
+snapshot payloads can still receive a normal conffile prompt. The unchanged
+nginx distribution default-site symlink is retired; custom files/targets are
+preserved. Certificate regeneration keeps an operator-stopped nginx stopped.
+Unattended installs announce a retained true debconf stop-port-conflicts answer;
+fresh defaults remain false and saved/preseeded choices are retained.
+
+Audit purge now verifies and durably stores exact locked cohorts before deleting
+them. Failures retain recoverable backups and report partial completion explicitly.
+See [audit purge and recovery](audit-log-purge.md) for client/TLS prerequisites.
+
+Release automation now builds drafts and requires exact-tag qualification before
+publication, including direct Debian dispatches. Final artifact bytes are promoted
+without rebuilding. The existing incomplete release matrix continues to block
+readiness; this repair does not certify a release. See the
+[publication procedure](testing/release-publication.md). The published carlos-ctl
+pin, dependency floor and command interfaces are unchanged.
+
 ## Measurement charts, CML revisions and CDM forms
 
 Single-point and constant-value measurement charts now draw useful markers and axes.

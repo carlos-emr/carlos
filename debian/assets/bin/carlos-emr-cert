@@ -76,14 +76,13 @@ reload_nginx() {
         nginx -t || true
         return 1
     fi
-    # nginx's package may have failed to start on its default IPv6 listener.
-    # Reloading an inactive unit prints a failure even when the fallback
-    # succeeds. Choose start directly; keep the reload/restart recovery for
-    # an already-running front door.
+    # Certificate renewal/config rendering does not authorize starting a
+    # stopped front door. First-install and explicit finish-install recovery
+    # have their own start step; a running nginx still needs the new pair now.
     if systemctl is-active --quiet nginx.service; then
         systemctl reload nginx.service || systemctl restart nginx.service
     else
-        systemctl start nginx.service
+        log "nginx is not running; the updated certificate will serve when it is started"
     fi
 }
 
@@ -255,7 +254,7 @@ EOH
     chmod 0755 /etc/letsencrypt/renewal-hooks/deploy/carlos-emr
 
     reload_nginx
-    log "serving a Let's Encrypt certificate for ${name}"
+    log "installed a Let's Encrypt certificate for ${name}"
 }
 
 cmd_manual() {

@@ -7,6 +7,7 @@
 // that bargain — that such an install is RECORDED, ANNOUNCED through debconf and stderr, and FINISHED without reinstalling.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
@@ -380,8 +381,8 @@ ${block}
 
 // Execute the shipped nginx decision block with isolated service commands.
 // A syntax or service failure must survive the earlier clear_incomplete call.
-test('postinst retires the default nginx symlink before init-config, under the provisioning lock', () => {
-  const start = postinst.indexOf('        [ -e /etc/nginx/sites-enabled/carlos-emr ]');
+test('postinst retires the unchanged default nginx symlink before init-config, including deferred configure', () => {
+  const start = postinst.indexOf('        if ! retire_nginx_default_site; then');
   const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
   assert.ok(start >= 0 && end > start);
   for (const kind of ['symlink', 'dangling', 'regular', 'absent']) {
@@ -398,14 +399,19 @@ test('postinst retires the default nginx symlink before init-config, under the p
 set -e
 [ "$1" = init-config ]
 [ "\${CARLOS_CONFIGURE_FIRST_RUN:-}" = 1 ]
-[ ! -L '${enabled}' ]
 echo rendered
 `, { mode: 0o755 });
-        const block = postinst.slice(start, end).replaceAll('/etc/nginx/sites-enabled', root);
+        const digest = crypto.createHash('md5').update(fs.readFileSync(target)).digest('hex'); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- fixture must match dpkg's Conffiles MD5 format
+        fs.writeFileSync(path.join(root, 'dpkg-query'), `#!/bin/sh\nprintf ' ${target} ${digest}\\n'\n`, {mode: 0o755});
+        const cleanup = postinst.match(/\nretire_nginx_default_site\(\) \{[\s\S]*?\n\}/)[0];
+        const block = (cleanup + '\n' + postinst.slice(start, end))
+          .replaceAll('/etc/nginx/sites-available/default', target)
+          .replaceAll('/etc/nginx/sites-enabled', root);
         const result = spawnSync('sh', ['-c', `set -eu
 PROVISION_LOCK_HELD=${locked}
 PATH='${root}':$PATH
 mark_incomplete() { echo incomplete; }
+free_front_door() { :; }
 ${block}
 `], { encoding: 'utf8' });
         assert.equal(result.status, 0, result.stdout + result.stderr);
@@ -415,7 +421,7 @@ ${block}
         if (kind === 'regular') assert.equal(fs.readFileSync(enabled, 'utf8'), 'operator site\n');
         if (['symlink', 'dangling'].includes(kind)) {
           const remaining = fs.lstatSync(enabled, { throwIfNoEntry: false });
-          assert.equal(Boolean(remaining), locked === 0);
+          assert.equal(Boolean(remaining), kind === 'dangling');
           if (remaining) assert.ok(remaining.isSymbolicLink());
         }
       } finally { fs.rmSync(root, { recursive: true, force: true }); }
@@ -423,13 +429,13 @@ ${block}
   }
 });
 
-test('certificate refresh starts inactive nginx without a failed reload and preserves reload recovery', () => {
+test('certificate refresh preserves inactive nginx and retains running-service reload recovery', () => {
   const cert = read('debian', 'assets', 'bin', 'carlos-emr-cert');
   const fn = cert.match(/reload_nginx\(\) \{[\s\S]*?\n\}/)[0]
     .replaceAll('/run/systemd/system', '/tmp');
   for (const [syntax, active, reload, start, restart, expectedRc, actions] of [
-    [0, 1, 0, 0, 0, 0, ['start']],
-    [0, 1, 0, 1, 0, 1, ['start']],
+    [0, 1, 0, 0, 0, 0, []],
+    [0, 1, 0, 1, 0, 0, []],
     [0, 0, 0, 0, 0, 0, ['reload']],
     [0, 0, 1, 0, 0, 0, ['reload', 'restart']],
     [0, 0, 1, 0, 1, 1, ['reload', 'restart']],
@@ -728,7 +734,7 @@ test('an import holding the lock defers like the import gate: no marker, no migr
 });
 
 test('configure removes only the stock nginx symlink before its first configuration test', () => {
-  const start = postinst.indexOf('        if [ "${PROVISION_LOCK_HELD}" = 1 ]; then\n            free_front_door "${2:-}"');
+  const start = postinst.indexOf('        if ! retire_nginx_default_site; then');
   const end = postinst.indexOf('        unset CARLOS_CONFIGURE_FIRST_RUN', start);
   assert.ok(start >= 0 && end > start);
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'carlos-nginx-order-'));
@@ -742,14 +748,18 @@ test('configure removes only the stock nginx symlink before its first configurat
       const nginx = path.join(root, kind + '-' + locked + '-' + initStatus);
       const enabled = path.join(nginx, 'sites-enabled');
       fs.mkdirSync(enabled, {recursive: true});
-      const target = path.join(nginx, 'stock-conffile');
+      const target = path.join(nginx, 'sites-available', 'default');
+      fs.mkdirSync(path.dirname(target));
       fs.writeFileSync(target, 'listen [::]:80 default_server;\n');
       const defaultSite = path.join(enabled, 'default');
       if (kind === 'symlink') fs.symlinkSync(target, defaultSite);
       if (kind === 'file') fs.writeFileSync(defaultSite, 'administrator site\n');
-      const block = postinst.slice(start, end).replaceAll('/etc/nginx', nginx);
+      const cleanup = postinst.match(/\nretire_nginx_default_site\(\) \{[\s\S]*?\n\}/)[0];
+      const block = (cleanup + '\n' + postinst.slice(start, end)).replaceAll('/etc/nginx', nginx);
       const bin = path.join(nginx, 'bin');
       fs.mkdirSync(bin);
+      const digest = crypto.createHash('md5').update(fs.readFileSync(target)).digest('hex'); // nosemgrep: javascript.node-stdlib.cryptography.crypto-weak-algorithm.crypto-weak-algorithm -- fixture must match dpkg's Conffiles MD5 format
+      fs.writeFileSync(path.join(bin, 'dpkg-query'), `#!/bin/sh\nprintf ' ${target} ${digest}\\n'\n`, {mode: 0o755});
       fs.writeFileSync(path.join(bin, 'carlos-ctl'), '#!/bin/sh\n'
         + '[ "$1" = init-config ] || exit 2\n'
         + 'printf "init-config\\n"\n'
@@ -767,7 +777,7 @@ test('configure removes only the stock nginx symlink before its first configurat
       assert.equal(result.stdout.includes('init-config'), locked);
       assert.equal(result.status, 0, result.stderr);
       assert.equal(result.stdout.includes('incomplete'), incomplete, JSON.stringify({kind, locked, initStatus, result}));
-      assert.equal(fs.existsSync(defaultSite), kind === 'file' || (kind === 'symlink' && !locked));
+      assert.equal(fs.existsSync(defaultSite), kind === 'file');
       assert.equal(fs.readFileSync(target, 'utf8'), 'listen [::]:80 default_server;\n');
       if (kind === 'file') assert.equal(fs.readFileSync(defaultSite, 'utf8'), 'administrator site\n');
     }

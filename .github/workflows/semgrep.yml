@@ -23,6 +23,7 @@ name: Semgrep Security Scan
 
 on:
   push:
+    tags: ['20*']
     branches: [develop, main, "release/*"]
   pull_request:
     branches: [develop, main, "release/*"]

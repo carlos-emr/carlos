@@ -52,6 +52,7 @@ name: Check Carlos EMR
 
 on:
   push:
+    tags: ['20*']
     branches: [main, 'release/**']
   workflow_call:
     inputs:
@@ -367,7 +368,7 @@ jobs:
             -e CARLOS_TEST_MARIADB_SCHEMA=generated \
             -e CARLOS_TEST_MARIADB_URL=jdbc:mariadb://host.docker.internal:3306/ \
             carlos-tomcat-dev mvn --batch-mode --no-transfer-progress test jacoco:report \
-            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest' \
+            '-Dtest=*Dao*IntegrationTest,*DAO*IntegrationTest,AuditLogPurgeMariaDbIntegrationTest,PatientEndYearStatementIntegrationTest,PatientEndYearStatementTransactionIntegrationTest,QueryReturnTypeIntegrationTest,JdbcConnectorMariaDbIntegrationTest,MeasurementPatientMatchMariaDbIntegrationTest,ConsultationListProjectionIntegrationTest,BCAR2020FormSaveTransactionIntegrationTest,RxCorrectionSaveRollbackIntegrationTest,DemographicMergeMariaDbIntegrationTest,Growth0To36FormPersistenceIntegrationTest,RxStrictAuditIntegrationTest,RxSaveReceiptCommitIntegrationTest,RxConcurrencyIntegrationTest,RxFavoriteGroupIntegrationTest,RxFavoriteCopyIntegrationTest,RxRestPrescriptionRollbackIntegrationTest,DemographicIdentifierPreservationMariaDbIntegrationTest,ScheduleSyncMariaDbIntegrationTest,RxPrescribeMariaDbIntegrationTest,TicklerPatientAccessMariaDbIntegrationTest,ProgramAdmissionAuditMariaDbIntegrationTest,ReportingPatientListAuditMariaDbIntegrationTest' \
             '-Dgroups=spring-context | mariadb-native' -DexcludedGroups=flyway-schema -Dtest.forkCount=3 \
             -Djacoco.destFile=target/jacoco-mariadb-generated.exec -Djacoco.dataFile=target/jacoco-mariadb-generated.exec \
             -Dtest.coverageDirectory=target/coverage-mariadb/generated

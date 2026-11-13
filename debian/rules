@@ -123,6 +123,7 @@ override_dh_auto_build:
 	# needs no separate Flyway CLI download and the migrations it applies are
 	# byte-identical to the ones the deployed WAR validates against at boot.
 	$(CURDIR)/debian/build-flyway-runner.sh $(BUILDDIR)/carlos.war $(BUILDDIR)
+	sh $(CURDIR)/debian/build-configuration-preflight.sh $(BUILDDIR)
 	# Bind the supplied/built WAR to the committed physical schema contract.
 	python3 scripts/schema-contract.py --verify-files --verify-war $(BUILDDIR)/carlos.war
 	# Refuse a WAR that bundles an API Tomcat 11 supplies (EL, Servlet,
@@ -327,6 +328,8 @@ override_dh_auto_install:
 	install -m 0755 debian/assets/bin/carlos-emr-backup $(STAGE)/$(LIBDIR)/carlos-emr-backup
 	install -m 0755 debian/assets/bin/carlos-emr-cert $(STAGE)/$(LIBDIR)/carlos-emr-cert
 	install -m 0755 debian/assets/bin/carlos-emr-tomcat $(STAGE)/$(LIBDIR)/carlos-emr-tomcat
+	install -m 0755 debian/assets/bin/carlos-emr-config-preflight $(STAGE)/$(LIBDIR)/
+	install -m 0644 $(BUILDDIR)/carlos-configuration-preflight.jar $(STAGE)/$(SHAREDIR)/lib/
 	# The OSCAR 19 import-in-progress predicate, consulted by the unit's
 	# ExecCondition= and by the postinst (see the file's header).
 	install -m 0755 debian/assets/bin/carlos-emr-o19-guard $(STAGE)/$(LIBDIR)/carlos-emr-o19-guard

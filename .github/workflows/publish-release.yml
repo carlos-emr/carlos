@@ -10,15 +10,19 @@ on:
         description: Existing protected release tag to retry
         required: true
         type: string
+      qualification_run_id:
+        description: Completed Release Verification qualification run to promote (blank builds a draft candidate)
+        required: false
+        type: string
 
 # One GLOBAL group (not per-tag): the release-notes "previous tag" lookup and
 # the draft bookkeeping read the set of existing releases, so serializing all
 # release runs keeps that state consistent. Releases are rare and deliberate —
 # strict serialization costs nothing; same-tag re-runs still queue as before.
-# (The final publish + latest-pointer decision now happens in deb-packages.yml,
-# after the .debs are attached.)
+# Final publication happens on a separate qualified promotion dispatch of
+# deb-packages.yml, after every asset and its raw evidence have been verified.
 concurrency:
-  group: publish-release
+  group: release-publication
   cancel-in-progress: false
 
 permissions:
@@ -44,6 +48,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
       IS_DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+      IS_PROMOTION: ${{ inputs.qualification_run_id != '' }}
     steps:
       - name: Detect an already-published immutable release
         id: release-state
@@ -143,7 +148,7 @@ jobs:
               gh run list --repo "$REPO" --workflow publish-release.yml \
                 --branch "$RELEASE_TAG" --event push --limit 100 \
                 --json databaseId,headSha,status,conclusion \
-                --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\" and .conclusion != \"success\") | .databaseId"
+                --jq ".[] | select(.headSha == \"$tag_commit\" and .status == \"completed\") | select(.conclusion != \"success\" or $IS_PROMOTION) | .databaseId"
             )
           fi
 
@@ -189,7 +194,7 @@ jobs:
   full-check:
     name: Full release verification
     needs: validate
-    if: needs.validate.outputs.skip != 'true'
+    if: needs.validate.outputs.skip != 'true' && inputs.qualification_run_id == ''
     permissions:
       contents: read
       packages: read
@@ -200,7 +205,7 @@ jobs:
   package-and-publish:
     name: Package release draft and dispatch deb build
     needs: [validate, full-check]
-    if: always() && needs.validate.outputs.skip != 'true' && needs.full-check.result == 'success'
+    if: always() && needs.validate.outputs.skip != 'true' && inputs.qualification_run_id == '' && needs.full-check.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -268,6 +273,10 @@ jobs:
           test -f "$war"
           test -f "$sbom"
           unzip -t "$war" >/dev/null
+
+          # Freeze the final Debian stamp before any qualification. Packaging
+          # recognizes this stamp and preserves the candidate archive's bytes.
+          debian/stamp-war-build-identity.sh "$war" carlos-emr-deb "${RELEASE_TAG//-/~}"
 
           build_properties=$(unzip -p "$war" WEB-INF/classes/buildNumber.properties)
           if ! grep -qxF "git-sha-1=$TAG_COMMIT" <<< "$build_properties"; then
@@ -361,10 +370,10 @@ jobs:
       - name: Dispatch the Debian package build that finalizes the release
         run: |
           set -euo pipefail
-          # The release is still a DRAFT at this point: the WAR + SBOM are
-          # attached but it is NOT published. deb-packages.yml downloads the
-          # WAR from the draft, builds and attaches the .deb assets, and then
-          # publishes the release as its final step — so the immutable release,
+          # The release remains a DRAFT: deb-packages.yml downloads the WAR,
+          # builds and attaches .deb assets for qualification. A separate
+          # promotion dispatch verifies the completed qualification run before
+          # publishing, so the immutable release,
           # once locked, already carries every asset (the repo enables
           # immutable releases, which forbid attaching assets after publish).
           # It is dispatched by hand rather than relying on a trigger: this job
@@ -379,6 +388,44 @@ jobs:
           if ! gh workflow run deb-packages.yml --repo "$REPO" \
                  --ref "refs/tags/$RELEASE_TAG" \
                  -f "tag=$RELEASE_TAG"; then
-            echo "::error::Draft release $RELEASE_TAG is ready but the Debian package build could not be dispatched, so the release was NOT published. Run it manually to finalize: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG"
+            echo "::error::Draft $RELEASE_TAG needs its Debian candidate build. Retry: gh workflow run deb-packages.yml --ref refs/tags/$RELEASE_TAG -f tag=$RELEASE_TAG. Qualification and a promotion dispatch are required before publication."
             exit 1
           fi
+
+  promote-qualified:
+    name: Verify readiness and dispatch immutable candidate promotion
+    needs: validate
+    if: needs.validate.outputs.skip != 'true' && inputs.qualification_run_id != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      QUALIFICATION_RUN: ${{ inputs.qualification_run_id }}
+      REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      - name: Install the hash-pinned evidence parser
+        run: python3 -m pip install --require-hashes -r scripts/ci/requirements.txt
+      - name: Verify the exact tagged candidate and current required checks
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_TAG" --repo "$REPO" --dir target/promotion-assets \
+            --pattern '*.war' --pattern '*.deb' --pattern '*cyclonedx.json' --pattern '*.sha256'
+          python3 scripts/ci/release_publication.py promote --repo "$REPO" --tag "$RELEASE_TAG" \
+            --run "$QUALIFICATION_RUN" --assets target/promotion-assets
+      - name: Dispatch final publication without rebuilding
+        run: |
+          set -euo pipefail
+          gh workflow run deb-packages.yml --repo "$REPO" --ref "refs/tags/$RELEASE_TAG" \
+            -f "tag=$RELEASE_TAG" -f "qualification_run_id=$QUALIFICATION_RUN"
