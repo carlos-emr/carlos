@@ -152,13 +152,6 @@ final class CdsExportIndirectPatientScopeReadSupport {
                 "demographicNo");
         add(
                 result,
-                "consultationRequestExtArchive",
-                "consultationRequestsArchive",
-                "consultationRequestArchiveId",
-                "Id",
-                "demographicNo");
-        add(
-                result,
                 "consultdocs",
                 "consultationRequests",
                 "requestId",
@@ -172,7 +165,9 @@ final class CdsExportIndirectPatientScopeReadSupport {
                 "responseId",
                 "demographicNo");
         for (String table :
-                List.of("tickler_comments", "tickler_link", "tickler_update", "ticklerdocs"))
+                // tickler_link is superseded (its rows were migrated to ticklerdocs; what remains is
+                // quarantined) and is ruled operational, so it has no patient scope here.
+                List.of("tickler_comments", "tickler_update", "ticklerdocs"))
             add(
                     result,
                     table,

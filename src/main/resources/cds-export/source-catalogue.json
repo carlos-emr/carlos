@@ -22,7 +22,7 @@
     "CdsHospitalisationDays": "REQUIRE_EMPTY",
     "ClientLink": "REQUIRE_EMPTY",
     "Consent": "REQUIRE_EMPTY",
-    "Consent_migration_audit": "REQUIRE_EMPTY",
+    "Consent_migration_audit": "OPERATIONAL",
     "Contact": "MAPPED_SOURCE",
     "ContactSpecialty": "REFERENCE",
     "CtlRelationships": "REFERENCE",
@@ -33,11 +33,11 @@
     "DocumentExtraReviewer": "REQUIRE_EMPTY",
     "DrugProduct": "REQUIRE_EMPTY",
     "EFormDocs": "REQUIRE_EMPTY",
-    "EFormReportTool": "REQUIRE_EMPTY",
+    "EFormReportTool": "REFERENCE",
     "Episode": "REQUIRE_EMPTY",
     "Facility": "REFERENCE",
     "FaxClientLog": "OPERATIONAL",
-    "FlowSheetUserCreated": "REQUIRE_EMPTY",
+    "FlowSheetUserCreated": "REFERENCE",
     "Flowsheet": "REFERENCE",
     "FunctionalCentre": "REFERENCE",
     "GroupNoteLink": "REQUIRE_EMPTY",
@@ -66,7 +66,7 @@
     "OscarJob": "OPERATIONAL",
     "OscarJobType": "OPERATIONAL",
     "PageMonitor": "OPERATIONAL",
-    "PreventionReport": "REQUIRE_EMPTY",
+    "PreventionReport": "REFERENCE",
     "PreventionsLotNrs": "REFERENCE",
     "PrintResourceLog": "OPERATIONAL",
     "ProviderPreference": "OPERATIONAL",
@@ -75,7 +75,7 @@
     "ProviderPreferenceAppointmentScreenQuickLink": "REFERENCE",
     "RemoteDataLog": "OPERATIONAL",
     "RemoteReferral": "REQUIRE_EMPTY",
-    "ResourceStorage": "REQUIRE_EMPTY",
+    "ResourceStorage": "REFERENCE",
     "SecurityArchive": "OPERATIONAL",
     "SecurityToken": "OPERATIONAL",
     "ServiceAccessToken": "OPERATIONAL",
@@ -152,7 +152,7 @@
     "casemgmt_note_ext": "MAPPED_SOURCE",
     "casemgmt_note_link": "REQUIRE_EMPTY",
     "casemgmt_note_lock": "OPERATIONAL",
-    "casemgmt_tmpsave": "REQUIRE_EMPTY",
+    "casemgmt_tmpsave": "OPERATIONAL",
     "cds_export_attempt": "OPERATIONAL",
     "cds_export_event": "OPERATIONAL",
     "cds_export_held_patient": "OPERATIONAL",
@@ -183,15 +183,15 @@
     "consentType": "REFERENCE",
     "consultResponseDoc": "REQUIRE_EMPTY",
     "consultationRequestExt": "REQUIRE_EMPTY",
-    "consultationRequestExtArchive": "REQUIRE_EMPTY",
+    "consultationRequestExtArchive": "OPERATIONAL",
     "consultationRequests": "REQUIRE_EMPTY",
-    "consultationRequestsArchive": "REQUIRE_EMPTY",
+    "consultationRequestsArchive": "OPERATIONAL",
     "consultationResponse": "REQUIRE_EMPTY",
     "consultationServices": "REFERENCE",
     "consultdocs": "REQUIRE_EMPTY",
     "country_codes": "REFERENCE",
-    "criteria": "REQUIRE_EMPTY",
-    "criteria_selection_option": "REQUIRE_EMPTY",
+    "criteria": "REFERENCE",
+    "criteria_selection_option": "REFERENCE",
     "criteria_type": "REFERENCE",
     "criteria_type_option": "REFERENCE",
     "cssStyles": "REFERENCE",
@@ -207,11 +207,11 @@
     "ctl_frequency": "REFERENCE",
     "ctl_servicecodes_dxcodes": "OPERATIONAL",
     "ctl_specialinstructions": "REFERENCE",
-    "custom_filter": "REQUIRE_EMPTY",
+    "custom_filter": "REFERENCE",
     "custom_filter_assignees": "REFERENCE",
     "custom_filter_providers": "REFERENCE",
     "dashboard": "REFERENCE",
-    "dataExport": "REQUIRE_EMPTY",
+    "dataExport": "OPERATIONAL",
     "default_issue": "REFERENCE",
     "default_role_access": "REFERENCE",
     "demographic": "MAPPED_SOURCE",
@@ -219,8 +219,8 @@
     "demographicExt": "MAPPED_SOURCE",
     "demographicExtArchive": "OPERATIONAL",
     "demographicPharmacy": "MAPPED_SOURCE",
-    "demographicQueryFavourites": "REQUIRE_EMPTY",
-    "demographicSets": "REQUIRE_EMPTY",
+    "demographicQueryFavourites": "REFERENCE",
+    "demographicSets": "OPERATIONAL",
     "demographic_merged": "MAPPED_SOURCE",
     "demographicaccessory": "REQUIRE_EMPTY",
     "demographiccust": "MAPPED_SOURCE",
@@ -239,7 +239,7 @@
     "dsGuidelineProviderMap": "REFERENCE",
     "dsGuidelines": "REFERENCE",
     "dxCodeTranslations": "REFERENCE",
-    "dx_associations": "REQUIRE_EMPTY",
+    "dx_associations": "REFERENCE",
     "dxphcpgroup": "REFERENCE",
     "dxresearch": "REQUIRE_EMPTY",
     "eChart": "REQUIRE_EMPTY",
@@ -254,9 +254,9 @@
     "encounterForm": "REFERENCE",
     "encounterWindow": "REFERENCE",
     "encountertemplate": "REFERENCE",
-    "erefer_attachment": "REQUIRE_EMPTY",
-    "erefer_attachment_data": "REQUIRE_EMPTY",
-    "facility_message": "REQUIRE_EMPTY",
+    "erefer_attachment": "OPERATIONAL",
+    "erefer_attachment_data": "OPERATIONAL",
+    "facility_message": "OPERATIONAL",
     "favorites": "REFERENCE",
     "favoritesprivilege": "REFERENCE",
     "fax_config": "OPERATIONAL",
@@ -367,8 +367,8 @@
     "labRequestReportLink": "REQUIRE_EMPTY",
     "labTestResults": "REQUIRE_EMPTY",
     "log": "OPERATIONAL",
-    "log_letters": "REQUIRE_EMPTY",
-    "log_teleplantx": "REQUIRE_EMPTY",
+    "log_letters": "OPERATIONAL",
+    "log_teleplantx": "OPERATIONAL",
     "lst_admission_status": "REFERENCE",
     "lst_discharge_reason": "REFERENCE",
     "lst_field_category": "REFERENCE",
@@ -394,11 +394,11 @@
     "measurementGroupStyle": "REFERENCE",
     "measurementMap": "REFERENCE",
     "measurementType": "MAPPED_SOURCE",
-    "measurementTypeDeleted": "REQUIRE_EMPTY",
+    "measurementTypeDeleted": "REFERENCE",
     "measurements": "MAPPED_SOURCE",
     "measurementsDeleted": "MAPPED_SOURCE",
     "measurementsExt": "MAPPED_SOURCE",
-    "messagelisttbl": "REQUIRE_EMPTY",
+    "messagelisttbl": "OPERATIONAL",
     "messagetbl": "REQUIRE_EMPTY",
     "messengerMembershipLock": "OPERATIONAL",
     "msgDemoMap": "REQUIRE_EMPTY",
@@ -406,7 +406,7 @@
     "oscarKeys": "OPERATIONAL",
     "oscar_msg_type": "REFERENCE",
     "oscarcommlocations": "REFERENCE",
-    "other_id": "REQUIRE_EMPTY",
+    "other_id": "OPERATIONAL",
     "partial_date": "MAPPED_SOURCE",
     "patientLabRouting": "MAPPED_SOURCE",
     "pharmacyInfo": "MAPPED_SOURCE",
@@ -417,7 +417,7 @@
     "preventionsExt": "MAPPED_SOURCE",
     "professionalSpecialists": "REFERENCE",
     "program": "REFERENCE",
-    "programSignature": "REQUIRE_EMPTY",
+    "programSignature": "OPERATIONAL",
     "program_access": "OPERATIONAL",
     "program_access_roles": "OPERATIONAL",
     "program_client_restriction": "REQUIRE_EMPTY",
@@ -441,13 +441,13 @@
     "providerstudy": "REQUIRE_EMPTY",
     "publicKeys": "OPERATIONAL",
     "queue": "REFERENCE",
-    "queue_document_link": "REQUIRE_EMPTY",
+    "queue_document_link": "OPERATIONAL",
     "quickList": "REFERENCE",
     "quickListUser": "REFERENCE",
     "radetail": "OPERATIONAL",
     "raheader": "OPERATIONAL",
-    "rbt_groups": "REQUIRE_EMPTY",
-    "recyclebin": "REQUIRE_EMPTY",
+    "rbt_groups": "REFERENCE",
+    "recyclebin": "OPERATIONAL",
     "rehabStudy2004": "REQUIRE_EMPTY",
     "relationships": "REQUIRE_EMPTY",
     "remoteAttachments": "REQUIRE_EMPTY",
@@ -460,10 +460,10 @@
     "reportTableFieldCaption": "REFERENCE",
     "reportTemplates": "REFERENCE",
     "report_date": "REQUIRE_EMPTY",
-    "report_letters": "REQUIRE_EMPTY",
-    "reportagesex": "REQUIRE_EMPTY",
+    "report_letters": "REFERENCE",
+    "reportagesex": "OPERATIONAL",
     "reportprovider": "REFERENCE",
-    "reporttemp": "REQUIRE_EMPTY",
+    "reporttemp": "OPERATIONAL",
     "room": "OPERATIONAL",
     "rschedule": "OPERATIONAL",
     "rx_favorite_group": "REFERENCE",
@@ -473,7 +473,7 @@
     "scheduleholiday": "REFERENCE",
     "scheduletemplate": "REFERENCE",
     "scheduletemplatecode": "REFERENCE",
-    "scratch_pad": "REQUIRE_EMPTY",
+    "scratch_pad": "OPERATIONAL",
     "secObjPrivilege": "REFERENCE",
     "secObjectName": "REFERENCE",
     "secPrivilege": "REFERENCE",
@@ -503,22 +503,22 @@
     "tickler": "REQUIRE_EMPTY",
     "tickler_category": "REFERENCE",
     "tickler_comments": "REQUIRE_EMPTY",
-    "tickler_link": "REQUIRE_EMPTY",
+    "tickler_link": "OPERATIONAL",
     "tickler_text_suggest": "REFERENCE",
     "tickler_update": "REQUIRE_EMPTY",
     "ticklerdocs": "REQUIRE_EMPTY",
     "user_ds_message_prefs": "OPERATIONAL",
     "vacancy": "OPERATIONAL",
-    "vacancy_client_match": "REQUIRE_EMPTY",
+    "vacancy_client_match": "OPERATIONAL",
     "vacancy_template": "OPERATIONAL",
     "validations": "REFERENCE",
     "view": "REFERENCE",
     "waitingList": "REQUIRE_EMPTY",
     "waitingListName": "REFERENCE",
     "wcb": "REQUIRE_EMPTY",
-    "wcb_bp_code": "REQUIRE_EMPTY",
-    "wcb_noi_code": "REQUIRE_EMPTY",
-    "wcb_side": "REQUIRE_EMPTY",
+    "wcb_bp_code": "REFERENCE",
+    "wcb_noi_code": "REFERENCE",
+    "wcb_side": "REFERENCE",
     "workflow": "REQUIRE_EMPTY"
   },
   "requiredScopes": {
@@ -700,9 +700,6 @@
     "casemgmt_cpp": [
       "demographic_no"
     ],
-    "casemgmt_tmpsave": [
-      "demographic_no"
-    ],
     "client_image": [
       "demographic_no"
     ],
@@ -712,17 +709,8 @@
     "consultationRequests": [
       "demographicNo"
     ],
-    "consultationRequestsArchive": [
-      "demographicNo"
-    ],
     "consultationResponse": [
       "demographicNo"
-    ],
-    "custom_filter": [
-      "demographic_no"
-    ],
-    "demographicSets": [
-      "demographic_no"
     ],
     "demographicaccessory": [
       "demographic_no"
@@ -755,9 +743,6 @@
       "demographicNo"
     ],
     "encounter": [
-      "demographic_no"
-    ],
-    "erefer_attachment": [
       "demographic_no"
     ],
     "faxes": [
@@ -998,12 +983,6 @@
     "remoteAttachments": [
       "demographic_no"
     ],
-    "reportagesex": [
-      "demographic_no"
-    ],
-    "reporttemp": [
-      "demographic_no"
-    ],
     "studydata": [
       "demographic_no"
     ],
@@ -1012,9 +991,6 @@
     ],
     "tickler": [
       "demographic_no"
-    ],
-    "vacancy_client_match": [
-      "client_id"
     ],
     "waitingList": [
       "demographic_no"
@@ -1176,6 +1152,42 @@
     "messengerMembershipLock": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md.",
     "user_ds_message_prefs": "Messenger membership serialization row or provider display/read preference, without message body or patient assignment. Messages, attachments and clinical correspondence remain separately gated. See docs/cds-export-source-rulings.md.",
     "demographicExtArchive": "Superseded demographicExt snapshot: DemographicAddRecord2Action and DemographicUpdate2Action write one row per edited extension key on every save, keyed by the same demographicArchive id; DemographicManagerImpl.archiveExtension keeps the prior value. Guide 18.2 transfers the current snapshot, which demographicExt carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence.",
-    "demographiccustArchive": "Superseded demographiccust snapshot (alert, care-team names, patient note) kept by DemographicManagerImpl.createUpdateDemographicCust when a value changes. Guide 18.2 transfers the current snapshot, which demographiccust carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence."
+    "demographiccustArchive": "Superseded demographiccust snapshot (alert, care-team names, patient note) kept by DemographicManagerImpl.createUpdateDemographicCust when a value changes. Guide 18.2 transfers the current snapshot, which demographiccust carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence.",
+    "EFormReportTool": "A saved report definition (eForm id, target table name). NOTE: populating it runs CREATE TABLE <tableName> (EFormReportToolDaoImpl.java:116) holding per-patient eForm values; that runtime table is outside the pinned profile and would block every export like DOC-GAPS B1.",
+    "consultationRequestExtArchive": "Superseded version or audit history; the current record is exported. Child of the superseded request snapshot.",
+    "consultationRequestsArchive": "Superseded version or audit history; the current record is exported. Edit history of a consultation request, same class as appointment edit history; the current request is exported. (Maintainer: alternatively export as \"revision n of m\" like encounter forms.)",
+    "erefer_attachment": "a one-hour staging list of chart item ids for an Ocean submission, no clinical text; the referenced items are exported themselves.",
+    "erefer_attachment_data": "PATIENT-LINKED via parent: (lab_type, lab_id) references only. Today unscoped, so 220 demo rows block every patient.",
+    "queue_document_link": "PATIENT-LINKED via document: inbox routing state (queue id, status) only. Today unscoped, so 2 demo rows block every patient.",
+    "recyclebin": "Deleted/rolled-back rows, not current chart content (they may contain PHI, e.g. a rolled-back hl7TextMessage); the export transfers the live chart. 8 demo rows block every patient today.",
+    "custom_filter": "PATIENT-KEYED only as a search criterion of a saved filter; siblings custom_filter_assignees/_providers are already REFERENCE (docs/cds-export-source-rulings.md). The patient's ticklers export separately.",
+    "tickler_link": "Superseded version or audit history; the current record is exported. Migrated rows are duplicated in ticklerdocs; the rows left behind are deliberately quarantined cross-patient/unknown links and must never be exported.",
+    "facility_message": "System announcement text, no patient key.",
+    "messagelisttbl": "PATIENT-LINKED via message: read/deleted state per provider; recipients are already in messagetbl.sentto.",
+    "casemgmt_tmpsave": "maintainer decision \u2014 autosaved drafts are not part of the signed record.",
+    "dx_associations": "Clinic-wide code crosswalk, no patient data.",
+    "Consent_migration_audit": "Superseded version or audit history; the current record is exported. Prior flag values superseded by the current Consent row; migration audit, not chart content.",
+    "demographicSets": "report cohort membership (set name, eligibility flag), no clinical content.",
+    "FlowSheetUserCreated": "PATIENT-KEYED only as the scope of a template (which measurement types to show); the measurements export as CareElements.",
+    "measurementTypeDeleted": "Terminology definition kept for history; no patient data.",
+    "other_id": "PATIENT-LINKED (conditionally): interface routing key (e.g. PHS/STAR TMR id), not chart content and meaningless to a receiving EMR.",
+    "criteria": "Program configuration.",
+    "criteria_selection_option": "Program configuration.",
+    "programSignature": "Program administration audit; no patient key.",
+    "vacancy_client_match": "computed match score/status for a vacancy, regenerated by the matcher; rejection_reason text could be clinical \u2014 maintainer may prefer data summary.",
+    "dataExport": "Export job log (file name, contact), no patient key.",
+    "demographicQueryFavourites": "Saved query definition, same class as reportByExamples (REFERENCE); never executed by the export. 1 demo row blocks every patient today.",
+    "log_letters": "PATIENT-LINKED by content: batch audit (who, when, which ids); the letter text is not stored.",
+    "log_teleplantx": "PATIENT-LINKED via billing: claim transmission log; the billing tables themselves are already OPERATIONAL in the catalogue.",
+    "PreventionReport": "Report definition, like reportByExamples.",
+    "rbt_groups": "Report configuration.",
+    "report_letters": "Letter templates, not generated letters; 24 demo rows block every patient today.",
+    "reportagesex": "derived report scratch rebuilt from demographic on every run.",
+    "reporttemp": "derived report scratch.",
+    "ResourceStorage": "Clinic-wide reference files.",
+    "scratch_pad": "Provider-owned text, not linked to a patient.",
+    "wcb_bp_code": "Code list.",
+    "wcb_noi_code": "Code list.",
+    "wcb_side": "Code list."
   }
 }

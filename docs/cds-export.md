@@ -43,6 +43,16 @@ CT-024 "QD" on both the native and reconciled paths, and when a prescription's s
 marked unknown its date-precision rows travel in the medication residual instead of being
 counted as a StartDate.
 
+Thirty-six further patient-linked tables are classified rather than refused. Edit history whose
+current record is exported (consultation request and extension archives, tickler links left
+after their migration to ticklerdocs, the consent migration audit), working state that is not
+part of the record (autosaved note drafts, eRefer and document-queue staging, the recycle bin,
+vacancy matching, saved demographic sets, report and letter scratch tables) and per-patient
+reference or configuration rows (saved filters and queries, eForm report-tool definitions,
+flowsheet and prevention-report settings, letter templates, WCB code lists) are not exported and
+no longer hold a patient. Each table's reason is its ruling note in
+`src/main/resources/cds-export/source-catalogue.json`.
+
 Native vaccines are exported as Immunizations exactly as the prevention form records them. The
 name is the recorded brand name, or the configured prevention type when the name is blank;
 ImmunizationType is the configured Health Canada type when it is one of the CT-020 values, and

@@ -855,12 +855,13 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldStopTheJobAndNameTheTable_whenAClinicWideMustBeEmptySourceIsPopulated() {
-        // recyclebin has no patient link: a row there concerns every patient, so the job
-        // stops once with the clinic code instead of holding every patient one by one, and the
-        // table is named on the channel the CLI prints (census D5).
+        // DrugProduct (a dead dispensing table) has no patient link: a row there concerns every
+        // patient, so the job stops once with the clinic code instead of holding every patient
+        // one by one, and the table is named on the channel the CLI prints (census D5). The
+        // recycle bin used here before is now ruled operational.
         sql.update(
-                "insert into recyclebin(provider_no,updatedatetime,table_name,keyword,table_content)"
-                        + " values('999998',now(),'demographic','synthetic','synthetic')");
+                "insert into DrugProduct(name,code,amount,lastUpdateDate,lastUpdateUser)"
+                        + " values('synthetic','synthetic',1,now(),'999998')");
         try (var log =
                 io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
                         "carlos.cds.safeTechnical")) {
@@ -882,10 +883,10 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                             .contains(
                                                     "CDS_EXPORT_SOURCE:",
                                                     "CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED",
-                                                    "\"recyclebin\"")
+                                                    "\"DrugProduct\"")
                                             .doesNotContain("synthetic", "999998"));
         } finally {
-            sql.update("delete from recyclebin where keyword='synthetic'");
+            sql.update("delete from DrugProduct where name='synthetic'");
         }
     }
 
