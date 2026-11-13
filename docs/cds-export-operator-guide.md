@@ -592,10 +592,12 @@ form that cannot be produced never holds the patient: the data summary's Notes s
 "could not be produced" with a reason category (`NOT_AUTHORIZED`, `TEXT_OVERFLOW`,
 `UNSUPPORTED_CHARACTER`, `FONT_UNAVAILABLE`, `FORM_MAPPING_MISMATCH`,
 `CONSULTANT_CONTACT_UNSUPPORTED`, `RENDER_FAILED`), never a value. A consultation
-letter whose stored signature image or configured clinic logo
-(`faxLogoInConsultation`; the packaged sample path is not installed) cannot be read
-is still exported, without it, and both Notes say so (`SIGNATURE_UNAVAILABLE`,
-`LOGO_UNAVAILABLE`); nothing is substituted. A request whose consultant is a
+letter whose stored signature image or installed clinic logo
+(`faxLogoInConsultation`) cannot be read is still exported, without it, and both
+Notes say so (`SIGNATURE_UNAVAILABLE`, `LOGO_UNAVAILABLE`); nothing is substituted.
+When the configured logo file is not installed (the packaged sample path is not),
+the letter prints without a logo, as the clinic's own Print does, and nothing is
+noted. A request whose consultant is a
 health-care-team contact rather than a directory specialist is not printed. The
 Rourke pages print in the bundled DejaVu fonts, but the Java runtime still needs
 its font libraries (freetype and fontconfig) and at least one installed system font

@@ -54,7 +54,8 @@ import org.springframework.stereotype.Service;
  * instruction label, the patient's cell phone) are read when it is printed. The stored signature
  * is the patient's captured {@code DigitalSignature} the request names, and the clinic logo is
  * the configured file: neither is ever substituted, and when one cannot be included the letter
- * says so in its Notes and in its data summary's Notes.
+ * says so in its Notes and in its data summary's Notes. A configured logo that is not installed
+ * is not an omission: the letter prints without a logo, as the clinic's own Print does.
  *
  * <p>A request whose consultant is a health-care-team contact (not the specialist directory) is
  * not printed ({@code CONSULTANT_CONTACT_UNSUPPORTED}); its data summary carries every value.
@@ -104,7 +105,11 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
                         .getBooleanProperty("ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS", "true"))
             throw new CdsExportDataSummaryOccurrenceService.PrintRefusal(CONTACT_UNSUPPORTED);
         var referring = provider(request.text("providerNo"));
-        var letter = letter(group, plan, referring);
+        // The logo the chart's Print uses: none unless faxLogoInConsultation is configured.
+        Logo logo = CarlosProperties.getInstance().getProperty("faxLogoInConsultation") == null
+                ? null
+                : logo(IsPropertiesOn.isMultisitesEnable() ? request.text("site_name") : null);
+        var letter = letter(group, plan, referring, logo);
         var output = new ByteArrayOutputStream();
         Set<ConsultationPDFCreator.Omission> omissions;
         try {
@@ -115,7 +120,9 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         }
         var notes = new ArrayList<String>();
         if (omissions.contains(ConsultationPDFCreator.Omission.SIGNATURE)) notes.add(SIGNATURE_NOTE);
-        if (omissions.contains(ConsultationPDFCreator.Omission.LOGO)) notes.add(LOGO_NOTE);
+        if (omissions.contains(ConsultationPDFCreator.Omission.LOGO)
+                || (logo != null && logo.unreadable()))
+            notes.add(LOGO_NOTE);
         var metadata = new LinkedHashMap<String, String>();
         CdsExportDateDto event = date(request.text("referalDate"));
         if (event != null) metadata.put("referalDate", "Reports/EventDateTime");
@@ -129,7 +136,8 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     ConsultationLetterDto letter(
             CdsExportDataSummaryPlanner.Group group,
             CdsExportDataSummaryOccurrenceService.Plan plan,
-            CdsExportPrintedFormReadDao.Provider referring)
+            CdsExportPrintedFormReadDao.Provider referring,
+            Logo logo)
             throws IOException {
         var request = group.rows().getFirst();
         var props = CarlosProperties.getInstance();
@@ -151,7 +159,6 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         var familyDoctor = provider(demographic.get("provider_no"));
         boolean printReferring = props.getBooleanProperty("printPDF_referring_prac", "yes");
         boolean printFamilyDoctor = props.getBooleanProperty("mrp_model", "yes");
-        boolean logoRequested = props.getProperty("faxLogoInConsultation") != null;
         String signatureId = request.text("signature_img");
         boolean signatureRequested = signatureId != null && !signatureId.isBlank();
         String[] time = appointmentTime(request.text("appointmentDate"), request.text("appointmentTime"));
@@ -214,9 +221,9 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
                 new ConsultationLetterDto.Images(
                         signatureRequested,
                         signatureRequested ? signature(plan, signatureId.strip()) : null,
-                        logoRequested,
+                        logo != null,
                         null,
-                        logoRequested ? logo(multisites ? request.text("site_name") : null) : null));
+                        logo == null ? null : logo.bytes()));
     }
 
     /** The chart's letterhead name: a program ("prog_n"), a provider by number, or the clinic. */
@@ -273,13 +280,42 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     }
 
     /** The configured consultation logo file, or null (reported) when it cannot be read. */
-    private static byte[] logo(String siteName) {
+    /**
+     * The configured logo: its bytes, or {@code unreadable} when an installed file could not be
+     * read (larger than {@link #MAXIMUM_LOGO_BYTES} or an I/O failure). No installed file is
+     * neither: the letter prints without a logo and nothing is reported.
+     */
+    static final class Logo {
+        private final byte[] bytes;
+        private final boolean unreadable;
+
+        Logo(byte[] bytes, boolean unreadable) {
+            this.bytes = bytes;
+            this.unreadable = unreadable;
+        }
+
+        byte[] bytes() {
+            return bytes;
+        }
+
+        boolean unreadable() {
+            return unreadable;
+        }
+    }
+
+    private static Logo logo(String siteName) {
+        File file;
         try {
-            File file = ClinicLogoUtility.resolveConsultationLogo(siteName);
-            if (file == null || Files.size(file.toPath()) > MAXIMUM_LOGO_BYTES) return null;
-            return Files.readAllBytes(file.toPath());
+            file = ClinicLogoUtility.resolveConsultationLogo(siteName);
+        } catch (RuntimeException unresolved) {
+            return new Logo(null, true);
+        }
+        if (file == null) return new Logo(null, false);
+        try {
+            if (Files.size(file.toPath()) > MAXIMUM_LOGO_BYTES) return new Logo(null, true);
+            return new Logo(Files.readAllBytes(file.toPath()), false);
         } catch (IOException | RuntimeException unreadable) {
-            return null;
+            return new Logo(null, true);
         }
     }
 

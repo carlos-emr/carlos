@@ -183,8 +183,37 @@ class CdsExportConsultationLetterComposerUnitTest {
     }
 
     @Test
-    void shouldReportTheLogo_whenTheConfiguredLogoFileIsMissing() throws Exception {
+    void shouldPrintWithoutALogoOrNote_whenTheConfiguredLogoFileIsNotInstalled() throws Exception {
         property("faxLogoInConsultation", temp.resolve("absent.png").toString());
+        var request = request("44", null);
+        var printed = composer.print(request, plan(request, png()));
+
+        assertThat(printed.notes()).isEmpty();
+        try (var pdf = Loader.loadPDF(printed.pdf())) {
+            assertThat(new PDFTextStripper().getText(pdf)).contains("Signature:", "Synthetic Service");
+            int images = 0;
+            for (var page : pdf.getPages())
+                for (var name : page.getResources().getXObjectNames()) images++;
+            assertThat(images).isEqualTo(1);
+        }
+    }
+
+    @Test
+    void shouldReportTheLogo_whenTheInstalledLogoIsNotAnImage() throws Exception {
+        Path logo = temp.resolve("logo.png");
+        Files.write(logo, "not an image".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
+        property("faxLogoInConsultation", logo.toString());
+        var request = request("44", null);
+
+        assertThat(composer.print(request, plan(request, png())).notes())
+                .containsExactly(CdsExportConsultationLetterComposer.LOGO_NOTE);
+    }
+
+    @Test
+    void shouldReportTheLogo_whenTheInstalledLogoIsLargerThanTheLimit() throws Exception {
+        Path logo = temp.resolve("logo.png");
+        Files.write(logo, new byte[(4 << 20) + 1]);
+        property("faxLogoInConsultation", logo.toString());
         var request = request("44", null);
 
         assertThat(composer.print(request, plan(request, png())).notes())

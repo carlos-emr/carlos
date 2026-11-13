@@ -114,9 +114,18 @@ class ConsultationPDFCreatorLetterUnitTest {
     }
 
     @Test
-    @DisplayName("reports a requested logo that is missing or not an image")
-    void shouldReportLogo_whenRequestedLogoCannotBePrinted() throws Exception {
-        assertThat(print(letter(false, null, true, null)).omissions()).containsExactly(Omission.LOGO);
+    @DisplayName("prints no logo and reports nothing when the requested logo is not installed")
+    void shouldPrintNoLogo_whenRequestedLogoIsNotInstalled() throws Exception {
+        Printed printed = print(letter(false, null, true, null));
+
+        assertThat(printed.omissions()).isEmpty();
+        assertThat(printed.images()).isZero();
+        assertThat(printed.text()).contains("Synthetic Clinic");
+    }
+
+    @Test
+    @DisplayName("reports a supplied logo that is not an image")
+    void shouldReportLogo_whenSuppliedLogoIsNotAnImage() throws Exception {
         Printed garbled = print(letter(false, null, true, new byte[] {1, 2, 3}));
 
         assertThat(garbled.omissions()).containsExactly(Omission.LOGO);

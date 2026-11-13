@@ -574,7 +574,9 @@ public class ConsultationPDFCreator extends PdfPageEventHelper {
         byte[] logo = letter.images().logo();
         if (imageFile != null) {
             addImage(infoTable, imageFile.getPath(), PageSize.LETTER.getWidth() * 0.5f, 50f);
-        } else if (logo == null || !addImage(infoTable, logo, PageSize.LETTER.getWidth() * 0.5f, 50f)) {
+        } else if (logo != null && !addImage(infoTable, logo, PageSize.LETTER.getWidth() * 0.5f, 50f)) {
+            // Only a supplied logo that cannot be printed is an omission. A configured logo that is
+            // not installed prints no logo, as the clinic's own Print always has, and is not reported.
             omissions.add(Omission.LOGO);
         }
         return infoTable;

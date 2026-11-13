@@ -147,7 +147,9 @@ public record ConsultationLetterDto(
     /**
      * The signature and logo. {@code signatureRequested}: the letter carries a signature that is
      * not suppressed. {@code logoRequested}: the clinic prints a logo on consultation letters. The
-     * request path names the logo by its file; a request-free caller supplies its bytes.
+     * request path names the logo by its file; a request-free caller supplies its bytes. A requested
+     * logo with neither (the configured file is not installed) prints no logo and is not an
+     * omission; supplied bytes that are not a printable image are.
      */
     public record Images(
             boolean signatureRequested,

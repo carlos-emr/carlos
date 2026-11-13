@@ -1216,7 +1216,10 @@ stays the lossless accounting. Two printers are registered (web context by compo
   patient's captured `DigitalSignature` row the request names; the logo is the configured
   `faxLogoInConsultation` file. When either is requested but cannot be included, `printLetter()`
   reports it (`ConsultationPDFCreator.Omission`) and both Notes say `SIGNATURE_UNAVAILABLE` /
-  `LOGO_UNAVAILABLE`: nothing is substituted. A request whose consultant is a health-care-team
+  `LOGO_UNAVAILABLE`: nothing is substituted. A configured logo file that is not installed (the
+  packaged sample path, for example) is not an omission: the letter prints without a logo, as the
+  clinic's own Print does, and no Note is added. An installed logo that cannot be read (larger than
+  4 MiB, unreadable, or not an image) is reported. A request whose consultant is a health-care-team
   contact (`demographicContactId` with `ENABLE_HEALTH_CARE_TEAM_IN_CONSULTATION_REQUESTS`) is
   refused with `CONSULTANT_CONTACT_UNSUPPORTED`. The letter prints only part of the record (not the
   other extension rows, attachment references, status or source); the request's data summary
