@@ -243,6 +243,14 @@ public final class CdsExportDemographicMapper {
             String postalColumn) {
         if (Set.of(streetColumn, cityColumn, provinceColumn, postalColumn).stream()
                 .noneMatch(state::present)) return;
+        if (Set.of(streetColumn, cityColumn, postalColumn).stream().noneMatch(state::present)) {
+            // add-form-personal.jsp:325-327 and 603-608 preselect the clinic's default province
+            // (or "OT") for both the mailing and the residential address, so every saved patient
+            // has a province even when no address was entered. A province alone is that form
+            // default, not a recorded address; emitting it would assert a residence.
+            state.operational(provinceColumn, "PROVINCE_WITHOUT_AN_ADDRESS_IS_A_FORM_DEFAULT");
+            return;
+        }
         String path = "Address[" + type + "]/Structured/";
         String street = state.token(streetColumn, path + "Line1", 50, false);
         String city = state.token(cityColumn, path + "City", 80, false);

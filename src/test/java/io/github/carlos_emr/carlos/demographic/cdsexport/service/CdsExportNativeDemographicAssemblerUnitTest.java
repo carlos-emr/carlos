@@ -786,6 +786,8 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         values.put("city", "Ottawa");
         values.put("province", "ON");
         values.put("postal", "K1A 0B1");
+        // D10: the residential block keeps the form's preselected province with nothing else.
+        values.put("residentialProvince", "ON");
         values.put("chart_no", "");
         values.put("sin", "");
         values.put("email", "");

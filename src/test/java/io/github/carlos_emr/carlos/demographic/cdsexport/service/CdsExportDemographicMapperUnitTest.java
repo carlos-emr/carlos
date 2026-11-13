@@ -317,6 +317,30 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
+    void shouldNotAssertAnAddress_whenOnlyTheFormDefaultProvinceIsPresent() throws Exception {
+        // D10: both address blocks of add-form-personal.jsp preselect the clinic province (or
+        // "OT"), so a patient with no address entered still has a province in each block.
+        var fields = baseline();
+        fields.put("province", "ON");
+        fields.put("residentialProvince", "OT");
+        var result = mapper.map(row(fields));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        assertThat(result.addresses()).isEmpty();
+        for (String column : List.of("province", "residentialProvince"))
+            assertThat(result.fields().get(column).rule())
+                    .isEqualTo("PROVINCE_WITHOUT_AN_ADDRESS_IS_A_FORM_DEFAULT");
+        assertThat(parse(xml(result)).getElementsByTagNameNS("cds", "Address").getLength())
+                .isZero();
+        // Any entered component makes it an address again, and the province is mapped.
+        fields.put("residentialCity", "Ottawa");
+        fields.put("residentialProvince", "ON");
+        var entered = mapper.map(row(fields));
+        assertThat(entered.addresses()).hasSize(1);
+        assertThat(entered.fields().get("residentialProvince").outcome())
+                .isEqualTo(Outcome.MAPPED);
+    }
+
+    @Test
     void shouldKeepCustomPatientStatusAsPlainText_withoutAssumingItMeansActive() throws Exception {
         var fields = baseline();
         fields.put("patient_status", "Transferred & pending");
