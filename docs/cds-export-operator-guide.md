@@ -405,6 +405,37 @@ Rourke visits, for example) export in full. Only a chart with more than 100,000
 rows or 400,000 fields in one such table, or whose summary cannot be printed
 completely, is held with a `CDS_EXPORT_DATA_SUMMARY_*` code.
 
+Records written by older OSCAR releases, which installations upgraded from them still
+hold, travel the same way instead of holding the patient:
+
+- the pre-CME encounter (eChart: social, family and medical history, ongoing concerns,
+  reminders and encounter text), one "Legacy encounter" record per saved revision,
+  "eChart revision n of m";
+- the encounter immunization schedule that predates preventions, one "Immunization
+  schedule" record per saved revision;
+- patient relationships entered on the classic demographic page, one "Patient
+  relationship" record in the chart that shows the relationship (the related patient's
+  chart shows its own inverse entry; the summary names the related patient by CARLOS
+  patient number only);
+- legacy laboratory reports: MDS ("MDS laboratory report", with all of its segments),
+  CML ("CML laboratory report", with its test lines and upload header) and BC PathNet
+  ("PathNet laboratory report", with its order, request and result rows), each with
+  Report class Lab Report, plus the "Laboratory requisition link" that ties a CML or HL7
+  report to the requisition it answered.
+
+A legacy laboratory report belongs to the chart its lab routing names, exactly the chart
+in which CARLOS lists it; a report not matched to any patient is in no chart and is not
+exported (its inbox routes are counted as unlinked, below). These reports travel only
+with Reports: a job that selects LaboratoryResults without Reports holds a patient who
+has one (`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`) rather than send an incomplete
+laboratory history; select Reports and export the patient again.
+
+A program admission whose admission notes, discharge notes or discharge reason are
+filled in is exported as a "Program admission" data summary (program, dates, status
+and the narratives) instead of holding the patient. Admissions without them are
+program membership and are not exported. Program membership still decides who may
+read the chart, exactly as before.
+
 Records of removed CARLOS features (the old study, survey, CAISI form and HSFO
 modules and similar) are never exported and never hold a patient. The encrypted
 ReadMe lists, for each patient, each such table holding the patient's rows and

@@ -53,13 +53,16 @@ flowsheet and prevention-report settings, letter templates, WCB code lists) are 
 no longer hold a patient. Each table's reason is its ruling note in
 `src/main/resources/cds-export/source-catalogue.json`.
 
-Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 94
+Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 118
 tables ruled `DOCUMENT` (every encounter-form table, eForms and their values, consultation
 requests and responses with their extensions and attachment references, ticklers with their
 comments, updates and attachment references, e-mails with their attachment references, faxes,
 patient-linked messages, digital signatures, consents, the cumulative patient profile, the patient
 photo, the waiting list, workflows and the CAISI referral, queue, restriction and joint-admission
-records) are captured whole when Reports is selected and exported as one Reports entry per record:
+records, program admissions with a narrative or discharge reason, and the legacy records of older
+OSCAR releases: the eChart encounter, the encounter immunization schedule, patient relationships
+and the MDS, CML and BC PathNet lab reports) are captured whole when Reports is selected and
+exported as one Reports entry per record:
 a PDF "CARLOS data summary" that lists every stored field of the record and its related rows with
 the exact value. The 37 tables ruled `LISTED` belong to removed features: they are never read or
 exported and never hold a patient; the encrypted ReadMe names each table and the number of the
@@ -687,7 +690,78 @@ job's unlinked listed tables.
 
 Report classes chosen (a maintainer decision, recorded per kind in the registry): Consultant Report
 for consultation responses; Other Letter for consultation requests, e-mails, faxes and messages;
-Medical Records Report for every other kind.
+Lab Report for the legacy laboratory reports and their requisition links; Medical Records Report
+for every other kind.
+
+### Legacy records of older releases
+
+Installations upgraded from older OSCAR releases hold rows that every chart with them was held
+for (`REQUIRE_EMPTY`), and a populated legacy lab table without a patient link stopped the whole
+job. Each table was checked against current CARLOS (writers, readers and the screen that shows
+it); all are still shown, so all 23 are `DOCUMENT` and none is `LISTED`:
+
+| Tables | CARLOS today | Record (kind) | Chart |
+|---|---|---|---|
+| `eChart` | written by `EctSaveEncounter2Action`/`EChartRevisionPersister`, shown by `report/ViewReportecharthistory` | one "Legacy encounter" per saved row, "eChart revision n of m" | `demographicNo` |
+| `immunizations` | encounter immunization schedule (`EctImmImmunizationData`); a save archives the previous row | one "Immunization schedule" per row, revisioned | `demographic_no` |
+| `relationships` | classic demographic page (`demographic/AddRelation`, shown when `NEW_CONTACTS_UI` is off), chart printer | one "Patient relationship" per row | `demographic_no` only: the related patient's chart shows its own inverse row |
+| `mdsMSH` and the segments `mdsPID`, `mdsPV1`, `mdsOBR`, `mdsOBX`, `mdsNTE`, `mdsZMC`, `mdsZMN`, `mdsZRG` | MDS lab list and `mds/SegmentDisplay` | one "MDS laboratory report" per header, every segment of its `segmentID` | `patientLabRouting` of type `MDS`, `lab_no` = `segmentID` |
+| `labPatientPhysicianInfo`, `labTestResults`, `labReportInformation` | CML upload (`lab/CMLlabUpload`) and `CMLDisplay` | one "CML laboratory report" per report, with its test lines and its upload header | `patientLabRouting` of type `CML`, `lab_no` = report id |
+| `hl7_message`, `hl7_msh`, `hl7_pid`, `hl7_link`, `hl7_orc`, `hl7_obr`, `hl7_obx` (BC) | PathNet upload (`lab/labUpload`) and `ViewLabBcDisplay` | one "PathNet laboratory report" per message, with MSH, PID, PID link, ORC, OBR and OBX | `patientLabRouting` of type `BCP`, `lab_no` = `message_id` |
+| `labRequestReportLink` | `lab/ViewLinkReq`, shown on the HL7 and CML report displays | one "Laboratory requisition link" per row | the route of the report it names: `CML` for `labPatientPhysicianInfo`, `HL7` for `hl7TextMessage`; any other table, no chart |
+
+Native mappings were considered and not taken. `relationships` names another chart as the
+related person; the personal-contact mapping never reads another chart's identity (a
+patient-to-patient `DemographicContact` also requires review), so the relationship travels as a
+summary that names the related patient by CARLOS number. `immunizations` holds a configured
+schedule document, not the administration records the Immunizations mapping reads.
+
+**Scope.** A legacy lab report's chart is the one CARLOS lists it in: its `patientLabRouting` row
+of exactly the report's type. `CdsExportIndirectPatientScopeReadSupport` gains a step condition on
+the parent's type (`Step.route`, a literal from the compiled list, compared with the collation for
+the index and byte for byte, so `mds` is not `MDS`), and scopes every legacy lab row straight to
+its report's route, through `hl7_pid` and `hl7_obr` where the row names only those (`hl7_obx` is
+three joins from its route) and through `labPatientPhysicianInfo` for the shared upload header.
+The copies of a patient number in `mdsMSH.demographic_no` and `hl7_link.demographic_no` are data,
+not ownership; they left `patientScopes`, and the listed `mdsZFR`/`mdsZLB` follow the MDS route
+too. A segment whose header row is missing still follows its lab number's route and becomes its
+own record. A report routed to no patient (an unmatched upload, `demographic_no` 0) is in no
+chart: it is neither exported nor held, and its inbox routes are counted as unlinked
+`providerLabRouting` rows. A relationship's other endpoint no longer holds or receives the row.
+
+**Keyless segments.** The eight MDS segment tables have no key at all (only a non-unique
+`segmentID` index), and two rows may be identical. `CdsExportDataSummaryReadDao` reads exactly
+these reviewed tables (`KEYLESS`) whole, ordered by every column (integers by value, text by its
+exact bytes, NULL first) and paged by position inside the one repeatable-read capture snapshot,
+so each row is captured once; the capture names them by ordinal. Every column of these tables is
+at most 255 characters, so every value is read inline; a keyless plan refuses a longer type and
+never reads a byte range. Identical rows stay separate rows of the summary.
+
+**Grouping.** A registry link may name a child registered earlier as its parent; the row joins
+whichever record that parent row joined (or the parent's own record when it stood alone).
+`CdsExportDataSummaryRegistryUnitTest` requires every parent to be registered before its child.
+An upload header named by two reports of one chart is ambiguous and stands as its own record.
+The CML service date is stored as `YYYYMMDD` text; the planner reads that basic form as a date.
+
+**Laboratory category.** `requireLocalLaboratoryAssociations` no longer refuses an `MDS`, `CML` or
+`BCP` route; the HL7 projection never reads one. A request that selects LaboratoryResults without
+Reports would leave those reports out, so `CdsExportLaboratorySourceReader.forRequest` returns a
+projection whose capture holds such a patient (`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`,
+`CdsLaboratoryResultDao.hasCdsExportLegacyReports`). An unknown route type still holds.
+
+**Program admissions.** `admission` was the only `ACCESS_CONTROL` table: any stored
+`admission_notes`, `discharge_notes` or `radioDischargeReason` held the chart. It is now
+`DOCUMENT`, and its `clinicalRemainders` (allowed on a `DOCUMENT` table by the loader and the
+verifier) select the records: `CdsExportDataSummaryReadDao.predicate` adds the same "stored
+remainder" test the presence check used, so only admissions with a narrative or a discharge
+reason become "Program admission" summaries (every column: program, provider, dates, status,
+team and the narratives). A membership row without one is not exported. Program membership keeps
+gating access: `CdsExportNoteAccessDao` and the application's patient-access checks read
+`admission` directly, independently of the catalogue ruling. A `radioDischargeReason` of `0`
+(the column default) counts as stored, exactly as it held the chart before.
+
+No legacy table and no clinic-wide must-be-empty table remains: every remaining `REQUIRE_EMPTY`
+table has a patient link.
 
 ## Historical implementation and qualification log
 
@@ -2119,7 +2193,10 @@ and complete retained fields, preserves blocked results under sensitive-lab auth
 and applies original shifts to collection, requisition and every reviewer date.
 Native-only or changed HL7 requires explicit review. A DOC route, which the inbox writes for
 every document assigned to a patient, is a document link owned by the Reports path and does not
-affect laboratory export; an older MDS, CML or BCP route, or an unknown one, still holds the
+affect laboratory export. An older MDS, CML or BCP route is a legacy-format report exported
+as a data summary with Reports (see [Legacy records of older releases](#legacy-records-of-older-releases));
+with LaboratoryResults selected without Reports it holds the patient
+(`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`). An unknown route type still holds the
 patient. Native result text, notes, reference ranges and test names are read from the raw HL7
 segment (verified against HAPI's parse field by field), so a separator a laboratory left
 unescaped, as in `Hemolyzed & lipemic ^ repeat`, stays in the text instead of cutting it. HL7
