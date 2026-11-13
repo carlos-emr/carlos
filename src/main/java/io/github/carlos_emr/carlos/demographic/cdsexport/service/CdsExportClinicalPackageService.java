@@ -274,10 +274,16 @@ public class CdsExportClinicalPackageService {
                                             captured.dataSummaries(),
                                             captured.listed()))
                             != null) ambiguous();
-                    String priorName =
-                            billingNames.putIfAbsent(
-                                    name.physicianBillingNumber(), path.physicianFolder());
-                    if (priorName != null && !priorName.equals(path.physicianFolder())) ambiguous();
+                    // Two names for one billing number are ambiguous; physicians without a
+                    // number (and the Unassigned folder) are told apart by name only.
+                    if (name.physicianBillingNumber() != null
+                            && !name.physicianBillingNumber().isEmpty()) {
+                        String priorName =
+                                billingNames.putIfAbsent(
+                                        name.physicianBillingNumber(), path.physicianFolder());
+                        if (priorName != null && !priorName.equals(path.physicianFolder()))
+                            ambiguous();
+                    }
                     var prior = physicians.get(path.physicianFolder());
                     physicians.put(
                             path.physicianFolder(),

@@ -197,8 +197,13 @@ public final class CdsExportSupportingFilesValidator {
                             physician.firstName(), physician.lastName(), physician.billingNumber());
             if (previousFolder != null && previousFolder.compareTo(folder) >= 0) invalid();
             previousFolder = folder;
-            text.field("Physician", physician.firstName() + " " + physician.lastName());
-            text.field("Physician OHIP billing number", physician.billingNumber());
+            text.field(
+                    "Physician",
+                    CdsExportPathComposer.physicianLabel(
+                            physician.firstName(), physician.lastName()));
+            text.field(
+                    "Physician OHIP billing number",
+                    java.util.Objects.requireNonNullElse(physician.billingNumber(), ""));
             text.field("Physician patient files", Long.toString(physician.patientFiles()));
             long actual = 0;
             while (pending != null) {

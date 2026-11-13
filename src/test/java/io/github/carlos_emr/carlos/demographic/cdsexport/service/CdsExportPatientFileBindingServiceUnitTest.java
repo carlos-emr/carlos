@@ -98,16 +98,22 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingPhysician_insteadOfUsingTheOperator() {
+    void shouldFileAPatientWithoutAPhysician_inTheUnassignedFolderNeverTheOperators()
+            throws Exception {
         demographic.put("provider_no", null);
-        assertThatThrownBy(() -> bind(null, "1971-03-04", "C27", List.of(physician())))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var result = bind(null, "1971-03-04", "C27", List.of(physician()));
+        assertThat(result.physicianFirstName()).isNull();
+        assertThat(result.physicianLastName()).isNull();
+        assertThat(result.physicianBillingNumber()).isNull();
+        assertThat(new CdsExportPathComposer().compose(result).physicianFolder())
+                .isEqualTo(CdsExportPathComposer.UNASSIGNED_FOLDER);
     }
 
     @Test
-    void shouldRefuseMissingPublicPhysicianMetadata_forPatientFileBindingServiceContract() {
-        assertThatThrownBy(() -> bind("111111", "1971-03-04", "C27", List.of()))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    void shouldUseTheUnassignedFolder_whenThePhysiciansProviderRecordIsGone() throws Exception {
+        var result = bind("111111", "1971-03-04", "C27", List.of());
+        assertThat(new CdsExportPathComposer().compose(result).physicianFolder())
+                .isEqualTo(CdsExportPathComposer.UNASSIGNED_FOLDER);
     }
 
     @Test
@@ -123,12 +129,23 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldNeverSubstituteCpsoOrLocalProviderId_forMissingOhip() {
+    void shouldNeverSubstituteCpsoOrLocalProviderId_forMissingOhip() throws Exception {
         provider.put("ohip_no", null);
         provider.put("practitionerNoType", "CPSO");
         provider.put("practitionerNo", "123456");
-        assertThatThrownBy(() -> bind("111111", "1971-03-04", "C27", List.of(physician())))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        // The physician keeps the folder with an empty number, as the legacy exporter wrote it.
+        var result = bind("111111", "1971-03-04", "C27", List.of(physician()));
+        assertThat(result.physicianBillingNumber()).isEmpty();
+        assertThat(new CdsExportPathComposer().compose(result).physicianFolder())
+                .isEqualTo("Physician_Source_");
+        // A stored billing number that is not one to six letters or digits is not used either.
+        provider.put("ohip_no", "1234-567");
+        assertThat(bind("111111", "1971-03-04", "C27", List.of(physician())).physicianBillingNumber())
+                .isEmpty();
+        // A shorter billing number, such as a British Columbia MSP number, is kept as stored.
+        provider.put("ohip_no", " 12345 ");
+        assertThat(bind("111111", "1971-03-04", "C27", List.of(physician())).physicianBillingNumber())
+                .isEqualTo("12345");
     }
 
     @Test
@@ -144,11 +161,14 @@ class CdsExportPatientFileBindingServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseUnrepresentablePhysicianNames_withoutStrippingCharacters() {
-        // A reserved file-name character is written as "_" in the folder name (review EC-4);
-        // a control character cannot be carried by any file system and still requires review.
+    void shouldNeverStripCharactersFromAPhysiciansName_forTheFolder() throws Exception {
+        // A reserved file-name character is written as "_" in the folder name (review EC-4). A
+        // control character cannot be carried by any file system and the provider's public
+        // name is not usable; the name is never altered to fit, the patient goes in the
+        // Unassigned folder.
         provider.put("first_name", "Source\u0007Name");
-        assertThatThrownBy(() -> bind("111111", "1971-03-04", "C27", List.of(physician())))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        var result = bind("111111", "1971-03-04", "C27", List.of(physician()));
+        assertThat(new CdsExportPathComposer().compose(result).physicianFolder())
+                .isEqualTo(CdsExportPathComposer.UNASSIGNED_FOLDER);
     }
 }

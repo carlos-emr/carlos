@@ -32,9 +32,10 @@ import java.util.*;
 import org.springframework.stereotype.Service;
 
 /**
- * Binds required physician/patient archive names to frozen roster ownership, captured public
+ * Binds required physician/patient archive names to frozen roster ownership, captured
  * provider metadata and actual validated XML. No operator/provider fallback supplies a missing
- * roster physician, clinical author, birth date or OHIP number. Source registration authority
+ * roster physician, clinical author, birth date or OHIP number: a patient without a usable
+ * physician goes in the Unassigned folder and a physician without a number keeps an empty one. Source registration authority
  * remains a separate profile-qualification gate; a usable name is not a disclosure grant.
  */
 @Service
@@ -121,26 +122,40 @@ public class CdsExportPatientFileBindingService {
         String physician = demographics.getFirst().fields().get("provider_no");
         if (!Objects.equals(physician, selectedPhysician))
             throw new CdsExportReviewException(CdsExportReviewException.Reason.SOURCE_CHANGED);
-        if (physician == null || physician.isBlank()) throw review();
-        var providers =
-                rows.stream()
-                        .filter(
-                                row ->
-                                        row.table().equals("provider")
-                                                && physician.equals(
-                                                        row.fields().get("provider_no")))
-                        .toList();
-        if (providers.size() != 1) throw review();
-        checkpoint.run();
-        var publicValue =
-                new CdsExportPublicProviderMapper()
-                        .map(
-                                providers.getFirst(),
-                                CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN)
-                        .value();
-        if (publicValue == null
-                || publicValue.ohipNumber() == null
-                || publicValue.ohipNumber().isBlank()) throw review();
+        // The physician folder is a packaging convention (DP01.11) that no CARLOS importer reads.
+        // A patient without a primary physician, or whose physician's provider record is gone,
+        // goes in the Unassigned folder; a physician without a usable billing number keeps the
+        // name with an empty number, as the legacy exporter wrote it. Neither holds the patient.
+        String physicianFirst = null, physicianLast = null, billing = null;
+        if (physician != null && !physician.isBlank()) {
+            var providers =
+                    rows.stream()
+                            .filter(
+                                    row ->
+                                            row.table().equals("provider")
+                                                    && physician.equals(
+                                                            row.fields().get("provider_no")))
+                            .toList();
+            if (providers.size() > 1) throw review();
+            checkpoint.run();
+            if (providers.size() == 1) {
+                // The folder names the physician as the provider record does; the
+                // PrimaryPhysician element is decided separately by the demographic mapper.
+                var fields = providers.getFirst().fields();
+                String stored = fields.get("ohip_no");
+                String number = stored == null ? "" : stored.strip();
+                if (!number.matches("[A-Za-z0-9]{1,6}")) number = "";
+                try {
+                    new CdsExportPathComposer()
+                            .physicianFolder(fields.get("first_name"), fields.get("last_name"), number);
+                    physicianFirst = fields.get("first_name");
+                    physicianLast = fields.get("last_name");
+                    billing = number;
+                } catch (IllegalArgumentException unrepresentable) {
+                    // A name no file system can carry is never altered: Unassigned.
+                }
+            }
+        }
         String lexical = xml.dateOfBirth() == null ? null : xml.dateOfBirth().strip();
         if (lexical == null
                 || !lexical.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(?:Z|[+-][0-9]{2}:[0-9]{2})?"))
@@ -153,9 +168,9 @@ public class CdsExportPatientFileBindingService {
         }
         var result =
                 new CdsExportPatientFileDto(
-                        publicValue.firstName(),
-                        publicValue.lastName(),
-                        publicValue.ohipNumber(),
+                        physicianFirst,
+                        physicianLast,
+                        billing,
                         xml.legalFirstName(),
                         xml.legalLastName(),
                         xml.senderPatientId(),

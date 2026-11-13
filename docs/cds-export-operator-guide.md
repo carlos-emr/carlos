@@ -95,6 +95,10 @@ that is absolute, leaves the directory, or contains a colon, backslash or contro
 character) and `CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` (larger than
 `cds.export.maxDocumentBytes`, 1 GiB by default).
 
+Each patient's file is in a folder named for the patient's primary physician (MRP) and
+billing number. A physician with no billing number recorded keeps a folder with the name only,
+and patients with no primary physician are in the `Unassigned` folder; neither holds a patient.
+
 ## Submit and recover a browser job
 
 Open the normal authenticated CDS Export page. Choose the authorizing provider,

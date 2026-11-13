@@ -165,8 +165,15 @@ public final class CdsExportSupportingFilesComposer {
                 throw new IllegalArgumentException("CDS_EXPORT_PHYSICIAN_ORDER_INVALID");
             }
             previousPhysician = folder;
-            line(readMe, "Physician", physician.firstName() + " " + physician.lastName());
-            line(readMe, "Physician OHIP billing number", physician.billingNumber());
+            line(
+                    readMe,
+                    "Physician",
+                    CdsExportPathComposer.physicianLabel(
+                            physician.firstName(), physician.lastName()));
+            line(
+                    readMe,
+                    "Physician OHIP billing number",
+                    Objects.requireNonNullElse(physician.billingNumber(), ""));
             line(readMe, "Physician patient files", Long.toString(physician.patientFiles()));
             long count = 0;
             while (patient != null) {

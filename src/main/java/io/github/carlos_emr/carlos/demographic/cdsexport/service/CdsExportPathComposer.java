@@ -59,12 +59,32 @@ public final class CdsExportPathComposer {
         return new CdsExportPathDto(folder, file);
     }
 
-    /** Logical archive names are separate from opaque physical staging members. */
+    /**
+     * The folder of the patients with no primary physician recorded (or whose physician's provider
+     * record is gone). One token, so no receiver can read it as a physician's name and number.
+     */
+    public static final String UNASSIGNED_FOLDER = "Unassigned";
+
+    /**
+     * Logical archive names are separate from opaque physical staging members. A physician
+     * without a usable billing number (empty) keeps the name, as the legacy exporter wrote it
+     * ({@code First_Last_}); no names and no number is the {@link #UNASSIGNED_FOLDER}. A number
+     * is never invented.
+     */
     public String physicianFolder(String firstName, String lastName, String billingNumber) {
-        if (billingNumber == null || !billingNumber.matches("[A-Za-z0-9]{1,6}")) {
+        if (firstName == null && lastName == null && billingNumber == null) return UNASSIGNED_FOLDER;
+        if (billingNumber == null
+                || !billingNumber.isEmpty() && !billingNumber.matches("[A-Za-z0-9]{1,6}")) {
             throw new IllegalArgumentException("CDS_EXPORT_PHYSICIAN_BILLING_NUMBER_REQUIRED");
         }
         return component(name(firstName) + "_" + name(lastName) + "_" + billingNumber);
+    }
+
+    /** How the ReadMe names a physician folder's physician. */
+    public static String physicianLabel(String firstName, String lastName) {
+        return firstName == null && lastName == null
+                ? "No primary physician recorded"
+                : firstName + " " + lastName;
     }
 
     /**

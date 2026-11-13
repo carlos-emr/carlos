@@ -1172,7 +1172,14 @@ volume planning remains unfinished.
 Actual parsed XML evidence includes legal patient name, ID and calendar birth date.
 `verifyFileBinding` compares that evidence to the exact DP01.11 filename without stripping
 names or shifting dates through UTC. Physician folders still need independent captured
-roster/provider evidence. Package byte agreement does not establish clinical completeness,
+roster/provider evidence: the folder is `First_Last_BillingNumber` from the patient's primary
+physician's captured provider row (`CdsExportPatientFileBindingService`). The folder is a
+packaging convention that no CARLOS importer reads, so it never holds a patient: a physician
+without a usable billing number (one to six letters or digits, as stored, such as a British
+Columbia MSP number) keeps the name with an empty number (`First_Last_`, as the legacy exporter
+wrote it), and a patient with no primary physician, a physician whose provider record is gone, or
+a name no file system can carry goes in the single-token `Unassigned` folder. No number or name
+is invented or altered. The ReadMe lists that folder as "No primary physician recorded". Package byte agreement does not establish clinical completeness,
 attachment-reference closure, supporting-file content, disclosure authority or READY.
 There is deliberately no ledger API that can publish this intermediate byte proof.
 
