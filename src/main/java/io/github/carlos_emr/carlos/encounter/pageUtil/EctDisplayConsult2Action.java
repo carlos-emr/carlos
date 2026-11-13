@@ -140,16 +140,16 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
                 }
                 String url = "popupPage(700, 960,'" + winName + "','" + request.getContextPath() + "/encounter/ViewRequest?de=" + bean.demographicNo + "&requestId=" + theRequests.ids.get(idx) + "'); return false;";
                 
-                // The row shows the service alone, as the OSCAR 19 chart does (EctDisplayConsultAction:
-                // title = service, date in the right-hand column). The specialist stays in the hover
-                // text; it comes from the same row-builder pass (vSpecialist), so it adds no query.
+                // Specialist names come from the same row-builder pass that already loaded the
+                // service (vSpecialist), so showing them adds no per-row query.
+                String referralLabel = buildReferralLabel(service, specialist);
                 // LeftNavBarDisplay.jsp attribute-encodes the link title itself, so it is stored
                 // raw here to avoid double encoding.
-                item.setLinkTitle(buildLinkTitle(buildReferralLabel(service, specialist), serviceDateStr));
+                item.setLinkTitle(buildLinkTitle(referralLabel, serviceDateStr));
                 // The visible title is printed raw by LeftNavBarDisplay.jsp, so it is encoded here;
                 // truncate first so the length cap can never split an HTML entity.
                 item.setTitle(SafeEncode.forHtmlContent(
-                        StringUtils.maxLenString(buildRowTitle(service, specialist), MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES)));
+                        StringUtils.maxLenString(referralLabel, MAX_LEN_TITLE, CROP_LEN_TITLE, ELLIPSES)));
                 item.setURL(url);
                 item.setDate(date);
                 Dao.addItem(item);
@@ -160,22 +160,7 @@ public class EctDisplayConsult2Action extends EctDisplayAction {
     }
 
     /**
-     * Builds the unencoded visible row label: the consultation service, as OSCAR 19 lists it.
-     *
-     * <p>A request without a service (legacy or imported rows) falls back to its specialist so the
-     * row is never an unlabelled link; with neither, the label is empty and only the date shows.</p>
-     *
-     * @param service the consultation service description; may be {@code null}
-     * @param specialist the specialist/referrer display name; may be {@code null}
-     * @return the trimmed service, else the specialist, else an empty string
-     */
-    static String buildRowTitle(String service, String specialist) {
-        String trimmedService = service == null ? "" : service.trim();
-        return trimmedService.isEmpty() ? buildReferralLabel(null, specialist) : trimmedService;
-    }
-
-    /**
-     * Builds the unencoded full referral label, {@code "Service - Specialist"}, used as hover text.
+     * Builds the unencoded row label for a consultation as {@code "Service - Specialist"}.
      *
      * <p>Both parts are trimmed. A blank part, or a specialist equal to the
      * {@value #NOT_APPLICABLE} placeholder that {@code EctViewConsultationRequestsUtil} emits when
