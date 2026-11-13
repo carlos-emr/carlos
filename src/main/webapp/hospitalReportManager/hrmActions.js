@@ -503,6 +503,17 @@ function printHrm(hrmReportId) {
 
 function setDescription(reportId) {
     let description = jQuery("#descriptionField_" + reportId + "_hrm").val();
+    // HRMDocument.description is a utf8mb4 VARCHAR(255) and the server stores the text as typed:
+    // it counts code points, as Array.from does, so an emoji is one character. The page publishes
+    // the limit and its localized message on the box; HRMModifyDocument2Action refuses a longer
+    // description too, and that is the check that holds. This only keeps the typed text in view.
+    let field = document.getElementById("descriptionField_" + reportId + "_hrm");
+    let limit = field && typeof field.getAttribute === 'function' ? Number(field.getAttribute('data-max-code-points')) : 0;
+    if (limit > 0 && typeof description === 'string' && Array.from(description).length > limit) {
+        showHrmStatus("descriptionstatus" + reportId,
+            field.getAttribute('data-too-long-message') || "The description is too long.");
+        return;
+    }
     hrmModify({method: "setDescription", reportId: reportId, description: description},
         function (result) {
             showHrmStatus("descriptionstatus" + reportId, result.message);

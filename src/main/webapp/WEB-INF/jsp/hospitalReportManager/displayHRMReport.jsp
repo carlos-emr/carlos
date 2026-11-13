@@ -882,8 +882,15 @@
     </div>
     <div id="descriptionBox">
 
-        Add a description:
+        <label for="descriptionField_<%=hrmReportId %>_hrm">Add a description:</label>
+        <%-- HRMDocument.description holds DESCRIPTION_MAX_LENGTH code points; maxlength counts UTF-16
+             units, so it is twice that. hrmActions.js setDescription() and HRMModifyDocument2Action
+             refuse a longer description with the message below. --%>
+        <fmt:message key="dms.error.descriptionTooLong" var="hrmDescriptionTooLongText"/>
         <input type="text" id="descriptionField_<%=hrmReportId %>_hrm" size="100"
+               maxlength="<%= HRMDocument.DESCRIPTION_MAX_LENGTH * 2 %>"
+               data-max-code-points="<%= HRMDocument.DESCRIPTION_MAX_LENGTH %>"
+               data-too-long-message="${carlos:forHtmlAttribute(hrmDescriptionTooLongText)}"
                value="<carlos:encode value='<%= document.getDescription() %>' context="htmlAttribute"/>"/><br/>
 
         <div class="boxButton">

@@ -127,6 +127,46 @@ test('a transport failure reports it instead of leaving the box empty', () => {
   assert.match(status.textContent, /Error encountered/);
 });
 
+// HRMDocument.description holds 255 characters, counted in code points (utf8mb4): an emoji is one.
+function descriptionField(value) {
+  return element({value, attrs: {'data-max-code-points': '255', 'data-too-long-message': 'Localized too long'}});
+}
+
+test('a description longer than the column is refused before posting, keeping the typed text', () => {
+  const status = element();
+  const field = descriptionField('\u{1F600}'.repeat(256));
+  const {context, requests} = setup({elements: {'descriptionField_7_hrm': field, 'descriptionstatus7': status}});
+
+  context.setDescription('7');
+
+  assert.equal(requests.length, 0);
+  assert.equal(status.textContent, 'Localized too long');
+  assert.equal(field.value, '\u{1F600}'.repeat(256));
+});
+
+test('a description that fills the column exactly is posted whole', () => {
+  const status = element();
+  const {context, requests} = setup({elements: {
+    'descriptionField_7_hrm': descriptionField('\u{1F600}'.repeat(255)), 'descriptionstatus7': status}});
+
+  context.setDescription('7');
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].data.description, '\u{1F600}'.repeat(255));
+  requests[0].success({success: false, message: 'Server refusal text'});
+  assert.equal(status.textContent, 'Server refusal text', 'A server refusal is shown in the same status line');
+});
+
+test('the report page publishes the column length and the localized message on the description box', () => {
+  const jsp = fs.readFileSync(path.join(__dirname,
+    '../src/main/webapp/WEB-INF/jsp/hospitalReportManager/displayHRMReport.jsp'), 'utf8');
+  assert.match(jsp, /<label for="descriptionField_<%=hrmReportId %>_hrm">/);
+  assert.match(jsp, /data-max-code-points="<%= HRMDocument\.DESCRIPTION_MAX_LENGTH %>"/);
+  assert.match(jsp, /maxlength="<%= HRMDocument\.DESCRIPTION_MAX_LENGTH \* 2 %>"/);
+  assert.match(jsp, /data-too-long-message="\$\{carlos:forHtmlAttribute\(hrmDescriptionTooLongText\)\}"/);
+  assert.match(jsp, /<fmt:message key="dms\.error\.descriptionTooLong" var="hrmDescriptionTooLongText"\/>/);
+});
+
 test('sign-off notifies the Inboxhub without needing any listView flag', () => {
   const dropped = [];
   const opener = {
