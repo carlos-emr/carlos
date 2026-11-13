@@ -1,0 +1,35 @@
+/*
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (C) 2026 CARLOS Contributors
+ */
+
+/* The XML remains the stored template text; wrap its display instead of widening the page. */
+.rbt-page .xmlBorderDiv pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+@media screen {
+    .rbt-page {
+        padding-inline: 1rem;
+    }
+
+    /* These legacy rows sit directly in the page, without a Bootstrap container. */
+    .rbt-page > .row {
+        margin-inline: 0;
+    }
+
+    /* Wide result columns scroll inside the report, keeping the page gutter visible. */
+    .rbt-page .reportBorderDiv {
+        overflow-x: auto;
+    }
+
+    .rbt-page .reportBorderDiv:focus-visible {
+        outline: 2px solid currentColor;
+        outline-offset: 2px;
+    }
+
+    .rbt-page .form-actions > .d-flex {
+        flex-wrap: wrap;
+    }
+}

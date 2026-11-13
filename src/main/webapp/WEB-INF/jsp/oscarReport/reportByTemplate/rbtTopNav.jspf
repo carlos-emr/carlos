@@ -8,9 +8,9 @@ Top navigation bar for Report by Template
      right below it slid up underneath "Report By Template". A sticky bar keeps its own space and still stays at the
      top while a long report scrolls; bg-body keeps the rows scrolling under it from showing through. --%>
 <div class="navbar sticky-top bg-body border-bottom mb-2 noprint">
-    <div class="container-fluid">
+    <div class="container-fluid px-0">
 	    <a class="navbar-brand" href="#">Report By Template</a> <!-- oscarreport.reportbytemplate=Report By Template -->
-	    <ul class="nav">
+	    <ul class="nav gap-3">
 		    <li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewHomePage" class="contentLink">Template Library</a></li>
 		    <li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/rbtGroup" class="contentLink">Template Groups</a></li>
 			<li><a href="${pageContext.request.contextPath}/oscarReport/reportByTemplate/ViewAddEditTemplate" class="contentLink">Add Template</a></li>
