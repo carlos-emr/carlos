@@ -212,6 +212,56 @@ class CdsExportHistoryNativeReconcilerUnitTest {
     }
 
     @Test
+    void shouldStateAnArchivedImportedProblem_firstInItsNotes() throws Exception {
+        // The archive marker in the residual is read only by CARLOS; any other receiver must be
+        // told in the item itself that it is not current.
+        var withNotes =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"),
+                        field(CdsCategory.PROBLEM_LIST, "Notes[1]", "mild intermittent"));
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.PROBLEM_LIST,
+                                reconcile(
+                                                CdsCategory.PROBLEM_LIST,
+                                                "Concerns",
+                                                withNotes,
+                                                "Original imported narrative",
+                                                true)
+                                        .content()),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "<Notes>"
+                                + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT
+                                + "\n\nmild intermittent</Notes>",
+                        "<ProblemDiagnosisDescription>Original imported narrative<");
+        var withoutNotes =
+                List.of(
+                        field(
+                                CdsCategory.PROBLEM_LIST,
+                                "ProblemDiagnosisDescription[1]",
+                                "Original imported narrative"));
+        assertThat(
+                        new String(
+                                render(
+                                        CdsCategory.PROBLEM_LIST,
+                                        reconcile(
+                                                        CdsCategory.PROBLEM_LIST,
+                                                        "Concerns",
+                                                        withoutNotes,
+                                                        "Original imported narrative",
+                                                        true)
+                                                .content()),
+                                StandardCharsets.UTF_8))
+                .contains("<Notes>" + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT + "</Notes>");
+    }
+
+    @Test
     void shouldNotPresentTheImportedDiagnosis_asCurrentAfterALongNativeEdit() throws Exception {
         String revised =
                 ("COPD GOLD 3 confirmed on spirometry; the earlier asthma diagnosis was revised. ")

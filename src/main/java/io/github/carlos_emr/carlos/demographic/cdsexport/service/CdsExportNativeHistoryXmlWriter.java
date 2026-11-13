@@ -123,7 +123,15 @@ public final class CdsExportNativeHistoryXmlWriter {
                     default -> throw new IOException("CDS_EXPORT_NATIVE_HISTORY_CATEGORY_INVALID");
                 };
         for (String name : order) {
-            if (value.dates().containsKey(name)) date(xml, value, name);
+            if (name.equals("Notes") && value.archived()) {
+                String notes = CdsExportNativeHistoryMapper.archivedNotes(value.text().get("Notes"));
+                if (!CdsExportNativeFieldAssessments.legal(
+                        notes, CdsExportNativeHistoryMapper.notesLimit(value.category())))
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportMappingReviewException(
+                            "CDS_EXPORT_NATIVE_HISTORY_ARCHIVED_NOTES_CAPACITY");
+                xml.element("cds", "Notes", notes);
+            } else if (value.dates().containsKey(name)) date(xml, value, name);
             else if ((name.equals("DiagnosisCode") || name.equals("DiagnosisProcedureCode"))
                     && value.code() != null) {
                 xml.start("cds", name);

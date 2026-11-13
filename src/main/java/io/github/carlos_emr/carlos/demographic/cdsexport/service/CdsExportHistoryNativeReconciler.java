@@ -135,6 +135,8 @@ final class CdsExportHistoryNativeReconciler {
                         .anyMatch(f -> f.sourcePath().equals(root + "/" + description + "[1]")))
                     replace(changes, sourceFields, description + "[1]", null);
             }
+            // The final Notes text, when this reconciliation changes it.
+            String[] notes = {null};
             for (var entry : nativeValue.text().entrySet()) {
                 String name = entry.getKey(), value = entry.getValue();
                 if (name.equals("NativePersonalNarrative") || name.equals("NativeNarrative"))
@@ -160,6 +162,9 @@ final class CdsExportHistoryNativeReconciler {
                                             : 64000;
                     if (!CdsExportNativeFieldAssessments.legal(value, maximum))
                         review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+                    // Written once below, after the archive statement is decided.
+                    notes[0] = value;
+                    continue;
                 }
                 String exact = value;
                 replace(changes, sourceFields, name + "[1]", xml -> xml.text(exact));
@@ -287,9 +292,25 @@ final class CdsExportHistoryNativeReconciler {
                         if (!CdsExportNativeFieldAssessments.legal(
                                 labelled, category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000))
                             review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
-                        replace(changes, sourceFields, "Notes[1]", xml -> xml.text(labelled));
+                        notes[0] = labelled;
                     }
                 }
+            }
+            // An item archived in CARLOS says so first in Notes, as a native item does: the
+            // archive marker in the residual is read only by CARLOS.
+            if (nativeValue.archived() && category != CdsCategory.PERSONAL_HISTORY) {
+                String base =
+                        notes[0] != null
+                                ? notes[0]
+                                : read(sourceFields, "Notes[1]", values, 64000, checkpoint);
+                notes[0] = CdsExportNativeHistoryMapper.archivedNotes(base);
+                if (!CdsExportNativeFieldAssessments.legal(
+                        notes[0], CdsExportNativeHistoryMapper.notesLimit(category)))
+                    review("CDS_EXPORT_HISTORY_COMBINED_NARRATIVE_CAPACITY");
+            }
+            if (notes[0] != null) {
+                String exact = notes[0];
+                replace(changes, sourceFields, "Notes[1]", xml -> xml.text(exact));
             }
             if (!residual) {
                 replace(

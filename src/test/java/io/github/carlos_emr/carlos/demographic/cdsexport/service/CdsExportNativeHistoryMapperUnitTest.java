@@ -442,6 +442,10 @@ class CdsExportNativeHistoryMapperUnitTest {
                         "CARLOS.History.Archived.v1",
                         "<cdsd:Content>true</cdsd:Content>",
                         "Archived family history");
+        // Any receiver, not only CARLOS, is told the item is not current.
+        assertThat(xml).contains("<Notes>" + CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT + "</Notes>");
+        assertThat(new String(render(value), StandardCharsets.UTF_8))
+                .doesNotContain("this item was archived");
     }
 
     @Test

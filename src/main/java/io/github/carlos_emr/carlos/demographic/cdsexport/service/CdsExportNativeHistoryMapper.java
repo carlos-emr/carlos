@@ -68,6 +68,32 @@ public final class CdsExportNativeHistoryMapper {
      * still shows it, so it is part of the record, not deleted. ClinicalNotes has no status or
      * residual field, so the receiver is told in the note itself rather than shown a live note.
      */
+    /**
+     * Leads the Notes of an archived CPP item (FamilyHistory, PastHealth, ProblemList,
+     * RiskFactors, AlertsAndSpecialNeeds). Its archive state also travels in
+     * {@code CARLOS.History.Archived.v1}, which only CARLOS reads; without this statement any
+     * other receiver would show a removed problem, risk or alert as current.
+     */
+    static final String ARCHIVED_ITEM_STATEMENT =
+            "[CARLOS: this item was archived (removed from the active record). It is kept for the"
+                    + " record and is not current.]";
+
+    /** Combines the archived-item statement with an item's other Notes text, if any. */
+    static String archivedNotes(String notes) {
+        return notes == null || notes.isEmpty()
+                ? ARCHIVED_ITEM_STATEMENT
+                : ARCHIVED_ITEM_STATEMENT + "\n\n" + notes;
+    }
+
+    /** The CDS 5.2 Notes limit of a CPP category (text32K, text64K or text1K). */
+    static int notesLimit(CdsCategory category) {
+        return switch (category) {
+            case FAMILY_HISTORY -> 32768;
+            case ALERTS_AND_SPECIAL_NEEDS -> 1024;
+            default -> 65536;
+        };
+    }
+
     static final String ARCHIVED_CLINICAL_NOTE_STATEMENT =
             "[CARLOS: this note was archived (removed from the active record) in its latest"
                     + " revision. It is kept for the record and is not a current note.]";
