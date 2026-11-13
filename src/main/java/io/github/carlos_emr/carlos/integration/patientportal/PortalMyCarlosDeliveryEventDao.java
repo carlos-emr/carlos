@@ -7,6 +7,8 @@ import static io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarl
 import io.github.carlos_emr.carlos.integration.patientportal.PortalMyCarlosDeviceApprovalService.Jdbc;
 import jakarta.persistence.EntityManagerFactory;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import io.github.carlos_emr.carlos.log.LogConst;
 import java.util.Objects;
 import org.hibernate.jdbc.ReturningWork;
 
@@ -110,6 +112,27 @@ final class PortalMyCarlosDeliveryEventDao {
                 q.setInt(4, event.ordinal());
                 q.setString(5, event.kind());
                 q.setBoolean(6, proofVerified);
+                changed(q.executeUpdate());
+            }
+            return null;
+        });
+    }
+
+    /** The existing audit table participates in the exact event/checkpoint transaction. */
+    void auditSkipped(String clinic, long sequence, String kind, long collectedAt) {
+        if (clinic == null || clinic.isBlank() || clinic.length() > 64 || sequence <= 0 || collectedAt < 0
+                || !java.util.Set.of("picked_up", "expired", "removed", "device_removed", "anchor").contains(kind))
+            throw invalid();
+        owned(c -> {
+            // No global Spring lookup or asynchronous executor: the approval owner supplies
+            // this connection. Any failure rolls back the page, event, fence and cursor.
+            try (var q = c.prepareStatement("INSERT INTO log (dateTime,provider_no,action,content,contentId,data) VALUES (?,?,?,?,?,?)")) {
+                q.setTimestamp(1, Timestamp.from(java.time.Instant.ofEpochSecond(collectedAt)), Jdbc.utc());
+                q.setString(2, "-1");
+                q.setString(3, LogConst.UPDATE);
+                q.setString(4, "mycarlosDeliveryEventSkipped");
+                q.setString(5, Long.toString(sequence));
+                q.setString(6, "clinic=" + clinic + " kind=" + kind + " reason=unknown_recipient");
                 changed(q.executeUpdate());
             }
             return null;
