@@ -119,6 +119,17 @@ CDS_BROWSER_CORPUS=true node scripts/demographic-cds-import-playwright-checks.js
 node scripts/audit-log-demographic-import-playwright-checks.js
 ```
 
+Each committed clinical import unit (the Demographics unit and every native category unit, not
+source-field or care-element units) writes one row in the normal chart audit table `log` inside
+its own unit transaction: action `import`, content `demographic`, the patient's
+`demographic_no` as `contentId` and `demographic_no`, the importing provider and security
+record, and data `CDS_IMPORT_UNIT_COMMITTED run=<run> unit=<unit hash> category=<category>`.
+A rolled-back unit leaves no row; the outcome detail stays in `cds_import_event`. No source
+value, health card number or name is written. Imports run on the durable worker or the CLI,
+which have no client address, so the row's `ip` is empty; `audit-log-demographic-import`
+still expects one (a maintainer decision: record the submitting request's address in the job,
+or accept an empty address for durable imports).
+
 The shared browser gate retains strict console, HTTP, navigation and network checks. A passive metadata observer can classify only an exact tagged JSON request whose production bounded consumer completed fatal UTF-8 decoding, JSON parsing and stream EOF with HTTP 200/202, no redirect, abort or navigation, and independent owner/run/upload, bounded page/cursor and visible UI evidence. Clinical completion also requires native checkpoint/patient and protected report proof; a clean dry run separately proves zero native writes. Raw Chromium `net::ERR_ABORTED` events and their bounded qualification evidence remain in the audit. Unmatched, early, truncated, malformed, unsuccessful and binary-download failures remain fatal. This handles a reproduced Chromium streaming-completion bookkeeping case without changing production transport or adding URL-wide exceptions.
 
 The manual large-ingress gate is `scripts/demographic-cds-large-ingress-playwright-checks.js`. It requires an isolated disposable database and an actual Nginx/ModSecurity proxy selected by `CDS_LARGE_INGRESS_BASE_URL` plus its private `CDS_LARGE_INGRESS_PROXY_TOKEN`. It checks 64 MiB XML through declared and unknown-length bounded chunks, the physical owned payload SHA256, journal hashes, oversized-request refusal and measured server memory without accepting a clinical job. Its manifest lists the private evidence, candidate hash and server selectors. The separate [lifecycle gate](cds-import-lifecycle-verification.md) verifies an already accepted nonzero-progress import across tab closure, native session expiry and lost acknowledgement, plus explicitly approved synthetic-course command parity. These database-wide manual gates require exclusive execution; a unit-test pass does not establish their deployed results.

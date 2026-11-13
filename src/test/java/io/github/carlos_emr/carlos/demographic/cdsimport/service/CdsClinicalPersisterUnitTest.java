@@ -998,6 +998,23 @@ class CdsClinicalPersisterUnitTest {
                 TransactionSynchronizationManager.setActualTransactionActive(false);
             }
             verify(allergyWriter).write(42, "999998", source);
+            // The unit writes one patient-keyed chart audit row in its own transaction, with the
+            // importing provider and no source value (installed check audit-log-demographic-import).
+            var audit =
+                    org.mockito.ArgumentCaptor.forClass(
+                            io.github.carlos_emr.carlos.commn.model.OscarLog.class);
+            verify(entity).persist(audit.capture());
+            assertThat(audit.getValue().getDemographicId()).isEqualTo(42);
+            assertThat(audit.getValue().getContent()).isEqualTo("demographic");
+            assertThat(audit.getValue().getContentId()).isEqualTo("42");
+            assertThat(audit.getValue().getProviderNo()).isEqualTo("999998");
+            assertThat(audit.getValue().getAction()).isEqualTo("import");
+            assertThat(audit.getValue().getData())
+                    .isEqualTo(
+                            "CDS_IMPORT_UNIT_COMMITTED run=run unit=unit"
+                                    + " category=AllergiesAndAdverseReactions;"
+                                    + " outcomes=cds_import_event")
+                    .doesNotContain("Synthetic allergy");
             verify(ledger, times(archived && !restore ? 1 : 0))
                     .diagnostic(
                             eq("run"),

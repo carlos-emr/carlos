@@ -57,6 +57,8 @@ public class LogConst {
     public static final String UNLINK = "unlink";
     public static final String SENT = "sent";
     public static final String EXPORT = "export";
+    /** A CDS import wrote a unit of the patient's chart (see cds_import_event for its outcome). */
+    public static final String IMPORT = "import";
     // OHIP file generation and simulation (Ontario billing), as OSCAR 19 audited them.
     public static final String SIMULATE = "simulate";
     public static final String GENERATE = "generate";

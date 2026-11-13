@@ -254,6 +254,7 @@ public class CdsImportNativeService {
             int demographicNo = Integer.parseInt(target.get("demographic"));
             access.context(actor, command, demographicNo);
             ledger.bindTarget(run, epoch, unit.patientKey(), demographicNo);
+            audit(run, unit, command, actor, demographicNo);
             if (command.timeshiftDays() != 0)
                 notice(
                         run,
@@ -412,7 +413,40 @@ public class CdsImportNativeService {
                                                     record,
                                                     command);
         }
+        if (!"CareElements".equals(record.section()) && !"NewCategory".equals(record.section()))
+            audit(run, unit, command, actor, target);
         return receipts.capture(written, run, unit.unitKey());
+    }
+
+    /**
+     * The normal chart audit of an imported unit: one row in {@code log} naming the patient, in
+     * the unit's own transaction, so a rolled-back unit leaves no audit claim and a committed one
+     * cannot lack it. It carries the importing provider and only the run, unit hash and
+     * category (no source value or health number); the detailed outcome stays in
+     * {@code cds_import_event}. An asynchronous import has no client address to record.
+     */
+    private void audit(
+            String run,
+            CdsImportUnitDto unit,
+            CdsImportCommand command,
+            CdsImportActorDto actor,
+            int demographicNo) {
+        var entry = new io.github.carlos_emr.carlos.commn.model.OscarLog();
+        entry.setProviderNo(command.providerNo());
+        if (actor != null) entry.setSecurityId(actor.securityNo());
+        entry.setAction(io.github.carlos_emr.carlos.log.LogConst.IMPORT);
+        entry.setContent(io.github.carlos_emr.carlos.log.LogConst.CON_DEMOGRAPHIC);
+        entry.setContentId(Integer.toString(demographicNo));
+        entry.setDemographicId(demographicNo);
+        entry.setData(
+                "CDS_IMPORT_UNIT_COMMITTED run="
+                        + run
+                        + " unit="
+                        + unit.unitKey()
+                        + " category="
+                        + unit.category()
+                        + "; outcomes=cds_import_event");
+        entityManager.persist(entry);
     }
 
     public boolean verify(CdsImportReceiptDto receipt) {
