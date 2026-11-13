@@ -55,7 +55,7 @@ Medication/allergy DATE destinations do not carry a source timestamp's full time
 | Source concept | Native destination and rule |
 | --- | --- |
 | DrugName/DIN | Source name in custom/brand name as appropriate and source DIN in regional identifier; no DrugRef substitution/enrichment overwrites these values |
-| Strength amount/unit | Native strength display in `Drug.dosage`; original components remain separate category fields |
+| Strength amount/unit | Native strength display in `Drug.dosage`; original components remain separate category fields. A `DrugDescription` naming any other strength (a combination product such as `875 mg / 125 mg`, whose standard Strength is its first ingredient) leaves the native strength incomplete, so the prescription requires reconciliation (`CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS`) and is not renewable from the partial strength |
 | Dose/unit | Exact raw dose in `cds_dose_text`, unit fields and source-literal SIG; legacy float endpoints are populated only when the complete decimal/range is exactly representable |
 | Frequency/form/route | Independent native fields; no substring extraction or invented route |
 | Initial duration | Whole number with optional D/W/M/Y or day/week/month/year (singular/plural, case insensitive); a bare number means days. Preserve the amount and unit independently, without approximating calendar months/years as days or deriving treatment end/currentness |

@@ -184,6 +184,48 @@ class CdsClinicalNormalizationServiceUnitTest {
         assertThat(value.providerNotes().codePointCount(0, value.providerNotes().length())).isEqualTo(32768);
     }
 
+    @Test
+    void shouldRequireReconciliation_whenTheDescriptionNamesAnotherStrengthThanTheStandardOne()
+            throws Exception {
+        // M6: a combination product's Strength is its first ingredient; the native strength
+        // column would hold only that, so the prescription must not look complete and renewable.
+        Map<String, String> complete = new LinkedHashMap<>();
+        complete.put("Strength/Amount", "875");
+        complete.put("Strength/UnitOfMeasure", "MG");
+        complete.put("Dosage", "1");
+        complete.put("DosageUnitOfMeasure", "tablet");
+        complete.put("Route", "PO");
+        complete.put("Frequency", "BID");
+        complete.put("Quantity", "20");
+        complete.put("NumberOfRefills", "0");
+        var plain = service.medication(medication(complete));
+        assertThat(plain.sourceRequiresReconciliation()).isFalse();
+        for (String same :
+                java.util.List.of("Amoxicillin 875 mg tablet", "AMOXICILLIN 875MG", "875.0 mg")) {
+            var values = new LinkedHashMap<>(complete);
+            values.put("DrugDescription", same);
+            assertThat(service.medication(medication(values)).sourceRequiresReconciliation())
+                    .as(same)
+                    .isFalse();
+        }
+        for (String combination :
+                java.util.List.of("875 mg / 125 mg", "Amoxicillin 875 mg and clavulanate 125 mg")) {
+            var values = new LinkedHashMap<>(complete);
+            values.put("DrugDescription", combination);
+            var value = service.medication(medication(values));
+            assertThat(value.sourceRequiresReconciliation()).as(combination).isTrue();
+            assertThat(value.description()).isEqualTo(combination);
+            assertThat(value.diagnostics())
+                    .extracting(io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS");
+        }
+        var liquid = new LinkedHashMap<>(complete);
+        liquid.put("Strength/Amount", "250");
+        liquid.put("Strength/UnitOfMeasure", "mg/5 mL");
+        liquid.put("DrugDescription", "Amoxicillin 250mg/5mL suspension");
+        assertThat(service.medication(medication(liquid)).sourceRequiresReconciliation()).isFalse();
+    }
+
     private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto medication(Map<String, String> extra)
             throws Exception {
         Map<String, String> values = new LinkedHashMap<>();

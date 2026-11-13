@@ -138,8 +138,19 @@ public class CdsClinicalNormalizationService {
                 route = text(record, "Route", 120),
                 frequency = text(record, "Frequency", 120);
         Integer repeats = integer(text(record, "NumberOfRefills", 100), "NumberOfRefills");
+        String description = text(record, "DrugDescription", 2000);
+        // M6: the native strength column holds only the standard Strength. A description naming
+        // other strengths (a combination product such as "875 mg / 125 mg", where Strength is
+        // the first ingredient) means the native strength is incomplete, so the prescription is
+        // not renewable until reconciled.
+        boolean otherStrengths = describesOtherStrengths(description, strengthAmount, strengthUnit);
+        if (otherStrengths)
+            diagnostics.add(
+                    new CdsClinicalDiagnosticDto(
+                            "CDS_RX_DESCRIPTION_NAMES_OTHER_STRENGTHS", "DrugDescription"));
         boolean requiresReconciliation =
                 strengthSourceOnly
+                        || otherStrengths
                         || blank(name)
                         || blank(strengthAmount)
                         || blank(strengthUnit)
@@ -156,7 +167,7 @@ public class CdsClinicalNormalizationService {
         return new CdsMedicationDto(
                 name,
                 din,
-                text(record, "DrugDescription", 2000),
+                description,
                 strengthAmount,
                 strengthUnit,
                 dose,
@@ -361,6 +372,36 @@ public class CdsClinicalNormalizationService {
         if (value != null && !supported.contains(value))
             throw new CdsClinicalException("CDS_CODE_INVALID", field);
         return value;
+    }
+
+    // A strength is an amount and a unit, optionally per a quantity ("250 mg/5 mL").
+    private static final Pattern STRENGTH_TOKEN =
+            Pattern.compile(
+                    "([0-9]+(?:[.,][0-9]+)?)\\s*([A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*"
+                            + "(?:\\s*/\\s*(?:[0-9]+(?:[.,][0-9]+)?)?\\s*"
+                            + "[A-Za-z%\u00b5\u03bc][A-Za-z0-9%\u00b5\u03bc]*)?)");
+
+    /** True when the description names a strength other than the standard Strength. */
+    static boolean describesOtherStrengths(String description, String amount, String unit) {
+        if (description == null || blank(amount) || blank(unit)) return false;
+        String standard = strengthKey(amount.strip(), unit.strip());
+        if (standard == null) return false;
+        var matcher = STRENGTH_TOKEN.matcher(description);
+        while (matcher.find()) {
+            String token = strengthKey(matcher.group(1), matcher.group(2));
+            if (token != null && !token.equals(standard)) return true;
+        }
+        return false;
+    }
+
+    private static String strengthKey(String amount, String unit) {
+        try {
+            return new BigDecimal(amount.replace(',', '.')).stripTrailingZeros().toPlainString()
+                    + " "
+                    + Ascii.toLowerCase(unit.replaceAll("\\s+", ""));
+        } catch (NumberFormatException notNumeric) {
+            return null;
+        }
     }
 
     private static String numericText(String value, String field, boolean integral) {
