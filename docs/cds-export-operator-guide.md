@@ -171,9 +171,17 @@ any chart, it stays in the import's protected source fields and the audit, and t
 the current state instead (the new enrolment, or the fee-for-service state in the NewCategory
 record). Closed imported enrolments, an imported enrolment that is still current, one ended
 with a termination in CARLOS, and the whole history of a chart whose roster was not edited
-export as imported. Still held: removing an imported contact
-or pharmacy preference (review it), a value with a character no XML file can hold, and an
-imported chart that matched an existing CARLOS chart whose values the import cannot prove.
+export as imported. An imported contact deleted in Manage Contacts is not exported, and one
+marked Inactive travels in the native demographic record, as for any chart; a person deleted and
+added again, or added again with a second relationship, is exported as one contact with the
+current relationships. An imported preferred pharmacy removed on the
+prescription pharmacy screen is not exported, and when another pharmacy was made the first
+preference that pharmacy is exported as PreferredPharmacy and the imported one travels in the
+native demographic record. In each case the imported values stay in the import's protected
+source fields, listed as replaced in the export audit. Still held: a value with a character no
+XML file can hold, a second relationship added to an imported contact whose file gave it
+several purposes (CARLOS keeps only a placeholder for them), and an imported chart that matched an
+existing CARLOS chart whose values the import cannot prove.
 
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported
@@ -360,6 +368,12 @@ stops the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`: restore the key
 ([native-baseline witness key](cds-import-configuration.md#native-baseline-witness-key)) and
 resume.
 
+A vaccine that came from an earlier CDS import and was then edited in CARLOS is exported as the
+chart shows it now: CARLOS keeps the imported entry as an earlier version, and the current version
+is exported like any vaccine recorded in CARLOS. The imported values stay in the import's
+protected source fields, listed as replaced in the export audit. An imported vaccine deleted in
+CARLOS is not exported, as any deleted prevention is not. Neither holds the patient.
+
 An `OtherA` entry recorded in CARLOS itself ("Other immunization or injection") is exported as
 an immunization without an ImmunizationType, with its name, lot, route, site and dose; an entry
 recorded without a name is named "Other immunization or injection". The CARLOS importer files
@@ -521,14 +535,16 @@ pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's
 the booking is what proves the removal, and a booking that disappeared without one still holds
 the patient (`CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW`). A reason-list item chosen
 later for an imported appointment is written before its imported purpose, as the day sheet
-shows it; a combined purpose over 250 characters holds the patient
-(`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`).
+shows it. When the label and a long imported purpose do not fit the 250 characters CDS allows
+together, the imported purpose is kept whole and the label is written as the first line of the
+appointment notes (`Reason: <label>`); neither is cut.
 
 A care value that came from an earlier CDS import and was later deleted in the
-chart holds the patient (`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED`):
-the import's original element would present the deleted value as current. Review
-the chart; exporting it requires a maintainer decision on how the corrected value
-should travel.
+chart (the way CARLOS corrects a measurement) is not exported, as any deleted
+measurement is not; the corrected value recorded afterwards is exported like any other
+measurement. The imported value stays in the import's protected source fields, listed
+as replaced in the export audit (accounted as removed when every value of that imported
+care entry was deleted), and the patient is no longer held.
 
 Every chart the export read is in the normal chart audit (`log`): an `EXPORT`
 row for each patient of a prepared package, and a `read` row marked

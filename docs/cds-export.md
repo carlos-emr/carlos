@@ -101,10 +101,10 @@ digits after removing spaces and hyphens, an address line over 50 characters, an
 province (OT, US) with its postal code, a health card of an unlisted issuer (whole card), an
 unlisted spoken or official language are left out of their optional elements and carried; sex X
 (Intersex) is Gender O with the exact code carried. For imported charts the retained reconcilers
-keep the receipt truthful (`withNativeCarriers`), an imported contact the user removed or made
-inactive and an imported pharmacy preference that was removed or re-ranked stay explicit
-reviews, and the contact-mapping and original-relationship checks that used to fail the whole
-job are patient holds. Remaining holds: text no XML document can hold, required values that are
+keep the receipt truthful (`withNativeCarriers`), follow an imported contact the user removed or
+made inactive and an imported pharmacy preference that was removed or re-ranked (see "Imported
+charts edited in CARLOS" below), and the contact-mapping and original-relationship checks that
+used to fail the whole job are patient holds. Remaining holds: text no XML document can hold, required values that are
 missing (name, birth date, sex, status), duplicate or hidden extension rows, tied first pharmacy
 preferences, a dangling pharmacy or contact link, two family or two referring physicians, an
 unknown contact consent or purpose flag, and provider values (OHIP number over six characters,
@@ -152,6 +152,36 @@ decision names the rule.
   `EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET`); an edited patient note replaces the complete
   source note the native column could not hold
   (`EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE`).
+- Contacts (`CdsExportContactFieldReconciler`, `CdsExportContactRetainedAssembler`): Manage
+  Contacts "Delete" (`Contact2Action.removeContact`, deleted=1) or "Inactive" (active=0) on an
+  imported association removes its `Contact` element (the change names every source field of the
+  element, which the receipt lists as replaced). The rows are decided by the personal-contact
+  mapper as for a native association: a removed one is not exported
+  (`REMOVED_IMPORTED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART` on the flag,
+  `REMOVED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART` and
+  `CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART` on the rest) and an inactive one travels
+  with its contact in the native demographic record. A person removed and added again from the
+  contact search is a new association to the imported contact row: that row is decided with the
+  new association and appended like any added contact. When the imported association is still
+  current and the person is picked again with another relationship, the contact is decided with
+  all its current associations (one Contact, every purpose) and appended, and the imported element
+  is replaced; this used to hold with `CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW`. An
+  imported contact whose source had several purposes keeps only the placeholder role
+  "Multiple source purposes; see imported Contact details" in CARLOS, so grouping it with a new
+  relationship still holds (`CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`), as does a deleted or
+  active flag no screen writes. A later association that is itself removed or inactive leaves the
+  imported contact as it is. A contact added after the import and later removed or made inactive
+  no longer fails the assembly's row count (`CDS_EXPORT_CONTACT_ASSEMBLY_SCOPE_INVALID`).
+- Preferred pharmacy (`CdsExportRetainedPharmacyReconciler`): once the imported link is no longer
+  the rank-one active link (the Rx screen's remove, `DemographicPharmacyDao.unlinkPharmacy`,
+  status 0; or another pharmacy made the first preference, `addPharmacyToDemographic`, which
+  moves the imported link to rank 2), `PreferredPharmacy` is the chart's current rank-one pharmacy
+  written natively, or is removed when there is none. The whole imported element is replaced, the
+  receipt lists its source fields as replaced, and the native pharmacy mapper decides every link
+  and pharmacy as on any chart (a removed link is not exported,
+  `REMOVED_IMPORTED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART` on its status; a lower-ranked one
+  travels in the native demographic record). While the imported link is still the first
+  preference the imported element keeps its structured details, as before.
 - Roster (`CdsExportRetainedEnrolmentReconciler`): native events recorded after the import
   follow `CdsExportEnrolmentHistory`. Only RO and TE are enrolment events; FS, clinic-defined
   statuses and NR with leftover values are carried in the record's `roster` object. Per episode
@@ -186,7 +216,8 @@ that an unedited chart would replay, text no XML document can carry
 `CURRENT_NATIVE_NAME_REQUIRES_REVIEW`...), a missing required value, an enrolled provider whose
 public values no CDS name can hold, and a mobile reconciliation with no current row to mark
 (now a patient hold, `CDS_EXPORT_DEMOGRAPHIC_MOBILE_RECONCILIATION_REQUIRES_REVIEW`, no longer a
-job failure). A removed imported contact or pharmacy preference stays a deliberate review. The
+job failure). A removed or inactive imported contact and a removed or re-ranked imported
+pharmacy preference no longer hold the chart (above). The
 superseded source values are not in the package itself: the NewCategory record is built from the
 current rows only, so they remain available through the retained import source and the receipt.
 
@@ -253,8 +284,9 @@ version it replaced is not exported. A row restricted to a program is exported u
 program rule below. A malformed program restriction flag, unknown status codes, duplicate
 standard fields, unsupported date precision and the importer's date hints on a row no applied
 import claims still hold the patient. An imported vaccine is written from its retained original
-elements without this residual, so a provider, reminder or status added after the import holds
-the patient for review.
+elements without this residual while its row is the one the import wrote. CARLOS never edits a
+prevention in place, so a provider, reminder or status recorded after the import is a new
+version, exported natively with the residual (below).
 
 `preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
 screen writes or reads. A prevention row is restricted to a program under the rule the chart
@@ -347,8 +379,16 @@ capture and are witnessed; every field of the version, its extensions and its pr
 gets the `SUPERSEDED_OR_REMOVED_PREVENTION_VERSION` disposition, the field-closure count covers
 them, and they are neither an expected occurrence nor a reason to hold the patient. A legacy
 NULL flag records no deletion and is current. Any other flag value holds the patient. An
-imported vaccine whose row was later edited or removed also still holds the patient: its import
-unit's retained source fields can only be accounted by an emitted occurrence. Without PastHealth, screenings are an explicit
+imported vaccine edited or removed in CARLOS no longer holds the patient. Its row is a
+superseded version like any other; `CdsExportPreventionVersions.currentVersions` follows the
+`previousId` extension each edit records on the new version (`AddPrevention2Action`) from the
+imported row to the current version, reading only row witnesses so the inventory and the vaccine
+assembly agree. An edited vaccine's current version is exported through the native path, and its
+receipt names the import unit and lists every retained source field of the imported vaccine as
+replaced: the imported elements stay in the import's retained source. A removed one (no current
+version) is not exported; its retained source fields are accounted as removed by the assembly
+and left out of the inventory, as for a deleted imported appointment. One version replaced twice,
+which no screen records, holds the patient (`CDS_EXPORT_AMBIGUOUS_SOURCE`). Without PastHealth, screenings are an explicit
 scope exclusion, and the ReadMe field `Prevention screenings (exported only as PastHealth)`
 says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedHistory) note
 whose text is the description and whose observation date is the ProcedureDate; Notes and the
@@ -531,11 +571,16 @@ are accounted, never an expected occurrence, and no reason to hold the patient, 
 NewCategory selection. An extension whose id names both a current and a deleted observation, or
 two deleted ones, holds the patient (`CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS`); an
 original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`). No CARLOS screen
-edits a measurement in place, so a clinician corrects an imported care value by deleting it; the
-imported CareElements parent is written from its retained source, which would present the deleted
-value as current, so that patient is held with
-`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED` (other changes to an imported observation
-still hold it as `CDS_EXPORT_UNMAPPED_DATA`).
+edits a measurement in place, so a clinician corrects an imported care value by deleting it and
+recording the new value. A deleted imported value is not exported either: the imported
+CareElements parent is still written from its retained source, without the deleted child's
+element, and its receipt lists that element's source fields as replaced; the deleted row and the
+extensions it left behind are accounted by the deleted-version pass, and the new value is an
+ordinary native observation. A parent whose every observation was deleted is not exported and its
+source fields are accounted as removed (`CdsExportCareOccurrenceService.removedImportedParents`
+gives the inventory the same answer). This replaces the hold
+`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED`; any other change to an imported
+observation still holds it as `CDS_EXPORT_UNMAPPED_DATA`.
 
 An HL7 result that `Hl7textResultsData.fileMeasurements` filed as a measurement (one row per
 OBX with `lab_no`, test name, abnormal flag, lab, accession, range and blocked extensions) is a
@@ -545,7 +590,12 @@ it uses to the LaboratoryResults path, which exports the complete report and app
 laboratory and sensitive-laboratory rights. When LaboratoryResults is selected, a filed result
 whose `lab_no` names no HL7 report routed to the patient (so neither path could carry it) holds
 the patient with `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` before any observation value
-is read. When LaboratoryResults is not selected, filed results are not exported: the operator
+is read. No CARLOS screen produces such a row: matching a lab to another patient
+(`CommonLabResultData.updatePatientLabRouting`) replaces every version's routing and moves the
+filed results with it (`reconcileMatchedLabMeasurements`, `MeasurementDao.reassignLabPatient`),
+the only other routing removal (`MessageUploader.clean`, a failed upload) deletes the filed
+results too, and only `Hl7textResultsData` writes `lab_no`. The hold stays for rows written
+outside the screens. When LaboratoryResults is not selected, filed results are not exported: the operator
 excluded laboratory results.
 
 One patient's care capture is bounded by `cds.export.maxNativeRows` observations (current and
@@ -2229,8 +2279,12 @@ superseded history and deleted imported appointments are not exported (decision 
 reason-list label chosen in CARLOS for an imported appointment whose purpose was not edited
 prefixes the preserved imported purpose (or the complete source purpose behind the source-view
 marker), as the day sheet shows it (`EXACT_CAPTURED_REASON_CODE_LABEL`,
-`VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL`); over 250 characters it holds
-the patient (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`). All original field IDs are accounted for and the last callback cannot
+`VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL`). When the label and the
+imported purpose do not fit the 250 characters CDS allows together, the imported purpose is kept
+exactly and the label opens AppointmentNotes as a first line `Reason: <label>`
+(`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`); only notes that would then pass the
+32,000 characters an imported note may use (an imported note within the label's length, at most
+263 characters, of that bound) still hold (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`). All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.
