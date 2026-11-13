@@ -126,9 +126,16 @@ its own unit transaction: action `import`, content `demographic`, the patient's
 record, and data `CDS_IMPORT_UNIT_COMMITTED run=<run> unit=<unit hash> category=<category>`.
 A rolled-back unit leaves no row; the outcome detail stays in `cds_import_event`. No source
 value, health card number or name is written. Imports run on the durable worker or the CLI,
-which have no client address, so the row's `ip` is empty; `audit-log-demographic-import`
-still expects one (a maintainer decision: record the submitting request's address in the job,
-or accept an empty address for durable imports).
+which serve no request, so these rows' `ip` is empty.
+
+A browser submission writes one more `log` row when the job is accepted: action `import`,
+content `cds import`, the run id as `contentId`, the submitting provider, security record and
+client address, and data `CDS_IMPORT_SUBMITTED run=<run>` (plus ` dryRun=true` for a preview).
+The shared run joins it to the per-patient unit rows. It is written after the durable
+acceptance; if that write fails the accepted job still runs and the server log records the
+failure without identifiers. A CLI import has no client address and writes no submission row;
+its submission is recorded in `cds_import_event`. `audit-log-demographic-import` checks both
+kinds of row.
 
 The shared browser gate retains strict console, HTTP, navigation and network checks. A passive metadata observer can classify only an exact tagged JSON request whose production bounded consumer completed fatal UTF-8 decoding, JSON parsing and stream EOF with HTTP 200/202, no redirect, abort or navigation, and independent owner/run/upload, bounded page/cursor and visible UI evidence. Clinical completion also requires native checkpoint/patient and protected report proof; a clean dry run separately proves zero native writes. Raw Chromium `net::ERR_ABORTED` events and their bounded qualification evidence remain in the audit. Unmatched, early, truncated, malformed, unsuccessful and binary-download failures remain fatal. This handles a reproduced Chromium streaming-completion bookkeeping case without changing production transport or adding URL-wide exceptions.
 

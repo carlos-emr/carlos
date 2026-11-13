@@ -9,11 +9,13 @@
  * a medication, an allergy and a clinical note > Import (the same file as demographic-cds-import, plus a HealthCard).
  *
  * Asserts the import created exactly one patient, and, scoped to that patient and to the run's synthetic health
- * card number: no audit row carries the health card number (the importer looks the patient up by it through
- * DemographicManager.searchByHealthCard, which writes "hin=<number>" into log.data), and the import left at
- * least one audit row naming the created patient in demographic_no with the provider and the client address (a
- * bulk write of a patient, their medication, allergy and clinical note). Every expectation is evaluated and
- * the violated ones are reported together in the last step.
+ * card number: no audit row carries the health card number (DemographicManager.searchByHealthCard writes
+ * "hin=<number>" into log.data, so no import path may reach it); the import left at least one audit row naming
+ * the created patient in demographic_no with the provider (a bulk write of a patient, their medication, allergy
+ * and clinical note); and the submission left one row with the provider and the client address for the same run.
+ * The per-patient rows are written by the durable import worker, which serves no request and so has no client
+ * address; the submission row (action "import", content "cds import", contentId = run id) carries it.
+ * Every expectation is evaluated and the violated ones are reported together in the last step.
  *
  * Fixtures and cleanup: the patient exists only because the check imported it (surname = the run marker; health
  * card number 9 + nine random digits). Cleanup removes only completed owned clinical fixtures; audit/ledger evidence
@@ -81,8 +83,16 @@ async function workflow(s) {
     expect(written.length >= 1, 'Importing a patient file (a new patient with a medication, an allergy and a clinical note) wrote no audit row naming the created patient');
     for (const r of written) {
       expect(r.provider === provider, `The import audit row ${label(r)} does not carry the provider`);
-      expect(Boolean(r.ip), `The import audit row ${label(r)} carries no client address`);
       expect(r.demographic === String(id), `The import audit row ${label(r)} carries no demographic_no`);
+    }
+    expect(written.some(r => (r.data || '').includes(`run=${run.id} `)),
+      'No audit row naming the created patient names the import run that wrote it');
+    const submitted = sql.rows(`SELECT ${cols} FROM log WHERE id>${before} AND action='import' AND content='cds import'
+      AND contentId=${q(run.id)}`).map(toRow);
+    expect(submitted.length === 1, `The import submission wrote ${submitted.length} audit rows for its run, not one`);
+    for (const r of submitted) {
+      expect(r.provider === provider, `The submission audit row ${label(r)} does not carry the provider`);
+      expect(Boolean(r.ip), `The submission audit row ${label(r)} carries no client address`);
     }
   });
 

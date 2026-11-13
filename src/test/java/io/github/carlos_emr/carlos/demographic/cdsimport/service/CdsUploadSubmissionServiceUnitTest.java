@@ -89,6 +89,7 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
     private CdsImportLedgerService ledger;
     private CdsImportJobService jobs;
     private CdsUploadSubmissionService service;
+    private io.github.carlos_emr.carlos.commn.dao.OscarLogDao audit;
     private LoggedInInfo viewer;
     private final CdsImportActorDto actor =
             new CdsImportActorDto(OPERATOR, "999998", "999998", 42, null, null);
@@ -161,7 +162,9 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
         imports = mock(CdsImportService.class);
         when(imports.submit(same(viewer), any()))
                 .thenAnswer(call -> jobs.accept(actor, call.getArgument(1)));
-        service = new CdsUploadSubmissionService(access, imports, uploads, configuration);
+        when(viewer.getIp()).thenReturn("192.0.2.10");
+        audit = mock(io.github.carlos_emr.carlos.commn.dao.OscarLogDao.class);
+        service = new CdsUploadSubmissionService(access, imports, uploads, configuration, audit);
     }
 
     @Test
@@ -170,7 +173,7 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
         properties.setProperty("cds.import.enabled", "false");
         var disabled =
                 new CdsUploadSubmissionService(
-                        access, imports, uploads, new CdsImportConfigurationService(properties));
+                        access, imports, uploads, new CdsImportConfigurationService(properties), audit);
         assertThatThrownBy(() -> disabled.submit(viewer, options(upload.id(), false, true)))
                 .hasMessage("IMPORT_ADMISSION_DISABLED");
         assertThat(uploads.status(OPERATOR, upload.id()).state()).isEqualTo("COMPLETE");
@@ -231,6 +234,36 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
         verify(uploads, never()).claimForSubmission(anyString(), anyString());
         verify(ledger, never()).accept(any());
         assertThat(uploads.abandon(OPERATOR, upload.id()).state()).isEqualTo("ABANDONED");
+    }
+
+    @Test
+    void shouldAuditTheSubmission_withClientAddressProviderAndRun() throws Exception {
+        var upload = completedUpload();
+        var job = service.submit(viewer, options(upload.id(), false, true));
+        var row = ArgumentCaptor.forClass(io.github.carlos_emr.carlos.commn.model.OscarLog.class);
+        verify(audit, times(1)).persist(row.capture());
+        var entry = row.getValue();
+        assertThat(entry.getAction()).isEqualTo(io.github.carlos_emr.carlos.log.LogConst.IMPORT);
+        assertThat(entry.getContent()).isEqualTo(io.github.carlos_emr.carlos.log.LogConst.CON_CDS_IMPORT);
+        assertThat(entry.getContentId()).isEqualTo(job.id());
+        assertThat(entry.getProviderNo()).isEqualTo("999998");
+        assertThat(entry.getSecurityId()).isEqualTo(42);
+        assertThat(entry.getIp()).isEqualTo("192.0.2.10");
+        // The run joins this row to the per-patient unit rows; no file name or source value.
+        assertThat(entry.getData()).isEqualTo("CDS_IMPORT_SUBMITTED run=" + job.id());
+        assertThat(entry.getDemographicId()).isNull();
+    }
+
+    @Test
+    void shouldKeepTheAcceptedJob_whenTheSubmissionAuditRowCannotBeWritten() throws Exception {
+        var upload = completedUpload();
+        org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
+                .when(audit)
+                .persist(any());
+        var job = service.submit(viewer, options(upload.id(), false, true));
+        assertThat(job.id()).isNotBlank();
+        assertThat(uploads.status(OPERATOR, upload.id()).state()).isEqualTo("SUBMITTED");
+        verify(uploads, times(1)).submitted(OPERATOR, upload.id(), job.id(), false);
     }
 
     @Test

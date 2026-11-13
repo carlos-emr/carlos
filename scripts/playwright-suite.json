@@ -11360,7 +11360,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "The patient exists only because the check imported it (surname = run marker, synthetic 9-prefixed health card number); cleanup removes every row the importer wrote for that demographic_no, the audit rows scoped to it or carrying the number, and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the import audit trail held': DemographicManager.searchByHealthCard writes 'hin=<number>' into log.data (DemographicManagerImpl:904) and the import's addDemographic row has no demographic_no or client address."
+      "notes": "Each committed import unit writes an audit row naming the patient and the run (no client address: the durable worker serves no request); the browser submission writes one row with the provider and client address for the same run. The modern importer never calls DemographicManager.searchByHealthCard, which writes hin=<number> into log.data."
     },
     {
       "name": "page-health-schedule-topbar",
