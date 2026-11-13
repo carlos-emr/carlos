@@ -9348,7 +9348,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "The owned FAKE- patient; ticklers and messages carry the run marker and are deleted by cleanup, which asserts they are gone. Messenger recipient is the test login itself.",
-      "notes": "Expected to FAIL at the last step 'a subject past the column and a tickler text past the TEXT column are refused or stored whole' (Subject box has no maxlength, messagetbl.thesubject is 128; tickler.message TEXT 65,535 bytes silently cut)."
+      "notes": "Expected to FAIL at the last step 'a subject past the column and a tickler text past the TEXT column are refused or stored whole', for one remaining reason only: a body containing entity-like text (for example the five characters &amp;) is stored as typed but shown decoded by the markdown message view (finding 359). A subject longer than messagetbl.thesubject (128) is now refused, and the tickler text is MEDIUMTEXT since V1.0.59.27 and stored whole."
     },
     {
       "name": "boundary-chart-note-text",
@@ -9423,7 +9423,7 @@
         "BOUNDARY_DOCUMENT_DIR"
       ],
       "fixtures": "The owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the stored files they name (inside the document store only) and asserts them gone. SKIPs when the store is not readable (BOUNDARY_DOCUMENT_DIR overrides carlos.properties DOCUMENT_DIR).",
-      "notes": "Expected to FAIL at the last step 'a description one character past the column is refused or visibly limited' (docDesc box has no maxlength; document.docdesc is 255)."
+      "notes": "A description one character past document.docdesc (255) is refused by the page and by AddEditDocument2Action, with nothing stored (finding 360)."
     },
     {
       "name": "boundary-rx-drug-name",
@@ -10078,7 +10078,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
-      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176). The idle-provider fixture asks the Ontario bill header table (billing_on_cheader1) for invoices only where the schema has that table, so the check's own SQL runs on a BC schema; it used to fail there before the report was opened. The report counts its Billing figure from that same table on every province (UsageReport.jsp, BillingONCHeader1DaoImpl.getNumberOfDemographicsWithInvoicesForProvider), and a BC schema does not have it: on BC the Run Report step is where this check judges whether the report can be produced at all."
+      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176). The idle-provider fixture asks the Ontario bill header table (billing_on_cheader1) for invoices only where the schema has that table, so the check's own SQL runs on a BC schema; it used to fail there before the report was opened. The report's Billing figure counts invoices in that same table, so outside Ontario it shows n/a (UsageReportSupport.billedPatientCount; finding 358) and the check expects 0 where the table exists and n/a where it does not."
     },
     {
       "name": "gap-records-document-annotate-save",
@@ -11788,7 +11788,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One marker-named provider with a security row (password hash and PIN copied from the test login) and a doctor role, seeded by SQL and removed by cleanup, which asserts them gone. No demo row touched. The edit page's known missing admin/bcArStyle.css (ISSUES L19) is consumed explicitly.",
-      "notes": "Fails at the last step: session A's stale Update Record clears the Force password reset session B had just set (securityupdate.jsp:103-123 copies every posted control onto the row with no comparison against the rendered state). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
+      "notes": "Session A's stale Update Record is refused with HTTP 409 and the conflict notice, and session B's Force password reset stays; reopening the record then saves A's change (SecurityEditVersion, SecurityRecordUpdateService; finding 355). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
     },
     {
       "name": "xss-poison-master-record",
@@ -18931,7 +18931,7 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "One marker-owned patient and 1201 demographicExt rows; successful query history scoped to provider/marker. Genuine bounded reporting-account cross-join timeout observed in MariaDB processlist, with no shared grants or configuration changed by the check. Cleanup refuses active queries or changed ownership and verifies exact SQL removal.",
-      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
+      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application log via either log-source variable (to prove no SQL is logged). Audit receipts are read from the log table (read / query_by_example, finding 357). Missing execution/receipts cannot pass."
     },
     {
       "name": "appointment-slot-expiry",

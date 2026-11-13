@@ -162,6 +162,9 @@ unchanged.
 
 ### British Columbia billing
 
+- Administration ▸ Reports ▸ Usage Report works on British Columbia and other
+  non-Ontario installs. Its Billing figure counts Ontario invoices, so there it shows
+  "n/a" instead of the whole report failing with HTTP 500.
 - The legacy Teleplan group export (`NEW_BC_TELEPLAN=no`) sends the claim comment in
   C02 field P58 again; the candidate sent it blank. Claims already exported blank by a
   candidate build are not corrected.
@@ -239,9 +242,11 @@ counts the rows that are shown, and a list that cannot be loaded says so
   the appointment. Update, Update and Receipt, the status buttons, Cut, Delete, the
   group actions and the repeat-booking anchor are covered. A second click on a form
   whose first submission was saved ends as saved, on the repeat-booking page as well.
-  The one exception is Group Update on the Group Appointment page: its first click
-  replaces the appointments it names, so a second click is refused instead of booking
-  them twice. A request that carries no
+  On the Group Appointment page a second click on Add Group Appointment, Group Update,
+  Group Cancel or Group Delete, a click while a slow save is still out, or a reload of the
+  result ends on the first save's page and writes nothing again: the page carries a
+  one-time submission token, so Group Update is no longer refused as another user's change
+  and Add Group Appointment no longer books the ticked providers twice. A request that carries no
   `appointmentVersion` keeps the previous last-writer-wins behavior. Saving, cutting and
   deleting from the popup also apply a patient-specific denial of the appointment's
   patient (an `_appointment$N` restriction or a locked chart), as the REST API does.
@@ -254,6 +259,15 @@ counts the rows that are shown, and a list that cannot be loaded says so
   click on a slow response or a reload. A sent page that is changed and sent again is
   shown back unsent with an explanation. A request without the page's submission token
   sends each time, as before.
+- **Security Records.** Saving a login from Administration ▸ Security Records on a page
+  opened before another administrator saved the same login no longer undoes that change
+  (for example a forced password reset, an expiry, a lock or the MFA setting). The stale
+  save is refused with HTTP 409, nothing in it is stored (a new password or PIN included),
+  and the page offers to reopen the record as it is now. A second click on a form whose
+  first save went through ends as saved, unless it carries a new password or PIN. Any save
+  to the login after the page was opened counts as a change, including the user changing
+  their own password and Reset MFA pressed on the same page; reopen the record to continue.
+  A request without the form's `securityVersion` field saves as before.
 - **Prescriptions.** When the reply to a save is lost and the prescription is edited and
   saved again, the answer is no longer "already saved". CARLOS says that the earlier
   version was saved and the changes were not (HTTP 409, code
@@ -261,6 +275,14 @@ counts the rows that are shown, and a list that cannot be loaded says so
   reopen prescribing; nothing is written by the refused request. An unchanged repeat is
   still answered `RX_ALREADY_SAVED`, and the notice then also offers the saved
   prescription for printing. See [Rx recovery](rx/release-2026.08-recovery.md).
+
+### Text that does not fit
+
+- A Messenger subject longer than 128 characters, and a document description longer than
+  255 (248 for a link, to which CARLOS adds " (link)"), is refused with a message instead of
+  being cut short without notice. The typed text is kept where the page already kept it.
+  Reply, Reply All and Forward shorten an over-long "Re:" or "Fwd:" subject in the compose
+  box. Characters are counted as the database counts them, so an emoji is one character.
 
 ### Audit trail
 
@@ -283,6 +305,12 @@ counts the rows that are shown, and a list that cannot be loaded says so
 - Recording, editing and deleting a prevention, entering and deleting a measurement,
   saving an Ontario invoice, opening a patient's Billing History and each run of the
   Demographic Report Tool are now audited.
+- Each Query by Example run now writes one audit log entry (`read` /
+  `query_by_example`) whatever its outcome: success, rejected, refused, unavailable, timed
+  out, failed, disabled or history not saved. The entry names the user and records the
+  query's SHA-256 hash, length, duration, row count and outcome, never the SQL or any
+  result. The only record before was an INFO log line, which packaged installs (logging at
+  WARN) never wrote.
 - Viewing a document is recorded once, as `read`/`document` under the patient; the
   second entry with content `Document` is no longer written. An upload filed onto a
   chart is recorded under that patient.
