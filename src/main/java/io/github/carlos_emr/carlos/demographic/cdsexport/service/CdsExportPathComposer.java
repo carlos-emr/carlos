@@ -67,19 +67,33 @@ public final class CdsExportPathComposer {
         return component(name(firstName) + "_" + name(lastName) + "_" + billingNumber);
     }
 
+    /**
+     * The file-name form of one name part. Real names such as "J." or "Smith Jr." end in a dot and
+     * some contain characters Windows forbids in file names; neither may refuse the export. The
+     * name sits inside the component (followed by "_"), so an inner trailing dot is portable;
+     * surrounding spaces are trimmed and each reserved character ({@code <>:"/\|?*}) becomes
+     * "_". The XML keeps the recorded name; only control and unpaired surrogate characters, which
+     * no file system can carry, still require review.
+     */
     private static String name(String value) {
-        if (value == null || value.isBlank() || value.length() > 1024
-                || value.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))
-                || !value.equals(value.strip()) || value.endsWith(".")) {
+        if (value == null || value.length() > 1024) {
             throw new IllegalArgumentException("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
         }
-        for (int cp : value.codePoints().toArray()) {
+        String text = value.strip();
+        if (text.isEmpty()
+                || text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+            throw new IllegalArgumentException("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
+        }
+        var portable = new StringBuilder(text.length());
+        for (int cp : text.codePoints().toArray()) {
             if (Character.isISOControl(cp) || cp >= 0xd800 && cp <= 0xdfff
-                    || cp == 0xfffe || cp == 0xffff || "<>:\"/\\|?*".indexOf(cp) >= 0) {
+                    || cp == 0xfffe || cp == 0xffff) {
                 throw new IllegalArgumentException("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
             }
+            if ("<>:\"/\\|?*".indexOf(cp) >= 0) portable.append('_');
+            else portable.appendCodePoint(cp);
         }
-        return value;
+        return portable.toString();
     }
 
     private static String component(String value) {

@@ -145,7 +145,9 @@ class CdsExportPatientFileBindingServiceUnitTest {
 
     @Test
     void shouldRefuseUnrepresentablePhysicianNames_withoutStrippingCharacters() {
-        provider.put("first_name", "Source/Name");
+        // A reserved file-name character is written as "_" in the folder name (review EC-4);
+        // a control character cannot be carried by any file system and still requires review.
+        provider.put("first_name", "Source\u0007Name");
         assertThatThrownBy(() -> bind("111111", "1971-03-04", "C27", List.of(physician())))
                 .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }

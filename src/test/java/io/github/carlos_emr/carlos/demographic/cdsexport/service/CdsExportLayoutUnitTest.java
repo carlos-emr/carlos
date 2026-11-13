@@ -49,12 +49,22 @@ class CdsExportLayoutUnitTest {
     }
 
     @Test void shouldRefuseUnrepresentableComponents_withoutTruncationOrPathFallback() {
-        for (String name : new String[]{"../name", "a/b", "a\\b", "a:b", "a\nname", " name", "name.", "a\uD800"}) {
+        for (String name : new String[]{"../name", "a\nname", "a\uD800", "   "}) {
             assertThatThrownBy(() -> paths.compose(patient(name, "Test")))
                     .hasMessage("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
         }
         assertThatThrownBy(() -> paths.compose(patient("a".repeat(1025), "Test")))
                 .hasMessage("CDS_EXPORT_FILENAME_NAME_REQUIRES_REVIEW");
+    }
+
+    @Test void shouldWritePortableFileNames_forRealNamesWithDotsReservedCharactersOrSpaces() {
+        // "J." and "Smith Jr." are ordinary recorded names and must not refuse the export.
+        assertThat(paths.compose(patient("J.", "Smith Jr.")).patientXmlFile())
+                .isEqualTo("J._Smith Jr._C27_04031971.xml");
+        assertThat(paths.compose(patient("a:b", "c/d\\e|f")).patientXmlFile())
+                .isEqualTo("a_b_c_d_e_f_C27_04031971.xml");
+        assertThat(paths.compose(patient(" Anne ", "Test")).patientXmlFile())
+                .isEqualTo("Anne_Test_C27_04031971.xml");
     }
 
     @Test void shouldPreserveLongUnicodeLogicalNames_withoutApplyingPhysicalStagingFilenameLimits() {
