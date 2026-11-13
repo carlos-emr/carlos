@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "6fd4931d7fc2e92fae66efc07d182910e024dee2",
-  "comparisonSha256": "58fccfd70bf84c16f587a5d2e061dbb4fecada7d72f3794a364d210cfd7d8da8",
-  "baselineCommit": "76d1064c07348d0f86584dabb909c9482d0d1fc6",
-  "baselineSourceTree": "6fd4931d7fc2e92fae66efc07d182910e024dee2",
+  "sourceTree": "b20e195d3e82b7cbdcd576b0f81f1eca67bf0d49",
+  "comparisonSha256": "0a9242eba9afab0c973198f3ddd15dd54aa4186b20f12662f3a728fbba2b1386",
+  "baselineCommit": "daf61ae22141192bdbec205f2975c8de870806b8",
+  "baselineSourceTree": "b20e195d3e82b7cbdcd576b0f81f1eca67bf0d49",
   "baselineReportSha256": "615b3f616b6b5e57df97cb6bbc8e338bf36fe1860f2ff527d3d6405d4713f34b",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of #6167's branch (release/2026.08 through #6182, main merged in, the promotion-review corrections) with its follow-ups #6188, #6189 and #6190 merged: one Surefire run of 37,037 cases with three forks at e50b2c0b23 (Java source identical to this commit except two trailing nosemgrep comments), zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of #6167's branch (release/2026.08 through #6182, main merged in, the promotion-review corrections) with its follow-ups #6188, #6189 and #6190 merged: one Surefire run of 37,037 cases with three forks at e50b2c0b23 (Java source identical to this commit except two trailing nosemgrep comments and one source-retention @SuppressWarnings with its trailing comment, which leave the compiled classes byte-identical), zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
     "tests": 37037,
     "skipped": 217,
@@ -3775,7 +3775,7 @@
       "lines": 95.85798816568047,
       "instructions": 96.60421545667447,
       "branches": 91.53846153846153,
-      "sourceBlob": "07b3bce70d8d7ba61073c384e4e263d872791373"
+      "sourceBlob": "9328a7366cd497d986b82ccf12185f62161ea6e3"
     },
     "src/main/java/io/github/carlos_emr/carlos/report/reportByTemplate/ReportObjectGeneric.java": {
       "lines": 100.0,
@@ -4940,5 +4940,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "76d1064c07348d0f86584dabb909c9482d0d1fc6"
+  "baselineTestRunCommit": "daf61ae22141192bdbec205f2975c8de870806b8"
 }
