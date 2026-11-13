@@ -122,8 +122,13 @@ class CdsExportSourceCatalogueUnitTest {
         assertThat(catalogue.patientScopes().get("form2MinWalk")).containsExactly("demographic_no");
         assertThat(catalogue.tables().get("form2MinWalk"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
-        assertThat(catalogue.patientScopes().get("dxresearch")).containsExactly("demographic_no");
+        // The Disease Registry is now exported as ProblemList; a legacy pre-prevention
+        // immunization row is still an unreviewed patient record.
+        assertThat(catalogue.patientScopes().get("dxresearch")).isNull();
         assertThat(catalogue.tables().get("dxresearch"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
+        assertThat(catalogue.patientScopes().get("immunizations")).containsExactly("demographic_no");
+        assertThat(catalogue.tables().get("immunizations"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
         assertThat(catalogue.tables().get("CdsHospitalisationDays"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.LISTED);

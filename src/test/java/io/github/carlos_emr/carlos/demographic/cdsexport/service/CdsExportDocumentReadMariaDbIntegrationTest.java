@@ -271,10 +271,11 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                                 patient, () -> {});
                                     }));
             // A clinical source remains subject to the same fail-closed closure check. (The
-            // cumulative patient profile used here before is now exported as a data summary.)
+            // cumulative patient profile and then the Disease Registry used here before are now
+            // exported; the legacy pre-prevention immunization table is still unreviewed.)
             sql.update(
-                    "insert into dxresearch(demographic_no,dxresearch_code,update_date)"
-                            + " values(?,'OWNEDCDS',now())",
+                    "insert into immunizations(demographic_no,provider_no,immunizations)"
+                            + " values(?,'OWNCDS','synthetic')",
                     patient);
             try {
                 stableLegacy(
@@ -290,8 +291,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
             } finally {
                 sql.update(
-                        "delete from dxresearch where demographic_no=? and"
-                                + " dxresearch_code='OWNEDCDS'",
+                        "delete from immunizations where demographic_no=? and"
+                                + " provider_no='OWNCDS'",
                         patient);
             }
         } finally {
@@ -868,11 +869,12 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
-        // A disease-registry entry is still unmapped and must stay empty; the cumulative patient
-        // profile this test used before is now exported as a data summary (decision 6).
+        // A legacy pre-prevention immunization row is still unreviewed and must stay empty; the
+        // cumulative patient profile and the Disease Registry this test used before are now
+        // exported (a data summary and ProblemList).
         sql.update(
-                "insert into dxresearch(demographic_no,dxresearch_code,update_date)"
-                        + " values(?,'OWNEDCDS',now())",
+                "insert into immunizations(demographic_no,provider_no,immunizations)"
+                        + " values(?,'OWNCDS','synthetic')",
                 patient);
         try {
             assertThatThrownBy(
@@ -884,7 +886,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from dxresearch where demographic_no=? and dxresearch_code='OWNEDCDS'",
+                    "delete from immunizations where demographic_no=? and provider_no='OWNCDS'",
                     patient);
         }
     }
@@ -1007,21 +1009,22 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
-        // Episodes are still unmapped; the CAISI hospitalisation days used here before are now a
-        // listed removed feature.
+        // Legacy pre-prevention immunization rows are still unreviewed; the CAISI hospitalisation
+        // days and then the episodes used here before are now listed and exported.
         sql.update(
-                "insert into Episode(id,demographicNo,lastUpdateUser,startDate)"
-                        + " values(?,?,'999998','2024-02-29')",
+                "insert into immunizations(ID,demographic_no,provider_no,immunizations)"
+                        + " values(?,?,'OWNCDS','synthetic')",
                 patient,
                 patient + 77);
         try {
             requireCatalogueScope();
-            sql.update("update Episode set demographicNo=? where id=?", patient, patient);
+            sql.update(
+                    "update immunizations set demographic_no=? where ID=?", patient, patient);
             assertThatThrownBy(this::requireCatalogueScope)
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from Episode where id=? and demographicNo in (?,?)",
+                    "delete from immunizations where ID=? and demographic_no in (?,?)",
                     patient,
                     patient,
                     patient + 77);
