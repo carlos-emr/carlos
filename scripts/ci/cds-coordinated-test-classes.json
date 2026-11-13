@@ -6,6 +6,7 @@
   "CdsExportDocumentInputStreamUnitTest",
   "CdsExportDocumentReadMariaDbIntegrationTest",
   "CdsExportDocumentReceiptUnitTest",
+  "CdsExportNativeReportAssemblyUnitTest",
   "CdsExportReportOccurrenceServiceUnitTest",
   "CdsExportReportPublicationEvidenceUnitTest",
   "CdsExportReportRetainedSourceUnitTest",

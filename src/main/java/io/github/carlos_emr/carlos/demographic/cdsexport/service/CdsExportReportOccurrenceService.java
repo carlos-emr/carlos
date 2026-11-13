@@ -206,6 +206,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         lease.document().storage(),
                         control::checkpoint);
         var attachments = new ArrayList<CdsExportStagedFileDto>();
+        var captured = new CapturedValues(store, source.capture().values());
         boolean complete = false;
         Throwable primary = null;
         long[] totals = {0, 0, 0};
@@ -414,13 +415,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     "REPORT_ATTACHMENT",
                                                     outputBytes -> {
                                                         try (var input =
-                                                                new CdsExportAuthenticatedRangeInputStream(
-                                                                        store.open(
-                                                                                source.capture()
-                                                                                        .values()),
-                                                                        file.content().offset(),
-                                                                        file.content().bytes(),
-                                                                        file.content().sha256(),
+                                                                captured.open(
+                                                                        file.content(),
                                                                         control::checkpoint,
                                                                         () ->
                                                                                 control
@@ -551,12 +547,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             "REPORT_ATTACHMENT",
                                             outputBytes -> {
                                                 try (var input =
-                                                        new CdsExportAuthenticatedRangeInputStream(
-                                                                store.open(
-                                                                        source.capture().values()),
-                                                                file.content().offset(),
-                                                                file.content().bytes(),
-                                                                file.content().sha256(),
+                                                        captured.open(
+                                                                file.content(),
                                                                 control::checkpoint,
                                                                 () ->
                                                                         control.authorizeCategory(
@@ -609,6 +601,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             totals[0]++;
                             totals[2]++;
                         }
+                        // Re-authenticates the whole captured values member before any staged
+                        // attachment can be accepted with this patient's output.
+                        captured.close();
                         var expectedSource = new HashSet<String>();
                         for (var field : retained)
                             if (field.category() == category()) expectedSource.add(field.id());
@@ -633,7 +628,13 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             primary = failure;
             throw failure;
         } finally {
-            if (!complete)
+            if (!complete) {
+                try {
+                    captured.close();
+                } catch (IOException | RuntimeException cleanup) {
+                    if (primary != null) primary.addSuppressed(cleanup);
+                    else throw cleanup;
+                }
                 for (var attachment : attachments.reversed())
                     try {
                         store.discardUnpublished(attachment);
@@ -641,6 +642,52 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         if (primary != null) primary.addSuppressed(cleanup);
                         else throw cleanup;
                     }
+            }
+        }
+    }
+
+    /**
+     * The patient's captured values member, authenticated once for all of its attachments
+     * (review R2). Reopening the member for each attachment decrypted it from byte 0 to the
+     * attachment's offset and then drained it to its end, so N attachments cost N complete
+     * passes over everything captured for the patient. Opening this scope verifies every chunk
+     * of the member once and pins its descriptor; each attachment then decrypts only the
+     * chunks of its own range, each under its own authentication tag and chunk index, and its
+     * SHA-256 is checked by both the range and the enclosing stream. Closing verifies the
+     * whole member again, terminator and length included, before the attachments are accepted.
+     */
+    private static final class CapturedValues {
+        private final CdsExportStagingService store;
+        private final CdsExportStagedFileDto member;
+        private CdsExportStagingService.VerifiedRanges ranges;
+        private boolean closed;
+
+        CapturedValues(CdsExportStagingService store, CdsExportStagedFileDto member) {
+            this.store = Objects.requireNonNull(store);
+            this.member = Objects.requireNonNull(member);
+        }
+
+        InputStream open(
+                CdsExportCapturedFieldDto field,
+                CdsExportAuthenticatedRangeInputStream.Checkpoint checkpoint,
+                Runnable authorize)
+                throws IOException {
+            if (closed || field.kind() != CdsExportCapturedFieldDto.Kind.BINARY) invalid();
+            if (ranges == null) ranges = store.verifiedRanges(member);
+            return new CdsExportAuthenticatedRangeInputStream(
+                    ranges.open(field.offset(), field.bytes(), field.sha256()),
+                    0,
+                    field.bytes(),
+                    field.sha256(),
+                    checkpoint,
+                    authorize);
+        }
+
+        void close() throws IOException {
+            closed = true;
+            var open = ranges;
+            ranges = null;
+            if (open != null) open.close();
         }
     }
 
