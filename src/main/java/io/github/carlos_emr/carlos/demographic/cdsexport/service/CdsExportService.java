@@ -334,6 +334,21 @@ public class CdsExportService {
         }
     }
 
+    /**
+     * The hand-off window of a foreground command-line run (see {@code
+     * CdsExportConfigurationService#cliRendererHandoffMillis}); 0 when the job renders no eForm
+     * because Reports is not selected.
+     */
+    public long rendererHandoffMillis(String verifiedOperator, String provider, String runId) {
+        authorizeDelegated(verifiedOperator, provider, runId);
+        var document = ledger.document(runId);
+        if (!document.command()
+                .categories()
+                .contains(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS))
+            return 0;
+        return configuration.cliRendererHandoffMillis();
+    }
+
     private CdsExportActorDto authorize(LoggedInInfo viewer, String runId) {
         var actor = access.operatorSession(viewer);
         access.requireObserve(actor, ledger.owner(runId));

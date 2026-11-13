@@ -371,6 +371,50 @@ class CdsExportCliUnitTest {
     }
 
     @Test
+    void shouldWatchTheOnlineWorker_insteadOfRunningAnEformExportInThisProcess() throws Exception {
+        when(runtime.rendererHandoffMillis(RUN)).thenReturn(120_000L);
+        var owned =
+                new CdsExportJobDto(
+                        RUN,
+                        CdsExportState.CAPTURING,
+                        2,
+                        1L,
+                        0,
+                        0,
+                        false,
+                        true,
+                        1,
+                        null,
+                        Instant.EPOCH,
+                        Instant.EPOCH,
+                        false);
+        when(runtime.status(RUN))
+                .thenReturn(owned)
+                .thenReturn(job(CdsExportState.READY, true));
+
+        assertThat(run(fresh())).isZero();
+
+        // The web worker, which renders eForms, ran the job; this process only watched it.
+        verify(runtime, never()).execute(anyString());
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"event\":\"HANDOFF\"", "\"seconds\":120")
+                .doesNotContain("HANDOFF_FALLBACK");
+    }
+
+    @Test
+    void shouldRunTheJobHere_whenNoOnlineWorkerClaimsItWithinTheHandoffWindow() throws Exception {
+        when(runtime.rendererHandoffMillis(RUN)).thenReturn(1L);
+        when(runtime.status(RUN)).thenReturn(job(CdsExportState.ACCEPTED, false));
+
+        assertThat(run(fresh())).isZero();
+
+        // Never a hold: the job still runs, and its eForms travel as noted data summaries.
+        verify(runtime).execute(RUN);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"event\":\"HANDOFF\"", "\"event\":\"HANDOFF_FALLBACK\"");
+    }
+
+    @Test
     void shouldStopForegroundWaiting_withoutIssuingCancellation() throws Exception {
         doAnswer(
                         call -> {

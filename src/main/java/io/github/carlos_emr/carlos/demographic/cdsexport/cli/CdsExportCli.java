@@ -357,8 +357,41 @@ public final class CdsExportCli {
                     5,
                     15,
                     TimeUnit.SECONDS);
+            // Hand-off (plan item 2.5): this process cannot render eForms, so a job that selects
+            // Reports is first left to the online web worker, which claims queued jobs every few
+            // seconds and renders them. This command then only watches. If no worker claims the
+            // job for the whole window, it runs here and its eForms carry only their data summary,
+            // noted "rendered form unavailable"; no patient is held for that.
+            long handoff = runtime.rendererHandoffMillis(run);
+            if (handoff > 0)
+                line(out, Map.of("event", "HANDOFF", "runId", run, "seconds", handoff / 1000));
+            long unclaimedSince = 0;
+            boolean unclaimed = false, fallback = false;
             while (true) {
                 if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
+                if (handoff > 0) {
+                    CdsExportJobDto observed = runtime.status(run);
+                    if (observed.state().terminal()) return observed;
+                    long now = System.nanoTime();
+                    if (!observed.waiting()) {
+                        // Owned by a worker (the online one, or this command's own last attempt).
+                        unclaimed = false;
+                        Thread.sleep(1000);
+                        continue;
+                    }
+                    if (!unclaimed) {
+                        unclaimed = true;
+                        unclaimedSince = now;
+                    }
+                    if (now - unclaimedSince < TimeUnit.MILLISECONDS.toNanos(handoff)) {
+                        Thread.sleep(1000);
+                        continue;
+                    }
+                    if (!fallback) {
+                        fallback = true;
+                        line(out, Map.of("event", "HANDOFF_FALLBACK", "runId", run));
+                    }
+                }
                 CdsExportJobDto current = runtime.execute(run);
                 if (current.state().terminal()) return current;
                 Thread.sleep(1000);

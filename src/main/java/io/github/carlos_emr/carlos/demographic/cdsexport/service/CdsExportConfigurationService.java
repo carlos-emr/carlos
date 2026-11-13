@@ -74,6 +74,21 @@ public class CdsExportConfigurationService {
     }
 
     /**
+     * How long a foreground command-line export that selects Reports leaves its unclaimed job to
+     * the online web worker, which renders eForms, before running it in its own process
+     * ({@code cds.export.cliRendererHandoffSeconds}, default 120, 0 to never hand off). A job the
+     * CLI runs itself exports every eForm through its data summary, noted "rendered form
+     * unavailable"; it is never held for that.
+     */
+    public long cliRendererHandoffMillis() {
+        String value = properties.getProperty("cds.export.cliRendererHandoffSeconds", "120").strip();
+        if (!value.matches("[0-9]{1,5}")) invalid();
+        long seconds = Long.parseLong(value);
+        if (seconds > 86_400) invalid();
+        return seconds * 1000L;
+    }
+
+    /**
      * A finite attempt wall budget is independent of lease liveness; exhaustion never truncates a
      * package.
      */

@@ -32,6 +32,15 @@ public interface CdsExportCliRuntime extends AutoCloseable {
     void resume(String runId);
     void cancel(String runId);
     CdsExportJobDto execute(String runId);
+
+    /**
+     * How long a foreground run leaves an unclaimed job to the online web worker before running it
+     * in this process; 0 runs it here at once. Only a job that renders eForms (Reports selected) is
+     * handed off: this process has no renderer, so its eForms would carry only their data summary.
+     */
+    default long rendererHandoffMillis(String runId) {
+        return 0;
+    }
     /** PHI-free metadata diagnostics remain available for failed/review jobs; a report is not a clinical package. */
     io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(String runId) throws IOException;
     void download(String runId) throws IOException;

@@ -166,6 +166,11 @@ public final class CdsExportSpringRuntime implements CdsExportCliRuntime {
     }
 
     @Override
+    public long rendererHandoffMillis(String runId) {
+        return service.rendererHandoffMillis(delegation.operator(), arguments.provider(), runId);
+    }
+
+    @Override
     public io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDiagnosticDto report(
             String runId) {
         return service.reportDelegated(delegation.operator(), arguments.provider(), runId);
