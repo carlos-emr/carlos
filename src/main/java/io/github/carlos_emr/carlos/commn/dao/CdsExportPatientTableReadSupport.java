@@ -41,7 +41,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * compile-time plan; no client SQL, identifier or generic cross-entity query is accepted.
  * Character/date/integer values use exact SQL binary casts. Prescription FLOAT columns
  * additionally require the owning DAO's server-binary read; SQL display alone is insufficient.
- * Binary and session-dependent timestamp mappings still require their own reviewed codecs.
+ * Binary and session-dependent timestamp mappings still require their own reviewed codecs; the
+ * reviewer TIMESTAMP columns are captured as instants ({@link Plan#instant}).
  */
 public final class CdsExportPatientTableReadSupport {
     public enum Plan {
@@ -991,6 +992,27 @@ public final class CdsExportPatientTableReadSupport {
             return columns;
         }
 
+        /**
+         * A TIMESTAMP column the database renders in its session time zone. It is captured as the
+         * stored instant ({@code UNIX_TIMESTAMP}, seconds since the epoch), which no session or
+         * server zone changes, and the mapper places it in the clinic zone. Only the reviewer
+         * times that become CDS date-times are read this way.
+         */
+        public boolean instant(String column) {
+            return switch (this) {
+                case LABORATORY_REVIEWERS, DOCUMENT_ROUTES -> "timestamp".equals(column);
+                case DOCUMENT_EXTRA_REVIEWERS -> "reviewDateTime".equals(column);
+                default -> false;
+            };
+        }
+
+        /** The exact captured value expression of a column of alias {@code d}. */
+        String value(String column) {
+            return instant(column)
+                    ? "CAST(UNIX_TIMESTAMP(d.`" + column + "`) AS BINARY)"
+                    : "CAST(d.`" + column + "` AS BINARY)";
+        }
+
         /** Exact original identifiers; UUID run keys and digest field/unit keys never undergo numeric coercion. */
         public boolean validRetainedKey(String value) {
             return value != null
@@ -1788,7 +1810,7 @@ public final class CdsExportPatientTableReadSupport {
         int inline = Math.min(16_384, 1_048_576 / plan.columns.size());
         var projection = new StringBuilder("select d.`" + plan.key + "`");
         for (String column : plan.columns) {
-            String value = "CAST(d.`" + column + "` AS BINARY)";
+            String value = plan.value(column);
             projection
                     .append(",d.`")
                     .append(column)
@@ -1917,9 +1939,9 @@ public final class CdsExportPatientTableReadSupport {
                                         em,
                                         "select d.`"
                                                 + plan.key
-                                                + "`,SUBSTRING(CAST(d.`"
-                                                + column
-                                                + "` AS BINARY),:position,:length) from `"
+                                                + "`,SUBSTRING("
+                                                + plan.value(column)
+                                                + ",:position,:length) from `"
                                                 + plan.table
                                                 + "` d where "
                                                 + plan.patientPredicate()

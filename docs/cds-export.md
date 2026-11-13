@@ -386,9 +386,13 @@ about the report: the route travels whole, as one more `providerLabRouting` row,
 report's `CARLOS.NativeLaboratory.v1` residual, which is per report rather than per result, so
 the comment is neither repeated on every result nor squeezed into PhysiciansNotes; its fields
 are then accounted as carried. A report nobody commented on has an unchanged residual.
-`timestamp` is a MariaDB TIMESTAMP, which the capture session renders in its time zone; it
-is read as clinic wall-clock time like every native clock, so the database session time zone
-must match `cds.export.clinicalZone`. Routes of an imported (retained) lab are accounted as
+`timestamp` (and `DocumentExtraReviewer.reviewDateTime`) is a MariaDB TIMESTAMP, which a
+session renders in its own time zone, so it is captured as the stored instant
+(`UNIX_TIMESTAMP`, seconds since the epoch; `Plan.instant`) and placed in
+`cds.export.clinicalZone` by the mapper (`CdsExportNativeHistoryMapper.instant`). The database
+or session time zone therefore cannot shift a reviewer time, and a review in the repeated hour
+of a daylight-saving change has one exact answer instead of holding the patient. The carried
+row keeps the instant as Unix seconds; the zero TIMESTAMP (no time recorded) requires review. Routes of an imported (retained) lab are accounted as
 `INBOX_ROUTING_OF_AN_IMPORTED_LABORATORY_RESULT` without holding the patient: the retained
 occurrence is written from the imported elements, which keep the sending EMR's reviewers, and
 cannot gain an element. A comment on such a route holds the patient

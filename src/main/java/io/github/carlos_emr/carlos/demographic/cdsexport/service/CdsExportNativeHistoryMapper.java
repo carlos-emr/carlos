@@ -814,6 +814,37 @@ public final class CdsExportNativeHistoryMapper {
         }
     }
 
+    /**
+     * A stored instant (whole or fractional seconds since the epoch, as {@code UNIX_TIMESTAMP}
+     * renders a TIMESTAMP column) as a date-time in the clinic zone. Unlike a local wall-clock
+     * text, an instant is never ambiguous at a daylight-saving change and never depends on the
+     * database session zone. The zero TIMESTAMP (no time recorded) requires review.
+     */
+    static CdsExportDateDto instant(String value, ZoneId zone) throws IOException {
+        if (zone == null) review("CDS_EXPORT_NATIVE_HISTORY_ZONE_REQUIRED");
+        if (value == null || !value.matches("[0-9]{1,12}(\\.[0-9]{1,6})?"))
+            review("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
+        int dot = value.indexOf('.');
+        long seconds = Long.parseLong(dot < 0 ? value : value.substring(0, dot));
+        long nanos =
+                dot < 0
+                        ? 0
+                        : Long.parseLong((value.substring(dot + 1) + "000000000").substring(0, 9));
+        if (seconds == 0 && nanos == 0) review("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
+        try {
+            var local = java.time.Instant.ofEpochSecond(seconds, nanos).atZone(zone);
+            if (local.getOffset().getTotalSeconds() % 60 != 0)
+                review("CDS_EXPORT_NATIVE_HISTORY_OFFSET_NOT_REPRESENTABLE");
+            return new CdsExportDateDto(
+                    CdsExportDateDto.Precision.DATE_TIME,
+                    java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(
+                            local.toOffsetDateTime()));
+        } catch (DateTimeException invalid) {
+            review("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
+            return null;
+        }
+    }
+
     /** The native CPP writer stores a date anchor and an explicit precision marker together. */
     static CdsExportDateDto partialDate(String stored, String marker) throws IOException {
         try {

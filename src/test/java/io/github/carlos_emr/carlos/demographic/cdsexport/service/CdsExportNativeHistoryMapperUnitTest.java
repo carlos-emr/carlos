@@ -676,4 +676,20 @@ class CdsExportNativeHistoryMapperUnitTest {
         assertThatThrownBy(() -> map(CdsCategory.CLINICAL_NOTES, List.of(current)))
                 .hasMessage("CDS_EXPORT_NATIVE_NOTE_BODY_REQUIRED");
     }
+
+    @org.junit.jupiter.api.Test
+    void shouldPlaceAStoredInstant_inTheClinicZoneWithoutDaylightSavingAmbiguity() throws Exception {
+        var zone = java.time.ZoneId.of("America/Toronto");
+        // 2025-11-02 01:30 happens twice in Toronto; each instant has one answer.
+        assertThat(CdsExportNativeHistoryMapper.instant("1762061400", zone).lexical())
+                .isEqualTo("2025-11-02T01:30:00-04:00");
+        assertThat(CdsExportNativeHistoryMapper.instant("1762065000", zone).lexical())
+                .isEqualTo("2025-11-02T01:30:00-05:00");
+        assertThat(CdsExportNativeHistoryMapper.instant("1783701900.5", zone).lexical())
+                .isEqualTo("2026-07-10T12:45:00.5-04:00");
+        for (String invalid : new String[] {"0", "", "-1", "2026-07-10 16:45:00", "1e9"})
+            org.assertj.core.api.Assertions.assertThatThrownBy(
+                            () -> CdsExportNativeHistoryMapper.instant(invalid, zone))
+                    .hasMessage("CDS_EXPORT_NATIVE_HISTORY_DATE_REQUIRES_REVIEW");
+    }
 }

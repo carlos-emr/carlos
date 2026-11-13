@@ -364,8 +364,14 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
         assertThat(first.keySet()).containsExactlyInAnyOrderElementsOf(plan.columns());
         assertThat(new String(first.get("comment").inlineBytes(), StandardCharsets.UTF_8))
                 .isEqualTo("Repeat in 3 months");
+        // The TIMESTAMP is captured as its stored instant, whatever the session time zone.
         assertThat(new String(first.get("timestamp").inlineBytes(), StandardCharsets.UTF_8))
-                .isEqualTo("2026-07-10 16:45:00");
+                .isEqualTo(
+                        sql.queryForObject(
+                                "select CAST(UNIX_TIMESTAMP(`timestamp`) AS CHAR) from"
+                                        + " providerLabRouting where id=?",
+                                String.class,
+                                patient + 10));
         String table = read.execute(status -> reviewers.schema(plan).table());
         assertThat(table).isEqualTo("providerLabRouting");
         // The public provider lookup names every provider a routed lab of the patient names.

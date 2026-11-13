@@ -50,6 +50,19 @@ import org.junit.jupiter.api.Test;
 class CdsExportLaboratoryReviewerMappingUnitTest {
     private static final ZoneId ZONE = ZoneId.of("America/Toronto");
 
+    /**
+     * The captured value of a reviewer TIMESTAMP: the instant ({@code UNIX_TIMESTAMP}) of a
+     * clinic wall-clock time, so fixtures stay readable.
+     */
+    static String instant(String clinicTime) {
+        return clinicTime == null
+                ? null
+                : Long.toString(
+                        java.time.LocalDateTime.parse(clinicTime.replace(' ', 'T'))
+                                .atZone(ZONE)
+                                .toEpochSecond());
+    }
+
     static CdsExportCapturedTextRowDto route(
             long id, String provider, String status, String timestamp, String comment) {
         var fields = new LinkedHashMap<String, String>();
@@ -59,7 +72,7 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
         fields.put("lab_type", "HL7");
         fields.put("provider_no", provider);
         fields.put("status", status);
-        fields.put("timestamp", timestamp);
+        fields.put("timestamp", instant(timestamp));
         fields.put("comment", comment);
         return new CdsExportCapturedTextRowDto(
                 "providerLabRouting", CdsExportPatientTableSourceReader.key(id), fields);

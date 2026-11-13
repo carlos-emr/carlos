@@ -317,6 +317,7 @@ final class CdsExportInboxReviewMapper {
                     reviewer(
                             provider,
                             row.fields().get("timestamp"),
+                            true,
                             providers,
                             zone,
                             fields,
@@ -401,7 +402,18 @@ final class CdsExportInboxReviewMapper {
             state.set(time, Outcome.ABSENT, "", "UNDATED_DOCUMENT_REVIEW");
             return null;
         }
-        var result = reviewer(number, reviewed, providers, zone, fields, used, values);
+        // DocumentExtraReviewer.reviewDateTime is a TIMESTAMP captured as its instant;
+        // document_review.date_reviewed is a DATETIME, a clinic wall-clock time.
+        var result =
+                reviewer(
+                        number,
+                        reviewed,
+                        time.equals("reviewDateTime"),
+                        providers,
+                        zone,
+                        fields,
+                        used,
+                        values);
         state.set(provider, Outcome.MAPPED, reviewer + "/Name", "DOCUMENT_REVIEWER");
         state.set(
                 time,
@@ -414,6 +426,7 @@ final class CdsExportInboxReviewMapper {
     private Review reviewer(
             String number,
             String reviewed,
+            boolean instant,
             Map<String, CdsExportCapturedTextRowDto> providers,
             ZoneId zone,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
@@ -423,7 +436,12 @@ final class CdsExportInboxReviewMapper {
         var value = requireProvider(number, providers, fields, used, values);
         if (reviewed == null || reviewed.isEmpty())
             review("CDS_EXPORT_INBOX_REVIEW_TIME_REQUIRED");
-        return new Review(number, value, CdsExportNativeHistoryMapper.clock(reviewed, zone));
+        return new Review(
+                number,
+                value,
+                instant
+                        ? CdsExportNativeHistoryMapper.instant(reviewed, zone)
+                        : CdsExportNativeHistoryMapper.clock(reviewed, zone));
     }
 
     private CdsExportPublicProviderDto requireProvider(
