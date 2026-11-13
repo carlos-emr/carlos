@@ -45,6 +45,38 @@ for (const change of ['method', 'origin', 'route', 'patient', 'repeated-patient'
   });
 }
 
+// Save & Exit answers with its completion page (HTTP 200, no redirect); FrmForm2Action records readings only here.
+const exit = () => {
+  const values = payload();
+  values.set('value(formId)', '17'); values.set('submit', 'exit');
+  return { url: 'https://127.0.0.1/carlos/form/SubmitForm', method: 'POST', data: values.toString(), status: 200,
+    headers: { [h.APPLICATION_HEADER]: 'none', 'content-type': 'text/html;charset=UTF-8' } };
+};
+
+test('the actual native VT Save & Exit retains its canonical patient and stored-form identity and completion page', () => {
+  const result = assertNativeFormPost(exit(), { patient: '101', previousId: '17', baseUrl, submit: 'exit' });
+  assert.equal(result.id, null);
+  assert.equal(result.parameters.get('submit'), 'exit');
+});
+
+for (const change of ['method', 'route', 'patient', 'form-id', 'submit', 'csrf', 'status', 'application', 'redirect']) {
+  test(`native VT Save & Exit proof rejects ${change}`, () => {
+    const result = exit();
+    const values = new URLSearchParams(result.data);
+    if (change === 'method') result.method = 'GET';
+    if (change === 'route') result.url = 'https://127.0.0.1/carlos/form/Other';
+    if (change === 'patient') values.set('demographic_no', '202');
+    if (change === 'form-id') values.set('value(formId)', '0');
+    if (change === 'submit') values.set('submit', 'save');
+    if (change === 'csrf') values.delete('CSRF-TOKEN');
+    if (change === 'status') result.status = 302;
+    if (change === 'application') delete result.headers[h.APPLICATION_HEADER];
+    if (change === 'redirect') result.headers.location = headers.location;
+    result.data = values.toString();
+    assert.throws(() => assertNativeFormPost(result, { patient: '101', previousId: '17', baseUrl, submit: 'exit' }));
+  });
+}
+
 test('a record denial and POST-only refusal require exact application responses and contain no form', () => {
   assert.doesNotThrow(() => assertFormRefusal({ status: 403, headers, body: '<p>Security Exception</p>' }, { status: 403 }));
   assert.doesNotThrow(() => assertFormRefusal({ status: 405, headers: { ...headers, allow: 'POST' }, body: '' }, { status: 405 }));
@@ -100,9 +132,26 @@ const before = () => ({ demographic: [['101', 'FAKE patient']], forms: [['1', 'F
   measurements: [['2', 'FAKE existing reading']], notes: [], drafts: [], locks: [], admissions: [] });
 const after = () => ({ ...before(), forms: [...before().forms, ['17', 'FAKE new form']],
   measurements: [...before().measurements, ['18', 'FAKE new reading']] });
-test('native save permits only one exact form and reading while preserving all historical state', () => {
+test('native Save & Exit permits only one exact form and reading while preserving all historical state', () => {
   assert.doesNotThrow(() => assertFormSaveDelta(before(), after(), { formId: '17', measurementId: '18' }));
 });
+
+const updated = () => ({ ...before(), forms: [...before().forms, ['17', 'FAKE new form']] });
+test('native Update permits only its exact form and no reading', () => {
+  assert.doesNotThrow(() => assertFormSaveDelta(before(), updated(), { formId: '17' }));
+});
+
+for (const change of ['reading-added', 'old-reading', 'missing-form', 'duplicate-form', 'old-form']) {
+  test(`native Update delta rejects ${change}`, () => {
+    const current = updated();
+    if (change === 'reading-added') current.measurements.push(['18', 'FAKE new reading']);
+    if (change === 'old-reading') current.measurements[0][1] = 'changed';
+    if (change === 'missing-form') current.forms.pop();
+    if (change === 'duplicate-form') current.forms.push(['17', 'duplicate']);
+    if (change === 'old-form') current.forms[0][1] = 'changed';
+    assert.throws(() => assertFormSaveDelta(before(), current, { formId: '17' }));
+  });
+}
 
 for (const change of ['old-form', 'old-reading', 'draft', 'lock', 'note', 'admission', 'missing-domain', 'duplicate-form', 'missing-reading']) {
   test(`native save delta rejects ${change}`, () => {
