@@ -568,7 +568,7 @@ chart whose measurements take it past the per-patient occurrence capacity (about
 65,000 measurements at the default and maximum `cds.export.maxIndexBytes`, far beyond
 a chart entered through the screens) is held with
 `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are still exported.
-Upgrading applies migration `V1.0.59.44`, which indexes `measurementsDeleted` (deleted
+Upgrading applies migration `V1.0.59.46`, which indexes `measurementsDeleted` (deleted
 and superseded measurements) by patient and by original measurement id. On a clinic
 with many refiled lab results the index build adds a little time to the upgrade.
 
@@ -836,7 +836,7 @@ project issue reports must omit patient data, credentials and private keys.
 See the [implementation contract](cds-export.md) for detailed source, job,
 publication, compatibility and recorded verification boundaries.
 
-The approved V1.0.59.41 forward migration seeds independent `_cds_import=x` only for an existing `admin` role with `_admin=x` or `_admin=w`, preserving every existing import grant or denial. Other roles receive no grant. `provider_no` is permission-row metadata, not a scope restriction used by the privilege evaluator. This durable independent import grant requires separate revocation if administration is later removed.
+The approved V1.0.59.43 forward migration seeds independent `_cds_import=x` only for an existing `admin` role with `_admin=x` or `_admin=w`, preserving every existing import grant or denial. Other roles receive no grant. `provider_no` is permission-row metadata, not a scope restriction used by the privilege evaluator. This durable independent import grant requires separate revocation if administration is later removed.
 
 The clinic `site` directory and `providersite` membership are reference configuration, like `clinic` and `program`; normal web startup creates them. The exporter still pins their entire physical schema, while patient/provider facts and sender context use their owning projections. Populated unsupported clinical tables continue to require review. Protected logs identify the pinned source-table name that blocks closure, without row identifiers or values.
 

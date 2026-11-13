@@ -1,3 +1,16 @@
+carlos-emr (2026.09.0~snapshot30) resolute; urgency=medium
+
+  * Prepare 2026.08.0-beta8 with the OSCAR 19 import compatibility fix.
+    Preserve unassigned DigitalSignature demographicId=-1 through an invisible
+    nullable foreign-key projection; continue enforcing real patient IDs for
+    all new signatures and resolve legacy read access only from unambiguous
+    clinical references frozen during import.
+  * Ship physical ON/BC schema contracts and the format-3 import manifest for
+    the new signature column. Pin carlos-ctl 1.3.3 for source provenance,
+    eForm collision handling and final verification of restored files.
+
+ -- CARLOS EMR Maintainers <michael@maplecreekmedical.ca>  Mon, 09 Nov 2026 13:00:00 +0000
+
 carlos-emr (2026.09.0~snapshot29) resolute; urgency=medium
 
   * Prepare 2026.08.0-beta7 on main with carlos-ctl 1.3.2 and the audited

@@ -116,6 +116,10 @@ class ConsultationPDFCreatorRequestPathUnitTest {
         DigitalSignatureManager signatures = mock(DigitalSignatureManager.class);
         DigitalSignature signature = new DigitalSignature();
         signature.setSignatureImage(png(300, 90, Color.BLUE));
+        signature.setModuleType(io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType.CONSULTATION);
+        signature.setDemographicId(42);
+        // The request path proves the signature's owner before printing it (ownership metadata).
+        when(signatures.getDigitalSignatureMetadata(7)).thenReturn(signature);
         when(signatures.getDigitalSignature(7)).thenReturn(signature);
         ProgramDao programs = mock(ProgramDao.class);
         when(programs.getProgramName(5)).thenReturn("Synthetic Program");

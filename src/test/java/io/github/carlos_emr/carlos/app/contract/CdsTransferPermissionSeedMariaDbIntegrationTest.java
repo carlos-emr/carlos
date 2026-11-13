@@ -206,8 +206,8 @@ class CdsTransferPermissionSeedMariaDbIntegrationTest {
     private void replaySeed(String object) throws Exception {
         String migration =
                 object.equals("_cds_import")
-                        ? "V1.0.59.41__seed_admin_cds_import_permission.sql"
-                        : "V1.0.59.39__cds_export_ledger.sql";
+                        ? "V1.0.59.43__seed_admin_cds_import_permission.sql"
+                        : "V1.0.59.41__cds_export_ledger.sql";
         try (var input = getClass().getResourceAsStream("/db/migration/common/" + migration)) {
             assertThat(input).as("the actual packaged forward migration").isNotNull();
             String sql = new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);

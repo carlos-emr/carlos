@@ -276,11 +276,16 @@ async function workflow(s) {
       const links = popup.locator(`a.attach-note-to-client[data-client="${C}"]`);
       h.assert(await links.count() >= 1, `${label}'s attach search did not find client C`);
       // A standards-mode page (its messages render inside the body, not above the doctype), whose
-      // result table's sort links repeat the search but not the search form's CSRF token.
+      // result table sorts in the page (carlos-tables.js, since #5518): its header links no longer
+      // repeat the search, so no link carries the search form's CSRF token.
       h.assert(await popup.evaluate(() => document.compatMode) === 'CSS1Compat',
         `${label}'s attach popup renders in quirks mode`);
-      const sortLinks = popup.locator('a[href*="/PMmodule/ClientSearch2"]');
+      const sortLinks = popup.locator('table#client thead a.table-sort');
       h.assert(await sortLinks.count() > 0, `${label}'s attach results offer no sort links`);
+      const resultsUrl = popup.url();
+      await sortLinks.first().click();
+      h.assert(await popup.locator('table#client thead th[aria-sort]').count() === 1 && popup.url().split('#')[0] === resultsUrl.split('#')[0],
+        `${label}'s attach results did not sort in the page`);
       h.assert(await popup.locator('a[href*="CSRF-TOKEN"]').count() === 0,
         `${label}'s attach results put the CSRF token in a link's URL`);
       const attached = await links.first().getAttribute('data-note');

@@ -70,6 +70,7 @@ class QueryByExampleSqlValidatorUnitTest {
             "emaillog",
             "fax_config",
             "oceansetting",
+            "o19_imported_signature_owner",
             "oscarcommlocations",
             "oscarjob",
             "oscarkeys",

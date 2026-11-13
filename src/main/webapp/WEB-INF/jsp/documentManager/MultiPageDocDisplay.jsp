@@ -302,8 +302,11 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td><fmt:message key="dms.documentReport.msgDocDesc"/>:</td>
-                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription"
+                                <td><label for="docDesc_<%=docId%>"><fmt:message key="dms.documentReport.msgDocDesc"/>:</label></td>
+                                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                                     runs. documentMetadataSave.js and ManageDocument2Action refuse a description longer
+                                     than Document.DESCRIPTION_MAX_LENGTH code points. --%>
+                                <td><input tabindex="<%=tabindex++%>" type="text" name="documentDescription" id="docDesc_<%=docId%>"
                                            value="<carlos:encode value='<%= curdoc.getDescription() %>' context="htmlAttribute"/>"/></td>
                             </tr>
                             <tr>

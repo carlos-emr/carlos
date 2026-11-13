@@ -1563,7 +1563,7 @@ public final class CdsExportPatientTableReadSupport {
     /**
      * Every count, page and chunk call of the four measurement DAOs runs the association check.
      * It reads measurementsDeleted by patient and by original id through the indexes of
-     * migration V1.0.59.44 (before them, it scanned the table). Inside one read-only REPEATABLE
+     * migration V1.0.59.46 (before them, it scanned the table). Inside one read-only REPEATABLE
      * READ (or SERIALIZABLE) transaction every read sees the same snapshot, so a proof for a
      * patient stays true until the transaction ends; it is remembered for that transaction only.
      * Any other transaction checks on every call, as before.

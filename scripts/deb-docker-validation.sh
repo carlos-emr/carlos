@@ -360,6 +360,15 @@ initialize_vascular_dictionary() {
     || die "the Vascular Tracker dictionary initialization failed; see $LOG_DIR/vascular-dictionary.log"
 }
 
+# Whether this install gets runbook fixture d, the three LOCAL_SEED_OBEC_REPORT appointments booked
+# against demo-dataset patients: an install with the demo dataset whose province is not BC.
+# stage_fixtures inserts the rows and write_suite_env names their fixture profile under this ONE
+# condition. Naming the profile where the rows were never inserted (a BC install did) makes
+# patient-list-by-appointment-export read rows that are not there instead of seeding its own.
+seeds_patient_list_fixture() {
+  [ "$CARLOS_PROVINCE" != bc ] && [ "$INSTALL_DEMO_DATA" = true ]
+}
+
 # Runbook section 4 fixtures b, c, d and the CDS export PGP recipient, plus
 # rx_fax_enabled for the Rx fax checks, CONSULTATION_AUTO_INCLUDE_MEDICATIONS
 # for the unique-medication-list check, and login_lock=true. Each is test-only
@@ -369,6 +378,8 @@ initialize_vascular_dictionary() {
 # lockout check (account-lockout-unlock) locks every later check out.
 stage_fixtures() {
   say "staging the runbook fixtures"
+  local seed_patient_list=false
+  if seeds_patient_list_fixture; then seed_patient_list=true; fi
   in_container "
     set -e
     P=/etc/carlos-emr/carlos.properties
@@ -382,7 +393,7 @@ stage_fixtures() {
     done
     install -o carlos -g carlos -m 0640 /root/carlos/release/Document/carlos/eform/images/MissedAppointment.rtl \
       /var/lib/carlos-emr/CarlosDocument/carlos/eform/images/MissedAppointment.rtl
-    if [ '$CARLOS_PROVINCE' != bc ] && [ '$INSTALL_DEMO_DATA' = true ]; then
+    if [ '$seed_patient_list' = true ]; then
       mariadb -u root carlos -e \"
         INSERT INTO appointment (provider_no, appointment_date, start_time, end_time, name, demographic_no,
             notes, reason, location, resources, type, style, billing, status, createdatetime, creator)
@@ -457,8 +468,12 @@ suite_province() {
 }
 
 write_suite_env() {
-  local suite_province
+  local suite_province patient_list_fixture
   suite_province="$(suite_province)"
+  # Without the profile the check seeds and removes its own three appointments (or SKIPs, naming what the
+  # database lacks). The text goes into an unquoted heredoc, so it holds no quote, dollar or backtick.
+  patient_list_fixture='# PATIENT_LIST_FIXTURE_PROFILE is left unset: this install was not given the LOCAL_SEED_OBEC_REPORT rows.'
+  if seeds_patient_list_fixture; then patient_list_fixture='export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1'; fi
   in_container "
     set -e
     props=/usr/share/carlos-emr/webapp/carlos/WEB-INF/classes/carlos-build.properties
@@ -483,7 +498,7 @@ export LAB_ROLLBACK_FAULT_ARTIFACT_DIR=/tmp/carlos-lab-rollback-faults
 export PRESCRIPTION_SCRIPT_ID=45 PRESCRIPTION_DEMOGRAPHIC_NO=1
 export CONSULT_DEMO_NO=1 CONSULT_SERVICE_ID=1 CONSULT_REQUEST_ID=1 CONSULT_STAMP_PROVIDER_NO=999998
 export CONSULT_APPLICATION_TEMP_DIR=/var/lib/carlos-emr/catalina/temp/carlos-temp
-export PATIENT_LIST_FIXTURE_PROFILE=local-seed-obec-report-v1
+$patient_list_fixture
 export BILLING_APPOINTMENT_NO=11 BILLING_DEMOGRAPHIC_NO=1 BILLING_PROVIDER_NO=999998
 export BILLING_APPOINTMENT_DATE=2024-04-16 BILLING_START_TIME=12:00:00
 export RTL_TEMPLATE_NAME=MissedAppointment.rtl

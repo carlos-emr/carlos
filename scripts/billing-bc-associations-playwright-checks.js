@@ -36,7 +36,9 @@ async function workflow(s) {
     await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.locator('[name="submitButton"]').click()]);
   };
   const showOwnedRow = async () => {
-    const row = page.locator('table.displayGrid tbody tr').filter({ has: page.locator('td:first-child').getByText(ids[0], { exact: true }) });
+    // The list prints each association by its fee CODES (SupServiceCodeAssocDAO.getServiceCodeAssociactions
+    // maps both billingservice ids back to their service codes), never by billingservice_no.
+    const row = page.locator('table.displayGrid tbody tr').filter({ has: page.locator('td:first-child').getByText(codes[0], { exact: true }) });
     h.assert(await row.count() === 1, 'Saved BC association was not listed');
     // Use the visible pager, including its Next control when the target is outside its link group.
     while (!await row.isVisible()) {

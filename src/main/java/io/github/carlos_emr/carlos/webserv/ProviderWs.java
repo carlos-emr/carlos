@@ -52,7 +52,7 @@ public class ProviderWs extends AbstractWs {
 
     public ProviderTransfer getLoggedInProviderTransfer() {
         LoggedInInfo loggedInInfo = getLoggedInInfo();
-        return (ProviderTransfer.toTransfer(loggedInInfo.getLoggedInProvider(), ProviderBillingAccess.canRead(loggedInInfo)));
+        return (ProviderTransfer.toTransfer(loggedInInfo.getLoggedInProvider()));
     }
 
     /**
@@ -65,7 +65,7 @@ public class ProviderWs extends AbstractWs {
 
     public ProviderTransfer[] getProviders2(Boolean active) {
         List<Provider> tempResults = providerManager.getProviders(getLoggedInInfo(), active);
-        ProviderTransfer[] results = ProviderTransfer.toTransfers(tempResults, ProviderBillingAccess.canRead(getLoggedInInfo()));
+        ProviderTransfer[] results = ProviderTransfer.toTransfers(tempResults);
         return (results);
     }
 

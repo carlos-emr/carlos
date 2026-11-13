@@ -38,7 +38,7 @@ public final class CdsReleaseUpgradeProof {
             "SELECT * FROM property WHERE name='synthetic_cds_upgrade'";
 
     /**
-     * V1.0.59.42 adds an invisible generated patient key and an index over existing free-text
+     * V1.0.59.44 adds an invisible generated patient key and an index over existing free-text
      * HRMDocumentToDemographic.demographicNo values (review CI-10). The seeded links cover a
      * plain number, a padded signed number, text and SQL NULL; the visible columns must be
      * unchanged and the key derived exactly.

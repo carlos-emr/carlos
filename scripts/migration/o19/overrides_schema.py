@@ -42,7 +42,7 @@ archive-by-default).
 
 # Consent value expressions now retire undecided records and duplicate history.
 # Refuse resuming a partially applied import under the previous conversion rules.
-SCHEMA_MAP_VERSION = "o19map-7"
+SCHEMA_MAP_VERSION = "o19map-8"
 
 # Every colliding member receives a new name: an old shared file cannot be
 # assigned to a particular submission from its basename alone. CLI 1.3.2
@@ -233,7 +233,7 @@ SEED_COUNT_DELETIONS = {
 # CDS permission contract verifies the real row count and evaluator behavior.
 # Existing installations retain every explicit grant or denial.
 SEED_COUNT_ADDITIONS = {
-    # Release V1.0.59.39 independent export, V1.0.59.41 independent import.
+    # Release V1.0.59.41 independent export, V1.0.59.43 independent import.
     "secObjPrivilege": 2,
 }
 
@@ -304,7 +304,12 @@ CREDENTIAL_TABLES = ["ServiceClient", "ServiceAccessToken", "oscarKeys", "public
 # Later O19 clinics have it: include it in the manifest so effective_entry copies
 # their setting, rather than treating it as a vendor column to archive. The CLI
 # supplies -1 ONLY when this column is absent (the early O19 issuance behavior).
-SOURCE_OPTIONAL_COLUMNS = {"ServiceClient": {"lifetime"}}
+SOURCE_OPTIONAL_COLUMNS = {
+    "ServiceClient": {"lifetime"},
+    # The pinned early O19 baseline predates this column. Later clinics
+    # carry it; NULL and each known enum value must arrive unchanged.
+    "DigitalSignature": {"ModuleType"},
+}
 
 # The claim header P7 aggregates by fiscal year, per province. It is the
 # money check -- the one verification an operator's accountant will ask

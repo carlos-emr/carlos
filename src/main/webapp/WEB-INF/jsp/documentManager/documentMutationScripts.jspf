@@ -6,6 +6,8 @@
 %>
 <script>
 window.CarlosDocumentMetadataContext = "<%= org.owasp.encoder.Encode.forJavaScriptBlock(request.getContextPath()) %>";
+<%-- document.docdesc's length in code points; documentMetadataSave.js refuses a longer description. --%>
+window.CarlosDocumentDescriptionMaxLength = <%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH %>;
 window.CarlosDocumentMutationMessages = {
     sourceChanged: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.sourceChanged")) %>",
     sourceUnavailable: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.sourceUnavailable")) %>",
@@ -17,7 +19,8 @@ window.CarlosDocumentMutationMessages = {
     cancelled: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.cancelled")) %>",
     rejected: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.rejected")) %>",
     uncertain: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.uncertain")) %>",
-    saved: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.saved")) %>"
+    saved: "<%= org.owasp.encoder.Encode.forJavaScriptBlock(documentMutationBundle.getString("documentMutation.status.saved")) %>",
+    descriptionTooLong: "<%= io.github.carlos_emr.carlos.utility.SafeEncode.forJavaScriptBlock(documentMutationBundle.getString("dms.error.descriptionTooLong")) %>"
 };
 </script>
 <% } %>

@@ -313,6 +313,13 @@ public class ManageDocument2Action extends ActionSupport {
                 && !IncomingDocumentCapacityResponse.positiveId(destination)) throw new SecurityException("Invalid patient selection");
         LoggedInInfo info = LoggedInInfo.getLoggedInInfoFromSession(request);
         IncomingDocumentCapacityResponse.requireStoredDocumentWriteAccess(securityInfoManager, info, documentId);
+        // Stored trimmed, as every other description writer (EDoc) stores it. document.docdesc
+        // holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database cuts a longer
+        // description off without an error, so the whole save is refused before the transaction:
+        // no routing, audit row, metadata or patient link is written.
+        String typedDescription = request.getParameter("documentDescription");
+        String description = typedDescription == null ? null : typedDescription.trim();
+        if (!Document.descriptionFits(description)) throw new DescriptionTooLongException();
         String sourceId = documentId;
         String requestedPatient = destination;
         return metadataTransaction(() -> {
@@ -333,7 +340,7 @@ public class ManageDocument2Action extends ActionSupport {
                     throw new IllegalStateException("Unassigned provider cleanup was not confirmed");
                 }
             }
-            document.setDocdesc(request.getParameter("documentDescription"));
+            document.setDocdesc(description);
             document.setDoctype(request.getParameter("docType"));
             Date observation = UtilDateUtilities.StringToDate(request.getParameter("observationDate"));
             if (observation != null) document.setObservationdate(observation);
@@ -401,6 +408,16 @@ public class ManageDocument2Action extends ActionSupport {
 
     private record MetadataUpdate(String documentId, String patient) { }
 
+    /**
+     * A typed description longer than {@code document.docdesc}. Thrown before the metadata
+     * transaction starts, so the refusal is never an accepted write; answered with 400 and the
+     * localized {@code dms.error.descriptionTooLong} text the viewer and inbox pages show.
+     */
+    private static final class DescriptionTooLongException extends IllegalArgumentException {
+        private static final long serialVersionUID = 1L;
+        DescriptionTooLongException() { super("Document description is longer than its column"); }
+    }
+
     private static final class MetadataWriteFailure extends RuntimeException {
         private static final long serialVersionUID = 1L;
         private final boolean accepted;
@@ -434,6 +451,11 @@ public class ManageDocument2Action extends ActionSupport {
         int status = accepted ? 500 : cause instanceof SecurityException ? 403 : cause instanceof IllegalArgumentException ? 400 : 500;
         ObjectNode data = objectMapper.createObjectNode().put("success", false).put("accepted", accepted).put("retryable", false)
                 .put("error", accepted ? "Document outcome is unconfirmed; do not submit again" : "Document update was refused");
+        if (cause instanceof DescriptionTooLongException) {
+            // The one refusal the user can correct in the form: say so in their language.
+            data.put("descriptionTooLong", true).put("error", ResourceBundle.getBundle("oscarResources", request.getLocale())
+                    .getString("dms.error.descriptionTooLong"));
+        }
         if (IncomingDocumentCapacityResponse.positiveId(documentId)) data.put("document", Integer.parseInt(documentId));
         try {
             response.setStatus(status); response.setContentType("application/json;charset=UTF-8");
@@ -1187,8 +1209,6 @@ public class ManageDocument2Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: path validated for directory containment via PathValidationUtils before use
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path validated for directory containment via PathValidationUtils before use")
     public void display() throws Exception {
-        LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-
         if (!securityInfoManager.hasPrivilege(LoggedInInfo.getLoggedInInfoFromSession(request), "_edoc", "r", null)) {
             throw new SecurityException("missing required sec object (_edoc)");
         }
@@ -1196,7 +1216,6 @@ public class ManageDocument2Action extends ActionSupport {
         String doc_no = request.getParameter("doc_no");
         requireDocumentPatientAccess(request, doc_no);
         log.debug("Document No :{}", LogSafe.sanitize(doc_no)); // nosemgrep: crlf-injection-logs-deepsemgrep, crlf-injection-logs
-        String demoNo = request.getParameter("demoNo");
 
         String docxml = null;
         String contentType = null;
@@ -1251,8 +1270,10 @@ public class ManageDocument2Action extends ActionSupport {
             contentType = "application/octet-stream";
         }
 
-        String data = "doc_no=" + doc_no;
-        LogAction.addLog(loggedInInfo, LogConst.READ, "Document", null, demoNo, data);
+        // The view is already audited above as read/document, keyed by the document id and filed
+        // under the patient its stored link names. A second row was written here as read/"Document"
+        // with no contentId and the request's demoNo (usually absent): one view counted twice, under
+        // two spellings of the content type, the second not findable from the patient.
 
         // Preserve the inline filename for both uploaded HTML and binary document display paths.
         response.setHeader("Content-Disposition", "inline; filename=\"" + sanitizeHeaderValue(filename) + "\"");
@@ -1441,6 +1462,14 @@ public class ManageDocument2Action extends ActionSupport {
         if (!ALLOWED_INCOMING_QUEUE_DIRS.contains(pdfDir)) {
             log.warn("Invalid incoming document directory parameters rejected");
             throw new SecurityException("Invalid directory parameters");
+        }
+
+        // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged
+        // database cuts a longer description off without an error. Measured as EDoc stores it
+        // (trimmed) and refused before the queued file is read, moved or filed.
+        if (documentDescription != null && !Document.descriptionFits(documentDescription.trim())) {
+            IncomingDocumentCapacityResponse.filingDescriptionTooLong(request, response);
+            return NONE;
         }
 
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");

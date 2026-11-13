@@ -75,8 +75,20 @@
 		and skips re-registering it — one bean, no duplication. Same pattern as methodSecurityConfig above.
 	-->
 	<bean id="carlosMethodSecurity" class="io.github.carlos_emr.carlos.security.CarlosMethodSecurity"/>
-    <!-- Enable annotation-driven transaction management with CGLIB proxies -->
-    <tx:annotation-driven proxy-target-class="true"/>
+    <!--
+        Enable annotation-driven transaction management with CGLIB proxies.
+
+        order: the transaction advisor is the innermost advice on a proxy (2147483647 is
+        Ordered.LOWEST_PRECEDENCE, Spring's own default, stated here so that it is a decision).
+        The REST audit aspect, WebServiceLoggingAdvice, carries a lower order and so runs outside
+        it: the audit row of a REST call is written after the resource's transaction has committed
+        or rolled back. Ordered the other way round the audit INSERT joins the resource
+        transaction, where a read-only transaction refuses it (HTTP 500 on every such read) and a
+        rolled-back write takes its FAILURE row with it. Spring configures the advisor from the
+        first tx:annotation-driven it parses, which is this one; spring_jpa.xml repeats the value.
+        WebServiceLoggingAdviceUnitTest checks both.
+    -->
+    <tx:annotation-driven proxy-target-class="true" order="2147483647"/>
 	<bean id="propertyConfigurer" class="io.github.carlos_emr.carlos.commn.OscarPropertyPlaceholderConfigurer">
 		<property name="locations">
 			<list>

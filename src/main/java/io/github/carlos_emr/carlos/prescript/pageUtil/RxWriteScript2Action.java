@@ -109,6 +109,17 @@ public final class RxWriteScript2Action extends ActionSupport {
     static final String STAGE_LOAD_FAILED_KEY = "SearchDrug.msgStageLoadFailed";
     /** Prefix of every {@code action} that rewrites or saves the staged item. */
     private static final String ACTION_UPDATE_PREFIX = "update";
+    /**
+     * Request fields that may differ between two posts of an unchanged form: cache busting, the
+     * session's CSRF token, the Save / Save And Print cleanup flag and the drug search box. None
+     * is stored by a save, so none belongs to the evidence of what a save stored.
+     */
+    private static final Set<String> RECEIPT_TRANSPORT_FIELDS = Set.of("rand", "CSRF-TOKEN", "clearSaved", "searchString");
+    /**
+     * SearchDrug3's search-filter radios, posted with its cards but never read by its save. The
+     * legacy form's {@code method} is the drug's own method, so there it stays part of the content.
+     */
+    private static final Set<String> SEARCH_FILTER_FIELDS = Set.of("method", "wildcard");
     private static final String HEADER_ALLOW = "Allow";
     private static final String POST_REQUIRED = "POST required";
     /** One to nine digits: an id or count that fits an int. */
@@ -214,7 +225,8 @@ public final class RxWriteScript2Action extends ActionSupport {
                         var savedBean = RxSessionBeanResolver.resolve(request);
                         if (savedBean != null && savedBean.getDemographicNo() == patient) savedBean.retirePendingCards(token);
                     }
-                    return reportReceipt(receipt);
+                    return reportReceipt(receipt,
+                            storedSubmittedContent(loggedInInfo.getLoggedInProviderNo(), patient, receipt, token), null);
                 }
             }
         }
@@ -1426,11 +1438,23 @@ public final class RxWriteScript2Action extends ActionSupport {
             var saved = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class)
                     .find(receiptInfo.getLoggedInProviderNo(), receiptPatient, receiptToken);
             if (saved != null) {
+                // The receipt names the rendered cards, not what was typed into them: only a
+                // request carrying the fields that save stored is its replay.
+                boolean sameContent = storedSubmittedContent(receiptInfo.getLoggedInProviderNo(), receiptPatient, saved, receiptToken);
+                Map<String, String> acknowledged = null;
                 if ("SAVED".equals(saved.outcome())) {
                     RxSessionBean savedBean = RxSessionBeanResolver.resolve(request);
-                    if (savedBean != null && savedBean.getDemographicNo() == receiptPatient) savedBean.retirePendingCards(receiptToken);
+                    if (savedBean != null && savedBean.getDemographicNo() == receiptPatient) {
+                        savedBean.retirePendingCards(receiptToken);
+                        if (sameContent) {
+                            // The workspace is shared by every window of this session's patient.
+                            synchronized (savedBean) {
+                                acknowledged = acknowledgeSavedCards(savedBean, saved.scriptId());
+                            }
+                        }
+                    }
                 }
-                return reportReceipt(saved);
+                return reportReceipt(saved, sameContent, acknowledged);
             }
         }
         RxSessionBean bean = RxSessionBeanResolver.resolve(request);
@@ -1846,15 +1870,103 @@ public final class RxWriteScript2Action extends ActionSupport {
         return io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.fingerprint(versions);
     }
 
-    private String reportReceipt(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.Receipt receipt) throws IOException {
-        response.setStatus(HttpServletResponse.SC_CONFLICT);
-        if ("updateAndPrint".equals(getAction())) {
-            return reportLegacyRecovery("SAVED".equals(receipt.outcome()) ? "oscarRx.saveAlreadySaved" : "oscarRx.pendingSubmission");
+    /**
+     * Evidence of what this request asks to store, for the draft it names.
+     * {@link #submittedReceiptToken} identifies the rendered cards only: a card edited after a lost
+     * reply is posted with the same revisions as the save that consumed them, and must not be
+     * answered as a replay of that save.
+     *
+     * @param draftToken the submitted draft's receipt token, possibly {@code null}
+     * @return the content token, or {@code null} without a draft token
+     */
+    private String submittedContentToken(String draftToken) {
+        if (draftToken == null) return null;
+        boolean legacyForm = "updateAndPrint".equals(getAction());
+        Map<String, String[]> fields = new java.util.TreeMap<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (RECEIPT_TRANSPORT_FIELDS.contains(name) || !legacyForm && SEARCH_FILTER_FIELDS.contains(name)) continue;
+            fields.put(name, request.getParameterValues(name));
         }
+        return io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.contentFingerprint(draftToken, fields);
+    }
+
+    /** Whether the saved draft stored exactly the fields this request carries. */
+    private boolean storedSubmittedContent(String provider, int patient,
+            io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.Receipt receipt, String draftToken) {
+        return "SAVED".equals(receipt.outcome())
+                && SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class)
+                        .storedContent(provider, patient, receipt, submittedContentToken(draftToken));
+    }
+
+    /**
+     * Brings the workspace in line with a save whose reply was lost, once an exact replay shows
+     * the browser still holds that save's cards. Save And Print keeps its saved cards staged under
+     * new revisions, which the lost reply was carrying: without them every later save or removal
+     * from that page is refused as stale. Save alone clears them, as its own cleanup would have.
+     * Unless every submitted card is still staged exactly as this script saved it, nothing is
+     * changed or returned and the page drops its spent cards instead.
+     *
+     * <p>The caller holds the workspace's monitor, as every other read and change of the stash in
+     * this action does.</p>
+     *
+     * @param bean     the requested patient's workspace, locked by the caller
+     * @param scriptId the script the receipt names
+     * @return the staged cards' current revisions by card key, or {@code null} when the page keeps none
+     */
+    private Map<String, String> acknowledgeSavedCards(RxSessionBean bean, Integer scriptId) {
+        Map<String, String> revisions = new java.util.TreeMap<>();
+        Enumeration<String> names = request.getParameterNames();
+        while (names.hasMoreElements()) {
+            String name = names.nextElement();
+            if (!name.startsWith("draftRevision_")) continue;
+            String key = name.substring("draftRevision_".length());
+            RxPrescriptionData.Prescription card = stagedCard(bean, key);
+            if (card == null || card.getDrugId() <= 0 || card.getPendingSubmission() != null
+                    || !String.valueOf(scriptId).equals(card.getScript_no())) {
+                return null;
+            }
+            revisions.put(key, card.getDraftRevision());
+        }
+        if ("true".equals(request.getParameter("clearSaved"))) {
+            // Another window's draft in the same workspace is not this save's to discard.
+            if (revisions.size() == bean.getStashSize()) bean.clearStash();
+            return null;
+        }
+        return revisions;
+    }
+
+    /** Answers a submission that is waiting on a save whose outcome is not yet known. */
+    private String reportReceipt(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.Receipt receipt) throws IOException {
+        return reportReceipt(receipt, false, null);
+    }
+
+    /**
+     * Answers a request whose rendered draft already has a durable receipt. Nothing is written.
+     * A saved draft is reported as already saved only to a request carrying the very fields that
+     * save stored. The same draft with other fields is an edit the earlier save never saw: telling
+     * the prescriber it is saved would drop the correction, so it gets its own refusal, which says
+     * that the earlier version was saved and the changes were not.
+     *
+     * @param receipt      the draft's receipt
+     * @param sameContent  whether the saved draft stored exactly what this request carries
+     * @param acknowledged the saved cards' current revisions when the page keeps them, else {@code null}
+     */
+    private String reportReceipt(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.Receipt receipt,
+            boolean sameContent, Map<String, String> acknowledged) throws IOException {
+        response.setStatus(HttpServletResponse.SC_CONFLICT);
+        boolean saved = "SAVED".equals(receipt.outcome());
+        if ("updateAndPrint".equals(getAction())) {
+            return reportLegacyRecovery(!saved ? "oscarRx.pendingSubmission"
+                    : sameContent ? "oscarRx.saveAlreadySaved" : "oscarRx.saveEarlierVersionSaved");
+        }
+        Map<String, Object> answer = new java.util.LinkedHashMap<>();
+        answer.put("error", !saved ? "RX_SAVE_OUTCOME_UNKNOWN" : sameContent ? "RX_ALREADY_SAVED" : "RX_SAVED_EARLIER_VERSION");
+        if (saved) answer.put("scriptId", receipt.scriptId());
+        if (saved && sameContent && acknowledged != null && !acknowledged.isEmpty()) answer.put("draftRevisions", acknowledged);
         response.setContentType("application/json");
-        objectMapper.writeValue(response.getWriter(), "SAVED".equals(receipt.outcome())
-                ? Map.of("error", "RX_ALREADY_SAVED", "scriptId", receipt.scriptId())
-                : Map.of("error", "RX_SAVE_OUTCOME_UNKNOWN"));
+        objectMapper.writeValue(response.getWriter(), answer);
         return NONE;
     }
 
@@ -2138,7 +2250,10 @@ public final class RxWriteScript2Action extends ActionSupport {
             var receipt = SpringUtils.getBean(io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.class)
                     .find(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), token);
             if (receipt != null) {
-                try { reportReceipt(receipt); } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
+                try {
+                    reportReceipt(receipt, storedSubmittedContent(loggedInInfo.getLoggedInProviderNo(),
+                            bean.getDemographicNo(), receipt, token), null);
+                } catch (IOException failure) { throw new java.io.UncheckedIOException(failure); }
                 return;
             }
         }
@@ -2212,6 +2327,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         for (var old : previous) receiptVersions.put(Long.toString(old.card().getRandomId()), old.revision());
         String receiptToken = request.getAttribute("rxSubmittedReceiptToken") instanceof String submittedToken
                 ? submittedToken : io.github.carlos_emr.carlos.managers.RxSubmissionReceiptService.fingerprint(receiptVersions);
+        // What this request stores, so the same draft posted later with other fields is not
+        // mistaken for a replay of this save.
+        String contentToken = submittedContentToken(receiptToken);
         String attempt = java.util.UUID.randomUUID().toString();
         HashMap previousPairs = new HashMap(bean.getRandomIdDrugIdPair());
         var previousReRx = new java.util.concurrent.CopyOnWriteArrayList<>(bean.getReRxDrugIdList());
@@ -2271,6 +2389,10 @@ public final class RxWriteScript2Action extends ActionSupport {
                 String savedScript = persistStashLocked(loggedInInfo, bean);
                 receipts.record(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), receiptToken,
                                 Integer.parseInt(savedScript));
+                if (contentToken != null) {
+                    receipts.recordContent(loggedInInfo.getLoggedInProviderNo(), bean.getDemographicNo(), contentToken,
+                            Integer.parseInt(savedScript));
+                }
                 // Flush errors are definite failures before COMMIT. A later exception may
                 // be a durable commit whose JDBC acknowledgement was lost.
                 status.flush();
@@ -2328,7 +2450,9 @@ public final class RxWriteScript2Action extends ActionSupport {
         if (scriptId == null || !scriptId.matches("[1-9][0-9]{0,9}")) {
             throw new IllegalStateException("Prescription header write did not return an identifier");
         }
-        StringBuilder auditStr = new StringBuilder();
+        // What the audit rows of this save carry in `data`: the ids of the medication rows written,
+        // never the drug names or instructions (clinical text; the rows themselves hold it).
+        StringBuilder auditStr = new StringBuilder("drugIds=");
         // Source drug ids actually re-prescribed by this save. A staged re-prescription carries
         // its source drug id in drugReferenceId, set by the re-prescribe newPrescription overload,
         // and only those sources may be archived as REPRESCRIBED.
@@ -2354,8 +2478,7 @@ public final class RxWriteScript2Action extends ActionSupport {
                     represcribedSourceIds.add(rx.getDrugReferenceId());
                 }
                 bean.addRandomIdDrugIdPair(rx.getRandomId(), rx.getDrugId());
-                auditStr.append(rx.getAuditString());
-                auditStr.append("\n");
+                auditStr.append(i == 0 ? "" : ",").append(rx.getDrugId());
 
                 // save drug reason. Method borrowed from
                 // RxReason2Action.
@@ -2391,13 +2514,15 @@ public final class RxWriteScript2Action extends ActionSupport {
         // which reuses this same script row and renders the page — keeping the pad available
         // to override the stamp. Ordinary GET/HEAD preview navigation never stamps or saves.
 
-        if (!archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, auditStr.toString())) {
+        // The rows of the medications this save replaces name the script that replaced them.
+        String replacedBy = "scriptNo=" + scriptId;
+        if (!archiveReRxDrugs(loggedInInfo, bean, represcribedSourceIds, ip, replacedBy)) {
             throw new PrescriptionSaveException(null);
         }
         // The sources are settled: a later save from this window (Edit Rx after Save & Print)
         // must not archive them again with a second audit trail.
         bean.clearReRxDrugIdList();
-        if (!archiveSupersededSaves(loggedInInfo, bean, supersededDrugIds, ip, auditStr.toString())) {
+        if (!archiveSupersededSaves(loggedInInfo, bean, supersededDrugIds, ip, replacedBy)) {
             throw new PrescriptionSaveException(null);
         }
 
@@ -2820,7 +2945,7 @@ public final class RxWriteScript2Action extends ActionSupport {
 
         String ip = request.getRemoteAddr();
         LogAction.addLogStrict(LoggedInInfo.getLoggedInInfoFromSession(request).getLoggedInProviderNo(),
-                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, dr.getAuditString());
+                LogConst.ADD, LogConst.CON_DRUGREASON, "" + dr.getId(), ip, demographicNo, "drugId=" + dr.getDrugId());
 
     }
 

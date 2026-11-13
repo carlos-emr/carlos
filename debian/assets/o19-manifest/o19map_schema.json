@@ -1,8 +1,8 @@
 {
- "format": 2,
+ "format": 3,
  "kind": "o19map-schema",
  "generator": "scripts/migration/o19/generate_manifests.py",
- "SCHEMA_MAP_VERSION": "o19map-7+2dc35822",
+ "SCHEMA_MAP_VERSION": "o19map-8+3dce0b8d",
  "O19_PROFILE": "on",
  "O19_SOURCE_COMMIT": "a7900d569d3faf741993e5e1da8c14021bbefede",
  "TABLES": {
@@ -187,7 +187,8 @@
     "providerNo",
     "demographicId",
     "dateSigned",
-    "signatureImage"
+    "signatureImage",
+    "ModuleType"
    ]
   },
   "DrugProduct": {
@@ -12749,7 +12750,8 @@
    "demographicId",
    "dateSigned",
    "signatureImage",
-   "ModuleType"
+   "ModuleType",
+   "demographicFkId"
   ],
   "DrugProduct": [
    "id",
@@ -24775,7 +24777,7 @@
  },
  "PROFILES": {
   "bc": {
-   "SCHEMA_MAP_VERSION": "o19map-7+5fe35f10",
+   "SCHEMA_MAP_VERSION": "o19map-8+783f30f4",
    "O19_PROFILE": "bc",
    "TABLES": {
     "AppDefinition": {
@@ -24959,7 +24961,8 @@
       "providerNo",
       "demographicId",
       "dateSigned",
-      "signatureImage"
+      "signatureImage",
+      "ModuleType"
      ]
     },
     "DrugProduct": {
@@ -42803,7 +42806,8 @@
      "demographicId",
      "dateSigned",
      "signatureImage",
-     "ModuleType"
+     "ModuleType",
+     "demographicFkId"
     ],
     "DrugProduct": [
      "id",

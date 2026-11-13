@@ -16,6 +16,7 @@ package io.github.carlos_emr.carlos.hospitalReportManager;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToProviderDao;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMDocumentToProvider;
 import io.github.carlos_emr.carlos.hospitalReportManager.model.HRMReportCriteria;
@@ -51,6 +52,16 @@ public class HRMDisplayReport2Action extends ActionSupport implements ModelDrive
                 LoggedInInfo.getLoggedInInfoFromSession(request),
                 "_hrm", "r", null)) {
             throw new SecurityException("missing required sec object (_hrm)");
+        }
+
+        // The viewer page reads the report itself, so the patient decision is made here, before
+        // it runs: a report filed to a patient this provider is locked out of is refused like the
+        // chart. A missing or malformed id is left to the page, as before.
+        Integer reportId = HRMReportAccess.number(request.getParameter("id"));
+        if (reportId != null) {
+            HRMReportAccess.requireReport(securityInfoManager,
+                    SpringUtils.getBean(HRMDocumentToDemographicDao.class),
+                    LoggedInInfo.getLoggedInInfoFromSession(request), reportId);
         }
 
         // ModelDriven automatically exposes criteria object to JSP via value stack

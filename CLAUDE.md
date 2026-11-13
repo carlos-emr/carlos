@@ -524,9 +524,11 @@ token into the form and claim it in the action before validation. Answer a repea
 rendering with the first save's own result page, and map `submissionRefused` to
 `/WEB-INF/jsp/common/formSubmissionRefused.jsp` for the 409 cases. An edit form that posts every
 field must refuse a form rendered from an older version rather than overwrite the newer record;
-`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference. Browser checks
-that deliberately replay a captured POST must drop `carlosFormSubmission` and
-`demographicVersion`. See `docs/form-submission-guard.md`.
+`DemographicEditVersion` with `DemographicDao.findForUpdate()` is the reference; the Edit
+Appointment form carries `appointmentVersion` (`AppointmentEditConflict`) and the Edit Tickler
+form `ticklerVersion` (`TicklerEditVersion`). Browser checks that deliberately replay a captured
+POST must drop `carlosFormSubmission`, `demographicVersion`, `appointmentVersion` and
+`ticklerVersion`. See `docs/form-submission-guard.md`.
 
 ## Layer Names — class naming policy
 
@@ -656,13 +658,18 @@ dao.searchNotes("111", "%diabetes%");
 Note: This is standard SQL behavior, NOT a production bug. Callers provide wildcards from the UI layer.
 
 **4. DAO Methods May Override Test Data**
-Some DAO `save*()` methods override fields like `update_date` with `new Date()`. When testing date-based queries, re-set the date after saving:
+Some DAO `save*()` methods override fields like `update_date` with `new Date()`, and some entities stamp
+dates in `@PrePersist`/`@PreUpdate` callbacks. Always check the DAO and the entity before assuming test
+data is persisted as-is. `CaseManagementIssue` (finding 361): the DAO stamps new issues, never writes the
+date a caller's copy of an existing issue carries, and the entity's `@PreUpdate` stamps every UPDATE, so
+re-setting the date after `saveIssue` and flushing does not work. Give the fixture its date on INSERT:
 ```java
-caseManagementIssueDAO.saveIssue(cmi);  // Overwrites update_date with now()
-cmi.setUpdate_date(desiredDate);         // Re-set to test-specific date
-hibernateTemplate.flush();               // Persist the corrected date
+cmi.setUpdate_date(pastDate);   // an INSERT runs no @PreUpdate
+entityManager.persist(cmi);     // or hibernateTemplate.save(cmi)
+entityManager.flush();
 ```
-Always check the DAO implementation before assuming test data is persisted as-is.
+To move an existing issue's date in a test, use a bulk JPQL/SQL `update` (no entity callbacks). See
+`docs/test/test-writing-guide.md` and `CaseManagementIssueUpdateDateIntegrationTest`.
 
 **5. SpringUtils Identity Across Multiple Contexts**
 When running the full test suite, classes with `@TestPropertySource` create separate Spring contexts. `SpringUtils.getBean()` may return instances from a different context than `@Autowired` injection. Do NOT assert instance identity (`isSameAs`/`isEqualTo`). Instead assert type:

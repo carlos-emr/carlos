@@ -176,17 +176,20 @@ class DemographicSearchAuthorizationUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldKeepSearchIdentityAndCounts_withoutReturningHealthCards() {
+    void shouldReturnSearchHealthCards_forReadablePatientsOnly() {
         var row = new DemographicSearchResult(); row.setDemographicNo(42); row.setHin("FAKE-HIN");
         row.setFirstName("Synthetic"); row.setLastName("Patient"); readable.add(42);
+        // A patient the caller may not read never reaches the page, with or without a health card.
+        var restricted = new DemographicSearchResult(); restricted.setDemographicNo(43); restricted.setHin("FAKE-RESTRICTED-HIN");
         var query = new DemographicSearchRequest();
-        when(dao.searchPatients(eq(actor), eq(query), anyInt(), anyInt())).thenReturn(List.of(row));
+        when(dao.searchPatients(eq(actor), eq(query), anyInt(), anyInt())).thenReturn(List.of(restricted, row));
         var result = manager.searchPatients(actor, query, 0, 10);
         assertThat(result).singleElement().satisfies(value -> {
             assertThat(value.getDemographicNo()).isEqualTo(42);
             assertThat(value.getFirstName()).isEqualTo("Synthetic");
             assertThat(value.getLastName()).isEqualTo("Patient");
-            assertThat(value.getHin()).isNull();
+            // The health card number is how existing clients confirm the patient they searched for.
+            assertThat(value.getHin()).isEqualTo("FAKE-HIN");
         });
         assertThat(manager.searchPatientsCount(actor, query)).isEqualTo(1);
     }

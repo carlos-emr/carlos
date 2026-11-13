@@ -6,7 +6,8 @@
  * and answers them with HTTP 410 Gone instead of falling through into the report listing with
  * a misleading 200. This check pins that contract from a real logged-in session, in both the
  * verb an old bookmark uses (GET) and the one the removed page posted (a CSRF-valid POST, so
- * the request reaches the action rather than stopping at CSRFGuard), and proves the
+ * the request reaches the action rather than stopping at CSRFGuard). A GET of the save name
+ * never reaches the action: the method guard refuses it with 405 (#5105). The check also proves the
  * two things that must still work around it: the Administration panel offers no link to the
  * removed page, and the HRM report listing the same action serves still answers.
  *
@@ -32,11 +33,14 @@ async function workflow(s) {
     return match ? match[1] : '';
   }, new URL(s.config.baseUrl).pathname.replace(/\/$/, ''));
   h.assert(csrfToken, 'Could not read the session CSRF token from /csrfguard');
-  await s.step('retired statement operations answer 410 on GET and on a CSRF-valid POST', async () => {
+  await s.step('retired statement operations are refused on GET and answer 410 on a CSRF-valid POST', async () => {
     for (const method of RETIRED) {
       const get = await s.context.request.get(`${hrm}?method=${method}&providerNo=${encodeURIComponent(s.provider)}`,
         { maxRedirects: 0, failOnStatusCode: false });
-      h.assert(get.status() === 410, `GET method=${method} answered ${get.status()}, expected 410`);
+      // HttpMethodGuardFilter refuses a GET whose method value starts with a write name (save...)
+      // with 405 before HRM2Action runs (#5105); the read-style name reaches the action's 410.
+      const expected = /^save/i.test(method) ? 405 : 410;
+      h.assert(get.status() === expected, `GET method=${method} answered ${get.status()}, expected ${expected}`);
       const post = await s.context.request.post(hrm, {
         form: { method, providerNo: s.provider, statement: 'no longer stored', 'CSRF-TOKEN': csrfToken },
         headers: { Referer: `${s.config.baseUrl}/hospitalReportManager/hrm` },

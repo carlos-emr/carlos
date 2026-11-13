@@ -79,6 +79,9 @@ class HRMUtilRenderFailureUnitTest extends CarlosUnitTestBase {
         registerMock(HRMDocumentDao.class, dao);
 
         registerMock(NioFileManager.class, nioFileManager);
+        // renderHRM decides patient access first; this report is filed to no patient.
+        registerMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class,
+                mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class));
     }
 
     @Test

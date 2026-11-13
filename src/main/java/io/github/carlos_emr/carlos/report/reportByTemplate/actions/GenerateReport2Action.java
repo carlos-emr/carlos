@@ -36,6 +36,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.report.reportByTemplate.ReportCsvDownloads;
 import io.github.carlos_emr.carlos.report.reportByTemplate.ReportFactory;
 import io.github.carlos_emr.carlos.report.reportByTemplate.Reporter;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -63,6 +64,14 @@ public class GenerateReport2Action extends ActionSupport {
         this.securityInfoManager = securityInfoManager;
     }
 
+    /**
+     * Runs the report the request names (the {@code type} parameter picks its reporter) and, when it succeeds,
+     * keeps its CSV on the server for the export buttons ({@link ReportCsvDownloads#offer}).
+     *
+     * @return {@link #SUCCESS} for the result page, or {@code "fail"} when the reporter refused or failed
+     * @throws SecurityException when the signed-in provider has neither {@code _admin} nor {@code _report} read
+     */
+    @Override
     public String execute() {
 
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
@@ -77,6 +86,8 @@ public class GenerateReport2Action extends ActionSupport {
         Reporter reporter = ReportFactory.getReporter(request.getParameter("type"));
 
         if (reporter.generateReport(request)) {
+            // Keep the CSV on the server for the export buttons; the result page carries only a token.
+            ReportCsvDownloads.offer(request, loggedInInfo.getLoggedInProviderNo());
             return SUCCESS;
         }
 

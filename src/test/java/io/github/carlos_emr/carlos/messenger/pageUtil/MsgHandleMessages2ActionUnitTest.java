@@ -74,6 +74,7 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
     private MockedStatic<ServletActionContext> servletActionContextMock;
     private MockedStatic<LoggedInInfo> loggedInInfoMock;
     private MockHttpServletRequest request;
+    private MessageTbl message;
 
     @BeforeEach
     void setUp() {
@@ -84,7 +85,7 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
 
         LoggedInInfo loggedInInfo = mock(LoggedInInfo.class);
         when(securityInfoManager.hasPrivilege(eq(loggedInInfo), eq("_msg"), eq("r"), isNull())).thenReturn(true);
-        MessageTbl message = new MessageTbl();
+        message = new MessageTbl();
         message.setId(MESSAGE_ID);
         message.setSubject("FAKE subject");
         message.setMessage("FAKE body");
@@ -181,6 +182,30 @@ class MsgHandleMessages2ActionUnitTest extends CarlosUnitTestBase {
                 .isEqualTo("<root>FAKE own item</root>");
         assertThat(MsgAttachmentStaging.peek(session, composeKey).pdfAttachment())
                 .isEqualTo("FAKE own PDF");
+    }
+
+    /**
+     * "Re:" or "Fwd:" before a subject that already fills messagetbl.thesubject (128 characters) is
+     * longer than the column, and sending it is refused: the subject CARLOS
+     * builds is cut to fit here, in the compose box the user sees, and never inside a character.
+     */
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = {"reply", "replyAll", "forward"})
+    @DisplayName("should cut the subject built for a reply or forward of a full-length subject to the column")
+    void shouldCutTheBuiltSubjectToTheColumn_whenTheOriginalSubjectFillsIt(String button) throws Exception {
+        String emoji = "\uD83D\uDE00";
+        String original = "S".repeat(MessageTbl.SUBJECT_MAX_LENGTH - 4) + emoji.repeat(4);
+        message.setSubject(original);
+        request.addParameter(button, "pressed");
+
+        assertThat(execute()).isEqualTo("reply");
+
+        String built = (String) request.getAttribute("ReSubject");
+        String prefix = "forward".equals(button) ? "Fwd:" : "Re:";
+        assertThat(built.codePointCount(0, built.length())).isEqualTo(MessageTbl.SUBJECT_MAX_LENGTH);
+        assertThat(prefix + original).startsWith(built);
+        assertThat(Character.isHighSurrogate(built.charAt(built.length() - 1))).isFalse();
+        assertThat(MessageTbl.subjectFits(built)).isTrue();
     }
 
     @Test

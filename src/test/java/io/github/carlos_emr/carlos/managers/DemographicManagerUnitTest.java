@@ -253,6 +253,71 @@ public class DemographicManagerUnitTest extends DemographicUnitTestBase {
         }
     }
 
+    /**
+     * Names for a list that mixes patients (the team consultation list, issue #5775): one
+     * restricted patient must cost that patient's row, not the list.
+     */
+    @Nested
+    @DisplayName("Readable names for a mixed-patient list")
+    class ReadableNamesForMixedPatientLists {
+        @Test
+        void shouldNameOnlyReadablePatients_whenSomeAreRestricted() {
+            when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13, 99))))
+                .thenReturn(new LinkedHashSet<>(List.of(12, 99)));
+            when(mockDemographicDao.getDemographicNames(new LinkedHashSet<>(List.of(12, 99)))).thenReturn(List.of(
+                new io.github.carlos_emr.carlos.commn.dao.projection.DemographicName(12, "Allowed", "Patient")));
+
+            var names = manager.getReadableDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(12, 0, 13, 12, null, 99));
+
+            // 13 is restricted: no entry. 99 is readable but has no demographic record: no name.
+            assertThat(names).containsOnlyKeys(12, 99).containsEntry(12, "Allowed, Patient").containsEntry(99, "");
+            // Only the readable patients ever reach the name query.
+            verify(mockDemographicDao).getDemographicNames(new LinkedHashSet<>(List.of(12, 99)));
+            verifyNoMoreInteractions(mockDemographicDao);
+            // The all-or-nothing check, with its session side effect, is not the one used here.
+            verify(mockSecurityInfoManager, never()).hasDemographicReadPrivileges(any(), any());
+            verifyNoInteractions(mockProviderManager, mockAppointmentManager);
+        }
+
+        @Test
+        void shouldReadNoNames_whenEveryPatientIsRestricted() {
+            when(mockSecurityInfoManager.getReadableDemographicIds(mockLoggedInInfo, new LinkedHashSet<>(List.of(12, 13))))
+                .thenReturn(new LinkedHashSet<>());
+
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12, 13))).isEmpty();
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldPropagateFailure_whenAccessPolicyCannotBeRead() {
+            var failure = new IllegalStateException("synthetic policy store failure");
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), any())).thenThrow(failure);
+
+            // Not an empty map: the caller must be able to tell a failure from "none readable".
+            assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(failure);
+            verifyNoInteractions(mockDemographicDao);
+        }
+
+        @Test
+        void shouldPropagateFailure_whenNamesCannotBeRead() {
+            var failure = new IllegalStateException("synthetic database failure");
+            when(mockSecurityInfoManager.getReadableDemographicIds(any(), any()))
+                .thenReturn(new LinkedHashSet<>(List.of(12)));
+            when(mockDemographicDao.getDemographicNames(anyCollection())).thenThrow(failure);
+
+            assertThatThrownBy(() -> manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of(12)))
+                .isSameAs(failure);
+        }
+
+        @Test
+        void shouldSkipAccessChecks_whenOnlyBlankSlotsAreRequested() {
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, Arrays.asList(0, null))).isEmpty();
+            assertThat(manager.getReadableDemographicFormattedNames(mockLoggedInInfo, List.of())).isEmpty();
+            verifyNoInteractions(mockDemographicDao, mockSecurityInfoManager);
+        }
+    }
+
     @Nested
     @DisplayName("Security and Privilege Checks")
     @Tag("security")

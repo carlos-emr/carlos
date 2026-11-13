@@ -25,6 +25,7 @@ import io.github.carlos_emr.carlos.admin.web.SaveProviderLinkingRules2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityAddSecurity2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityDelete2Action;
 import io.github.carlos_emr.carlos.admin.web.SecurityUpdate2Action;
+import io.github.carlos_emr.carlos.admin.service.SecurityRecordUpdateService;
 import io.github.carlos_emr.carlos.app.HttpMethodGuardFilter;
 import io.github.carlos_emr.carlos.commn.dao.EReferAttachmentDao;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
@@ -1005,6 +1006,10 @@ class MutatorActionGetRejectionContractUnitTest {
                     // Returns word bounding boxes for snap-to-text highlighting. Read-only.
                     "io.github.carlos_emr.carlos.documentManager.actions.DocumentTextBoxes2Action",
                     "io.github.carlos_emr.carlos.report.gate.ViewReport2Action",
+                    // Report by Template CSV/XLSX download: reads the result kept for the session by
+                    // its token and changes nothing, so GET and POST are served (the page posts);
+                    // other methods get 405.
+                    "io.github.carlos_emr.carlos.report.reportByTemplate.actions.GenerateOutFiles2Action",
                     // CDS 4 report results: the shared report gate plus a functional centre in use.
                     // Read-only.
                     "io.github.carlos_emr.carlos.report.gate.ViewCds4ReportResults2Action",
@@ -1735,7 +1740,9 @@ class MutatorActionGetRejectionContractUnitTest {
         if (actionClass.equals(SecurityUpdate2Action.class)) {
             CarlosMethodSecurity methodSecurity = mock(CarlosMethodSecurity.class);
             when(methodSecurity.hasAdminWrite()).thenReturn(true);
-            return new SecurityUpdate2Action(methodSecurity);
+            SecurityRecordUpdateService securityRecords = (SecurityRecordUpdateService)
+                    autoMocks.computeIfAbsent(SecurityRecordUpdateService.class, Mockito::mock);
+            return new SecurityUpdate2Action(methodSecurity, securityRecords);
         }
         if (METHOD_MAP_DISPATCHERS.contains(actionClass.getName())) {
             // Spring runs the @PostConstruct init() that fills methodMap; without it every dispatch

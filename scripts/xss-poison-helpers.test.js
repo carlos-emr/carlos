@@ -13,7 +13,7 @@ const { spawn } = require('node:child_process');
  */
 const LEDGER_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'xss-poison-ledger-test-'));
 process.env.XSS_POISON_LEDGER_DIR = LEDGER_DIR;
-const { Seeder, payload, TIERS, classifyText, norm } = require('./lib/xss-poison-helpers');
+const { Seeder, payload, TIERS, classifyText, norm, payloadTables, payloadCountStatements, SWEEP_STATEMENT_BYTES } = require('./lib/xss-poison-helpers');
 
 test.after(() => fs.rmSync(LEDGER_DIR, { recursive: true, force: true }));
 
@@ -153,4 +153,83 @@ test('an aborted request is excused only when its document provably went away', 
   f.drain('surface', since);
   assert.deepEqual(f.items.map(i => `${i.kind} ${i.detail}`), ['REQUEST-FAILED /carlos/api/poll', 'REQUEST-FAILED /carlos/js/app.js']);
   assert.deepEqual(f.observed.map(o => o.text), ['request abandoned by navigation: /carlos/font.woff2']);
+});
+
+/*
+ * The sweep's count statements. Each reaches mysql as one command-line argument, which Linux caps at
+ * 131,072 bytes; sixty tables to a statement went over that on the BC schema, where several tables of
+ * more than five hundred text columns sort next to each other.
+ */
+const ARGUMENT_LIMIT = 131072;
+const SELECTS = /SELECT '([^']+)', COUNT\(\*\) FROM `([^`]+)` WHERE /g;
+
+/** A schema shaped like the BC one: ordinary tables, and five adjacent tables of `wide` text columns. */
+function wideSchema(wide = 560) {
+  const columns = {};
+  for (let table = 0; table < 420; table += 1) {
+    columns[`table${String(table).padStart(3, '0')}`] = Array.from({ length: 6 }, (_, column) => `text_column_${column}`);
+  }
+  for (const form of ['tableForm1', 'tableForm2', 'tableForm3', 'tableForm4', 'tableForm5']) {
+    columns[form] = Array.from({ length: wide }, (_, column) => `pg1_form_field_number_${column}`);
+  }
+  return Object.fromEntries(Object.entries(columns).sort(([a], [b]) => (a < b ? -1 : 1)));
+}
+
+test('sweep count statements stay under the size bound and name every table once, in order', () => {
+  const columns = wideSchema();
+  const statements = payloadCountStatements(columns);
+  assert.ok(SWEEP_STATEMENT_BYTES * 2 <= ARGUMENT_LIMIT, 'the bound leaves at least half of the argument limit unused');
+  const named = [];
+  for (const statement of statements) {
+    assert.ok(Buffer.byteLength(statement) <= SWEEP_STATEMENT_BYTES, `a statement is ${Buffer.byteLength(statement)} bytes`);
+    const selects = [...statement.matchAll(SELECTS)];
+    assert.ok(selects.length >= 1 && selects.length <= 60);
+    assert.equal(statement.split(' UNION ALL ').length, selects.length);
+    for (const [, label, table] of selects) { assert.equal(label, table); named.push(table); }
+  }
+  assert.deepEqual(named, Object.keys(columns));
+  // The slicing this replaces, sixty tables to a statement whatever their width, did not fit.
+  const tables = Object.keys(columns);
+  const bySixty = [];
+  for (let i = 0; i < tables.length; i += 60) {
+    bySixty.push(payloadCountStatements(Object.fromEntries(tables.slice(i, i + 60).map(t => [t, columns[t]])),
+      { maxBytes: Infinity }).join(' UNION ALL '));
+  }
+  assert.ok(Math.max(...bySixty.map(statement => Buffer.byteLength(statement))) > ARGUMENT_LIMIT,
+    'this schema is one the table-count slicing could not send');
+});
+
+test('sweep count statements still hold at most sixty tables when the tables are narrow', () => {
+  const columns = Object.fromEntries(Array.from({ length: 150 }, (_, table) => [`t${String(table).padStart(3, '0')}`, ['a']]));
+  const counts = payloadCountStatements(columns).map(statement => statement.split(' UNION ALL ').length);
+  assert.deepEqual(counts, [60, 60, 30]);
+  assert.deepEqual(payloadCountStatements({}), []);
+});
+
+test('a table too wide for one statement is counted in parts that cover each column once', () => {
+  const columns = { narrow: ['a'], wide: Array.from({ length: 40 }, (_, column) => `column_${column}`), last: ['z'] };
+  const maxBytes = 400;
+  const statements = payloadCountStatements(columns, { maxBytes });
+  const seen = [];
+  for (const statement of statements) {
+    assert.ok(Buffer.byteLength(statement) <= maxBytes);
+    for (const select of statement.split(' UNION ALL ')) {
+      const [, table] = /^SELECT '(\w+)', COUNT\(\*\) FROM `\1` WHERE /.exec(select);
+      for (const [, column] of select.matchAll(/`(\w+)` LIKE '%<i data-xp=%'/g)) seen.push(`${table}.${column}`);
+    }
+  }
+  assert.deepEqual(seen, Object.entries(columns).flatMap(([table, cols]) => cols.map(column => `${table}.${column}`)));
+  assert.ok(statements.filter(statement => statement.includes("'wide'")).length > 1, 'the wide table needed more than one statement');
+});
+
+test('payloadTables reports the tables that hold a payload and adds up a table counted in parts', () => {
+  const columns = { clean: ['a'], dirty: ['a', 'b'], wide: ['a', 'b'] };
+  const asked = [];
+  const sql = { rows(query) {
+    asked.push(query);
+    return [['clean', '0'], ['dirty', '3'], ['wide', '1'], ['wide', '2'], ['wide', '0']];
+  } };
+  assert.deepEqual(payloadTables(sql, columns), { dirty: 3, wide: 3 });
+  assert.deepEqual(asked, payloadCountStatements(columns));
+  assert.equal(asked.length, 1);
 });

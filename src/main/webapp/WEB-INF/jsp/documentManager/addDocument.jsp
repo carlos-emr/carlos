@@ -53,6 +53,8 @@
         import="java.util.*, io.github.carlos_emr.carlos.util.*, io.github.carlos_emr.CarlosProperties, io.github.carlos_emr.carlos.utility.SpringUtils, io.github.carlos_emr.carlos.commn.dao.CtlDocClassDao" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
+<%@ page import="io.github.carlos_emr.carlos.documentManager.DocumentLink" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilDateUtilities" %>
 <%@ page import="io.github.carlos_emr.carlos.utility.ScheduleNav" %>
 <%--This is included in documentReport.jsp - wasn't meant to be displayed as a separate page --%>
@@ -145,9 +147,18 @@
     // Determine which panel to open on load based on errors or mode
     boolean openDocPanel = (request.getAttribute("docerrors") != null) || "add".equals(mode);
     boolean openLinkPanel = (request.getAttribute("linkhtmlerrors") != null);
+
+    // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters (code points); Add Link stores
+    // the typed text with DocumentLink.DESCRIPTION_SUFFIX after it, so a link description holds less.
+    int descriptionMaxLength = Document.DESCRIPTION_MAX_LENGTH;
+    int linkDescriptionMaxLength = Document.DESCRIPTION_MAX_LENGTH - DocumentLink.DESCRIPTION_SUFFIX.length();
 %>
+<fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
+<fmt:message key="dms.error.linkDescriptionTooLong" var="msgLinkDescriptionTooLongText"/>
 <script type="text/javascript">
     /* i18n strings for JavaScript use */
+    var msgDescriptionTooLong = '${carlos:forJavaScript(msgDescriptionTooLongText)}';
+    var msgLinkDescriptionTooLong = '${carlos:forJavaScript(msgLinkDescriptionTooLongText)}';
     var msgInvalidDate = '<fmt:message key="dms.addDocument.errorInvalidDate"/>';
     var msgInvalidEntry = '<fmt:message key="dms.addDocument.errorInvalidEntry"/>';
     var msgEnterNewDocType = '<fmt:message key="dms.addDocument.msgEnterNewDocType"/>';
@@ -220,11 +231,35 @@
             object.Submit.disabled = false;
             return false;
         }
+        if (descriptionTooLong(object.docDesc, <%= descriptionMaxLength %>)) {
+            showDocAlert('docAlertContainer', msgDescriptionTooLong);
+            object.Submit.disabled = false;
+            return false;
+        }
         return true;
     }
 
     function submitUploadLink(object) {
         object.Submit.disabled = true;
+        if (descriptionTooLong(object.docDesc, <%= linkDescriptionMaxLength %>)) {
+            showDocAlert('linkAlertContainer', msgLinkDescriptionTooLong);
+            object.Submit.disabled = false;
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Whether a description is longer than the document.docdesc column holds, counted as the column
+     * counts it: in code points (utf8mb4), as Array.from does, so an emoji is one character. The
+     * server refuses a longer description too; this only saves the upload round trip.
+     */
+    function descriptionTooLong(field, limit) {
+        if (!field || Array.from(field.value.replace(/^[\x00-\x20]+|[\x00-\x20]+$/g, '')).length <= limit) {
+            return false;
+        }
+        field.classList.add('is-invalid');
+        field.focus();
         return true;
     }
 
@@ -335,8 +370,12 @@
 
             <div class="mb-3">
                 <label for="docDesc"><fmt:message key="dms.addDocument.labelDescription"/></label>
+                <%-- No maxlength: a browser clips a paste to maxlength in UTF-16 units before any check
+                     runs, which could drop the end of an emoji-heavy description without a word.
+                     submitUpload and AddEditDocument2Action refuse one longer than
+                     Document.DESCRIPTION_MAX_LENGTH code points. --%>
                 <input type="text"
-                       class="form-control<c:if test='${ docerrors["descmissing"] != null}'> is-invalid</c:if>"
+                       class="form-control<c:if test='${ docerrors["descmissing"] != null || docerrors["desctoolong"] != null}'> is-invalid</c:if>"
                        id="docDesc" name="docDesc" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"
                        onfocus="checkDefaultValue(this)"/>
                 <input type="hidden" name="docCreator" value="<carlos:encode value='<%= formdata.getDocCreator() %>' context="htmlAttribute"/>"/>
@@ -454,8 +493,10 @@
 
             <div class="mb-3">
                 <label for="docDesc2"><fmt:message key="dms.addDocument.labelDescription"/></label>
-                <input type="text" name="docDesc" id="docDesc2"
-                       class="form-control<c:if test="${ linkhtmlerrors['descmissing'] != null }"> is-invalid</c:if>"
+                <%-- As for docDesc above, with the link limit: submitUploadLink and AddEditHtml2Action refuse
+                     a description longer than linkDescriptionMaxLength. --%>
+                <input type="text" name="docDesc" id="docDesc2" maxlength="<%= linkDescriptionMaxLength * 2 %>"
+                       class="form-control<c:if test="${ linkhtmlerrors['descmissing'] != null || linkhtmlerrors['desctoolong'] != null }"> is-invalid</c:if>"
                        value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>" onfocus="checkDefaultValue(this)">
             </div>
 

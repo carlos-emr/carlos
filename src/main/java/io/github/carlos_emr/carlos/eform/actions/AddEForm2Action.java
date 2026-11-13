@@ -288,6 +288,7 @@ public class AddEForm2Action extends ActionSupport {
         //for each name="fieldname" value="myval"
         ArrayList<String> paramNames = new ArrayList<String>();  //holds "fieldname, ...."
         ArrayList<String> paramValues = new ArrayList<String>(); //holds "myval, ...."
+        Map<String, List<String>> submittedValues = new HashMap<>(); //every value of a field submitted more than once
         String fid = request.getParameter("efmfid");
         String demographic_no = request.getParameter("efmdemographic_no");
         String eform_link = validateEformLink(request.getParameter("eform_link"));
@@ -338,6 +339,13 @@ public class AddEForm2Action extends ActionSupport {
             if (request.getParameter(curField) != null) {
                 paramNames.add(curField);
                 paramValues.add(request.getParameter(curField));
+                // paramValues holds one value per field, which is what the value rows and the
+                // chart templates use. A <select multiple> submits one value per chosen option
+                // under the same name; keep them all for the rendered form only.
+                String[] submitted = request.getParameterValues(curField);
+                if (submitted != null && submitted.length > 1) {
+                    submittedValues.put(curField, List.of(submitted));
+                }
             }
 
         }
@@ -390,7 +398,7 @@ public class AddEForm2Action extends ActionSupport {
         //----names parsed
         //ActionMessages errors = curForm.setMeasurements(paramNames, paramValues);
         curForm.setFormSubject(subject);
-        curForm.setValues(paramNames, paramValues);
+        curForm.setValues(paramNames, paramValues, submittedValues);
         // Rendering must see explicit clears, while value rows and chart-template substitutions
         // retain the historical nonblank-only contract used by existing eForm consumers.
         for (int i = paramValues.size() - 1; i >= 0; i--) {

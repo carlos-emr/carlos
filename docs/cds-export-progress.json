@@ -23,19 +23,22 @@
     "coreBase": "38cfc10c0ae72c66ebe501703de462f59249da1f",
     "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
-    "cliHead": "af1bb40c413e820ae1e78d9940f8b470c2db8159",
+    "cliHead": "b759f117a165526e01a57295e22cc9e35f2a9697",
     "cliVersion": "1.3.5",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",
     "cliReleaseBase": "84adfc5c237d4a536300a9d7e74e19599df23dcc",
-    "cliImportProtocol": "schema manifest format 2 / ETL contract 4; newer main format 3 / ETL contract 6 is excluded from this release pair",
+    "cliImportProtocol": "schema manifest format 3 / ETL contract 6, from main's OSCAR 19 beta8 line (carlos-ctl 1.3.3 at 09b97f95356d3c12f9972d96d10355e597cc7540) merged into the companion after release/2026.08 took it (#6167)",
     "modernImporterPresentInRelease": true,
-    "releaseSqlUnchanged": 87,
+    "releaseSqlUnchanged": 89,
     "newMigrations": [
-      "1.0.59.38",
-      "1.0.59.39",
       "1.0.59.40",
-      "1.0.59.41"
+      "1.0.59.41",
+      "1.0.59.42",
+      "1.0.59.43",
+      "1.0.59.44",
+      "1.0.59.45",
+      "1.0.59.46"
     ],
     "localProofs": {
       "freshOnAndBc": true,
@@ -55,11 +58,11 @@
     },
     "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706",
     "candidateCliPackage": {
-      "sha256": "b7e1e4469a89ee4133c72bb4e8a1e57c28009537344fb57d528177c3aff46d6e",
-      "bytes": 360754,
-      "sourceCommit": "af1bb40c413e820ae1e78d9940f8b470c2db8159",
-      "workflowRun": 43500753482,
-      "artifact": 14074425829,
+      "sha256": "b93e250a54d56483dad44125e7443cec3e69d69647df2d756d40038741906db4",
+      "bytes": 370142,
+      "sourceCommit": "b759f117a165526e01a57295e22cc9e35f2a9697",
+      "workflowRun": 43509827095,
+      "artifact": 14078855233,
       "publication": false
     }
   },

@@ -81,6 +81,10 @@ class HRMModifyTransactionIntegrationTest extends CarlosTestBase {
         login.when(() -> LoggedInInfo.getLoggedInInfoFromSession(request)).thenReturn(user);
         SecurityInfoManager security = mock(SecurityInfoManager.class);
         when(security.hasPrivilege(eq(user), eq("_hrm"), anyString(), isNull())).thenReturn(true);
+        // The route refuses a report filed to a patient the provider may not read (pinned by the
+        // action unit test); this provider may read every synthetic patient these fixtures use.
+        when(security.isAllowedAccessToPatientRecord(eq(user), org.mockito.ArgumentMatchers.anyInt())).thenReturn(true);
+        when(security.hasPrivilege(eq(user), anyString(), eq("r"), anyString())).thenReturn(true);
         action = new HRMModifyDocument2Action();
         ReflectionTestUtils.setField(action, "securityInfoManager", security);
         // These transaction fixtures use synthetic chart ids; chart existence is pinned by the action unit test.

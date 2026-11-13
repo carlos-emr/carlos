@@ -8,7 +8,7 @@ const {
   CONTRACT_SOURCE, mutatorRoutes, routesForClass, strutsActions, unconditionalMutatorClasses,
 } = require('./lib/mutator-routes');
 const {
-  EXPECTED_STATUS, PROBED_METHODS, diagnose, orderedRoutes,
+  BC_ONLY_ROUTE, EXPECTED_STATUS, PROBED_METHODS, diagnose, orderedRoutes, refusedByProvince,
 } = require('./mutator-get-rejection-live-playwright-checks');
 
 const SOURCE = fs.readFileSync(
@@ -201,4 +201,35 @@ test('the conditional and unconditional halves of the contract do not overlap', 
   const conditional = new Set(conditionalMutatorClasses());
   const overlap = unconditionalMutatorClasses().filter((name) => conditional.has(name));
   assert.deepEqual(overlap, []);
+});
+
+test('a BC-only route refused by province is accepted only where the interceptor refuses it', () => {
+  // BcBillingProvinceInterceptor answers 404 before the action runs on an install that is not BC.
+  // That is safer than the contract (no method reaches the action), so it is not a failure there.
+  assert.equal(refusedByProvince('billing/CA/BC/UpdateBilling', 404, 'ON'), true);
+  assert.equal(refusedByProvince('saveQuickBillingBC', 404, 'ON'), true);
+  // A BC install must still answer 405: the action is reachable there.
+  assert.equal(refusedByProvince('billing/CA/BC/UpdateBilling', 404, 'BC'), false);
+  // An unknown province relaxes nothing.
+  assert.equal(refusedByProvince('billing/CA/BC/UpdateBilling', 404, ''), false);
+  // Only 404, and only the interceptor's routes.
+  assert.equal(refusedByProvince('billing/CA/BC/UpdateBilling', 200, 'ON'), false);
+  assert.equal(refusedByProvince('billing/CA/BC/UpdateBilling', 302, 'ON'), false);
+  assert.equal(refusedByProvince('billing/CA/ON/BillingONSave', 404, 'ON'), false);
+  assert.equal(refusedByProvince('appointment/AddRecord', 404, 'ON'), false);
+});
+
+test('the province predicate is the interceptor\'s own', () => {
+  // If the interceptor starts guarding another route, or stops guarding one, this check must
+  // follow it deliberately rather than keep excusing a 404 the product no longer sends.
+  const interceptor = fs.readFileSync(path.join(__dirname, '..',
+    'src/main/java/io/github/carlos_emr/carlos/billings/ca/bc/pageUtil/BcBillingProvinceInterceptor.java'), 'utf8');
+  assert.match(interceptor, /actionName\.startsWith\("billing\/CA\/BC\/"\)/);
+  assert.match(interceptor, /"quickBillingBC"\.equals\(actionName\)/);
+  assert.match(interceptor, /"saveQuickBillingBC"\.equals\(actionName\)/);
+  const literals = [...interceptor.matchAll(/"([^"]+)"\.equals\(actionName\)|startsWith\("([^"]+)"\)/g)]
+    .map((match) => match[1] || match[2]);
+  assert.deepEqual(literals.sort(), ['billing/CA/BC/', 'quickBillingBC', 'saveQuickBillingBC']);
+  assert.ok(BC_ONLY_ROUTE.test('billing/CA/BC/anything') && BC_ONLY_ROUTE.test('quickBillingBC')
+    && BC_ONLY_ROUTE.test('saveQuickBillingBC') && !BC_ONLY_ROUTE.test('billing/CA/BC'));
 });

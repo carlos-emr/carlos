@@ -2,10 +2,10 @@
   "format": 1,
   "profiles": {
     "on": {
-      "physicalContractSha256": "abbbfc27bd296213438405659f0d7b324a8dcfed777b6bf76350175b41d8265d"
+      "physicalContractSha256": "ae4eb5b1789b309f72c539bb089262966fea04d8a421be44e45143d8b418cdeb"
     },
     "bc": {
-      "physicalContractSha256": "641f5b94543bfbdb075b2cf75a2fffeb1e8bc42568e0cdc143d07470ae939a84"
+      "physicalContractSha256": "57613a54c95fee9b412e769e9ca368679f486300466b63246d8da538138d0c00"
     }
   },
   "tables": {
@@ -519,7 +519,8 @@
     "wcb_bp_code": "REFERENCE",
     "wcb_noi_code": "REFERENCE",
     "wcb_side": "REFERENCE",
-    "workflow": "DOCUMENT"
+    "workflow": "DOCUMENT",
+    "o19_imported_signature_owner": "OPERATIONAL"
   },
   "requiredScopes": {
     "Demographics": [
@@ -1489,6 +1490,7 @@
     "labReportInformation": "Exported as a CARLOS data-summary Report (CML laboratory report): every column of each patient row is rendered with its exact value. Header of one CML upload (location, print date and time, line totals), shown on each CML report of the upload. Exported with each report of the chart that names it, or as its own record when several reports of one chart name it. The chart is the patientLabRouting row of type CML whose lab_no is the report id, as the chart lab list reads it.",
     "hl7_link": "Exported as a CARLOS data-summary Report (PathNet laboratory report): every column of each patient row is rendered with its exact value. The legacy patient link and acknowledgement of the PathNet report it names (pid_id). The chart is the patientLabRouting row of type BCP whose lab_no is the message_id, as the chart lab list reads it (hl7_link.demographic_no is a copy the chart never reads).",
     "casemgmt_note_link": "Exported with the note it belongs to (decision recorded with the note-link change): each row says which record a note is attached to (table_name, table_id, other_id: a document, prescription, eForm, tickler, e-mail, another note, an allergy, a lab, a prevention, the patient record or an appointment). The note itself is exported once, as the chart shows it, in its own ClinicalNotes or CPP occurrence under its per-note authorization; every link row of every revision travels exactly in that occurrence's source context (the note details of a ClinicalNotes entry, which also opens with a statement naming the records, or the CARLOS.NativeHistory.v1 residual of a CPP item). Captured with the seven history categories and scoped through the parent note (CdsExportIndirectPatientScopeReadSupport); a link whose note is missing or names no existing patient still holds every chart.",
-    "GroupNoteLink": "Operational, rule GROUP_NOTE_RECIPIENT_LINK: a CAISI group note is written in one chart (casemgmt_note.demographic_no) and shown read-only in each recipient chart this row names (GroupNoteAction, GroupNoteSelect2Action; CaseManagementView2Action shows it only in a facility with group notes enabled and to a provider holding the note's reporter role). The row carries only that linkage: note id, recipient, created time, whether the recipient is an anonymous client generated for the session and whether the share is still active. The note itself is exported once, with the chart that wrote it, under its per-note authorization. Copying it into a recipient's package would disclose a note of another chart (group notes commonly name the other members) without that chart's authorization, and a data summary of the row would show only another chart's note number. No longer holds the recipient chart."
+    "GroupNoteLink": "Operational, rule GROUP_NOTE_RECIPIENT_LINK: a CAISI group note is written in one chart (casemgmt_note.demographic_no) and shown read-only in each recipient chart this row names (GroupNoteAction, GroupNoteSelect2Action; CaseManagementView2Action shows it only in a facility with group notes enabled and to a provider holding the note's reporter role). The row carries only that linkage: note id, recipient, created time, whether the recipient is an anonymous client generated for the session and whether the share is still active. The note itself is exported once, with the chart that wrote it, under its per-note authorization. Copying it into a recipient's package would disclose a note of another chart (group notes commonly name the other members) without that chart's authorization, and a data summary of the row would show only another chart's note number. No longer holds the recipient chart.",
+    "o19_imported_signature_owner": "OSCAR 19 import provenance: which imported DigitalSignature rows the migration bound to which patient and module (V1.0.59.35). It holds no clinical value of its own; each signature row is exported with its parent under the DigitalSignature ruling."
   }
 }

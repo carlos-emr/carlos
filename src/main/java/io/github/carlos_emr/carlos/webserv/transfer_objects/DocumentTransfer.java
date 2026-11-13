@@ -34,15 +34,20 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.model.CtlDocument;
 import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.managers.DocumentManager;
+import io.github.carlos_emr.carlos.utility.LogSafe;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
+import io.github.carlos_emr.carlos.webserv.DocumentListProfile;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.beans.BeanUtils;
 
 public final class DocumentTransfer {
+    private static final Logger logger = MiscUtils.getLogger();
 
     private Integer documentNo;
     private String doctype;
@@ -319,8 +324,24 @@ public final class DocumentTransfer {
         return (documentTransfer);
     }
 
+    /**
+     * Builds one page of a bulk {@code DocumentWs} operation under the caller's
+     * {@link DocumentListProfile}.
+     *
+     * <p>A request without the profile header is an existing client. It receives what the
+     * published operation has always returned: file content inline, with a document whose stored
+     * file cannot be read left out of the page (and reported in the server log). Refusing the whole
+     * page instead would stop such a client at the same page on every retry, so that stricter
+     * outcome is reserved for callers that ask for it with {@code legacy-inline}.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller, used for the document-link lookup
+     * @param documents List&lt;Document&gt; the selected page, already authorized by the manager
+     * @return DocumentTransfer[] the page in the selected profile
+     * @throws org.apache.cxf.binding.soap.SoapFault when the explicit {@code legacy-inline}
+     *         profile meets an unreadable stored file, or a document carries a CDS source precision
+     */
     public static DocumentTransfer[] getTransfers(LoggedInInfo loggedInInfo, List<Document> documents) {
-        boolean inline = io.github.carlos_emr.carlos.webserv.DocumentListProfile.current().inline();
+        DocumentListProfile profile = DocumentListProfile.current();
         // Refuse the whole selected page before allocating any file byte arrays.
         for (Document document:documents) requireLegacyProjection(document);
         DocumentManager documentManager = SpringUtils.getBean(DocumentManager.class);
@@ -330,12 +351,18 @@ public final class DocumentTransfer {
         for (Document document : documents) {
             try {
                 CtlDocument ctlDocument = documentManager.getCtlDocumentByDocumentId(loggedInInfo, document.getId());
-                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument, inline);
+                DocumentTransfer transfer = DocumentTransfer.toTransfer(document, ctlDocument, profile.inline());
                 results.add(transfer);
             } catch (IOException e) {
-                // An unreadable item must never disappear from an apparently complete page.
-                throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
-                        org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
+                if (profile.faultsOnUnreadableContent()) {
+                    throw new org.apache.cxf.binding.soap.SoapFault("Document content could not be read",
+                            org.apache.cxf.binding.soap.SoapFault.FAULT_CODE_SERVER);
+                }
+                // Published header-less behaviour: the page is still answered, without this document.
+                // The failure names a stored file, so only its type and location are logged; the
+                // document number is what an operator needs to find and repair the record.
+                logger.error("Document content could not be read; left out of the bulk response: documentNo={}{}",
+                        LogSafe.sanitizeObject(document.getId()), LogSafe.exceptionTrace(e));
             }
         }
 

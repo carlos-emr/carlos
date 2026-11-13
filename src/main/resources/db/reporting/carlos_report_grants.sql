@@ -428,6 +428,7 @@ INSERT INTO carlos_report_tables (table_name, access, excluded_columns, reason) 
 ('mygroup', 'reportable', NULL, NULL),
 ('MyGroupAccessRestriction', 'reportable', NULL, NULL),
 ('OceanSetting', 'restricted', NULL, 'Ocean integration settings document; may carry integration credentials'),
+('o19_imported_signature_owner', 'restricted', NULL, 'Frozen patient ownership evidence for imported unassigned signatures'),
 ('oscar_msg_type', 'reportable', NULL, NULL),
 ('OscarCode', 'reportable', NULL, NULL),
 ('oscarcommlocations', 'restricted', NULL, 'Remote messaging locations and their authentication data'),

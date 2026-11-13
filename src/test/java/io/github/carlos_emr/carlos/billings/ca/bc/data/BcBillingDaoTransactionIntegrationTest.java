@@ -101,6 +101,23 @@ class BcBillingDaoTransactionIntegrationTest extends CarlosTestBase {
     }
 
     @Test
+    void shouldLoadClaimComment_forTheLegacyExtractProjection() {
+        new TransactionTemplate(transactionManager).executeWithoutResult(status ->
+                entityManager.createQuery("update Billingmaster b set b.claimComment = :comment, b.correspondenceCode = '0' "
+                        + "where b.billingmasterNo = :id").setParameter("comment", "FAKE CLAIM COMMENT").setParameter("id", masterId)
+                        .executeUpdate());
+
+        // The legacy export writes P58 from this projection; the column used to be missing from its SELECT.
+        assertThat(masters.findBcExtractClaims(billId)).singleElement().satisfies(row -> {
+            assertThat(row.billingmasterNo()).isEqualTo(masterId);
+            assertThat(row.correspondenceCode()).isEqualTo("0");
+            assertThat(row.claimComment()).isEqualTo("FAKE CLAIM COMMENT");
+        });
+        assertThat(masters.findBcPendingExtractClaims(billId)).singleElement()
+                .satisfies(row -> assertThat(row.claimComment()).isEqualTo("FAKE CLAIM COMMENT"));
+    }
+
+    @Test
     void shouldRejectUnproxiedExtract_beforeAnyLogOrStatusWrite() {
         var unproxied = new BcBillingService(masters);
         assertThatThrownBy(() -> unproxied.generateExtract(extract(false)))

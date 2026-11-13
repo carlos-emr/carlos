@@ -73,6 +73,11 @@ public interface ScheduleManager {
 
     public List<Appointment> getAppointmentsForPatient(LoggedInInfo loggedInInfo, Integer demographicId, int startIndex, int itemsToReturn);
 
+    /**
+     * Timestamp-only page of one patient's appointments with a provider in a program, in update order.
+     * Follows the paging contract of {@link #getAppointmentUpdatedAfterDate}: never refused for a shared
+     * update timestamp, and extended past {@code itemsToReturn} to the end of the last row's timestamp.
+     */
     public List<Appointment> getAppointmentsByProgramProviderDemographicDate(LoggedInInfo loggedInInfo, Integer programId, String providerNo, Integer demographicId, Calendar updatedAfterThisDateExclusive, int itemsToReturn);
 
     public Appointment getAppointment(LoggedInInfo loggedInInfo, Integer appointmentId);
@@ -98,12 +103,49 @@ public interface ScheduleManager {
     Appointment updateAppointment(LoggedInInfo loggedInInfo, Integer appointmentId,
             String expectedVersion, Consumer<Appointment> edit);
 
+    /**
+     * Archives and removes the locked current row, validating the client's read version when supplied.
+     * The classic Edit Appointment form's Delete and Cut use it so a popup opened before another
+     * user's change cannot remove (or cut and re-paste) the newer appointment unseen. Missing or
+     * blank versions preserve the unconditional removal those buttons had.
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller
+     * @param appointmentId Integer the appointment_no of the row to remove
+     * @param expectedVersion String the editVersion token the client read; null or blank for an unconditional removal
+     * @return Appointment the removed appointment as it was archived
+     * @throws AppointmentUpdateException when a supplied version is stale, or the row does not exist
+     * @throws SecurityException when the caller lacks the _appointment delete privilege
+     */
+    Appointment removeAppointment(LoggedInInfo loggedInInfo, Integer appointmentId, String expectedVersion);
+
     public List<Appointment> getAppointmentsForDateRangeAndProvider(LoggedInInfo loggedInInfo, Date startTime, Date endTime, String providerNo);
 
+    /**
+     * Timestamp-only page of appointments updated strictly after a timestamp, in (update timestamp, id)
+     * order. This is the published SOAP contract used by clients that send no schedule sync header: the
+     * caller's next request is bounded by the newest update timestamp it received.
+     *
+     * <p>Update timestamps hold whole seconds, so rows share them. A page that would end inside such a
+     * group is extended to the end of the group, so the caller's next request cannot skip rows: the result
+     * can hold more than {@code itemsToReturn} rows, by at most the rest of that one group, and never more
+     * than the DAO hard limit. A request is never refused because of a shared timestamp. Only when the hard
+     * limit cannot hold the whole group is the page cut at {@code itemsToReturn}, as it was at 2026.08.0-beta6;
+     * the explicit timestamp/ID methods below page through groups of any size.</p>
+     *
+     * @param loggedInInfo LoggedInInfo the authenticated caller
+     * @param updatedAfterThisDateExclusive Date exclusive lower bound on the update timestamp
+     * @param itemsToReturn int requested page size; zero returns an empty list
+     * @return List&lt;Appointment&gt; the page, after the provider-specific consent policy
+     */
     public List<Appointment> getAppointmentUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<Appointment> getAppointmentByDemographicIdUpdatedAfterDate(LoggedInInfo loggedInInfo, Integer demographicId, Date updatedAfterThisDateExclusive);
 
+    /**
+     * Timestamp-only page of archived appointment versions, in update order. Follows the paging contract
+     * of {@link #getAppointmentUpdatedAfterDate}: never refused for a shared update timestamp, and extended
+     * past {@code itemsToReturn} to the end of the last row's timestamp.
+     */
     public List<AppointmentArchive> getAppointmentArchiveUpdatedAfterDate(LoggedInInfo loggedInInfo, Date updatedAfterThisDateExclusive, int itemsToReturn);
 
     public List<AppointmentStatus> getAppointmentStatuses(LoggedInInfo loggedInInfo);

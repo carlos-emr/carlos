@@ -1789,7 +1789,11 @@
       "provinces": [
         "all"
       ],
-      "timeoutSec": 300
+      "timeoutSec": 300,
+      "env": [
+        "CARLOS_SUITE_PROVINCE"
+      ],
+      "notes": "Issue #3960: the unbilled-appointments report lists No-Show and Cancelled appointments only when asked. The Ontario report control (billing/CA/ON/ViewBillingReportControl) is driven on every install, through its four checkbox combinations; each listed row's Bill link is clicked and must name the appointment time, the province and the patient by number, with no patient name in the address (#6097 removed demographic_name from billing addresses). The BC report control (billing/CA/BC/ViewBillingReportControl), its omitted-date defaults, Manage Provider link and two calendars exist only on a BC install: BcBillingProvinceInterceptor answers every billing/CA/BC route with 404 elsewhere. With CARLOS_SUITE_PROVINCE=BC, or unset, those steps are driven as pages that must work; with another province the check instead asserts the BC control answers 404 and lists none of the fixtures."
     },
     {
       "name": "billing-bc-report-center",
@@ -2531,6 +2535,7 @@
       ],
       "timeoutSec": 300,
       "env": [
+        "CARLOS_SUITE_PROVINCE",
         "MUTATOR_GET_TIMEOUT_MS"
       ]
     },
@@ -4086,7 +4091,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations and that the Administration panel no longer links the removed page."
+      "notes": "Read-only. Pins the 410 contract for the retired HRM confidentiality statement operations (a GET of the save name is refused earlier, with 405, by the method guard) and that the Administration panel no longer links the removed page."
     },
     {
       "name": "clinic-demo-name",
@@ -4867,7 +4872,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Creates a throwaway login (security/provider/secUserRole copied from the test login), changes its password, deletes every owned row including SecurityArchive, provider_facility and audit rows.",
-      "notes": "Fails at its last step on 2026.08: the change-password page has no server-side password policy."
+      "notes": "The change-password page and the Preferences page apply the configured password policy on the server: a weak password or a too-short PIN is refused and nothing is stored. Failed at its last step until that was added in 2026.08."
     },
     {
       "name": "account-lockout-unlock",
@@ -6340,7 +6345,7 @@
         "DOCUMENT_DIR",
         "RX_FAX_DOCUMENT_DIR"
       ],
-      "notes": "Fails at its last step on 2026.08: HRM list, print and download serve a locked patient's reports (no patient-level authorization).",
+      "notes": "HRM list, display, print and download refuse a patient the login is locked out of (HRMReportAccess). Failed at its last step until that patient-level check was added in 2026.08.",
       "fixtures": "Owns two patients (one locked to the test provider), three schema-valid HRM XML files (text includes Vietnamese, Polish, Turkish and ≥/≤) and their rows; all removed."
     },
     {
@@ -9048,7 +9053,7 @@
       "timeoutSec": 480,
       "env": [],
       "fixtures": "Marker-subject messages to the test login (already a messenger contact); cleanup deletes messagelisttbl/msgDemoMap/messagetbl rows with the run marker and asserts them gone. Changes no group membership.",
-      "notes": "Fails at its final assertion on 2026.08: Send Message double Enter, a re-click during a slow response and a POST replay (reload of the result page) each deliver two messages (CreateMessage.jsp:485-486,585 no guard; MsgCreateMessage2Action.java:175 sendMessage2 is not idempotent; SentMessage.jsp is rendered directly, no redirect-after-POST)."
+      "notes": "Send Message delivers one message per rendered compose page: a double Enter, a re-click during a slow response and a POST replay (reload of the result page) are answered from the first send (FormSubmissionGuard scope MESSENGER_SEND in MsgCreateMessage2Action). Failed at its final assertion until that guard was added in 2026.08."
     },
     {
       "name": "classic-note-editor-billing-link",
@@ -9357,7 +9362,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "The owned FAKE- patient; ticklers and messages carry the run marker and are deleted by cleanup, which asserts they are gone. Messenger recipient is the test login itself.",
-      "notes": "Expected to FAIL at the last step 'a subject past the column and a tickler text past the TEXT column are refused or stored whole' (Subject box has no maxlength, messagetbl.thesubject is 128; tickler.message TEXT 65,535 bytes silently cut)."
+      "notes": "Expected to FAIL at the last step 'a subject past the column and a tickler text past the TEXT column are refused or stored whole', for one remaining reason only: a body containing entity-like text (for example the five characters &amp;) is stored as typed but shown decoded by the markdown message view (finding 359). A subject longer than messagetbl.thesubject (128) is now refused, and the tickler text is MEDIUMTEXT since V1.0.59.27 and stored whole."
     },
     {
       "name": "boundary-chart-note-text",
@@ -9432,7 +9437,7 @@
         "BOUNDARY_DOCUMENT_DIR"
       ],
       "fixtures": "The owned FAKE- patient and a throw-away PDF; cleanup deletes the owned document / ctl_document rows and the stored files they name (inside the document store only) and asserts them gone. SKIPs when the store is not readable (BOUNDARY_DOCUMENT_DIR overrides carlos.properties DOCUMENT_DIR).",
-      "notes": "Expected to FAIL at the last step 'a description one character past the column is refused or visibly limited' (docDesc box has no maxlength; document.docdesc is 255)."
+      "notes": "A description one character past document.docdesc (255) is refused by the page and by AddEditDocument2Action, with nothing stored (finding 360)."
     },
     {
       "name": "boundary-rx-drug-name",
@@ -10087,7 +10092,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "An idle demo provider (no patients or activity of any kind, else SKIP) given six active patients, one inactive patient, five appointments, three encounter notes and four prescriptions carrying the marker; all deleted in cleanup and checked gone. Counts are scoped to that provider.",
-      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176)."
+      "notes": "Verifies inclusive calendar end dates, exclusion of next-day midnight, bounded percentage precision, roster size, age/sex shares, Rx counts, and form validation (issue #4176). The idle-provider fixture asks the Ontario bill header table (billing_on_cheader1) for invoices only where the schema has that table, so the check's own SQL runs on a BC schema; it used to fail there before the report was opened. The report's Billing figure counts invoices in that same table, so outside Ontario it shows n/a (UsageReportSupport.billedPatientCount; finding 358) and the check expects 0 where the table exists and n/a where it does not."
     },
     {
       "name": "gap-records-document-annotate-save",
@@ -10396,14 +10401,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 420,
       "env": [
         "DOCUMENT_DIR"
       ],
       "fixtures": "The runWorkflow FAKE- patient (HIN set to '' so the report does not trigger N9), one owned schema-valid text HRM XML file in DOCUMENT_DIR with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows; a second active provider is only read. Cleanup deletes the owned rows and file and asserts them gone.",
-      "notes": "Fails at its last step on 2026.08: the provider autocomplete menu prints `<span class='match'>` markup as text (js/carlosAutocomplete.js renders an HTML label with .text()). Sign-Off, description, category, provider and patient steps pass first."
+      "notes": "Drives the HRM report viewer's Sign-Off and Revoke Sign-Off, Set Description, category, Assigned Providers autocomplete and the patient (remove) and autocomplete, each against its HRMDocument / HRMDocumentToProvider / HRMDocumentToDemographic rows; the last step asserts the provider autocomplete menu shows names and no match-highlighting markup (js/carlosAutocomplete.js now renders the escaped label as HTML). All seven steps pass on 2026.08. Ontario only: the chart's HRM Documents list is the entry (HRMUtil.listHRMDocuments returns no reports outside the Ontario billing region)."
     },
     {
       "name": "gap-records-demographic-report-criteria",
@@ -10460,14 +10465,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 300,
       "env": [
         "DOCUMENT_DIR"
       ],
       "fixtures": "EXCLUSIVE=1 (while the fixture exists every session's any-provider Inbox list is broken). The runWorkflow FAKE- patient with its HIN left NULL, one owned HRM XML file with HRMDocument / HRMDocumentToDemographic / HRMDocumentToProvider rows, all removed in cleanup and checked gone.",
-      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1."
+      "notes": "Verifies that the Inbox returns HTTP 200 and lists an HRM report matched to a NULL-HIN patient (issue #4176). Run with EXCLUSIVE=1. Ontario only: on a British Columbia install the Inbox has no HRM filter (InboxhubForm.jsp, InboxhubListMode.jsp) and its list does not show HRM reports."
     },
     {
       "name": "authz-read-role-matrix",
@@ -10574,7 +10579,7 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "Seeds one row per chart domain for the owned patient; creates three throwaway logins (receptionist, nurse, er_clerk); needs pdftotext (SKIPs without Poppler); cleanup removes every owned row and asserts it.",
-      "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections (and the whole chart to a receptionist without _eChart). Steps 1-5 pass.",
+      "notes": "Expected to FAIL at the last step 'the E-Chart print hands only the sections a role holds the object for': OscarChartPrint returns the prescriptions and allergies sections to a nurse who holds neither _rx nor _allergy (finding 343, tracked in #4223). The receptionist without _eChart is no longer served the chart PDF. Steps 1-5 pass.",
       "expectedFailure": {
         "finding": 343,
         "step": "the E-Chart print hands only the sections a role holds the object for (lists every section that leaks)"
@@ -11127,7 +11132,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Throwaway login (lib/throwaway-login-fixture.js) with its own provider number and user name; cleanup deletes every audit row carrying them and asserts the rows are gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the session audit trail held' (One sign-in wrote 2 log in rows) until Login2Action writes one log in row per sign-in (:1115 and the facilityId row at :1220/:1231 both write one)."
+      "notes": "One sign-in writes one 'log in' row, naming the facility the session was bound to (Login2Action). Failed at its last step until the duplicate row was removed in 2026.08."
     },
     {
       "name": "audit-log-chart-read",
@@ -11184,7 +11189,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient and its note; cleanup deletes the note, lock and tmpsave rows and the audit rows scoped to the patient or note id and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the note write path held': the add/update CME note rows carry the whole note text in log.data (CaseManagementNote.getAuditString) and opening the chart writes an edit/CME note row with contentId 'null'."
+      "notes": "The CME note audit rows describe the revision (thread uuid, signed, issue count) and never carry note text; opening the chart on a new, unsaved note writes no row. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-demographic-edit",
@@ -11222,7 +11227,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one appointment booked on a random day 500-900 days ahead with the run marker in its reason; cleanup deletes the appointment, appointmentArchive, other_id and audit rows scoped to the appointment id and patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the appointment audit trail held': Add (AppointmentAddRecord2Action:141), Edit (AppointmentUpdateRecord2Action:110/138), the status letter and Cancel write no audit row; the Delete row (Appointment.delete, :101) carries no demographic_no or client address."
+      "notes": "Add, Edit, the status letter, Cancel and Delete each write an audit row naming the appointment, its patient, the user and the client address (the popup actions, AppointmentStatusTransitionService and ScheduleManager.updateAppointment). Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-chart-modules",
@@ -11241,7 +11246,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; allergy, prevention, drug, prescription and signature rows created through the UI and removed by patient id with the audit rows scoped to the patient; cleanup asserts nothing remains. Needs no DrugRef data (custom drug).",
-      "notes": "Expected to FAIL at the last step 'every expectation of the chart-module audit trail held': prevention add/delete (AddPrevention2Action) write no audit row; the allergy, prescription and discontinue rows carry the clinical text in log.data and the discontinue row carries a Drug object dump (RxDeleteRx2Action:441)."
+      "notes": "Prevention add, edit and delete are audited; the allergy, prescription and discontinue rows identify the records by id and carry no clinical text. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-document-read",
@@ -11261,7 +11266,7 @@
         "DOCUMENT_DIR"
       ],
       "fixtures": "Owned synthetic patient and one uploaded PDF; cleanup deletes the document and ctl_document rows, the stored file (inside DOCUMENT_DIR only), the audit rows scoped to the patient or document id, and the chart note (\"Document ... created\"), note link and routing lock the upload wrote (lib/document-residue.js), and asserts them gone. SKIPs when DOCUMENT_DIR is not readable.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the document audit trail held': the upload row has no demographic_no (AddEditDocument2Action:257) and one document view writes two read rows spelled document/Document, the second without demographic_no (ManageDocument2Action:1204-1206 and :1252)."
+      "notes": "An upload filed onto a chart is audited under the patient, and one document view writes one read/document row. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-vitals",
@@ -11280,7 +11285,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one BP reading carrying the run marker; cleanup deletes the readings, archived readings, encounter notes and audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the vitals audit trail held': entering and deleting a vitals reading (E-Chart Measurements, EctMeasurements2Action) write no audit row."
+      "notes": "Entering and deleting a vitals reading (E-Chart Measurements) each write an audit row under the patient, by reading id, without the value. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-billing-on",
@@ -11299,7 +11304,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "createBillingFixture (owned billing provider and HIN on the owned patient); cleanup removes the claim rows the browser wrote and every fixture and the audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'every expectation of the Ontario billing audit trail held': Saving an Ontario OHIP claim (BillingOnSave2Action) and opening the Billing History write no audit row."
+      "notes": "Saving an Ontario OHIP claim and opening the Billing History each write an audit row under the patient. Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-locked-patient",
@@ -11318,11 +11323,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; one throwaway doctor login with two lock rows (_demographic$N, _eChart$N) via lib/authz-read-fixture.js; cleanup removes the login, locks, audit rows and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'the refused attempt is itself in the audit log': the locked doctor's refused Master Record open is thrown as a SecurityException before any audit write.",
-      "expectedFailure": {
-        "finding": 344,
-        "step": "the refused attempt is itself in the audit log, naming the patient and the refused login"
-      }
+      "notes": "Finding 344 is fixed: the locked doctor's refused Master Record open now writes a 'no right' audit row naming the patient, the refused login and the client address before the SecurityException is thrown. The check stays as the regression for it."
     },
     {
       "name": "audit-log-report-tools",
@@ -11341,7 +11342,7 @@
         "MYSQL_PASSWORD"
       ],
       "fixtures": "Owned synthetic patient; nothing is saved (Run Query only); cleanup deletes the audit rows scoped to the patient and asserts them gone.",
-      "notes": "Expected to FAIL at the last step 'the report run is in the audit log': the Demographic Report Tool (RptDemographicReport2Action) writes no audit row, unlike Patient List by Appointment Time (PatientListByAppt export row)."
+      "notes": "Each run of the Demographic Report Tool writes one audit row (user, client address, columns, Demographic IDs criterion, row count). Failed at its last step until 2026.08."
     },
     {
       "name": "audit-log-demographic-import",
@@ -11550,10 +11551,11 @@
         "PAGE_HEALTH_TIMEOUT_MS",
         "PAGE_HEALTH_PREVENTIONS",
         "MASTER_RECORD_SEARCH",
-        "MASTER_RECORD_DEMOGRAPHIC_NO"
+        "MASTER_RECORD_DEMOGRAPHIC_NO",
+        "CARLOS_SUITE_PROVINCE"
       ],
       "fixtures": "Read-only on an existing demo patient (MASTER_RECORD_DEMOGRAPHIC_NO, default 2); no fixtures; chart locks released as master-record-tabs does. Skips the Rx stale-date '*' and favourite 'copy' links, which write.",
-      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage."
+      "notes": "Includes Manage Contacts and add-prevention footers. About/License links must open healthy destinations; both native links and legacy JavaScript links remain included in footer coverage. Each hub must offer a minimum number of links before they are crawled. Create Invoice must offer one on Ontario (and when CARLOS_SUITE_PROVINCE is unset) and none on BC: the BC bill form (billingBC.jsp) has only in-page javascript:void(0) anchors, so there the hub page itself is judged and nothing behind it is crawled."
     },
     {
       "name": "prevention-footer-popups",
@@ -11662,7 +11664,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "Three owned appointments (marker reason, test provider, 401 days ahead) seeded by SQL for the owned FAKE- patient; cleanup deletes the appointment, appointmentArchive and other_id(appt_mc_number) rows and asserts them gone. Two sessions of the shared test login.",
-      "notes": "Controls pass (stale day-sheet status click refused with 409 + alert; stale update of a deleted appointment refused and resurrects nothing). Fails at the last step: session A's stale Update Appt un-cancels the appointment session B cancelled (AppointmentUpdateRecord2Action.java:95-135 has no findForUpdate / updatedatetime comparison, unlike AppointmentStatusTransitionService)."
+      "notes": "Controls: a stale day-sheet status click is refused with 409 + alert; a stale update of a deleted appointment is refused and resurrects nothing. Last step: session A's stale Update Appt is refused with 409 and the conflict page, and the appointment session B cancelled stays cancelled (AppointmentEditConflict; ScheduleManager.updateAppointment compares the rendered version under the row lock). Failed at that step until 2026.08."
     },
     {
       "name": "concurrency-tickler-edit",
@@ -11677,7 +11679,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes the tickler with its comments and history rows and asserts it gone. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: session A's stale Edit Tickler save puts the tickler session B completed back to Active (EditTickler2Action.java:165-240 applies every posted field with no comparison against the rendered state)."
+      "notes": "Session A's stale Edit Tickler save is refused with 409 and its message, and the tickler session B completed stays completed (TicklerEditVersion; the row is locked before it is compared). Failed at its last step until 2026.08."
     },
     {
       "name": "concurrency-tickler-list-status",
@@ -11692,7 +11694,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "One owned tickler seeded by SQL for the owned FAKE- patient; cleanup deletes it with its history and asserts it gone. Two sessions of the shared test login.",
-      "notes": "Fails at the last step: a stale tickler list's Complete turns a tickler session B deleted into Completed (DbTicklerMain2Action.java:137 -> TicklerManagerImpl.java:502-509 updateStatus applies any status that differs from the current one)."
+      "notes": "A stale tickler list's Complete leaves a tickler session B deleted as deleted and names the refused task (TicklerManager.updateStatusIfCurrent). Failed at its last step until 2026.08."
     },
     {
       "name": "concurrency-allergy-amend",
@@ -11755,7 +11757,7 @@
         "secObjPrivilege"
       ],
       "fixtures": "Two owned synthetic patients, one prescription row holding one drug for the first, a foreign drug row for the second on the same script (removed in its step), and one patient-specific privilege row (role doctor, _rx$<first patient>, r) held only for the re-prescribe step. Cleanup removes all of them and asserts none remain. No page is driven: the logged-in session's request context calls /ws/rs/rx. The privilege row is in the clinic-wide secObjPrivilege table, so it must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "Pins #2822 on the session REST surface: the watermark, PDF print and print record answer for the prescription's stored patient only (a forged path patient or a mixed-patient script is 404 with no drug text and no print recorded), and re-prescribing without _rx write access to the drug's patient is a plain-text 403 from AccessDeniedExceptionMapper. A web application context that cannot build that mapper does not start, so this check also proves the /ws/rs provider wiring."
+      "notes": "Pins #2822 on the session REST surface: the watermark, PDF print and print record answer for the prescription's stored patient only (a forged path patient or a mixed-patient script is 404 with no drug text and no print recorded), and re-prescribing without _rx write access to the drug's patient is a 403 from AccessDeniedExceptionMapper whose JSON body has the code ACCESS_DENIED and names no patient (the structured REST error of #6098; it was the plain text \"Access denied\" before). A web application context that cannot build that mapper does not start, so this check also proves the /ws/rs provider wiring."
     },
     {
       "name": "concurrency-chart-note-takeover",
@@ -11800,7 +11802,7 @@
       "timeoutSec": 420,
       "env": [],
       "fixtures": "One marker-named provider with a security row (password hash and PIN copied from the test login) and a doctor role, seeded by SQL and removed by cleanup, which asserts them gone. No demo row touched. The edit page's known missing admin/bcArStyle.css (ISSUES L19) is consumed explicitly.",
-      "notes": "Fails at the last step: session A's stale Update Record clears the Force password reset session B had just set (securityupdate.jsp:103-123 copies every posted control onto the row with no comparison against the rendered state). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
+      "notes": "Session A's stale Update Record is refused with HTTP 409 and the conflict notice, and session B's Force password reset stays; reopening the record then saves A's change (SecurityEditVersion, SecurityRecordUpdateService; finding 355). Delete-while-editing is not driven because Delete Record itself fails (known, L20)."
     },
     {
       "name": "xss-poison-master-record",
@@ -11863,7 +11865,7 @@
         "MYSQL_PASSWORD",
         "XSS_POISON_LEDGER_DIR"
       ],
-      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, Ongoing Concerns and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
+      "fixtures": "One owned FAKE patient (chart number XV...) with a measurement row for every Vascular Tracker measurement type, an active allergy and drug, an Ongoing Concerns CPP note and a saved VT record whose smoking and foot-exam comments carry inert markup. Patient-scoped only; nothing global. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run. ",
       "notes": "Issue #4681: the VT form printed stored measurement values, comments, drug and allergy text and Ongoing Concerns raw. Opens /form/SetupForm?formName=VTForm for the saved record (the VT registration is hidden by default, so there is no chart link to click), reveals the medication/allergy detail, and requires every seeded value the form shows to appear as literal text with no [data-xp] element, script error or broken inline handler. The foot-exam and smoking comment boxes must hold exactly the stored text (no template indentation). scripts/vt-form.test.js guards the source."
     },
     {
@@ -11884,7 +11886,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient, an active doctor with a schedule today, two appointments, a tickler with a comment and suggested text, a Public schedule template and a template code, a holiday and a day reason on a free day this month, an appointment type, an appointment-reason lookup item and a waiting list. Inserts GLOBALLY VISIBLE poisoned rows while it runs (an active provider, an appointment type, a schedule code, a holiday, a lookup item): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Expected to FAIL at the last step (findings 123, 126, 127): the month view's provider select prints the truncated provider name raw (provider/appointmentprovideradminmonth.jsp:592,619) and its day cell prints the holiday name raw (:716); Schedule Setting > Template Setting prints template names and summaries raw into its select (schedule/scheduleedittemplate.jsp:161). Day sheet, week view, appointment edit popup and card, tickler list and edit popup, Add Appointment, appointment Search and the Schedule Setting provider selects encode. Template Setting is opened for Public: for the seeded doctor the WAF refuses the URL, which carries the provider name. Holiday and Template Code Setting are not offered to the test login (site/team access privacy) and are noted. The Add Appointment form must open, but its seeded appointment type is not required: appointment types are served from a 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that a run minutes earlier leaves warm, so it is inspected when listed and noted otherwise. SKIPs when every other day of the month already has a schedule or a holiday for the test provider. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
+      "notes": "Expected to FAIL at the last step (findings 123, 126, 127): the month view's provider select prints the truncated provider name raw (provider/appointmentprovideradminmonth.jsp:618,645) and its day cell prints the holiday name raw (:742); Schedule Setting > Template Setting prints template names and summaries raw into its select (schedule/scheduleedittemplate.jsp:161). Day sheet, week view, appointment edit popup and card, tickler list and edit popup, Add Appointment, appointment Search and the Schedule Setting provider selects encode. Template Setting is opened for Public: for the seeded doctor the WAF refuses the URL, which carries the provider name. Holiday and Template Code Setting are not offered to the test login (site/team access privacy) and are noted. The Add Appointment form must open, but its seeded appointment type is not required: appointment types are served from a 30-minute cache (CacheConfig.APPOINTMENT_TYPES) that a run minutes earlier leaves warm, so it is inspected when listed and noted otherwise. SKIPs when every other day of the month already has a schedule or a holiday for the test provider. Coverage is asserted: each surface must show the seeded fields it is known to show (MISSING otherwise), and a link that cannot be opened is NOT-OPENED.",
       "expectedFailure": {
         "finding": 123,
         "step": "the walk found no output-encoding defect"
@@ -11928,11 +11930,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "One owned FAKE patient with poisoned text columns and one signed note whose text and history are poisoned, seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone.",
-      "notes": "Expected to FAIL at the last step while app-findings-log.md finding 148 stands: since #4307 the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) prints the patient's name raw (casemgmt/showHistory.jsp ${demoName}). Failed as described on 2026.08.0~alpha19 BC.",
-      "expectedFailure": {
-        "finding": 148,
-        "step": "the popup found no output-encoding defect"
-      }
+      "notes": "Finding 148 is fixed: the note revision popup (CaseManagementEntry method=notehistory, opened by a note's rev link) encodes the heading and the patient's name (casemgmt/showHistory.jsp). The check stays as the regression for it and for the popup's other sinks."
     },
     {
       "name": "xss-poison-eform",
@@ -12052,7 +12050,7 @@
         "XSS_POISON_LEDGER_DIR"
       ],
       "fixtures": "Part 2 of the Administration walk (scripts/lib/xss-poison-admin-walk.js, payload numbers from 101): the same poisoned row set as part 1. Inserts GLOBALLY VISIBLE poisoned rows while it runs (all of them, including an active provider): other checks run in parallel would see them, and forms that echo them back are refused by the WAF, so run it alone (the suite runner is sequential). Waits five minutes for the active-provider cache. Seeded by SQL (bypassing the WAF, like imported data) and recorded by key in a per-run ledger (scripts/lib/xss-poison-helpers.js Seeder); cleanup deletes exactly those keys and asserts each gone, including after a failed run; a run killed outright is recovered by key from its ledger by the next xss-poison run, and when no other xss-poison run is alive a sweep removes any row carrying '<i data-xp=' and asserts none is left. ",
-      "notes": "Stored-markup walk of Administration reports, schedule, system and data pages. The final no-output-encoding-defect assertion retains the expected failure for the remaining finding 122 / #4185 surfaces, including raw provider/role outputs in Access Control (admin/groupnoacl.jsp) and Fix notes with invalid role (admin/fixRolesOnNotes.jsp). Document Description Template and Report by Template outputs are now encoded (#5170 and da424f76e0e); they remain covered rather than listed as current defects. Manage Lookup Lists, Jobs Management and REST Clients must show their seeded rows; Appointment Type List (30-minute cache) and the panel's own Messages item must open. Every required surface must show its seeded fields (MISSING otherwise), and an unreachable link is NOT-OPENED. Jobs Management is separately tracked as finding 63.",
+      "notes": "Stored-markup walk of Administration reports, schedule, system and data pages. The final no-output-encoding-defect assertion retains the expected failure for the remaining finding 122 / #4185 surfaces: six pages print the seeded provider or role name raw, Age-Sex Report (oscarReport/oscarReportAgeSex.jsp), Disease Registry (oscarReport/oscarReportDxReg.jsp), Access Control (admin/groupnoacl.jsp), Manage Faxes (admin/manageFaxes.jsp), Demographic Export (demographic/demographicExport.jsp) and Fix notes with invalid role (admin/fixRolesOnNotes.jsp), 11 defects in all on the 72c9a836 package. Document Description Template and Report by Template outputs are now encoded (#5170 and da424f76e0e); they remain covered rather than listed as current defects. Manage Lookup Lists, Jobs Management and REST Clients must show their seeded rows; Appointment Type List (30-minute cache) and the panel's own Messages item must open. Every required surface must show its seeded fields (MISSING otherwise), and an unreachable link is NOT-OPENED. Jobs Management is separately tracked as finding 63.",
       "expectedFailure": {
         "finding": 122,
         "step": "the walk found no output-encoding defect"
@@ -12867,7 +12865,7 @@
       ],
       "timeoutSec": 240,
       "env": [],
-      "notes": "The PathNet (BCP) lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. The hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx / hl7_link tables exist only on a schema the BC migrations built, so on an Ontario install the check ends SKIP (h.SkipCheck from the preflight, before anything is written), never PASS. On a schema that has them it would fail at \"PathNet display shows the lab's values and its patient\": PathnetLabTest.populateLab reads message 0 and the page shows an empty report (finding 195); that is what the expectedFailure pins, and it has been seen only on the Ontario container with the BC tables created temporarily, never on a BC install (issue #4439). provinces is all, as for pathnet-status, because the check skips itself where it cannot run.",
+      "notes": "The PathNet (BCP) lab type an OSCAR 19 import carries. The lab is seeded by SQL for an owned FAKE patient, routed to the test provider as New, and opened as a popup from the patient lab list (the lists that link these labs show a type only when CML_LABS / MDS_LABS / PATHNET_LABS is yes, off in the package, so the check adds the row link DemographicLab.jsp renders and clicks it; the popup then has the opener that Close.jsp reloads). Steps: seed; Display (page form, no error page, the patient's name / birth date / health number, the result row, the Msg button naming the owned patient, Not Acknowledged); Acknowledge (a real comment prompt, the popup closes, the list reloads, one providerLabRouting row with status A and the comment, and the page opened again shows Acknowledged and the comment); Forward (the picker offers the throwaway recipient, a control that sends it, a posted Forward request, then the recipient's routing row, status N, with the sender's row and every other provider's unchanged, each stage asserted on its own). One script backs three checks, selected by LEGACY_LAB_TYPE (envSet) so that one vendor's broken page cannot hide another's defect: legacy-lab-display (cml), legacy-lab-display-mds and legacy-lab-display-pathnet. The hl7_message / hl7_msh / hl7_pid / hl7_orc / hl7_obr / hl7_obx / hl7_link tables exist only on a schema the BC migrations built; on a schema without them the script ends SKIP (h.SkipCheck from the preflight, before anything is written), never PASS. On a schema that has them it would fail at \"PathNet display shows the lab's values and its patient\": PathnetLabTest.populateLab reads message 0 and the page shows an empty report (finding 195); that is what the expectedFailure pins, and it has been seen only on the Ontario container with the BC tables created temporarily, never on a BC install (issue #4439). This entry is declared for BC under the native-pathnet property profile, as pathnet-status is: it runs only in a BC run started with --profile native-pathnet, where a SKIP fails the run, and neither an Ontario run nor a default BC run selects it.",
       "expectedFailure": {
         "finding": 195,
         "step": "PathNet display shows the lab's values and its patient"
@@ -12926,11 +12924,7 @@
         "AUTHZ_WRITE_ONLY",
         "AUTHZ_WRITE_MODE"
       ],
-      "notes": "The write half of the role matrix. A role no install seeds holds exactly _demographic r, _appointment w and _eChart r (authzReadFixture.addRole, WRITE_RESTRICTED_PRIVILEGES); its login is in the test login's programs, as a clinic sets up staff, and signs in through the login form. Its top bar has no Administration and no billing entry, and its day sheet shows its own appointment with no Bill link, where the full login's has Administration and a Bill link (no top-bar entry is gated by _billing for any login, so the day-sheet link is the billing-visibility evidence). Its chart (Master Record opened at its address: the role has no Search and no M or E link) shows no Rx \"+\" and no Allergy \"+\", where the full login's shows both; the chart's Bill button lives in the note toolbar, which is not rendered for a role without note rights (ChartNotes.jsp:106-109), so this entry does not judge Bill and prints a NOTE saying so (authz-write-chart-bill judges it). Then, per family (tickler add, Rx Save Only, allergy add, demographic update, provider update, chart note save, Ontario bill save), the full login performs the write through the UI and the captured request is replayed with the restricted login's cookies and its own valid CSRF token (lib/mutation-replay.js, lib/mutation-families.js): it must pass h.assertRefused (the application's 403/405/securityError and an unchanged marker-keyed COUNT(*)), and the same request from the full login must write. The five families before the note save pass on 2026.08 (403, or the securityError redirect for the tickler). Fails at \"chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes\": the replay writes the note and only then redirects to securityError?type=_casemgmt.notes (finding 198). The Ontario bill save step after it is not reached while 198 stands; authz-write-role-matrix-billing runs it alone and pins finding 199. Opening the restricted chart makes its four CPP boxes answer 500 (finding 201): the journal gets four ConfigurationException ERRORs per run, which scripts/deb-server-log-audit.sh lists as UNKNOWN. The restricted schedule's tab-alert refresh no longer logs finding 142 (fixed by #4696). One script backs four entries, selected by envSet: this one, authz-write-role-matrix-billing (AUTHZ_WRITE_ONLY=billing-on-save), authz-write-chart-bill (AUTHZ_WRITE_MODE=chart-bill) and authz-write-issue-change (AUTHZ_WRITE_MODE=issue-change). Ontario only: the bill family posts the Ontario bill save; the other families have not been run on BC (issue #4439).",
-      "expectedFailure": {
-        "finding": 198,
-        "step": "chart note save: the restricted login's replay with its own valid token is refused, and the full login's replay writes"
-      },
+      "notes": "The write half of the role matrix. A role no install seeds holds exactly _demographic r, _appointment w and _eChart r (authzReadFixture.addRole, WRITE_RESTRICTED_PRIVILEGES); its login is in the test login's programs, as a clinic sets up staff, and signs in through the login form. Its top bar has no Administration and no billing entry, and its day sheet shows its own appointment with no Bill link, where the full login's has Administration and a Bill link (no top-bar entry is gated by _billing for any login, so the day-sheet link is the billing-visibility evidence). Its chart (Master Record opened at its address: the role has no Search and no M or E link) shows no Rx \"+\" and no Allergy \"+\", where the full login's shows both; the chart's Bill button lives in the note toolbar, which is not rendered for a role without note rights (ChartNotes.jsp:110-113), so this entry does not judge Bill and prints a NOTE saying so (authz-write-chart-bill judges it). Then, per family (tickler add, Rx Save Only, allergy add, demographic update, provider update, chart note save, Ontario bill save), the full login performs the write through the UI and the captured request is replayed with the restricted login's cookies and its own valid CSRF token (lib/mutation-replay.js, lib/mutation-families.js): it must pass h.assertRefused (the application's 403/405/securityError and an unchanged marker-keyed COUNT(*)), and the same request from the full login must write. All seven families pass on 2026.08 (403, or the securityError redirect for the tickler). The chart note save was finding 198: the replay wrote the note and only then redirected to securityError?type=_casemgmt.notes. #5250 (a1592126) refuses a note write without _eChart w and _casemgmt.notes w before the session's editor is read (CaseManagementEntry2Action.requireNoteWriteAccess), the restricted replay now answers 403 with casemgmt_note unchanged, and the pin is retired. The note family's write control first opens a new note editor from the chart's New Note button (lib/mutation-families.js chartNoteSave.aim): the UI's own save makes the saved note the session's editor, so the captured new-note form sent again would be refused as a stale form (409, fullFormNoteLock), which says nothing about the role. authz-write-role-matrix-billing runs the Ontario bill save alone (finding 199, fixed). Opening the restricted chart: the role holds no _casemgmt.notes right, so the notes panel is refused and the chart loader puts its load-error alert under #notCPP (showChartLoadError, #6103; the script waits for it), and the seven issue boxes (CaseManagementView listNotes) answer 403; nothing is logged at ERROR. The four CPP boxes that answer 500 (finding 201) need a role that holds _casemgmt.notes r without the _newCasemgmt rights, which is the role of authz-write-chart-bill, not this one. The restricted schedule's tab-alert refresh no longer logs finding 142 (fixed by #4696). One script backs four entries, selected by envSet: this one, authz-write-role-matrix-billing (AUTHZ_WRITE_ONLY=billing-on-save), authz-write-chart-bill (AUTHZ_WRITE_MODE=chart-bill) and authz-write-issue-change (AUTHZ_WRITE_MODE=issue-change). Ontario only: the bill family posts the Ontario bill save; the other families have not been run on BC (issue #4439).",
       "fixtures": "Owned FAKE patient (runWorkflow), a custom secRole named FAKEPW<hex>R1 (described by the run marker) with exactly its three secObjPrivilege rows, two throwaway logins from lib/authz-read-fixture.js (the restricted one, given program_provider rows copying the test login's, and an er_clerk login whose provider row is the provider-update target), and the rows each family writes, keyed by the run marker (<marker>-<family>-<tag> text in the tickler message, drug custom name, allergy reaction, demographic city, provider team, note text) or by owned appointments (the Ontario bill family's, on BILLING_SUBMIT_DATE, and the two menu-visibility appointments). The patient is given a synthetic HIN for the bill family. Cleanup removes every row by key (bills with their items/ext/transactions, drugs with prescriptions, notes with their links and locks, providerArchive/providerbillcenter of the target, demographicExtArchive) and the logins, the role and its privileges, and asserts them gone. No clinic-wide state is changed."
     },
     {
@@ -12974,7 +12968,7 @@
       "env": [
         "AUTHZ_WRITE_MODE"
       ],
-      "notes": "The chart's Bill button for a role without _billing. The authz-write-role-matrix role with read-only note rights added (_demographic r, _appointment w, _eChart r, _casemgmt.notes r; in the test login's programs) signs in through the login form and opens an owned patient's chart (Master Record at its address, then its E-Chart link). The note toolbar must be on the page (note box and Save, the same as the full login's chart, which is the control and does offer Bill) before Bill is judged; the Rx \"+\" and Allergy \"+\" must stay hidden, and the toolbar must offer no Bill button. Fails at \"the restricted chart's note toolbar offers no Bill button to a role without _billing\": ChartNotes.jsp:634-641 renders Bill with no _billing check (finding 200). The step before it, \"with read-only note rights the restricted chart renders its note toolbar and no Rx \"+\" or Allergy \"+\", where the full login's chart offers its Bill button\", holds the controls: the full login's toolbar and Bill button, the restricted chart's toolbar, and the hidden Rx and Allergy \"+\". Writes nothing but the fixtures. Ontario only, like authz-write-role-matrix, whose script it shares.",
+      "notes": "The chart's Bill button for a role without _billing. The authz-write-role-matrix role with read-only note rights added (_demographic r, _appointment w, _eChart r, _casemgmt.notes r; in the test login's programs) signs in through the login form and opens an owned patient's chart (Master Record at its address, then its E-Chart link). The note toolbar must be on the page (note box and Save, the same as the full login's chart, which is the control and does offer Bill) before Bill is judged; the Rx \"+\" and Allergy \"+\" must stay hidden, and the toolbar must offer no Bill button. Fails at \"the restricted chart's note toolbar offers no Bill button to a role without _billing\": ChartNotes.jsp:664-672 renders Bill with no _billing check (finding 200). The step before it, \"with read-only note rights the restricted chart renders its note toolbar and no Rx \"+\" or Allergy \"+\", where the full login's chart offers its Bill button\", holds the controls: the full login's toolbar and Bill button, the restricted chart's toolbar, and the hidden Rx and Allergy \"+\". Opening this role's chart makes four CPP boxes (FamHistory, MedHistory, OMeds, RiskFactors) answer 500 (finding 201: the role reads notes but holds none of the _newCasemgmt rights): the journal gets four ConfigurationException ERRORs per run, which scripts/deb-server-log-audit.sh lists as UNKNOWN. Writes nothing but the fixtures. Ontario only, like authz-write-role-matrix, whose script it shares.",
       "expectedFailure": {
         "finding": 200,
         "step": "the restricted chart's note toolbar offers no Bill button to a role without _billing"
@@ -14698,7 +14692,7 @@
       "timeoutSec": 300,
       "env": [],
       "fixtures": "Owned FAKE- patient with three Inf preventions seeded by SQL (a year-only and a year-and-month date, each with its partial_date row, and a full date) and the replacements the edit form saves; cleanup deletes the patient's preventions, their ext rows and their partial_date rows and asserts none remain.",
-      "notes": "Fails at its fourth step on release/2026.08 and develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (pending finding 302, #4814; its release fix #4815 is a draft). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The check turns green on release when #4815 merges, and on develop when that reaches it in the forward merge; drop this note then."
+      "notes": "Fails at its fourth step on release/2026.08 and develop: the edit form's Date is an input type=date, so a year-only prevention opens with an empty Date box and the required field refuses the save until a full date is typed (finding 356; issue #4814 is closed and its release fix #4815 was closed without being merged, so the defect is still on the release line). Steps 1-3 pass; steps 5 and 6 need the year-only box and do not run (step 6, an impossible day refused and the corrected day saved, also needs #4815's calendar check). The owners decided (2026-11-13) to stop CDS import from storing partial prevention dates rather than change the edit form, so this check is expected to keep failing at step 4 on records that already have one."
     },
     {
       "name": "prevention-print-selection",
@@ -17587,14 +17581,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "lab-only"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case lab-only (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-lab-newer",
@@ -17604,14 +17598,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "lab-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case lab-newer (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-measurement-newer",
@@ -17621,14 +17615,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "measurement-newer"
       },
-      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case measurement-newer (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-equal-date-lab",
@@ -17638,14 +17632,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "equal-date-lab"
       },
-      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case equal-date-lab (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-newer-unusable-source",
@@ -17655,14 +17649,14 @@
       ],
       "assertsDatabase": true,
       "provinces": [
-        "all"
+        "ON"
       ],
       "timeoutSec": 180,
       "env": [],
       "envSet": {
         "RX_RENAL_CASE": "newer-unusable-source"
       },
-      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup."
+      "notes": "Independent renal input/source/threshold matrix case newer-unusable-source (#5263); isolated outcome and owned cleanup. Ontario only: the lab fixture inserts a CML report header (labReportInformation), a table only the Ontario schema has."
     },
     {
       "name": "rx-renal-input-weight-blank",
@@ -18896,7 +18890,7 @@
         "eform"
       ],
       "fixtures": "Three marker-owned eForm library templates and a synthetic patient; native new/saved downloads each save one owned revision per template. Reserves past existing legacy fdid references without deleting them. Verifies and removes only owned template/instance/value and downloaded-file fixtures. This check must not run concurrently with other checks (live wrapper: EXCLUSIVE=1).",
-      "notes": "#5809: clean, form-wrapped and body-direct two-page layouts through native new and saved-instance PDF downloads. Poppler count/text/bounds and rendered ink enforce complete lower/right content, order and zero interstitial/blank pages; geometry is compared with the clean control. Requires the actual saved-eForm browser renderer and a readable server log with EFormBrowserPdfService INFO completion receipts; missing or disabled rendering cannot pass. The two log-source environment variables are alternatives."
+      "notes": "#5809: clean, form-wrapped and body-direct two-page layouts through native new and saved-instance PDF downloads. Poppler count/text/bounds and rendered ink enforce complete lower/right content, order and zero interstitial/blank pages; geometry is compared with the clean control. Requires the actual saved-eForm browser renderer: every download must declare Chromium's Skia/PDF Producer (saved eForms have no fallback renderer), so missing or disabled rendering cannot pass. With a readable server log at INFO (either log-source variable), the renderer's own EFormBrowserPdfService completion receipt must also confirm the instance and both pages; a default install logs at WARN and writes no receipts."
     },
     {
       "name": "tickler-stale-selection",
@@ -18951,7 +18945,7 @@
         "LAB_UPLOAD_SERVER_LOG"
       ],
       "fixtures": "One marker-owned patient and 1201 demographicExt rows; successful query history scoped to provider/marker. Genuine bounded reporting-account cross-join timeout observed in MariaDB processlist, with no shared grants or configuration changed by the check. Cleanup refuses active queries or changed ownership and verifies exact SQL removal.",
-      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application INFO audit source via either log-source variable. Missing execution/receipts cannot pass."
+      "notes": "#5811: 999/1000/1001 row boundaries, independent encoded result-table character budget, real database timeout and same-composer recovery, exact successful-history semantics and private application audit metadata. Requires CARLOS_DISPOSABLE_VM=true, actual read-only reporting account (QBE_REPORTING_USER defaults to carlos_report), and a readable application log via either log-source variable (to prove no SQL is logged). Audit receipts are read from the log table (read / query_by_example, finding 357). Missing execution/receipts cannot pass."
     },
     {
       "name": "appointment-slot-expiry",

@@ -1,6 +1,6 @@
 {
  "format": 2,
- "migration_sha256": "d5c5e65d9a04044526f47658ab00c099d16d7dc411f52bba232dbf059325ed10",
+ "migration_sha256": "fb95265e354f3c2bb17ae7bd59ff0457201a388f06ca0b5bb8bf863220d3265f",
  "province": "on",
  "schema": {
   "checks": [
@@ -28,6 +28,11 @@
     "cds_import_preparation",
     "payload",
     "octet_length(`payload`) <= 1048576"
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_module_ck",
+    "`module_type` in ('CONSULTATION','PRESCRIPTION','E_FORM')"
    ],
    [
     "rx_submission_receipt",
@@ -1955,6 +1960,18 @@
     null,
     null,
     5
+   ],
+   [
+    "DigitalSignature",
+    "demographicFkId",
+    "int(11)",
+    "YES",
+    "NULL",
+    "STORED GENERATED, INVISIBLE",
+    null,
+    null,
+    "nullif(`demographicId`,-1)",
+    8
    ],
    [
     "DigitalSignature",
@@ -119641,6 +119658,66 @@
     5
    ],
    [
+    "o19_imported_signature_owner",
+    "demographic_id",
+    "int(10)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    2
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateDate",
+    "timestamp",
+    "NO",
+    "current_timestamp()",
+    "",
+    null,
+    null,
+    null,
+    5
+   ],
+   [
+    "o19_imported_signature_owner",
+    "lastUpdateUser",
+    "varchar(100)",
+    "NO",
+    "'o19-import'",
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    4
+   ],
+   [
+    "o19_imported_signature_owner",
+    "module_type",
+    "varchar(24)",
+    "NO",
+    null,
+    "",
+    "utf8mb4",
+    "utf8mb4_general_ci",
+    null,
+    3
+   ],
+   [
+    "o19_imported_signature_owner",
+    "signature_id",
+    "int(11)",
+    "NO",
+    null,
+    "",
+    null,
+    null,
+    null,
+    1
+   ],
+   [
     "oscarKeys",
     "name",
     "varchar(100)",
@@ -129258,6 +129335,17 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId",
+    1,
+    1,
+    "demographicFkId",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "DigitalSignature",
     "PRIMARY",
     0,
     1,
@@ -137386,6 +137474,28 @@
     "NO"
    ],
    [
+    "o19_imported_signature_owner",
+    "PRIMARY",
+    0,
+    1,
+    "signature_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_demographic",
+    1,
+    1,
+    "demographic_id",
+    "A",
+    null,
+    "BTREE",
+    "NO"
+   ],
+   [
     "oscarKeys",
     "PRIMARY",
     0,
@@ -140158,6 +140268,15 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId_fk",
+    1,
+    "demographicFkId",
+    "$self",
+    "demographic",
+    "demographic_no"
+   ],
+   [
+    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     1,
     "facilityId",
@@ -140173,15 +140292,6 @@
     "$self",
     "provider",
     "provider_no"
-   ],
-   [
-    "DigitalSignature",
-    "DigitalSignature_ibfk_3",
-    1,
-    "demographicId",
-    "$self",
-    "demographic",
-    "demographic_no"
    ],
    [
     "DigitalSignature",
@@ -143820,6 +143930,33 @@
     null
    ],
    [
+    "o19_imported_signature_owner",
+    "PRIMARY",
+    1,
+    "signature_id",
+    null,
+    null,
+    null
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_demographic_fk",
+    1,
+    "demographic_id",
+    "$self",
+    "demographic",
+    "demographic_no"
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_signature_fk",
+    1,
+    "signature_id",
+    "$self",
+    "DigitalSignature",
+    "id"
+   ],
+   [
     "oscarKeys",
     "PRIMARY",
     1,
@@ -145084,6 +145221,13 @@
    ],
    [
     "DigitalSignature",
+    "DigitalSignature_demographicFkId_fk",
+    "demographic",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "DigitalSignature",
     "DigitalSignature_ibfk_1",
     "Facility",
     "RESTRICT",
@@ -145093,13 +145237,6 @@
     "DigitalSignature",
     "DigitalSignature_ibfk_2",
     "provider",
-    "RESTRICT",
-    "RESTRICT"
-   ],
-   [
-    "DigitalSignature",
-    "DigitalSignature_ibfk_3",
-    "demographic",
     "RESTRICT",
     "RESTRICT"
    ],
@@ -145333,6 +145470,20 @@
     "incomingLabRules",
     "CASCADE",
     "CASCADE"
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_demographic_fk",
+    "demographic",
+    "RESTRICT",
+    "RESTRICT"
+   ],
+   [
+    "o19_imported_signature_owner",
+    "o19_signature_owner_signature_fk",
+    "DigitalSignature",
+    "RESTRICT",
+    "RESTRICT"
    ],
    [
     "program",
@@ -147560,6 +147711,12 @@
    ],
    [
     "mygroup",
+    "InnoDB",
+    "Dynamic",
+    "utf8mb4_general_ci"
+   ],
+   [
+    "o19_imported_signature_owner",
     "InnoDB",
     "Dynamic",
     "utf8mb4_general_ci"

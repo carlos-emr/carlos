@@ -677,7 +677,7 @@ measurement is ten captured fields.
 `measurementsDeleted` is read by patient (every capture count and page, and the extension scope,
 which also follows `originalId`) and by original measurement id (the check that no measurement
 id is shared between a current and a deleted row of different charts). Migration
-`common/V1.0.59.44` indexes it by `demographicNo` and by `originalId, demographicNo` (CARE-4);
+`common/V1.0.59.46` indexes it by `demographicNo` and by `originalId, demographicNo` (CARE-4);
 before it each of those reads scanned the table, once per page, and the check for an id deleted
 from two charts joined the table to itself without an index. The current-or-deleted check is
 two branches, one for each side the patient owns, each driven by a patient index and probing the
@@ -1020,8 +1020,8 @@ importer, MariaDB Connector/J 3.5.11 and DAO/API fixes. It excludes develop-only
 portal, SMS and email features. Historical WAR hashes and workflow results below
 describe their recorded checkpoints; they do not qualify this release integration.
 
-The new, unpublished migrations are `V1.0.59.38` through `V1.0.59.44`, following
-the release's common `V1.0.59.37`. All 87 released SQL files remain unchanged.
+The new, unpublished migrations are `V1.0.59.40` through `V1.0.59.46`, following
+the release's common `V1.0.59.39`. All 89 released SQL files remain unchanged.
 The billing filename audit already shipped at common `V1.0.59.33` is reused. Fresh
 ON/BC installations and upgrades from the pinned release are checked separately.
 The upgrade gate requires unchanged applied Flyway history, retained synthetic
@@ -1039,33 +1039,33 @@ text-result refusal, statement ownership and bypass attempts.
 
 The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
 predecessors intact. Its unpublished 1.3.5 candidate is separately bound to the exact
-companion fallback commit and its reproducible Debian bytes (360,754 bytes,
-SHA-256 `b7e1e4469a89ee4133c72bb4e8a1e57c28009537344fb57d528177c3aff46d6e`).
-Two `dpkg-buildpackage` runs of that commit in the digest-pinned `ubuntu:26.04`
-image produce those bytes exactly, and package smoke rebuilds and checks them in CI.
-Companion CI (workflow 43500753482, artifact 14074425829) built the same package
-files. It ran before the changelog's timestamp, which clamps file times, so only
-its archive timestamps differ.
+companion fallback commit and actual CI-built Debian bytes (370,142 bytes,
+SHA-256 `b93e250a54d56483dad44125e7443cec3e69d69647df2d756d40038741906db4`,
+workflow 43509827095, artifact 14078855233). Two local `dpkg-buildpackage` runs of that
+commit in the digest-pinned `ubuntu:26.04` image reproduce the package byte for byte, and
+package smoke rebuilds and checks it in CI.
 Source-built mode asserts no published tag or release-download URL. Lifecycle
 configuration must supply this exact candidate package; predecessor packages
 cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
-`af1bb40c413e820ae1e78d9940f8b470c2db8159` (unpublished 1.3.5, adding the export
-command's run-id, exit-status and ticket-sweep fixes and `cds-import --abandon`), with
-schema manifest format 2 and ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
-line; those changes are not part of this release pair.
+`b759f117a165526e01a57295e22cc9e35f2a9697` (unpublished 1.3.5, adding the export
+command's run-id, exit-status and ticket-sweep fixes and `cds-import --abandon`). After
+`release/2026.08` took main's OSCAR 19 beta8 line (#6167, carlos-ctl 1.3.3 at
+`09b97f95356d3c12f9972d96d10355e597cc7540`), the companion merged that line too, so the
+pair now uses schema manifest format 3 and ETL contract 6. The `carlos-emr` floor stays at
+carlos-ctl 1.3.3; no maintainer script uses the export or abandon commands.
 
 | Release migration | Purpose | Earlier unpublished develop numbering |
 | --- | --- | --- |
-| `V1.0.59.38` | Nullable native field witnesses; no clinical backfill | `V1.0.82` |
-| `V1.0.59.39` | Independent export run/event ledger and authorization | `V1.0.83` |
-| `V1.0.59.40` | Artifact publication attempts | `V1.0.84` |
-| `V1.0.59.41` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
-| `V1.0.59.42` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
-| `V1.0.59.43` | Protected record of patients held back from an export package (chart number and safe code only) | — |
-| `V1.0.59.44` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
+| `V1.0.59.40` | Nullable native field witnesses; no clinical backfill | `V1.0.82` |
+| `V1.0.59.41` | Independent export run/event ledger and authorization | `V1.0.83` |
+| `V1.0.59.42` | Artifact publication attempts | `V1.0.84` |
+| `V1.0.59.43` | Approved independent administrator import grant, preserving explicit decisions | `V1.0.85` |
+| `V1.0.59.44` | Indexed virtual HRM numeric patient key; original owner strings remain unchanged | — |
+| `V1.0.59.45` | Protected record of patients held back from an export package (chart number and safe code only) | — |
+| `V1.0.59.46` | `measurementsDeleted` indexed by patient and by original measurement id; no row changes (#6200) | — |
 
 The earlier `V1.0.86` consent forward-merge repair does not apply to the retained
 release history and is excluded. The release catalogue contains 510 rulings for
@@ -1597,8 +1597,8 @@ passed Python3.12/3.14, Debian/lintian, installed root identity/expiry and man-p
 checks. A disposable current-schema test copy passed all 2,017 CLI tests with
 107 optional-environment skips, while verifying unchanged pinned runtime code
 and tests outside the supported standalone-data export.
-It incorporates the published manifest-format-2/ETL-4 billing contract and retains
-its filename/audit safeguards. Version 1.3.3 remains unpublished. Final candidate
+It incorporates the billing contract and retains its filename/audit safeguards; the
+current pair uses manifest format 3 and ETL contract 6 (see the companion paragraph above). Version 1.3.3 remains unpublished. Final candidate
 Java, security, installed resource and complete clinical workflow results remain
 release gates; the current PR checks and their bounded evidence are authoritative.
 The adapter is [carlos-emr/carlos-ctl#20](https://github.com/carlos-emr/carlos-ctl/pull/20).
@@ -2124,7 +2124,7 @@ per-program grants and current-chart reconciliation are still required before
 this category can be enabled; exact classification and frozen capture are described below.
 These serializers do not establish clinical completeness or qualify an export profile.
 
-The additive V1.0.59.38 migration adds nullable field-witness documents to import units and
+The additive V1.0.59.40 migration adds nullable field-witness documents to import units and
 checkpoints. New native receipt capture records SQL nullness, byte length, SHA-256 and
 actual ordered JDBC metadata in the same original unit transaction. The protocol-2 receipt
 JSON and its digest remain unchanged. Original metadata hashes were verified across the

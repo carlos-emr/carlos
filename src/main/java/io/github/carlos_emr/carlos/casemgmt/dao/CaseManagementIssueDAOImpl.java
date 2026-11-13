@@ -34,7 +34,6 @@ package io.github.carlos_emr.carlos.casemgmt.dao;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -199,26 +198,40 @@ public class CaseManagementIssueDAOImpl extends AbstractJpaDao implements CaseMa
 
     @Override
     public void saveAndUpdateCaseIssues(List<CaseManagementIssue> issuelist) {
-        Iterator<CaseManagementIssue> itr = issuelist.iterator();
-        while (itr.hasNext()) {
-            CaseManagementIssue cmi = itr.next();
-            cmi.setUpdate_date(new Date());
-            if (cmi.getId() != null && cmi.getId().longValue() > 0) {
-                entityManager().merge(cmi);
-            } else {
-                entityManager().persist(cmi);
-            }
+        for (CaseManagementIssue cmi : issuelist) {
+            write(cmi);
         }
-
     }
 
+    @Override
     public void saveIssue(CaseManagementIssue issue) {
-        issue.setUpdate_date(new Date());
+        write(issue);
+    }
+
+    /**
+     * Inserts a new issue stamped now, or writes an existing one without moving its date.
+     *
+     * <p>Both note save paths hand every issue the editor lists to this DAO, almost always as
+     * detached copies. Such a copy's {@code update_date} is whatever the caller holds: the value
+     * loaded when the editor opened, {@code null} from REST input, or a caller's own
+     * {@code new Date()}. It is not the row's change time, so the stored value is adopted before
+     * the merge and the date alone never makes the row dirty. {@link CaseManagementIssue#stampChange()}
+     * then stamps the row from Hibernate's flush-time dirty check, which compares with the state
+     * loaded from the database, not with an instance a caller may already have modified. A
+     * managed instance is therefore left entirely to that check.</p>
+     */
+    private void write(CaseManagementIssue issue) {
         if (issue.getId() == null || issue.getId() <= 0) {
+            issue.setUpdate_date(new Date());
             entityManager().persist(issue);
-        } else {
-            entityManager().merge(issue);
+            return;
         }
+        if (!entityManager().contains(issue)) {
+            // find() never flushes; a query here could auto-flush other pending writes first.
+            CaseManagementIssue stored = entityManager().find(CaseManagementIssue.class, issue.getId());
+            if (stored != null) issue.setUpdate_date(stored.getUpdate_date());
+        }
+        entityManager().merge(issue);
     }
 
     @SuppressWarnings("unchecked")

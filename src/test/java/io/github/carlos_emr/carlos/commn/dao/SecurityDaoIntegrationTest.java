@@ -161,6 +161,37 @@ public class SecurityDaoIntegrationTest extends CarlosTestBase {
     }
 
     @Nested
+    @DisplayName("findForUpdate")
+    class FindForUpdate {
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return the committed row when another writer changed it after this context loaded it")
+        void shouldReturnTheCurrentRow_whenAnotherWriterChangedItAfterItWasLoaded() {
+            Security saved = createSecurity("300001", "lockeduser", "hashed_pw");
+            saved.setForcePasswordReset(Boolean.FALSE);
+            entityManager.flush();
+            // Another administrator's save lands after this persistence context loaded the row.
+            entityManager.createNativeQuery("UPDATE security SET forcePasswordReset = ?1 WHERE security_no = ?2")
+                    .setParameter(1, Boolean.TRUE).setParameter(2, saved.getSecurityNo()).executeUpdate();
+            assertThat(saved.isForcePasswordReset()).isFalse();
+
+            Security locked = securityDao.findForUpdate(saved.getSecurityNo());
+
+            assertThat(locked).isSameAs(saved);
+            assertThat(locked.isForcePasswordReset()).isTrue();
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should return null for a missing or null security number")
+        void shouldReturnNull_whenNoLoginHasTheNumber() {
+            assertThat(securityDao.findForUpdate(Integer.MAX_VALUE)).isNull();
+            assertThat(securityDao.findForUpdate(null)).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("findByProviderNo")
     class FindByProviderNo {
 

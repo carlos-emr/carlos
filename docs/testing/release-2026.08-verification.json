@@ -3031,7 +3031,7 @@
               "container": ""
             },
             {
-              "name": "shouldFaultLegacyTiePages_andKeepCompleteNativeTimestampGroups",
+              "name": "shouldExtendLegacyTiePages_toCompleteNativeTimestampGroups",
               "container": ""
             },
             {
@@ -4589,7 +4589,7 @@
         "ProgramAdmissionAuditMariaDbIntegrationTest": 3,
         "AppointmentUpdateDaoIntegrationTest": 17,
         "ReportingPatientListAuditMariaDbIntegrationTest": 4,
-        "RxSaveReceiptCommitIntegrationTest": 8,
+        "RxSaveReceiptCommitIntegrationTest": 19,
         "RxConcurrencyIntegrationTest": 6,
         "RxFavoriteGroupIntegrationTest": 6,
         "RxFavoriteCopyIntegrationTest": 1,
@@ -8508,24 +8508,8 @@
       "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
       "tests": [
         "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"
-      ],
-      "checks": [
-        "java-all",
-        "java-native-generated",
-        "java-native-flyway",
-        "java-native-bc-flyway"
-      ],
-      "workstreams": [
-        "T09"
-      ]
-    },
-    "src/main/java/io/github/carlos_emr/carlos/managers/ScheduleSyncBoundaryException.java": {
-      "reason": "SOAP schedule paging retains published WSDLs and adds explicit timestamp-ID continuation. Real endpoint and three native schemas pin ties, consent gaps, transaction isolation, failure propagation and late-write reconciliation.",
-      "tests": [
-        "src/test/java/io/github/carlos_emr/carlos/managers/AppointmentUpdatePagesUnitTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleLegacySyncIntegrationTest.java",
+        "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleLegacySyncEndpointTest.java",
         "src/test/java/io/github/carlos_emr/carlos/managers/ScheduleSyncMariaDbIntegrationTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/ScheduleSyncEndpointTest.java",
         "src/test/java/io/github/carlos_emr/carlos/webserv/PublishedWsdlContractUnitTest.java"

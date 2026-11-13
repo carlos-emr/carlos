@@ -46,11 +46,25 @@ const HUBS = [
     ],
     minimum: 5,
   },
-  { name: 'Create Invoice', skip: [], minimum: 1 },
+  // The Ontario bill form links to other pages. The BC form (billingBC.jsp) has only in-page
+  // javascript:void(0) anchors (its date pickers and referral-doctor pickers), so on a BC install
+  // the hub page itself is judged and there is nothing behind it to crawl.
+  { name: 'Create Invoice', skip: [], minimum: 1, minimumByProvince: { BC: 0 } },
   { name: 'Consultations', skip: [], minimum: 1 },
   { name: 'Manage Contacts', skip: [], minimum: 1 },
   { name: 'Preventions', skip: [], minimum: 20, sample: true },
 ];
+
+/**
+ * The fewest links `hub` must offer on an install of `province` (CARLOS_SUITE_PROVINCE: 'ON', 'BC',
+ * or '' when the run did not say, which relaxes nothing).
+ */
+function hubMinimum(hub, province) {
+  const known = String(province || '').trim().toUpperCase();
+  h.assert(['', 'ON', 'BC'].includes(known), `CARLOS_SUITE_PROVINCE must be ON or BC when it is set; got "${province}"`);
+  const forProvince = hub.minimumByProvince || {};
+  return Object.hasOwn(forProvince, known) ? forProvince[known] : hub.minimum;
+}
 
 /** Evenly spread subset of `items`, always including the first and the last. */
 function sampleSpread(items, count) {
@@ -64,6 +78,8 @@ async function main() {
   const config = h.readConfig();
   const timeout = Number(process.env.PAGE_HEALTH_TIMEOUT_MS || '20000');
   const allPreventions = process.env.PAGE_HEALTH_PREVENTIONS === 'all';
+  // Judged before anything is opened, so a mistyped province is an error of the run, not of a hub.
+  const minimums = new Map(HUBS.map(hub => [hub.name, hubMinimum(hub, process.env.CARLOS_SUITE_PROVINCE)]));
   const session = await startSession(config);
   const failures = [];
   let opened = 0;
@@ -88,7 +104,8 @@ async function main() {
         }));
         await judgePage(session.ledger, session.probe, `${hub.name} (hub)`, hubPage, {});
         let items = dedupe(await catalogueLinks(hubPage, { identity: true }));
-        h.assert(items.length >= hub.minimum, `${hub.name} offered ${items.length} link(s); expected at least ${hub.minimum}`);
+        const minimum = minimums.get(hub.name);
+        h.assert(items.length >= minimum, `${hub.name} offered ${items.length} link(s); expected at least ${minimum}`);
         if (hub.sample && !allPreventions) items = sampleSpread(items, 24);
         const result = await crawl({
           context: session.context, hostPage: hubPage, items, recorder: session.recorder, probe: session.probe,
@@ -115,4 +132,4 @@ if (require.main === module) {
   h.runCheck({ name: 'page-health-patient-hubs', run: main });
 }
 
-module.exports = { HUBS, main, sampleSpread };
+module.exports = { HUBS, hubMinimum, main, sampleSpread };

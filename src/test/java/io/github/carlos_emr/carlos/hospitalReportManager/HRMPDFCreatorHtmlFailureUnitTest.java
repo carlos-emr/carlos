@@ -81,6 +81,11 @@ class HRMPDFCreatorHtmlFailureUnitTest extends CarlosUnitTestBase {
         stored.setReportFile(REPORT_FILE);
         when(dao.findById(HRM_ID)).thenReturn(List.of(stored));
         registerMock(HRMDocumentDao.class, dao);
+        // The creator decides patient access before it reads the report; this one is filed to no patient.
+        registerMock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class,
+                mock(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class));
+        registerMock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class,
+                mock(io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao.class));
 
         var report = mock(HRMReport.class);
         when(report.isBinary()).thenReturn(true);

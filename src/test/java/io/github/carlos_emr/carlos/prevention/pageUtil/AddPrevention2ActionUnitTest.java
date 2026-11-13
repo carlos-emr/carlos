@@ -70,6 +70,72 @@ class AddPrevention2ActionUnitTest extends CarlosWebTestBase {
         verify(manager).removePrevention("42");
     }
 
+    /** The audit call any prevention write makes: the signed-in user, the record and its patient. */
+    private void assertAudited(MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit, String action,
+                               String recordId, String data) {
+        audit.verify(() -> io.github.carlos_emr.carlos.log.LogAction.addLog(mockLoggedInInfo, action,
+                io.github.carlos_emr.carlos.log.LogConst.CON_PREVENTION, recordId, "42", data));
+        audit.verifyNoMoreInteractions();
+    }
+
+    @Test void shouldAuditNewRecordAgainstPatient_withoutItsClinicalDetail() throws Exception {
+        mockRequest.setParameter("comments", "FAKE-COMMENT declined by patient");
+        mockRequest.setParameter("lot", "FAKE-LOT-77");
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(100);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            // The record id and the patient; never the type, comment, lot or result.
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.ADD, "100", null);
+        }
+    }
+
+    @Test void shouldAuditReplacementNamingTheRecordItReplaces_whenRecordIsEdited() throws Exception {
+        mockRequest.setParameter("id", "100");
+        data.when(() -> PreventionData.updatetPreventionData(eq("100"), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any())).thenReturn(101);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.UPDATE, "101", "previousId=100");
+        }
+    }
+
+    @Test void shouldAuditDeletionAgainstPatient_whenRecordIsDeleted() throws Exception {
+        mockRequest.setParameter("id", "100");
+        mockRequest.setParameter("delete", "delete");
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.DELETE, "100", null);
+        }
+    }
+
+    @Test void shouldNotAudit_whenNothingWasSaved() throws Exception {
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenThrow(new IllegalStateException("synthetic failure"));
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("form");
+            audit.verifyNoInteractions();
+        }
+    }
+
+    @Test void shouldAuditOnce_whenOneRenderingIsSubmittedTwice() throws Exception {
+        String token = PreventionSubmissionGuard.issue(mockRequest.getSession(), "42", null);
+        mockRequest.setParameter(PreventionSubmissionGuard.PARAMETER, token);
+        data.when(() -> PreventionData.insertPreventionData(any(), any(), any(), any(), any(), any(),
+                any(), any(), any(), any(), any(), any())).thenReturn(100);
+        try (MockedStatic<io.github.carlos_emr.carlos.log.LogAction> audit =
+                     mockStatic(io.github.carlos_emr.carlos.log.LogAction.class)) {
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            assertThat(executeAction(new AddPrevention2Action())).isEqualTo("success");
+            // The repeat is answered from the first save: one record, one audit row.
+            assertAudited(audit, io.github.carlos_emr.carlos.log.LogConst.ADD, "100", null);
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"", "null", "bad", "-1", "2147483648", "43"})
     void shouldRejectInvalidPatient_withoutWriting(String patient) throws Exception {

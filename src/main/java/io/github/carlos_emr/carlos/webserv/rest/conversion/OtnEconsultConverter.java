@@ -28,8 +28,10 @@
  */
 package io.github.carlos_emr.carlos.webserv.rest.conversion;
 
-import org.owasp.encoder.Encode;
 import io.github.carlos_emr.carlos.commn.model.Document;
+import io.github.carlos_emr.carlos.documentManager.DocumentDescription;
+import io.github.carlos_emr.carlos.utility.MiscUtils;
+import io.github.carlos_emr.carlos.utility.SafeEncode;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import io.github.carlos_emr.carlos.webserv.rest.to.model.OtnEconsult;
 import org.springframework.stereotype.Component;
@@ -41,7 +43,16 @@ public class OtnEconsultConverter extends AbstractConverter<Document, OtnEconsul
     public Document getAsDomainObject(LoggedInInfo loggedInInfo, OtnEconsult t) throws ConversionException {
         Document document = new Document();
 
-        String description = Encode.forHtml(t.getDocDescription());
+        // Stored HTML-encoded, as it always was. document.docdesc holds Document.DESCRIPTION_MAX_LENGTH
+        // characters and the packaged database cut a longer value without an error, possibly inside
+        // an entity. An unmodified API client keeps working: its description is shortened before
+        // encoding to what fits, so no entity or surrogate pair is ever split.
+        String description = SafeEncode.forHtml(t.getDocDescription());
+        if (!Document.descriptionFits(description)) {
+            description = DocumentDescription.fitEncoded(t.getDocDescription(), SafeEncode::forHtml);
+            MiscUtils.getLogger().info("An OTN eConsult description was shortened to the {} characters document.docdesc holds",
+                    Document.DESCRIPTION_MAX_LENGTH);
+        }
         document.setDocdesc(description);
         document.setContentdatetime(t.getImportDate());
         document.setContenttype(t.getContentType());
