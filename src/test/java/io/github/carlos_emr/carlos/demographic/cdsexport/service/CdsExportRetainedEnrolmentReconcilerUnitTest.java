@@ -297,7 +297,27 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
         assertThat(result.fields()).hasSize(5);
         assertThat(result.sourceFields()).hasSize(5);
         assertThat(result.changes()).isEmpty();
+        assertThat(result.supersededHistories()).isZero();
         assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0", "1");
+    }
+
+    @Test
+    void shouldExportEveryOpenImportedEpisodeExactlyAsBefore_whenTheRosterIsUnchanged()
+            throws Exception {
+        // An unedited chart whose source history holds two open episodes keeps both: nothing in
+        // CARLOS contradicts them.
+        source.remove("Enrolment[1]/EnrolmentHistory[1]/EnrollmentTerminationDate[1]");
+        source.put("Enrolment[1]/EnrolmentHistory[1]/EnrollmentStatus[1]", "1");
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.supersededHistories()).isZero();
+        assertThat(result.changes()).isEmpty();
+        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("1", "1");
+        assertThat(
+                        result.fields()
+                                .get(CdsExportEnrolmentHistoryUnitTest.key("roster_status"))
+                                .rule())
+                .isEqualTo("VERIFIED_RETAINED_ENROLMENT_PROJECTION");
     }
 
     @Test
@@ -390,15 +410,18 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     }
 
     @Test
-    void shouldKeepTheImportedHistoryWithoutInventingATermination_whenTheCurrentFlagIsNr()
+    void shouldSupersedeTheImportedOpenEnrolmentWithoutInventingATermination_whenTheFlagIsNr()
             throws Exception {
-        // Updated: clearing the roster of an imported enrolled patient used to hold the chart.
-        // The imported history exports as imported; no termination is invented.
+        // Updated twice: clearing the roster of an imported enrolled patient used to hold the
+        // chart, then exported the imported open enrolment. NR contradicts it: the open source
+        // episode is superseded (as the never-imported path supersedes an archived one), the
+        // closed one exports as imported, and no termination is invented.
         current("NR", null, null, null, null);
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isZero();
-        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0", "1");
+        assertThat(result.supersededHistories()).isEqualTo(1);
+        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0");
         assertThat(text(render(result), "EnrollmentTerminationDate"))
                 .containsExactly("2019-01-02");
     }
@@ -419,31 +442,35 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     void shouldShiftTheImportedHistoryAndCarryTheLeftoverDate_whenTheCurrentFlagBecomesNr()
             throws Exception {
         // Updated: NR with a leftover roster date used to hold the chart. NR with leftover
-        // values is not an enrolment event: the date travels in the native demographic record
-        // and the imported history is still shifted once and exported.
+        // values is not an enrolment event: the date travels in the native demographic record.
+        // The open imported episode NR contradicts is superseded (its shifted dates with it) and
+        // the closed one is still shifted once and exported.
         shift = 365;
         prepared("RO", "2021-01-01", null, 2);
         fixture.currentField("roster_status", "NR");
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isZero();
+        assertThat(result.supersededHistories()).isEqualTo(1);
         assertThat(result.fields().get(CdsExportEnrolmentHistoryUnitTest.key("roster_date")).destination())
                 .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
-        assertThat(text(render(result), "EnrollmentDate"))
-                .containsExactly("2019-01-02", "2021-01-01");
+        assertThat(text(render(result), "EnrollmentDate")).containsExactly("2019-01-02");
     }
 
     @Test
-    void shouldAppendAReRosteredEpisode_withoutInventingACloseOfTheImportedOne() throws Exception {
-        // Updated: re-rostering an imported patient without a termination used to hold the
-        // chart. The current episode is appended after the imported history, which exports as
-        // imported; no termination is invented.
+    void shouldSupersedeTheImportedOpenEpisode_whenThePatientIsReRosteredWithoutATermination()
+            throws Exception {
+        // Updated twice: re-rostering an imported patient without a termination used to hold
+        // the chart, then left the imported episode open beside the new one. The new episode
+        // is appended and the open imported one it contradicts is superseded, as on a
+        // never-imported chart; no termination is invented.
         current("RO", "2022-01-02", null, null, null);
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isEqualTo(1);
+        assertThat(result.supersededHistories()).isEqualTo(1);
         assertThat(text(render(result), "EnrollmentDate"))
-                .containsExactly("2018-01-02", "2020-01-02", "2022-01-02");
+                .containsExactly("2018-01-02", "2022-01-02");
         assertThat(text(render(result), "EnrollmentTerminationDate"))
                 .containsExactly("2019-01-02");
     }
@@ -470,21 +497,37 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     }
 
     @Test
-    void shouldCarryAFeeForServiceState_whenAnImportedEnrolledPatientIsMovedToFs()
+    void shouldSupersedeTheImportedOpenEnrolment_whenAnImportedEnrolledPatientIsMovedToFs()
             throws Exception {
         // FS is not an enrolment event: the current roster values and the enrolled provider's
-        // public row travel in the native demographic record; the imported history exports as
-        // imported and nothing is held.
+        // public row travel in the native demographic record. Updated: the imported open
+        // enrolment FS contradicts used to be exported as if the patient were still enrolled.
+        // It is superseded: its fields stay in the retained source and are listed as replaced,
+        // the current roster status names the rule, and the closed episode exports as imported.
         current("FS", "2020-01-02", null, null, "12");
         providers.put("12", CdsExportEnrolmentHistoryUnitTest.provider("12"));
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isZero();
-        assertThat(
-                        result.fields()
-                                .get(CdsExportEnrolmentHistoryUnitTest.key("roster_status"))
-                                .destination())
-                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(result.supersededHistories()).isEqualTo(1);
+        var status = result.fields().get(CdsExportEnrolmentHistoryUnitTest.key("roster_status"));
+        assertThat(status.destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(status.rule()).isEqualTo("CURRENT_ROSTER_SUPERSEDES_IMPORTED_OPEN_ENROLMENT");
+        assertThat(CdsExportDemographicSupportingMapper.carries(status)).isTrue();
+        var g = graph();
+        var openEpisode =
+                g.fields().stream()
+                        .filter(
+                                field ->
+                                        field.sourcePath()
+                                                .contains("Enrolment[1]/EnrolmentHistory[2]/"))
+                        .map(CdsExportRetainedFieldDto::id)
+                        .collect(java.util.stream.Collectors.toSet());
+        assertThat(openEpisode).hasSize(2);
+        var plan =
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(g.fields(), values(), result.changes(), () -> {});
+        assertThat(plan.replacedFields()).isEqualTo(openEpisode);
         assertThat(
                         result.fields()
                                 .get(
@@ -494,15 +537,32 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
                                                 "last_name"))
                                 .destination())
                 .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
-        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0", "1");
+        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0");
+    }
+
+    @Test
+    void shouldRemoveTheWholeEnrolment_whenFsSupersedesTheOnlyImportedEpisode() throws Exception {
+        // With nothing left to export, the export no longer has an Enrolment element at all.
+        source.keySet().removeIf(name -> name.startsWith("Enrolment["));
+        history(1, "1", "2020-01-02", null);
+        prepared("RO", "2020-01-02", null, 1);
+        current("FS", "2020-01-02", null, null, null);
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.supersededHistories()).isEqualTo(1);
+        assertThat(result.changes())
+                .extracting(CdsExportRetainedSectionWriter.Change::relativePath)
+                .containsExactly("Enrolment[1]");
+        assertThat(text(render(result), "Enrolment")).isEmpty();
     }
 
     @Test
     void shouldAppendTheNewEpisode_whenTheEnrolledPhysicianOfAnImportedChartChanges()
             throws Exception {
-        // The patient is re-rostered to another physician (an archive snapshot names the
-        // former one, whose open episode is superseded). The new episode exports with its
-        // physician; the provider rows are decided by their uses.
+        // The patient is re-rostered to another physician without a termination (an archive
+        // snapshot names a former one, whose open episode is superseded). The new episode
+        // exports with its physician, the open imported episode is superseded, and the provider
+        // rows are decided by their uses.
         archive(1, "RO", "2023-05-06", null, null, "12");
         current("RO", "2024-01-02", null, null, "34");
         providers.put("12", CdsExportEnrolmentHistoryUnitTest.provider("12"));
@@ -510,9 +570,15 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
         var result = reconcile();
         assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isEqualTo(1);
+        assertThat(result.supersededHistories()).isEqualTo(1);
+        assertThat(
+                        result.fields()
+                                .get(CdsExportEnrolmentHistoryUnitTest.key("roster_status"))
+                                .rule())
+                .isEqualTo("CURRENT_ROSTER_SUPERSEDES_IMPORTED_OPEN_ENROLMENT");
         var xml = render(result);
-        assertThat(text(xml, "EnrollmentDate"))
-                .containsExactly("2018-01-02", "2020-01-02", "2024-01-02");
+        assertThat(text(xml, "EnrollmentDate")).containsExactly("2018-01-02", "2024-01-02");
+        assertThat(text(xml, "EnrollmentStatus")).containsExactly("0", "1");
         assertThat(text(xml, "OHIPPhysicianId")).containsExactly("123456");
         assertThat(
                         result.fields()

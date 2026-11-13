@@ -33,13 +33,17 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Retains all original history, folds proven native snapshots and appends distinct native
- * events. The source enrolment history exports as imported; native events recorded after it
- * follow the never-imported chart's rules ({@link CdsExportEnrolmentHistory}): only RO and TE
- * are enrolment events, other roster states are carried in the native demographic record, and
- * an episode the current state contradicts (re-rostering without a termination, a cleared or FS
- * current state, a conflicting termination, an event after the current state) is a superseded
- * snapshot in the approved audit arrangement rather than a hold. No termination is invented.
+ * Retains the original history, folds proven native snapshots and appends distinct native
+ * events. Native events recorded after the import follow the never-imported chart's rules
+ * ({@link CdsExportEnrolmentHistory}): only RO and TE are enrolment events, other roster states
+ * are carried in the native demographic record, and an episode the current state contradicts
+ * (re-rostering without a termination, a cleared or FS current state, a conflicting termination,
+ * an event after the current state) is a superseded snapshot in the approved audit arrangement
+ * rather than a hold. The same rule applies to the imported history once the roster is edited:
+ * an open imported episode the current state contradicts is not exported as a current
+ * enrolment; its source fields stay in the retained source and are listed as replaced, and the
+ * current roster status names {@value #SUPERSEDES_IMPORTED}. Closed imported episodes, and every
+ * imported episode of an unedited roster, export as imported. No termination is invented.
  * Only an unproven import projection, an invalid retained source history and an enrolled
  * provider whose public values no CDS name can hold still require review.
  */
@@ -67,6 +71,21 @@ public final class CdsExportRetainedEnrolmentReconciler {
     private static final String SUPERSEDED_PROVIDER =
             "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT";
 
+    /**
+     * The current roster status's rule when it supersedes an open imported episode: the
+     * episode's source fields are removed from the export and listed as replaced in the receipt.
+     */
+    static final String SUPERSEDES_IMPORTED = "CURRENT_ROSTER_SUPERSEDES_IMPORTED_OPEN_ENROLMENT";
+
+    private static final java.util.regex.Pattern SOURCE_HISTORY =
+            java.util.regex.Pattern.compile(
+                    "/OmdCds\\[1\\]/PatientRecord\\[1\\]/Demographics\\[1\\]/Enrolment\\[1\\]"
+                            + "/EnrolmentHistory\\[([1-9][0-9]*)\\](?:/.*)?");
+
+    private static final java.util.regex.Pattern RELATIVE_HISTORY =
+            java.util.regex.Pattern.compile(
+                    "Enrolment\\[1\\]/EnrolmentHistory\\[([1-9][0-9]*)\\](?:/.*)?");
+
     public record Result(
             String sourceManifestSha256,
             String unitAddress,
@@ -76,13 +95,41 @@ public final class CdsExportRetainedEnrolmentReconciler {
             Set<String> blockers,
             List<CdsExportRetainedSectionWriter.Change> proposedChanges,
             int retainedHistories,
-            int additionalHistories) {
+            int additionalHistories,
+            int supersededHistories) {
         public Result {
             sourceFields = Set.copyOf(sourceFields);
             fields = Map.copyOf(fields);
             deferredNativeFields = Set.copyOf(deferredNativeFields);
             blockers = Set.copyOf(blockers);
             proposedChanges = List.copyOf(proposedChanges);
+            if (supersededHistories < 0 || supersededHistories > retainedHistories)
+                throw new IllegalArgumentException(
+                        "CDS_EXPORT_ENROLMENT_RECONCILIATION_RESULT_INVALID");
+        }
+
+        /** A result that supersedes no imported episode. */
+        public Result(
+                String sourceManifestSha256,
+                String unitAddress,
+                Set<String> sourceFields,
+                Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+                Set<CdsExportNativeFieldKeyDto> deferredNativeFields,
+                Set<String> blockers,
+                List<CdsExportRetainedSectionWriter.Change> proposedChanges,
+                int retainedHistories,
+                int additionalHistories) {
+            this(
+                    sourceManifestSha256,
+                    unitAddress,
+                    sourceFields,
+                    fields,
+                    deferredNativeFields,
+                    blockers,
+                    proposedChanges,
+                    retainedHistories,
+                    additionalHistories,
+                    0);
         }
 
         public boolean representable() {
@@ -339,6 +386,69 @@ public final class CdsExportRetainedEnrolmentReconciler {
                     decisions.putIfAbsent(key, decision);
                 }
             }
+        // An open imported episode the edited current state contradicts (FS, NR or another
+        // non-enrolment status, RO with another start or physician, all without a termination)
+        // is superseded exactly as an archived open episode is on a never-imported chart: it is
+        // not exported as a current enrolment. An unedited roster contradicts nothing, and a
+        // closed imported episode (or one a kept native termination closes) exports as imported.
+        var superseded = new TreeSet<Integer>();
+        var currentEntry = entries.getLast();
+        if (blockers.isEmpty() && currentEntry.mapped() != null) {
+            var currentEpisode =
+                    currentFact == null
+                            ? null
+                            : new Episode(currentFact.start(), currentFact.physician());
+            var closed = new HashSet<Episode>();
+            for (var fact : sourceFacts)
+                if ("0".equals(fact.status())) closed.add(new Episode(fact.start(), fact.physician()));
+            for (var fact : kept)
+                if ("0".equals(fact.status())) closed.add(new Episode(fact.start(), fact.physician()));
+            for (var history : source.histories()) {
+                checkpoint.run();
+                var episode =
+                        new Episode(history.start(), sourceIdentities.get(history.ordinal()));
+                if (!episode.equals(currentEpisode) && !closed.contains(episode))
+                    superseded.add(history.ordinal());
+            }
+        }
+        if (!superseded.isEmpty()) {
+            var supersededEpisodes = new HashSet<Episode>();
+            for (var history : source.histories())
+                if (superseded.contains(history.ordinal()))
+                    supersededEpisodes.add(
+                            new Episode(
+                                    history.start(), sourceIdentities.get(history.ordinal())));
+            // An archive snapshot of the imported state names a superseded episode too.
+            for (var entry : entries) {
+                if (entry.mapped() != null
+                        || entry.fact() == null
+                        || entry.row() == current
+                        || !supersededEpisodes.contains(
+                                new Episode(entry.fact().start(), entry.fact().physician())))
+                    continue;
+                for (String column : CdsExportEnrolmentMapper.COLUMNS.keySet()) {
+                    var key =
+                            new CdsExportNativeFieldKeyDto(
+                                    entry.row().table(), entry.row().recordKey(), column);
+                    if (decisions.get(key).outcome() != Outcome.ABSENT)
+                        decisions.put(
+                                key,
+                                CdsExportEnrolmentMapper.superseded(
+                                        entry.row().fields().get(column), SUPERSEDED));
+                }
+            }
+            var statusKey =
+                    new CdsExportNativeFieldKeyDto(
+                            current.table(), current.recordKey(), "roster_status");
+            var status = decisions.get(statusKey);
+            decisions.put(
+                    statusKey,
+                    new CdsExportFieldAssessmentDto(
+                            status.presence(),
+                            status.outcome(),
+                            status.destination(),
+                            SUPERSEDES_IMPORTED));
+        }
         if (!projection.preparedProjectionProven())
             for (String column : CdsExportEnrolmentMapper.COLUMNS.keySet())
                 set(
@@ -349,7 +459,23 @@ public final class CdsExportRetainedEnrolmentReconciler {
                         "PREPARED_ENROLMENT_PROJECTION_NOT_PROVEN");
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         if (blockers.isEmpty()) {
-            changes.addAll(source.changes());
+            // The source fields of each superseded episode, by EnrolmentHistory ordinal.
+            var episodeFields = new HashMap<Integer, Set<String>>();
+            for (var field : parent) {
+                var match = SOURCE_HISTORY.matcher(field.sourcePath());
+                if (match.matches() && source.sourceFields().contains(field.id()))
+                    episodeFields
+                            .computeIfAbsent(
+                                    Integer.parseInt(match.group(1)), ignored -> new HashSet<>())
+                            .add(field.id());
+            }
+            for (var change : source.changes()) {
+                var match = RELATIVE_HISTORY.matcher(change.relativePath());
+                // A superseded episode's date normalization goes with the episode.
+                if (match.matches() && superseded.contains(Integer.parseInt(match.group(1))))
+                    continue;
+                changes.add(change);
+            }
             var additional =
                     appended.entrySet().stream()
                             .sorted(
@@ -361,6 +487,20 @@ public final class CdsExportRetainedEnrolmentReconciler {
                                             .thenComparing(entry -> entry.getKey().physician())
                                             .thenComparing(entry -> entry.getKey().status()))
                             .toList();
+            if (!superseded.isEmpty()
+                    && superseded.size() == source.histories().size()
+                    && additional.isEmpty())
+                // Nothing of the imported enrolment remains to export.
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "Enrolment[1]", source.sourceFields(), null));
+            else
+                for (int ordinal : superseded)
+                    changes.add(
+                            new CdsExportRetainedSectionWriter.Change(
+                                    "Enrolment[1]/EnrolmentHistory[" + ordinal + "]",
+                                    episodeFields.getOrDefault(ordinal, Set.of()),
+                                    null));
             if (source.histories().isEmpty() && !additional.isEmpty())
                 changes.add(
                         new CdsExportRetainedSectionWriter.Change(
@@ -400,7 +540,8 @@ public final class CdsExportRetainedEnrolmentReconciler {
                 blockers,
                 changes,
                 source.histories().size(),
-                appended.size());
+                appended.size(),
+                blockers.isEmpty() ? superseded.size() : 0);
     }
 
     private static boolean valid(CdsExportRetainedEnrolmentSource.History value) {
