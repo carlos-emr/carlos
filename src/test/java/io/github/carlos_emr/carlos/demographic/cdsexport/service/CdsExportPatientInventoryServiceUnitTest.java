@@ -504,6 +504,40 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldExpectANewCategoryRecord_forCarlosCommentsOnAnImportedLabResult() throws Exception {
+        String result = "d".repeat(64);
+        var commented =
+                CdsExportLaboratoryReviewerMappingUnitTest.route(
+                        14, "101", "A", "2026-07-10 16:45:00", "Discussed with patient");
+        for (var selected :
+                List.of(
+                        List.of(CdsCategory.LABORATORY_RESULTS, CdsCategory.NEW_CATEGORY),
+                        List.of(CdsCategory.LABORATORY_RESULTS))) {
+            var f = fixture(selected.toArray(CdsCategory[]::new));
+            f.unit(
+                    CdsCategory.LABORATORY_RESULTS,
+                    "e".repeat(64),
+                    List.of(
+                            new CdsExportRetainedIndexDto.Reference(
+                                    "cds_laboratory_result", result, "f".repeat(64)),
+                            new CdsExportRetainedIndexDto.Reference(
+                                    "hl7TextMessage", "91", "f".repeat(64))));
+            when(f.laboratoryInventory.routes(any(), any(), anySet(), any(), any(), any()))
+                    .thenReturn(Map.of("91", List.of(commented)));
+            if (selected.contains(CdsCategory.NEW_CATEGORY))
+                assertThat(capture(f).identities())
+                        .contains(
+                                new CdsExportIdentityDto(
+                                        "c".repeat(64),
+                                        CdsCategory.NEW_CATEGORY,
+                                        CdsExportLaboratoryOccurrenceService.importedCommentsId(
+                                                result)));
+            // Without NewCategory the comment would have nowhere to go: the selection needs review.
+            else assertThatThrownBy(() -> capture(f)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        }
+    }
+
+    @Test
     void shouldRequireTheExplicitSupportingCategory_forNativeLabSourceContext() throws Exception {
         var f = fixture(CdsCategory.LABORATORY_RESULTS);
         var source =

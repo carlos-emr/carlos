@@ -402,6 +402,35 @@ public class CdsExportPatientInventoryService {
                             prescription.prescription().fields().get("script_no")),
                     budget);
         }
+        // Inbox comments recorded in CARLOS on a lab result from an earlier CDS import: one
+        // NewCategory record per result (CdsExportLaboratoryOccurrenceService.importedComments).
+        if (lease.document().command().categories().contains(CdsCategory.LABORATORY_RESULTS)
+                && applied(index, CdsCategory.LABORATORY_RESULTS))
+            for (var comments :
+                    CdsExportLaboratoryOccurrenceService.importedComments(
+                            index,
+                            laboratories.routes(lease, patient, tables, source, bounds, control))) {
+                if (!lease.document().command().categories().contains(CdsCategory.NEW_CATEGORY))
+                    review();
+                add(
+                        expected,
+                        new CdsExportIdentityDto(
+                                patientKey,
+                                CdsCategory.NEW_CATEGORY,
+                                CdsExportLaboratoryOccurrenceService.importedCommentsId(
+                                        comments.result())),
+                        budget);
+            }
+        // Reviews recorded in CARLOS on an imported report that already has its own Notes: one
+        // supplementary Reports record (CdsExportReportOccurrenceService.importedReviews).
+        for (String address : reviewedImportedReports(lease, patient, tables, source, index, bounds, control))
+            add(
+                    expected,
+                    new CdsExportIdentityDto(
+                            patientKey,
+                            CdsCategory.REPORTS,
+                            CdsExportReportOccurrenceService.importedReviewsId(address)),
+                    budget);
         // HRM reports: one Reports occurrence per report linked to the patient.
         if (CdsExportHospitalReportOccurrenceService.captured(tables)) {
             if (hospitalReports == null
@@ -456,6 +485,80 @@ public class CdsExportPatientInventoryService {
         control.checkpoint();
         return new Inventory(
                 source.manifest().plaintextSha256(), patientKey, expected, sourceFields);
+    }
+
+    private static boolean applied(CdsExportRetainedIndexDto index, CdsCategory category) {
+        for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values())
+            if (category.wireName().equals(unit.fields().get("category"))
+                    && index.appliedUnits()
+                            .contains(unit.fields().get("run_id") + ":" + unit.fields().get("unit_key")))
+                return true;
+        return false;
+    }
+
+    /** Reviewer captures of the patient's documents, each with its document reference column. */
+    private static final Map<String, String> DOCUMENT_REVIEWERS =
+            Map.of(
+                    CdsExportDocumentRouteSourceReader.TABLE, "lab_no",
+                    "document_review", "document_no",
+                    "DocumentExtraReviewer", "documentNo");
+
+    /**
+     * The applied imported report units whose retained fields include their own Notes and whose
+     * documents have a review row CARLOS carries whole ({@link
+     * CdsExportInboxReviewMapper#carriedByReport}): each gets a supplementary Reports record.
+     */
+    private List<String> reviewedImportedReports(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportRetainedIndexDto index,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control)
+            throws IOException {
+        if (captures == null
+                || !lease.document().command().categories().contains(CdsCategory.REPORTS)
+                || !tables.containsAll(DOCUMENT_REVIEWERS.keySet())) return List.of();
+        var noted = new HashSet<String>();
+        var pattern = java.util.regex.Pattern.compile(".*/Reports\\[[1-9][0-9]{0,17}\\]/Notes\\[1\\]");
+        for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {
+            String parent = index.nativeParents().get(row.recordKey());
+            String path = row.fields().get("source_path");
+            if (parent != null && path != null && pattern.matcher(path).matches()) noted.add(parent);
+        }
+        var documents = new HashMap<String, String>();
+        for (String address : noted) {
+            if (!index.appliedUnits().contains(address)) continue;
+            for (var reference : index.references().getOrDefault(address, List.of()))
+                if (reference.table().equals("document"))
+                    documents.put(reference.id(), address);
+        }
+        if (documents.isEmpty()) return List.of();
+        var reviewed = new TreeSet<String>();
+        var read =
+                new CdsExportCapturedTextRowsReader(captures)
+                        .forEachTable(
+                                lease,
+                                patient,
+                                tables,
+                                DOCUMENT_REVIEWERS.keySet(),
+                                source.manifest(),
+                                bounds.fields(),
+                                bounds.bytes(),
+                                67_108_864,
+                                control,
+                                row -> {
+                                    control.checkpoint();
+                                    String column = DOCUMENT_REVIEWERS.get(row.table());
+                                    if (column == null) invalid();
+                                    String address = documents.get(row.fields().get(column));
+                                    if (address != null
+                                            && CdsExportInboxReviewMapper.carriedByReport(row))
+                                        reviewed.add(address);
+                                });
+        if (!read.equals(source.capture())) invalid();
+        return List.copyOf(reviewed);
     }
 
     private static CdsExportIdentityDto nativeIdentity(

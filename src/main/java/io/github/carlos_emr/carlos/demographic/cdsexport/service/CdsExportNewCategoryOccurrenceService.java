@@ -313,9 +313,26 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                     var laboratorySources =
                             laboratories.nativeSources(
                                     lease, patient, tables, source, index, bounds, control);
+                    boolean importedLaboratories =
+                            lease.document()
+                                            .command()
+                                            .categories()
+                                            .contains(CdsCategory.LABORATORY_RESULTS)
+                                    && index.tables()
+                                            .getOrDefault("cds_import_unit", Map.of())
+                                            .values()
+                                            .stream()
+                                            .anyMatch(
+                                                    unit ->
+                                                            CdsCategory.LABORATORY_RESULTS
+                                                                    .wireName()
+                                                                    .equals(
+                                                                            unit.fields()
+                                                                                    .get(
+                                                                                            "category")));
                     // A commented inbox route travels whole in its report's supporting record.
                     var laboratoryRoutes =
-                            laboratorySources.isEmpty()
+                            laboratorySources.isEmpty() && !importedLaboratories
                                     ? Map.<String, List<CdsExportCapturedTextRowDto>>of()
                                     : laboratories.routes(
                                             lease, patient, tables, source, bounds, control);
@@ -363,6 +380,52 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                                         index.sourceManifestSha256(),
                                         "hl7TextMessage",
                                         nativeSource.id(),
+                                        null,
+                                        assessments,
+                                        Set.of(),
+                                        Set.of()));
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        counts[0]++;
+                        counts[2]++;
+                    }
+                    // Inbox comments recorded in CARLOS on a result from an earlier CDS import:
+                    // the result is exported from its imported elements, the comments here.
+                    for (var comments :
+                            CdsExportLaboratoryOccurrenceService.importedComments(
+                                    index, laboratoryRoutes)) {
+                        var assessments =
+                                CdsExportInboxReviewMapper.carriedFields(
+                                        comments.routes(), "NewCategory/ResidualInfo");
+                        new CdsExportNativeFieldAssessmentValidator()
+                                .requireRepresentable(
+                                        comments.routes(),
+                                        assessments,
+                                        1_000_000,
+                                        control::checkpoint);
+                        var identity =
+                                new CdsExportIdentityDto(
+                                        patientKey,
+                                        category(),
+                                        CdsExportLaboratoryOccurrenceService.importedCommentsId(
+                                                comments.result()));
+                        streams.requireActive();
+                        control.authorizeCategory(
+                                patient.patient(), CdsCategory.LABORATORY_RESULTS, true);
+                        control.authorizeCategory(patient.patient(), category(), false);
+                        xml.emit(
+                                new CdsExportXmlComposer.Section(
+                                        identity,
+                                        body ->
+                                                CdsExportNativeLaboratoryMapper
+                                                        .writeImportedComments(comments, body)));
+                        output.accept(
+                                new CdsExportClinicalOccurrenceService.Receipt(
+                                        identity,
+                                        index.sourceManifestSha256(),
+                                        "cds_laboratory_result",
+                                        comments.result(),
                                         null,
                                         assessments,
                                         Set.of(),

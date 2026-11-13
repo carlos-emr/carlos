@@ -235,48 +235,94 @@ final class CdsExportInboxReviewMapper {
     }
 
     /**
-     * The inbox routes of a laboratory result exported from its original CDS import. The retained
-     * occurrence is written from the imported elements, which already carry the reviewers the
-     * sending EMR recorded, and cannot gain an element, so a CARLOS inbox route of the imported
-     * result is inbox workflow and operational. A route with a comment holds the patient: that
-     * comment is clinical text with no lossless place in the retained occurrence.
+     * Whether {@link #report()} carries a row whole in the report's source context: every review
+     * row, every acknowledgement by a real provider (its element keeps only the date) and every
+     * route with a comment. The inventory uses the same rule to expect the supplementary record of
+     * an imported report.
      */
-    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> imported(
-            List<CdsExportCapturedTextRowDto> routes) throws IOException {
-        return imported(
-                routes,
-                "INBOX_ROUTING_OF_AN_IMPORTED_LABORATORY_RESULT",
-                "CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW");
+    static boolean carriedByReport(CdsExportCapturedTextRowDto row) {
+        if (!row.table().startsWith("providerLabRouting")) return true;
+        String comment = row.fields().get("comment"), provider = row.fields().get("provider_no");
+        return comment != null && !comment.isEmpty()
+                || "A".equals(row.fields().get("status"))
+                        && provider != null
+                        && !provider.isBlank()
+                        && !provider.equals("0");
     }
 
     /**
-     * The inbox routes of a document report exported from its original CDS import: the same rule
-     * as for an imported laboratory result.
+     * The next unused ordinal of {@code element} directly under a retained occurrence's root, so
+     * a review recorded in CARLOS after the import is appended after the imported ones and every
+     * imported element keeps its exact bytes.
      */
-    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> importedReport(
-            List<CdsExportCapturedTextRowDto> routes) throws IOException {
-        return imported(
-                routes,
-                "INBOX_ROUTING_OF_AN_IMPORTED_REPORT",
-                "CDS_EXPORT_IMPORTED_REPORT_REVIEW_COMMENT_REQUIRES_REVIEW");
+    static long nextOrdinal(
+            List<CdsExportRetainedFieldDto> fields,
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory category,
+            String element)
+            throws IOException {
+        var pattern =
+                java.util.regex.Pattern.compile(
+                        java.util.regex.Pattern.quote(element) + "\\[([1-9][0-9]{0,17})\\](?:/.*)?");
+        long highest = 0;
+        for (var field : fields) {
+            String root = CdsExportRetainedOccurrencePath.root(field, category);
+            if (field.sourcePath().length() == root.length()) continue;
+            var match = pattern.matcher(field.sourcePath().substring(root.length() + 1));
+            if (match.matches()) highest = Math.max(highest, Long.parseLong(match.group(1)));
+        }
+        return Math.addExact(highest, 1);
     }
 
-    private static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> imported(
-            List<CdsExportCapturedTextRowDto> routes, String rule, String commentCode)
-            throws IOException {
-        var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
-        for (var route : sorted(routes)) {
-            if (!route.table().startsWith("providerLabRouting")
-                    || !route.fields().keySet().equals(ROUTING_COLUMNS)) invalid();
-            String comment = route.fields().get("comment");
-            if (comment != null && !comment.isEmpty()) review(commentCode);
-            var state = new CdsExportNativeFieldAssessments(route, fields);
-            for (String column : ROUTING_COLUMNS)
-                if (column.equals("comment"))
-                    state.set(column, Outcome.ABSENT, "", "NO_INBOX_REVIEW_COMMENT");
-                else state.operational(column, rule);
+    /**
+     * The rows that travel whole, in the fixed JSON shape of a report's source context: the
+     * carried rows (inbox routes named {@code providerLabRouting}) and the public names of the
+     * providers they name.
+     */
+    static Map<String, Object> carriedContext(Reviews reviews) {
+        var details = new LinkedHashMap<String, Object>();
+        details.put("version", 1);
+        var carried = new ArrayList<Map<String, Object>>();
+        for (var row : reviews.carried()) {
+            var entry = new LinkedHashMap<String, Object>();
+            entry.put(
+                    "table",
+                    row.table().startsWith("providerLabRouting") ? "providerLabRouting" : row.table());
+            entry.put("fields", new TreeMap<>(row.fields()));
+            carried.add(entry);
         }
-        return fields;
+        details.put("reviews", carried);
+        var named = new LinkedHashMap<String, Object>();
+        reviews.providers()
+                .forEach(
+                        (number, value) -> {
+                            var reviewer = new LinkedHashMap<String, String>();
+                            reviewer.put("firstName", value.firstName());
+                            reviewer.put("lastName", value.lastName());
+                            if (value.ohipNumber() != null) reviewer.put("ohip", value.ohipNumber());
+                            named.put(number, reviewer);
+                        });
+        if (!named.isEmpty()) details.put("reviewers", named);
+        return details;
+    }
+
+    /**
+     * The same decisions with every field accounted in {@code from} moved to {@code to}: the
+     * rows of an imported report travel in its supplementary record instead of its Notes.
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> relocated(
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+            String from,
+            String to) {
+        var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        fields.forEach(
+                (key, value) ->
+                        result.put(
+                                key,
+                                from.equals(value.destination())
+                                        ? new CdsExportFieldAssessmentDto(
+                                                value.presence(), value.outcome(), to, value.rule())
+                                        : value));
+        return result;
     }
 
     /**

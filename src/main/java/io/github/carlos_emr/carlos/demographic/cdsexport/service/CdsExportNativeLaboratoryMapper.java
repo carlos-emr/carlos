@@ -294,15 +294,7 @@ final class CdsExportNativeLaboratoryMapper {
             }
         for (var reviewer : value.reviewers()) {
             xml.start("cds", "ResultReviewer");
-            xml.start("cds", "Name");
-            xml.element("cds_dt", "FirstName", reviewer.provider().firstName());
-            xml.element("cds_dt", "LastName", reviewer.provider().lastName());
-            xml.end();
-            if (reviewer.provider().ohipNumber() != null)
-                xml.element("cds", "OHIPPhysicianId", reviewer.provider().ohipNumber());
-            xml.start("cds", "DateTimeResultReviewed");
-            CdsExportNativeHistoryXmlWriter.dateContents(xml, reviewer.reviewed());
-            xml.end();
+            reviewerContent(reviewer, xml);
             xml.end();
         }
         xml.start("cds", "ResultNormalAbnormalFlag");
@@ -319,6 +311,21 @@ final class CdsExportNativeLaboratoryMapper {
                         "NotesFromLab",
                         "TestResultStatus")) text(value, name, xml);
         if (value.blocked()) xml.element("cds", "BlockedTestResult", "Y");
+    }
+
+    /** The content of one ResultReviewer: the provider's public name, OHIP number and time. */
+    static void reviewerContent(
+            CdsExportInboxReviewMapper.Review reviewer, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.start("cds", "Name");
+        xml.element("cds_dt", "FirstName", reviewer.provider().firstName());
+        xml.element("cds_dt", "LastName", reviewer.provider().lastName());
+        xml.end();
+        if (reviewer.provider().ohipNumber() != null)
+            xml.element("cds", "OHIPPhysicianId", reviewer.provider().ohipNumber());
+        xml.start("cds", "DateTimeResultReviewed");
+        CdsExportNativeHistoryXmlWriter.dateContents(xml, reviewer.reviewed());
+        xml.end();
     }
 
     void writeSupporting(
@@ -360,6 +367,40 @@ final class CdsExportNativeLaboratoryMapper {
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,
                 "CARLOS.Laboratory.v1",
+                "string",
+                CdsExportScreeningMapper.tokenSafe(
+                        JsonMapper.builder().build().writeValueAsString(context)));
+        xml.end();
+    }
+
+    /**
+     * The NewCategory record of the inbox comments recorded in CARLOS on a laboratory result from
+     * an earlier CDS import: each commented route whole, with its provider, status and time, in
+     * one fixed key order. The result itself is exported from its imported elements.
+     */
+    static void writeImportedComments(
+            CdsExportLaboratoryOccurrenceService.ImportedComments comments,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.element("cds", "CategoryName", "CARLOS.ImportedLaboratoryReview.v1");
+        xml.element(
+                "cds",
+                "CategoryDescription",
+                "Inbox comments recorded in CARLOS on a laboratory result from an earlier CDS import");
+        xml.start("cds", "ResidualInfo");
+        var rows = new ArrayList<Map<String, Object>>();
+        for (var row : comments.routes()) {
+            if (!row.table().equals(CdsExportLaboratoryOccurrenceService.ROUTES))
+                throw new IOException("CDS_EXPORT_NATIVE_LAB_ROUTE_INVALID");
+            rows.add(supportingRow(row));
+        }
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put("labNo", comments.lab());
+        context.put("rows", rows);
+        CdsExportNativeHistoryXmlWriter.residualElement(
+                xml,
+                "CARLOS.ImportedLaboratoryReview.v1",
                 "string",
                 CdsExportScreeningMapper.tokenSafe(
                         JsonMapper.builder().build().writeValueAsString(context)));

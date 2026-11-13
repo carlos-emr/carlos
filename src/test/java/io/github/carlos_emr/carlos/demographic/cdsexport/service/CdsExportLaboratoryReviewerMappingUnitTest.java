@@ -29,9 +29,8 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Pl
 import io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedIndexDto;
 import java.nio.charset.StandardCharsets;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -237,29 +236,52 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
     }
 
     @Test
-    void shouldAccountTheRoutesOfAnImportedResult_withoutHoldingThePatient() throws Exception {
+    void shouldFindTheImportedResultsWithACommentedRoute_fromTheirAppliedUnits() throws Exception {
+        String applied = "11111111-1111-4111-8111-111111111111:" + "b".repeat(64);
+        String unapplied = "11111111-1111-4111-8111-111111111111:" + "c".repeat(64);
+        var units = new java.util.HashMap<String, CdsExportCapturedTextRowDto>();
+        for (String address : List.of(applied, unapplied))
+            units.put(
+                    address,
+                    new CdsExportCapturedTextRowDto(
+                            "cds_import_unit",
+                            address.substring(37),
+                            Map.of(
+                                    "run_id",
+                                    address.substring(0, 36),
+                                    "unit_key",
+                                    address.substring(37),
+                                    "category",
+                                    "LaboratoryResults")));
+        var index =
+                new CdsExportRetainedIndexDto(
+                        "a".repeat(64),
+                        0,
+                        0,
+                        Map.of("cds_import_unit", units),
+                        java.util.Set.of(applied),
+                        Map.of(
+                                applied,
+                                List.of(
+                                        new CdsExportRetainedIndexDto.Reference(
+                                                "cds_laboratory_result", "d".repeat(64), "e".repeat(64)),
+                                        new CdsExportRetainedIndexDto.Reference(
+                                                "hl7TextMessage", "91", "e".repeat(64)))),
+                        Map.of());
+        var commented = route(14, "101", "A", "2026-07-10 16:45:00", "Discussed with patient");
         var acknowledged = route(12, "101", "A", "2026-07-10 16:45:00", null);
-        var unclaimed = route(13, "0", "N", "2026-07-10 09:00:00", "");
-        Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields =
-                CdsExportInboxReviewMapper.imported(List.of(acknowledged, unclaimed));
-        new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(acknowledged, unclaimed), fields, 100000, () -> {});
-        assertThat(fields.values())
-                .allMatch(
-                        field ->
-                                field.outcome() == Outcome.OPERATIONAL
-                                        || field.outcome() == Outcome.ABSENT);
-        // A comment on an imported result has no lossless place in its retained occurrence.
-        assertThatThrownBy(
-                        () ->
-                                CdsExportInboxReviewMapper.imported(
-                                        List.of(
-                                                route(
-                                                        14,
-                                                        "101",
-                                                        "A",
-                                                        "2026-07-10 16:45:00",
-                                                        "Discussed with patient"))))
-                .hasMessage("CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW");
+        var found =
+                CdsExportLaboratoryOccurrenceService.importedComments(
+                        index, Map.of("91", List.of(acknowledged, commented)));
+        assertThat(found).singleElement().satisfies(
+                comments -> {
+                    assertThat(comments.result()).isEqualTo("d".repeat(64));
+                    assertThat(comments.lab()).isEqualTo("91");
+                    assertThat(comments.routes()).containsExactly(commented);
+                });
+        assertThat(
+                        CdsExportLaboratoryOccurrenceService.importedComments(
+                                index, Map.of("91", List.of(acknowledged))))
+                .isEmpty();
     }
 }

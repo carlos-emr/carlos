@@ -32,12 +32,16 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReview
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 import java.util.*;
 import org.springframework.stereotype.Service;
 
 /**
  * Coordinates imported laboratory projections and ordinary native HL7 observations.
  * Changed imported mirrors require review; native results have separate structural membership and complete supporting context.
+ * An acknowledgement recorded in CARLOS on an imported result is appended to its retained
+ * occurrence as one more ResultReviewer; an inbox comment on it travels in the NewCategory record
+ * {@link #importedComments}.
  * This bounded occurrence component alone does not qualify the complete laboratory source catalogue.
  */
 @Service
@@ -140,6 +144,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                 .read(lease, patient, tables, source, bounds, control);
         // Every inbox route is accounted by the occurrence of the report it routes.
         var routed = new HashSet<String>();
+        // The clinic zone places acknowledgement times; read once, when a route exists.
+        ZoneId[] clinic = {null};
         long[] counts = {0, 0, 0};
         values.withValues(
                 lease,
@@ -279,25 +285,51 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                         assess(current, actual));
                         var assessedRows =
                                 new ArrayList<>(actual.stream().map(current::get).toList());
-                        // A CARLOS inbox route of an imported result is inbox workflow: the
-                        // retained occurrence keeps the reviewers the sending EMR recorded.
+                        // The retained occurrence keeps the reviewers the sending EMR recorded.
+                        // A provider who acknowledged the result in CARLOS afterwards is one more
+                        // ResultReviewer appended after them (the element is unbounded), so every
+                        // imported element keeps its exact bytes; an inbox comment travels whole
+                        // in the result's NewCategory supporting record.
                         var importedRoutes =
                                 lab == null ? List.<CdsExportCapturedTextRowDto>of() : routes.getOrDefault(lab, List.of());
-                        assessments.putAll(CdsExportInboxReviewMapper.imported(importedRoutes));
-                        for (var route : importedRoutes) {
+                        for (var route : importedRoutes)
                             if (!routed.add(nativeId(route))) invalid();
-                            assessedRows.add(route);
+                        var importedReviews = CdsExportInboxReviewMapper.Reviews.NONE;
+                        if (!importedRoutes.isEmpty()) {
+                            if (clinic[0] == null)
+                                clinic[0] =
+                                        new CdsExportClinicalZoneService(captures)
+                                                .read(
+                                                        lease,
+                                                        patient,
+                                                        tables,
+                                                        source,
+                                                        bounds.fields(),
+                                                        bounds.bytes(),
+                                                        control)
+                                                .zone();
+                            importedReviews =
+                                    CdsExportInboxReviewMapper.laboratory()
+                                            .map(importedRoutes, List.of(), providers, clinic[0]);
                         }
+                        if (!importedReviews.carried().isEmpty()
+                                && !lease.document()
+                                        .command()
+                                        .categories()
+                                        .contains(CdsCategory.NEW_CATEGORY)) review();
+                        assessments.putAll(importedReviews.fields());
+                        assessedRows.addAll(importedReviews.rows());
                         new CdsExportNativeFieldAssessmentValidator()
                                 .requireRepresentable(
                                         assessedRows, assessments, 1_000_000, control::checkpoint);
+                        var changes =
+                                new ArrayList<CdsExportRetainedSectionWriter.Change>(
+                                        sourceValue.changes());
+                        changes.addAll(appendedReviewers(fields, importedReviews));
                         var content =
                                 new CdsExportRetainedSectionWriter()
                                         .prepareChanges(
-                                                fields,
-                                                streams,
-                                                sourceValue.changes(),
-                                                control::checkpoint);
+                                                fields, streams, changes, control::checkpoint);
                         for (String field : sourceValue.sourceFields())
                             if (!consumed.add(field)) invalid();
                         var identity =
@@ -340,8 +372,8 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                                         .categories()
                                         .contains(CdsCategory.REPORTS)) review();
                     var zone =
-                            nativeSources.isEmpty()
-                                    ? null
+                            nativeSources.isEmpty() || clinic[0] != null
+                                    ? clinic[0]
                                     : new CdsExportClinicalZoneService(captures)
                                             .read(
                                                     lease,
@@ -425,6 +457,73 @@ public class CdsExportLaboratoryOccurrenceService implements CdsExportCategoryOc
                 counts[0] - counts[2],
                 counts[2],
                 counts[1]);
+    }
+
+    /**
+     * One imported laboratory result whose CARLOS inbox routes carry a comment: its structured
+     * result id, its report number and those routes, in row order. The NewCategory assembler
+     * writes each as a {@code CARLOS.ImportedLaboratoryReview.v1} record; the inventory expects
+     * one occurrence for each.
+     */
+    record ImportedComments(String result, String lab, List<CdsExportCapturedTextRowDto> routes) {
+        ImportedComments {
+            routes = List.copyOf(routes);
+        }
+
+        @Override
+        public String toString() {
+            return "ImportedComments[protected]";
+        }
+    }
+
+    /**
+     * One ResultReviewer addition after the imported ones for each acknowledgement recorded in
+     * CARLOS on an imported result. Additions never touch an imported element.
+     */
+    static List<CdsExportRetainedSectionWriter.Change> appendedReviewers(
+            List<CdsExportRetainedFieldDto> fields, CdsExportInboxReviewMapper.Reviews reviews)
+            throws IOException {
+        var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
+        long next = CdsExportInboxReviewMapper.nextOrdinal(fields, CATEGORY, "ResultReviewer");
+        for (var reviewer : reviews.reviewers())
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "ResultReviewer[" + next++ + "]",
+                            Set.of(),
+                            body -> CdsExportNativeLaboratoryMapper.reviewerContent(reviewer, body)));
+        return List.copyOf(changes);
+    }
+
+    /** The NewCategory identity of an imported result's CARLOS inbox comments. */
+    static String importedCommentsId(String result) {
+        return CdsImportKeys.hash("carlos-native-occurrence-v1", "cds_laboratory_result", result);
+    }
+
+    /**
+     * The applied imported results with commented CARLOS inbox routes, from the retained index
+     * (each unit names its structured result and, for a result linked to an HL7 report, that
+     * report) and the captured routes ({@link #routes}).
+     */
+    static List<ImportedComments> importedComments(
+            CdsExportRetainedIndexDto index, Map<String, List<CdsExportCapturedTextRowDto>> routes)
+            throws IOException {
+        var result = new TreeMap<String, ImportedComments>();
+        for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
+            if (!CATEGORY.wireName().equals(unit.fields().get("category"))) continue;
+            String address = unit.fields().get("run_id") + ":" + unit.fields().get("unit_key");
+            if (!index.appliedUnits().contains(address)) continue;
+            String structured = null, lab = null;
+            for (var reference : index.references().getOrDefault(address, List.of())) {
+                if (reference.table().equals("cds_laboratory_result")) structured = reference.id();
+                if (reference.table().equals("hl7TextMessage")) lab = reference.id();
+            }
+            if (structured == null || lab == null) continue;
+            var carried = CdsExportInboxReviewMapper.carried(routes.getOrDefault(lab, List.of()));
+            if (!carried.isEmpty()
+                    && result.putIfAbsent(structured, new ImportedComments(structured, lab, carried))
+                            != null) invalid();
+        }
+        return List.copyOf(result.values());
     }
 
     record NativeSource(

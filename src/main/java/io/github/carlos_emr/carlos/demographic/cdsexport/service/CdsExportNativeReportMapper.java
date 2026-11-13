@@ -410,6 +410,13 @@ public final class CdsExportNativeReportMapper {
     private static void reviewed(CdsExportXmlComposer.ContentWriter xml, Reviewed review)
             throws IOException {
         xml.start("cds", "ReportReviewed");
+        reviewedContent(xml, review);
+        xml.end();
+    }
+
+    /** The content of one ReportReviewed: the provider's public name, OHIP number and date. */
+    static void reviewedContent(CdsExportXmlComposer.ContentWriter xml, Reviewed review)
+            throws IOException {
         xml.start("cds", "Name");
         xml.element("cds_dt", "FirstName", review.provider().firstName());
         xml.element("cds_dt", "LastName", review.provider().lastName());
@@ -418,7 +425,6 @@ public final class CdsExportNativeReportMapper {
             xml.element("cds", "ReviewingOHIPPhysicianId", review.provider().ohipNumber());
         xml.start("cds", "DateTimeReportReviewed");
         CdsExportNativeHistoryXmlWriter.dateContents(xml, review.date());
-        xml.end();
         xml.end();
     }
 

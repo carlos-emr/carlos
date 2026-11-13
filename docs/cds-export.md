@@ -512,10 +512,20 @@ acknowledged route and commented route travels whole in the report's Notes sourc
 times and the comments. A document without such rows has unchanged Notes. An undated review
 record stays in Notes only. The reviewers and routes of a removed document get the same
 `DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART` disposition as the document. On a document
-exported from its import, a CARLOS inbox route is `INBOX_ROUTING_OF_AN_IMPORTED_REPORT`
-(operational) and a review record, like a changed first reviewer (`bind`), holds the patient
-(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`). Every reviewer row belongs to exactly
-one captured document.
+exported from its import, the review and route rows of every document of the unit are decided
+together by the same `report()` mapper (`CdsExportReportOccurrenceService.importedReviews`):
+each dated review becomes a `CdsExportRetainedSectionWriter.Change` that adds
+`ReportReviewed[n]` after the highest imported ordinal (`CdsExportInboxReviewMapper.nextOrdinal`),
+so no imported element is replaced and the receipt's retained fields stay the whole unit. The
+carried rows (`carriedContext`, the same JSON shape as a native report's `reviews`/`reviewers`)
+are added as `Notes[1]` when the unit has no imported Notes. When it has, the Notes element is
+never rewritten: the rows travel in a supplementary Text report ("CARLOS reviews of an imported
+report", identity `importedReviewsId(address)`, fields relocated to `Reports/Content`), which
+the inventory expects for every unit whose retained fields include `Notes[1]` and whose
+documents have a carried row (`CdsExportInboxReviewMapper.carriedByReport`). Notes past 32,000
+characters hold the patient (`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). A changed
+first reviewer (`bind`, written by the document edit page) still changes the imported document
+row and requires review. Every reviewer row belongs to exactly one captured document.
 
 Hospital Report Manager (HRM) reports are exported, not held. Every report linked to the
 selected patient is one CDS 5.2 Reports entry (`CdsExportHospitalReportOccurrenceService`, after
@@ -658,11 +668,13 @@ session renders in its own time zone, so it is captured as the stored instant
 `cds.export.clinicalZone` by the mapper (`CdsExportNativeHistoryMapper.instant`). The database
 or session time zone therefore cannot shift a reviewer time, and a review in the repeated hour
 of a daylight-saving change has one exact answer instead of holding the patient. The carried
-row keeps the instant as Unix seconds; the zero TIMESTAMP (no time recorded) requires review. Routes of an imported (retained) lab are accounted as
-`INBOX_ROUTING_OF_AN_IMPORTED_LABORATORY_RESULT` without holding the patient: the retained
-occurrence is written from the imported elements, which keep the sending EMR's reviewers, and
-cannot gain an element. A comment on such a route holds the patient
-(`CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW`). Every route is owned by exactly one
+row keeps the instant as Unix seconds; the zero TIMESTAMP (no time recorded) requires review. Routes of an imported (retained) lab are decided by
+`laboratory()` like a native report's: each acknowledgement is a `ResultReviewer[n]` added after
+the imported reviewers (`CdsExportLaboratoryOccurrenceService.appendedReviewers`), every imported
+element keeping its bytes, and each commented route travels whole in a NewCategory record
+`CARLOS.ImportedLaboratoryReview.v1` (`importedComments`, identity `importedCommentsId(result)`,
+emitted by `CdsExportNewCategoryOccurrenceService` and expected by the inventory). Such a
+comment without NewCategory selected requests review. Every route is owned by exactly one
 captured report.
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
@@ -1647,8 +1659,13 @@ superseded: each archive row is read and every field receives an explicit operat
 disposition, `SUPERSEDED_APPOINTMENT_VERSION` when the current appointment with the same number
 is captured, otherwise `DELETED_OR_MOVED_APPOINTMENT_VERSION`. Archive rows are never exported,
 never counted as bookings and never hold the patient. A deleted appointment is therefore not
-exported, as the day sheet and the default appointment history do not show it. A deleted or
-aliased imported appointment still requires retained-import review.
+exported, as the day sheet and the default appointment history do not show it. A deleted or cut
+imported appointment is not exported either: its verified receipt shows the row no longer in the
+patient's capture (`ROW_NOT_IN_CAPTURE`) and CARLOS's archive copy proves the removal (its
+version is `DELETED_OR_MOVED_IMPORTED_APPOINTMENT_VERSION`); the unit's retained source fields
+are accounted as removed, and the inventory leaves them out of the expected retained fields.
+Without that archive copy the patient is held (`CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW`).
+An aliased imported appointment still requires retained-import review.
 
 `CdsNativeRowDigest` shares the importer's existing protocol-2 calculation without changing
 its receipt envelope or digest bytes. A frozen independent Python vector and actual-driver
@@ -2032,10 +2049,13 @@ Current edits and clears take effect; unchanged recorded provider and full sourc
 values require separately verified source-field pages. Post-option dates are not shifted again.
 Native patient-display names require an exact captured same-patient join. Storage audit fields
 receive explicit assessments. Unknown clinical extras, program affiliations, source-only
-calendar records, aliases, deletions of imported appointments and merged patients remain review
-gates; native archive versions are superseded history (decision 17, above). A reason-list label
-chosen in CARLOS for an imported appointment whose purpose was not edited requires review,
-because the preserved imported purpose cannot carry the label the schedule shows. All original field IDs are accounted for and the last callback cannot
+calendar records, aliases and merged patients remain review gates; native archive versions are
+superseded history and deleted imported appointments are not exported (decision 17, above). A
+reason-list label chosen in CARLOS for an imported appointment whose purpose was not edited
+prefixes the preserved imported purpose (or the complete source purpose behind the source-view
+marker), as the day sheet shows it (`EXACT_CAPTURED_REASON_CODE_LABEL`,
+`VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL`); over 250 characters it holds
+the patient (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`). All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.
@@ -2638,7 +2658,26 @@ laboratory information. That field now carries only laboratory facts (sub-ID, or
 order number, the complete text of a long result); CARLOS provenance stays in the NewCategory
 residual. A result with no flag is written as the dictionary's Unknown (`U`), and the HL7 flags
 with no CDS equivalent, including HL7 `U` ("significant change up"), are written as plain text.
-A numeric, date or coded value with unexpected components needs review. Focused verification passed
+A numeric, date or coded value with unexpected components needs review. A structured numeric
+(`SN`) is written as its comparator, number, separator and second number (`>60`, `1:20`,
+`>=1.030`), with its unit; the Excelleris titre whose SN separators are themselves escaped
+(`\S\1\S\:\S\20`) gives the same text, and anything else with that type requires review
+(`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`). An embedded document (`ED`, one per
+value repetition) is not a result: the parser keeps it in `Parsed.documents()` and the Reports
+assembler writes it as a Lab Report (`CdsExportLaboratoryDocumentMapper`): ED.5, or the legacy
+OBX-5.1 payload when ED.5 is empty, decoded by ED.4 (A, Base64, Hex) or, undeclared, as strict
+base64 when it decodes to a known signature or document length; raw RTF is a binary `.rtf`;
+anything else, including a declared encoding the payload does not satisfy, is a Text report.
+Bytes are staged as `REPORT_ATTACHMENT` at `Reports/<hash>.<ext>`, declared by their own
+signature; Notes carry the stored accession number and the observation's identification, and the
+report's acknowledgements are its ReportReviewed. The inventory expects one Reports identity per
+document (`hl7TextMessage` + `lab:ordinal`) and requests review when Reports is not selected. A
+time with hour or minute precision (`YYYYMMDDHH[MM]`, with or without an offset) is exported as
+its FullDate; seconds are never invented. An OBR without OBX (a pending, cancelled or fee order)
+adds no observation; a message with no order or not one patient still requires review
+(`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`). An "ORU" message without its R01 trigger cannot be
+parsed by HAPI (`Can't determine message structure`), so no CARLOS handler stored one; the
+parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`). Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.

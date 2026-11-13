@@ -165,10 +165,17 @@ later reviewer, each review record and each provider who acknowledged the docume
 inbox; the same provider reviewing on the same day is written once. The element holds a date
 only, so the exact review times, and every inbox comment on the document, are kept in the
 report's Notes. Unacknowledged and unclaimed inbox routes are not exported. The reviews of a
-deleted document are not exported either, like the document. A review recorded in CARLOS on a
-document that came from an earlier CDS import holds the patient
-(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`), as a changed first reviewer already
-does.
+deleted document are not exported either, like the document. A document that came from an
+earlier CDS import is exported from its imported elements, unchanged; a review recorded in
+CARLOS afterwards (acknowledging it in the inbox, with or without a comment, or a review
+record) is added after the sending EMR's reviewers as one more ReportReviewed. The review rows,
+with their exact times and comments, are added to the report's Notes when the imported report
+has none; when the sending EMR already wrote Notes, which are never rewritten, they travel in a
+separate Text report, "CARLOS reviews of an imported report", beside it. A Notes text over the
+32,000 characters CDS allows holds the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY`). Reviewing an imported document through
+the document's edit page (the first reviewer is stored on the document itself) changes the
+imported document and still holds the patient.
 
 A document restricted to a program is exported when the exporting provider, and the operator
 when one runs the export, both work in that program (are members of it under Program
@@ -270,10 +277,24 @@ waiting in the unclaimed inbox are inbox workflow and are not exported. A route 
 status CARLOS does not write (anything but new, filed, removed, acknowledged or blank) or an
 acknowledgement by a provider number with no provider record holds the patient. A lab that
 came from an earlier CDS import is exported from its imported elements, which keep the
-reviewers the sending EMR recorded; a CARLOS inbox route of such a lab is inbox workflow and
-does not hold the patient, but one carrying a comment does
-(`CDS_EXPORT_IMPORTED_LAB_REVIEW_COMMENT_REQUIRES_REVIEW`), because the imported result has
-no place for it.
+reviewers the sending EMR recorded; a provider who acknowledged it in CARLOS is added after
+them as one more ResultReviewer, and an inbox comment on it travels whole in a NewCategory
+record (`CARLOS.ImportedLaboratoryReview.v1`), so NewCategory must be selected for such a
+chart.
+
+Lab feeds are exported as CARLOS received them. A structured numeric result (such as ">60"
+for eGFR, or a titre "1:20") is the result text with its unit. An embedded document (the PDF
+pathology, cytology and histology reports LifeLabs sends through Excelleris) is a Lab Report
+under Reports, attached as the decoded file, with the report's accession number in its Notes
+and the report's inbox acknowledgements as its reviewers; select Reports with
+LaboratoryResults, or the patient is held. A time the laboratory sent only to the minute or
+hour is exported as its date (CDS requires seconds, which are never invented); the exact time
+is in the NewCategory record. An ordered test with no result yet (a pending, cancelled or fee
+line) adds no result and travels only in that record. A malformed structured numeric still
+holds the patient (`CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW`), as does a result
+with no collection time at all (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`) and a message
+CARLOS's own lab handlers could not have stored (for example "ORU" without its R01 trigger:
+`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
 
 Vaccines export under Immunizations. Prevention screenings (the Screenings types and
 OtherB) export only under PastHealth, so a package without the history categories carries no
@@ -450,6 +471,14 @@ A single chart with more measurements than one export holds
 `cds.export.maxIndexBytes` of captured measurement rows, default and maximum 64 MiB)
 is held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are
 still exported.
+
+An appointment that came from an earlier CDS import and was later deleted, or cut to be
+pasted elsewhere, is not exported, as the day sheet no longer shows it; CARLOS's archive copy of
+the booking is what proves the removal, and a booking that disappeared without one still holds
+the patient (`CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW`). A reason-list item chosen
+later for an imported appointment is written before its imported purpose, as the day sheet
+shows it; a combined purpose over 250 characters holds the patient
+(`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`).
 
 A care value that came from an earlier CDS import and was later deleted in the
 chart holds the patient (`CDS_EXPORT_NATIVE_CARE_IMPORTED_OBSERVATION_DELETED`):

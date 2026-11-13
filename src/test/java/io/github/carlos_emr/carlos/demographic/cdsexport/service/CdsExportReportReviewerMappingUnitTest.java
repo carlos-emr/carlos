@@ -116,21 +116,19 @@ class CdsExportReportReviewerMappingUnitTest {
     }
 
     @Test
-    void shouldAccountTheRoutesOfAnImportedReport_andHoldOneWithAComment() throws Exception {
-        var routes = List.of(route(5, "101", "A", ""), route(6, "0", "N", null));
-        var fields = CdsExportInboxReviewMapper.importedReport(routes);
-        new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(routes, fields, 100000, () -> {});
-        assertThat(fields.values())
-                .allMatch(
-                        field ->
-                                field.outcome() == Outcome.ABSENT
-                                        || field.rule().equals("INBOX_ROUTING_OF_AN_IMPORTED_REPORT"));
-        assertThatThrownBy(
-                        () ->
-                                CdsExportInboxReviewMapper.importedReport(
-                                        List.of(route(7, "101", "A", "Seen"))))
-                .hasMessage("CDS_EXPORT_IMPORTED_REPORT_REVIEW_COMMENT_REQUIRES_REVIEW");
+    void shouldCarryAnAcknowledgementOrComment_butNotUnclaimedWorkflow() {
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(route(5, "101", "A", "")))
+                .isTrue();
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(route(6, "0", "N", null)))
+                .isFalse();
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(route(7, "0", "A", null)))
+                .isFalse();
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(route(8, "102", "N", "Seen")))
+                .isTrue();
+        assertThat(
+                        CdsExportInboxReviewMapper.carriedByReport(
+                                review(9, "101", "2026-03-06 15:30:00")))
+                .isTrue();
     }
 
     @Test

@@ -343,15 +343,17 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                         row.fields()
                                                                                 .get(
                                                                                         "document_no")));
+                        // Reviews recorded in CARLOS on an imported document are mapped too.
+                        boolean reviewing = hasNative || !reviewers.isEmpty();
                         var providers =
-                                hasNative
+                                reviewing
                                         ? new CdsExportPublicProviderReader(captures)
                                                 .read(
                                                         lease, patient, tables, source, bounds,
                                                         control)
                                         : Map.<String, CdsExportCapturedTextRowDto>of();
                         var zone =
-                                hasNative
+                                reviewing
                                         ? new CdsExportClinicalZoneService(captures)
                                                 .read(
                                                         lease,
@@ -422,6 +424,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                             CdsImportKeys.hash(
                                                     "carlos-retained-occurrence-v1", address));
                             var changes = new ArrayList<>(sourceValues.changes());
+                            var unitReviews = new ArrayList<CdsExportCapturedTextRowDto>();
                             for (var variant : sourceValues.variants().values()) {
                                 String expectedFilename =
                                         "cds-"
@@ -488,25 +491,15 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         expectedFilename,
                                         patient.patient());
                                 assess(document, link, assessments);
-                                // The retained report keeps the reviewers the sending EMR
-                                // recorded. A CARLOS inbox route of it is inbox workflow; a
-                                // review recorded in CARLOS after the import, like a changed
-                                // document reviewer (bind), has no place in it.
-                                var imported =
+                                // Reviews and inbox routes recorded in CARLOS after the import,
+                                // decided below for the whole occurrence.
+                                for (var row :
                                         reviewers.getOrDefault(
-                                                Integer.toString(documentId), List.of());
-                                var importedRoutes = new ArrayList<CdsExportCapturedTextRowDto>();
-                                for (var row : imported) {
+                                                Integer.toString(documentId), List.of())) {
                                     if (!reviewed.add(key(row.table(), row.recordKey())))
                                         invalid();
-                                    if (!row.table().equals(CdsExportDocumentRouteSourceReader.TABLE))
-                                        throw new CdsExportMappingReviewException(
-                                                "CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW");
-                                    importedRoutes.add(row);
-                                    nativeRows.add(row);
+                                    unitReviews.add(row);
                                 }
-                                assessments.putAll(
-                                        CdsExportInboxReviewMapper.importedReport(importedRoutes));
                                 assessFile(file, variant.name(), fileAssessments);
                                 if (variant.name().equals("referenced")) {
                                     if (sourceValues.filePath() == null
@@ -564,15 +557,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     content -> content.text(relative)));
                                 }
                             }
-                            new CdsExportNativeFieldAssessmentValidator()
-                                    .requireRepresentable(
-                                            nativeRows,
-                                            assessments,
-                                            1_000_000,
-                                            control::checkpoint);
-                            for (var entry : fileAssessments.entrySet())
-                                if (assessments.putIfAbsent(entry.getKey(), entry.getValue())
-                                        != null) invalid();
                             var fields =
                                     new CdsExportRetainedOccurrenceFields()
                                             .fieldsFor(
@@ -583,6 +567,31 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     checked,
                                                     retained,
                                                     control::checkpoint);
+                            // The retained report keeps the reviewers the sending EMR recorded.
+                            // Each review recorded in CARLOS afterwards (an inbox acknowledgement,
+                            // a review record) is one more ReportReviewed appended after them, so
+                            // every imported element keeps its exact bytes. The review rows travel
+                            // whole, with their exact times and comments, in Notes appended to the
+                            // occurrence, or in a supplementary report when the import already
+                            // wrote Notes.
+                            var supplementary =
+                                    importedReviews(
+                                            unitReviews,
+                                            providers,
+                                            zone,
+                                            fields,
+                                            changes,
+                                            assessments,
+                                            nativeRows);
+                            new CdsExportNativeFieldAssessmentValidator()
+                                    .requireRepresentable(
+                                            nativeRows,
+                                            assessments,
+                                            1_000_000,
+                                            control::checkpoint);
+                            for (var entry : fileAssessments.entrySet())
+                                if (assessments.putIfAbsent(entry.getKey(), entry.getValue())
+                                        != null) invalid();
                             var content =
                                     new CdsExportRetainedSectionWriter()
                                             .prepareChanges(
@@ -607,6 +616,32 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                             control.authorizeCategory(patient.patient(), category(), false);
                             totals[0]++;
                             totals[1] = Math.addExact(totals[1], all.size());
+                            if (supplementary != null) {
+                                var reviewIdentity =
+                                        new CdsExportIdentityDto(
+                                                patientKey,
+                                                category(),
+                                                importedReviewsId(address));
+                                streams.requireActive();
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                xml.emit(
+                                        new CdsExportXmlComposer.Section(
+                                                reviewIdentity,
+                                                body -> writeImportedReviews(supplementary.text(), body)));
+                                output.accept(
+                                        new CdsExportClinicalOccurrenceService.Receipt(
+                                                reviewIdentity,
+                                                index.sourceManifestSha256(),
+                                                "cds_import_unit",
+                                                address.substring(37),
+                                                null,
+                                                supplementary.fields(),
+                                                Set.of(),
+                                                Set.of()));
+                                control.authorizeCategory(patient.patient(), category(), false);
+                                totals[0]++;
+                                totals[2]++;
+                            }
                         }
                         // Every document row no applied import accounts for is a native chart
                         // document. Each is classified as the chart shows it, and mapped, before
@@ -901,6 +936,138 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                     }
             }
         }
+    }
+
+    /** The supplementary record of the reviews of an imported report: its text and fields. */
+    record ImportedReviews(
+            String text, Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        ImportedReviews {
+            fields = Map.copyOf(fields);
+        }
+
+        @Override
+        public String toString() {
+            return "ImportedReviews[protected]";
+        }
+    }
+
+    /** The Reports identity of the supplementary review record of the imported unit at {@code address}. */
+    static String importedReviewsId(String address) {
+        return CdsImportKeys.hash("carlos-native-occurrence-v1", "imported_report_reviews", address);
+    }
+
+    /** Whether the retained fields of an imported report include its own Notes. */
+    static boolean importedNotes(List<CdsExportRetainedFieldDto> fields) throws IOException {
+        return CdsExportInboxReviewMapper.nextOrdinal(fields, CdsCategory.REPORTS, "Notes") > 1;
+    }
+
+    /**
+     * Decides the reviews recorded in CARLOS on the documents of one imported report: appends a
+     * ReportReviewed change for each dated review and puts the rows that travel whole in Notes
+     * appended to the occurrence, or returns them as a supplementary record when the imported
+     * report already has Notes.
+     *
+     * @return the supplementary record, or null when none is needed
+     */
+    static ImportedReviews importedReviews(
+            List<CdsExportCapturedTextRowDto> rows,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            java.time.ZoneId zone,
+            List<CdsExportRetainedFieldDto> fields,
+            List<CdsExportRetainedSectionWriter.Change> changes,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            List<CdsExportCapturedTextRowDto> nativeRows)
+            throws IOException {
+        if (rows.isEmpty()) return null;
+        var reviews =
+                CdsExportInboxReviewMapper.report()
+                        .map(
+                                rows.stream()
+                                        .filter(
+                                                row ->
+                                                        row.table()
+                                                                .equals(
+                                                                        CdsExportDocumentRouteSourceReader
+                                                                                .TABLE))
+                                        .toList(),
+                                rows.stream()
+                                        .filter(
+                                                row ->
+                                                        !row.table()
+                                                                .equals(
+                                                                        CdsExportDocumentRouteSourceReader
+                                                                                .TABLE))
+                                        .toList(),
+                                providers,
+                                zone);
+        nativeRows.addAll(reviews.rows());
+        long next = CdsExportInboxReviewMapper.nextOrdinal(fields, CdsCategory.REPORTS, "ReportReviewed");
+        var written = new HashSet<String>();
+        for (var review : reviews.reviewers()) {
+            var reviewed =
+                    new CdsExportNativeReportMapper.Reviewed(
+                            review.provider(),
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.DATE,
+                                    review.reviewed().lexical().substring(0, 10)));
+            // The element holds a date: the same provider on the same day is written once.
+            if (!written.add(review.providerNo() + "\u0000" + reviewed.date().lexical())) continue;
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "ReportReviewed[" + next++ + "]",
+                            Set.of(),
+                            body -> CdsExportNativeReportMapper.reviewedContent(body, reviewed)));
+        }
+        if (reviews.carried().isEmpty()) {
+            assessments.putAll(reviews.fields());
+            return null;
+        }
+        String context =
+                com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                        .build()
+                        .writeValueAsString(CdsExportInboxReviewMapper.carriedContext(reviews));
+        if (!importedNotes(fields)) {
+            String notes = "[CARLOS reviews recorded after the import]\n" + context;
+            if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
+                throw new CdsExportMappingReviewException(
+                        "CDS_EXPORT_IMPORTED_REPORT_REVIEW_NOTES_CAPACITY");
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "Notes[1]", Set.of(), body -> body.text(notes)));
+            assessments.putAll(reviews.fields());
+            return null;
+        }
+        var relocated =
+                CdsExportInboxReviewMapper.relocated(
+                        reviews.fields(), "Reports/Notes", "Reports/Content");
+        assessments.putAll(relocated);
+        String text =
+                "CARLOS data summary: reviews and inbox comments recorded in CARLOS on a report"
+                        + " from an earlier CDS import. The report itself is exported from its"
+                        + " imported elements.\n"
+                        + context;
+        if (!CdsExportNativeFieldAssessments.legal(text, Integer.MAX_VALUE))
+            throw new CdsExportMappingReviewException(
+                    "CDS_EXPORT_IMPORTED_REPORT_REVIEW_TEXT_REQUIRES_REVIEW");
+        // Every field of every carried row and named provider, in the supplementary record.
+        return new ImportedReviews(text, relocated);
+    }
+
+    /** The supplementary text report of the reviews of an imported report. */
+    private static void writeImportedReviews(String text, CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.element("cds", "Format", "Text");
+        xml.element("cds", "FileExtensionAndVersion", "txt");
+        xml.start("cds", "Content");
+        xml.element("cds_dt", "TextContent", text);
+        xml.end();
+        xml.element("cds", "Class", "Medical Records Report");
+        xml.element("cds", "SubClass", "CARLOS reviews of an imported report");
+        xml.element(
+                "cds",
+                "Notes",
+                "CARLOS data summary: the report these reviews belong to is the imported report"
+                        + " exported beside this one.");
     }
 
     /**
