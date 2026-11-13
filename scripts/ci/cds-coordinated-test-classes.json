@@ -34,6 +34,7 @@
   "CdsExportRourkeChartComposerUnitTest",
   "CdsExportScreeningMapperUnitTest",
   "CdsExportScreeningOccurrenceServiceUnitTest",
+  "CdsNativeBaselineFieldPageMariaDbIntegrationTest",
   "CdsSourceFieldPresenceIntegrationTest",
   "CdsSourceFieldPresenceResolverUnitTest",
   "io.github.carlos_emr.carlos.PMmodule.dao.CdsProviderCharsetCacheUnitTest",

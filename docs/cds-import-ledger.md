@@ -42,6 +42,13 @@ import writes, restores prior session settings before pooled reuse, and fences e
 write against the current maintenance owner. See the maintenance contract for ordinary JDBC,
 background-writer exclusion, lost-owner behavior and deployment prerequisites.
 
+The sealed native-baseline witness is read back with limits derived from the witness the
+importer can write, not from a generic default: the envelope admits the Base64 text of the
+largest plaintext witness (`CdsNativeBaselineCodec.MAX_BYTES`, sized for 192 rows of the widest
+native table at the column and cell bounds) at nesting depth 1, and the decrypted document admits
+the six nesting levels and 128-character strings its row, column and cell records can contain.
+Anything larger or deeper is still refused.
+
 The checkpoint is an acknowledgement of a known atomic unit. An exception after an owning
 commit can mean `UNIT_COMMIT_OUTCOME_UNKNOWN`; it does not mean that the unit rolled back.
 A successor verifies the durable checkpoint and exact native receipt before continuing. It

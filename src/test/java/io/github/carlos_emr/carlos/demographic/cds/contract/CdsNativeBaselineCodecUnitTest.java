@@ -336,6 +336,282 @@ class CdsNativeBaselineCodecUnitTest {
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void shouldSealAndOpenEveryFieldPageWitness_ofTheFullAllCategoriesFixture() throws Exception {
+        // P1 regression: the stored envelope was read with the document's 65,536-character string
+        // bound, so a witness over about 48 KiB (a Demographics field page of an ordinary chart)
+        // could be sealed but not opened, and every such import stopped with
+        // NATIVE_BASELINE_REQUIRES_REVIEW. Each 32-field page of the unmodified fixture becomes the
+        // cds_import_field rows the importer writes, sealed and opened as the unit commit does.
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        var folder = java.nio.file.Files.createTempDirectory("cds-baseline-fixture-");
+        try {
+            var file = folder.resolve("patient.xml");
+            try (var input =
+                    getClass().getResourceAsStream("/demographic/cds-import-all-categories.xml")) {
+                java.nio.file.Files.copy(java.util.Objects.requireNonNull(input), file);
+            }
+            var records =
+                    new ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+            new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsXmlParser()
+                    .parse(
+                            file,
+                            folder.resolve("parsed"),
+                            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto
+                                    .defaults(),
+                            () -> false,
+                            records::add);
+            var parser = new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser();
+            int pages = 0, largest = 0;
+            boolean demographics = false;
+            for (var record : records) {
+                var slices =
+                        new ArrayList<io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto>();
+                parser.forEachPage(record, 32, slices::add);
+                for (var page : slices) {
+                    var rows = new ArrayList<CdsNativeRowState>();
+                    parser.forEachField(
+                            page,
+                            field -> {
+                                try {
+                                    rows.add(fieldRow(rows.size(), record, page, parser, field));
+                                } catch (Exception failed) {
+                                    throw new IllegalStateException(failed);
+                                }
+                            });
+                    String references = receipt(rows);
+                    String sealed =
+                            CdsNativeBaselineCodec.seal(references, sha(references), rows, keys);
+                    assertThat(
+                                    CdsNativeBaselineCodec.unseal(
+                                                    sealed, references, sha(references), keys)
+                                            .rows())
+                            .containsExactlyElementsOf(rows);
+                    largest = Math.max(largest, sealed.length());
+                    demographics |= record.section().equals("Demographics") && rows.size() == 32;
+                    pages++;
+                }
+            }
+            assertThat(pages).isGreaterThan(records.size());
+            assertThat(demographics).isTrue();
+            // The fixture's largest page is beyond the bound that refused it.
+            assertThat(largest).isGreaterThan(65_536);
+        } finally {
+            try (var paths = java.nio.file.Files.walk(folder)) {
+                for (var path : paths.sorted(java.util.Comparator.reverseOrder()).toList())
+                    java.nio.file.Files.delete(path);
+            }
+        }
+    }
+
+    @Test
+    void shouldSealAndOpenTheImportersLargestWitness_atTheDocumentAndEnvelopeMaxima()
+            throws Exception {
+        // 192 rows (the receipt reference bound) of the widest target table (drugs, 65 columns),
+        // every column and cell at its validated maximum, the deepest cells holding exact
+        // numeric witnesses (the six-level nesting bound).
+        var rows = new ArrayList<CdsNativeRowState>();
+        for (int row = 0; row < 192; row++) rows.add(widest(row, 65));
+        String references = receipt(rows);
+        assertThat(references.length()).isLessThanOrEqualTo(65_536);
+        String document = CdsNativeBaselineCodec.encode(references, sha(references), rows);
+        assertThat(document.length())
+                .isGreaterThan(5 << 20)
+                .isLessThanOrEqualTo(CdsNativeBaselineCodec.MAX_BYTES);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        String sealed = CdsNativeBaselineCodec.seal(references, sha(references), rows, keys);
+        assertThat(sealed.length()).isLessThanOrEqualTo(CdsNativeBaselineCodec.MAX_SEALED_BYTES);
+        assertThat(
+                        CdsNativeBaselineCodec.unseal(sealed, references, sha(references), keys)
+                                .rows())
+                .containsExactlyElementsOf(rows);
+        // The envelope bound admits exactly the Base64 of a MAX_BYTES document and its tag.
+        assertThat(CdsNativeBaselineCodec.MAX_SEALED_TEXT)
+                .isEqualTo(
+                        java.util.Base64.getEncoder()
+                                .encodeToString(new byte[CdsNativeBaselineCodec.MAX_BYTES + 16])
+                                .length())
+                .isLessThan(CdsNativeBaselineCodec.MAX_SEALED_BYTES - 256);
+        // A wider row set than any target table is refused when it is encoded, never truncated.
+        var oversized = new ArrayList<CdsNativeRowState>();
+        for (int row = 0; row < 192; row++) oversized.add(widest(row, 100));
+        String wide = receipt(oversized);
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.encode(wide, sha(wide), oversized))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldStillRefuseOversizedOrDeeperEnvelopesAndDocuments_beyondTheirDerivedBounds()
+            throws Exception {
+        var row = vector();
+        String references = receipt(row, false), digest = sha(references);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        String sealed = CdsNativeBaselineCodec.seal(references, digest, List.of(row), keys);
+        var envelope =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        new com.fasterxml.jackson.databind.ObjectMapper().readTree(sealed);
+        var overlong = envelope.deepCopy();
+        overlong.put("sealed", "A".repeat(CdsNativeBaselineCodec.MAX_SEALED_TEXT + 4));
+        assertThatThrownBy(
+                        () ->
+                                CdsNativeBaselineCodec.unseal(
+                                        overlong.toString(), references, digest, keys))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        var nested = envelope.deepCopy();
+        nested.putObject("keyId").put("id", "test-active");
+        assertThatThrownBy(
+                        () -> CdsNativeBaselineCodec.unseal(nested.toString(), references, digest, keys))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        String document = CdsNativeBaselineCodec.encode(references, digest, List.of(row));
+        String longText = document.replace("\"absent\"", "\"" + "x".repeat(129) + "\"");
+        assertThatThrownBy(() -> CdsNativeBaselineCodec.decode(longText, references, digest))
+                .isInstanceOf(com.fasterxml.jackson.core.exc.StreamConstraintsException.class);
+        var tree =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        new com.fasterxml.jackson.databind.ObjectMapper().readTree(document);
+        ((com.fasterxml.jackson.databind.node.ObjectNode)
+                        tree.withArray("rows").get(0).withArray("cells").get(0))
+                .putObject("exactNumeric")
+                .putObject("codec")
+                .put("deeper", "IEEE754_BINARY64_V1");
+        assertThatThrownBy(
+                        () -> CdsNativeBaselineCodec.decode(tree.toString(), references, digest))
+                .isInstanceOf(com.fasterxml.jackson.core.exc.StreamConstraintsException.class);
+    }
+
+    /** One row of the widest receipt target at every validated column and cell maximum. */
+    private static CdsNativeRowState widest(int row, int width) {
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (int i = 0; i < width; i++) {
+            boolean exact = i == 0;
+            String name = String.format("%03d", i) + "n".repeat(125);
+            columns.add(
+                    new CdsNativeRowDigest.Column(
+                            name,
+                            exact ? "DOUBLE" : "T".repeat(128),
+                            Integer.MAX_VALUE,
+                            Integer.MAX_VALUE));
+            cells.add(
+                    new CdsNativeRowState.Cell(
+                            false,
+                            Long.MAX_VALUE,
+                            "f".repeat(64),
+                            exact
+                                    ? new CdsExactNumeric.Witness(
+                                            CdsExactNumeric.Codec.IEEE754_BINARY64_V1,
+                                            "e".repeat(64))
+                                    : null));
+        }
+        return new CdsNativeRowState(
+                "t".repeat(64), String.format("%064d", row), columns, cells);
+    }
+
+    /**
+     * The cds_import_field row CdsSourceFieldService writes for one source field, as the MariaDB
+     * receipt reader reports its physical columns.
+     */
+    private static CdsNativeRowState fieldRow(
+            int index,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto record,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto page,
+            io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser parser,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsFieldDto field)
+            throws Exception {
+        String text = field.kind().equals("BINARY") ? null : parser.readText(page, field, 32768);
+        String logical =
+                field.kind().equals("BINARY") ? null : parser.readLogicalText(page, field, 65536);
+        String id = String.format("%064x", (long) record.ordinal() * 100_000 + index);
+        var values = new java.util.LinkedHashMap<String, String>();
+        values.put("source_namespace", field.namespace());
+        values.put("id", id);
+        values.put("run_id", "11111111-1111-4111-8111-111111111111");
+        values.put("patient_key", "b".repeat(64));
+        values.put("unit_key", "c".repeat(64));
+        values.put("demographic_no", "27");
+        values.put("category", record.section());
+        values.put(
+                "source_path",
+                page.sourceXPath() + (field.path().isEmpty() ? "" : "/" + field.path()));
+        values.put("occurrence", Long.toString(page.ordinal()));
+        values.put("value_type", field.schemaType().isBlank() ? field.kind() : field.schemaType());
+        values.put("date_precision", null);
+        values.put("original_value", text);
+        values.put("normalized_value", logical);
+        values.put("payload_location", text == null ? "/var/lib/carlos-emr/values.bin" : null);
+        values.put("payload_digest", text == null ? field.sha256() : null);
+        values.put("payload_offset", text == null ? Long.toString(field.offset()) : "0");
+        values.put("payload_length", text == null ? Long.toString(field.length()) : "0");
+        var types =
+                java.util.Map.ofEntries(
+                        java.util.Map.entry("source_namespace", new Object[] {"VARCHAR", 250}),
+                        java.util.Map.entry("id", new Object[] {"VARCHAR", 64}),
+                        java.util.Map.entry("run_id", new Object[] {"VARCHAR", 36}),
+                        java.util.Map.entry("patient_key", new Object[] {"VARCHAR", 64}),
+                        java.util.Map.entry("unit_key", new Object[] {"VARCHAR", 64}),
+                        java.util.Map.entry("demographic_no", new Object[] {"INTEGER", 11}),
+                        java.util.Map.entry("category", new Object[] {"VARCHAR", 64}),
+                        java.util.Map.entry("source_path", new Object[] {"VARCHAR", 2048}),
+                        java.util.Map.entry("occurrence", new Object[] {"BIGINT", 20}),
+                        java.util.Map.entry("value_type", new Object[] {"VARCHAR", 4608}),
+                        java.util.Map.entry("date_precision", new Object[] {"VARCHAR", 32}),
+                        java.util.Map.entry("original_value", new Object[] {"LONGTEXT", -1}),
+                        java.util.Map.entry("normalized_value", new Object[] {"LONGTEXT", -1}),
+                        java.util.Map.entry("payload_location", new Object[] {"VARCHAR", 1024}),
+                        java.util.Map.entry("payload_digest", new Object[] {"VARCHAR", 64}),
+                        java.util.Map.entry("payload_offset", new Object[] {"BIGINT", 20}),
+                        java.util.Map.entry("payload_length", new Object[] {"BIGINT", 20}));
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (var entry : values.entrySet()) {
+            var type = types.get(entry.getKey());
+            int precision = (Integer) type[1];
+            columns.add(
+                    new CdsNativeRowDigest.Column(
+                            entry.getKey(),
+                            (String) type[0],
+                            precision < 0 ? Integer.MAX_VALUE : precision,
+                            0));
+            String value = entry.getValue();
+            byte[] bytes = value == null ? null : value.getBytes(StandardCharsets.UTF_8);
+            cells.add(
+                    value == null
+                            ? new CdsNativeRowState.Cell(true, 0, null)
+                            : new CdsNativeRowState.Cell(
+                                    false,
+                                    bytes.length,
+                                    HexFormat.of()
+                                            .formatHex(
+                                                    MessageDigest.getInstance("SHA-256")
+                                                            .digest(bytes))));
+        }
+        return new CdsNativeRowState("cds_import_field", id, columns, cells);
+    }
+
+    private static String receipt(List<CdsNativeRowState> rows) {
+        var refs = new StringBuilder();
+        for (var row : rows) {
+            if (refs.length() > 0) refs.append(',');
+            refs.append("{\"table\":\"")
+                    .append(row.table())
+                    .append("\",\"id\":\"")
+                    .append(row.id())
+                    .append("\",\"digest\":\"")
+                    .append(row.digest())
+                    .append("\"}");
+        }
+        return "{\"protocol\":2,\"refs\":[" + refs + "]}";
+    }
+
     private static CdsNativeRowState vector() {
         var columns =
                 List.of(

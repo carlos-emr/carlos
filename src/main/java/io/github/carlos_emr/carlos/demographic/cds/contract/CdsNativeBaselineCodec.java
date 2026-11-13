@@ -49,10 +49,42 @@ import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKey
  * only in memory (for example in an export's retained index after unsealing).
  */
 public final class CdsNativeBaselineCodec {
+    /**
+     * The plaintext witness document bound. The importer's worst case is 192 referenced rows
+     * ({@code CdsTargetReceiptService}) of its widest target table ({@code drugs}, 65 columns),
+     * each column at the {@link CdsNativeRowDigest.Column} maxima (128-character name and type,
+     * ten-digit precision and scale) and each cell at the {@link CdsNativeRowState.Cell} maxima
+     * (19-digit length, digest): about 5.5 MiB. A larger document is refused when it is encoded.
+     */
     public static final int MAX_BYTES = 8 << 20;
 
     /** Base64 of an at-most-8-MiB document plus its envelope fields. */
     public static final int MAX_SEALED_BYTES = 12 << 20;
+
+    /** The AES-GCM authentication tag appended to every sealed document. */
+    private static final int GCM_TAG_BYTES = 16;
+
+    /**
+     * The longest string of a stored envelope: the Base64 of a {@link #MAX_BYTES} document and its
+     * GCM tag. The envelope's other strings (key ID, nonce) are far shorter.
+     */
+    static final int MAX_SEALED_TEXT = 4 * ((MAX_BYTES + GCM_TAG_BYTES + 2) / 3);
+
+    /**
+     * The longest string of a witness document or of the protocol-2 receipt it is bound to: a
+     * column name or SQL type ({@link CdsNativeRowDigest.Column}, 128 characters). Table names,
+     * row IDs and digests are at most 64.
+     */
+    static final int MAX_DOCUMENT_TEXT = 128;
+
+    /**
+     * The deepest witness document: document, rows, row, cells, cell, exact-numeric witness. A
+     * receipt (document, refs, ref) is shallower.
+     */
+    static final int MAX_DOCUMENT_DEPTH = 6;
+
+    /** The stored envelope is one flat object. */
+    private static final int MAX_ENVELOPE_DEPTH = 1;
 
     private static final String SEALED_DOMAIN = "carlos-cds-native-baseline-v3";
     private static final java.security.SecureRandom NONCES = new java.security.SecureRandom();
@@ -64,25 +96,36 @@ public final class CdsNativeBaselineCodec {
             return "CdsNativeBaselineCodec.Envelope[protected]";
         }
     }
-    private static final JsonMapper JSON =
-            JsonMapper.builder(
-                            com.fasterxml.jackson.core.JsonFactory.builder()
-                                    .enable(
-                                            com.fasterxml.jackson.core.StreamReadFeature
-                                                    .STRICT_DUPLICATE_DETECTION)
-                                    .streamReadConstraints(
-                                            com.fasterxml.jackson.core.StreamReadConstraints
-                                                    .builder()
-                                                    .maxNestingDepth(16)
-                                                    .maxStringLength(65_536)
-                                                    .maxNumberLength(20)
-                                                    .build())
-                                    .build())
-                    .disable(com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS)
-                    .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
-                    .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
-                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
-                    .build();
+    /** Witness documents and their receipts: short strings, bounded nesting. */
+    private static final JsonMapper JSON = mapper(MAX_DOCUMENT_DEPTH, MAX_DOCUMENT_TEXT);
+
+    /**
+     * Stored envelopes, whose {@code sealed} member is the whole Base64 document. Reading an
+     * envelope with the document limits refused every witness over about 48 KiB (a Demographics
+     * field page of a realistic chart), so the importer stopped with
+     * NATIVE_BASELINE_REQUIRES_REVIEW on the witness it had just sealed.
+     */
+    private static final JsonMapper ENVELOPE = mapper(MAX_ENVELOPE_DEPTH, MAX_SEALED_TEXT);
+
+    private static JsonMapper mapper(int depth, int text) {
+        return JsonMapper.builder(
+                        com.fasterxml.jackson.core.JsonFactory.builder()
+                                .enable(
+                                        com.fasterxml.jackson.core.StreamReadFeature
+                                                .STRICT_DUPLICATE_DETECTION)
+                                .streamReadConstraints(
+                                        com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                                                .maxNestingDepth(depth)
+                                                .maxStringLength(text)
+                                                .maxNumberLength(20)
+                                                .build())
+                                .build())
+                .disable(com.fasterxml.jackson.databind.MapperFeature.ALLOW_COERCION_OF_SCALARS)
+                .enable(DeserializationFeature.FAIL_ON_MISSING_CREATOR_PROPERTIES)
+                .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .build();
+    }
 
     public record Document(int protocol, String targetDigest, List<CdsNativeRowState> rows) {
         public Document {
@@ -169,7 +212,7 @@ public final class CdsNativeBaselineCodec {
         }
         var encoder = java.util.Base64.getEncoder();
         String encoded =
-                JSON.writeValueAsString(
+                ENVELOPE.writeValueAsString(
                         new Envelope(
                                 3,
                                 keyId,
@@ -199,7 +242,14 @@ public final class CdsNativeBaselineCodec {
                 || stored.length() > MAX_SEALED_BYTES
                 || targetDigest == null
                 || !targetDigest.matches("[0-9a-f]{64}")) invalid();
-        JsonNode tree = JSON.readTree(stored);
+        JsonNode tree;
+        try {
+            tree = ENVELOPE.readTree(stored);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+            // Not one flat envelope within its bounds (an unsealed document included): a stored
+            // witness that cannot be trusted, not an I/O failure.
+            throw new IllegalArgumentException("CDS_NATIVE_BASELINE_REQUIRES_REVIEW");
+        }
         // An unsealed (protocol 1 or 2) document is refused: no released build stored one,
         // and accepting it would let a database writer replace a sealed witness unnoticed.
         exact(tree, Set.of("protocol", "keyId", "nonce", "sealed"));
