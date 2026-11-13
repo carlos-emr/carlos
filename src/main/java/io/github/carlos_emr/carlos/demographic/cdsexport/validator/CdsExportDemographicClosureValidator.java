@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.validator;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicRetainedCoreReconciler;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeFieldAssessmentValidator;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
@@ -53,9 +54,12 @@ public final class CdsExportDemographicClosureValidator {
                 || expectedSourceFields.isEmpty() || expectedSourceFields.size() > 65536
                 || expectedSourceFields.stream().anyMatch(id -> id == null || !id.matches("[0-9a-f]{64}"))) scope();
         if (!actual.deferredNativeFields().isEmpty() || !actual.deferredSourceFields().isEmpty()
-                || !actual.decidedSourceFields().equals(expectedSourceFields) || !actual.blockers().isEmpty()) scope();
+                || !actual.decidedSourceFields().equals(expectedSourceFields)) scope();
         var receipt = new CdsExportNativeFieldAssessmentValidator().validate(expectedRows, actual.fields(), maximumFields, checkpoint);
-        if (!receipt.representable()) throw new IOException("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_REQUIRES_REVIEW");
+        // A chart-level review (a field that needs review or a reconciliation blocker) holds this
+        // patient only; a missing or substituted decision above remains a job-level fault.
+        if (!receipt.representable() || !actual.blockers().isEmpty())
+            throw new CdsExportMappingReviewException("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_REQUIRES_REVIEW");
         var changeSources = new HashSet<String>();
         for (var change : actual.coreChanges()) {
             checkpoint.run();

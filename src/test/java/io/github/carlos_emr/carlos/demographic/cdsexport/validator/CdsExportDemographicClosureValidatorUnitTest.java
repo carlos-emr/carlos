@@ -64,7 +64,19 @@ class CdsExportDemographicClosureValidatorUnitTest {
     @Test void shouldRefuseAReviewDecision_withoutReturningAClosureReceipt() {
         var blocked = new CdsExportFieldAssessmentDto(CdsExportFieldAssessmentDto.Presence.VALUE, CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW, "", "UNMAPPED");
         var result = result(Map.of(KEY, blocked), Set.of(), Set.of(), Set.of(SOURCE), List.of());
-        assertThatThrownBy(() -> validator.validate(HASH, rows, Set.of(SOURCE), result, 100, () -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_REQUIRES_REVIEW");
+        // A chart-level review is a mapping review, which the package service holds for this patient only.
+        assertThatThrownBy(() -> validator.validate(HASH, rows, Set.of(SOURCE), result, 100, () -> {}))
+                .isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_REQUIRES_REVIEW");
+    }
+    @Test void shouldHoldTheChartForAReconciliationBlocker_insteadOfFailingTheJob() {
+        // An imported chart whose current enrolment overlaps its history used to end the whole job as an
+        // I/O failure; a blocker is a chart-level review, so only this patient is held.
+        var result = new CdsExportDemographicRetainedCoreReconciler.Result(HASH, "parent", Set.of(SOURCE), Set.of(), Map.of(KEY, MAPPED),
+                Set.of(), Set.of("OVERLAPPING_OR_UNCLOSED_ENROLMENT_REQUIRES_REVIEW"), List.of());
+        var refused = org.assertj.core.api.Assertions.catchThrowable(() -> validator.validate(HASH, rows, Set.of(SOURCE), result, 100, () -> {}));
+        assertThat(refused).isInstanceOf(io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_CLOSURE_REQUIRES_REVIEW");
     }
     @Test void shouldRefuseDuplicateSourceReplacementClaims_betweenXmlChanges() {
         var change = new CdsExportRetainedSectionWriter.Change("Names[1]", Set.of(SOURCE), xml -> {});
