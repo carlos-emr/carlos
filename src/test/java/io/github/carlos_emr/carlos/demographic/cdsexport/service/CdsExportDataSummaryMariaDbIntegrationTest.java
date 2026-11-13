@@ -74,7 +74,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  * them, now passes the source gate; every data-summary table is captured from the pinned physical
  * contract into the authenticated capture, grouped into records, rendered to validated PDFs and
  * emitted as schema-valid Reports with every field assessed; the removed-feature rows are counted
- * for the ReadMe.
+ * for the ReadMe. A chart of an installation upgraded from an older OSCAR release (eChart,
+ * immunization schedule, relationships, MDS and CML lab reports, requisition link, program
+ * admission narrative) is exported the same way instead of being held.
  */
 @Tag("integration")
 @Tag("cds-export")
@@ -322,7 +324,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                                                 catalogue.readSourceSchema();
                                                 // The chart is no longer refused at the source gate.
                                                 catalogue.requireUnclassifiedSourcesEmpty(patient, () -> {});
-                                                return captureInside();
+                                                return captureInside(patient);
                                             } catch (java.io.IOException failed) {
                                                 throw new java.io.UncheckedIOException(failed);
                                             }
@@ -330,7 +332,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         return result[0];
     }
 
-    private Captured captureInside() throws java.io.IOException {
+    private Captured captureInside(int chart) throws java.io.IOException {
         var readers = new TreeMap<String, CdsExportNativeSourceReader>();
         for (var reader : CdsExportDataSummarySourceReader.readers(summaries))
             readers.put(reader.table(), reader);
@@ -340,7 +342,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         for (var reader : readers.values()) {
             String digest = validator.verify(reader.table(), reader.schema(), reader.columns());
             assertThat(validator.acceptedSha256(reader.table(), reader.columns())).contains(digest);
-            long rows = reader.count(patient);
+            long rows = reader.count(chart);
             reader.requireCapacity(rows, 1_000_000);
             plan.put(reader.table(), new CdsExportNativeCaptureReader.Table(reader.columns(), rows));
         }
@@ -357,7 +359,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                         writer -> {
                             for (var reader : readers.values()) {
                                 writer.beginTable(reader.table(), reader.columns(), plan.get(reader.table()).rows());
-                                reader.capture(patient, writer, () -> {});
+                                reader.capture(chart, writer, () -> {});
                                 writer.endTable();
                             }
                         });
@@ -372,7 +374,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                         () -> {},
                         collector);
         collector.finish();
-        var listed = summaries.listed(patient, () -> {});
+        var listed = summaries.listed(chart, () -> {});
         var clinic = summaries.listedClinicSources();
         return new Captured(collector.rows(), listed, clinic);
     }
@@ -435,8 +437,19 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         assertThat(photo.rows().getFirst().values().get("contents").content())
                 .isEqualTo(Base64.getEncoder().encode(PNG));
 
-        // Every record renders to a validated PDF and is a schema-valid Reports entry whose every
-        // captured field is assessed.
+        assertThat(emit(groups)).isEqualTo((long) groups.size());
+
+        // The removed-feature record is listed for this chart and never refused; the unlinked one
+        // is listed for the whole job.
+        assertThat(captured.listed()).contains(new CdsExportListedSourceDto("CdsHospitalisationDays", 1));
+        assertThat(captured.clinic()).anySatisfy(listed -> assertThat(listed.table()).isEqualTo("DrugProduct"));
+    }
+
+    /**
+     * Renders every record to a validated PDF and composes it as a Reports entry whose every
+     * captured field is assessed; returns the Reports count of the schema-valid patient file.
+     */
+    private long emit(List<Group> groups) throws Exception {
         var pdfs = new CdsExportDataSummaryPdfService(HtmlPdfTestServices.newService());
         var header =
                 CdsExportDataSummaryHtmlComposer.Patient.of(
@@ -501,11 +514,221 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                                 CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
-        assertThat(checked.occurrences().get(CdsCategory.REPORTS)).isEqualTo((long) groups.size());
+        return checked.occurrences().get(CdsCategory.REPORTS);
+    }
 
-        // The removed-feature record is listed for this chart and never refused; the unlinked one
-        // is listed for the whole job.
-        assertThat(captured.listed()).contains(new CdsExportListedSourceDto("CdsHospitalisationDays", 1));
-        assertThat(captured.clinic()).anySatisfy(listed -> assertThat(listed.table()).isEqualTo("DrugProduct"));
+    /**
+     * An Ontario chart of an installation upgraded from an older OSCAR release: two saved eChart
+     * revisions, the encounter immunization schedule with an archived revision, a patient
+     * relationship and its inverse, an MDS lab report with keyless segments (two identical
+     * results), a CML report with its upload header, test lines and requisition link, and a
+     * program admission with a discharge narrative beside one without.
+     */
+    private void legacyChart() {
+        int other = patient + 1;
+        sql.update(
+                "insert into eChart(demographicNo,providerNo,subject,socialHistory,familyHistory,"
+                        + "medicalHistory,ongoingConcerns,reminders,encounter,timeStamp)"
+                        + " values(?,'999998','',?,?,?,?,?,?,'2004-03-02 10:00:00')",
+                patient,
+                "Smoker 😀",
+                "Mother: diabetes",
+                "Appendectomy 1990",
+                "Hypertension",
+                "Flu shot in fall",
+                "[02-Mar-2004 .: annual] BP 150/95");
+        sql.update(
+                "insert into eChart(demographicNo,providerNo,subject,encounter,timeStamp)"
+                        + " values(?,'999998','SPLIT CHART',?,'2005-07-08 11:00:00')",
+                patient,
+                LONG_TEXT);
+        sql.update(
+                "insert into immunizations(demographic_no,provider_no,immunizations,save_date,archived)"
+                        + " values(?,'999998','<immunizationSet/>','2003-01-01',1),"
+                        + "(?,'999998','<immunizationSet><row given=\"2003-02-03\"/></immunizationSet>','2003-02-03',0)",
+                patient,
+                patient);
+        sql.update(
+                "insert into relationships(facility_id,demographic_no,relation_demographic_no,relation,"
+                        + "sub_decision_maker,emergency_contact,notes,creator,creation_date,deleted)"
+                        + " values(0,?,?,'Mother','1','1','Call after 5','999998','2006-01-02 03:04:05','0'),"
+                        + "(0,?,?,'Son','0','0','inverse row','999998','2006-01-02 03:04:05','0')",
+                patient,
+                other,
+                other,
+                patient);
+        // MDS: the route names the chart; the header's demographic_no copy names another one.
+        sql.update(
+                "insert into mdsMSH(segmentID,sendingApp,dateTime,type,demographic_no)"
+                        + " values(?,'MDS','2002-04-05 06:07:08','ORU^R01',?)",
+                patient,
+                other);
+        sql.update("insert into mdsPID(segmentID,patientName,healthNumber) values(?,'SYNTHETIC^LEGACY','0000000000')", patient);
+        sql.update("insert into mdsOBR(segmentID,obrID,universalServiceID) values(?,1,'CBC')", patient);
+        sql.update(
+                "insert into mdsOBX(segmentID,obxID,observationIden,observationValue,associatedOBR)"
+                        + " values(?,1,'HGB','140',1),(?,1,'HGB','140',1),(?,2,'WBC',NULL,1)",
+                patient,
+                patient,
+                patient);
+        sql.update("insert into mdsNTE(segmentID,sourceOfComment,comment,associatedOBX) values(?,'L','Fasting',1)", patient);
+        sql.update("insert into mdsZRG(segmentID,reportGroupDesc) values(?,'HEMATOLOGY')", patient);
+        // CML: one upload header, one report routed to the chart, two test lines.
+        sql.update(
+                "insert into labReportInformation(id,location_id,print_date,print_time) values(?,'CML','20020405','0607')",
+                patient);
+        sql.update(
+                "insert into labPatientPhysicianInfo(id,labReportInfo_id,accession_num,service_date,"
+                        + "patient_last_name,patient_first_name,lastUpdateDate)"
+                        + " values(?,?,'A1','20020405','LEGACY','SYNTHETIC',now())",
+                patient,
+                patient);
+        sql.update(
+                "insert into labTestResults(id,labPatientPhysicianInfo_id,line_type,test_name,result,units)"
+                        + " values(?,?,'C','Glucose','5.1','mmol/L'),(?,?,'D',NULL,NULL,NULL)",
+                patient,
+                patient,
+                patient + 1,
+                patient);
+        sql.update(
+                "insert into patientLabRouting(lab_no,lab_type,demographic_no,created)"
+                        + " values(?,'MDS',?,now()),(?,'CML',?,now())",
+                patient,
+                patient,
+                patient,
+                patient);
+        // The requisition link of the CML report, and one whose table differs only by case.
+        sql.update(
+                "insert into labRequestReportLink(id,request_table,request_id,request_date,report_table,report_id)"
+                        + " values(?,'formLabReq10',1,'2002-04-01 00:00:00','labPatientPhysicianInfo',?),"
+                        + "(?,'formLabReq10',1,'2002-04-01 00:00:00','labpatientphysicianinfo',?)",
+                patient,
+                patient,
+                patient + 1,
+                patient);
+        // A discharge narrative is clinical; a bare membership row is not a record.
+        sql.update(
+                "insert into admission(am_id,client_id,program_id,provider_no,admission_date,"
+                        + "admission_from_transfer,discharge_date,discharge_from_transfer,discharge_notes,"
+                        + "admission_status,radioDischargeReason,lastUpdateDate)"
+                        + " values(?,?,0,'999998','2010-01-01 09:00:00',0,'2010-02-01 09:00:00',0,"
+                        + "'Discharged home, follow up in clinic','discharged',NULL,now()),"
+                        + "(?,?,0,'999998','2011-01-01 09:00:00',0,NULL,0,NULL,'current',NULL,now())",
+                patient,
+                patient,
+                patient + 1,
+                patient);
+    }
+
+    private void cleanupLegacy() {
+        sql.update("delete from eChart where demographicNo=?", patient);
+        sql.update("delete from immunizations where demographic_no=?", patient);
+        sql.update("delete from relationships where demographic_no in (?,?)", patient, patient + 1);
+        for (String table :
+                List.of("mdsMSH", "mdsPID", "mdsOBR", "mdsOBX", "mdsNTE", "mdsZRG"))
+            sql.update("delete from " + table + " where segmentID=?", patient);
+        sql.update("delete from labTestResults where labPatientPhysicianInfo_id=?", patient);
+        sql.update("delete from labPatientPhysicianInfo where id=?", patient);
+        sql.update("delete from labReportInformation where id=?", patient);
+        sql.update("delete from labRequestReportLink where id in (?,?)", patient, patient + 1);
+        sql.update("delete from patientLabRouting where lab_no=? and demographic_no=?", patient, patient);
+        sql.update("delete from admission where am_id in (?,?)", patient, patient + 1);
+    }
+
+    @Test
+    void shouldExportAnUpgradedInstallationsLegacyRecords_asDataSummaryReportsInsteadOfHolding()
+            throws Exception {
+        try {
+            legacyChart();
+            var captured = capture();
+            var groups = CdsExportDataSummaryPlanner.plan(captured.rows(), ZoneId.of("America/Toronto"));
+            var byKind = new LinkedHashMap<Kind, List<Group>>();
+            for (var group : groups) byKind.computeIfAbsent(group.kind(), k -> new ArrayList<>()).add(group);
+            assertThat(byKind.keySet())
+                    .containsExactly(
+                            Kind.PROGRAM_ADMISSION,
+                            Kind.LEGACY_ENCOUNTER,
+                            Kind.IMMUNIZATION_SCHEDULE,
+                            Kind.PATIENT_RELATIONSHIP,
+                            Kind.MDS_LAB_REPORT,
+                            Kind.CML_LAB_REPORT,
+                            Kind.LAB_REQUISITION_LINK);
+            assertThat(groups).noneMatch(Group::detached);
+            // Only the admission with a discharge narrative is a record.
+            var admission = byKind.get(Kind.PROGRAM_ADMISSION);
+            assertThat(admission).singleElement().extracting(Group::id).isEqualTo(Integer.toString(patient));
+            assertThat(admission.getFirst().rows().getFirst().text("discharge_notes"))
+                    .isEqualTo("Discharged home, follow up in clinic");
+            var encounters = byKind.get(Kind.LEGACY_ENCOUNTER);
+            assertThat(encounters).extracting(Group::subClass)
+                    .containsExactly("eChart revision 1 of 2", "eChart revision 2 of 2");
+            assertThat(encounters.getFirst().rows().getFirst().text("socialHistory")).isEqualTo("Smoker 😀");
+            assertThat(encounters.get(1).rows().getFirst().text("encounter")).isEqualTo(LONG_TEXT);
+            assertThat(byKind.get(Kind.IMMUNIZATION_SCHEDULE)).extracting(Group::subClass)
+                    .containsExactly("immunizations revision 1 of 2", "immunizations revision 2 of 2");
+            // The chart's own relationship row only; the related patient's inverse row is theirs.
+            var relationship = byKind.get(Kind.PATIENT_RELATIONSHIP);
+            assertThat(relationship).singleElement();
+            assertThat(relationship.getFirst().rows().getFirst().text("relation")).isEqualTo("Mother");
+            var mds = byKind.get(Kind.MDS_LAB_REPORT);
+            assertThat(mds).singleElement();
+            assertThat(mds.getFirst().rows()).extracting(Row::table)
+                    .containsExactly("mdsMSH", "mdsPID", "mdsOBR", "mdsOBX", "mdsOBX", "mdsOBX", "mdsNTE", "mdsZRG");
+            // The two identical keyless results stay two rows; SQL NULL stays NULL.
+            assertThat(captured.rows().get("mdsOBX")).extracting(row -> row.text("observationValue"))
+                    .containsExactly("140", "140", null);
+            assertThat(mds.getFirst().event())
+                    .isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto.Precision.DATE_TIME,
+                            "2002-04-05T06:07:08-05:00"));
+            var cml = byKind.get(Kind.CML_LAB_REPORT);
+            assertThat(cml).singleElement();
+            assertThat(cml.getFirst().rows()).extracting(Row::table)
+                    .containsExactly("labPatientPhysicianInfo", "labTestResults", "labTestResults", "labReportInformation");
+            assertThat(cml.getFirst().event())
+                    .isEqualTo(new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto.Precision.DATE,
+                            "2002-04-05"));
+            // A report table spelled only by case names no chart.
+            assertThat(byKind.get(Kind.LAB_REQUISITION_LINK)).singleElement().extracting(Group::id)
+                    .isEqualTo(Integer.toString(patient));
+            assertThat(emit(groups)).isEqualTo((long) groups.size());
+            // The other chart gets its inverse relationship only: the MDS header's legacy copy of
+            // its number does not move the report there.
+            int other = patient + 1;
+            var others = new Captured[1];
+            stableLegacy(
+                    () ->
+                            others[0] =
+                                    read.execute(
+                                            status -> {
+                                                try {
+                                                    return captureInside(other);
+                                                } catch (java.io.IOException failed) {
+                                                    throw new java.io.UncheckedIOException(failed);
+                                                }
+                                            }));
+            assertThat(CdsExportDataSummaryPlanner.plan(others[0].rows(), ZoneId.of("America/Toronto")))
+                    .extracting(Group::kind)
+                    .containsExactly(Kind.PATIENT_RELATIONSHIP);
+            // Keyless segments are paged by position within the snapshot: one row per page reads
+            // all three results, then nothing.
+            var plan = CdsExportDataSummaryReadDao.plan("mdsOBX");
+            List<List<Object>> keys =
+                    read.execute(
+                            status -> {
+                                var result = new ArrayList<List<Object>>();
+                                List<Object> after = null;
+                                while (true) {
+                                    var page = summaries.page(plan, patient, after, 1);
+                                    if (page.isEmpty()) return result;
+                                    after = page.getLast().key();
+                                    result.add(after);
+                                }
+                            });
+            assertThat(keys).containsExactly(List.of(1L), List.of(2L), List.of(3L));
+        } finally {
+            cleanupLegacy();
+        }
     }
 }

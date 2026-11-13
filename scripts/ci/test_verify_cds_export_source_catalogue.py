@@ -75,6 +75,16 @@ class OptimizedCatalogueGateTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('DrugProduct needs a ruling note', result.stderr)
 
+    def test_refuses_clinical_remainders_outside_an_access_or_data_summary_table_under_python_optimize(self):
+        # A remainder filters the rows of a data-summary table (admission) or makes a row of an
+        # access-control table hold; on any other table it would decide nothing.
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            self._mutate(tree, lambda c: c['clinicalRemainders'].__setitem__('GroupNoteLink', ['noteId']))
+            result = self._run(tree)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('source catalogue verification failed', result.stderr)
+
     def test_refuses_an_unknown_disposition_under_python_optimize(self):
         with tempfile.TemporaryDirectory() as directory:
             tree = self._tree(directory)

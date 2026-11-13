@@ -30,6 +30,7 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue.Disposition;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
@@ -48,12 +49,17 @@ class CdsExportDataSummaryRegistryUnitTest {
                     "Lab Report",
                     "Other Letter");
 
+    private static final Set<String> KEYLESS =
+            Set.of("mdsNTE", "mdsOBR", "mdsOBX", "mdsPID", "mdsPV1", "mdsZMC", "mdsZMN", "mdsZRG");
+
     @Test
     void shouldRegisterExactlyTheDocumentTables_ofTheSourceCatalogue() {
         var catalogue = CdsExportSourceCatalogue.current();
         assertThat(CdsExportDataSummaryRegistry.tables())
                 .containsExactlyInAnyOrderElementsOf(catalogue.tables(Disposition.DOCUMENT));
-        assertThat(catalogue.tables(Disposition.DOCUMENT)).hasSize(94);
+        // 94 records of current features, 23 legacy tables of older releases and admissions with a
+        // narrative.
+        assertThat(catalogue.tables(Disposition.DOCUMENT)).hasSize(118);
         assertThat(catalogue.tables(Disposition.LISTED)).hasSize(37);
         assertThat(catalogue.required(Set.of(CdsCategory.REPORTS)))
                 .containsAll(catalogue.tables(Disposition.DOCUMENT));
@@ -70,7 +76,10 @@ class CdsExportDataSummaryRegistryUnitTest {
         for (String table : CdsExportDataSummaryRegistry.tables()) {
             assertThat(CdsExportDataSummaryReadDao.linked(table)).as(table).isTrue();
             var plan = CdsExportDataSummaryReadDao.plan(table);
-            assertThat(plan.keys()).as(table).isNotEmpty();
+            // Only the reviewed keyless MDS segments are read by position; they are never roots.
+            assertThat(plan.keyless()).as(table).isEqualTo(KEYLESS.contains(table));
+            if (plan.keyless())
+                assertThat(CdsExportDataSummaryRegistry.rule(table).root()).as(table).isFalse();
             var physical = CdsExportSourceCatalogue.current().physical(table).orElseThrow();
             assertThat(plan.columns())
                     .as(table)
@@ -105,8 +114,11 @@ class CdsExportDataSummaryRegistryUnitTest {
             }
             var plan = CdsExportDataSummaryReadDao.plan(table);
             assertThat(plan.binary()).as(table).containsAll(rule.binaries().keySet());
+            var order = List.copyOf(CdsExportDataSummaryRegistry.tables());
             for (var link : rule.links()) {
-                assertThat(CdsExportDataSummaryRegistry.rule(link.parent()).root()).isTrue();
+                // A parent is a root or a child registered earlier, so the planner has placed every
+                // parent row before it places this table's rows.
+                assertThat(order.indexOf(link.parent())).as(table).isBetween(0, order.indexOf(table) - 1);
                 assertThat(columns).as(table).containsAll(link.childColumns());
                 if (link.constantColumn() != null)
                     assertThat(columns).as(table).contains(link.constantColumn());
@@ -115,8 +127,61 @@ class CdsExportDataSummaryRegistryUnitTest {
                         .containsAll(link.parentColumns());
             }
             if (rule.revisioned())
-                assertThat(rule.kind()).isEqualTo(CdsExportDataSummaryRegistry.Kind.ENCOUNTER_FORM);
+                assertThat(rule.kind())
+                        .isIn(
+                                CdsExportDataSummaryRegistry.Kind.ENCOUNTER_FORM,
+                                CdsExportDataSummaryRegistry.Kind.LEGACY_ENCOUNTER,
+                                CdsExportDataSummaryRegistry.Kind.IMMUNIZATION_SCHEDULE);
         }
+    }
+
+    @Test
+    void shouldGroupEveryLegacyTable_intoTheRecordItsChartShows() {
+        var catalogue = CdsExportSourceCatalogue.current();
+        for (String table : List.of("eChart", "immunizations"))
+            assertThat(CdsExportDataSummaryRegistry.rule(table).revisioned()).as(table).isTrue();
+        assertThat(CdsExportDataSummaryRegistry.rule("relationships").root()).isTrue();
+        // A relationship belongs to the chart that shows it; the related patient's chart shows
+        // its own inverse row.
+        assertThat(catalogue.patientScopes().get("relationships")).containsExactly("demographic_no");
+        for (String table : List.of("mdsPID", "mdsPV1", "mdsOBR", "mdsOBX", "mdsNTE", "mdsZMC", "mdsZMN", "mdsZRG"))
+            assertThat(CdsExportDataSummaryRegistry.rule(table).links())
+                    .extracting(CdsExportDataSummaryRegistry.Link::parent)
+                    .as(table)
+                    .containsExactly("mdsMSH");
+        assertThat(CdsExportDataSummaryRegistry.rule("hl7_obx").links().getFirst().parent()).isEqualTo("hl7_obr");
+        assertThat(CdsExportDataSummaryRegistry.rule("hl7_obr").links().getFirst().parent()).isEqualTo("hl7_pid");
+        assertThat(CdsExportDataSummaryRegistry.rule("hl7_pid").links().getFirst().parent()).isEqualTo("hl7_message");
+        assertThat(CdsExportDataSummaryRegistry.rule("labTestResults").links().getFirst().parent())
+                .isEqualTo("labPatientPhysicianInfo");
+        // The legacy copies of the patient number decide nothing: a report's chart is its route.
+        for (String table : List.of("mdsMSH", "hl7_link", "labPatientPhysicianInfo", "hl7_message"))
+            assertThat(catalogue.patientScopes()).as(table).doesNotContainKey(table);
+        for (String table : CdsExportDataSummaryRegistry.tables())
+            assertThat(CdsExportDataSummaryReadDao.linked(table)).as(table).isTrue();
+        // Admissions are records only when they hold a narrative or a discharge reason.
+        assertThat(catalogue.tables().get("admission")).isEqualTo(Disposition.DOCUMENT);
+        assertThat(catalogue.clinicalRemainders().get("admission"))
+                .containsExactly("admission_notes", "discharge_notes", "radioDischargeReason");
+        assertThat(CdsExportDataSummaryRegistry.rule("admission").kind())
+                .isEqualTo(CdsExportDataSummaryRegistry.Kind.PROGRAM_ADMISSION);
+        assertThat(CdsExportDataSummaryRegistry.Kind.MDS_LAB_REPORT.reportClass()).isEqualTo("Lab Report");
+        assertThat(catalogue.tables(Disposition.REQUIRE_EMPTY))
+                .doesNotContainAnyElementsOf(CdsExportDataSummaryRegistry.tables());
+    }
+
+    @Test
+    void shouldNeverReadAKeylessSegmentByByteRange_forTheReviewedMdsSegments() {
+        // A keyless legacy segment is read whole and inline; a value never needs a byte range.
+        var plan = CdsExportDataSummaryReadDao.plan("mdsOBX");
+        assertThat(plan.keys()).isEmpty();
+        assertThat(plan.numericIdentity()).isFalse();
+        assertThat(plan.binary()).isEmpty();
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportDataSummaryReadDao()
+                                        .chunk(plan, 1, List.of(1L), "observationValue", 0, 1))
+                .hasMessage("CDS_EXPORT_NATIVE_SOURCE_INVALID");
     }
 
     @Test

@@ -113,6 +113,60 @@ class CdsExportLaboratorySourceReaderUnitTest {
                         eq(27), eq(ID), eq("informationFromLab"), anyLong(), anyInt());
     }
 
+    private static io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command(
+            Set<CdsCategory> categories) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
+                "test",
+                "999998",
+                null,
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile.ONTARIO_MD_5_2,
+                io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand.Selection
+                        .SELECTED_PATIENTS,
+                List.of(),
+                List.of(27),
+                categories,
+                "recipient",
+                "audit");
+    }
+
+    @Test
+    void shouldHoldAChartWithLegacyFormatReports_whenLaboratoryResultsIsExportedWithoutReports()
+            throws Exception {
+        when(dao.hasCdsExportLegacyReports(27)).thenReturn(true);
+        when(dao.findCdsExportRowsAfter(27, null, 32)).thenReturn(List.of());
+        // Its MDS, CML or PathNet reports travel only as data summaries with Reports.
+        var alone = reader.forRequest(command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS)));
+        assertThat(alone).isNotSameAs(reader);
+        assertThat(alone.table()).isEqualTo(reader.table());
+        assertThat(alone.categories()).isEqualTo(reader.categories());
+        var values = new ByteArrayOutputStream();
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportNativeCaptureComposer()
+                                        .compose(
+                                                values,
+                                                new ByteArrayOutputStream(),
+                                                Set.of(reader.table()),
+                                                10_000,
+                                                1L << 20,
+                                                () -> {},
+                                                output -> {
+                                                    output.beginTable(
+                                                            reader.table(), reader.columns(), 0);
+                                                    alone.capture(27, output, () -> {});
+                                                    output.endTable();
+                                                }))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS");
+        // With Reports selected the reports are exported, so the structured capture proceeds.
+        assertThat(reader.forRequest(command(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS, CdsCategory.REPORTS))))
+                .isSameAs(reader);
+        capture(0, () -> {});
+        verify(dao, times(1)).hasCdsExportLegacyReports(27);
+    }
+
     @Test
     void shouldRequireSensitiveLaboratoryAuthority_andAllMirrorDependencies() {
         assertThat(reader.categories()).containsExactly(CdsCategory.LABORATORY_RESULTS);

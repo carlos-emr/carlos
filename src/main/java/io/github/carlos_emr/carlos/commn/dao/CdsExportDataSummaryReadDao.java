@@ -43,9 +43,11 @@ import org.springframework.transaction.annotation.Transactional;
  * Table-driven, patient-scoped reads of the reviewed data-summary (DOCUMENT) and listed (LISTED)
  * tables of the source catalogue. The read plan of each table is derived from the pinned physical
  * contract, never from client input: every physical column, the primary key (or the one reviewed
- * NOT NULL unique key of a table without one) for ordering and row identity, and the reviewed
+ * NOT NULL unique key of a table without one, or, for the reviewed keyless legacy lab segments,
+ * the position in the order of every column) for ordering and row identity, and the reviewed
  * patient scope (a direct owner column, or a parent chain from {@link
- * CdsExportIndirectPatientScopeReadSupport#owned}).
+ * CdsExportIndirectPatientScopeReadSupport#owned}). A table with clinical remainders reads only
+ * its rows with a stored remainder.
  *
  * <p>Values keep their exact bytes: character, date and number columns are read as {@code CAST(..
  * AS BINARY)} (utf8mb4 by contract), binary columns as their raw bytes; SQL NULL stays distinct
@@ -80,6 +82,23 @@ public class CdsExportDataSummaryReadDao {
                     "formBCAR2020Data", List.of("form_id", "page_no", "field"),
                     "formBCAR2020Text", List.of("form_id", "page_no", "field"));
 
+    /**
+     * Reviewed data-summary tables with no key at all: the segments of a legacy MDS lab report,
+     * which the old loader wrote with only a non-unique {@code segmentID} index. Two rows may be
+     * byte-for-byte identical. Their rows are read whole, ordered by every column, and paged by
+     * position inside the one repeatable-read capture snapshot, so the order is total up to
+     * identical rows and each row is captured exactly once; the capture names them by ordinal.
+     * Every column must be short enough to be read inline, since a row with no key cannot be
+     * addressed again for a byte range.
+     */
+    private static final Set<String> KEYLESS =
+            Set.of(
+                    "mdsNTE", "mdsOBR", "mdsOBX", "mdsPID", "mdsPV1", "mdsZMC", "mdsZMN",
+                    "mdsZRG");
+
+    /** The longest stored value of a keyless table: 255 four-byte characters. */
+    private static final int KEYLESS_VALUE_BYTES = 1_020;
+
     @PersistenceContext private EntityManager entityManager;
 
     /** The immutable read recipe of one reviewed table. */
@@ -99,6 +118,14 @@ public class CdsExportDataSummaryReadDao {
         /** True when the row identity is one integer column, so it is also the capture key. */
         public boolean numericIdentity() {
             return keys.size() == 1 && integerKeys.contains(keys.getFirst());
+        }
+
+        /**
+         * True for a reviewed table with no key: its rows are paged by position (a page row's key
+         * is the number of rows read so far) and named by ordinal in the capture.
+         */
+        public boolean keyless() {
+            return keys.isEmpty();
         }
     }
 
@@ -146,6 +173,14 @@ public class CdsExportDataSummaryReadDao {
             if (type.matches(
                     "(?:tinyint|smallint|mediumint|int|bigint)\\([0-9]{1,3}\\)(?: unsigned)?"))
                 integers.add(column.name());
+        }
+        if (KEYLESS.contains(table)) {
+            if (!schema.primaryKeyColumns().isEmpty()
+                    || columns.size() > 64
+                    || !binary.isEmpty()
+                    || schema.columns().stream().anyMatch(column -> !inline(column.type())))
+                throw invalid();
+            return new Plan(table, columns, List.of(), binary, integers);
         }
         var keys =
                 schema.primaryKeyColumns().isEmpty()
@@ -244,6 +279,7 @@ public class CdsExportDataSummaryReadDao {
      */
     public List<Row> page(Plan plan, int patient, List<Object> after, int limit) {
         patient(patient);
+        if (plan.keyless()) return keylessPage(plan, patient, after, limit);
         if (limit < 1 || limit > 1024 || after != null && after.size() != plan.keys().size())
             throw invalid();
         if (!readable(plan)) return List.of();
@@ -337,10 +373,98 @@ public class CdsExportDataSummaryReadDao {
         return List.copyOf(result);
     }
 
+    /**
+     * The next page of a keyless table's rows for the patient, by position in the total order of
+     * every column ({@link #KEYLESS}). {@code after} is the previous page's last key: the number of
+     * rows read so far. Every value is returned inline.
+     */
+    // Identifiers come only from the pinned catalogue plan.
+    @SuppressWarnings("java:S2077")
+    private List<Row> keylessPage(Plan plan, int patient, List<Object> after, int limit) {
+        long offset = 0;
+        if (after != null) {
+            if (after.size() != 1 || !(after.getFirst() instanceof Long position) || position < 0)
+                throw invalid();
+            offset = position;
+        }
+        if (limit < 1 || limit > 1024 || offset > Integer.MAX_VALUE - limit) throw invalid();
+        if (!readable(plan)) return List.of();
+        var projection = new StringBuilder("select 1");
+        var order = new ArrayList<String>();
+        for (String column : plan.columns()) {
+            String value = "CAST(d.`" + column + "` AS BINARY)";
+            projection
+                    .append(",d.`")
+                    .append(column)
+                    .append("` IS NULL,OCTET_LENGTH(")
+                    .append(value)
+                    .append("),SHA2(")
+                    .append(value)
+                    .append(",256),")
+                    .append(value);
+            // NULL sorts first; text by its exact bytes, so a collation tie never reorders rows.
+            order.add(plan.integerKeys().contains(column) ? "d.`" + column + "`" : value);
+        }
+        projection
+                .append(" from `")
+                .append(plan.table())
+                .append("` d where ")
+                .append(predicate(plan.table()))
+                .append(" order by ")
+                .append(String.join(",", order));
+        var found =
+                rows(
+                        CdsExportPatientTableReadSupport.query(
+                                        entityManager, projection.toString())
+                                .setParameter("patient", patient)
+                                .setFirstResult((int) offset)
+                                .setMaxResults(limit));
+        var result = new ArrayList<Row>();
+        for (var row : found) {
+            if (row.length != 1 + 4 * plan.columns().size()) throw invalid();
+            var cells = new TreeMap<String, CdsExportRawCellDto>();
+            int index = 1;
+            for (String column : plan.columns()) {
+                boolean missing = missing(row[index]);
+                byte[] data = (byte[]) row[index + 3];
+                long bytes = missing ? 0 : number(row[index + 1]);
+                if (missing
+                                && (row[index + 1] != null
+                                        || row[index + 2] != null
+                                        || data != null)
+                        || !missing
+                                && (data == null
+                                        || data.length != bytes
+                                        || bytes > KEYLESS_VALUE_BYTES)) throw invalid();
+                cells.put(
+                        column,
+                        new CdsExportRawCellDto(
+                                missing,
+                                bytes,
+                                missing ? CdsExportRawCellDto.EMPTY_SHA256 : (String) row[index + 2],
+                                missing ? null : data));
+                index += 4;
+            }
+            result.add(new Row(List.of(offset + result.size() + 1), cells));
+        }
+        return List.copyOf(result);
+    }
+
+    /** A column type whose longest value fits a keyless row's inline read. */
+    private static boolean inline(String type) {
+        var text = java.util.regex.Pattern.compile("(?:var)?char\\(([0-9]{1,3})\\)").matcher(type);
+        if (text.matches()) return Integer.parseInt(text.group(1)) <= 255;
+        return type.matches(
+                "(?:tinyint|smallint|mediumint|int|bigint)\\([0-9]{1,3}\\)(?: unsigned)?"
+                        + "|date|datetime|timestamp|time");
+    }
+
     /** One byte range of one value of one of the selected patient's rows, in the same snapshot. */
     public byte[] chunk(
             Plan plan, int patient, List<Object> key, String column, long offset, int length) {
         patient(patient);
+        // A keyless row cannot be addressed again; its values are always read inline.
+        if (plan.keyless()) throw invalid();
         if (column == null
                 || !plan.columns().contains(column)
                 || key == null
@@ -443,6 +567,18 @@ public class CdsExportDataSummaryReadDao {
      */
     static String predicate(String table) {
         var catalogue = CdsExportSourceCatalogue.current();
+        var remainder = catalogue.clinicalRemainders().get(table);
+        String scope = ownership(table, catalogue);
+        if (remainder == null) return scope;
+        // A data-summary table with clinical remainders (admission) is otherwise access-control
+        // metadata: only its rows with a stored remainder are records. The test is the one the
+        // source-presence check used when such a row held the chart.
+        var clauses = new ArrayList<String>();
+        for (String column : remainder) clauses.add("COALESCE(OCTET_LENGTH(d.`" + column + "`),0)>0");
+        return "(" + scope + " and (" + String.join(" or ", clauses) + "))";
+    }
+
+    private static String ownership(String table, CdsExportSourceCatalogue.Snapshot catalogue) {
         var profile =
                 catalogue.profiles().stream()
                         .filter(candidate -> candidate.tables().containsKey(table))

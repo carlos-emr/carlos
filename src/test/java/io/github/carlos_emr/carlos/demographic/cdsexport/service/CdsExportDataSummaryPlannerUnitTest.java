@@ -177,6 +177,127 @@ class CdsExportDataSummaryPlannerUnitTest {
     }
 
     @Test
+    void shouldGroupAPathNetReport_withSegmentsReachedThroughItsPatientAndOrderRows() {
+        var rows = new HashMap<String, List<Row>>();
+        rows.put("hl7_message", List.of(row("hl7_message", key(5), "message_id", "5", "date_time", "2012-03-04 08:00:00")));
+        rows.put("hl7_msh", List.of(row("hl7_msh", key(51), "msh_id", "51", "message_id", "5")));
+        rows.put("hl7_pid", List.of(row("hl7_pid", key(52), "pid_id", "52", "message_id", "5")));
+        rows.put("hl7_link", List.of(row("hl7_link", key(52), "pid_id", "52", "demographic_no", "1")));
+        rows.put("hl7_orc", List.of(row("hl7_orc", key(53), "orc_id", "53", "pid_id", "52")));
+        rows.put(
+                "hl7_obr",
+                List.of(
+                        row("hl7_obr", key(54), "obr_id", "54", "pid_id", "52"),
+                        row("hl7_obr", key(55), "obr_id", "55", "pid_id", "52")));
+        rows.put(
+                "hl7_obx",
+                List.of(
+                        row("hl7_obx", key(56), "obx_id", "56", "obr_id", "55"),
+                        row("hl7_obx", key(57), "obx_id", "57", "obr_id", "54"),
+                        // A result whose order row is in no record of this chart stands alone.
+                        row("hl7_obx", key(58), "obx_id", "58", "obr_id", "99", "observation_date_time", "2012-03-01 07:30:00")));
+        var groups = CdsExportDataSummaryPlanner.plan(rows, TORONTO);
+        assertThat(groups).hasSize(2);
+        var report = groups.getFirst();
+        assertThat(report.kind()).isEqualTo(Kind.PATHNET_LAB_REPORT);
+        assertThat(report.subClass()).isEqualTo("PathNet laboratory report");
+        assertThat(report.event())
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE_TIME, "2012-03-04T08:00:00-05:00"));
+        // Every segment joins the one report its chain names, two and three links away.
+        assertThat(report.rows())
+                .extracting(Row::table)
+                .containsExactly(
+                        "hl7_message", "hl7_msh", "hl7_pid", "hl7_link", "hl7_orc", "hl7_obr",
+                        "hl7_obr", "hl7_obx", "hl7_obx");
+        assertThat(report.rows().subList(7, 9)).extracting(r -> r.text("obx_id")).containsExactly("56", "57");
+        var alone = groups.get(1);
+        assertThat(alone.detached()).isTrue();
+        assertThat(alone.subClass()).isEqualTo("PathNet laboratory report: hl7_obx record");
+        assertThat(alone.event())
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE_TIME, "2012-03-01T07:30:00-05:00"));
+    }
+
+    @Test
+    void shouldGroupMdsSegmentsByOrdinal_andCmlLinesWithTheirReportAndUploadHeader() {
+        var rows = new HashMap<String, List<Row>>();
+        rows.put("mdsMSH", List.of(row("mdsMSH", key(70), "segmentID", "70", "dateTime", "2004-05-06 07:08:09")));
+        // Keyless segments are named by their capture ordinal; two identical rows stay two rows.
+        rows.put(
+                "mdsOBX",
+                List.of(
+                        row("mdsOBX", "00000000000000000002", "segmentID", "70", "observationValue", "5.1"),
+                        row("mdsOBX", "00000000000000000001", "segmentID", "70", "observationValue", "5.1")));
+        rows.put("mdsNTE", List.of(row("mdsNTE", "00000000000000000001", "segmentID", "70", "comment", "Fasting")));
+        rows.put(
+                "labPatientPhysicianInfo",
+                List.of(
+                        row("labPatientPhysicianInfo", key(80), "id", "80", "labReportInfo_id", "3", "service_date", "20040215"),
+                        row("labPatientPhysicianInfo", key(81), "id", "81", "labReportInfo_id", "4", "service_date", "2004-02-1")));
+        rows.put(
+                "labTestResults",
+                List.of(row("labTestResults", key(800), "id", "800", "labPatientPhysicianInfo_id", "80")));
+        rows.put(
+                "labReportInformation",
+                List.of(row("labReportInformation", key(3), "id", "3"), row("labReportInformation", key(4), "id", "4")));
+        var groups = CdsExportDataSummaryPlanner.plan(rows, TORONTO);
+        assertThat(groups).extracting(CdsExportDataSummaryPlanner.Group::kind)
+                .containsExactly(Kind.MDS_LAB_REPORT, Kind.CML_LAB_REPORT, Kind.CML_LAB_REPORT);
+        var mds = groups.getFirst();
+        assertThat(mds.rows()).extracting(Row::table).containsExactly("mdsMSH", "mdsOBX", "mdsOBX", "mdsNTE");
+        assertThat(mds.rows()).extracting(Row::recordKey)
+                .containsExactly(key(70), "00000000000000000001", "00000000000000000002", "00000000000000000001");
+        var cml = groups.get(1);
+        assertThat(cml.rows()).extracting(Row::table)
+                .containsExactly("labPatientPhysicianInfo", "labTestResults", "labReportInformation");
+        // The CML service date is stored as YYYYMMDD; text that is not a date gives none.
+        assertThat(cml.event()).isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2004-02-15"));
+        assertThat(groups.get(2).rows()).extracting(Row::table)
+                .containsExactly("labPatientPhysicianInfo", "labReportInformation");
+        assertThat(groups.get(2).event()).isNull();
+    }
+
+    @Test
+    void shouldKeepAnUploadHeaderOnItsOwn_whenTwoReportsOfTheChartNameIt() {
+        var rows = new HashMap<String, List<Row>>();
+        rows.put(
+                "labPatientPhysicianInfo",
+                List.of(
+                        row("labPatientPhysicianInfo", key(80), "id", "80", "labReportInfo_id", "3"),
+                        row("labPatientPhysicianInfo", key(81), "id", "81", "labReportInfo_id", "3")));
+        rows.put("labReportInformation", List.of(row("labReportInformation", key(3), "id", "3")));
+        var groups = CdsExportDataSummaryPlanner.plan(rows, TORONTO);
+        assertThat(groups).hasSize(3);
+        assertThat(groups.get(2).detached()).isTrue();
+        assertThat(groups.get(2).table()).isEqualTo("labReportInformation");
+        assertThat(groups.get(0).rows()).hasSize(1);
+    }
+
+    @Test
+    void shouldNumberLegacyEncounterAndScheduleRevisions_andKeepRelationshipsAndAdmissionsApart() {
+        var rows = new HashMap<String, List<Row>>();
+        rows.put(
+                "eChart",
+                List.of(
+                        row("eChart", key(9), "eChartId", "9", "timeStamp", "2005-06-07 10:00:00"),
+                        row("eChart", key(4), "eChartId", "4", "timeStamp", "2005-01-02 10:00:00")));
+        rows.put("immunizations", List.of(row("immunizations", key(2), "ID", "2", "save_date", "2003-04-05")));
+        rows.put("relationships", List.of(row("relationships", key(6), "id", "6", "creation_date", null)));
+        rows.put("admission", List.of(row("admission", key(8), "am_id", "8", "admission_date", "2010-01-01 09:00:00")));
+        var groups = CdsExportDataSummaryPlanner.plan(rows, TORONTO);
+        assertThat(groups).extracting(CdsExportDataSummaryPlanner.Group::subClass)
+                .containsExactly(
+                        "Program admission",
+                        "eChart revision 1 of 2",
+                        "eChart revision 2 of 2",
+                        "immunizations revision 1 of 1",
+                        "Patient relationship");
+        assertThat(groups.get(1).id()).isEqualTo("4");
+        assertThat(groups.get(1).title()).isEqualTo("CARLOS data summary: Legacy encounter eChart (revision 1 of 2)");
+        assertThat(groups.get(3).kind()).isEqualTo(Kind.IMMUNIZATION_SCHEDULE);
+        assertThat(groups.get(4).event()).isNull();
+    }
+
+    @Test
     void shouldPlanTheSameRecordsAndIdentities_forTheSameCaptureInAnyRowOrder() {
         var forward = new HashMap<String, List<Row>>();
         forward.put("Consent", List.of(row("Consent", key(1), "id", "1"), row("Consent", key(2), "id", "2")));

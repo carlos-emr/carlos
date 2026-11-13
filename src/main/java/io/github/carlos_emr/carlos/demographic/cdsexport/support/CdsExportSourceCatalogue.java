@@ -314,6 +314,9 @@ public final class CdsExportSourceCatalogue {
             String table = field.getKey();
             identifier(table);
             var ruling = rulings.get(table);
+            // Clinical remainders: the columns whose stored value makes a row of an otherwise
+            // non-clinical table clinical. On an ACCESS_CONTROL table such a row holds the
+            // patient; on a DOCUMENT table only such rows are records (data summaries).
             if (ruling == null
                     || (owner
                             ? !Set.of(
@@ -322,7 +325,8 @@ public final class CdsExportSourceCatalogue {
                                             Disposition.DOCUMENT,
                                             Disposition.LISTED)
                                     .contains(ruling)
-                            : ruling != Disposition.ACCESS_CONTROL)) invalid();
+                            : ruling != Disposition.ACCESS_CONTROL
+                                    && ruling != Disposition.DOCUMENT)) invalid();
             if (!field.getValue().isArray()
                     || field.getValue().isEmpty()
                     || field.getValue().size() > 4) invalid();

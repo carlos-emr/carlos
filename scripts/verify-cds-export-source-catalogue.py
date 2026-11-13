@@ -53,8 +53,10 @@ def main():
             require(catalogue['profiles'][province]['physicalContractSha256'] == digest, province + ' contract drift')
     require(actual == set(catalogue['tables']), 'Every physical table requires its own explicit ruling')
     require(set(catalogue['tables'].values()) <= DISPOSITIONS, 'source catalogue verification failed')
+    # A clinical remainder makes a row of an otherwise non-clinical table clinical: on an
+    # ACCESS_CONTROL table it holds the patient, on a DOCUMENT table only such rows are records.
     for field, allowed in [('patientScopes', OWNED),
-                           ('clinicalRemainders', {'ACCESS_CONTROL'})]:
+                           ('clinicalRemainders', {'ACCESS_CONTROL', 'DOCUMENT'})]:
         mapping = catalogue[field]
         require(isinstance(mapping, dict), 'source catalogue verification failed')
         for table, names in mapping.items():

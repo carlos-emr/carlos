@@ -44,14 +44,44 @@ import java.util.*;
  * </ul>
  */
 final class CdsExportIndirectPatientScopeReadSupport {
+    /**
+     * One join of a chain. {@code otherChildColumn}/{@code otherParentColumn}, when present, must
+     * also match (the routing type of a provider route). {@code parentTypeColumn}/{@code
+     * parentTypeValue}, when present, restrict the parent row to one literal from this compiled
+     * list, never data: a legacy lab number is a {@code patientLabRouting} row of exactly that
+     * {@code lab_type}, since numeric lab ids are local to each type.
+     */
     private record Step(
             String table,
             String childColumn,
             String parentColumn,
             String otherChildColumn,
-            String otherParentColumn) {
+            String otherParentColumn,
+            String parentTypeColumn,
+            String parentTypeValue) {
         Step(String table, String childColumn, String parentColumn) {
-            this(table, childColumn, parentColumn, null, null);
+            this(table, childColumn, parentColumn, null, null, null, null);
+        }
+
+        Step(
+                String table,
+                String childColumn,
+                String parentColumn,
+                String otherChildColumn,
+                String otherParentColumn) {
+            this(table, childColumn, parentColumn, otherChildColumn, otherParentColumn, null, null);
+        }
+
+        Step {
+            if ((parentTypeColumn == null) != (parentTypeValue == null)
+                    || parentTypeValue != null && !parentTypeValue.matches("[A-Za-z0-9_]{1,64}"))
+                throw new IllegalStateException("CDS_EXPORT_INDIRECT_SCOPE_INVALID");
+        }
+
+        /** A routing row of exactly one lab type, reached through its lab number. */
+        static Step route(String childColumn, String type) {
+            return new Step(
+                    "patientLabRouting", childColumn, "lab_no", null, null, "lab_type", type);
         }
     }
 
@@ -373,6 +403,20 @@ final class CdsExportIndirectPatientScopeReadSupport {
                             ? " and CAST(" + child + " AS BINARY)=CAST(" + parent + " AS BINARY)"
                             : " and " + child + "=" + parent;
         }
+        if (step.parentTypeColumn() != null) {
+            column(profile, step.table(), step.parentTypeColumn());
+            // The collation comparison lets the type index drive the join; the byte comparison
+            // keeps a type spelled otherwise ('mds') out, as the routing scopes do.
+            String type = alias + ".`" + step.parentTypeColumn() + "`";
+            match += " and " + type + "='" + step.parentTypeValue() + "'";
+            if (exact)
+                match +=
+                        " and CAST("
+                                + type
+                                + " AS BINARY)=CAST('"
+                                + step.parentTypeValue()
+                                + "' AS BINARY)";
+        }
         return match;
     }
 
@@ -538,9 +582,85 @@ final class CdsExportIndirectPatientScopeReadSupport {
                                 new Variant(null, rourke("formRourke2020")))));
         // Listed children of removed features (LISTED): counted per chart, never exported.
         add(result, "caisi_form_data", "caisi_form_instance", "instance_id", "id", "client_id");
-        add(result, "mdsZFR", "mdsMSH", "segmentID", "segmentID", "demographic_no");
-        add(result, "mdsZLB", "mdsMSH", "segmentID", "segmentID", "demographic_no");
+        legacyLaboratories(result);
         return Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * Legacy laboratory reports (data summaries, plus the two listed MDS segments). CARLOS shows
+     * such a report in the chart its {@code patientLabRouting} row of exactly the report's type
+     * names, as it does for HL7 reports: MDS (lab_no is {@code mdsMSH.segmentID}), CML (lab_no is
+     * {@code labPatientPhysicianInfo.id}) and the BC PathNet format BCP (lab_no is {@code
+     * hl7_message.message_id}). {@code mdsMSH.demographic_no} and {@code hl7_link.demographic_no}
+     * are copies the chart never reads, so they decide nothing here. Every row is scoped straight
+     * to the report's route, not through the report's header row, so a segment whose header row
+     * is missing is still exported with the chart its lab number is routed to (as its own record)
+     * instead of being dropped.
+     */
+    private static void legacyLaboratories(Map<String, Scope> result) {
+        for (String table :
+                List.of(
+                        "mdsMSH", "mdsPID", "mdsPV1", "mdsOBR", "mdsOBX", "mdsNTE", "mdsZMC",
+                        "mdsZMN", "mdsZRG", "mdsZFR", "mdsZLB"))
+            chain(result, table, Step.route("segmentID", "MDS"));
+        chain(result, "labPatientPhysicianInfo", Step.route("id", "CML"));
+        chain(result, "labTestResults", Step.route("labPatientPhysicianInfo_id", "CML"));
+        // An upload's header row (labReportInformation) is shared by the CML reports of that
+        // upload; it belongs to the chart of each report that names it.
+        chain(
+                result,
+                "labReportInformation",
+                new Step("labPatientPhysicianInfo", "id", "labReportInfo_id"),
+                Step.route("id", "CML"));
+        for (String table : List.of("hl7_message", "hl7_msh", "hl7_pid"))
+            chain(result, table, Step.route("message_id", "BCP"));
+        for (String table : List.of("hl7_link", "hl7_obr", "hl7_orc"))
+            chain(
+                    result,
+                    table,
+                    new Step("hl7_pid", "pid_id", "pid_id"),
+                    Step.route("message_id", "BCP"));
+        chain(
+                result,
+                "hl7_obx",
+                new Step("hl7_obr", "obr_id", "obr_id"),
+                new Step("hl7_pid", "pid_id", "pid_id"),
+                Step.route("message_id", "BCP"));
+        // A requisition link belongs to the chart of the report it names (report_table is the
+        // report's table, LabRequestReportLink): a CML report, or an HL7 report routed as HL7. A
+        // link naming any other table belongs to no chart.
+        result.put(
+                "labRequestReportLink",
+                new Scope(
+                        List.of(
+                                new Variant(
+                                        "d.`report_table` is not null and CAST(d.`report_table`"
+                                                + " AS BINARY)=CAST('labPatientPhysicianInfo' AS"
+                                                + " BINARY)",
+                                        new Chain(
+                                                List.of(Step.route("report_id", "CML")),
+                                                "demographic_no",
+                                                false,
+                                                null)),
+                                new Variant(
+                                        null,
+                                        new Chain(
+                                                List.of(Step.route("report_id", "HL7")),
+                                                "demographic_no",
+                                                false,
+                                                null,
+                                                "report_table",
+                                                "hl7TextMessage")))));
+    }
+
+    private static void chain(Map<String, Scope> result, String table, Step... steps) {
+        result.put(
+                table,
+                new Scope(
+                        List.of(
+                                new Variant(
+                                        null,
+                                        new Chain(List.of(steps), "demographic_no", false, null)))));
     }
 
     private static Chain rourke(String form) {

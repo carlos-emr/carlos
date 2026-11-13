@@ -66,7 +66,15 @@ public final class CdsExportDataSummaryRegistry {
         PROGRAM_REFERRAL("Program referral", "Medical Records Report"),
         JOINT_ADMISSION("Joint admission", "Medical Records Report"),
         PROGRAM_RESTRICTION("Program restriction", "Medical Records Report"),
-        PROGRAM_QUEUE("Program queue entry", "Medical Records Report");
+        PROGRAM_QUEUE("Program queue entry", "Medical Records Report"),
+        PROGRAM_ADMISSION("Program admission", "Medical Records Report"),
+        LEGACY_ENCOUNTER("Legacy encounter", "Medical Records Report"),
+        IMMUNIZATION_SCHEDULE("Immunization schedule", "Medical Records Report"),
+        PATIENT_RELATIONSHIP("Patient relationship", "Medical Records Report"),
+        MDS_LAB_REPORT("MDS laboratory report", "Lab Report"),
+        CML_LAB_REPORT("CML laboratory report", "Lab Report"),
+        PATHNET_LAB_REPORT("PathNet laboratory report", "Lab Report"),
+        LAB_REQUISITION_LINK("Laboratory requisition link", "Lab Report");
 
         private final String label;
         private final String reportClass;
@@ -100,7 +108,9 @@ public final class CdsExportDataSummaryRegistry {
     /**
      * A child row joins the record of {@code parent} whose {@code parentColumns} equal its
      * {@code childColumns} (exact captured text); {@code constantColumn}, when set, must hold the
-     * parent table's name.
+     * parent table's name. The parent is a root, or a child registered earlier (a PathNet result
+     * joins its OBR, which joins its PID, which joins the report): the row then joins whichever
+     * record its parent row joined.
      */
     public record Link(
             String parent,
@@ -449,7 +459,119 @@ public final class CdsExportDataSummaryRegistry {
                 false,
                 new Event("referral_date", null),
                 Map.of());
+        // Only admissions with an admission or discharge narrative or a discharge reason are
+        // read (the table's clinical remainders); the rest is program membership.
+        root(
+                rules,
+                "admission",
+                Kind.PROGRAM_ADMISSION,
+                false,
+                new Event("admission_date", null),
+                Map.of());
+        legacy(rules);
         return Collections.unmodifiableMap(rules);
+    }
+
+    /**
+     * Records of older OSCAR releases that CARLOS still shows: the pre-CME encounter (every saved
+     * eChart row is a revision), the encounter immunization schedule (each save archives the
+     * previous one), the patient relationships of the classic demographic page, and the legacy
+     * laboratory formats with their segments.
+     */
+    private static void legacy(Map<String, Rule> rules) {
+        root(rules, "eChart", Kind.LEGACY_ENCOUNTER, true, new Event("timeStamp", null), Map.of());
+        root(
+                rules,
+                "immunizations",
+                Kind.IMMUNIZATION_SCHEDULE,
+                true,
+                new Event("save_date", null),
+                Map.of());
+        root(
+                rules,
+                "relationships",
+                Kind.PATIENT_RELATIONSHIP,
+                false,
+                new Event("creation_date", null),
+                Map.of());
+        // MDS: one report per message header; every segment names it by segmentID.
+        root(rules, "mdsMSH", Kind.MDS_LAB_REPORT, false, new Event("dateTime", null), Map.of());
+        for (String table :
+                List.of(
+                        "mdsPID", "mdsPV1", "mdsOBR", "mdsOBX", "mdsNTE", "mdsZMC", "mdsZMN",
+                        "mdsZRG"))
+            child(
+                    rules,
+                    table,
+                    Kind.MDS_LAB_REPORT,
+                    null,
+                    new Link("mdsMSH", List.of("segmentID"), List.of("segmentID"), null));
+        // CML: one report per patient section of an upload, with its test lines and the upload's
+        // header (one header may serve several reports; it then stands as its own record).
+        root(
+                rules,
+                "labPatientPhysicianInfo",
+                Kind.CML_LAB_REPORT,
+                false,
+                new Event("service_date", null),
+                Map.of());
+        child(
+                rules,
+                "labTestResults",
+                Kind.CML_LAB_REPORT,
+                null,
+                new Link(
+                        "labPatientPhysicianInfo",
+                        List.of("labPatientPhysicianInfo_id"),
+                        List.of("id"),
+                        null));
+        child(
+                rules,
+                "labReportInformation",
+                Kind.CML_LAB_REPORT,
+                null,
+                new Link(
+                        "labPatientPhysicianInfo",
+                        List.of("id"),
+                        List.of("labReportInfo_id"),
+                        null));
+        // BC PathNet: one report per message, with its header, patient segment, the legacy
+        // patient link, orders, requests and results.
+        root(
+                rules,
+                "hl7_message",
+                Kind.PATHNET_LAB_REPORT,
+                false,
+                new Event("date_time", null),
+                Map.of());
+        for (String table : List.of("hl7_msh", "hl7_pid"))
+            child(
+                    rules,
+                    table,
+                    Kind.PATHNET_LAB_REPORT,
+                    null,
+                    new Link("hl7_message", List.of("message_id"), List.of("message_id"), null));
+        for (String table : List.of("hl7_link", "hl7_orc", "hl7_obr"))
+            child(
+                    rules,
+                    table,
+                    Kind.PATHNET_LAB_REPORT,
+                    null,
+                    new Link("hl7_pid", List.of("pid_id"), List.of("pid_id"), null));
+        child(
+                rules,
+                "hl7_obx",
+                Kind.PATHNET_LAB_REPORT,
+                new Event("observation_date_time", null),
+                new Link("hl7_obr", List.of("obr_id"), List.of("obr_id"), null));
+        // The requisition a lab report was linked to (an HL7 or a CML report).
+        root(
+                rules,
+                "labRequestReportLink",
+                Kind.LAB_REQUISITION_LINK,
+                false,
+                new Event("request_date", null),
+                Map.of());
     }
 
     private static void root(

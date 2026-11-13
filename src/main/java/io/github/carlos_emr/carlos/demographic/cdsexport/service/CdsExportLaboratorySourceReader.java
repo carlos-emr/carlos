@@ -35,13 +35,41 @@ import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** Complete structured result, including blocked values; actual laboratory authority is required before capture. */
+/**
+ * Complete structured result, including blocked values; actual laboratory authority is required
+ * before capture.
+ *
+ * <p>A patient's legacy-format reports (MDS, CML, BC PathNet) are exported as CARLOS data
+ * summaries with Reports. A request that selects LaboratoryResults without Reports would leave
+ * them out of the package, so its projection holds such a patient
+ * ({@value #LEGACY_REPORTS_NEED_REPORTS}) instead of presenting an incomplete laboratory history.
+ */
 @Service
 public class CdsExportLaboratorySourceReader implements CdsExportNativeSourceReader {
-    private final CdsLaboratoryResultDao source;
+    static final String LEGACY_REPORTS_NEED_REPORTS = "CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS";
 
+    private final CdsLaboratoryResultDao source;
+    private final boolean legacyReportsExported;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportLaboratorySourceReader(CdsLaboratoryResultDao source) {
+        this(source, true);
+    }
+
+    private CdsExportLaboratorySourceReader(
+            CdsLaboratoryResultDao source, boolean legacyReportsExported) {
         this.source = Objects.requireNonNull(source);
+        this.legacyReportsExported = legacyReportsExported;
+    }
+
+    /** The request's projection: whether the request also exports the legacy-format reports. */
+    @Override
+    public CdsExportNativeSourceReader forRequest(
+            io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand command) {
+        boolean reports = command.categories().contains(CdsCategory.REPORTS);
+        return reports == legacyReportsExported
+                ? this
+                : new CdsExportLaboratorySourceReader(source, reports);
     }
 
     @Override
@@ -96,6 +124,9 @@ public class CdsExportLaboratorySourceReader implements CdsExportNativeSourceRea
             throws IOException {
         String after = null;
         Objects.requireNonNull(checkpoint).run();
+        if (!legacyReportsExported && source.hasCdsExportLegacyReports(patient))
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportMappingReviewException(LEGACY_REPORTS_NEED_REPORTS);
         while (true) {
             checkpoint.run();
             var page = source.findCdsExportRowsAfter(patient, after, 32);

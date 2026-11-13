@@ -37,6 +37,12 @@ public class CdsLaboratoryResultDao extends AbstractDaoImpl<CdsLaboratoryResult>
         return CdsExportPatientTableReadSupport.schema(entityManager, CdsExportPatientTableReadSupport.Plan.LABORATORY_RESULTS);
     }
 
+    /** Whether a legacy-format (MDS, CML or BC PathNet) report is routed to the patient's chart. */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public boolean hasCdsExportLegacyReports(int patient) {
+        return CdsExportPatientTableReadSupport.legacyLaboratoryReports(entityManager, patient);
+    }
+
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportRows(int patient) {
         CdsExportPatientTableReadSupport.requireLocalLaboratoryAssociations(entityManager, patient);

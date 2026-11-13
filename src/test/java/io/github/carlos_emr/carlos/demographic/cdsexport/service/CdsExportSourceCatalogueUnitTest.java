@@ -60,7 +60,7 @@ class CdsExportSourceCatalogueUnitTest {
                 .extracting(profile -> profile.tables().size())
                 .containsExactly(458, 491);
         assertThat(catalogue.tables().get("eChart"))
-                .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
         assertThat(catalogue.tables().get("allergies"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
         assertThat(catalogue.tables().get("provider_facility"))
@@ -122,22 +122,25 @@ class CdsExportSourceCatalogueUnitTest {
         assertThat(catalogue.patientScopes().get("form2MinWalk")).containsExactly("demographic_no");
         assertThat(catalogue.tables().get("form2MinWalk"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
-        // The Disease Registry is now exported as ProblemList; a legacy pre-prevention
-        // immunization row is still an unreviewed patient record.
+        // The Disease Registry is now exported as ProblemList; the legacy pre-prevention
+        // immunization schedule is exported as a data summary.
         assertThat(catalogue.patientScopes().get("dxresearch")).isNull();
         assertThat(catalogue.tables().get("dxresearch"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
         assertThat(catalogue.patientScopes().get("immunizations")).containsExactly("demographic_no");
         assertThat(catalogue.tables().get("immunizations"))
-                .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
         assertThat(catalogue.tables().get("CdsHospitalisationDays"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.LISTED);
-        assertThat(catalogue.patientScopes().get("relationships"))
-                .containsExactly("demographic_no", "relation_demographic_no");
+        // A relationship row belongs to the chart that shows it, not to the related patient's.
+        assertThat(catalogue.patientScopes().get("relationships")).containsExactly("demographic_no");
+        // An admission narrative or discharge reason travels as a data summary instead of
+        // holding the chart; only those rows are records.
         assertThat(catalogue.tables().get("admission"))
-                .isEqualTo(CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL);
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
         assertThat(catalogue.clinicalRemainders().get("admission"))
                 .containsExactly("admission_notes", "discharge_notes", "radioDischargeReason");
+        assertThat(catalogue.tables(CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL)).isEmpty();
         assertThatThrownBy(() -> catalogue.patientScopes().clear())
                 .isInstanceOf(UnsupportedOperationException.class);
         assertThatThrownBy(() -> catalogue.patientScopes().get("relationships").clear())

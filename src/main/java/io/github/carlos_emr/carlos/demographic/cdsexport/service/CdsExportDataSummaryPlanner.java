@@ -213,14 +213,26 @@ final class CdsExportDataSummaryPlanner {
             }
             roots.put(table, byId);
         }
+        // Every placed row of each table with the record it joined: a root row is its own record,
+        // a child row the record it joined or its own detached record. A child registered later
+        // may name any of them as its parent.
+        var placed = new HashMap<String, List<Map.Entry<Row, Builder>>>();
+        for (var entry : roots.entrySet()) {
+            var list = new ArrayList<Map.Entry<Row, Builder>>();
+            for (var builder : entry.getValue().values()) list.add(Map.entry(builder.root, builder));
+            placed.put(entry.getKey(), list);
+        }
         var indices = new HashMap<CdsExportDataSummaryRegistry.Link, Map<List<String>, List<Builder>>>();
         for (String table : CdsExportDataSummaryRegistry.tables()) {
             var rule = CdsExportDataSummaryRegistry.rule(table);
             if (rule.root()) continue;
             var ordered = new ArrayList<>(rows.getOrDefault(table, List.of()));
             ordered.sort(identityOrder(table));
+            var here = new ArrayList<Map.Entry<Row, Builder>>();
             for (var row : ordered) {
-                var matches = new ArrayList<Builder>();
+                // Distinct records, in the order found: two parent rows of the same record are
+                // one candidate, two records are an ambiguous link.
+                var matches = new java.util.LinkedHashSet<Builder>();
                 for (var link : rule.links()) {
                     if (link.constantColumn() != null
                             && !link.parent().equals(row.text(link.constantColumn()))) continue;
@@ -232,25 +244,32 @@ final class CdsExportDataSummaryPlanner {
                                     ignored -> {
                                         var byKey = new HashMap<List<String>, List<Builder>>();
                                         for (var parent :
-                                                roots.getOrDefault(link.parent(), Map.of())
-                                                        .values()) {
+                                                placed.getOrDefault(link.parent(), List.of())) {
                                             var parentKey =
-                                                    values(parent.root, link.parentColumns());
+                                                    values(parent.getKey(), link.parentColumns());
                                             if (parentKey != null)
                                                 byKey.computeIfAbsent(
                                                                 parentKey,
                                                                 none -> new ArrayList<>())
-                                                        .add(parent);
+                                                        .add(parent.getValue());
                                         }
                                         return byKey;
                                     });
                     matches.addAll(index.getOrDefault(key, List.of()));
                 }
-                if (matches.size() == 1) matches.getFirst().children.add(row);
-                // An orphan, another chart's parent or an ambiguous link is never guessed into a
-                // record: the row is exported as its own record.
-                else detached.add(new Builder(rule, row, identity(row), true));
+                if (matches.size() == 1) {
+                    var record = matches.iterator().next();
+                    record.children.add(row);
+                    here.add(Map.entry(row, record));
+                } else {
+                    // An orphan, another chart's parent or an ambiguous link is never guessed
+                    // into a record: the row is exported as its own record.
+                    var alone = new Builder(rule, row, identity(row), true);
+                    detached.add(alone);
+                    here.add(Map.entry(row, alone));
+                }
             }
+            placed.put(table, here);
         }
         var result = new ArrayList<Group>();
         for (var byId : roots.values()) for (var builder : byId.values()) result.add(builder.build(zone));
@@ -300,6 +319,11 @@ final class CdsExportDataSummaryPlanner {
         String date = row.text(event.dateColumn());
         if (date == null) return null;
         try {
+            // A legacy lab stored its service date as text in the basic form YYYYMMDD (CML).
+            if (date.matches("[0-9]{8}"))
+                return new CdsExportDateDto(
+                        CdsExportDateDto.Precision.DATE,
+                        LocalDate.parse(date, DateTimeFormatter.BASIC_ISO_DATE).toString());
             if (date.length() == 10) {
                 var day = LocalDate.parse(date);
                 String time = event.timeColumn() == null ? null : row.text(event.timeColumn());

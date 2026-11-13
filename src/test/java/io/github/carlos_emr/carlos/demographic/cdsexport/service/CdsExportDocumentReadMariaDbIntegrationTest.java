@@ -254,11 +254,11 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                                 patient, () -> {});
                                     }));
             // A clinical source remains subject to the same fail-closed closure check. (The
-            // cumulative patient profile and then the Disease Registry used here before are now
-            // exported; the legacy pre-prevention immunization table is still unreviewed.)
+            // cumulative patient profile, the Disease Registry and the legacy immunization
+            // schedule used here before are now exported; a group-note link is still unreviewed.)
             sql.update(
-                    "insert into immunizations(demographic_no,provider_no,immunizations)"
-                            + " values(?,'OWNCDS','synthetic')",
+                    "insert into GroupNoteLink(noteId,demographicNo,anonymous,active) values(?,?,0,1)",
+                    patient,
                     patient);
             try {
                 stableLegacy(
@@ -274,8 +274,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                         .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED"));
             } finally {
                 sql.update(
-                        "delete from immunizations where demographic_no=? and"
-                                + " provider_no='OWNCDS'",
+                        "delete from GroupNoteLink where noteId=? and demographicNo=?",
+                        patient,
                         patient);
             }
         } finally {
@@ -762,12 +762,12 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldRefuseUnclassifiedClinicalSourceRows_insteadOfTreatingTheChartAsFullyCovered() {
-        // A legacy pre-prevention immunization row is still unreviewed and must stay empty; the
-        // cumulative patient profile and the Disease Registry this test used before are now
-        // exported (a data summary and ProblemList).
+        // A group-note link is still unreviewed and must stay empty. The cumulative patient
+        // profile, the Disease Registry and the legacy immunization schedule this test used
+        // before are now exported (data summaries and ProblemList).
         sql.update(
-                "insert into immunizations(demographic_no,provider_no,immunizations)"
-                        + " values(?,'OWNCDS','synthetic')",
+                "insert into GroupNoteLink(noteId,demographicNo,anonymous,active) values(?,?,0,1)",
+                patient,
                 patient);
         try {
             assertThatThrownBy(
@@ -779,7 +779,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from immunizations where demographic_no=? and provider_no='OWNCDS'",
+                    "delete from GroupNoteLink where noteId=? and demographicNo=?",
+                    patient,
                     patient);
         }
     }
@@ -821,39 +822,38 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldStopTheJobAndNameTheTable_whenAClinicWideMustBeEmptySourceIsPopulated() {
-        // A legacy CML lab report header has no patient link: a row there concerns every
-        // patient, so the job stops once with the clinic code instead of holding every patient
-        // one by one, and the table is named on the channel the CLI prints (census D5). The
-        // recycle bin and then DrugProduct used here before are now ruled operational and
-        // listed (removed feature) respectively.
+    void shouldNeitherStopTheJobNorHoldTheChart_forLegacyLabRowsRoutedToNoPatient() {
+        // A CML upload header and an MDS segment used to stop the whole job: their tables were
+        // must-be-empty with no patient link. They are now data summaries scoped through the
+        // report's route, so rows routed to no patient (an unmatched upload) belong to no chart
+        // and stop nothing. No must-be-empty table without a patient link remains.
         sql.update("insert into labReportInformation(location_id) values('synthetic')");
+        sql.update(
+                "insert into mdsOBX(segmentID,observationValue) values(?,'synthetic')",
+                patient);
         try (var log =
                 io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
                         "carlos.cds.safeTechnical")) {
             stableLegacy(
                     () ->
-                            assertThatThrownBy(
-                                            () ->
-                                                    read.executeWithoutResult(
-                                                            status ->
-                                                                    catalogue
-                                                                            .requireUnclassifiedSourcesEmpty(
-                                                                                    patient,
-                                                                                    () -> {})))
-                                    .hasMessage("CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED"));
-            assertThat(log.messages())
-                    .anySatisfy(
-                            message ->
-                                    assertThat(message)
-                                            .contains(
-                                                    "CDS_EXPORT_SOURCE:",
-                                                    "CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED",
-                                                    "\"labReportInformation\"")
-                                            .doesNotContain("synthetic"));
+                            read.executeWithoutResult(
+                                    status ->
+                                            catalogue.requireUnclassifiedSourcesEmpty(
+                                                    patient, () -> {})));
+            assertThat(log.messages()).noneMatch(message -> message.contains("CDS_EXPORT_SOURCE:"));
         } finally {
             sql.update("delete from labReportInformation where location_id='synthetic'");
+            sql.update("delete from mdsOBX where segmentID=? and observationValue='synthetic'", patient);
         }
+        var rulings = io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue.current();
+        assertThat(rulings.tables(
+                                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceCatalogue
+                                        .Disposition.REQUIRE_EMPTY))
+                .allMatch(
+                        table ->
+                                rulings.patientScopes().containsKey(table)
+                                        || io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao
+                                                .linked(table));
     }
 
     @Test
@@ -969,22 +969,22 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
 
     @Test
     void shouldIgnoreAnotherPatientsUnsupportedRecord_andRefuseTheSelectedPatientsRecord() {
-        // Legacy pre-prevention immunization rows are still unreviewed; the CAISI hospitalisation
-        // days and then the episodes used here before are now listed and exported.
+        // Group-note links are still unreviewed; the CAISI hospitalisation days, the episodes and
+        // the legacy immunization schedule used here before are now listed and exported.
         sql.update(
-                "insert into immunizations(ID,demographic_no,provider_no,immunizations)"
-                        + " values(?,?,'OWNCDS','synthetic')",
+                "insert into GroupNoteLink(id,noteId,demographicNo,anonymous,active)"
+                        + " values(?,?,?,0,1)",
+                patient,
                 patient,
                 patient + 77);
         try {
             requireCatalogueScope();
-            sql.update(
-                    "update immunizations set demographic_no=? where ID=?", patient, patient);
+            sql.update("update GroupNoteLink set demographicNo=? where id=?", patient, patient);
             assertThatThrownBy(this::requireCatalogueScope)
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
         } finally {
             sql.update(
-                    "delete from immunizations where ID=? and demographic_no in (?,?)",
+                    "delete from GroupNoteLink where id=? and demographicNo in (?,?)",
                     patient,
                     patient,
                     patient + 77);
@@ -1022,8 +1022,17 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         }
     }
 
+    private long summaryRows(String table, int chart) {
+        var summaries = context.getBean(CdsExportDataSummaryReadDao.class);
+        var plan = CdsExportDataSummaryReadDao.plan(table);
+        Long count = read.execute(status -> summaries.count(plan, chart));
+        return count;
+    }
+
     @Test
-    void shouldCheckBothRelationshipEndpoints_beforeClaimingPatientSourceAbsence() {
+    void shouldExportARelationshipWithTheChartThatShowsIt_andHoldNeitherEndpoint() {
+        // A relationship used to hold both endpoints. It is now a data summary of the chart that
+        // shows it (its demographic_no); the related patient's chart shows its own inverse row.
         sql.update(
                 "insert into relationships(id,demographic_no,relation_demographic_no,notes)"
                         + " values(?,?,?,?)",
@@ -1032,8 +1041,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 patient,
                 "OWNED_RELATED_PATIENT_FACT");
         try {
-            assertThatThrownBy(this::requireCatalogueScope)
-                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+            requireCatalogueScope();
+            assertThat(summaryRows("relationships", patient)).isZero();
+            assertThat(summaryRows("relationships", patient + 77)).isEqualTo(1L);
         } finally {
             sql.update(
                     "delete from relationships where id=? and relation_demographic_no=?",
@@ -1043,7 +1053,9 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldAllowProgramAccessMetadata_butRefuseEveryPopulatedClinicalRemainder() {
+    void shouldExportEveryPopulatedAdmissionRemainder_andLeaveProgramAccessMetadataOut() {
+        // An admission or discharge narrative or a discharge reason used to hold the chart; it now
+        // travels as a "Program admission" data summary. A bare membership row is no record.
         sql.update(
                 "insert into"
                     + " admission(am_id,client_id,program_id,admission_status,admission_date,admission_from_transfer,discharge_from_transfer,lastUpdateDate,radioDischargeReason)"
@@ -1053,6 +1065,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 patient);
         try {
             requireCatalogueScope();
+            assertThat(summaryRows("admission", patient)).isZero();
             for (String update :
                     List.of(
                             "update admission set"
@@ -1065,8 +1078,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                 + " admission_notes=NULL,discharge_notes=NULL,radioDischargeReason='OWNED'"
                                 + " where am_id=?")) {
                 sql.update(update, patient);
-                assertThatThrownBy(this::requireCatalogueScope)
-                        .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+                requireCatalogueScope();
+                assertThat(summaryRows("admission", patient)).isEqualTo(1L);
             }
         } finally {
             sql.update("delete from admission where am_id=? and client_id=?", patient, patient);

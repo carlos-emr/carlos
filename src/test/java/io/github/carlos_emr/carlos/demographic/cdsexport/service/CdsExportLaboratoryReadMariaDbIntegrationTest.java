@@ -303,8 +303,33 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     }
 
     @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP"})
+    void shouldReadTheStructuredResults_besideALegacyFormatReportExportedWithReports(String type) {
+        // A legacy-format report is a data summary of Reports; the HL7 projection never reads it
+        // and no longer refuses the chart for it. The request projection without Reports asks.
+        sql.update(
+                "insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,?)",
+                patient + 2,
+                patient,
+                patient + 1,
+                type);
+        Long count = read.execute(status -> results.countCdsExportRows(patient));
+        assertThat(count).isEqualTo(36L);
+        Long routes =
+                read.execute(
+                        status ->
+                                context.getBean(PatientLabRoutingDao.class)
+                                        .countCdsExportRows(patient));
+        assertThat(routes).isEqualTo(1L);
+        Boolean legacy = read.execute(status -> results.hasCdsExportLegacyReports(patient));
+        assertThat(legacy).isTrue();
+        Boolean other = read.execute(status -> results.hasCdsExportLegacyReports(patient + 1));
+        assertThat(other).isFalse();
+    }
+
+    @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.EmptySource
-    @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP", "doc", "hl7"})
+    @org.junit.jupiter.params.provider.ValueSource(strings = {"doc", "hl7", "mds", "XYZ"})
     void shouldRefuseUnmappedOrNoncanonicalRouting_beforeCountingPagingOrStreamingResults(
             String type) {
         sql.update(
@@ -414,7 +439,7 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRefuseLegacyOnlyLaboratoryData_insteadOfReportingAnEmptyStructuredInventory() {
+    void shouldReportAnEmptyStructuredInventory_forLegacyOnlyLaboratoryDataTheReportsCarry() {
         sql.update("delete from cds_laboratory_result where runId=? and sourcePath=?", run, marker);
         sql.update(
                 "delete from patientLabRouting where id=? and demographic_no=?", patient, patient);
@@ -423,8 +448,12 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                 patient + 2,
                 patient,
                 patient);
-        assertThatThrownBy(() -> read.execute(status -> results.countCdsExportRows(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        // The MDS report is exported as a data summary with Reports; an export without Reports
+        // holds the chart in the request projection (CdsExportLaboratorySourceReader).
+        Long count = read.execute(status -> results.countCdsExportRows(patient));
+        assertThat(count).isZero();
+        Boolean legacy = read.execute(status -> results.hasCdsExportLegacyReports(patient));
+        assertThat(legacy).isTrue();
     }
 
     @Test

@@ -247,6 +247,109 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
         assertThat(unlinked("HRMDocument")).isZero();
     }
 
+    private long owned(String table, int patient) throws Exception {
+        return owned(CdsExportIndirectPatientScopeReadSupport.owned(table, profile), table, patient);
+    }
+
+    private long owned(String predicate, String table, int patient) throws Exception {
+        String sql = "select count(*) from `" + table + "` d where " + predicate;
+        int occurrences = sql.split(":patient", -1).length - 1;
+        try (var s = db.prepareStatement(sql.replace(":patient", "?"))) {
+            for (int i = 1; i <= occurrences; i++) s.setInt(i, patient);
+            try (var rows = s.executeQuery()) {
+                assertThat(rows.next()).isTrue();
+                return rows.getLong(1);
+            }
+        }
+    }
+
+    private void legacyLaboratoryTables() throws Exception {
+        for (String sql :
+                List.of(
+                        "create table mdsMSH(segmentID int primary key,demographic_no int)",
+                        "create table mdsOBX(segmentID int,observationValue varchar(255))",
+                        "create table labPatientPhysicianInfo(id int primary key,labReportInfo_id int)",
+                        "create table labTestResults(id int primary key,labPatientPhysicianInfo_id int)",
+                        "create table labReportInformation(id int primary key)",
+                        "create table labRequestReportLink(id int primary key,report_table"
+                                + " varchar(60),report_id int)")) execute(sql);
+    }
+
+    @Test
+    void shouldScopeLegacyLabSegments_throughTheRouteOfExactlyTheirTypeOnly() throws Exception {
+        legacyLaboratoryTables();
+        execute("insert into mdsMSH values(91,2),(92,1)");
+        execute("insert into mdsOBX values(91,'5.1'),(91,'5.1'),(92,'7'),(93,'orphan')");
+        // MDS lab 91 is routed to patient 1; its legacy demographic_no copy (2) decides nothing.
+        // HL7 lab 92 is another report with the same number, and a type spelled 'mds' is no MDS.
+        execute("insert into patientLabRouting values(11,91,'MDS',1),(12,92,'HL7',1),(13,92,'mds',1)");
+        assertThat(owned("mdsMSH", 1)).isEqualTo(1);
+        assertThat(owned("mdsMSH", 2)).isZero();
+        // Both identical keyless segments belong to the report; an orphan segment to no chart.
+        assertThat(owned("mdsOBX", 1)).isEqualTo(2);
+        assertThat(owned("mdsOBX", 2)).isZero();
+        // A segment whose header row is missing still follows its lab number's route.
+        execute("delete from mdsMSH where segmentID=91");
+        assertThat(owned("mdsOBX", 1)).isEqualTo(2);
+    }
+
+    @Test
+    void shouldScopeCmlReportsLinesHeadersAndRequisitionLinks_throughTheReportRoute() throws Exception {
+        legacyLaboratoryTables();
+        execute("insert into labReportInformation values(3),(4)");
+        execute("insert into labPatientPhysicianInfo values(80,3),(81,3),(82,4)");
+        execute("insert into labTestResults values(800,80),(810,81),(820,82)");
+        execute("insert into patientLabRouting values(11,80,'CML',1),(12,81,'CML',2),(13,82,'CML',0),(14,77,'HL7',1)");
+        assertThat(owned("labPatientPhysicianInfo", 1)).isEqualTo(1);
+        assertThat(owned("labTestResults", 1)).isEqualTo(1);
+        assertThat(owned("labTestResults", 2)).isEqualTo(1);
+        // One upload header serves the reports of patients 1 and 2; an unmatched report's header
+        // belongs to no chart.
+        assertThat(owned("labReportInformation", 1)).isEqualTo(1);
+        assertThat(owned("labReportInformation", 2)).isEqualTo(1);
+        execute(
+                "insert into labRequestReportLink values(1,'labPatientPhysicianInfo',80),"
+                        + "(2,'hl7TextMessage',77),(3,'hl7TextMessage',80),(4,'unknownTable',80)");
+        // The CML link and the HL7 link of patient 1; the HL7 lab 80 is not routed and another
+        // table names no chart. (A spelling differing only by case is covered on MariaDB, whose
+        // CAST AS BINARY compares every byte; H2's does not.)
+        assertThat(owned("labRequestReportLink", 1)).isEqualTo(2);
+        assertThat(owned("labRequestReportLink", 2)).isZero();
+    }
+
+    @Test
+    void shouldScopePathNetSegments_throughPatientAndOrderRowsToTheMessageRoute() throws Exception {
+        var bc =
+                CdsExportSourceCatalogue.current().profiles().stream()
+                        .filter(p -> p.name().equals("bc"))
+                        .findFirst()
+                        .orElseThrow();
+        for (String sql :
+                List.of(
+                        "create table hl7_message(message_id int primary key)",
+                        "create table hl7_pid(pid_id int primary key,message_id int)",
+                        "create table hl7_link(pid_id int primary key,demographic_no int)",
+                        "create table hl7_obr(obr_id int primary key,pid_id int)",
+                        "create table hl7_obx(obx_id int primary key,obr_id int)",
+                        "insert into hl7_message values(5),(6)",
+                        "insert into hl7_pid values(50,5),(60,6)",
+                        // The legacy link copy names patient 2; the route names patient 1.
+                        "insert into hl7_link values(50,2),(60,2)",
+                        "insert into hl7_obr values(500,50),(600,60)",
+                        "insert into hl7_obx values(5000,500),(5001,500),(6000,600),(9000,999)",
+                        "insert into patientLabRouting values(11,5,'BCP',1),(12,6,'BCP',0)"))
+            execute(sql);
+        String obx = CdsExportIndirectPatientScopeReadSupport.owned("hl7_obx", bc);
+        assertThat(owned(obx, "hl7_obx", 1)).isEqualTo(2);
+        assertThat(owned(obx, "hl7_obx", 2)).isZero();
+        assertThat(owned(CdsExportIndirectPatientScopeReadSupport.owned("hl7_link", bc), "hl7_link", 1))
+                .isEqualTo(1);
+        assertThat(owned(CdsExportIndirectPatientScopeReadSupport.owned("hl7_link", bc), "hl7_link", 2))
+                .isZero();
+        assertThat(owned(CdsExportIndirectPatientScopeReadSupport.owned("hl7_message", bc), "hl7_message", 1))
+                .isEqualTo(1);
+    }
+
     @Test
     void shouldOfferTheUnlinkedRule_onlyForTheReviewedInboxTables() {
         assertThat(CdsExportIndirectPatientScopeReadSupport.unlinkedTables())
