@@ -41,6 +41,8 @@ public final class CdsExportNativeMetadataReadSupport {
         LABORATORY_INFORMATION("hl7TextInfo"),
         LABORATORY_ROUTING("patientLabRouting"),
         CASE_ISSUES("casemgmt_issue"),
+        DISEASE_REGISTRY("dxresearch"),
+        EPISODES("Episode"),
         ISSUE_CATALOGUE("issue"),
         RETAINED_FILES("cds_import_file"),
         RETAINED_FILE_REFERENCES("cds_import_file_reference"),

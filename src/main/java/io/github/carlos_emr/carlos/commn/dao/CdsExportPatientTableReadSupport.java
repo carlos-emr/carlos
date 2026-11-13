@@ -237,6 +237,50 @@ public final class CdsExportPatientTableReadSupport {
                         "sortOrderId",
                         "type",
                         "update_date")),
+        /**
+         * The patient's Disease Registry entries, in every status. Deleted ('D') entries stay
+         * captured so the exporter can account for them field by field instead of skipping them.
+         */
+        DISEASE_REGISTRY(
+                "dxresearch",
+                "dxresearch_no",
+                "demographic_no",
+                List.of(
+                        "association",
+                        "coding_system",
+                        "demographic_no",
+                        "dxresearch_code",
+                        "dxresearch_no",
+                        "providerNo",
+                        "start_date",
+                        "status",
+                        "update_date")),
+        /**
+         * Date-precision rows (partial_date table 3) of this patient's Disease Registry entries.
+         * The registry's start date is shown at the stored year or year-month precision.
+         */
+        DISEASE_REGISTRY_PRECISION(
+                "partial_date",
+                "id",
+                null,
+                List.of("field_name", "format", "id", "table_id", "table_name")),
+        /** The patient's coded episodes (pregnancies and other episodes), in every status. */
+        EPISODES(
+                "Episode",
+                "id",
+                "demographicNo",
+                List.of(
+                        "code",
+                        "codingSystem",
+                        "demographicNo",
+                        "description",
+                        "endDate",
+                        "id",
+                        "lastUpdateTime",
+                        "lastUpdateUser",
+                        "notes",
+                        "startDate",
+                        "status")),
         CASE_NOTE_ISSUE_LINK("casemgmt_issue_notes", "note_id", null, List.of("id", "note_id")),
         CASE_NOTE_EXT(
                 "casemgmt_note_ext",
@@ -1012,6 +1056,11 @@ public final class CdsExportPatientTableReadSupport {
             if (this == CASE_NOTE_EXT)
                 return "exists (select 1 from `casemgmt_note` n where n.`note_id`=d.`note_id` and"
                         + " n.`demographic_no`=:patient)";
+            // PartialDate.DXRESEARCH (3): every precision row of the patient's own registry entries,
+            // whatever its field, so an unknown field is reviewed instead of left behind.
+            if (this == DISEASE_REGISTRY_PRECISION)
+                return "d.`table_name`=3 and exists (select 1 from `dxresearch` x where"
+                        + " x.`dxresearch_no`=d.`table_id` and x.`demographic_no`=:patient)";
             // No activity/deletion filtering: historical associations remain captured and require
             // an explicit disposition.
             // Exact text reference matching avoids MySQL's permissive string-to-number coercion.

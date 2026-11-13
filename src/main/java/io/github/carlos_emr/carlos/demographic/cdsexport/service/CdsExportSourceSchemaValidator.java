@@ -53,6 +53,10 @@ public final class CdsExportSourceSchemaValidator {
                     "casemgmt_issue_notes",
                     "casemgmt_note_ext",
                     "casemgmt_note",
+                    CdsExportProblemRegistrySources.REGISTRY,
+                    CdsExportProblemRegistrySources.PRECISION,
+                    CdsExportProblemRegistrySources.EPISODES,
+                    CdsExportProblemRegistrySources.REFERENCES,
                     "retained_import_options",
                     "Contact",
                     "DemographicContact",
@@ -137,6 +141,9 @@ public final class CdsExportSourceSchemaValidator {
                                         : scope.equals(CdsExportListedSourceReader.TABLE)
                                         ? "TRUSTED_LISTED_SOURCE_COUNTS"
                                         : scope.equals("medication_reference")
+                                                        || scope.equals(
+                                                                CdsExportProblemRegistrySources
+                                                                        .REFERENCES)
                                                 ? "TRUSTED_PUBLIC_REFERENCE"
                                                 : scope.equals("retained_import_options")
                                                         ? "TRUSTED_IMPORT_PROVENANCE"
@@ -250,7 +257,9 @@ public final class CdsExportSourceSchemaValidator {
     private static String physical(String scope) {
         return scope.equals("preventions_scope")
                 ? "preventions"
-                : CdsExportPreventionSources.schemaTable(scope);
+                : CdsExportProblemRegistrySources.PRECISION.equals(scope)
+                        ? CdsExportProblemRegistrySources.schemaTable(scope)
+                        : CdsExportPreventionSources.schemaTable(scope);
     }
 
     private static void invalid() throws IOException {

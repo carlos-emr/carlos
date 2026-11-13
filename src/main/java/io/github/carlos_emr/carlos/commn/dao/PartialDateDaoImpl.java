@@ -79,6 +79,24 @@ public class PartialDateDaoImpl extends AbstractDaoImpl<PartialDate> implements 
 
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public long countCdsExportDiseaseRegistryRows(int patient) {
+        return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.DISEASE_REGISTRY_PRECISION, patient);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportDiseaseRegistryRowsAfter(int patient, Long afterId, int limit) {
+        return CdsExportPatientTableReadSupport.page(entityManager, CdsExportPatientTableReadSupport.Plan.DISEASE_REGISTRY_PRECISION, patient, afterId, limit);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public byte[] readCdsExportDiseaseRegistryChunk(int patient, long rowId, String column, long offset, int length) {
+        return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.DISEASE_REGISTRY_PRECISION, patient, rowId, column, offset, length);
+    }
+
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
     public long countCdsExportScopedRows(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories) {
         return CdsExportPatientTableReadSupport.count(entityManager, CdsExportPatientTableReadSupport.Plan.partialDates(categories), patient);
     }

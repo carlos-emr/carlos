@@ -1,0 +1,81 @@
+{
+  "table": "dxresearch",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "association",
+      "type": "tinyint(1)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "coding_system",
+      "type": "varchar(20)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "demographic_no",
+      "type": "int(10)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "dxresearch_code",
+      "type": "varchar(10)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "dxresearch_no",
+      "type": "int(10)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "providerNo",
+      "type": "varchar(6)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "start_date",
+      "type": "date",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "status",
+      "type": "char(1)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "update_date",
+      "type": "datetime",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "dxresearch_no"
+  ]
+}

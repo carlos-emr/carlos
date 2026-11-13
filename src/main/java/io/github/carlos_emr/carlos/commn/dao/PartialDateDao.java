@@ -44,6 +44,12 @@ public interface PartialDateDao extends AbstractDao<PartialDate>, CdsExportPatie
     byte[] readCdsExportScopedChunk(int patient, java.util.Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories,
             long rowId, String column, long offset, int length);
 
+    /** Snapshot reads of the date-precision rows of the patient's own Disease Registry entries. */
+    long countCdsExportDiseaseRegistryRows(int patient);
+    java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> findCdsExportDiseaseRegistryRowsAfter(
+            int patient, Long afterId, int limit);
+    byte[] readCdsExportDiseaseRegistryChunk(int patient, long rowId, String column, long offset, int length);
+
     PartialDate getPartialDate(Integer tableName, Integer tableId, Integer fieldName);
 
     String getDatePartial(Date fieldDate, Integer tableName, Integer tableId, Integer fieldName);

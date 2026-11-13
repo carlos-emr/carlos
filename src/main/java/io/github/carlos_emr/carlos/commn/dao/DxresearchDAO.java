@@ -32,7 +32,16 @@ import io.github.carlos_emr.carlos.commn.model.DxRegistedPTInfo;
 import io.github.carlos_emr.carlos.commn.model.Dxresearch;
 import io.github.carlos_emr.carlos.dxresearch.bean.dxCodeSearchBean;
 
-public interface DxresearchDAO extends AbstractDao<Dxresearch> {
+/**
+ * Disease Registry entries. The CDS export reads a patient's entries through
+ * {@link CdsExportPatientTableReadSupport.Plan#DISEASE_REGISTRY} and the public code-table
+ * descriptions they name through {@link CdsExportDiagnosisCodeReadSupport}.
+ */
+public interface DxresearchDAO extends AbstractDao<Dxresearch>, CdsExportPatientTableReadDao {
+
+    /** The allowlisted code-table rows this patient's current entries and episodes name. */
+    List<io.github.carlos_emr.carlos.commn.dto.CdsExportDiagnosisCodeReferenceDto>
+            readCdsExportDiagnosisCodeReferences(int patient);
 
     record CdmPatientRow(String demographicNo, String providerNo, String diagnosisCode) { }
 
