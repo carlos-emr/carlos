@@ -41,5 +41,7 @@ public enum HtmlPdfRenderSource {
     EMAIL,
 
     /** A Messenger message printed by {@code Doc2PDF}. */
-    MESSENGER
+    MESSENGER,
+    /** A CARLOS data summary of chart records printed for a CDS 5.2 patient export. */
+    CDS_DATA_SUMMARY
 }
