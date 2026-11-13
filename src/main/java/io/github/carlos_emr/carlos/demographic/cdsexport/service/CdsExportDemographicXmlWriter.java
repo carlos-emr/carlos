@@ -259,7 +259,8 @@ public final class CdsExportDemographicXmlWriter {
         name(xml, "FirstName", patient.names().first(), "GIV");
         name(xml, "LastName", patient.names().last(), "FAMC");
         if (patient.names().middle() != null)
-            name(xml, "OtherName", patient.names().middle(), "GIV");
+            for (String part : CdsExportDemographicMapper.middleNameParts(patient.names().middle()))
+                name(xml, "OtherName", part, "GIV");
         xml.end();
         xml.end();
         xml.element("cds", "DateOfBirth", patient.birthDate().toString());

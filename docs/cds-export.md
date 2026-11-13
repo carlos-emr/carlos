@@ -1693,6 +1693,16 @@ ReadMe carries the fixed line `Practice-administrative demographic fields "date 
 "effective date" are not part of CDS 5.2 Demographics and are not exported.`, which the
 supporting-file validator requires.
 
+Where CDS 5.2 has an exact home for a value the CARLOS forms store, the mapper uses it. Title
+`RT_HON` is `NamePrefix` `RtHon`. A spoken language is the ISO 639-2 code that
+`spoken_languages_codes.properties` gives for the stored display name; the importer reverses that
+code with the same table. Middle names longer than one 50-character name part, up to the column's
+100, are written as their space-separated names in ordered `OtherName` GIV parts, which the
+importer joins back with single spaces. An imported chart whose edited middle names would need
+several parts is held for review. Two values still require review because no exact home exists:
+administrative gender `X` (Intersex), since the schema's `O` (Other) is imported back as `O` and
+would lose the distinction, and a postal code without a known Canadian or pinned US subdivision.
+
 The demographic occurrence decides exactly the public provider rows that its own columns
 name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
 whichever categories are selected. A provider captured only for another selected category

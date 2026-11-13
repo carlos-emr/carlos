@@ -96,6 +96,20 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
+    void shouldHoldAnImportedChartForReview_whenAnEditedMiddleNameNeedsSeveralParts()
+            throws Exception {
+        // D12: the native writer splits a middle-names value longer than one schema part into
+        // its space-separated names. The retained path replaces one existing part, so an edit
+        // that would need several parts is held for review rather than written as one
+        // over-long part.
+        fixture.currentField("middleNames", "Marie-Claire Anne Josephine Elisabeth Margaret Victoria");
+        var result = reconcile();
+        assertThat(result.representable()).isFalse();
+        assertThatThrownBy(result::changes)
+                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NAMES_REQUIRES_REVIEW");
+    }
+
+    @Test
     void
             shouldVerifyAJoinedMiddleNameEditRequiresReviewRatherThanBeingCopiedIntoEveryOriginalPart_forDemographicNamesReconcilerContract()
                     throws Exception {

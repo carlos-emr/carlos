@@ -341,6 +341,57 @@ class CdsExportDemographicMapperUnitTest {
     }
 
     @Test
+    void shouldMapTheRightHonourableTitleAndListedSpokenLanguages_toTheirSchemaCodes()
+            throws Exception {
+        // D12: add-form-personal.jsp stores "Right Honourable" as RT_HON (schema RtHon) and the
+        // spoken-language display names of spoken_languages_codes.properties, which the
+        // importer reverses with SpokenLangProperties.getLangByCode.
+        var fields = baseline();
+        fields.put("title", "RT_HON");
+        fields.put("spoken_lang", "Arabic");
+        var result = mapper.map(row(fields));
+        assertThat(result.baseRowRepresentable()).isTrue();
+        var document = parse(xml(result));
+        assertThat(text(document, "cds_dt", "NamePrefix")).isEqualTo("RtHon");
+        assertThat(text(document, "cds", "PreferredSpokenLanguage")).isEqualTo("ara");
+        assertThat(
+                        io.github.carlos_emr.carlos.demographic.pageUtil.SpokenLangProperties
+                                .getInstance()
+                                .getLangByCode("ARA"))
+                .isEqualTo("Arabic");
+        fields.put("spoken_lang", "Chinese");
+        assertThat(mapper.map(row(fields)).spokenLanguage()).isEqualTo("chi");
+        // Middle names up to the column's 100 code points are written as their space-separated
+        // names, which the importer joins back with single spaces (CdsDemographicPersister).
+        String middle = "Marie-Claire Anne Josephine Elisabeth Margaret Victoria";
+        assertThat(middle.length()).isGreaterThan(50);
+        fields.put("middleNames", middle);
+        var named = mapper.map(row(fields));
+        assertThat(named.fields().get("middleNames").rule())
+                .isEqualTo("SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS");
+        var parts = parse(xml(named)).getElementsByTagNameNS("cds_dt", "OtherName");
+        var joined = new java.util.ArrayList<String>();
+        for (int i = 0; i < parts.getLength(); i++)
+            joined.add(
+                    ((org.w3c.dom.Element) parts.item(i))
+                            .getElementsByTagNameNS("cds_dt", "Part")
+                            .item(0)
+                            .getTextContent());
+        assertThat(String.join(" ", joined)).isEqualTo(middle);
+        assertThat(joined).hasSize(6);
+        fields.put("middleNames", "Short " + "b".repeat(51));
+        assertThat(mapper.map(row(fields)).fields().get("middleNames").outcome())
+                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        fields.put("middleNames", null);
+        // An unlisted name or a bare code is still not evidence of an ISO 639-2 code.
+        for (String unknown : List.of("Not a language", "ARA", "xyz")) {
+            fields.put("spoken_lang", unknown);
+            assertThat(mapper.map(row(fields)).fields().get("spoken_lang").outcome())
+                    .isEqualTo(Outcome.REQUIRES_REVIEW);
+        }
+    }
+
+    @Test
     void shouldKeepCustomPatientStatusAsPlainText_withoutAssumingItMeansActive() throws Exception {
         var fields = baseline();
         fields.put("patient_status", "Transferred & pending");

@@ -52,7 +52,7 @@ public final class CdsExportDemographicMapper {
         var state = new State(row.fields());
         String first = state.token("first_name", "Names/LegalName/FirstName/Part", 50, true);
         String last = state.token("last_name", "Names/LegalName/LastName/Part", 50, true);
-        String middle = state.token("middleNames", "Names/LegalName/OtherName/Part", 50, false);
+        String middle = middleNames(state);
         String title = state.code("title", "Names/NamePrefix", TITLES);
         LocalDate birth = birth(state);
         String gender = state.code("sex", "Gender", Map.of("M", "M", "F", "F", "O", "O", "U", "U"));
@@ -77,15 +77,7 @@ public final class CdsExportDemographicMapper {
                         "official_lang",
                         "PreferredOfficialLanguage",
                         Map.of("English", "ENG", "French", "FRE", "ENG", "ENG", "FRE", "FRE"));
-        // Native spoken_lang stores a display language. Only reviewed translations are used;
-        // an arbitrary three-letter string is not evidence of membership in ISO 639-2.
-        String spoken =
-                state.code(
-                        "spoken_lang",
-                        "PreferredSpokenLanguage",
-                        Map.of(
-                                "English", "eng", "French", "fre", "eng", "eng", "fre", "fre",
-                                "fra", "fra"));
+        String spoken = spoken(state);
         String email = state.token("email", "Email", 50, false);
         if (email != null && !CdsExportEmailLexical.matches(email)) {
             state.review("email", "Email", "WIRE_EMAIL_REQUIRES_REVIEW");
@@ -294,6 +286,66 @@ public final class CdsExportDemographicMapper {
         return null;
     }
 
+    /**
+     * The native middleNames column holds up to 100 code points, and one schema name part holds
+     * 50. The CARLOS importer builds middleNames by joining the ordered GIV OtherName parts with
+     * single spaces (CdsDemographicPersister), so a longer value is written as its
+     * space-separated names, one OtherName part each, and the importer rebuilds the identical
+     * string. A value that fits one part keeps its single part. A single name longer than 50
+     * still requires review; nothing is truncated.
+     */
+    private static String middleNames(State state) {
+        String path = "Names/LegalName/OtherName/Part";
+        String value = state.value("middleNames");
+        if (!state.present("middleNames") || value.codePointCount(0, value.length()) <= 50)
+            return state.token("middleNames", path, 50, false);
+        String checked = state.token("middleNames", path, 100, false);
+        if (checked == null) return null;
+        for (String part : checked.split(" ", -1))
+            if (part.codePointCount(0, part.length()) > 50) {
+                state.review("middleNames", path, "WIRE_LENGTH_REQUIRES_REVIEW");
+                return null;
+            }
+        state.mapped("middleNames", path, "SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS");
+        return checked;
+    }
+
+    /** The OtherName parts that carry a mapped middleNames value; see {@link #middleNames}. */
+    static java.util.List<String> middleNameParts(String middle) {
+        return middle.codePointCount(0, middle.length()) <= 50
+                ? java.util.List.of(middle)
+                : java.util.List.of(middle.split(" ", -1));
+    }
+
+    /**
+     * Native spoken_lang stores the display name that add-form-personal.jsp offers from
+     * SpokenLangProperties (spoken_languages_codes.properties). That same table gives its ISO
+     * 639-2 code, and the CARLOS importer reverses it with SpokenLangProperties.getLangByCode
+     * (CdsDemographicDetailsService), so the name survives a round trip. An arbitrary
+     * three-letter string or an unlisted name is not evidence of an ISO 639-2 code.
+     */
+    private static String spoken(State state) {
+        if (!state.present("spoken_lang")) return null;
+        String value = state.value("spoken_lang");
+        String reviewed =
+                Map.of("English", "eng", "French", "fre", "eng", "eng", "fre", "fre", "fra", "fra")
+                        .get(value);
+        if (reviewed != null) {
+            state.mapped("spoken_lang", "PreferredSpokenLanguage", "REVIEWED_NATIVE_CODE");
+            return reviewed;
+        }
+        String code =
+                io.github.carlos_emr.carlos.demographic.pageUtil.SpokenLangProperties.getInstance()
+                        .getCodeByLang(value);
+        if (code == null || !code.matches("[A-Z]{3}")) {
+            state.review("spoken_lang", "PreferredSpokenLanguage", "CODE_REQUIRES_REVIEW");
+            return null;
+        }
+        state.mapped(
+                "spoken_lang", "PreferredSpokenLanguage", "CARLOS_SPOKEN_LANGUAGE_ISO_639_2_CODE");
+        return code.toLowerCase(java.util.Locale.ROOT);
+    }
+
     private static void phone(
             State state, java.util.List<Phone> phones, String type, String column) {
         String number = state.token(column, "PhoneNumber[" + type + "]/phoneNumber", 25, false);
@@ -310,6 +362,8 @@ public final class CdsExportDemographicMapper {
             result.put(title, title);
             result.put(title.toUpperCase(java.util.Locale.ROOT), title);
         }
+        // add-form-personal.jsp stores "Right Honourable" as RT_HON; the schema code is RtHon.
+        result.put("RT_HON", "RtHon");
         return Map.copyOf(result);
     }
 

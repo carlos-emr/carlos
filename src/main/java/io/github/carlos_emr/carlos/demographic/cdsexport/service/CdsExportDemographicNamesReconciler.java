@@ -214,7 +214,11 @@ public final class CdsExportDemographicNamesReconciler {
                 if (candidate.outcome() == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW)
                     rule = "CURRENT_NATIVE_NAME_REQUIRES_REVIEW";
                 else if (part == Part.MIDDLE
-                        && (value != null && middle.size() > 1
+                        && (value != null
+                                        && (middle.size() > 1
+                                                || CdsExportDemographicMapper.middleNameParts(value)
+                                                                .size()
+                                                        > 1)
                                 || evidence.preparation()
                                                         .scalars()
                                                         .get(
