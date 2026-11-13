@@ -391,7 +391,10 @@ public final class CdsExportNativeCareMapper {
                         "NewCategory/ResidualInfo",
                         "EXACT_NATIVE_OBSERVATION_CONTEXT");
             }
-            metadata.add(Map.of("table", row.table(), "fields", row.fields()));
+            var entry = new LinkedHashMap<String, Object>();
+            entry.put("table", row.table());
+            entry.put("fields", row.fields());
+            metadata.add(entry);
         }
         var extra = new HashMap<String, String>();
         for (var ext : extensions) {
@@ -426,11 +429,18 @@ public final class CdsExportNativeCareMapper {
         for (String value : output.values())
             if (!CdsExportNativeFieldAssessments.legal(value, 1024))
                 review("CDS_EXPORT_NATIVE_CARE_WIRE_CAPACITY");
+        // One fixed key order (row fields are already sorted), so an unchanged chart yields the
+        // same bytes on every run and worker. Content is xs:token: every space is escaped (JSON
+        // already escapes tabs and line breaks), so whitespace collapse by a schema-aware reader,
+        // the CARLOS importer included, cannot change the decoded values. The decoded JSON is
+        // unchanged, so the carrier keeps its name.
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put("deleted", false);
+        context.put("rows", metadata);
         String json =
-                JsonMapper.builder()
-                        .build()
-                        .writeValueAsString(
-                                Map.of("version", 1, "deleted", false, "rows", metadata));
+                CdsExportScreeningMapper.tokenSafe(
+                        JsonMapper.builder().build().writeValueAsString(context));
         return new Result(observation.table(), id, element, output, json, rows, fields);
     }
 

@@ -107,12 +107,13 @@ class CdsExportNativeCareMapperUnitTest {
                                     CdsCategory.NEW_CATEGORY,
                                     body -> mapper.writeSupporting(mapped, body)),
                             StandardCharsets.UTF_8);
+            // Spaces in the residual JSON are escaped (xs:token Content); compare escaped text.
             assertThat(supporting)
                     .contains(
-                            "Exact clinical comment café 😀",
+                            safe("Exact clinical comment café 😀"),
                             value.get(1),
-                            "2026-07-09 14:35:00",
-                            "2026-07-10 12:30:00");
+                            safe("2026-07-09 14:35:00"),
+                            safe("2026-07-10 12:30:00"));
         }
     }
 
@@ -187,8 +188,35 @@ class CdsExportNativeCareMapperUnitTest {
             var mapped = map(value.get(0), value.get(1), value.get(2));
             assertThat(mapped.element()).as(value.toString()).isNull();
             assertThat(mapped.values()).isEmpty();
-            assertThat(mapped.metadata()).contains(value.get(1));
+            assertThat(mapped.metadata()).contains(safe(value.get(1)));
         }
+    }
+
+    @Test
+    void shouldCarryTheNativeContextWithoutWhitespace_inOneStableKeyOrder() throws Exception {
+        // Before: the JSON went raw into an xs:token Content, so a schema-aware reader (the
+        // CARLOS importer included) collapsed "BP  repeated" to one space, and Map.of ordered
+        // the keys differently from one JVM to the next.
+        var fields = new HashMap<>(observation("BP", "128/82", "sitting position").fields());
+        fields.put("comments", "BP  repeated\n\tafter rest ");
+        var observation =
+                new CdsExportCapturedTextRowDto(
+                        "measurements", CdsExportPatientTableSourceReader.key(91), fields);
+        var mapped = mapper.map(27, observation, List.of(), List.of());
+        assertThat(mapped.metadata())
+                .startsWith("{\"version\":1,\"deleted\":false,\"rows\":[{\"table\":\"measurements\",\"fields\":{")
+                .doesNotContain(" ", "\t", "\n", "\r");
+        String collapsed = mapped.metadata().strip().replaceAll("[ \\t\\r\\n]+", " ");
+        var decoded = new com.fasterxml.jackson.databind.ObjectMapper().readTree(collapsed);
+        assertThat(decoded.get("rows").get(0).get("fields").get("comments").asText())
+                .isEqualTo("BP  repeated\n\tafter rest ");
+        assertThat(mapper.map(27, observation, List.of(), List.of()).metadata())
+                .isEqualTo(mapped.metadata());
+        String xml =
+                new String(
+                        render(CdsCategory.NEW_CATEGORY, body -> mapper.writeSupporting(mapped, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).contains("BP\\u0020\\u0020repeated").doesNotContain("BP  repeated");
     }
 
     @Test
@@ -214,9 +242,14 @@ class CdsExportNativeCareMapperUnitTest {
                                         body -> mapper.writeSupporting(mapped, body)),
                                 StandardCharsets.UTF_8))
                 .contains(
-                        "Full authored observation",
-                        "custom unit",
-                        "Exact clinical comment café 😀");
+                        safe("Full authored observation"),
+                        safe("custom unit"),
+                        safe("Exact clinical comment café 😀"));
+    }
+
+    /** The residual JSON's whitespace-free spelling of a value (see CdsExportScreeningMapper). */
+    private static String safe(String text) {
+        return CdsExportScreeningMapper.tokenSafe(text);
     }
 
     /** A clinician's deletion as EctDeleteData2Action stores it: the row moves, its extensions stay. */
@@ -373,7 +406,7 @@ class CdsExportNativeCareMapperUnitTest {
             var mapped = map(value.get(0), value.get(1), "");
             assertThat(mapped.element()).isNull();
             assertThat(mapped.values()).isEmpty();
-            assertThat(mapped.metadata()).contains(value.get(1));
+            assertThat(mapped.metadata()).contains(safe(value.get(1)));
         }
     }
 

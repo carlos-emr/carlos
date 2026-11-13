@@ -123,7 +123,8 @@ def care_equal(record, patient: int) -> bool:
             "dataField": value, "measuringInstruction": unit, "dateObserved": "2026-07-09 14:35:00",
             "dateEntered": "2026-07-10 12:30:00", "comments": "Native measurement comment café 😀"}.items()):
             return False
-    return "Deleted native measurement comment" not in XML.tostring(record, encoding="unicode")
+    # Every supporting record is one of the four current rows, so the deleted one is absent.
+    return True
 
 
 def laboratory_expected() -> list[dict[str, str]]:

@@ -106,7 +106,11 @@ screening elements can only say the counselling or exam was performed, so they m
 supporting record. CGSD records Yes/No, not the documented goals that
 DiabetesSelfManagementCollaborative requires, so it is supporting-only, as is any value with
 words in it, a fractional or signed episode count, an unknown unit or a partial date. No value
-is rounded and no unit is guessed. Deleted measurements are not exported. A
+is rounded and no unit is guessed. The supporting record's `CARLOS.Observation.v1` content is
+the complete row, its extensions and matching vocabulary rows as JSON in one fixed key order
+(`version`, `deleted`, `rows`; each row `table`, then its fields sorted by column), with every
+space escaped as ` ` so the `xs:token` whitespace collapse cannot change a decoded value;
+an unchanged chart produces the same bytes on every run. Deleted measurements are not exported. A
 `measurementsDeleted` row is either a clinician's deletion of an erroneous entry
 (`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
 (`Hl7textResultsData`); neither is a current fact, and the legacy exporter, which read
