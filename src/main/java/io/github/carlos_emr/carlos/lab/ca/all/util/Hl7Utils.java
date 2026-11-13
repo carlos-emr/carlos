@@ -15,10 +15,11 @@ public final class Hl7Utils {
         try {
             return Optional.ofNullable(s.get()).map(String::trim).orElse("");
         } catch (HL7Exception e) {
-            logger.warn("HL7 access error: {}", e.getMessage());
+            // The class only: an exception message can quote the lab message's own content.
+            logger.warn("HL7 access error; exceptionClass={}", e.getClass().getSimpleName());
             return "";
         } catch (Exception e) {
-            logger.warn("Unexpected error: {}", e.getMessage());
+            logger.warn("Unexpected error reading an HL7 field; exceptionClass={}", e.getClass().getSimpleName());
             return "";
         }
     }
