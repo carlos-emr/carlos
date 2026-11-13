@@ -42,6 +42,22 @@ import writes, restores prior session settings before pooled reuse, and fences e
 write against the current maintenance owner. See the maintenance contract for ordinary JDBC,
 background-writer exclusion, lost-owner behavior and deployment prerequisites.
 
+### Unit failure codes
+
+A unit that fails inside its transaction rolls back and is recorded with the most specific code
+its cause chain supports, so an operator is not left with a bare `UNIT_WRITE_FAILED`:
+`UNIT_JSON_LIMIT_EXCEEDED` (a bounded JSON reader refused a document the importer itself wrote,
+which is an importer defect, never a source defect), `UNIT_JSON_INVALID`,
+`UNIT_DATABASE_WRITE_FAILED` (a JDBC, Spring data-access or JPA failure),
+`UNIT_SOURCE_READ_FAILED` (an I/O failure reading the staged source or its spooled values),
+`UNIT_VALUE_REFUSED` (a value the persister refused) and, otherwise, `UNIT_WRITE_FAILED`.
+Receipt sealing failures are `NATIVE_BASELINE_KEY_UNAVAILABLE` when the witness key cannot be
+used and `NATIVE_BASELINE_SEAL_FAILED` otherwise; a sealed witness that cannot be read back is
+`NATIVE_BASELINE_REQUIRES_REVIEW`. Every such failure keeps its cause chain, and its protected
+failure evidence (exception types, SQLState/vendor codes and bounded class/method frames, never
+messages or values) is what authorized web status and the one-shot CLI's `CDS_TECHNICAL` line
+show for it.
+
 The sealed native-baseline witness is read back with limits derived from the witness the
 importer can write, not from a generic default: the envelope admits the Base64 text of the
 largest plaintext witness (`CdsNativeBaselineCodec.MAX_BYTES`, sized for 192 rows of the widest

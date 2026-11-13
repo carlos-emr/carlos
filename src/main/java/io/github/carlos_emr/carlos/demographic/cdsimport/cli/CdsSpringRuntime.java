@@ -167,6 +167,42 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
     }
 
     @Override
+    public Map<String, Object> failureEvidence(String runId) throws Exception {
+        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto latest = null;
+        long after = 0;
+        // Bounded: a run's diagnostics are read in pages until the end or 100 pages.
+        for (int page = 0; page < 100; page++) {
+            var rows = service.diagnostics(actor, runId, after, 200);
+            if (rows.isEmpty()) break;
+            for (var row : rows) {
+                if (stopping(row)) latest = row;
+                after = row.id();
+            }
+        }
+        if (latest == null) return null;
+        Map<String, Object> technical = new LinkedHashMap<>();
+        technical.put("code", latest.code());
+        technical.put("stage", latest.stage());
+        technical.put("evidence", service.diagnosticEvidence(actor, runId, latest.id()));
+        return technical;
+    }
+
+    /**
+     * An unresolved diagnostic that carries protected failure evidence of what stopped the run:
+     * a blocking execution or preflight error, or the evidence a run that stopped before its seal
+     * records. A finding a later attempt already resolved is not the stopping cause.
+     */
+    static boolean stopping(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto row) {
+        if (row.resolved() || row.protectedDetailLocation() == null) return false;
+        if ("IMPORT_FAILURE_EVIDENCE".equals(row.code()) && "OBSERVABILITY".equals(row.stage()))
+            return true;
+        return row.blocking()
+                && "ERROR".equals(row.severity())
+                && ("EXECUTION".equals(row.stage()) || "PREFLIGHT".equals(row.stage()));
+    }
+
+    @Override
     public Map<String, Object> reports(String runId) throws Exception {
         Map<String, Object> selected = new LinkedHashMap<>();
         for (String type : new String[] {"event", "error", "receipt", "units"}) {

@@ -342,6 +342,20 @@ public class CdsImportService {
         return failureEvidence.read(run, diagnostic.protectedDetailLocation());
     }
 
+    /**
+     * The protected, message-free failure evidence (exception types, SQL states and bounded
+     * frames) of a run diagnostic, for the run's own delegated operator, so a one-shot CLI can
+     * name the cause of a stopped run.
+     */
+    public Map<String, Object> diagnosticEvidence(
+            CdsImportActorDto actor, String run, long diagnosticId) throws IOException {
+        requireActor(actor, run);
+        var diagnostic = ledger.diagnosticStatus(run, diagnosticId);
+        if (diagnostic.protectedDetailLocation() == null)
+            throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
+        return failureEvidence.read(run, diagnostic.protectedDetailLocation());
+    }
+
     public void observe(
             CdsImportActorDto actor, String run, String operation, long osUid, String verifiedNonce)
             throws IOException {

@@ -185,13 +185,15 @@ public class CdsTargetReceiptService {
                                 .seal(encoded, targetDigest, captured.states(), baselineKeys);
             } catch (java.io.IOException unavailable) {
                 // The witness is never stored unsealed and a unit never commits without it.
-                throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                if ("CDS_NATIVE_BASELINE_KEY_UNAVAILABLE".equals(unavailable.getMessage()))
+                    throw new CdsImportException("NATIVE_BASELINE_KEY_UNAVAILABLE");
+                throw new CdsImportException("NATIVE_BASELINE_SEAL_FAILED", false, unavailable);
             }
             return new CdsImportReceiptDto(encoded, targetDigest, false, baseline);
         } catch (IllegalArgumentException failure) {
             throw new CdsImportException("NATIVE_BASELINE_REQUIRES_REVIEW", false, failure);
         } catch (java.io.IOException failure) {
-            throw new CdsImportException("TARGET_RECEIPT_ENCODING_FAILED");
+            throw new CdsImportException("TARGET_RECEIPT_ENCODING_FAILED", false, failure);
         }
     }
 

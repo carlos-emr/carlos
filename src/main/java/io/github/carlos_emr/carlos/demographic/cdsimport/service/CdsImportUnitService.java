@@ -206,7 +206,7 @@ public class CdsImportUnitService {
                                         failure) {
                             throw new CdsImportException(failure.code(), false, failure);
                         } catch (Exception failure) {
-                            throw new CdsImportException("UNIT_WRITE_FAILED", false, failure);
+                            throw new CdsImportException(writeFailureCode(failure), false, failure);
                         } finally {
                             CdsImportUnitContext.unbind();
                         }
@@ -224,6 +224,33 @@ public class CdsImportUnitService {
         }
         // Fatal Error deliberately escapes; supervision reconciles durable state after process
         // failure.
+    }
+
+    /**
+     * A specific stable code for an unexpected unit failure, from its cause chain, so a stopped
+     * run names the failing layer instead of a bare UNIT_WRITE_FAILED. The protected failure
+     * evidence keeps the exception types and frames; the code carries no message or value.
+     */
+    static String writeFailureCode(Throwable failure) {
+        if (caused(failure, com.fasterxml.jackson.core.exc.StreamConstraintsException.class))
+            return "UNIT_JSON_LIMIT_EXCEEDED";
+        if (caused(failure, com.fasterxml.jackson.core.JsonProcessingException.class))
+            return "UNIT_JSON_INVALID";
+        if (caused(failure, java.sql.SQLException.class)
+                || caused(failure, org.springframework.dao.DataAccessException.class)
+                || caused(failure, jakarta.persistence.PersistenceException.class))
+            return "UNIT_DATABASE_WRITE_FAILED";
+        if (caused(failure, java.io.IOException.class)) return "UNIT_SOURCE_READ_FAILED";
+        if (caused(failure, IllegalArgumentException.class)) return "UNIT_VALUE_REFUSED";
+        return "UNIT_WRITE_FAILED";
+    }
+
+    private static boolean caused(Throwable failure, Class<? extends Throwable> type) {
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Throwable, Boolean>());
+        for (Throwable cursor = failure;
+                cursor != null && seen.size() < 32 && seen.add(cursor);
+                cursor = cursor.getCause()) if (type.isInstance(cursor)) return true;
+        return false;
     }
 
     private void verifyIdentity(

@@ -386,6 +386,120 @@ class CdsCliProtocolUnitTest {
     }
 
     @Test
+    void shouldPrintTheStoppingCauseChain_whenAnImportEndsUnclean() throws Exception {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.technical =
+                Map.of(
+                        "code",
+                        "UNIT_DATABASE_WRITE_FAILED",
+                        "stage",
+                        "EXECUTION",
+                        "evidence",
+                        Map.of(
+                                "causes",
+                                List.of(
+                                        Map.of(
+                                                "type",
+                                                "java.sql.SQLException",
+                                                "sqlState",
+                                                "HY000"))));
+        assertThat(invoke("import", runtime)).isEqualTo(4);
+        var lines =
+                stderr.toString(StandardCharsets.UTF_8)
+                        .lines()
+                        .filter(line -> line.startsWith("CDS_TECHNICAL: "))
+                        .toList();
+        assertThat(lines).hasSize(1);
+        var body =
+                new ObjectMapper().readTree(lines.getFirst().substring("CDS_TECHNICAL: ".length()));
+        assertThat(body.path("code").asText()).isEqualTo("UNIT_DATABASE_WRITE_FAILED");
+        assertThat(body.at("/evidence/causes/0/type").asText()).isEqualTo("java.sql.SQLException");
+        assertThat(runtime.technicalReads).isEqualTo(1);
+    }
+
+    @Test
+    void shouldSelectOnlyUnresolvedStoppingEvidence_asTheRunsCause() {
+        var stopped = diagnostic("ERROR", "EXECUTION", "evidence/1.json", true, false);
+        assertThat(CdsSpringRuntime.stopping(stopped)).isTrue();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "PREFLIGHT", "evidence/2.json", true, false)))
+                .isTrue();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "EXECUTION", "evidence/3.json", true, true)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "EXECUTION", "evidence/4.json", false, false)))
+                .isFalse();
+        assertThat(CdsSpringRuntime.stopping(diagnostic("ERROR", "EXECUTION", null, true, false)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("WARNING", "EXECUTION", "evidence/5.json", true, false)))
+                .isFalse();
+        assertThat(
+                        CdsSpringRuntime.stopping(
+                                diagnostic("ERROR", "REPORT", "evidence/6.json", true, false)))
+                .isFalse();
+        var beforeSeal =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto(
+                        2,
+                        null,
+                        null,
+                        "INFO",
+                        "IMPORT_FAILURE_EVIDENCE",
+                        "OBSERVABILITY",
+                        null,
+                        null,
+                        "evidence/7.json",
+                        false,
+                        false,
+                        java.time.Instant.EPOCH);
+        assertThat(CdsSpringRuntime.stopping(beforeSeal)).isTrue();
+    }
+
+    private static io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto
+            diagnostic(
+                    String severity,
+                    String stage,
+                    String location,
+                    boolean blocking,
+                    boolean resolved) {
+        return new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto(
+                1,
+                null,
+                null,
+                severity,
+                "UNIT_DATABASE_WRITE_FAILED",
+                stage,
+                null,
+                null,
+                location,
+                blocking,
+                resolved,
+                java.time.Instant.EPOCH);
+    }
+
+    @Test
+    void shouldKeepTheIncompleteExit_whenTheStoppingCauseCannotBeRead() {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.technicalFailure = true;
+        runtime.expectAcceptedHandle = false;
+        assertThat(invoke("resume", runtime)).isEqualTo(4);
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_DIAGNOSTIC: protected failure evidence of this run is unavailable")
+                .doesNotContain("CDS_TECHNICAL:", "sensitive-path");
+        FakeRuntime clean = new FakeRuntime();
+        clean.technical = Map.of("code", "UNIT_WRITE_FAILED");
+        assertThat(invoke("import", clean)).isZero();
+        assertThat(clean.technicalReads).isZero();
+    }
+
+    @Test
     void shouldValidateArgumentCombinations_whenConstructingSharedCommand() {
         var command = CdsCliArguments.parse(IMPORT).command(NONCE);
         assertThat(command.matchProviderNames()).isTrue();
@@ -964,6 +1078,16 @@ class CdsCliProtocolUnitTest {
         private String resolvedRun, inputFailureCode, preacceptFailureCode;
         private Object resumeRequested, maintenanceReleasePending, maintenanceReleaseState;
         private Runnable onExecution = () -> {};
+        private Map<String, Object> technical;
+        private boolean technicalFailure;
+        private int technicalReads;
+
+        @Override
+        public Map<String, Object> failureEvidence(String run) throws IOException {
+            technicalReads++;
+            if (technicalFailure) throw new IOException("sensitive-path");
+            return technical;
+        }
 
         @Override
         public String resolveRunId(String requested) {

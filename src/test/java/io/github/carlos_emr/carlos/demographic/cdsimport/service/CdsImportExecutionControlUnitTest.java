@@ -44,6 +44,37 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class CdsImportExecutionControlUnitTest {
+
+    @Test
+    void shouldNameTheFailingLayer_insteadOfABareUnitWriteFailure() {
+        var limit =
+                new com.fasterxml.jackson.core.exc.StreamConstraintsException("synthetic limit");
+        assertThat(CdsImportUnitService.writeFailureCode(new IllegalStateException(limit)))
+                .isEqualTo("UNIT_JSON_LIMIT_EXCEEDED");
+        assertThat(
+                        CdsImportUnitService.writeFailureCode(
+                                new com.fasterxml.jackson.core.JsonParseException(
+                                        null, "synthetic json")))
+                .isEqualTo("UNIT_JSON_INVALID");
+        assertThat(
+                        CdsImportUnitService.writeFailureCode(
+                                new jakarta.persistence.PersistenceException(
+                                        new java.sql.SQLException("synthetic", "HY000"))))
+                .isEqualTo("UNIT_DATABASE_WRITE_FAILED");
+        assertThat(
+                        CdsImportUnitService.writeFailureCode(
+                                new java.io.UncheckedIOException(
+                                        new java.io.IOException("synthetic read"))))
+                .isEqualTo("UNIT_SOURCE_READ_FAILED");
+        assertThat(CdsImportUnitService.writeFailureCode(new IllegalArgumentException("synthetic")))
+                .isEqualTo("UNIT_VALUE_REFUSED");
+        assertThat(CdsImportUnitService.writeFailureCode(new Exception("synthetic fault")))
+                .isEqualTo("UNIT_WRITE_FAILED");
+        var cyclic = new IllegalStateException("synthetic");
+        var other = new IllegalStateException("synthetic", cyclic);
+        cyclic.initCause(other);
+        assertThat(CdsImportUnitService.writeFailureCode(cyclic)).isEqualTo("UNIT_WRITE_FAILED");
+    }
     private static final CdsImportControlDto VALID =
             new CdsImportControlDto(true, true, 7, false, true);
 

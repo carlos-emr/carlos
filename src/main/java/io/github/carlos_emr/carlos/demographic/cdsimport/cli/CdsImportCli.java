@@ -249,6 +249,9 @@ public final class CdsImportCli {
         } else if ("cancel".equals(arguments.operation())) runtime.cancel(run);
         Map<String, Object> summary = runtime.summary(run);
         line(out, consoleSummary(summary, arguments.operation(), "RESULT"));
+        if (("import".equals(arguments.operation()) || "resume".equals(arguments.operation()))
+                && !Boolean.TRUE.equals(summary.get("cleanComplete")))
+            technical(runtime, run, err);
         if ("report".equals(arguments.operation())) line(out, runtime.reports(run));
         if (out.checkError() || err.checkError()) {
             err.println(
@@ -386,6 +389,23 @@ public final class CdsImportCli {
             result.put("maintenanceReleaseState", state);
         }
         return result;
+    }
+
+    /**
+     * Names the cause of a stopped run on the console: the stopping diagnostic's code and its
+     * protected failure evidence, which holds only exception types, SQL states and bounded class
+     * and method frames (never a message, SQL text, path or patient value). Unavailable evidence
+     * never changes the durable outcome or the exit status.
+     */
+    private static void technical(CdsCliRuntime runtime, String run, PrintStream err) {
+        try {
+            var technical = runtime.failureEvidence(run);
+            if (technical == null) return;
+            String json = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(technical);
+            if (json.length() <= 65536) err.println("CDS_TECHNICAL: " + json);
+        } catch (Exception unavailable) {
+            err.println("CDS_DIAGNOSTIC: protected failure evidence of this run is unavailable");
+        }
     }
 
     private static void line(PrintStream out, Map<String, Object> value) throws IOException {
