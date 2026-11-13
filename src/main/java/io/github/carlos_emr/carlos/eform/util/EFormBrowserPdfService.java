@@ -105,7 +105,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
  * </ul>
  */
 @Service
-public class EFormBrowserPdfService {
+public class EFormBrowserPdfService implements org.springframework.web.context.ServletContextAware {
 
     private static final Logger logger = MiscUtils.getLogger();
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -202,6 +202,18 @@ public class EFormBrowserPdfService {
     static final String RENDER_ARTIFACT_PREFIX = "eform-browser-render-";
 
     private static final String BASE_URL_PROPERTY = "eform_pdf_browser_base_url";
+
+    /**
+     * Context path of the deployed application, recorded when Spring hands the web context over.
+     * Read only by request-less renders; {@code null} outside a servlet container (tests, the CDS
+     * command-line process), which keeps the {@code project_home} fallback.
+     */
+    // Set once by the container thread, read by render threads: volatile publishes it safely.
+    @SuppressWarnings("java:S3077")
+    private volatile String servletContextPath;
+
+    /** Logs the request-less base URL once per JVM, origin only. */
+    private static final AtomicBoolean REQUESTLESS_BASE_LOGGED = new AtomicBoolean(false);
     private static final String CHROME_PATH_PROPERTY = "eform_pdf_browser_chromium_path";
     /**
      * URL of an ALREADY-RUNNING chromedriver on loopback. The application connects to it; it never
@@ -2950,7 +2962,46 @@ public class EFormBrowserPdfService {
         if (request != null) {
             return buildLocalBaseUrl(deriveLoopbackScheme(request), request.getLocalPort(), request.getContextPath());
         }
-        return buildDefaultBaseUrl(projectHome);
+        String derived = buildRequestlessBaseUrl(
+                RendererLoopbackOrigin.connectorPort(java.lang.management.ManagementFactory.getPlatformMBeanServer()),
+                servletContextPath, projectHome);
+        if (REQUESTLESS_BASE_LOGGED.compareAndSet(false, true)) {
+            logger.info("Browser eForm renderer base URL for renders without a request: {} (set {} to override)",
+                    // Origin only (loopback host and port): never a path, token or patient value.
+                    String.valueOf(originOf(derived)),
+                    BASE_URL_PROPERTY);
+        }
+        return derived;
+    }
+
+    /**
+     * Base URL of a render that has no HTTP request (the CDS export worker): 127.0.0.1, the port of
+     * the servlet container's own plain-HTTP connector ({@link RendererLoopbackOrigin}) and the
+     * deployed context path. Nothing comes from a client. Without exactly one such connector the
+     * legacy {@code http://127.0.0.1:8080/<project_home>} default is kept, so a deployment that
+     * worked before keeps working; {@code eform_pdf_browser_base_url} overrides both.
+     *
+     * @param connectorPort the loopback-reachable HTTP connector port, or a value below 1 if unknown
+     * @param contextPath the deployed context path ({@code ""} for the root context), or
+     *        {@code null} when not running in a servlet container
+     * @param projectHome the {@code project_home} property, used when the context path is unknown
+     */
+    static String buildRequestlessBaseUrl(int connectorPort, String contextPath, String projectHome) {
+        if (connectorPort < 1 || connectorPort > 65_535) {
+            return buildDefaultBaseUrl(projectHome);
+        }
+        String context = contextPath;
+        if (context == null) {
+            String home = projectHome == null ? "" : projectHome.strip();
+            context = home.isEmpty() ? "" : "/" + home.replaceAll("^/+", "").replaceAll("/+$", "");
+        }
+        return buildLocalBaseUrl("http", connectorPort, context);
+    }
+
+    /** Records the deployed context path for request-less renders. */
+    @Override
+    public void setServletContext(jakarta.servlet.ServletContext servletContext) {
+        servletContextPath = servletContext == null ? null : servletContext.getContextPath();
     }
 
     /**

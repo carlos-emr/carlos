@@ -172,7 +172,7 @@ free-flow fixture prints to a text-layer PDF with no injected `@page` size.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or from `project_home` when no request is available. Must resolve to a loopback host — anything else is rejected. |
+| `eform_pdf_browser_base_url` | derived | Loopback base URL the renderer navigates to. Derived from the active request (`scheme://127.0.0.1:localPort/context`), downgrading a proxied `https` scheme to `http` when a TLS-terminating reverse proxy is detected (see "Base URL behind a TLS-terminating proxy" below), or, for a render with no request (the CDS export worker), from the servlet container's own configuration: `http://127.0.0.1:<port>/<context>` with the port of the single plain-HTTP, non-AJP Tomcat connector that 127.0.0.1 reaches and the deployed context path (see "Base URL for renders without a request" below). Must resolve to a loopback host — anything else is rejected. |
 | `eform_pdf_browser_chromium_path` | unset | Absolute path to the Chromium/Chrome binary. |
 | `eform_pdf_browser_service_url` | `http://127.0.0.1:9515` | URL of an **already-running** chromedriver. CARLOS connects to it and never launches one. Must be `http` (chromedriver serves plaintext only) with an explicit port on a loopback host — anything else is rejected at startup. A path component is permitted and is the chromedriver `--url-base` prefix, which the .deb uses as a capability token. Unreachable fails the render closed; there is no fallback to launching a browser. |
 | ~~`eform_pdf_browser_chromedriver_path`~~ | — | **Removed.** CARLOS no longer spawns chromedriver, so a path to one has nothing to launch. See `eform_pdf_browser_service_url`. |
@@ -210,6 +210,20 @@ scheme to use for that loopback hop:
 deployments should set it explicitly** —
 `eform_pdf_browser_base_url=http://127.0.0.1:<tomcatPort>/<context>` — rather than relying on the
 heuristic.
+
+### Base URL for renders without a request
+
+A render started outside an HTTP request (the CDS export worker renders every listed eForm of a
+chart) has no request to take a port or context path from. It used to fall back to
+`http://127.0.0.1:8080/<project_home>`, which the packaged install does not serve (its only
+connector is `127.0.0.1:18080`). `RendererLoopbackOrigin` now reads the port from Tomcat's own
+connector configuration, as Tomcat publishes it over JMX: the one connector that is not AJP, whose
+scheme is plain `http`, that is not marked `secure`, and that is bound to every interface or to
+127.0.0.1. The context path is the one the servlet container deployed the application at
+(`EFormBrowserPdfService` is `ServletContextAware`), else `project_home`. Nothing comes from a
+client: the host is always `127.0.0.1`. When no single connector qualifies (none, several, TLS only,
+bound to another address) the legacy default is kept, and `eform_pdf_browser_base_url` overrides
+every derivation. The base URL derived this way is logged once, origin only.
 
 ## Security model
 
