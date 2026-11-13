@@ -264,7 +264,7 @@ public final class ReportCsvDownloads {
     }
 
     /** The session's results, created in {@code store} when {@code store} is given; null when there are none. */
-    private static SessionResults results(HttpSession session, Store store) {
+    @SuppressWarnings("java:S2441") private static SessionResults results(HttpSession session, Store store) {
         try {
             if (session.getAttribute(SESSION_ATTRIBUTE) instanceof SessionResults existing) {
                 return existing;
@@ -277,7 +277,7 @@ public final class ReportCsvDownloads {
                     return existing;
                 }
                 SessionResults created = new SessionResults(store);
-                session.setAttribute(SESSION_ATTRIBUTE, created);
+                session.setAttribute(SESSION_ATTRIBUTE, created); // S2441: not Serializable on purpose, see SessionResults
                 return created;
             }
         } catch (IllegalStateException invalidated) {
