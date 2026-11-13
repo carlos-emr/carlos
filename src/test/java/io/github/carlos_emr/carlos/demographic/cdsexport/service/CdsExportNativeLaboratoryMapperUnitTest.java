@@ -354,6 +354,43 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldWriteTheSupportingRecordInOneFixedKeyOrder_soAnUnchangedReportRepeatsItsBytes()
+            throws Exception {
+        var source = source(message());
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        String first =
+                new String(
+                        render(CdsCategory.NEW_CATEGORY, xml -> mapper.writeSupporting(source, xml)),
+                        StandardCharsets.UTF_8);
+        assertThat(
+                        new String(
+                                render(
+                                        CdsCategory.NEW_CATEGORY,
+                                        xml -> mapper.writeSupporting(source, xml)),
+                                StandardCharsets.UTF_8))
+                .isEqualTo(first);
+        String content =
+                first.substring(
+                        first.indexOf("Content>") + "Content>".length(),
+                        first.indexOf("</", first.indexOf("Content>")));
+        // Map.of iterates in a per-JVM salted order; this order must not depend on the JVM.
+        assertThat(content)
+                .startsWith("{\"version\":1,\"rows\":[{\"table\":\"hl7TextMessage\",\"fields\":{");
+        var rows =
+                com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                        .build()
+                        .readTree(content)
+                        .get("rows");
+        assertThat(rows).hasSize(3);
+        for (var row : rows) {
+            assertThat(row.fieldNames()).toIterable().containsExactly("table", "fields");
+            var fields = new ArrayList<String>();
+            row.get("fields").fieldNames().forEachRemaining(fields::add);
+            assertThat(fields).isNotEmpty().isSorted();
+        }
+    }
+
+    @Test
     void shouldWriteAnHl7ChangeUpFlag_asPlainTextRatherThanTheCdsUnknown() throws Exception {
         // Review LAB-05: HL7 U is "significant change up"; the CDS enumeration's U is Unknown.
         var mapper = new CdsExportNativeLaboratoryMapper();

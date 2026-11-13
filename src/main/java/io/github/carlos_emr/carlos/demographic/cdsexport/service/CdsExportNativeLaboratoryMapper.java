@@ -342,25 +342,31 @@ final class CdsExportNativeLaboratoryMapper {
                 "CategoryDescription",
                 "Complete native laboratory source message and routing context");
         xml.start("cds", "ResidualInfo");
+        // Every map is built in one fixed key order (version, rows; each row table, then its
+        // sorted fields), so an unchanged report produces the same residual bytes on every run
+        // and worker. Map.of iterates in a per-JVM salted order.
         var rows = new ArrayList<Map<String, Object>>();
-        for (var row : source.rows())
-            rows.add(Map.of("table", row.table(), "fields", row.fields()));
+        for (var row : source.rows()) rows.add(supportingRow(row));
         for (var row : CdsExportInboxReviewMapper.carried(carried)) {
             if (!row.table().equals("providerLabRouting")) throw new IOException("CDS_EXPORT_NATIVE_LAB_ROUTE_INVALID");
-            // Fixed key order, so an unchanged report produces the same residual bytes.
-            var entry = new LinkedHashMap<String, Object>();
-            entry.put("table", row.table());
-            entry.put("fields", new TreeMap<>(row.fields()));
-            rows.add(entry);
+            rows.add(supportingRow(row));
         }
+        var context = new LinkedHashMap<String, Object>();
+        context.put("version", 1);
+        context.put("rows", rows);
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,
                 "CARLOS.Laboratory.v1",
                 "string",
-                JsonMapper.builder()
-                        .build()
-                        .writeValueAsString(Map.of("version", 1, "rows", rows)));
+                JsonMapper.builder().build().writeValueAsString(context));
         xml.end();
+    }
+
+    private static Map<String, Object> supportingRow(CdsExportCapturedTextRowDto row) {
+        var entry = new LinkedHashMap<String, Object>();
+        entry.put("table", row.table());
+        entry.put("fields", new TreeMap<>(row.fields()));
+        return entry;
     }
 
     static CdsExportDateDto temporal(String value, ZoneId zone) throws IOException {
