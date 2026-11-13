@@ -28,7 +28,12 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
 import java.io.IOException;
 import java.util.*;
 
-/** Discrete demographic values retain authenticated source representations until their exact native dependency changes. */
+/**
+ * Discrete demographic values retain authenticated source representations until their exact
+ * native dependency changes. A CARLOS edit supersedes the source value, including one the
+ * importer kept source-only; an empty value a form save wrote over such a source-only value is
+ * not an edit and keeps it.
+ */
 public final class CdsExportDemographicScalarReconciler {
     private static final String ROOT = "/OmdCds[1]/PatientRecord[1]/Demographics[1]/";
 
@@ -147,10 +152,14 @@ public final class CdsExportDemographicScalarReconciler {
                 review = true;
             } else if (!projection.changedColumns().contains(scalar.column))
                 rule = "VERIFIED_UNCHANGED_SOURCE_SCALAR";
-            else if (!projected && !prior.isEmpty()) {
-                rule = "EDITED_UNPROJECTED_SOURCE_SCALAR_REQUIRES_REVIEW";
-                review = true;
-            } else if (mapping.fields().get(scalar.column).outcome()
+            else if (!projected
+                    && !prior.isEmpty()
+                    && !CdsExportDemographicSupportingMapper.present(
+                            current.fields().get(scalar.column)))
+                // The importer kept this source value source-only, so the column was NULL; a
+                // Master Record save writes "" there. Nobody cleared a value they never saw.
+                rule = "UNPROJECTED_SOURCE_SCALAR_KEPT_WITHOUT_A_CURRENT_VALUE";
+            else if (mapping.fields().get(scalar.column).outcome()
                     == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW) {
                 rule = "CURRENT_NATIVE_SCALAR_REQUIRES_REVIEW";
                 review = true;
@@ -183,7 +192,13 @@ public final class CdsExportDemographicScalarReconciler {
                     changes.add(
                             new CdsExportRetainedSectionWriter.Change(
                                     scalar.path, priorIds, replacement));
-                rule = "EXACT_CURRENT_NATIVE_SCALAR";
+                // A value typed over a source-only one is the truth after the edit; the
+                // superseded source element stays in the import's retained source and is listed
+                // as replaced in the receipt.
+                rule =
+                        !projected && !prior.isEmpty()
+                                ? "EDITED_CURRENT_SCALAR_SUPERSEDES_UNPROJECTED_SOURCE"
+                                : "EXACT_CURRENT_NATIVE_SCALAR";
             }
             String value = current.fields().get(scalar.column);
             fields.put(

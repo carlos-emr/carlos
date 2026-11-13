@@ -114,17 +114,29 @@ class CdsExportDemographicRetainedNoteReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyASourceOnlyFullNoteCannotBeOverwritten_byALaterNativePlaceholderEdit() throws Exception {
+    void shouldKeepASourceOnlyFullNote_untilACarlosEditOfTheNoteSupersedesIt() throws Exception {
+        // Updated: an edit of the native note whose complete source text was kept source-only
+        // used to hold the imported chart. Unedited, the complete source note is still exported;
+        // edited, the note CARLOS now holds is the patient note and the source is replaced.
         fixture.preparedNote("Native storage placeholder", true);
         source.put("NoteAboutPatient[1]", "Complete source note");
         old.set(0, cust(DemographicCust.wrapPatientNotes("Native storage placeholder"), true));
         current.set(0, cust(DemographicCust.wrapPatientNotes("Native storage placeholder"), false));
-        assertThat(reconcile().changes()).isEmpty();
+        var unedited = reconcile();
+        assertThat(unedited.changes()).isEmpty();
+        assertThat(text(render(unedited), "NoteAboutPatient"))
+                .containsExactly("Complete source note");
         change("content", DemographicCust.wrapPatientNotes("Edited placeholder"));
         var result = reconcile();
-        assertThat(result.noteRepresentable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RETAINED_NOTE_REQUIRES_REVIEW");
+        assertThat(result.noteRepresentable()).isTrue();
+        assertThat(result.fields().values())
+                .anyMatch(
+                        field ->
+                                field.rule()
+                                        .equals(
+                                                "EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE"));
+        assertThat(result.changes().getFirst().expectedPriorFields()).hasSize(1);
+        assertThat(text(render(result), "NoteAboutPatient")).containsExactly("Edited placeholder");
     }
 
     @Test

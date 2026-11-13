@@ -96,13 +96,53 @@ class CdsExportDemographicOptionalDateReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnEditedDate_withAnUnprojectedSourceOffsetRequiresReview() throws Exception {
+    void shouldWriteTheEditedDate_whenTheImportedSourceCarriedAnOffset() throws Exception {
+        // Updated: an edited date over a source with a time-zone offset used to hold the chart.
         source.put("HealthCard[1]/Expirydate[1]", "2028-01-02Z");
         fixture.currentField("hc_renew_date", "2029-01-02");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OPTIONAL_DATES_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "hc_renew_date"))
+                .isEqualTo("CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET");
+        assertThat(text(render(result), "Expirydate")).containsExactly("2029-01-02");
+    }
+
+    @Test
+    void shouldKeepASourceOnlyDate_untilACarlosEditSupersedesIt() throws Exception {
+        // The importer did not project this source date (the column was never set): it stays as
+        // imported, and the chart is not held. A date typed later supersedes it.
+        fixture.preparedOptionalDate("patient_status_date", null);
+        var kept = reconcile();
+        assertThat(kept.representable()).isTrue();
+        assertThat(kept.changes()).isEmpty();
+        assertThat(rule(kept, "patient_status_date"))
+                .isEqualTo("UNPROJECTED_SOURCE_DATE_KEPT_WITHOUT_A_CURRENT_DATE");
+        assertThat(kept.fields().values())
+                .anyMatch(
+                        field ->
+                                field.rule()
+                                                .equals(
+                                                        "UNPROJECTED_SOURCE_DATE_KEPT_WITHOUT_A_CURRENT_DATE")
+                                        && field.outcome()
+                                                == CdsExportFieldAssessmentDto.Outcome.ABSENT);
+        assertThat(text(render(kept), "PersonStatusDate")).containsExactly("2024-01-02");
+        fixture.currentField("patient_status_date", "2026-03-04");
+        var edited = reconcile();
+        assertThat(edited.representable()).isTrue();
+        assertThat(rule(edited, "patient_status_date"))
+                .isEqualTo("EDITED_CURRENT_DATE_SUPERSEDES_UNPROJECTED_SOURCE");
+        assertThat(edited.changes().getFirst().expectedPriorFields()).hasSize(1);
+        assertThat(text(render(edited), "PersonStatusDate")).containsExactly("2026-03-04");
+    }
+
+    private static String rule(
+            CdsExportDemographicOptionalDateReconciler.Result result, String column) {
+        return result.fields().entrySet().stream()
+                .filter(entry -> entry.getKey().column().equals(column))
+                .findFirst()
+                .orElseThrow()
+                .getValue()
+                .rule();
     }
 
     @Test

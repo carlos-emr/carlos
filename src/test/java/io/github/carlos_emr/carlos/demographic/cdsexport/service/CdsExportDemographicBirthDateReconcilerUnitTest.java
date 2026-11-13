@@ -93,13 +93,16 @@ class CdsExportDemographicBirthDateReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnEditedNativeDate_withAnUnprojectedSourceOffsetRequiresReview() throws Exception {
+    void shouldWriteTheEditedDate_whenTheImportedSourceCarriedAnOffset() throws Exception {
+        // Updated: an edited birth date over a source with a time-zone offset used to hold the
+        // imported chart. The edit is the truth; the source value is listed as replaced.
         fixture.currentBirth("1981", "01", "02");
         var result = reconcile("1980-01-02Z");
-        assertThat(result.representable()).isFalse();
-        assertThat(result.wireValue()).isNull();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_BIRTH_DATE_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.wireValue()).isEqualTo("1981-01-02");
+        assertThat(result.rule()).isEqualTo("EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET");
+        assertThat(result.changes().getFirst().expectedPriorFields())
+                .containsExactly(result.sourceField().id());
     }
 
     @Test

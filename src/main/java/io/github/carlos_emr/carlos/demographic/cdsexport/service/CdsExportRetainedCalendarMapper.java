@@ -27,14 +27,18 @@ import java.io.IOException;
 import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
-/** Shared effective calendar handling for imported dates and later native edits. */
+/**
+ * Shared effective calendar handling for imported dates and later native edits. An unchanged
+ * date keeps the source's exact lexical form (shifted when the import shifted it); an edited
+ * date supersedes it, offset included, without re-reading the source.
+ */
 final class CdsExportRetainedCalendarMapper {
     enum Rule {
         UNCHANGED_SOURCE,
         PREPARED_EFFECTIVE,
         EQUIVALENT_NATIVE_CALENDAR,
         CURRENT_NATIVE,
-        EDITED_SOURCE_OFFSET_REQUIRES_REVIEW
+        CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET
     }
 
     record Decision(String lexical, Rule rule) {
@@ -50,8 +54,8 @@ final class CdsExportRetainedCalendarMapper {
         Objects.requireNonNull(source);
         Objects.requireNonNull(prepared);
         Objects.requireNonNull(current);
-        var original = CdsTemporal.parse(null, null, source, null, path);
         if (current.equals(prepared)) {
+            var original = CdsTemporal.parse(null, null, source, null, path);
             int days = Math.toIntExact(ChronoUnit.DAYS.between(original.earliest(), prepared));
             var effective =
                     new CdsExportPreparedTemporalMapper()
@@ -62,8 +66,12 @@ final class CdsExportRetainedCalendarMapper {
                             ? Rule.PREPARED_EFFECTIVE
                             : unchanged ? Rule.UNCHANGED_SOURCE : Rule.EQUIVALENT_NATIVE_CALENDAR);
         }
+        // A CARLOS calendar edit is the truth. A time-zone offset (or any other lexical form) on
+        // the source date described the source's date, not the edited one, so the edited date is
+        // written as a plain calendar date; the superseded source value stays in the import's
+        // retained source and is listed as replaced.
         return source.length() != 10
-                ? new Decision(null, Rule.EDITED_SOURCE_OFFSET_REQUIRES_REVIEW)
+                ? new Decision(current.toString(), Rule.CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET)
                 : new Decision(current.toString(), Rule.CURRENT_NATIVE);
     }
 }

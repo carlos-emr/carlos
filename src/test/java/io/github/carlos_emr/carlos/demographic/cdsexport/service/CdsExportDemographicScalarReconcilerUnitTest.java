@@ -148,12 +148,42 @@ class CdsExportDemographicScalarReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyASourceOnlyValueCannotBeOverwritten_byALaterNativeValue() throws Exception {
+    void shouldReplaceASourceOnlyValue_whenALaterNativeValueSupersedesIt() throws Exception {
+        // Updated: a value typed over a source-only one used to hold the imported chart. The
+        // CARLOS edit is the truth; the superseded source element is listed as replaced.
         fixture.preparedScalar("Email", null);
         fixture.oldField("email", null);
         assertThat(reconcile().changes()).isEmpty();
         fixture.currentField("email", "new@example.test");
-        assertThat(reconcile().representable()).isFalse();
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "email"))
+                .isEqualTo("EDITED_CURRENT_SCALAR_SUPERSEDES_UNPROJECTED_SOURCE");
+        assertThat(text(render(result), "Email")).containsExactly("new@example.test");
+        assertThat(result.changes().getFirst().expectedPriorFields()).hasSize(1);
+    }
+
+    @Test
+    void shouldKeepASourceOnlyValue_whenAFormSaveWritesAnEmptyColumnOverIt() throws Exception {
+        fixture.preparedScalar("Email", null);
+        fixture.oldField("email", null);
+        fixture.currentField("email", "");
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes()).isEmpty();
+        assertThat(rule(result, "email"))
+                .isEqualTo("UNPROJECTED_SOURCE_SCALAR_KEPT_WITHOUT_A_CURRENT_VALUE");
+        assertThat(text(render(result), "Email")).containsExactly("old@example.test");
+    }
+
+    private static String rule(
+            CdsExportDemographicScalarReconciler.Result result, String column) {
+        return result.fields().entrySet().stream()
+                .filter(entry -> entry.getKey().column().equals(column))
+                .findFirst()
+                .orElseThrow()
+                .getValue()
+                .rule();
     }
 
     @Test

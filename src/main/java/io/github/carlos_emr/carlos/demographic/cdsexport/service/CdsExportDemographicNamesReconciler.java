@@ -211,27 +211,51 @@ public final class CdsExportDemographicNamesReconciler {
                             case MIDDLE -> nativeNames.names().middle();
                             case PREFIX -> nativeNames.names().prefix();
                         };
+                boolean unprojectedMiddle =
+                        part == Part.MIDDLE
+                                && evidence.preparation()
+                                                .scalars()
+                                                .get(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR)
+                                        == null
+                                && !middle.isEmpty();
                 if (candidate.outcome() == CdsExportDemographicMappingDto.Outcome.REQUIRES_REVIEW)
                     rule = "CURRENT_NATIVE_NAME_REQUIRES_REVIEW";
-                else if (part == Part.MIDDLE
-                        && (value != null
-                                        && (middle.size() > 1
-                                                || CdsExportDemographicMapper.middleNameParts(value)
-                                                                .size()
-                                                        > 1)
-                                || evidence.preparation()
-                                                        .scalars()
-                                                        .get(
-                                                                CdsDemographicNativeDto
-                                                                        .MIDDLE_NAMES_SCALAR)
-                                                == null
-                                        && !middle.isEmpty()))
-                    rule = "EDITED_COMPOUND_OR_UNPROJECTED_MIDDLE_NAMES_REQUIRES_REVIEW";
+                else if (unprojectedMiddle && value == null)
+                    // The importer left these source names out of middleNames (no single native
+                    // value held them), so the column was NULL; a Master Record save then writes
+                    // "" there. Nobody cleared names they never saw: the source names stay.
+                    rule = "UNPROJECTED_SOURCE_MIDDLE_NAMES_KEPT_WITHOUT_A_CURRENT_VALUE";
                 else {
                     if (part == Part.MIDDLE) {
-                        if (middle.isEmpty() && value != null) {
-                            String path = "LegalName[1]/OtherName[" + (maximumOther + 1) + "]";
-                            String actual = value;
+                        // The current column is the truth after a CARLOS edit. Its names take the
+                        // source's given OtherName parts in order (a part's qualifier stays with
+                        // it), surplus source parts are removed and further names are appended,
+                        // exactly as the native writer splits them and the importer joins them.
+                        // The superseded source parts stay in the import's retained source and
+                        // are listed as replaced in the receipt.
+                        var names =
+                                value == null
+                                        ? List.<String>of()
+                                        : CdsExportDemographicMapper.middleNameParts(value);
+                        var sourceParts = List.copyOf(middle.values());
+                        boolean compound =
+                                unprojectedMiddle || names.size() > 1 || sourceParts.size() > 1;
+                        for (int n = 0; n < sourceParts.size(); n++) {
+                            String path = sourceParts.get(n);
+                            if (n >= names.size()) replace(relative, path, null, changes);
+                            else {
+                                String actual = names.get(n);
+                                replace(
+                                        relative,
+                                        path + "/Part[1]",
+                                        xml -> xml.text(actual),
+                                        changes);
+                            }
+                        }
+                        long ordinal = maximumOther;
+                        for (int n = sourceParts.size(); n < names.size(); n++) {
+                            String path = "LegalName[1]/OtherName[" + (++ordinal) + "]";
+                            String actual = names.get(n);
                             replace(
                                     relative,
                                     path,
@@ -240,18 +264,11 @@ public final class CdsExportDemographicNamesReconciler {
                                         xml.element("cds_dt", "PartType", "GIV");
                                     },
                                     changes);
-                        } else
-                            for (String path : middle.values()) {
-                                if (value == null) replace(relative, path, null, changes);
-                                else {
-                                    String actual = value;
-                                    replace(
-                                            relative,
-                                            path + "/Part[1]",
-                                            xml -> xml.text(actual),
-                                            changes);
-                                }
-                            }
+                        }
+                        rule =
+                                compound
+                                        ? "EDITED_CURRENT_MIDDLE_NAMES_SUPERSEDE_SOURCE_PARTS"
+                                        : "EXACT_CURRENT_NATIVE_NAME_PART";
                     } else {
                         String path = part == Part.PREFIX ? part.path : part.path + "/Part[1]";
                         String actual = value;
@@ -260,8 +277,8 @@ public final class CdsExportDemographicNamesReconciler {
                                 path,
                                 actual == null ? null : xml -> xml.text(actual),
                                 changes);
+                        rule = "EXACT_CURRENT_NATIVE_NAME_PART";
                     }
-                    rule = "EXACT_CURRENT_NATIVE_NAME_PART";
                 }
             }
             boolean review =

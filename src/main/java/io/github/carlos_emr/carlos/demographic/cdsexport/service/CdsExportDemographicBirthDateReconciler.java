@@ -34,7 +34,7 @@ import java.util.*;
  * One birth-date decision within the larger demographic assembly. The verified prepared
  * date anchors unchanged imports, including synthetic teaching shifts and accepted source
  * corrections. A later native calendar edit supplies its current date without applying the
- * old shift again. Source offsets require review after a calendar edit. This decision does
+ * old shift again. A calendar edit supersedes a source offset. This decision does
  * not qualify other demographic fields, identities, history or a complete clinical export.
  */
 public final class CdsExportDemographicBirthDateReconciler {
@@ -147,8 +147,8 @@ public final class CdsExportDemographicBirthDateReconciler {
                             case EQUIVALENT_NATIVE_CALENDAR ->
                                     "VERIFIED_EQUIVALENT_NATIVE_BIRTH_CALENDAR";
                             case CURRENT_NATIVE -> "EXACT_CURRENT_NATIVE_BIRTH_DATE";
-                            case EDITED_SOURCE_OFFSET_REQUIRES_REVIEW ->
-                                    "EDITED_BIRTH_DATE_WITH_UNPROJECTED_SOURCE_OFFSET_REQUIRES_REVIEW";
+                            case CURRENT_NATIVE_SUPERSEDES_SOURCE_OFFSET ->
+                                    "EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET";
                         };
             } catch (CdsClinicalException | DateTimeException | ArithmeticException invalid) {
                 throw new IOException("CDS_EXPORT_DEMOGRAPHIC_BIRTH_SOURCE_INVALID");

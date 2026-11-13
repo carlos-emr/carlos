@@ -29,7 +29,12 @@ import java.io.*;
 import java.time.*;
 import java.util.*;
 
-/** Reconciles optional demographic dates using the same effective-date policy as birth dates. */
+/**
+ * Reconciles optional demographic dates using the same effective-date policy as birth dates. A
+ * CARLOS edit supersedes the source date (an offset or a source-only date included); a column
+ * the importer never set keeps its source-only date. Only a current or unchanged source value
+ * that is not a calendar date still requires review.
+ */
 public final class CdsExportDemographicOptionalDateReconciler {
     private static final String ROOT = "/OmdCds[1]/PatientRecord[1]/Demographics[1]/";
 
@@ -159,7 +164,7 @@ public final class CdsExportDemographicOptionalDateReconciler {
                                 ? evidence.preparation().details().statusDate()
                                 : evidence.preparation().details().healthCardExpiry();
                 String raw = current.fields().get(date.column), wire = null, original = null, rule;
-                boolean review = false;
+                boolean review = false, kept = false;
                 var projection = evidence.groups().get(date.group);
                 if (field != null) original = read(values, field, checkpoint);
                 if (!projection.preparedProjectionProven()) {
@@ -170,8 +175,11 @@ public final class CdsExportDemographicOptionalDateReconciler {
                     review = true;
                 } else if (raw == null || raw.isEmpty()) {
                     if (prepared == null && field != null) {
-                        rule = "UNPROJECTED_SOURCE_DATE_REQUIRES_REVIEW";
-                        review = true;
+                        // The importer kept this source date source-only, so the column was never
+                        // set. An absent column is not an edit: the source date stays as it is.
+                        rule = "UNPROJECTED_SOURCE_DATE_KEPT_WITHOUT_A_CURRENT_DATE";
+                        wire = original;
+                        kept = true;
                     } else rule = "EXPLICIT_CURRENT_NATIVE_DATE_ABSENCE";
                 } else {
                     try {
@@ -183,8 +191,10 @@ public final class CdsExportDemographicOptionalDateReconciler {
                             wire = currentDate.toString();
                             rule = "EXACT_ADDED_CURRENT_NATIVE_DATE";
                         } else if (prepared == null) {
-                            rule = "EDITED_UNPROJECTED_SOURCE_DATE_REQUIRES_REVIEW";
-                            review = true;
+                            // A date entered over a source-only one is the truth after the edit;
+                            // the superseded source element is listed as replaced.
+                            wire = currentDate.toString();
+                            rule = "EDITED_CURRENT_DATE_SUPERSEDES_UNPROJECTED_SOURCE";
                         } else {
                             var decision =
                                     new CdsExportRetainedCalendarMapper()
@@ -213,7 +223,7 @@ public final class CdsExportDemographicOptionalDateReconciler {
                                     date.path,
                                     field == null ? Set.of() : Set.of(field.id()),
                                     wire == null ? null : content(wire)));
-                if (!review && wire != null) wires.put(date.column, wire);
+                if (!review && !kept && wire != null) wires.put(date.column, wire);
                 fields.put(
                         new CdsExportNativeFieldKeyDto(
                                 "demographic", current.recordKey(), date.column),
@@ -223,7 +233,7 @@ public final class CdsExportDemographicOptionalDateReconciler {
                                         : raw.isEmpty() ? Presence.EMPTY : Presence.VALUE,
                                 review
                                         ? Outcome.REQUIRES_REVIEW
-                                        : wire == null ? Outcome.ABSENT : Outcome.MAPPED,
+                                        : wire == null || kept ? Outcome.ABSENT : Outcome.MAPPED,
                                 date.path,
                                 rule));
             }

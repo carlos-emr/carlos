@@ -96,30 +96,42 @@ class CdsExportDemographicNamesReconcilerUnitTest {
     }
 
     @Test
-    void shouldHoldAnImportedChartForReview_whenAnEditedMiddleNameNeedsSeveralParts()
+    void shouldWriteEveryName_whenAnEditedMiddleNameOfAnImportedChartNeedsSeveralParts()
             throws Exception {
-        // D12: the native writer splits a middle-names value longer than one schema part into
-        // its space-separated names. The retained path replaces one existing part, so an edit
-        // that would need several parts is held for review rather than written as one
-        // over-long part.
+        // Updated: an imported chart whose edited middle names need several schema parts used to
+        // be held (D12). The edit is the truth: the first name takes the source part and the
+        // others are appended as ordered GIV parts, as the native writer splits them and the
+        // importer joins them. The superseded source part stays in the retained source and is
+        // listed as replaced.
         fixture.currentField("middleNames", "Marie-Claire Anne Josephine Elisabeth Margaret Victoria");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NAMES_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "middleNames"))
+                .isEqualTo("EDITED_CURRENT_MIDDLE_NAMES_SUPERSEDE_SOURCE_PARTS");
+        assertThat(text(render(result), "Part"))
+                .containsExactly(
+                        "Ada",
+                        "Family",
+                        "Marie-Claire",
+                        "Anne",
+                        "Josephine",
+                        "Elisabeth",
+                        "Margaret",
+                        "Victoria");
+        assertThat(plan(result).replacedFields()).hasSize(1);
     }
 
     @Test
-    void
-            shouldVerifyAJoinedMiddleNameEditRequiresReviewRatherThanBeingCopiedIntoEveryOriginalPart_forDemographicNamesReconcilerContract()
-                    throws Exception {
+    void shouldReplaceEverySourceGivenPart_whenAJoinedMiddleNameIsEdited() throws Exception {
+        // Updated: the edited joined value used to be held rather than copied into every source
+        // part. It now takes the first source part; the second is superseded.
         name("OtherName[1]", "Source", "GIV");
         name("OtherName[2]", "Middle", "GIV");
         fixture.currentField("middleNames", "Later edit");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NAMES_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(text(render(result), "Part")).containsExactly("Ada", "Family", "Later edit");
+        assertThat(plan(result).replacedFields()).hasSize(3);
     }
 
     @Test
@@ -137,24 +149,32 @@ class CdsExportDemographicNamesReconcilerUnitTest {
 
     @Test
     void shouldPreserveUnprojectedGivenNames_whenNativeNullIsSavedAsEmpty() throws Exception {
+        // Updated: this used to hold the chart. A Master Record save writes "" over the NULL the
+        // importer left for names it could not project; nobody cleared names they never saw.
         fixture.preparedScalar(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, null);
         fixture.oldField("middleNames", null);
         fixture.currentField("middleNames", "");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_NAMES_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.changes()).isEmpty();
+        assertThat(rule(result, "middleNames"))
+                .isEqualTo("UNPROJECTED_SOURCE_MIDDLE_NAMES_KEPT_WITHOUT_A_CURRENT_VALUE");
+        assertThat(text(render(result), "Part")).containsExactly("Ada", "Family", "Source Middle");
     }
 
     @Test
-    void
-            shouldVerifyAnUnprojectedOriginalMiddleNameIsPreservedAndCannotBeOverwritten_byALaterSingleValue()
-                    throws Exception {
+    void shouldPreserveAnUnprojectedMiddleName_untilACarlosEditSupersedesIt() throws Exception {
+        // Updated: a later value used to be refused over an unprojected source name; the edit
+        // now supersedes it.
         fixture.preparedScalar(CdsDemographicNativeDto.MIDDLE_NAMES_SCALAR, null);
         fixture.oldField("middleNames", null);
         assertThat(reconcile().changes()).isEmpty();
         fixture.currentField("middleNames", "New");
-        assertThat(reconcile().representable()).isFalse();
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(rule(result, "middleNames"))
+                .isEqualTo("EDITED_CURRENT_MIDDLE_NAMES_SUPERSEDE_SOURCE_PARTS");
+        assertThat(text(render(result), "Part")).containsExactly("Ada", "Family", "New");
     }
 
     @Test
@@ -248,6 +268,21 @@ class CdsExportDemographicNamesReconcilerUnitTest {
                                                     throw new IllegalStateException("CANCELLED");
                                                 }))
                 .hasMessage("CANCELLED");
+    }
+
+    private static String rule(CdsExportDemographicNamesReconciler.Result result, String column) {
+        return result.fields().entrySet().stream()
+                .filter(entry -> entry.getKey().column().equals(column))
+                .findFirst()
+                .orElseThrow()
+                .getValue()
+                .rule();
+    }
+
+    private CdsExportRetainedSectionWriter.Prepared plan(
+            CdsExportDemographicNamesReconciler.Result result) throws Exception {
+        return new CdsExportRetainedSectionWriter()
+                .prepareChanges(graph().fields(), values(), result.changes(), () -> {});
     }
 
     private void name(String child, String part, String kind) {

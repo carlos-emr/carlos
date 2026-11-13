@@ -226,18 +226,21 @@ public final class CdsExportDemographicRetainedNoteReconciler {
         } else if (baseline != null && !difference.changedColumns().contains("content")) {
             rule = "VERIFIED_UNCHANGED_SOURCE_PATIENT_NOTE";
             unchanged = true;
+        } else if (mapping.fields().get(contentKey).outcome() == Outcome.REQUIRES_REVIEW) {
+            rule = "CURRENT_NATIVE_PATIENT_NOTE_REQUIRES_REVIEW";
+            review = true;
         } else if (evidence.preparation().details().diagnostics().stream()
                 .anyMatch(
                         diagnostic ->
                                 diagnostic
                                         .code()
-                                        .equals("CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW"))) {
-            rule = "EDITED_SOURCE_ONLY_PATIENT_NOTE_REQUIRES_REVIEW";
-            review = true;
-        } else if (mapping.fields().get(contentKey).outcome() == Outcome.REQUIRES_REVIEW) {
-            rule = "CURRENT_NATIVE_PATIENT_NOTE_REQUIRES_REVIEW";
-            review = true;
-        } else rule = "EXACT_CURRENT_NATIVE_PATIENT_NOTE";
+                                        .equals("CDS_PATIENT_NOTE_COMPLETE_TEXT_SOURCE_VIEW")))
+            // The imported note was too long for the native column, which received a pointer to
+            // the source view instead. A CARLOS edit of that column is the patient note now: it
+            // is written, and the superseded complete source note stays in the import's retained
+            // source and is listed as replaced in the receipt.
+            rule = "EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE";
+        else rule = "EXACT_CURRENT_NATIVE_PATIENT_NOTE";
         var currentAssessment = mapping.fields().get(contentKey);
         fields.put(
                 contentKey,

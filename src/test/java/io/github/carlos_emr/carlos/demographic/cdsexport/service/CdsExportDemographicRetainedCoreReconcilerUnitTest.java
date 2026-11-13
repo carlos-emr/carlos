@@ -153,10 +153,9 @@ class CdsExportDemographicRetainedCoreReconcilerUnitTest {
 
     @Test
     void shouldVerifyOneAmbiguousComponentPreventsAllCoreChanges_fromBeingUsed() throws Exception {
-        source.put("Names[1]/LegalName[1]/OtherName[1]/Part[1]", "Source");
-        source.put("Names[1]/LegalName[1]/OtherName[2]/Part[1]", "Middle");
-        source.put("Names[1]/LegalName[1]/OtherName[2]/PartType[1]", "GIV");
-        fixture.currentField("middleNames", "Later");
+        // Updated: an edited joined middle name was the unresolved component here; such an edit
+        // now supersedes the source parts. A cleared administrative gender still has no value.
+        fixture.currentField("sex", "");
         fixture.currentField("email", "edited@example.test");
         var result = reconcile();
         assertThat(result.coreRepresentable()).isFalse();
