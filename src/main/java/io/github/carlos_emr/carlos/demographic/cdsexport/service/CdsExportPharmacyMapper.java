@@ -35,10 +35,42 @@ import java.util.*;
  * Exact native rank-one pharmacy as PreferredPharmacy. A second or third preferred pharmacy, and
  * stored values PreferredPharmacy has no element for (Phone 2, Notes, service location, free-text
  * province, an over-long line), travel in the native demographic NewCategory record; removed
- * links are no longer in the chart and are not exported. Only tied first preferences, a dangling
- * link and text no XML document can hold still require review.
+ * links are no longer in the chart and are not exported, whether or not their pharmacy row still
+ * exists. Only tied first preferences, an active link to a pharmacy row that no longer exists and
+ * text no XML document can hold still require review; {@link Result#reviewCode()} names which.
  */
 public final class CdsExportPharmacyMapper {
+    /**
+     * The hold code of each pharmacy rule that requires review, in reporting order. A dangling
+     * link is not something the screens write: Manage Pharmacy (and the REST service) only mark a
+     * pharmacy deleted (status 0), never remove its row, so only SQL run outside CARLOS leaves an
+     * active link to a pharmacy row that no longer exists.
+     */
+    static final Map<String, String> REVIEW_CODES = reviewCodes();
+
+    private static Map<String, String> reviewCodes() {
+        var codes = new LinkedHashMap<String, String>();
+        codes.put(
+                "LINKED_PHARMACY_MISSING_REQUIRES_REVIEW",
+                "CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        codes.put(
+                "UNKNOWN_PHARMACY_ASSOCIATION_STATUS_REQUIRES_REVIEW",
+                "CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN");
+        codes.put(
+                "DUPLICATE_FIRST_PHARMACY_PREFERENCE_REQUIRES_REVIEW",
+                "CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED");
+        codes.put(
+                "UNKNOWN_CONTACT_CONSENT_REQUIRES_REVIEW",
+                "CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN");
+        codes.put(
+                "REQUIRED_PHARMACY_NAME_MISSING_OR_UNREPRESENTABLE",
+                "CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED");
+        codes.put(
+                "WIRE_TEXT_REQUIRES_REVIEW",
+                "CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW");
+        return Collections.unmodifiableMap(codes);
+    }
+
     public record Result(
             int patient,
             long linkRows,
@@ -93,6 +125,22 @@ public final class CdsExportPharmacyMapper {
         public boolean nativeRepresentable() {
             return fields.values().stream()
                     .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        }
+
+        /**
+         * The safe hold code naming the first pharmacy rule (in {@link #REVIEW_CODES} order) that
+         * requires review, so the held-patient record says why instead of the umbrella
+         * {@code CDS_EXPORT_UNMAPPED_DATA}; {@code CDS_EXPORT_NATIVE_PHARMACY_REQUIRES_REVIEW} for
+         * any other rule. Null when the mapping is representable.
+         */
+        public String reviewCode() {
+            var rules = new HashSet<String>();
+            for (var field : fields.values())
+                if (field.outcome() == Outcome.REQUIRES_REVIEW) rules.add(field.rule());
+            if (rules.isEmpty()) return null;
+            for (var entry : REVIEW_CODES.entrySet())
+                if (rules.contains(entry.getKey())) return entry.getValue();
+            return "CDS_EXPORT_NATIVE_PHARMACY_REQUIRES_REVIEW";
         }
 
         @Override
@@ -185,24 +233,24 @@ public final class CdsExportPharmacyMapper {
         for (var row : links) {
             var state = states.get(row);
             boolean selected = preferredCount == 1 && row == candidate;
-            if (!lookup.containsKey(row.fields().get("pharmacyID")))
+            if ("0".equals(row.fields().get("status"))) {
+                // The Rx screen's "remove" keeps the link with status 0: it is no longer in the
+                // chart, like a superseded demographic snapshot, and is not exported. That holds
+                // whether or not its pharmacy row still exists; the chart shows neither.
+                for (String column : row.fields().keySet())
+                    if (present(row.fields().get(column)))
+                        state.operational(column, "REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART");
+            } else if (!lookup.containsKey(row.fields().get("pharmacyID")))
                 state.review(
                         "pharmacyID",
                         "PreferredPharmacy",
                         "LINKED_PHARMACY_MISSING_REQUIRES_REVIEW");
-            else if (!"0".equals(row.fields().get("status"))
-                    && !"1".equals(row.fields().get("status")))
+            else if (!"1".equals(row.fields().get("status")))
                 state.review(
                         "status",
                         "PreferredPharmacy",
                         "UNKNOWN_PHARMACY_ASSOCIATION_STATUS_REQUIRES_REVIEW");
-            else if ("0".equals(row.fields().get("status"))) {
-                // The Rx screen's "remove" keeps the link with status 0: it is no longer in the
-                // chart, like a superseded demographic snapshot, and is not exported.
-                for (String column : row.fields().keySet())
-                    if (present(row.fields().get(column)))
-                        state.operational(column, "REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART");
-            } else if (preferredCount <= 1 && !selected) {
+            else if (preferredCount <= 1 && !selected) {
                 // A second or third preferred pharmacy: PreferredPharmacy holds one, so the link
                 // and its pharmacy travel in the native demographic NewCategory record.
                 for (String column : List.of("pharmacyID", "preferredOrder", "status", "consentToContact"))

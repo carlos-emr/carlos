@@ -614,6 +614,236 @@ class CdsExportDemographicSupportingMapperUnitTest {
                         () -> {});
     }
 
+    /** A demographicPharmacy row as the preferred-pharmacy screen stores it (consent defaults to 1). */
+    private static CdsExportCapturedTextRowDto storedLink(
+            long id, long pharmacy, String status, String order, String added) {
+        var fields = new TreeMap<String, String>();
+        fields.put("id", Long.toString(id));
+        fields.put("pharmacyID", Long.toString(pharmacy));
+        fields.put("demographic_no", "27");
+        fields.put("status", status);
+        fields.put("addDate", added);
+        fields.put("preferredOrder", order);
+        fields.put("consentToContact", "1");
+        return new CdsExportCapturedTextRowDto(
+                "demographicPharmacy", CdsExportPatientTableSourceReader.key(id), fields);
+    }
+
+    /** A pharmacyInfo row as Manage Pharmacy stores it (PharmacyInfoDaoImpl.addPharmacy). */
+    private static CdsExportCapturedTextRowDto storedPharmacy(long id, Map<String, String> typed) {
+        var fields = new TreeMap<String, String>();
+        fields.put("recordID", Long.toString(id));
+        fields.put("name", "FAKE-C2 First Pharmacy");
+        fields.put("address", "1 FAKE Pharmacy Way");
+        fields.put("city", "Fixture City");
+        fields.put("province", "ON");
+        fields.put("postalCode", "K1A 0B1");
+        fields.put("phone1", "613-555-0101");
+        fields.put("phone2", "");
+        fields.put("fax", "613-555-0102");
+        fields.put("email", "");
+        fields.put("notes", "");
+        fields.put("addDate", "2026-10-05 08:10:30");
+        fields.put("status", "1");
+        fields.put("serviceLocationIdentifier", "");
+        fields.put("uid", "0");
+        fields.putAll(typed);
+        return new CdsExportCapturedTextRowDto(
+                "pharmacyInfo", CdsExportPatientTableSourceReader.key(id), fields);
+    }
+
+    /** The related rows of one census chart, replacing any earlier ones. */
+    private void pharmacies(
+            List<CdsExportCapturedTextRowDto> links, List<CdsExportCapturedTextRowDto> stores) {
+        rows.get("demographicPharmacy").clear();
+        rows.get("demographicPharmacy").addAll(links);
+        rows.get("pharmacyInfo").clear();
+        rows.get("pharmacyInfo").addAll(stores);
+    }
+
+    @Test
+    void shouldExportTheCensusPharmacyCharts_fromTheRowsTheScreensStore() throws Exception {
+        // Census charts FAKE-C2N-A05, A06 and A07 with their stored rows. A05: two preferred
+        // pharmacies and a third removed (status 0). A06: Phone 2, Notes, a service location,
+        // the province typed "Ontario", an e-mail and a name and address over 50 characters.
+        // A07: the preferred pharmacy later deleted in Manage Pharmacy (pharmacy status 0).
+        var charts =
+                List.of(
+                        List.of(
+                                List.of(
+                                        storedLink(47, 32, "1", "1", "2026-10-05 08:12:00"),
+                                        storedLink(48, 33, "1", "2", "2026-10-05 08:12:30"),
+                                        storedLink(49, 34, "0", "3", "2026-10-05 08:13:00")),
+                                List.of(
+                                        storedPharmacy(32, Map.of()),
+                                        storedPharmacy(
+                                                33, Map.of("name", "FAKE-C2 Second Pharmacy")),
+                                        storedPharmacy(
+                                                34, Map.of("name", "FAKE-C2 Removed Pharmacy")))),
+                        List.of(
+                                List.of(storedLink(50, 35, "1", "1", "2026-10-05 08:14:30")),
+                                List.of(
+                                        storedPharmacy(
+                                                35,
+                                                Map.of(
+                                                        "name",
+                                                        "FAKE-C2 Pharmacy With A Very Long Chain Store Name That Exceeds Fifty Characters",
+                                                        "address",
+                                                        "1000 FAKE Pharmacy Boulevard, Unit 12, Rear Entrance Off The Parking Lot",
+                                                        "province",
+                                                        "Ontario",
+                                                        "phone2",
+                                                        "613-555-0109",
+                                                        "email",
+                                                        "fake.pharmacy@example.invalid",
+                                                        "notes",
+                                                        "FAKE notes: delivers on Tuesdays",
+                                                        "serviceLocationIdentifier",
+                                                        "FAKE-SLI-0001")))),
+                        List.of(
+                                List.of(storedLink(51, 36, "1", "1", "2026-10-05 08:16:00")),
+                                List.of(
+                                        storedPharmacy(
+                                                36,
+                                                Map.of(
+                                                        "name",
+                                                        "FAKE-C2 Closed Pharmacy",
+                                                        "status",
+                                                        "0")))));
+        var carried =
+                List.of(
+                        Set.of("demographicPharmacy.preferredOrder", "pharmacyInfo.name"),
+                        Set.of(
+                                "pharmacyInfo.name",
+                                "pharmacyInfo.address",
+                                "pharmacyInfo.province",
+                                "pharmacyInfo.phone2",
+                                "pharmacyInfo.notes",
+                                "pharmacyInfo.serviceLocationIdentifier"),
+                        Set.of("pharmacyInfo.status"));
+        for (int chart = 0; chart < charts.size(); chart++) {
+            pharmacies(charts.get(chart).get(0), charts.get(chart).get(1));
+            var result = assemble(ALL);
+            assertThat(result.fields().values())
+                    .as("chart %d", chart)
+                    .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+            var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
+            var related = new HashSet<String>();
+            JsonMapper.builder()
+                    .build()
+                    .readTree(record.json())
+                    .get("related")
+                    .forEach(
+                            row ->
+                                    row.get("fields")
+                                            .fieldNames()
+                                            .forEachRemaining(
+                                                    column ->
+                                                            related.add(
+                                                                    row.get("table").textValue()
+                                                                            + "."
+                                                                            + column)));
+            assertThat(related).as("chart %d", chart).containsAll(carried.get(chart));
+            // A removed link and the pharmacy only it names are not in the chart.
+            assertThat(record.json()).doesNotContain("FAKE-C2 Removed Pharmacy");
+            assertThat(record.fields().keySet())
+                    .noneMatch(
+                            key ->
+                                    key.table().equals("demographicPharmacy")
+                                                    && key.recordKey()
+                                                            .equals(
+                                                                    CdsExportPatientTableSourceReader
+                                                                            .key(49))
+                                            || key.table().equals("pharmacyInfo")
+                                                    && key.recordKey()
+                                                            .equals(
+                                                                    CdsExportPatientTableSourceReader
+                                                                            .key(34)));
+            validate(result, record);
+        }
+        // A07's deleted pharmacy is still what the chart shows, so it is the PreferredPharmacy.
+        assertThat(assemble(ALL).pharmacy().mapping().preferred().name())
+                .isEqualTo("FAKE-C2 Closed Pharmacy");
+    }
+
+    @Test
+    void shouldNameTheDanglingLinkRule_whenThePreferredPharmacyRowIsGone() throws Exception {
+        // The census database after a cleanup script deleted every "FAKE-C2 %" pharmacy row:
+        // A05's links remained, pointing at rows that no longer exist. No CARLOS screen does
+        // this (Manage Pharmacy only marks a pharmacy deleted), so it is still a hold, now
+        // reported by its own code instead of CDS_EXPORT_UNMAPPED_DATA.
+        pharmacies(
+                List.of(
+                        storedLink(47, 32, "1", "1", "2026-10-05 08:12:00"),
+                        storedLink(48, 33, "1", "2", "2026-10-05 08:12:30"),
+                        storedLink(49, 34, "0", "3", "2026-10-05 08:13:00")),
+                List.of());
+        assertThatThrownBy(() -> assemble(ALL))
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        assertThatThrownBy(
+                        () ->
+                                assemble(
+                                        Set.of(
+                                                CdsCategory.DEMOGRAPHICS,
+                                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS)))
+                .hasMessage("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        // A removed link is not in the chart, whether or not its pharmacy row still exists.
+        pharmacies(List.of(storedLink(49, 34, "0", "3", "2026-10-05 08:13:00")), List.of());
+        assertThat(assemble(ALL).fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+    }
+
+    /** Composes Demographics and the NewCategory record and validates them against the schema. */
+    private static void validate(
+            CdsExportNativeDemographicAssembler.Result result,
+            CdsExportDemographicSupportingMapper.Record record)
+            throws IOException {
+        var wire = new ByteArrayOutputStream();
+        var categories = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY);
+        new CdsExportXmlComposer()
+                .compose(
+                        wire,
+                        HASH,
+                        HASH,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        categories,
+                        List.of(
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.DEMOGRAPHICS, HASH),
+                                                xml ->
+                                                        new CdsExportDemographicXmlWriter()
+                                                                .writeWithRelated(
+                                                                        result.demographic(),
+                                                                        result.pharmacy(),
+                                                                        result.contacts(),
+                                                                        result.professional(),
+                                                                        "C27",
+                                                                        xml)),
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.NEW_CATEGORY, HASH),
+                                                xml ->
+                                                        CdsExportDemographicSupportingMapper.write(
+                                                                record.json(), xml)))
+                                .iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(wire.toByteArray()),
+                        "C27",
+                        categories,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+    }
+
     @Test
     void shouldOwnExactlyTheCareTeamProviders_inTheDemographicProviderSlice() throws Exception {
         rows.get("provider").add(provider("101 ", "Collation", "Candidate"));

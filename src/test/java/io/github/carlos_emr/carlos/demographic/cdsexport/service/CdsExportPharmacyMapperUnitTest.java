@@ -201,6 +201,29 @@ class CdsExportPharmacyMapperUnitTest {
     }
 
     @Test
+    void shouldNameEachPharmacyReviewRule_withItsOwnHoldCode() throws Exception {
+        assertThat(map(List.of(link(-1, 9)), List.of(pharmacy(9))).reviewCode()).isNull();
+        assertThat(map(List.of(link(-1, 9)), List.of()).reviewCode())
+                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING");
+        assertThat(map(List.of(changed(link(-1, 9), "status", "")), List.of(pharmacy(9))).reviewCode())
+                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN");
+        assertThat(map(List.of(link(-1, 9), link(-2, 9)), List.of(pharmacy(9))).reviewCode())
+                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED");
+        assertThat(
+                        map(List.of(changed(link(-1, 9), "consentToContact", "7")), List.of(pharmacy(9)))
+                                .reviewCode())
+                .isEqualTo("CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN");
+        // A removed link to a pharmacy row that no longer exists is not in the chart either.
+        var removed = map(List.of(changed(link(-1, 9), "status", "0")), List.of());
+        assertThat(removed.nativeRepresentable()).isTrue();
+        assertThat(removed.reviewCode()).isNull();
+        for (String code : CdsExportPharmacyMapper.REVIEW_CODES.values())
+            assertThat(new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportMappingReviewException(code))
+                    .hasMessage(code);
+    }
+
+    @Test
     void shouldVerifyContactConsentIsCapturedSourceContextAndNeverInventedOrDiscarded_forPharmacyMapperContract() throws Exception {
         // Updated for D5: "1" is the model default that DemographicPharmacyDaoImpl persists for every
         // pharmacy a patient is linked to, so it used to hold every UI-linked pharmacy. It is now

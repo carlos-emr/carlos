@@ -149,7 +149,12 @@ a pharmacy, an inactive or internal contact, an e-mail with a "+", a SIN typed w
 province of "Other" all travel in the `CARLOS.NativeDemographic.v1` record instead of holding the
 patient. A specialist or dietician on the health care team (an external contact) is exported as
 a Demographics Contact whose purpose is the role ("Specialist", "Dietician"). Removed pharmacy
-links and deleted contacts are no longer in the chart and are not exported. A patient
+links and deleted contacts are no longer in the chart and are not exported. A pharmacy hold
+names its cause: `CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING` means the patient's preferred-pharmacy
+link points at a pharmacy row that no longer exists in the database. CARLOS's screens never
+remove a pharmacy row (Manage Pharmacy only marks it deleted), so this comes from SQL run
+outside CARLOS. Restore the missing pharmacy row (for example from a backup) and export the
+patient again. A patient
 re-rostered without a termination is exported with the current enrolment; the earlier episode's
 snapshot stays in the audit arrangement. A roster entry missing its date is not written as an
 enrolment: the OntarioMD guide requires the date and CARLOS's own importer refuses one without

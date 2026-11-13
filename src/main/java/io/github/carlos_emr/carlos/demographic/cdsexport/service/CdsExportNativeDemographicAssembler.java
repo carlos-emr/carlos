@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.io.IOException;
 import java.util.*;
@@ -217,10 +218,12 @@ public final class CdsExportNativeDemographicAssembler {
                         note,
                         enrolment.events(),
                         enrolment.fields());
-        if (!projection.representable()
-                || !pharmacy.nativeRepresentable()
-                || !contacts.nativeRepresentable()
-                || !professional.representable()) review();
+        if (!projection.representable()) review();
+        // A pharmacy hold names its rule (CdsExportPharmacyMapper.REVIEW_CODES), never only the
+        // umbrella unmapped-data code.
+        if (!pharmacy.nativeRepresentable())
+            throw new CdsExportMappingReviewException(pharmacy.reviewCode());
+        if (!contacts.nativeRepresentable() || !professional.representable()) review();
         // Values with no Demographics element are decided for the NewCategory record; without
         // NewCategory they are accounted for as not selected, never held.
         fields.replaceAll(

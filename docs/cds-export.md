@@ -88,7 +88,22 @@ and the PreferredPharmacy values without an element (Phone 2, Notes, the service
 free-text province, a postal code without a pinned jurisdiction, an over-long line or name, the
 status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in the record's
 `related` list; a removed link (status 0) and a pharmacy only it names are not in the chart and
-are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`). Contacts follow the same
+are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`), whether or not that
+pharmacy's row still exists. The links' `consentToContact` of 1 is the model default
+(`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. A pharmacy hold names its
+rule instead of the umbrella `CDS_EXPORT_UNMAPPED_DATA` (`CdsExportPharmacyMapper.REVIEW_CODES`):
+an active link to a pharmacy row that no longer exists is
+`CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, an unknown link status
+`CDS_EXPORT_NATIVE_PHARMACY_LINK_STATUS_UNKNOWN`, two first preferences
+`CDS_EXPORT_NATIVE_PHARMACY_FIRST_PREFERENCE_TIED`, an unknown consent flag
+`CDS_EXPORT_NATIVE_PHARMACY_CONSENT_UNKNOWN`, a missing name
+`CDS_EXPORT_NATIVE_PHARMACY_NAME_REQUIRED` and text no XML document can hold
+`CDS_EXPORT_NATIVE_PHARMACY_WIRE_TEXT_REQUIRES_REVIEW`. No screen writes a dangling link: Manage
+Pharmacy and the REST service only mark a pharmacy deleted (status 0), never remove its row. The
+census-2 holds of charts A05-A07 on build 108a were such links: a probe script's cleanup
+(`DELETE FROM pharmacyInfo WHERE name LIKE 'FAKE-C2 %'`) removed the census pharmacies after they
+were seeded; the same rows with their pharmacies present are exported
+(`CdsExportDemographicSupportingMapperUnitTest.shouldExportTheCensusPharmacyCharts_fromTheRowsTheScreensStore`). Contacts follow the same
 pattern: a deleted association is not exported; an inactive, "Internal" (another patient),
 provider or specialist association (types 0, 1 and 3, whose names live in tables this export
 does not read) travel in `related` with their contact, as do contact columns
