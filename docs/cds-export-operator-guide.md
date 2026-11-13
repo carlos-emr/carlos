@@ -118,6 +118,12 @@ durable request; processing continues online after the response. Reload or reope
 the saved job ID, or use **Check submission** with the original key after a lost
 acknowledgement. Reusing that key cannot create another job with different intent.
 
+While a job runs, the page shows its stage and how many patients it is exporting, with a
+moving progress bar. A patient is counted as processed only when the package is published,
+so the exported and held counts appear when the job ends (`processedPatients` in the command
+line's status stays 0 until then). A long capture is not a stalled job; the stage and the
+connection line show the worker is still confirmed.
+
 Only **Transfer package ready** with complete patient counts and an available
 artifact permits package download. The POST download rechecks current clinical
 and disclosure authorization. A stale/offline status disables controls until the

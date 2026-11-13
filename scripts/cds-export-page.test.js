@@ -14,6 +14,17 @@ test('unknown discovery total stays unknown and acceptance stays waiting', () =>
     assert.equal(value.complete, false); assert.equal(value.terminal, false);
     assert.equal(value.count, 'Patient total is not yet known.'); assert.match(value.label, /waiting/);
 });
+test('a running job shows its selection, not a frozen processed count', () => {
+    // The ledger records processed patients only when the package is published.
+    for (const state of ['DISCOVERING', 'CAPTURING', 'PACKAGING', 'ENCRYPTING']) {
+        const value = presentation(job({state, totalPatients: 55, workerOwned: true, waiting: false}));
+        assert.equal(value.count, 'Exporting 55 patients. The count of exported and held patients is shown when the job ends.');
+        assert.equal(value.terminal, false);
+    }
+    assert.equal(presentation(job({state: 'READY', artifactAvailable: true, complete: true, waiting: false,
+        totalPatients: 55, processedPatients: 55})).count, '55 of 55 patients processed.');
+    assert.equal(presentation(job({state: 'FAILED', waiting: false, totalPatients: 55})).count, '0 of 55 patients processed.');
+});
 test('ready requires actual artifact availability', () => {
     assert.equal(presentation(job({state: 'READY', waiting: false})).complete, false);
     assert.match(presentation(job({state: 'READY', waiting: false})).label, /unavailable/);

@@ -19,6 +19,7 @@
         heldBack: 'Transfer package ready without {0} held patient(s) — not a complete migration',
         readyUnavailable: 'Package unavailable — check job status',
         countUnknown: 'Patient total is not yet known.', countProgress: '{0} of {1} patients processed.',
+        countWorking: 'Exporting {0} patients. The count of exported and held patients is shown when the job ends.',
         heldListed: 'Held back: {0} (listed in the package ReadMe and the report).', heldNone: 'Held back: {0}.',
         workerBusy: 'A worker is processing this job now, so it cannot be resumed or changed. Refresh to see its progress.',
         resumeInvalid: 'This job cannot be resumed in its current state.',
@@ -103,7 +104,11 @@
             ? text('heldBack', job.blockedPatients)
             : job.state === 'READY' && !job.complete ? text('readyUnavailable') : stateLabel(job.state);
         return {label, complete: job.complete, downloadable: job.complete || job.heldBack, terminal: FINAL.has(job.state),
-            count: job.totalPatients === null ? text('countUnknown') : text('countProgress', job.processedPatients, job.totalPatients),
+            // The ledger counts a patient as processed only when the package is published, so a running
+            // job shows its selection, never a frozen "0 of N".
+            count: job.totalPatients === null ? text('countUnknown')
+                : FINAL.has(job.state) ? text('countProgress', job.processedPatients, job.totalPatients)
+                : text('countWorking', job.totalPatients),
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
@@ -248,7 +253,8 @@
                 ? text('runtimeChanged')
                 : current.safeCode || '';
             const progress = byId('exportProgress');
-            if (current.totalPatients === null) progress.removeAttribute('value');
+            // Indeterminate while running: per-patient progress is not recorded until publication.
+            if (current.totalPatients === null || !shown.terminal) progress.removeAttribute('value');
             else { progress.max = Math.max(1, current.totalPatients); progress.value = current.processedPatients; }
             controls();
         }
