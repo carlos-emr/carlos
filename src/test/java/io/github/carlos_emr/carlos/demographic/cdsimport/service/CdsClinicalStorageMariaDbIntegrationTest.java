@@ -134,10 +134,13 @@ class CdsClinicalStorageMariaDbIntegrationTest {
                             .ALLERGY_ONSET_OF_REACTION);
             source.put("ResidualInfo/DataElement[3]/DataType", "string");
             source.put("ResidualInfo/DataElement[3]/Content", "Immediate");
+            // Decision 9: the archive marker is restored only when the import opts in.
             var dto =
-                    normalization.allergy(
-                            CdsClinicalFixture.record(
-                                    directory, "AllergiesAndAdverseReactions", source));
+                    normalization
+                            .allergy(
+                                    CdsClinicalFixture.record(
+                                            directory, "AllergiesAndAdverseReactions", source))
+                            .withArchiveRestoration(true);
             var row =
                     new CdsAllergyPersister(
                                     mock(AllergyDao.class),

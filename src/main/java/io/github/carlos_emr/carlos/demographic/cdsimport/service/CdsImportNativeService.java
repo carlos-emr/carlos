@@ -58,6 +58,7 @@ public class CdsImportNativeService {
                     "ProblemList",
                     "RiskFactors",
                     "AlertsAndSpecialNeeds");
+    private final CdsImportConfigurationService configuration;
     private final CdsFieldParser fields;
     private final CdsClinicalNormalizationService normalization;
     private final CdsMedicationPersister medications;
@@ -92,7 +93,9 @@ public class CdsImportNativeService {
             CdsImportAccessService access,
             CdsImportLedgerService ledger,
             CdsTargetReceiptService receipts,
-            List<CdsCategoryImportService> categories) {
+            List<CdsCategoryImportService> categories,
+            CdsImportConfigurationService configuration) {
+        this.configuration = configuration;
         this.fields = fields;
         this.normalization = normalization;
         this.medications = medications;
@@ -195,7 +198,10 @@ public class CdsImportNativeService {
                             unit.unitKey(),
                             record.effectiveSha256(),
                             command,
-                            normalization.allergy(record, command));
+                            normalization
+                                    .allergy(record, command)
+                                    .withArchiveRestoration(
+                                            configuration.restoreArchivedAllergies()));
             case "Immunizations" ->
                     preparation.store(
                             run,
@@ -322,7 +328,7 @@ public class CdsImportNativeService {
                                 CdsAllergyDto.class);
                 temporalNotice(run, epoch, unit, "StartDate", source.start());
                 temporalNotice(run, epoch, unit, "RecordedDate", source.recorded());
-                if (source.archived())
+                if (source.archived() && !source.nativeArchived())
                     notice(
                             run,
                             epoch,
@@ -330,8 +336,22 @@ public class CdsImportNativeService {
                             "WARNING",
                             "CDS_ALLERGY_ARCHIVED_SOURCE_MARKER",
                             "ResidualInfo",
-                            "The source marked this allergy as archived. It will be imported as"
-                                    + " inactive; review the source allergy history.");
+                            "The source marked this allergy as archived (a CARLOS vendor"
+                                    + " extension). It was imported as active because restoring"
+                                    + " archived allergies is not enabled for this import; review"
+                                    + " the source allergy history.");
+                else if (source.archived())
+                    notice(
+                            run,
+                            epoch,
+                            unit,
+                            "WARNING",
+                            "CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED",
+                            "ResidualInfo",
+                            "The source marked this allergy as archived (a CARLOS vendor"
+                                    + " extension). It was imported as archived because this"
+                                    + " import restores archived allergies; review the source"
+                                    + " allergy history.");
                 written = allergies.write(target, command.providerNo(), source);
             }
             case "Immunizations" -> {

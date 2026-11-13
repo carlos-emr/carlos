@@ -38057,7 +38057,7 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "allergy-native-residual-extensions": {
-        "destination": "Exact recognized CARLOS allergy residual markers project archived, age_of_onset, onset_of_reaction and ATC class identity. Unrecognized residual names remain complete source-only values.",
+        "destination": "Exact recognized CARLOS allergy residual markers project archived (only when the import opts in), age_of_onset, onset_of_reaction, ATC class identity and native severity 3. Unrecognized residual names remain complete source-only values.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
@@ -38069,7 +38069,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAllergyPersister.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java"
         ],
-        "normalization": "Only exact versioned names with one valid Name/DataType/Content group are materialized. Archived is an explicit boolean and produces a durable source-marker warning; age and onset retain validated native meaning. CARLOS.Allergy.Atc.v1 carries one valid WHO ATC hierarchy code in allergies.atc with TYPECODE 8, never a DIN. A simultaneous standard Code is an explicit conflict. Malformed, duplicate and conflicting known markers require review. The optional atcResidual preparation flag defaults false after original seal verification and is omitted when false, preserving legacy sealed bytes and regional-identifier projections.",
+        "normalization": "Only exact versioned names with one valid Name/DataType/Content group are materialized. Archived is an explicit boolean; it is restored as a native archived allergy only when cds.import.mapping.restoreArchivedAllergies=true (decision 9, default off, part of the normalization policy digest and recorded per preparation as archivedNotRestored), and both outcomes produce a durable warning. CARLOS.Allergy.Severity.v1 Severe restores native severity 3 and conflicts with a standard Severity. Age and onset retain validated native meaning. CARLOS.Allergy.Atc.v1 carries one valid WHO ATC hierarchy code in allergies.atc with TYPECODE 8, never a DIN. A simultaneous standard Code is an explicit conflict. Malformed, duplicate and conflicting known markers require review. The optional atcResidual preparation flag defaults false after original seal verification and is omitted when false, preserving legacy sealed bytes and regional-identifier projections.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 9 (AllergiesAndAdverseReactions)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39857,7 +39857,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "ea9ab892cb9371ca27f946bf5da45d8c59dca205fca1fb1d6bc4190436bc23b8"
+    "sha256": "6afbd9883ab85660c80838508fc616ec6e04214afa1e457b945e02a2a838932b"
   },
   "root": "cds:OmdCds",
   "schemas": [

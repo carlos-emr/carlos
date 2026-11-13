@@ -42,8 +42,11 @@ public final class CdsExportPreparedAllergyMapper {
                 source.reaction(),
                 dates.map(source.recorded(), true),
                 source.notes(),
-                source.archived(),
+                // The native state this import wrote: a source archive marker is restored only
+                // when the import opted in (decision 9).
+                source.nativeArchived(),
                 source.ageOfOnset(),
-                source.onsetOfReaction());
+                source.onsetOfReaction(),
+                source.nativeSeverity());
     }
 }

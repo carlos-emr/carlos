@@ -89,7 +89,9 @@ public class CdsAllergyPersister {
         allergy.setAtc(atc ? source.code() : null);
         allergy.setDrugrefId(null);
         allergy.setSeverityOfReaction(
-                switch (source.severity() == null ? "" : source.severity()) {
+                source.nativeSeverity() != null
+                        ? source.nativeSeverity()
+                        : switch (source.severity() == null ? "" : source.severity()) {
                     case "NO" -> "5";
                     case "MI" -> "1";
                     case "MO" -> "2";
@@ -99,7 +101,8 @@ public class CdsAllergyPersister {
         allergy.setLifeStage(source.lifeStage());
         allergy.setStartDate(source.start().dateStorageAnchor());
         allergy.setEntryDate(source.recorded().dateStorageAnchor());
-        allergy.setArchived(source.archived());
+        // A source archive marker is restored only when this import opted in (decision 9).
+        allergy.setArchived(source.nativeArchived());
         if (source.ageOfOnset() != null) allergy.setAgeOfOnset(source.ageOfOnset());
         if (source.onsetOfReaction() != null) allergy.setOnsetOfReaction(source.onsetOfReaction());
         return allergy;

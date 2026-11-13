@@ -231,6 +231,10 @@ public class CdsClinicalNormalizationService {
             throw new CdsClinicalException(
                     "CDS_ALLERGY_AGENT_REQUIRES_REVIEW", "OffendingAgentDescription");
         }
+        // The CARLOS severity carrier exists only because the standard Severity has no value
+        // for it; a record asserting both is contradictory, never resolved by precedence.
+        if (nativeState.nativeSeverity() != null && severity != null)
+            throw new CdsClinicalException("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW", "Severity");
         return new CdsAllergyDto(
                 description,
                 property,
@@ -246,7 +250,10 @@ public class CdsClinicalNormalizationService {
                 nativeState.archived(),
                 nativeState.ageOfOnset(),
                 nativeState.onsetOfReaction(),
-                nativeState.atc() != null);
+                nativeState.atc() != null,
+                // Default (decision 9): a source archive marker is not restored natively.
+                nativeState.archived(),
+                nativeState.nativeSeverity());
     }
 
     public CdsImmunizationDto immunization(CdsRecordDto record) throws IOException {

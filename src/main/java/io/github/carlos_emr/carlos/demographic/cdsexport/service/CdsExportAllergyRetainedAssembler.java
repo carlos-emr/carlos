@@ -37,7 +37,8 @@ public final class CdsExportAllergyRetainedAssembler {
                     CdsNativeExtensionContract.ALLERGY_ARCHIVED,
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
                     CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
-                    CdsNativeExtensionContract.ALLERGY_ATC);
+                    CdsNativeExtensionContract.ALLERGY_ATC,
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY);
 
     public CdsExportRetainedSectionWriter.Prepared prepare(
             int patient,
@@ -77,15 +78,22 @@ public final class CdsExportAllergyRetainedAssembler {
                             : field.sourcePath().substring(root.length() + 1);
             if (relative.putIfAbsent(path, field) != null) scope();
         }
-        var historical =
-                new CdsExportPreparedAllergyMapper()
-                        .map(
-                                new CdsExportRetainedPreparationReader()
-                                        .allergy(index, decision.unitAddress())
-                                        .value());
+        var preparedSource =
+                new CdsExportRetainedPreparationReader()
+                        .allergy(index, decision.unitAddress())
+                        .value();
+        var historical = new CdsExportPreparedAllergyMapper().map(preparedSource);
         var current = decision.mapping().value();
+        // F9: a sender's standard Code with CodeType ATC (not CARLOS's ATC residual) stays the
+        // standard Code subtree while the coded agent is unchanged; only a CARLOS-authored ATC
+        // travels in CARLOS.Allergy.Atc.v1.
+        boolean standardAtc =
+                !preparedSource.atcResidual()
+                        && "ATC".equals(preparedSource.codeSystem())
+                        && "ATC".equals(current.codeType())
+                        && Objects.equals(current.codeValue(), preparedSource.code());
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
-        for (var part : parts(current).entrySet()) {
+        for (var part : parts(current, standardAtc).entrySet()) {
             String path = part.getKey() + "[1]";
             var prior = ids(relative, path);
             if (!prior.isEmpty() || part.getValue() != null)
@@ -119,13 +127,13 @@ public final class CdsExportAllergyRetainedAssembler {
                             default -> null;
                         };
             }
-            if (prior == null || !Objects.equals(prior, markerValue(historical, name)))
+            if (prior == null || !Objects.equals(prior, sourceMarker(preparedSource, historical, name, standardAtc)))
                 review("CDS_EXPORT_ALLERGY_EXTENSION_PROJECTION_CONFLICT");
         }
         var additions = new LinkedHashMap<String, String>();
         for (String name : KNOWN.stream().sorted().toList()) {
-            String value = markerValue(current, name),
-                    old = markerValue(historical, name),
+            String value = markerValue(current, name, standardAtc),
+                    old = sourceMarker(preparedSource, historical, name, standardAtc),
                     path = existing.get(name);
             if (path != null) {
                 if (value == null)
@@ -177,13 +185,14 @@ public final class CdsExportAllergyRetainedAssembler {
                 .prepareChanges(fields, values, changes, checkpoint);
     }
 
-    private static Map<String, CdsExportXmlComposer.Content> parts(CdsExportAllergyDto value) {
+    private static Map<String, CdsExportXmlComposer.Content> parts(
+            CdsExportAllergyDto value, boolean standardAtc) {
         var result = new LinkedHashMap<String, CdsExportXmlComposer.Content>();
         text(result, "OffendingAgentDescription", value.description());
         text(result, "PropertyOfOffendingAgent", value.property());
         result.put(
                 "Code",
-                value.codeValue() == null || "ATC".equals(value.codeType())
+                value.codeValue() == null || "ATC".equals(value.codeType()) && !standardAtc
                         ? null
                         : xml -> {
                             xml.element("cds_dt", "CodeType", value.codeType());
@@ -226,12 +235,33 @@ public final class CdsExportAllergyRetainedAssembler {
                 : CdsNativeExtensionContract.STRING_TYPE;
     }
 
-    private static String markerValue(CdsExportAllergyDto value, String name) {
+    /**
+     * The marker value the source itself carried. The archive marker is the source's assertion,
+     * which differs from the prepared native state when the import kept the allergy active
+     * (decision 9); every other marker is the prepared value.
+     */
+    private static String sourceMarker(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto source,
+            CdsExportAllergyDto historical,
+            String name,
+            boolean standardAtc) {
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))
+            return Boolean.toString(source.archived());
+        return markerValue(historical, name, standardAtc);
+    }
+
+    private static String markerValue(CdsExportAllergyDto value, String name, boolean standardAtc) {
         if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))
             return Boolean.toString(value.archived());
         if (name.equals(CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET)) return value.ageOfOnset();
         if (name.equals(CdsNativeExtensionContract.ALLERGY_ATC))
-            return "ATC".equals(value.codeType()) ? value.codeValue() : null;
+            return "ATC".equals(value.codeType()) && !standardAtc ? value.codeValue() : null;
+        // A native "Severe" has no CDS Severity value; it travels only in its CARLOS carrier,
+        // which is replaced or removed when the native severity changes.
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_SEVERITY))
+            return value.nativeSeverity() == null
+                    ? null
+                    : CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES.get(value.nativeSeverity());
         return value.onsetOfReaction() == null
                 ? null
                 : CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.get(value.onsetOfReaction());

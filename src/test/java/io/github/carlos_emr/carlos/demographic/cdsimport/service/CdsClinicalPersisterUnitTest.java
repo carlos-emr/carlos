@@ -619,7 +619,8 @@ class CdsClinicalPersisterUnitTest {
                                     mock(CdsImportAccessService.class),
                                     mock(CdsImportLedgerService.class),
                                     mock(CdsTargetReceiptService.class),
-                                    java.util.List.of());
+                                    java.util.List.of(),
+                                    new CdsImportConfigurationService(new java.util.Properties()));
                     for (String[] source :
                             java.util.List.of(
                                     new String[] {
@@ -822,7 +823,8 @@ class CdsClinicalPersisterUnitTest {
                                         mock(CdsImportAccessService.class),
                                         ledger,
                                         receipts,
-                                        java.util.List.of());
+                                        java.util.List.of(),
+                                        new CdsImportConfigurationService(new java.util.Properties()));
                         var command =
                                 mock(
                                         io.github.carlos_emr.carlos.demographic.cdsimport.command
@@ -904,8 +906,12 @@ class CdsClinicalPersisterUnitTest {
     }
 
     @Test
-    void shouldWarnTheOwningImportUnit_whenAResidualMarkerMakesAnAllergyInactive()
+    void shouldWarnTheOwningImportUnit_whenAResidualArchiveMarkerIsKeptActiveOrRestored()
             throws Exception {
+        // Decision 9: this test used to expect every marked allergy imported inactive. By
+        // default the marked allergy stays active; restoring it archived is an import option,
+        // and both outcomes are reported on the unit.
+        for (boolean restore : java.util.List.of(false, true))
         for (boolean archived : java.util.List.of(true, false)) {
             var parser = new CdsFieldParser();
             var record =
@@ -921,8 +927,9 @@ class CdsClinicalPersisterUnitTest {
                                     "boolean",
                                     "ResidualInfo/DataElement/Content",
                                     Boolean.toString(archived)));
-            var source = normalization.allergy(record);
+            var source = normalization.allergy(record).withArchiveRestoration(restore);
             assertThat(source.archived()).isEqualTo(archived);
+            assertThat(source.nativeArchived()).isEqualTo(archived && restore);
             var allergyWriter = mock(CdsAllergyPersister.class);
             var preparation = mock(CdsNativePreparationService.class);
             var ledger = mock(CdsImportLedgerService.class);
@@ -943,7 +950,8 @@ class CdsClinicalPersisterUnitTest {
                             mock(CdsImportAccessService.class),
                             ledger,
                             receipts,
-                            java.util.List.of());
+                            java.util.List.of(),
+                            new CdsImportConfigurationService(new java.util.Properties()));
             var command =
                     mock(
                             io.github.carlos_emr.carlos.demographic.cdsimport.command
@@ -990,7 +998,7 @@ class CdsClinicalPersisterUnitTest {
                 TransactionSynchronizationManager.setActualTransactionActive(false);
             }
             verify(allergyWriter).write(42, "999998", source);
-            verify(ledger, times(archived ? 1 : 0))
+            verify(ledger, times(archived && !restore ? 1 : 0))
                     .diagnostic(
                             eq("run"),
                             eq(1L),
@@ -1000,7 +1008,20 @@ class CdsClinicalPersisterUnitTest {
                             eq("CDS_ALLERGY_ARCHIVED_SOURCE_MARKER"),
                             eq("NORMALIZATION"),
                             eq("ResidualInfo"),
-                            contains("imported as inactive"),
+                            contains("imported as active"),
+                            isNull(),
+                            eq(false));
+            verify(ledger, times(archived && restore ? 1 : 0))
+                    .diagnostic(
+                            eq("run"),
+                            eq(1L),
+                            eq("patient"),
+                            eq("unit"),
+                            eq("WARNING"),
+                            eq("CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED"),
+                            eq("NORMALIZATION"),
+                            eq("ResidualInfo"),
+                            contains("imported as archived"),
                             isNull(),
                             eq(false));
         }

@@ -717,8 +717,13 @@ archived allergy (removed, replaced by an edit, or marked inactive) also states 
 `Notes` that it is inactive in the sending EMR and not a current allergy. A native "Severe"
 reaction (severity 3) has no CDS 5.2 value and is not evidence of a life-threatening (`LT`)
 reaction: the standard `Severity` is absent and `CARLOS.Allergy.Severity.v1` (`string`,
-`Severe`) carries the native label. The CARLOS importer does not yet restore that label into the
-native severity; it keeps the residual in the retained source.
+`Severe`) carries the native label. The CARLOS importer restores that label as native
+severity 3 and refuses a record carrying both the label and a standard `Severity`. On
+re-export of such an imported allergy the carrier is kept while the severity is unchanged and
+replaced by the standard `Severity` when it is changed in CARLOS. An imported allergy whose
+`CARLOS.Allergy.Archived.v1` the import did not restore (the default, decision 9) is exported in
+its active native state: its archive marker is rewritten from the native row, never re-sent from
+the source.
 Age text and onset speed use `CARLOS.Allergy.AgeOfOnset.v1` and
 `CARLOS.Allergy.OnsetOfReaction.v1` string residuals: exact native age text retains leading
 zeroes without an inferred unit; onset labels are Unknown, Immediate, Gradual and Slow.
@@ -1020,6 +1025,9 @@ even when no original scalar stream is opened.
 The allergy retained assembler combines those changes with qualified fieldwise decisions. It
 requires unchanged published field pages, checks descriptors against captured metadata, and
 compares known marker meanings with the sealed historical preparation before updating them.
+A sender's standard allergy `Code` with `CodeType` `ATC` (valid in the schema, though CARLOS
+itself writes ATC classes only in `CARLOS.Allergy.Atc.v1`) is kept as that standard subtree
+while the coded agent is unchanged (F9); only a CARLOS-authored ATC travels in the residual.
 Unrecognized vendor data remains streamed intact. Clinical occurrences, aliases, audit/history,
 other categories and final publication still need the separate complete delivery gates.
 

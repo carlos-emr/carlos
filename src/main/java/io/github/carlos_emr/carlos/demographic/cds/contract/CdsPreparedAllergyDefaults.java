@@ -34,9 +34,11 @@ public final class CdsPreparedAllergyDefaults {
                 || value.has("archived") && !value.get("archived").isBoolean()) invalid();
         ObjectNode result = ((ObjectNode) value).deepCopy();
         if (!result.has("archived")) result.put("archived", false);
-        if (!result.has("atcResidual")) result.put("atcResidual", false);
-        else if (!result.get("atcResidual").isBoolean()) invalid();
-        for (String optional : java.util.List.of("ageOfOnset", "onsetOfReaction")) {
+        for (String flag : java.util.List.of("atcResidual", "archivedNotRestored")) {
+            if (!result.has(flag)) result.put(flag, false);
+            else if (!result.get(flag).isBoolean()) invalid();
+        }
+        for (String optional : java.util.List.of("ageOfOnset", "onsetOfReaction", "nativeSeverity")) {
             if (!result.has(optional)) result.putNull(optional);
             else if (!result.get(optional).isNull() && !result.get(optional).isTextual()) invalid();
         }

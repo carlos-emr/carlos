@@ -158,6 +158,12 @@ public final class CdsExportAllergyFieldReconciler {
                         "UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION");
                 continue;
             }
+            if (unchanged && group == Group.ARCHIVED && source.archivedNotRestored()) {
+                // The source marked the allergy archived but this import kept it active
+                // (decision 9): the native state, not the source marker, is what CARLOS holds.
+                currentPaths.add(group.path);
+                continue;
+            }
             if (unchanged) {
                 choosePrepared.add(group);
                 preparedPaths.add(group.path);
@@ -225,8 +231,11 @@ public final class CdsExportAllergyFieldReconciler {
                                 ? old.onsetOfReaction()
                                 : values.onsetOfReaction(),
                         // A natively changed "Severe" has no CDS value; its label travels in the
-                        // CARLOS residual exactly as for a native allergy.
-                        choosePrepared.contains(Group.SEVERITY) ? null : values.nativeSeverity());
+                        // CARLOS residual exactly as for a native allergy. An unchanged imported
+                        // "Severe" (restored from that residual) keeps its carrier.
+                        choosePrepared.contains(Group.SEVERITY)
+                                ? old.nativeSeverity()
+                                : values.nativeSeverity());
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
@@ -346,7 +355,9 @@ public final class CdsExportAllergyFieldReconciler {
         fields.put("life_stage", trim(source.lifeStage()));
         fields.put(
                 "severity_of_reaction",
-                switch (source.severity() == null ? "" : source.severity()) {
+                source.nativeSeverity() != null
+                        ? source.nativeSeverity()
+                        : switch (source.severity() == null ? "" : source.severity()) {
                     case "NO" -> "5";
                     case "MI" -> "1";
                     case "MO" -> "2";
@@ -361,7 +372,7 @@ public final class CdsExportAllergyFieldReconciler {
                 source.recorded().earliest() == null
                         ? null
                         : source.recorded().earliest().toString());
-        fields.put("archived", source.archived() ? "1" : "0");
+        fields.put("archived", source.nativeArchived() ? "1" : "0");
         fields.put("age_of_onset", trim(source.ageOfOnset()));
         fields.put("onset_of_reaction", trim(source.onsetOfReaction()));
         return fields;

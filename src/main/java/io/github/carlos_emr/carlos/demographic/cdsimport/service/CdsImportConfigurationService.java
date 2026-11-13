@@ -57,6 +57,21 @@ public class CdsImportConfigurationService {
 
     public boolean enabled() { return Boolean.parseBoolean(value("cds.import.enabled", "false")); }
 
+    /**
+     * Decision 9: a CARLOS.Allergy.Archived.v1 marker is restored as a native archived allergy
+     * only when the operator opts in with {@code cds.import.mapping.restoreArchivedAllergies=true}.
+     * The default keeps the allergy active with a warning. As a {@code cds.import.mapping.*} key
+     * it is part of the normalization policy digest, so the choice is fixed in each run's
+     * ruleset; each prepared allergy also records the decision.
+     */
+    public boolean restoreArchivedAllergies() {
+        return switch (value("cds.import.mapping.restoreArchivedAllergies", "false")) {
+            case "true" -> true;
+            case "false" -> false;
+            default -> throw new CdsImportException("IMPORT_MAPPING_CONFIGURATION_INVALID");
+        };
+    }
+
     /** Installation keys that seal native-baseline witnesses; files are read only when needed. */
     public io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
             nativeBaselineKeys() {

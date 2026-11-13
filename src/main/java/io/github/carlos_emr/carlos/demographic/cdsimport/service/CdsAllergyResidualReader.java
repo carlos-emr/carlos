@@ -46,7 +46,8 @@ final class CdsAllergyResidualReader {
                     CdsNativeExtensionContract.ALLERGY_ARCHIVED,
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
                     CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
-                    CdsNativeExtensionContract.ALLERGY_ATC);
+                    CdsNativeExtensionContract.ALLERGY_ATC,
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY);
     private static final int MAXIMUM_NAME =
             KNOWN.stream().mapToInt(String::length).max().orElseThrow();
     private final CdsFieldParser fields;
@@ -55,7 +56,12 @@ final class CdsAllergyResidualReader {
         this.fields = Objects.requireNonNull(fields);
     }
 
-    record NativeState(boolean archived, String ageOfOnset, String onsetOfReaction, String atc) {}
+    record NativeState(
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            String atc,
+            String nativeSeverity) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
         if (!record.section().equals("AllergiesAndAdverseReactions"))
@@ -76,7 +82,8 @@ final class CdsAllergyResidualReader {
                     Boolean.TRUE.equals(state.archived),
                     state.ageOfOnset,
                     state.onsetOfReaction,
-                    state.atc);
+                    state.atc,
+                    state.nativeSeverity);
         } catch (UncheckedIOException invalid) {
             throw invalid.getCause();
         }
@@ -90,6 +97,7 @@ final class CdsAllergyResidualReader {
         private String ageOfOnset;
         private String onsetOfReaction;
         private String atc;
+        private String nativeSeverity;
         private final Set<String> seen = new java.util.HashSet<>();
 
         private State(CdsRecordDto record) {
@@ -149,6 +157,14 @@ final class CdsAllergyResidualReader {
             } else if (CdsNativeExtensionContract.ALLERGY_ATC.equals(text)) {
                 if (!CdsNativeExtensionContract.validAllergyAtc(value)) throw invalidValue(false);
                 atc = value;
+            } else if (CdsNativeExtensionContract.ALLERGY_SEVERITY.equals(text)) {
+                // Only the exact native label the CARLOS exporter writes ("Severe") is a code.
+                nativeSeverity =
+                        CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES.entrySet().stream()
+                                .filter(entry -> entry.getValue().equals(value))
+                                .map(Map.Entry::getKey)
+                                .findFirst()
+                                .orElseThrow(() -> invalidValue(false));
             } else {
                 onsetOfReaction =
                         CdsNativeExtensionContract.ALLERGY_ONSET_VALUES.entrySet().stream()

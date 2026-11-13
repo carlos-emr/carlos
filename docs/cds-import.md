@@ -49,15 +49,42 @@ Use the durable run ID and all four protected report kinds. Reconcile source pat
 
 Source values that require review remain attributable and visible. Original XML, precision, restrictions and provenance are not replaced by a convenient native default. Acknowledging a message does not resolve a blocking clinical interpretation.
 
-The coordinated [export implementation](cds-export.md) defines three typed allergy residual
-fields where the pinned schema has no equivalent standard field: `CARLOS.Allergy.Archived.v1`
-(`boolean`), `CARLOS.Allergy.AgeOfOnset.v1` (`string`, exact native text), and
-`CARLOS.Allergy.OnsetOfReaction.v1` (`string`: Unknown, Immediate, Gradual, Slow). The importer
-recognizes only these exact versioned names/types, honors effective corrections, and blocks
-invalid or duplicate known values. Unmarked records keep their established behavior; other
-residual fields remain protected source data. Old prepared payload bytes and digests are
-preserved; optional decoder defaults are added only after verification. Export clinical
-qualification remains separate from these shared transfer rules.
+## Recognised CARLOS residual markers
+
+The coordinated [export implementation](cds-export.md) writes versioned `ResidualInfo` fields
+where the pinned schema has no equivalent standard field. The importer recognises only these
+exact names and types listed below as interpreted, honours effective corrections, and blocks an
+invalid or duplicate known marker instead of falling back to a default. Every other residual name, including an unknown
+`CARLOS.*` name, stays protected source-only data. Unmarked records keep their established
+behaviour, and old prepared payload bytes and digests are preserved (optional decoder defaults
+are added only after seal verification).
+
+| Marker | Type | Category | Import behaviour |
+| --- | --- | --- | --- |
+| `CARLOS.Allergy.Archived.v1` | boolean | Allergies | Restored as a native archived allergy only when `cds.import.mapping.restoreArchivedAllergies=true` (decision 9, default off). By default the allergy is imported active with warning `CDS_ALLERGY_ARCHIVED_SOURCE_MARKER`; when restored, `CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED`. The decision is part of the run's ruleset and of each prepared allergy. |
+| `CARLOS.Allergy.AgeOfOnset.v1` | string | Allergies | Exact native age text (at most 4 characters). |
+| `CARLOS.Allergy.OnsetOfReaction.v1` | string | Allergies | Unknown, Immediate, Gradual or Slow, as the native onset code. |
+| `CARLOS.Allergy.Atc.v1` | string | Allergies | Native ATC class (`TYPECODE` 8); refused together with a standard `Code`. |
+| `CARLOS.Allergy.Severity.v1` | string | Allergies | `Severe` restores native severity 3; refused together with a standard `Severity`. |
+| `CARLOS.Medication.Archived.v1` | boolean | Medications | Imported archived with warning `CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT`; clinical status/currentness stay independent. |
+| `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
+| `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
+| `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
+| `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Not interpreted: retained as protected source data like any other residual. |
+| `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations, PastHealth | Not interpreted: retained as protected source data like any other residual. |
+
+The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
+for audit and for a future, separately reviewed restoration. They are not projected because
+their JSON is not schema-validated clinical content and would bypass the standard-field
+normalization and review rules: a CARLOS-to-CARLOS move restores what the standard elements
+carry. What they alone carry is visible in the protected source view of the import: for a
+medication, the native quantity unit, as-needed flags and the exact IEEE dose witnesses
+(a week duration arrives as its exact day count, months and years with their unit); for a
+vaccine, the administering provider's free-text name, the reminder date and the never-remind
+flag. Restoring any of them natively is a maintainer decision recorded in the release pull
+request.
+
+Export clinical qualification remains separate from these shared transfer rules.
 
 ## Deployment companions
 

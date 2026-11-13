@@ -269,6 +269,108 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
                 .hasMessage("CDS_EXPORT_ALLERGY_SOURCE_FIELD_EVIDENCE_CHANGED");
     }
 
+    @Test
+    void shouldKeepASendersStandardAtcCode_whenItsCodedAgentIsUnchanged() throws Exception {
+        // F9: a third-party file coded the agent with the standard Code (CodeType ATC). It must
+        // not be moved into the CARLOS residual on re-export.
+        var original = CdsExportAllergyFieldReconcilerUnitTest.source();
+        var source =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto(
+                        original.description(),
+                        original.property(),
+                        "B01AB01",
+                        "ATC",
+                        original.reactionType(),
+                        original.reaction(),
+                        original.severity(),
+                        original.lifeStage(),
+                        original.notes(),
+                        original.start(),
+                        original.recorded(),
+                        false,
+                        null,
+                        null,
+                        false);
+        var previous = CdsExportAllergyFieldReconcilerUnitTest.baseline();
+        previous.put("regional_identifier", "B01AB01");
+        var current = new java.util.LinkedHashMap<>(previous);
+        current.put("reaction", "Current reaction");
+        var fields = standardFields("ATC", "B01AB01");
+        var records = parse(prepare(fixture(current, previous, source, fields)).content(), "atc");
+        var allergy =
+                new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(records.get(1));
+        assertThat(allergy.codeSystem()).isEqualTo("ATC");
+        assertThat(allergy.code()).isEqualTo("B01AB01");
+        assertThat(allergy.atcResidual()).isFalse();
+        assertThat(allergy.reaction()).isEqualTo("Current reaction");
+    }
+
+    @Test
+    void shouldReplaceTheSeverityCarrierWithTheStandardSeverity_whenSevereIsChangedInCarlos()
+            throws Exception {
+        var original = CdsExportAllergyFieldReconcilerUnitTest.source();
+        var source =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto(
+                        original.description(),
+                        original.property(),
+                        original.code(),
+                        original.codeSystem(),
+                        original.reactionType(),
+                        original.reaction(),
+                        null,
+                        original.lifeStage(),
+                        original.notes(),
+                        original.start(),
+                        original.recorded(),
+                        false,
+                        null,
+                        null,
+                        false,
+                        false,
+                        "3");
+        var previous = CdsExportAllergyFieldReconcilerUnitTest.baseline();
+        var fields = standardFields("DIN", "00123456");
+        fields.add(
+                field(
+                        "ResidualInfo[1]/DataElement[2]/Name[1]",
+                        "cds_dt",
+                        CdsNativeExtensionContract.ALLERGY_SEVERITY));
+        fields.add(field("ResidualInfo[1]/DataElement[2]/DataType[1]", "cds_dt", "string"));
+        fields.add(field("ResidualInfo[1]/DataElement[2]/Content[1]", "cds_dt", "Severe"));
+        var unchanged =
+                parse(prepare(fixture(previous, previous, source, fields)).content(), "severe");
+        var kept =
+                new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(unchanged.get(1));
+        assertThat(kept.nativeSeverity()).isEqualTo("3");
+        assertThat(kept.severity()).isNull();
+        var current = new java.util.LinkedHashMap<>(previous);
+        current.put("severity_of_reaction", "2");
+        var changed =
+                parse(prepare(fixture(current, previous, source, fields)).content(), "moderate");
+        var moderate =
+                new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(changed.get(1));
+        assertThat(moderate.severity()).isEqualTo("MO");
+        assertThat(moderate.nativeSeverity()).isNull();
+    }
+
+    private static ArrayList<CdsExportRetainedFieldDto> standardFields(String type, String code) {
+        var fields = new ArrayList<CdsExportRetainedFieldDto>();
+        fields.add(field("OffendingAgentDescription[1]", "cds", "Original agent"));
+        fields.add(field("Reaction[1]", "cds", "Original reaction"));
+        fields.add(field("Code[1]/CodeType[1]", "cds_dt", type));
+        fields.add(field("Code[1]/CodeValue[1]", "cds_dt", code));
+        fields.add(
+                field(
+                        "RecordedDate[1]/FullDateTime[1]",
+                        "cds_dt",
+                        "2024-02-29T12:34:56.1200-05:00"));
+        fields.add(field("Notes[1]", "cds", "Source-only provider note"));
+        fields.add(field("ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", "Vendor.other"));
+        fields.add(field("ResidualInfo[1]/DataElement[1]/DataType[1]", "cds_dt", "string"));
+        fields.add(field("ResidualInfo[1]/DataElement[1]/Content[1]", "cds_dt", "Vendor content"));
+        return fields;
+    }
+
     private CdsExportRetainedSectionWriter.Prepared prepare(Fixture f) throws Exception {
         return new CdsExportAllergyRetainedAssembler()
                 .prepare(27, f.decision, f.index, f.checked, f.fields, inline(), () -> {});
@@ -276,19 +378,6 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
 
     Fixture fixture(Map<String, String> current, boolean archive, String archiveValue)
             throws Exception {
-        var base =
-                new CdsExportAllergyFieldReconcilerUnitTest()
-                        .fixture(current, true, CdsExportAllergyFieldReconcilerUnitTest.source());
-        var decision =
-                new CdsExportAllergyFieldReconciler()
-                        .reconcile(
-                                27,
-                                base.index(),
-                                ADDRESS,
-                                base.checked(),
-                                base.row(),
-                                base.witness(),
-                                List.of());
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("OffendingAgentDescription[1]", "cds", "Original agent"));
         fields.add(field("Reaction[1]", "cds", "Original reaction"));
@@ -320,6 +409,32 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
             fields.add(field("ResidualInfo[1]/DataElement[2]/DataType[1]", "cds_dt", " boolean\t"));
             fields.add(field("ResidualInfo[1]/DataElement[2]/Content[1]", "cds_dt", archiveValue));
         }
+        return fixture(
+                current,
+                CdsExportAllergyFieldReconcilerUnitTest.baseline(),
+                CdsExportAllergyFieldReconcilerUnitTest.source(),
+                fields);
+    }
+
+    Fixture fixture(
+            Map<String, String> current,
+            Map<String, String> previous,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto source,
+            List<CdsExportRetainedFieldDto> fields)
+            throws Exception {
+        var base =
+                new CdsExportAllergyFieldReconcilerUnitTest()
+                        .fixture(current, true, source, previous);
+        var decision =
+                new CdsExportAllergyFieldReconciler()
+                        .reconcile(
+                                27,
+                                base.index(),
+                                ADDRESS,
+                                base.checked(),
+                                base.row(),
+                                base.witness(),
+                                List.of());
         var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         for (var field : fields) metadata.put(field.id(), metadata(field));
         var tables = new LinkedHashMap<>(base.index().tables());

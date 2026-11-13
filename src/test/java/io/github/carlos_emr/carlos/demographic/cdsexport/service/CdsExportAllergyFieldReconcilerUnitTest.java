@@ -21,6 +21,8 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
+
 import static org.assertj.core.api.Assertions.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -275,6 +277,75 @@ class CdsExportAllergyFieldReconcilerUnitTest {
             CdsExportRetainedReceiptVerificationDto checked,
             CdsExportCapturedTextRowDto row,
             CdsExportNativeRowReceiptDto witness) {}
+
+    @Test
+    void shouldProveAnArchiveMarkerTheImportKeptActive_andExportTheActiveNativeState()
+            throws Exception {
+        // Decision 9: the source said archived, the import kept the allergy active.
+        var original = source();
+        var kept =
+                new CdsAllergyDto(
+                                original.description(),
+                                original.property(),
+                                original.code(),
+                                original.codeSystem(),
+                                original.reactionType(),
+                                original.reaction(),
+                                original.severity(),
+                                original.lifeStage(),
+                                original.notes(),
+                                original.start(),
+                                original.recorded(),
+                                true,
+                                null,
+                                null,
+                                false)
+                        .withArchiveRestoration(false);
+        var fields = baseline();
+        var result = reconcile(fixture(fields, true, kept, fields), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().archived()).isFalse();
+        assertThat(result.currentPaths())
+                .contains("ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ARCHIVED);
+        // The same marker restored by the import is proven by an archived native row.
+        var restored = kept.withArchiveRestoration(true);
+        var archived = baseline();
+        archived.put("archived", "1");
+        var reused = reconcile(fixture(archived, true, restored, archived), List.of());
+        assertThat(reused.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(reused.mapping().value().archived()).isTrue();
+        assertThat(reused.preparedPaths())
+                .contains("ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ARCHIVED);
+    }
+
+    @Test
+    void shouldProveARestoredNativeSevereCode_fromItsCarlosSeverityCarrier() throws Exception {
+        var original = source();
+        var severe =
+                new CdsAllergyDto(
+                        original.description(),
+                        original.property(),
+                        original.code(),
+                        original.codeSystem(),
+                        original.reactionType(),
+                        original.reaction(),
+                        null,
+                        original.lifeStage(),
+                        original.notes(),
+                        original.start(),
+                        original.recorded(),
+                        false,
+                        null,
+                        null,
+                        false,
+                        false,
+                        "3");
+        var fields = baseline();
+        var result = reconcile(fixture(fields, true, severe, fields), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths()).contains("Severity");
+        assertThat(result.mapping().value().severity()).isNull();
+    }
 
     @Test
     void shouldVerifyBothAtcProjectionVersions_fromTheirOriginalSealedPreparation()

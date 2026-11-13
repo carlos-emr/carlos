@@ -50,20 +50,98 @@ class CdsAllergyArchiveStateUnitTest {
             new CdsClinicalNormalizationService(fields);
 
     @Test
-    void shouldKeepArchivedAllergiesArchived_andExplicitActiveAllergiesActive() throws Exception {
+    void shouldRestoreArchivedAllergiesArchived_onlyWhenTheImportOptsIn() throws Exception {
+        // Decision 9: this test used to expect every marked allergy restored archived. The
+        // marker is a CARLOS vendor extension, so by default the allergy stays active (with a
+        // warning) and is restored archived only when the operator enables the option.
+        var persister =
+                new CdsAllergyPersister(
+                        mock(AllergyDao.class), mock(PartialDateDao.class), normalization);
         for (String value : List.of("true", "1", "false", "0")) {
             var source = parsed(marker("boolean", value));
             var dto = normalization.allergy(source);
-            boolean expected = value.equals("true") || value.equals("1");
-            assertThat(dto.archived()).isEqualTo(expected);
-            var nativeRow =
-                    new CdsAllergyPersister(
-                                    mock(AllergyDao.class),
-                                    mock(PartialDateDao.class),
-                                    normalization)
-                            .candidate(27, dto);
-            assertThat(nativeRow.getArchived()).isEqualTo(expected);
+            boolean marked = value.equals("true") || value.equals("1");
+            assertThat(dto.archived()).isEqualTo(marked);
+            assertThat(persister.candidate(27, dto).getArchived()).isFalse();
+            assertThat(persister.candidate(27, dto.withArchiveRestoration(false)).getArchived())
+                    .isFalse();
+            assertThat(persister.candidate(27, dto.withArchiveRestoration(true)).getArchived())
+                    .isEqualTo(marked);
+            assertThat(dto.withArchiveRestoration(false).archivedNotRestored()).isEqualTo(marked);
         }
+    }
+
+    @Test
+    void shouldReadTheImportArchiveOption_withTheDefaultOff() {
+        var properties = new java.util.Properties();
+        assertThat(new CdsImportConfigurationService(properties).restoreArchivedAllergies())
+                .isFalse();
+        properties.setProperty("cds.import.mapping.restoreArchivedAllergies", "true");
+        assertThat(new CdsImportConfigurationService(properties).restoreArchivedAllergies())
+                .isTrue();
+        properties.setProperty("cds.import.mapping.restoreArchivedAllergies", "yes");
+        assertThatThrownBy(
+                        () -> new CdsImportConfigurationService(properties).restoreArchivedAllergies())
+                .hasMessage("IMPORT_MAPPING_CONFIGURATION_INVALID");
+    }
+
+    @Test
+    void shouldKeepTheArchiveDecisionInThePreparedPayload_andReadOldPayloadsAsRestored()
+            throws Exception {
+        var json = new ObjectMapper();
+        var dto = normalization.allergy(parsed(marker("boolean", "true")));
+        var kept = json.readTree(json.writeValueAsString(dto.withArchiveRestoration(false)));
+        assertThat(kept.path("archivedNotRestored").asBoolean()).isTrue();
+        var restored = json.readTree(json.writeValueAsString(dto.withArchiveRestoration(true)));
+        assertThat(restored.has("archivedNotRestored")).isFalse();
+        // A payload sealed before the option was restored archived by the persister then.
+        var old = (com.fasterxml.jackson.databind.node.ObjectNode) restored.deepCopy();
+        var decoded =
+                json.treeToValue(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPreparedAllergyDefaults.apply(old),
+                        CdsAllergyDto.class);
+        assertThat(decoded.nativeArchived()).isTrue();
+        assertThat(decoded.nativeSeverity()).isNull();
+    }
+
+    @Test
+    void shouldRestoreTheNativeSevereCode_fromTheCarlosSeverityCarrier() throws Exception {
+        var dto =
+                normalization.allergy(
+                        parsed(
+                                combined(
+                                        element(
+                                                CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                                                "string",
+                                                "Severe"))));
+        assertThat(dto.severity()).isNull();
+        assertThat(dto.nativeSeverity()).isEqualTo("3");
+        var row =
+                new CdsAllergyPersister(
+                                mock(AllergyDao.class), mock(PartialDateDao.class), normalization)
+                        .candidate(27, dto);
+        assertThat(row.getSeverityOfReaction()).isEqualTo("3");
+        assertThat(normalization.allergy(parsed("")).nativeSeverity()).isNull();
+    }
+
+    @Test
+    void shouldRefuseAnUnknownDuplicateOrContradictedSeverityCarrier_insteadOfGuessing()
+            throws Exception {
+        String severe = element(CdsNativeExtensionContract.ALLERGY_SEVERITY, "string", "Severe");
+        for (String marker :
+                List.of(
+                        element(CdsNativeExtensionContract.ALLERGY_SEVERITY, "string", "3"),
+                        element(CdsNativeExtensionContract.ALLERGY_SEVERITY, "string", "Mild"),
+                        element(CdsNativeExtensionContract.ALLERGY_SEVERITY, "boolean", "Severe"),
+                        severe + severe)) {
+            var record = parsed(combined(marker));
+            assertThatThrownBy(() -> normalization.allergy(record))
+                    .hasMessageContaining("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW");
+        }
+        var contradicted = parsed(combined(severe), "<Severity>LT</Severity>");
+        assertThatThrownBy(() -> normalization.allergy(contradicted))
+                .hasMessageContaining("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW");
     }
 
     @Test
