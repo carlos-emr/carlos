@@ -588,7 +588,11 @@
       "sources": [
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSchemaTypeCursorUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsSnapshotServiceUnitTest.java",
-        "src/test/java/io/github/carlos_emr/carlos/utility/JdkXmlProviderUnitTest.java"
+        "src/test/java/io/github/carlos_emr/carlos/utility/JdkXmlProviderUnitTest.java",
+        ".github/workflows/cds-export-performance.yml",
+        "scripts/ci/run-cds-export-scaling.py",
+        "scripts/ci/test_run_cds_export_scaling.py",
+        "scripts/ci/CdsExportScalingFixture.java"
       ],
       "implementation": "Run the complete CDS matrix on the final JDK and WAR, keeping independent JDK-PSVI-versus-owned-metadata comparisons. Add any uncovered schema facets/namespace and runtime resume compatibility cases.",
       "cases": "Same pinned XSDs; type inheritance, whitespace, fixed/enumerated/pattern values, xsi:type/rebound namespaces, IDs/IDREFs; DOCTYPE/XXE/schema fetch refusal; escaped text above JDK defaults; every resource limit at/beyond boundary; Unicode XML encodings; 64 MiB fresh JVM; greater-than-heap payloads, 20 GiB and ZIP64; disk full/cancel/restart/resume and sealed-hash mismatch.",
@@ -1481,6 +1485,23 @@
         "test_run_cds_disk_failures.DiskFailureEvidenceTest.test_service_readiness_refuses_redirected_or_non_directory_storage_without_a_submission",
         "test_run_cds_disk_failures.DiskFailureEvidenceTest.test_task_disappearance_only_skips_enoent_esrch_and_never_invents_attribution",
         "test_run_cds_disk_failures.DiskFailureEvidenceTest.test_task_observer_rejects_foreign_uid_group_and_reused_thread_identity",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_a_missing_negative_or_exceeded_measurement_fails_its_own_budget",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_case_budget_is_linear_in_patients_and_notes_and_refuses_impossible_sizes",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_ci_runs_both_export_profiles_on_the_shared_owned_runtime_and_requires_every_case",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_classifier_names_only_authorization_tables_before_ledger_and_native_reads",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_complete_profile_requires_its_own_growth_series_but_a_subset_may_omit_it",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_complete_public_proof_of_six_cases_fits_the_bounded_artifact_copy",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_each_origin_grows_patients_and_one_chart_in_separate_profiles",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_held_unready_or_unreconciled_exports_are_functional_failures_not_budgets",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_marginal_note_budget_fails_when_privilege_checks_return_to_every_read",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_only_the_delegated_export_engine_and_root_adapter_are_measured",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_operator_log_projection_keeps_the_finite_result_but_never_the_handle",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_package_counts_patient_records_notes_and_results_from_every_patient_member",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_privilege_reads_have_their_own_class_only_in_the_export_classifier",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_public_evidence_whitelists_counts_and_refuses_paths_handles_and_values",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_ready_export_with_exact_package_has_no_functional_or_budget_failure",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_unified_and_v1_cgroups_bind_the_same_limits_and_refuse_an_oom_kill",
+        "test_run_cds_export_scaling.ExportScalingEvidenceTest.test_workflow_mirrors_the_import_lane_pins_and_publishes_only_sanitized_evidence",
         "test_run_cds_native_tier.EvidenceDestinationArgumentTest.test_container_evidence_path_without_host_output_is_a_usage_error",
         "test_run_cds_native_tier.EvidenceDestinationArgumentTest.test_evidence_outside_target_without_shared_mount_is_a_usage_error",
         "test_run_cds_native_tier.EvidenceDestinationArgumentTest.test_symlinked_evidence_output_is_a_usage_error",
@@ -5531,7 +5552,7 @@
         "all"
       ],
       "repetitions": 1,
-      "reason": "Existing CDS native/container/disk/WAF harnesses on the same candidate: 20 GiB/ZIP64, 32-bit boundaries, resume/crash and bounded memory/disk evidence.",
+      "reason": "Existing CDS native/container/disk/WAF harnesses on the same candidate: 20 GiB/ZIP64, 32-bit boundaries, resume/crash and bounded memory/disk evidence; installed export scaling of native and imported charts (cds-export-performance.yml: time, statement, privilege-statement and RSS budgets).",
       "packaged": true
     },
     {

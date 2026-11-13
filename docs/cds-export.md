@@ -2873,7 +2873,8 @@ never shared between patients, jobs or threads and is discarded however the pati
 download path and the final cohort pass keep their own fresh batch checks. Separately, the
 maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each exact statement
 text instead of parsing every repeated statement again on a new parser thread; refusals and text
-with quoted literals are never kept.
+with quoted literals are never kept. The installed export scaling lane ("Installed export scaling
+lane" below) fails when authorization-table reads grow per note again.
 
 **One checked read of the capture per patient.** Every reader of a chart (the inventory, each
 section, each receipt and witness check) reads the patient's whole sealed capture, and each read
@@ -3465,6 +3466,106 @@ including real READY, independent status/submission recovery, exclusive delivery
 recipient decryption, fourteen expected native facts and four schema-valid mutants.
 The combined workflow then stopped at its test TLS/network startup before browser
 execution. That is a CLI checkpoint, not a passing browser qualification.
+
+### Installed export scaling lane
+
+`.github/workflows/cds-export-performance.yml` ("CDS installed export scaling") measures how
+the installed export's time, SQL and memory grow with the work it is given, so a change that
+makes export work grow faster than the chart fails CI. It reuses the import resource lane's
+owner, `scripts/ci/run-cds-performance-ci.py`, with four export profiles: the exact packaged WAR,
+the pinned `carlos-ctl` built as its real Debian package, a fresh MariaDB server with
+statement-digest instrumentation and a 1536 MiB, two-CPU runtime with the default 512 MiB CLI
+heap. After the import fixture (`CdsCliEngineFixture`), `scripts/ci/CdsExportScalingFixture.java`
+adds the export policy, keys, recipient certificate and audit arrangement, appends the export
+settings to the same protected configuration, grants the synthetic provider `_lab_sensitive`
+read (laboratory export requires it and the capability has no default grant) and sets
+`cds.export.cliRendererHandoffSeconds=0`: no web worker runs there, so a job that selects
+Reports would otherwise wait out the hand-off window first. `scripts/ci/run-cds-export-scaling.py`
+then runs one foreground `carlos-ctl cds-export --categories all` per case, with the facility of
+the notes' program (`FILTER_ON_FACILITY` is on by default).
+
+| Job (`Installed CDS export …`) | Cases |
+| --- | --- |
+| `native-patients` | 1, 8 and 32 charts, each with one signed note and one HL7 result |
+| `native-charts` | one chart with 128, 512 and 2048 notes and as many HL7 results |
+| `imported-patients` | the `native-patients` sizes, imported first with `carlos-ctl cds-import` |
+| `imported-charts` | the `native-charts` sizes, imported first with `carlos-ctl cds-import` |
+
+Native charts are synthetic FAKE- data entered as the CARLOS screens store them: a demographic
+admitted to the provider's program, signed encounter notes scoped to that program and the
+provider's membership role, and uploaded HL7 results routed to the patient and acknowledged by
+the provider, one a day at local noon (a local time inside a daylight-saving change is held for
+review, which is the export's rule, not a scaling measurement). Imported charts are produced by
+the import lane's real-wire generator (`run-cds-performance.py`), so their export takes the
+retained receipt and witness reconciliation path. The imported 2048-note chart is imported
+first (about 19 minutes on a hosted runner); each profile is its own job so that job does not
+serialize the others.
+
+A case passes only when the job is READY and complete with every selected chart processed and
+none held, the package (decrypted with the fixture's own recipient key) holds exactly the
+selected patient records, notes and laboratory results, and every budget holds. Budgets are
+linear (fixed cost, plus a cost per chart and per note, where a note means one note and one
+result) for:
+
+- statements: the server-global `Questions` in the export's window minus the harness's own;
+- privilege statements: statement digests that read the authorization tables (security
+  objects and roles, program membership and admission, note access grants, facility
+  membership), classified in the server as `PRIVILEGE_READ`;
+- elapsed time of the whole command;
+- peak RSS of the delegated non-root engine JVM (sampled `VmHWM` and the `wait4` receipt) and of
+  the root `carlos-ctl` adapter.
+
+Each job also checks growth across its own series, independent of the fixed command cost:
+statements and privilege statements per extra note (`chart-128` to `chart-2048`) or per extra
+chart (`patients-1` to `patients-32`). The per-note privilege budget, 1.0, is the regression
+detector for the census slowdown fixed by the per-patient authorization session (see "One
+authorization session per patient" above): with the session the authorization tables are read
+per patient, not per note, so any return to per-read checks exceeds it whatever the total
+statement budget absorbs. Budgets are about twice the measurements below; RSS cannot take that
+headroom inside the 1536 MiB runtime, so its budget (1280 MiB) bounds growth beyond the 512 MiB
+heap. Each budget and its derivation is documented beside `BUDGETS` in the harness.
+
+Native measurements on the reference runtime (two CPUs of a shared four-core host), each case a
+complete READY export whose package held exactly its notes and results:
+
+| Case | Elapsed | Statements | Privilege statements | Engine RSS |
+| --- | --- | --- | --- | --- |
+| patients-1 | 40 s | 8,122 | 3,201 | 546 MiB |
+| patients-8 | 179 s | 59,137 | 23,951 | 592 MiB |
+| patients-32 | 544 s | 232,827 | 95,039 | 590 MiB |
+| chart-128 | 136 s | 10,737 | 3,249 | 804 MiB |
+| chart-512 | 370 s | 18,138 | 3,369 | 836 MiB |
+| chart-2048 | 1,987 s | 55,333 | 4,217 | 836 MiB |
+
+The `carlos-ctl` adapter peaked at 24.5 MiB. That is about 7,250 statements, 2,960 privilege
+statements and 16 s per extra chart, and 23.2 statements and 0.50 privilege statements per extra
+note and result from 128 to 2048 notes. Time per note rises from about 0.6 s to about 1.05 s above
+512 notes: at 2048 notes the 512 MiB heap is near full and the engine spends a large share of its
+time in full collections. These are the current baseline, recorded rather than optimized by the
+lane. Two costs stand out for later work: every chart still costs about 2,960 authorization reads
+(the per-category gates and the closing re-check of the session), and the per-note CPU is
+dominated by repeated scans of the captured native rows (`CdsExportNativeCaptureReader.scan`,
+re-verifying each value, reached from several occurrence services).
+
+The same lane on the revision before the per-patient authorization session (the five classes
+that commit changed, compiled from its parent and overlaid on the same packaged WAR) shows what
+the per-note budget catches. Its chart-128 export was stopped after 1,899 s, still capturing, at
+1,068,468 statements and 659,491 privilege statements, against 136 s, 10,737 and 3,249 for the
+whole export with the session. That is at least 5,000 authorization reads per note against a
+budget of 1.0, mostly `secObjPrivilege` and `secUserRole` reads, then the facility, admission,
+program membership and role reads of each note's program check. The harness unit tests keep
+these measured counters (`PRE_SESSION` in `scripts/ci/test_run_cds_export_scaling.py`) and
+require them, and a single extra read per note, to fail.
+
+Public evidence is the same bounded artifact as the import lane's: counts, timings, kernel and
+cgroup counters, statement classes and digest hashes, package member counts and hashes. It never
+contains patient values, identifiers, run handles or paths (`require_case_fits` refuses to write
+such a proof). Run it on a fresh owned CI host as the import lane runs:
+
+```sh
+python3 scripts/ci/run-cds-performance-ci.py --profile export-native-charts \
+  --cli-source target/cds-ctl-source
+```
 
 Native prescriptions use a separate mapper beside the strict retained-source reconciler.
 Established dates, exact dose witnesses, supply, route, frequency, status and public prescriber
