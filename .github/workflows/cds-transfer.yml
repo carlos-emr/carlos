@@ -19,6 +19,28 @@ on:
       - 'pom.xml'
       - '.github/actions/dev-container/**'
       - '.github/workflows/cds-transfer.yml'
+      - 'scripts/ci/**'
+      - 'database/mysql/schema-contract/**'
+  push:
+    # A release head must still export after independently green pull requests merge.
+    branches: [main, 'release/**']
+    paths:
+      - 'src/main/java/**'
+      - 'src/main/resources/**'
+      - 'src/test/java/**'
+      - 'src/test/resources/**'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds*'
+      - 'scripts/ci/CdsReleaseUpgradeProof.java'
+      - 'debian/assets/flyway-runner/**'
+      - 'debian/build-flyway-runner.sh'
+      - 'scripts/schema-contract.py'
+      - 'scripts/verify-cds-export-source-catalogue.py'
+      - 'pom.xml'
+      - '.github/actions/dev-container/**'
+      - '.github/workflows/cds-transfer.yml'
+      - 'scripts/ci/**'
+      - 'database/mysql/schema-contract/**'
   workflow_dispatch:
 
 concurrency:

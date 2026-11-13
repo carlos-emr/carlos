@@ -14,6 +14,26 @@ on:
       - 'debian/carlos-ctl.pin'
       - 'pom.xml'
       - '.github/workflows/cds-export-installed.yml'
+      - 'scripts/ci/**'
+      - 'debian/assets/tomcat/**'
+      - '.github/actions/dev-container/**'
+  push:
+    # A release head must still export after independently green pull requests merge.
+    branches: [main, 'release/**']
+    paths:
+      - 'src/main/**'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/*cds-export-installed*'
+      - 'scripts/ci/CdsExportInstalledFixture.java'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'debian/carlos-ctl.pin'
+      - 'pom.xml'
+      - '.github/workflows/cds-export-installed.yml'
+      - 'scripts/ci/**'
+      - 'debian/assets/tomcat/**'
+      - '.github/actions/dev-container/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

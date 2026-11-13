@@ -29,7 +29,9 @@ on:
       # Shared clinical models, DAOs and guarded datasources participate in these contracts.
       - 'src/main/java/**'
       - 'src/main/resources/cds-import/**'
+      - 'src/main/resources/cds-export/**'
       - 'src/test/java/**/cdsimport/**'
+      - 'src/test/java/**/cdsexport/**'
       - 'src/test/resources/demographic/cds-import-*.xml'
       - 'src/test/resources/cds-spec/**'
       - 'docs/cds-spec*'

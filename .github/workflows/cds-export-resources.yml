@@ -12,6 +12,22 @@ on:
       - 'scripts/ci/cds_war_manifest.py'
       - 'pom.xml'
       - '.github/workflows/cds-export-resources.yml'
+      - 'scripts/ci/**'
+      - '.github/actions/dev-container/**'
+  push:
+    # A release head must still export after independently green pull requests merge.
+    branches: [main, 'release/**']
+    paths:
+      - 'src/main/**'
+      - 'scripts/ci/CdsExportResourceQualification.java'
+      - 'scripts/ci/run-cds-export-resources.py'
+      - 'scripts/ci/test_run_cds_export_resources.py'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'pom.xml'
+      - '.github/workflows/cds-export-resources.yml'
+      - 'scripts/ci/**'
+      - '.github/actions/dev-container/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
