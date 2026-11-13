@@ -1300,6 +1300,80 @@ class ManageDocument2ActionTest extends CarlosUnitTestBase {
         assertThat(Files.readString(storedFiles.get(0))).isEqualTo("original-content");
     }
 
+    /**
+     * Filing an incoming document stored the typed description cut to document.docdesc (255
+     * characters) without a word. The filing is refused before the queued file is read, moved or
+     * filed, through the filing contract the Incoming Docs page shows ("😀": one character).
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldRefuseIncomingFilingBeforeMovingAnything_whenTheDescriptionIsOneCharacterTooLong(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.addHeader("X-Carlos-Incoming-Filing", "bounded-v1");
+        request.setParameter("documentDescription", character.repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+        request.setParameter("flagproviders", "999998");
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class)), Mockito.never());
+        }
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var payload = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getContentAsString());
+        assertThat(payload.path("success").asBoolean(true)).isFalse();
+        assertThat(payload.path("accepted").asBoolean(true)).isFalse();
+        assertThat(payload.path("retryable").asBoolean(true)).isFalse();
+        assertThat(payload.path("descriptionTooLong").asBoolean()).isTrue();
+        assertThat(payload.path("error").asText()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+        assertThat(action.pageCountRequests).isZero();
+        verifyNoInteractions(providerInboxRoutingDao);
+        logActionMock.verifyNoInteractions();
+    }
+
+    @Test
+    void shouldAnswerANativeFilingWithTheDescriptionMessage_whenTheDescriptionIsTooLong() throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        Path sourceFile = createIncomingSource(incomingDir, "long.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("long.pdf");
+        request.setParameter("documentDescription", "d".repeat(Document.DESCRIPTION_MAX_LENGTH + 1));
+
+        assertThat(action.addIncomingDocument()).isEqualTo(ActionSupport.NONE);
+
+        assertThat(response.getStatus()).isEqualTo(422);
+        var html = org.jsoup.Jsoup.parse(response.getContentAsString());
+        assertThat(html.select("p[role=alert]").text()).isEqualTo(java.util.ResourceBundle
+                .getBundle("oscarResources", request.getLocale()).getString("dms.error.descriptionTooLong"));
+        // No resubmission of the same over-long text is offered; the link reopens the queued document.
+        assertThat(html.select("form,input,script")).isEmpty();
+        assertThat(html.select("a").attr("href")).contains("/documentManager/ViewIncomingDocs?queueId=1&pdfDir=Fax");
+        assertThat(Files.readString(sourceFile)).isEqualTo("source-content");
+        assertThat(listStoredDocuments()).isEmpty();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"d", "😀"})
+    void shouldFileTheWholeDescription_whenAnIncomingDescriptionFillsTheColumnExactly(String character) throws Exception {
+        Path incomingDir = configureIncomingDocumentDirectories();
+        createIncomingSource(incomingDir, "full.pdf", "source-content");
+        setupSuccessfulAddIncomingRequest("full.pdf");
+        String description = character.repeat(Document.DESCRIPTION_MAX_LENGTH);
+        request.setParameter("documentDescription", " " + description + " ");
+        org.mockito.ArgumentCaptor<EDoc> filed = org.mockito.ArgumentCaptor.forClass(EDoc.class);
+
+        try (MockedStatic<EDocUtil> edocUtil = Mockito.mockStatic(EDocUtil.class, Mockito.CALLS_REAL_METHODS)) {
+            edocUtil.when(() -> EDocUtil.addDocumentSQL(Mockito.any(EDoc.class))).thenReturn("42");
+            assertThat(action.addIncomingDocument()).isEqualTo("nextIncomingDoc");
+            edocUtil.verify(() -> EDocUtil.addDocumentSQL(filed.capture()));
+        }
+
+        assertThat(filed.getValue().getDescription()).isEqualTo(description);
+    }
+
     @Test
     @DisplayName("Rejects non-PDF incoming documents before moving them")
     void shouldRejectIncomingDocument_whenSourceIsNotPdf() throws Exception {

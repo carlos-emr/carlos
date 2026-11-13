@@ -742,6 +742,14 @@
                 alert("<fmt:message key="dms.incomingDocs.missingDocumentDescription"/>");
                 return false;
             }
+            // document.docdesc counts code points (utf8mb4), as Array.from does, so an emoji is one
+            // character. ManageDocument2Action refuses a longer description too; that is the check that holds.
+            if (Array.from(a).length > <%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH %>) {
+                <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                docDescObj.focus();
+                return false;
+            }
 
 
             if (!validDate("observationDate")) {
@@ -1186,11 +1194,14 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="2"><fmt:message key="dms.incomingDocs.description"/>:</td>
+                                <td colspan="2"><label for="documentDescription"><fmt:message key="dms.incomingDocs.description"/>:</label></td>
                             </tr>
                             <tr>
+                                <%-- maxlength counts UTF-16 units and document.docdesc code points, so it is twice the
+                                     column; checkDocument() and ManageDocument2Action refuse a longer description. --%>
                                 <td colspan="2"><input tabIndex="<%=tabIndex++%>" type="text" style="width:100%;"
                                                        id="documentDescription" name="documentDescription" value=""
+                                                       maxlength="<%= io.github.carlos_emr.carlos.commn.model.Document.DESCRIPTION_MAX_LENGTH * 2 %>"
                                                        onfocus="setDescriptionIfEmpty();"/></td>
                             </tr>
                             <tr>

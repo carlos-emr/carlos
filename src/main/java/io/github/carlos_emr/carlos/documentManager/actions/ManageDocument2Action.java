@@ -1464,6 +1464,14 @@ public class ManageDocument2Action extends ActionSupport {
             throw new SecurityException("Invalid directory parameters");
         }
 
+        // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged
+        // database cuts a longer description off without an error. Measured as EDoc stores it
+        // (trimmed) and refused before the queued file is read, moved or filed.
+        if (documentDescription != null && !Document.descriptionFits(documentDescription.trim())) {
+            IncomingDocumentCapacityResponse.filingDescriptionTooLong(request, response);
+            return NONE;
+        }
+
         String incomingDocDir = CarlosProperties.getInstance().getProperty("INCOMINGDOCUMENT_DIR");
         File incomingDir = validateConfiguredDocumentDirectory(incomingDocDir, "INCOMINGDOCUMENT_DIR");
 
