@@ -84,8 +84,9 @@ public class DocumentSummaryReviewContext {
         return new Snapshot(new DocumentSummaryReviewBinding.Scope(clinic, patient, documentId),
                 new DocumentSummaryReviewBinding.Metadata(document.getDocfilename(), document.getContenttype(),
                         document.getDocdesc(), document.getUpdatedatetime() == null ? null : document.getUpdatedatetime().getTime()),
-                // The patient notice follows the patient's language on file, never the sender's choice.
-                DocumentSummaryReviewBinding.noticeLanguage(demographic.getOfficialLanguage()));
+                // The patient notice follows the patient's languages on file (French from the official language,
+                // else the spoken language for Spanish, Polish and Portuguese), never the sender's choice.
+                DocumentSummaryReviewBinding.noticeLanguage(demographic.getOfficialLanguage(), demographic.getSpokenLanguage()));
     }
 
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "stored filename is one component; existing canonical path must remain in DOCUMENT_DIR")

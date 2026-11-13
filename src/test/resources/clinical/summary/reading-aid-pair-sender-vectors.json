@@ -1,0 +1,136 @@
+{
+  "source": "carlos-portal tests/fixtures/reading-aid-pair-contract.json (sender section, public values only; FAKE data, no keys)",
+  "constants": {
+    "plaintext_magic": "mycarlos-reading-aid/1",
+    "manifest_typ": "mycarlos-reading-aid-manifest",
+    "reading_aid_typ": "mycarlos-reading-aid",
+    "media_type": "application/vnd.carlos.reading-aid+json",
+    "kind": "reading-aid/1",
+    "hpke_info": "carlos-emr/mycarlos-delivery/v1",
+    "max_reading_aid_bytes": 65536,
+    "max_ciphertext_bytes": 1048576,
+    "max_points": 50,
+    "max_evidence_per_point": 5,
+    "notice_version_en": "carlos-5537-en-1",
+    "device_expiry_skew_seconds": 86400
+  },
+  "reading_aid": {
+    "v": 1,
+    "typ": "mycarlos-reading-aid",
+    "language": "en",
+    "notice": {
+      "version": "carlos-5537-en-1",
+      "heading": "AI-generated reading aid — open the original document",
+      "body": "FAKE notice body: this reading aid was produced by software and checked by a clinician. It is not your medical record. Open the original document for what your clinic recorded."
+    },
+    "overview": "FAKE chest X-ray report: the report describes the chest images and a plan.",
+    "points": [
+      {
+        "text": "FAKE: no acute change is described compared with the earlier images.",
+        "evidence": [
+          "FAKE no acute change compared with the prior study."
+        ]
+      },
+      {
+        "text": "FAKE: a repeat image is planned in three months.",
+        "evidence": [
+          "FAKE repeat imaging in 3 months."
+        ]
+      }
+    ]
+  },
+  "reading_aid_sha256": "1c26e2f7e2eb9275bdbeb36968b395839935fd729e0919dadc2ff5088bd6040f",
+  "manifest_claims": {
+    "v": 1,
+    "typ": "mycarlos-reading-aid-manifest",
+    "delivery_id": "3e9d7b52-1c4a-4f08-9a6d-5b2e8c1f7d34",
+    "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
+    "device_key_id": "Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY",
+    "clinic_id": "clinic-a",
+    "clinic_name": "FAKE Demo Clinic",
+    "provider_name": "FAKE-Provider, Demo",
+    "patient": {
+      "name": "FAKE-Jones, FAKE-Jacky",
+      "birth_date": "1985-06-15"
+    },
+    "pair": {
+      "pair_id": "9a1f4c6e-2b7d-4e35-8c09-6d4b2a7e1f58",
+      "original_delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
+      "original_document_sha256": "cef3b030a93763cb836367821d6d398a276b6844b783f9e1b8f8bfca4d22e637"
+    },
+    "reading_aid": {
+      "media_type": "application/vnd.carlos.reading-aid+json",
+      "size": 700,
+      "sha256": "1c26e2f7e2eb9275bdbeb36968b395839935fd729e0919dadc2ff5088bd6040f",
+      "language": "en",
+      "summary_version": "3f2acfe701565af665b0026eb1e02657f2bba38226bd0b71f2d0db37552a7868",
+      "generated_at": 1792450200,
+      "revised_at": null,
+      "notice_version": "carlos-5537-en-1"
+    },
+    "approval": {
+      "id": "apr-FAKE0001-9d2e",
+      "reviewer_role": "clinician",
+      "reviewed_at": 1792450680
+    },
+    "created_at": 1792450800,
+    "expires_at": 1793055600,
+    "kid": "opVXT3byX9TTRh_4R8FJ3TxeWzT0itR6IbwRyRrhlCY"
+  },
+  "original_manifest_claims": {
+    "v": 1,
+    "typ": "mycarlos-delivery-manifest",
+    "delivery_id": "6f1c2a7e-0b9d-4e53-8a41-2d7c9b0e5f13",
+    "recipient_id": "rcp-FAKE0001aaaaaaaaaaaa",
+    "device_key_id": "Ebz2sH2jVoqcdFhl1BmIOBRm1xuT-zW5bvFBcCeERPY",
+    "clinic_id": "clinic-a",
+    "clinic_name": "FAKE Demo Clinic",
+    "provider_name": "FAKE-Provider, Demo",
+    "patient": {
+      "name": "FAKE-Jones, FAKE-Jacky",
+      "birth_date": "1985-06-15"
+    },
+    "document": {
+      "title": "FAKE chest X-ray report",
+      "type": "imaging_report",
+      "service_date": "2026-10-18",
+      "media_type": "application/pdf",
+      "size": 193,
+      "sha256": "cef3b030a93763cb836367821d6d398a276b6844b783f9e1b8f8bfca4d22e637"
+    },
+    "created_at": 1792450800,
+    "expires_at": 1793055600,
+    "kid": "opVXT3byX9TTRh_4R8FJ3TxeWzT0itR6IbwRyRrhlCY"
+  },
+  "reading_aid_fr": {
+    "note": "French aid built with carlos-portal tests/reading_aid_pair_reference (reading_aid('fr', ...)) and CARLOS's own French notice; FAKE content, no keys",
+    "reading_aid": {
+      "v": 1,
+      "typ": "mycarlos-reading-aid",
+      "language": "fr",
+      "notice": {
+        "version": "carlos-5537-fr-1",
+        "heading": "Aide à la lecture générée par l’IA — ouvrez le document original",
+        "body": "Ce résumé facultatif a été généré par une intelligence artificielle à partir du document lié. Il peut contenir des énoncés inexacts ou trompeurs, ou omettre des renseignements importants, y compris sur les médicaments, les doses et les résultats d’examens.\n\nIl ne remplace ni le document original ni les directives de votre équipe de soins. Ouvrez le document original pour obtenir l’information complète. Ne commencez pas, n’arrêtez pas, ne modifiez pas et ne retardez pas un traitement en vous fondant uniquement sur ce résumé. Communiquez avec votre clinique si quelque chose n’est pas clair ou diffère de l’original. En cas de problème médical urgent, communiquez avec les services d’urgence appropriés; ne vous fiez pas à ce résumé."
+      },
+      "overview": "FAKE rapport de radiographie thoracique : le rapport décrit les images et un plan.",
+      "points": [
+        {
+          "text": "FAKE : aucun changement aigu n'est décrit par rapport aux images précédentes.",
+          "evidence": [
+            "FAKE aucun changement aigu par rapport à l'étude précédente."
+          ]
+        },
+        {
+          "text": "FAKE : une nouvelle image est prévue dans trois mois.",
+          "evidence": [
+            "FAKE nouvelle imagerie dans 3 mois."
+          ]
+        }
+      ]
+    },
+    "reading_aid_sha256": "169ef620d32b38bf56be7858dd7eb60ee73a62ad67fb5abd0603405ff865e7f0",
+    "size": 1360,
+    "notice_version": "carlos-5537-fr-1"
+  }
+}
