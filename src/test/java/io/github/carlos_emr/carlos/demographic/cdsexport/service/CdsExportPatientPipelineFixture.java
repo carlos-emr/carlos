@@ -66,6 +66,8 @@ final class CdsExportPatientPipelineFixture {
     final Map<String, Map<String, CdsExportCapturedTextRowDto>> metadata = new HashMap<>();
     final Set<String> applied = new HashSet<>();
     final Map<String, List<CdsExportRetainedIndexDto.Reference>> references = new HashMap<>();
+    /** Retained field ID to the native unit address it belongs to. */
+    final Map<String, String> parents = new HashMap<>();
     final List<CdsExportNativeRowReceiptDto> nativeRows = new ArrayList<>();
     final Path root;
     boolean emitDemographic = true,
@@ -344,7 +346,7 @@ final class CdsExportPatientPipelineFixture {
 
     CdsExportRetainedIndexDto index() {
         return new CdsExportRetainedIndexDto(
-                source.manifest().plaintextSha256(), 0, 0, metadata, applied, references, Map.of());
+                source.manifest().plaintextSha256(), 0, 0, metadata, applied, references, parents);
     }
 
     void unit(CdsCategory category, String key, List<CdsExportRetainedIndexDto.Reference> refs) {

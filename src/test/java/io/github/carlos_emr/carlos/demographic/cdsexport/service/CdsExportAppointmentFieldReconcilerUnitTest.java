@@ -322,18 +322,72 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReview_whenAReasonLabelIsChosenForAnUneditedImportedPurpose()
+    void shouldPrefixTheReasonLabel_toTheUneditedImportedPurposeAsTheDaySheetShowsIt()
             throws Exception {
         // Imports never set reasonCode. Editing the booking in CARLOS submits the reason list's
-        // selected item; its label would show before the preserved imported purpose.
+        // selected item; the day sheet shows its label before the preserved imported purpose.
         current.put("reasonCode", "2");
-        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", "Follow-Up"));
-        assertThatThrownBy(this::reconcile)
-                .hasMessage(
-                        "CDS_EXPORT_APPOINTMENT_REASON_LABEL_ON_PRESERVED_PURPOSE_REQUIRES_REVIEW");
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", " Follow-Up "));
+        var labelled = reconcile();
+        assertThat(labelled.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(labelled.mapping().value().purpose()).isEqualTo("Follow-Up " + originalPurpose);
+        assertThat(labelled.currentPaths()).contains("AppointmentPurpose");
+        var decisions = labelled.mapping().fields();
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment", row(current).recordKey(), "reason"))
+                                .rule())
+                .isEqualTo("VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL");
+        assertThat(
+                        decisions.get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "appointment",
+                                                row(current).recordKey(),
+                                                "reasonCode"))
+                                .rule())
+                .isEqualTo("EXACT_CAPTURED_REASON_CODE_LABEL");
+        assertThat(decisions.values())
+                .noneMatch(
+                        decision ->
+                                decision.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
         // The list's blank first item, the form default, adds nothing to the display.
         lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", ""));
-        assertThat(reconcile().mapping().value().purpose()).isEqualTo(originalPurpose);
+        var blank = reconcile();
+        assertThat(blank.mapping().value().purpose()).isEqualTo(originalPurpose);
+        assertThat(blank.preparedPaths()).contains("AppointmentPurpose");
+    }
+
+    @Test
+    void shouldPrefixTheReasonLabel_toTheCompleteSourcePurposeBehindTheSourceViewMarker()
+            throws Exception {
+        String marker = "CDS: complete appointment purpose is available in CDS source fields.";
+        originalPurpose = "Q".repeat(120);
+        old.put("reason", marker);
+        current.put("reason", marker);
+        current.put("reasonCode", "2");
+        lookups = withReasonItem(CdsExportAppointmentMapperUnitTest.reasonItem("2", "Follow-Up"));
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        prepared.start(),
+                        prepared.end(),
+                        prepared.status(),
+                        marker,
+                        prepared.notes(),
+                        prepared.providerNo(),
+                        true,
+                        List.of(
+                                new CdsClinicalDiagnosticDto(
+                                        "CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW",
+                                        "AppointmentPurpose")));
+        assertThat(reconcile().mapping().value().purpose())
+                .isEqualTo("Follow-Up " + originalPurpose);
+        // A label that would carry the purpose past the 250 characters CDS allows still holds.
+        originalPurpose = "Q".repeat(245);
+        assertThatThrownBy(this::reconcile)
+                .hasMessage("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
     }
 
     private CdsExportAppointmentLookupsDto withReasonItem(CdsExportCapturedTextRowDto item) {

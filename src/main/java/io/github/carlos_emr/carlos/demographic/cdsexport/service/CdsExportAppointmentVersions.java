@@ -40,12 +40,14 @@ import java.util.Set;
  * version of an appointment that was deleted or moved to another chart. Neither is a booking:
  * the current row is exported and a deleted appointment is not, as the day sheet and the
  * default appointment history show it. Every captured field of the version still receives an
- * explicit not-exported disposition. Retained import reconciliation (a deleted or aliased
- * imported appointment) is decided separately and still requires review.
+ * explicit not-exported disposition. A deleted or moved imported appointment is not exported
+ * either; its retained source fields are accounted by the appointment assembly. An aliased
+ * imported appointment still requires review.
  */
 final class CdsExportAppointmentVersions {
     static final String SUPERSEDED = "SUPERSEDED_APPOINTMENT_VERSION";
     static final String REMOVED = "DELETED_OR_MOVED_APPOINTMENT_VERSION";
+    static final String REMOVED_IMPORTED = "DELETED_OR_MOVED_IMPORTED_APPOINTMENT_VERSION";
 
     private CdsExportAppointmentVersions() {}
 
@@ -55,6 +57,16 @@ final class CdsExportAppointmentVersions {
      */
     static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> dispositions(
             int patient, CdsExportCapturedTextRowDto row, Set<String> current) throws IOException {
+        return dispositions(patient, row, current, Set.of());
+    }
+
+    /**
+     * @param removedImported appointment numbers of imported appointments that are no longer in
+     *     the chart; their last version is accounted with {@value #REMOVED_IMPORTED}
+     */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> dispositions(
+            int patient, CdsExportCapturedTextRowDto row, Set<String> current, Set<String> removedImported)
+            throws IOException {
         if (patient < 1
                 || row == null
                 || current == null
@@ -76,7 +88,12 @@ final class CdsExportAppointmentVersions {
             scope();
         }
         String number = row.fields().get("appointment_no");
-        String rule = number != null && current.contains(number) ? SUPERSEDED : REMOVED;
+        String rule =
+                number != null && current.contains(number)
+                        ? SUPERSEDED
+                        : number != null && removedImported.contains(number)
+                                ? REMOVED_IMPORTED
+                                : REMOVED;
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var fields = new CdsExportNativeFieldAssessments(row, result);
         for (String column : row.fields().keySet()) fields.operational(column, rule);

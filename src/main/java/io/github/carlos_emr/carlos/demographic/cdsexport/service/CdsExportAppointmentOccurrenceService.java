@@ -38,7 +38,9 @@ import org.springframework.stereotype.Service;
  * Exact native/retained appointment assembly under one frozen generation. The clinical zone
  * and rules version come from that capture; no default JVM zone or mutable setting is read.
  * Archive rows are superseded or deleted versions ({@link CdsExportAppointmentVersions}): every
- * field is assessed, none is exported and none holds the patient. Other unrepresented native
+ * field is assessed, none is exported and none holds the patient. An imported appointment deleted
+ * or cut in CARLOS is not in the chart and is not exported either: its retained source fields are
+ * accounted as removed once CARLOS's archive copy proves the removal. Other unrepresented native
  * facts remain explicit review gates.
  */
 @Service
@@ -521,7 +523,40 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                     if (!actual.equals(source.capture())
                             || !exact.isEmpty()
                             || counts[0] != actual.tables().get("appointment").rows()) scope();
-                    if (!imported.isEmpty()) review();
+                    // An imported appointment that is no longer in this chart was deleted or cut
+                    // to be pasted elsewhere: the day sheet and the appointment history no longer
+                    // show it, so it is not exported. Its retained source fields are accounted as
+                    // not exported, and CARLOS's own archive copy of the booking must exist.
+                    var removedFields = new HashSet<String>();
+                    for (var entry : imported.entrySet()) {
+                        control.checkpoint();
+                        var comparisons = checked.units().get(entry.getValue());
+                        if (comparisons == null
+                                || comparisons.stream()
+                                                .filter(
+                                                        ref ->
+                                                                ref.expected().table().equals("appointment"))
+                                                .filter(
+                                                        ref ->
+                                                                ref.reason()
+                                                                        == CdsExportRetainedReceiptVerificationDto
+                                                                                .Reason
+                                                                                .ROW_NOT_IN_CAPTURE)
+                                                .count()
+                                        != 1) deletion();
+                        for (var field :
+                                new CdsExportRetainedOccurrenceFields()
+                                        .fieldsFor(
+                                                patient.patient(),
+                                                category,
+                                                entry.getValue(),
+                                                index,
+                                                checked,
+                                                retained,
+                                                control::checkpoint))
+                            if (!removedFields.add(field.id())) scope();
+                    }
+                    var archivedNumbers = new HashSet<String>();
                     long[] versions = {0};
                     var archived =
                             rows.forEach(
@@ -544,18 +579,26 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                         CdsExportAppointmentVersions.dispositions(
                                                                 patient.patient(),
                                                                 row,
-                                                                currentNumbers),
+                                                                currentNumbers,
+                                                                imported.keySet()),
                                                         1_000_000,
                                                         control::checkpoint);
+                                        archivedNumbers.add(row.fields().get("appointment_no"));
                                         versions[0]++;
                                     });
                     if (!archived.equals(source.capture())
                             || versions[0] != archived.tables().get("appointmentArchive").rows())
                         scope();
+                    // A booking that vanished without CARLOS's archive copy was not removed
+                    // through the schedule; its absence is not explained.
+                    if (!archivedNumbers.containsAll(imported.keySet())) deletion();
                     var expected = new HashSet<String>();
                     for (var field : retained)
                         if (field.category() == category && !expected.add(field.id())) scope();
-                    if (!used.equals(expected)) scope();
+                    if (!Collections.disjoint(used, removedFields)) scope();
+                    var accounted = new HashSet<>(used);
+                    accounted.addAll(removedFields);
+                    if (!accounted.equals(expected)) scope();
                     streams.requireActive();
                     captures.authorizeSources(lease, patient, tables, control);
                     patient.require(lease);
@@ -576,6 +619,11 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
 
     private static void review() {
         throw new CdsExportReviewException(CdsExportReviewException.Reason.UNMAPPED_DATA);
+    }
+
+    private static void deletion() throws IOException {
+        throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW");
     }
 
     private static void ambiguous() {

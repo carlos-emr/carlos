@@ -463,6 +463,47 @@ class CdsExportPatientInventoryServiceUnitTest {
     }
 
     @Test
+    void shouldNotExpectTheRetainedFields_ofAnImportedAppointmentDeletedInCarlos()
+            throws Exception {
+        for (boolean deleted : List.of(true, false)) {
+            var f = fixture(CdsCategory.APPOINTMENTS);
+            String key = "e".repeat(64);
+            f.unit(
+                    CdsCategory.APPOINTMENTS,
+                    key,
+                    List.of(new CdsExportRetainedIndexDto.Reference("appointment", "77", "f".repeat(64))));
+            if (!deleted)
+                f.nativeRows.add(
+                        new CdsExportNativeRowReceiptDto(
+                                "appointment",
+                                "77",
+                                CdsExportPatientTableSourceReader.key(77),
+                                "f".repeat(64)));
+            var values =
+                    new TreeMap<>(
+                            CdsExportRetainedFieldMapperUnitTest.row(1, "Follow-up", "Follow-up", null)
+                                    .fields());
+            values.put("category", "Appointments");
+            values.put("source_path", "/OmdCds[1]/PatientRecord[1]/Appointments[1]/AppointmentPurpose[1]");
+            values.put("value_type", "{cds_dt}text250");
+            values.put(
+                    "id",
+                    CdsImportKeys.hash(
+                            values.get("unit_key"),
+                            values.get("source_namespace"),
+                            values.get("source_path"),
+                            values.get("occurrence")));
+            var field = new CdsExportCapturedTextRowDto("cds_import_field", values.get("id"), values);
+            f.metadata.computeIfAbsent("cds_import_field", ignored -> new HashMap<>())
+                    .put(values.get("id"), field);
+            f.parents.put(values.get("id"), f.applied.iterator().next());
+            var result = capture(f);
+            if (deleted) assertThat(result.retainedFields()).isEmpty();
+            else assertThat(result.retainedFields()).containsExactly(values.get("id"));
+        }
+    }
+
+    @Test
     void shouldRequireTheExplicitSupportingCategory_forNativeLabSourceContext() throws Exception {
         var f = fixture(CdsCategory.LABORATORY_RESULTS);
         var source =

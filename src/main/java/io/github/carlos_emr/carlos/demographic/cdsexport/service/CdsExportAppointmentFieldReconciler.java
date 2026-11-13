@@ -34,8 +34,10 @@ import java.util.*;
 
 /**
  * Reconciles current appointment fields against proved import projections. Effective captured
- * calendar/clock values replace source timing so prior import options cannot be undone.
- * Unknown native extras, calendar history, aliases and missing projection evidence need review.
+ * calendar/clock values replace source timing so prior import options cannot be undone. A
+ * reason-list label chosen in CARLOS prefixes the preserved imported purpose, as the day sheet
+ * shows it. Unknown native extras, calendar history, aliases and missing projection evidence
+ * need review.
  */
 public final class CdsExportAppointmentFieldReconciler {
     public record Result(
@@ -169,13 +171,8 @@ public final class CdsExportAppointmentFieldReconciler {
         String purpose = candidate.value() == null ? null : candidate.value().purpose();
         if (!difference.changedColumns().contains("reason")) {
             // Imports never set reasonCode. A reason-list label chosen later is shown on the day
-            // sheet before the preserved imported purpose; that purpose cannot carry it.
-            var code =
-                    fields.get(
-                            new CdsExportNativeFieldKeyDto(
-                                    row.table(), row.recordKey(), "reasonCode"));
-            if (code != null && code.outcome() == Outcome.MAPPED)
-                review("CDS_EXPORT_APPOINTMENT_REASON_LABEL_ON_PRESERVED_PURPOSE_REQUIRES_REVIEW");
+            // sheet before the reason, so the label prefixes the preserved imported purpose.
+            String label = scheduleLabel(row, lookups, fields);
             if (prepared.diagnostics().stream()
                     .anyMatch(
                             notice ->
@@ -190,14 +187,36 @@ public final class CdsExportAppointmentFieldReconciler {
                     review("CDS_EXPORT_APPOINTMENT_ORIGINAL_PURPOSE_REQUIRED");
                 purpose = prepared.purpose();
             }
-            prior.add("AppointmentPurpose");
-            mark(
-                    row,
-                    fields,
-                    "reason",
-                    Outcome.MAPPED,
-                    "AppointmentPurpose",
-                    "VERIFIED_UNCHANGED_PREPARED_PURPOSE");
+            if (label == null) {
+                prior.add("AppointmentPurpose");
+                mark(
+                        row,
+                        fields,
+                        "reason",
+                        Outcome.MAPPED,
+                        "AppointmentPurpose",
+                        "VERIFIED_UNCHANGED_PREPARED_PURPOSE");
+            } else {
+                // The day sheet's "label reason"; the preserved purpose is kept exactly after it.
+                purpose = purpose == null || purpose.isEmpty() ? label : label + " " + purpose;
+                if (!CdsExportNativeFieldAssessments.legal(purpose, 250))
+                    review("CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY");
+                current.add("AppointmentPurpose");
+                mark(
+                        row,
+                        fields,
+                        "reasonCode",
+                        Outcome.MAPPED,
+                        "AppointmentPurpose",
+                        "EXACT_CAPTURED_REASON_CODE_LABEL");
+                mark(
+                        row,
+                        fields,
+                        "reason",
+                        Outcome.MAPPED,
+                        "AppointmentPurpose",
+                        "VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL");
+            }
         } else current.add("AppointmentPurpose");
         String notes = candidate.value() == null ? null : candidate.value().notes();
         if (!difference.changedColumns().contains("notes")) {
@@ -280,6 +299,28 @@ public final class CdsExportAppointmentFieldReconciler {
                 new CdsExportAppointmentMappingDto(result, fields),
                 prior,
                 current);
+    }
+
+    /**
+     * The reason-list label the day sheet shows before the reason, or null when it shows the
+     * reason alone (no code, the "-1" placeholder, a code outside the list or a blank label) or
+     * the candidate mapping already holds the code for another reason.
+     */
+    private static String scheduleLabel(
+            CdsExportCapturedTextRowDto row,
+            CdsExportAppointmentLookupsDto lookups,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields) {
+        var decision =
+                fields.get(new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "reasonCode"));
+        if (decision == null
+                || !(decision.outcome() == Outcome.MAPPED
+                        || decision.outcome() == Outcome.REQUIRES_REVIEW
+                                && "LABELLED_PURPOSE_REQUIRES_REVIEW".equals(decision.rule())))
+            return null;
+        var items = lookups.reasonCodes().getOrDefault(row.fields().get("reasonCode"), List.of());
+        if (items.size() != 1) return null;
+        String label = items.getFirst().fields().get("label");
+        return label == null || label.isBlank() ? null : label.trim();
     }
 
     private static String clock(String value) throws IOException {

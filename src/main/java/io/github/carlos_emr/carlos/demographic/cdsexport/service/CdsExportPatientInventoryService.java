@@ -181,6 +181,7 @@ public class CdsExportPatientInventoryService {
         var removedDocuments = new HashSet<String>();
         var sourceFields = new HashSet<String>();
         var superseded = new HashSet<String>();
+        var appointments = new HashSet<String>();
         var budget = new Budget(bounds.indexRows(), bounds.indexBytes());
         var actual =
                 rows.scan(
@@ -213,6 +214,8 @@ public class CdsExportPatientInventoryService {
                                     budget.add();
                                     return;
                                 }
+                                if (category == CdsCategory.APPOINTMENTS)
+                                    appointments.add(row.id());
                                 // A screening's identity names its physical prevention row.
                                 add(
                                         expected,
@@ -419,10 +422,28 @@ public class CdsExportPatientInventoryService {
                             lease, patient, patientKey, tables, source, bounds, control))
                 add(expected, identity, budget);
         }
+        // An imported appointment deleted or cut in CARLOS is not in the chart: its retained
+        // source fields are accounted as removed by the appointment assembly, never exported.
+        var removedAppointments = new HashSet<String>();
+        for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
+            control.checkpoint();
+            if (!CdsCategory.APPOINTMENTS.wireName().equals(unit.fields().get("category")))
+                continue;
+            String address = unit.fields().get("run_id") + ":" + unit.fields().get("unit_key");
+            if (!index.appliedUnits().contains(address)) continue;
+            for (var reference : index.references().getOrDefault(address, List.of()))
+                if (reference.table().equals("appointment")
+                        && !appointments.contains(reference.id())) removedAppointments.add(address);
+        }
         var mapper = new CdsExportRetainedFieldMapper();
         for (var row : index.tables().getOrDefault("cds_import_field", Map.of()).values()) {
             control.checkpoint();
             var field = mapper.map(patient.patient(), lease.document().command().categories(), row);
+            if (field.category() == CdsCategory.APPOINTMENTS
+                    && removedAppointments.contains(index.nativeParents().get(field.id()))) {
+                budget.add();
+                continue;
+            }
             if (!sourceFields.add(field.id())) invalid();
             budget.add();
         }

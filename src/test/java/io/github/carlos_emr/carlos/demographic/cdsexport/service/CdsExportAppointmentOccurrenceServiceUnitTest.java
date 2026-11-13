@@ -271,6 +271,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
 
     @Test
     void shouldVerifyAMissingImportedOccurrenceNeedsReview_insteadOfReplayingOriginalXml() throws Exception {
+        // The receipt does not show the row gone from the chart: its absence is unexplained.
         var f = fixture(true);
         f.parents = List.of();
         f.receiptRows = List.of();
@@ -280,7 +281,99 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()),
                         0,
                         HASH));
-        assertThatThrownBy(() -> compose(f, false)).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        assertThatThrownBy(() -> compose(f, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW");
+        assertThat(f.receipts).isEmpty();
+    }
+
+    /**
+     * An imported appointment deleted (AppointmentDeleteRecord2Action) or cut to be pasted
+     * elsewhere (AppointmentCutRecord2Action): CARLOS archived the booking and removed the row.
+     */
+    private Fixture deletedImported(boolean archived) throws Exception {
+        var source = new CdsExportAppointmentFieldReconcilerUnitTest().fixture(true, "Current note");
+        var f = fixture(source, true);
+        String number = source.row().fields().get("appointment_no");
+        f.parents = List.of();
+        f.receiptRows = List.of();
+        f.scopes.put(
+                "appointment",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()),
+                        0,
+                        HASH));
+        // The verified receipt: the imported row is no longer in this patient's capture.
+        var units = new TreeMap<>(source.checked().units());
+        for (var entry : units.entrySet())
+            entry.setValue(
+                    entry.getValue().stream()
+                            .map(
+                                    ref ->
+                                            ref.expected().table().equals("appointment")
+                                                    ? new CdsExportRetainedReceiptVerificationDto
+                                                            .CheckedReference(
+                                                            ref.expected(),
+                                                            null,
+                                                            CdsExportRetainedReceiptVerificationDto
+                                                                    .Reason.ROW_NOT_IN_CAPTURE)
+                                                    : ref)
+                            .toList());
+        var unchanged = new HashSet<>(source.checked().unchangedUnits());
+        var review = new HashSet<>(source.checked().reviewUnits());
+        for (var entry : units.entrySet())
+            if (entry.getValue().stream()
+                    .anyMatch(ref -> ref.expected().table().equals("appointment"))) {
+                unchanged.remove(entry.getKey());
+                review.add(entry.getKey());
+            }
+        when(f.verification.verify(
+                        any(), any(), anySet(), any(), any(), anyLong(), anyLong(), anyInt(),
+                        any()))
+                .thenReturn(
+                        new CdsExportRetainedReceiptVerificationDto(HASH, units, unchanged, review));
+        if (archived) {
+            var booking = new TreeMap<>(source.row().fields());
+            f.archives = List.of(archive(9, number, booking));
+            f.scopes.put(
+                    "appointmentArchive",
+                    new CdsExportCapturedTableDto(
+                            Set.copyOf(
+                                    CdsExportPatientTableReadSupport.Plan.APPOINTMENT_ARCHIVE
+                                            .columns()),
+                            1,
+                            HASH));
+        }
+        return f;
+    }
+
+    @Test
+    void shouldNotExportOrHoldAnImportedAppointment_deletedOrCutInCarlos() throws Exception {
+        var f = deletedImported(true);
+        var records = parse(compose(f, false));
+        // Only the demographics record: the chart no longer shows the booking.
+        assertThat(records).hasSize(1);
+        assertThat(f.receipts).isEmpty();
+        assertThat(f.result).isNotNull();
+        assertThat(
+                        CdsExportAppointmentVersions.dispositions(
+                                        27,
+                                        f.archives.getFirst(),
+                                        Set.of(),
+                                        Set.of(f.archives.getFirst().fields().get("appointment_no")))
+                                .values())
+                .allMatch(
+                        field ->
+                                field.rule().equals(CdsExportAppointmentVersions.REMOVED_IMPORTED)
+                                        && field.outcome()
+                                                == CdsExportFieldAssessmentDto.Outcome
+                                                        .OPERATIONAL);
+    }
+
+    @Test
+    void shouldHoldAnImportedAppointmentThatVanished_withoutCarlosArchiveCopy() throws Exception {
+        var f = deletedImported(false);
+        assertThatThrownBy(() -> compose(f, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_DELETION_REQUIRES_REVIEW");
         assertThat(f.receipts).isEmpty();
     }
 
