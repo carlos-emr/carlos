@@ -155,6 +155,8 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationFieldReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationProjectionServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationReasonMapperUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationReasonReadMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportMedicationRetainedAssemblerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportNativeCaptureUnitTest",

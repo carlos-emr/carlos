@@ -39146,12 +39146,13 @@
         "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
       },
       "medication-native-residual-extensions": {
-        "destination": "The exact CARLOS.Medication.Archived.v1 boolean carrier preserves native Drug.archived independently of clinical PrescriptionStatus/currentness. Complete native prescription context and all unknown residual names remain protected source values.",
+        "destination": "The exact CARLOS.Medication.Archived.v1 boolean carrier preserves native Drug.archived independently of clinical PrescriptionStatus/currentness. Complete native prescription context and all unknown residual names remain protected source values. A prescription's drugReason rows the chart shows (archivedFlag 0) are exported whole in the CARLOS.Medication.Reasons.v1 string carrier (token-safe JSON, SQL NULL and empty distinct); the indication's ICD-9 code (the one active primary reason, else the only active reason) is ProblemCode when it is one to ten printable characters without spaces. On an imported medication the sender's ProblemCode is never replaced or repeated: CARLOS reasons are added beside it, and their ProblemCode only when the source occurrence has none.",
         "disposition": "native-and-source",
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationReasonMapper.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationNativeDto.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
@@ -39161,7 +39162,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java"
         ],
-        "normalization": "Only CARLOS.Medication.Archived.v1 is interpreted as a native archive flag. Its complete Name/DataType/Content group must have boolean type and true/false/1/0 content, with no duplicate known marker. Unknown vendor names and the CARLOS.Medication.Source.v1 JSON context remain opaque protected source; they never establish DIN authority, strength, dose, authorship or clinical currentness. Explicit native archive true supplements existing clinical historical archiving and never changes clinical PrescriptionStatus. A missing optional archive flag defaults false only AFTER verifying the original prepared payload bytes and seal. New false values remain omitted from serialized preparations for byte compatibility. Native export preserves all drugs fields, exact numeric witnesses, unknown status and nonstandard regimen/source details; it writes only established values into standard fields. Regional identifiers lacking an authority discriminator remain explicitly UNQUALIFIED in source context, never standard DIN.",
+        "normalization": "Only CARLOS.Medication.Archived.v1 is interpreted as a native archive flag. Its complete Name/DataType/Content group must have boolean type and true/false/1/0 content, with no duplicate known marker. Unknown vendor names and the CARLOS.Medication.Source.v1 JSON context remain opaque protected source; they never establish DIN authority, strength, dose, authorship or clinical currentness. Explicit native archive true supplements existing clinical historical archiving and never changes clinical PrescriptionStatus. A missing optional archive flag defaults false only AFTER verifying the original prepared payload bytes and seal. New false values remain omitted from serialized preparations for byte compatibility. Native export preserves all drugs fields, exact numeric witnesses, unknown status and nonstandard regimen/source details; it writes only established values into standard fields. Regional identifiers lacking an authority discriminator remain explicitly UNQUALIFIED in source context, never standard DIN. The importer does not interpret CARLOS.Medication.Reasons.v1 or ProblemCode and writes no drugReason; both remain retained source fields.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39176,6 +39177,7 @@
         ],
         "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
         "tests": [
+          "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationReasonMapperUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapperUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
           "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
@@ -39857,7 +39859,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "229e926f2074ccc28dafe50a65e6cce146296a45c8079a7c1ca84f63e946ae92"
+    "sha256": "91b9e6b822d361de77225eb4fbbad9ec80f0312bb9ad7af822c23c5cc0de7e5d"
   },
   "root": "cds:OmdCds",
   "schemas": [

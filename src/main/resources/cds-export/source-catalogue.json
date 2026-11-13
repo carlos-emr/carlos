@@ -234,7 +234,7 @@
     "documentDescriptionTemplate": "REFERENCE",
     "document_review": "MAPPED_SOURCE",
     "document_storage": "LISTED",
-    "drugReason": "REFERENCE",
+    "drugReason": "MAPPED_SOURCE",
     "drugs": "MAPPED_SOURCE",
     "dsGuidelineProviderMap": "REFERENCE",
     "dsGuidelines": "REFERENCE",
@@ -548,6 +548,7 @@
       "provider"
     ],
     "MedicationsAndTreatments": [
+      "drugReason",
       "drugs",
       "medication_reference",
       "partial_date",
@@ -1178,7 +1179,7 @@
     "ctl_billingservice_sex_rules": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
     "ctl_billingtype": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
     "ctl_servicecodes_dxcodes": "Financial claim/insurance/billing data are outside patient XML under guide 18.1.4.2; no clinical diagnosis is inferred from a billing code.",
-    "drugReason": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
+    "drugReason": "Indications (reasons) of a patient's prescriptions, captured in the MedicationsAndTreatments scope through read plan DRUG_REASONS: a reason whose demographicNo and drug owner are both the patient. A reason on which the two disagree, or whose drug is missing, holds the drug's owner and the named patient (CDS_EXPORT_AMBIGUOUS_SOURCE). Every reason the chart shows (archivedFlag 0) travels whole in CARLOS.Medication.Reasons.v1; the indication's ICD-9 code (the one active primary reason, or the only active reason when none is primary) is ProblemCode when it fits. Archived reasons are shown nowhere in CARLOS and are accounted ARCHIVED_DRUG_REASON_NOT_SHOWN_IN_CHART. On an imported medication an original ProblemCode is kept and CARLOS reasons are added beside it.",
     "dsGuidelineProviderMap": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
     "dsGuidelines": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",
     "eform": "Global terminology, template or address-book definitions; guide 18.1.4.1/18.1.4.3. Filled patient records retain independent coverage/refusal.",

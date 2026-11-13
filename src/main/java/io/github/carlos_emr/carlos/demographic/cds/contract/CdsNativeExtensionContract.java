@@ -114,6 +114,16 @@ public final class CdsNativeExtensionContract {
     public static final String MEDICATION_ARCHIVED = "CARLOS.Medication.Archived.v1";
 
     /**
+     * Every indication (reason, {@code drugReason}) the chart shows for a prescription, in id
+     * order: each row's coding system, code, comments, primary and archived flags, archive
+     * reason, recording provider number and coded date, with SQL NULL and empty text distinct
+     * and no literal XML whitespace. The standard ProblemCode, which names no coding system and
+     * holds ten characters, carries at most one ICD-9 code; this carrier keeps them all. An
+     * importer treats it as opaque source; it does not establish a native reason.
+     */
+    public static final String MEDICATION_REASONS = "CARLOS.Medication.Reasons.v1";
+
+    /**
      * Complete native prevention rows (the parent, every extension and every date-precision row)
      * behind a PastHealth entry exported from a CARLOS screening, or behind an Immunizations entry
      * exported from a vaccine recorded in CARLOS. SQL NULL and empty text stay distinct, and the

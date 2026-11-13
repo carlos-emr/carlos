@@ -242,6 +242,100 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                 .hasMessage("CDS_EXPORT_MEDICATION_SOURCE_FIELD_EVIDENCE_CHANGED");
     }
 
+    @Test
+    void shouldKeepTheOriginalProblemCode_andAddReasonsRecordedInCarlosBesideTheVendorResidual()
+            throws Exception {
+        // P3: the importer writes no drugReason, so a reason on an imported medication was added
+        // in CARLOS. The sender's ProblemCode stays the only ProblemCode; the reason is added.
+        var f = fixture(CdsExportMedicationFieldReconcilerUnitTest.baseline());
+        var reasons = reasons();
+        var assembly =
+                new CdsExportMedicationRetainedAssembler()
+                        .prepare(
+                                27,
+                                f.decision(),
+                                reasons,
+                                f.index(),
+                                f.checked(),
+                                f.fields(),
+                                inline(),
+                                () -> {});
+        assertThat(assembly.problemCodeWritten()).isFalse();
+        var record = parse(assembly.prepared().content(), "kept-problem-code").get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstToken(record, "ProblemCode", 100)).isEqualTo("B01");
+        var residualNames = new ArrayList<String>();
+        var problemCodes = new ArrayList<String>();
+        parser.forEachField(
+                record,
+                field -> {
+                    if (field.path().startsWith("ResidualInfo[1]/DataElement[")
+                            && field.path().endsWith("/Name[1]")) residualNames.add(field.path());
+                    if (field.path().startsWith("ProblemCode[")) problemCodes.add(field.path());
+                });
+        assertThat(residualNames)
+                .containsExactly(
+                        "ResidualInfo[1]/DataElement[1]/Name[1]",
+                        "ResidualInfo[1]/DataElement[2]/Name[1]");
+        assertThat(problemCodes).containsExactly("ProblemCode[1]");
+        assertThat(
+                        Files.readString(
+                                directory.resolve("kept-problem-code.xml"),
+                                java.nio.charset.StandardCharsets.UTF_8))
+                .contains("Vendor.custom", "CARLOS.Medication.Reasons.v1", "\"code\":\"250\"");
+        // Every source field stays as it was; the reason was added, nothing was replaced.
+        assertThat(assembly.prepared().replacedFields()).isEmpty();
+        assertThat(assembly.prepared().retainedFields())
+                .containsExactlyInAnyOrderElementsOf(
+                        f.fields().stream().map(CdsExportRetainedFieldDto::id).toList());
+        assertThat(reasons.fields(assembly.problemCodeWritten()).values())
+                .noneMatch(field -> field.destination().equals("ProblemCode"));
+    }
+
+    @Test
+    void shouldAddTheIndicationAsProblemCode_whenTheImportedMedicationHasNone() throws Exception {
+        var f = fixture(CdsExportMedicationFieldReconcilerUnitTest.baseline(), null, false, false);
+        var reasons = reasons();
+        var assembly =
+                new CdsExportMedicationRetainedAssembler()
+                        .prepare(
+                                27,
+                                f.decision(),
+                                reasons,
+                                f.index(),
+                                f.checked(),
+                                f.fields(),
+                                inline(),
+                                () -> {});
+        assertThat(assembly.problemCodeWritten()).isTrue();
+        var record = parse(assembly.prepared().content(), "added-problem-code").get(1);
+        var parser = new CdsFieldParser();
+        assertThat(parser.firstToken(record, "ProblemCode", 100)).isEqualTo("250");
+        assertThat(parser.firstToken(record, "ResidualInfo/DataElement/Name", 100))
+                .isEqualTo("CARLOS.Medication.Reasons.v1");
+        assertThat(assembly.prepared().replacedFields()).isEmpty();
+        assertThat(reasons.fields(true).values())
+                .anyMatch(field -> field.destination().equals("ProblemCode"));
+        // Without reasons the occurrence is assembled exactly as before.
+        var plain = prepare(f);
+        assertThat(parser.firstToken(parse(plain.content(), "plain").get(1), "ProblemCode", 100))
+                .isNull();
+    }
+
+    private static CdsExportMedicationReasonMapper.Result reasons() throws Exception {
+        var drug =
+                CdsExportMedicationMapperUnitTest.medication(
+                        CdsExportMedicationFieldReconcilerUnitTest.baseline());
+        return new CdsExportMedicationReasonMapper()
+                .map(
+                        27,
+                        drug,
+                        List.of(
+                                CdsExportMedicationReasonMapperUnitTest.row(
+                                        CdsExportMedicationReasonMapperUnitTest.reason(
+                                                5, "icd9", "250", "1"))));
+    }
+
     private static CdsExportRetainedSectionWriter.Prepared prepare(Fixture f) throws Exception {
         return new CdsExportMedicationRetainedAssembler()
                 .prepare(27, f.decision(), f.index(), f.checked(), f.fields(), inline(), () -> {});
@@ -256,6 +350,16 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
     }
 
     static Fixture fixture(Map<String, String> current, Path strengthPayload, boolean omitStrength)
+            throws Exception {
+        return fixture(current, strengthPayload, omitStrength, true);
+    }
+
+    /** {@code sourceExtras} false: the sender wrote no ProblemCode and no residual data. */
+    static Fixture fixture(
+            Map<String, String> current,
+            Path strengthPayload,
+            boolean omitStrength,
+            boolean sourceExtras)
             throws Exception {
         boolean sourceOnlyStrength = strengthPayload != null;
         var base =
@@ -296,14 +400,17 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                         "2024-02-29T12:34:56.1200-05:00"));
         fields.add(field("DrugDescription[1]", "cds", "Source description"));
         fields.add(field("PrescriptionIdentifier[1]", "cds", "rx-source"));
-        fields.add(field("ProblemCode[1]", "cds", "B01"));
-        fields.add(field("ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", "Vendor.custom"));
-        fields.add(field("ResidualInfo[1]/DataElement[1]/DataType[1]", "cds_dt", "string"));
-        fields.add(
-                field(
-                        "ResidualInfo[1]/DataElement[1]/Content[1]",
-                        "cds_dt",
-                        "Vendor café 😀 content"));
+        if (sourceExtras) {
+            fields.add(field("ProblemCode[1]", "cds", "B01"));
+            fields.add(
+                    field("ResidualInfo[1]/DataElement[1]/Name[1]", "cds_dt", "Vendor.custom"));
+            fields.add(field("ResidualInfo[1]/DataElement[1]/DataType[1]", "cds_dt", "string"));
+            fields.add(
+                    field(
+                            "ResidualInfo[1]/DataElement[1]/Content[1]",
+                            "cds_dt",
+                            "Vendor café 😀 content"));
+        }
         var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         for (var field : fields) metadata.put(field.id(), metadata(field));
         var tables = new LinkedHashMap<>(base.index().tables());

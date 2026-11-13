@@ -80,6 +80,7 @@ public final class CdsExportSourceSchemaValidator {
                     "demographic_merged",
                     "demographicArchive",
                     "drugs",
+                    "drugReason",
                     "prescription",
                     "medication_reference",
                     "appointmentArchive",

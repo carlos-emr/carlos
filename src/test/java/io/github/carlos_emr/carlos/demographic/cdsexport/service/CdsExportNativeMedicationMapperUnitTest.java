@@ -272,6 +272,55 @@ class CdsExportNativeMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldExportTheIndicationAsProblemCode_andEveryShownReasonInItsOwnResidual()
+            throws Exception {
+        // P3: drugReason used to be ruled reference data, so no ProblemCode was ever written.
+        var fields = source();
+        var primary = CdsExportMedicationReasonMapperUnitTest.reason(7, "icd9", "250", "1");
+        primary.put("comments", "Started  for HbA1c 8.1");
+        var secondary = CdsExportMedicationReasonMapperUnitTest.reason(8, "icd10", "E11.9", "0");
+        var archived = CdsExportMedicationReasonMapperUnitTest.reason(9, "icd9", "401", "1");
+        archived.put("archivedFlag", "1");
+        archived.put("archivedReason", "Entered on the wrong drug");
+        var rows =
+                List.of(
+                        CdsExportMedicationReasonMapperUnitTest.row(primary),
+                        CdsExportMedicationReasonMapperUnitTest.row(secondary),
+                        CdsExportMedicationReasonMapperUnitTest.row(archived));
+        var result = mapper.map(27, medication(fields), List.of(), Map.of(), null, rows);
+        assertThat(result.value().fields()).containsEntry(Field.ProblemCode, "250");
+        assertThat(result.reasons())
+                .contains("\"code\":\"250\"", "\"code\":\"E11.9\"", "Started\\u0020\\u0020for")
+                .doesNotContain("401", "wrong");
+        var all = new ArrayList<CdsExportCapturedTextRowDto>(rows);
+        all.add(medication(fields));
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(all, result.fields(), 1000, () -> {});
+        String xml =
+                new String(
+                        render(
+                                CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                x -> mapper.write(result, x)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains(
+                        "<ProblemCode>250</ProblemCode>",
+                        "CARLOS.Medication.Reasons.v1",
+                        "CARLOS.Medication.Source.v1");
+        // A prescription without reasons is written exactly as before.
+        var plain = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(plain.reasons()).isNull();
+        assertThat(plain.value().fields()).doesNotContainKey(Field.ProblemCode);
+        assertThat(
+                        new String(
+                                render(
+                                        CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                        x -> mapper.write(plain, x)),
+                                StandardCharsets.UTF_8))
+                .doesNotContain("ProblemCode", "CARLOS.Medication.Reasons.v1");
+    }
+
+    @Test
     void shouldWriteNativeMonthsAndYearsWithTheirUnit_neverAsAnAssertedDayCount() throws Exception {
         // Review M9: this test used to expect "2 months" exported as Duration 60, the
         // prescription calculator's 30-day month. A month or year is not an exact number of

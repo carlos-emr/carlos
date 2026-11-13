@@ -186,6 +186,20 @@ class CdsExportSourceCatalogueUnitTest {
     }
 
     @Test
+    void shouldCaptureMedicationReasonsWithTheirPrescriptions_insteadOfRulingThemReferenceData() {
+        // P3: drugReason holds per-patient indications but was ruled REFERENCE, so the
+        // medication's ProblemCode was never produced and nothing accounted for the rows.
+        var catalogue = CdsExportSourceCatalogue.current();
+        assertThat(catalogue.tables().get("drugReason"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.MAPPED_SOURCE);
+        assertThat(catalogue.patientScopes()).doesNotContainKey("drugReason");
+        assertThat(catalogue.required(Set.of(CdsCategory.MEDICATIONS_AND_TREATMENTS)))
+                .contains("drugs", "drugReason");
+        assertThat(catalogue.required(Set.of(CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS)))
+                .doesNotContain("drugReason");
+    }
+
+    @Test
     void shouldRefuseTheUnclassifiedSourcePresence_atBothIndependentCountAndValueBoundaries() {
         doThrow(
                         new CdsExportReviewException(

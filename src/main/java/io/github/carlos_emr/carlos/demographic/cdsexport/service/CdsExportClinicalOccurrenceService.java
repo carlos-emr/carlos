@@ -429,9 +429,14 @@ public class CdsExportClinicalOccurrenceService {
         String table = category == CdsCategory.MEDICATIONS_AND_TREATMENTS ? "drugs" : "allergies",
                 idColumn = table.equals("drugs") ? "drugid" : "allergyid";
         var tables = Set.copyOf(requiredTables);
+        // A prescription's reasons are part of it: a medication capture without them would drop
+        // every indication silently.
         if (!tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(Set.of(table, "partial_date"))
-                || table.equals("drugs") && !tables.contains("provider")) scope();
+                || table.equals("drugs")
+                        && !tables.containsAll(
+                                Set.of("provider", CdsExportMedicationReasonMapper.TABLE)))
+            scope();
         if (source.capture().tables().get(table).rows() > bounds.nativeRows()) limit();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
@@ -487,6 +492,7 @@ public class CdsExportClinicalOccurrenceService {
                     var providers = lookups.providers();
                     var references = lookups.references();
                     var referenceRows = Map.copyOf(references);
+                    var reasons = lookups.reasons();
                     var usedFields = new HashSet<String>();
                     var finished =
                             rows.forEach(
@@ -512,6 +518,8 @@ public class CdsExportClinicalOccurrenceService {
                                                 fields;
                                         CdsExportXmlComposer.Content content;
                                         Set<String> kept = Set.of(), replaced = Set.of();
+                                        var indications = reasons.remove(id);
+                                        if (indications == null) indications = List.of();
                                         if (table.equals("drugs")) {
                                             if (importedUnit == null) {
                                                 var mapping =
@@ -521,7 +529,8 @@ public class CdsExportClinicalOccurrenceService {
                                                                         row,
                                                                         dates,
                                                                         providers,
-                                                                        references.remove(id));
+                                                                        references.remove(id),
+                                                                        indications);
                                                 fields = mapping.fields();
                                                 content =
                                                         writer ->
@@ -541,17 +550,32 @@ public class CdsExportClinicalOccurrenceService {
                                                                         providers);
                                                 if (!decision.mapping().nativeRowRepresentable())
                                                     review();
-                                                var plan =
+                                                // The importer writes no drugReason: every
+                                                // reason here was recorded in CARLOS later.
+                                                var added =
+                                                        new CdsExportMedicationReasonMapper()
+                                                                .map(
+                                                                        patient.patient(),
+                                                                        row,
+                                                                        indications);
+                                                var assembly =
                                                         new CdsExportMedicationRetainedAssembler()
                                                                 .prepare(
                                                                         patient.patient(),
                                                                         decision,
+                                                                        added,
                                                                         index,
                                                                         checked,
                                                                         retained,
                                                                         streams,
                                                                         control::checkpoint);
-                                                fields = decision.mapping().fields();
+                                                var plan = assembly.prepared();
+                                                var decided =
+                                                        new HashMap<>(decision.mapping().fields());
+                                                decided.putAll(
+                                                        added.fields(
+                                                                assembly.problemCodeWritten()));
+                                                fields = decided;
                                                 content = plan.content();
                                                 kept = plan.retainedFields();
                                                 replaced = plan.replacedFields();
@@ -602,6 +626,7 @@ public class CdsExportClinicalOccurrenceService {
                                             var reference = referenceRows.get(id);
                                             if (reference != null && importedUnit == null)
                                                 assessedRows.add(reference);
+                                            assessedRows.addAll(indications);
                                             String provider = row.fields().get("provider_no");
                                             if (provider != null && !provider.isEmpty()) {
                                                 var resolved = providers.get(provider);
@@ -651,6 +676,7 @@ public class CdsExportClinicalOccurrenceService {
                             || !precision.isEmpty()
                             || !exact.isEmpty()
                             || !references.isEmpty()
+                            || !reasons.isEmpty()
                             || counts[0] != source.capture().tables().get(table).rows()) scope();
                     if (!imported.isEmpty()) review();
                     var expectedFields = new HashSet<String>();
@@ -674,7 +700,8 @@ public class CdsExportClinicalOccurrenceService {
     private record Lookups(
             Map<String, List<CdsExportCapturedTextRowDto>> precision,
             Map<String, CdsExportCapturedTextRowDto> providers,
-            Map<String, CdsExportCapturedTextRowDto> references) {
+            Map<String, CdsExportCapturedTextRowDto> references,
+            Map<String, List<CdsExportCapturedTextRowDto>> reasons) {
         @Override
         public String toString() {
             return "Lookups[protected]";
@@ -693,11 +720,13 @@ public class CdsExportClinicalOccurrenceService {
         var precision = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         var providers = new HashMap<String, CdsExportCapturedTextRowDto>();
         var references = new HashMap<String, CdsExportCapturedTextRowDto>();
+        var reasons = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
         long[] lookup = new long[2];
         var lookupTables = new HashSet<String>();
         lookupTables.add("partial_date");
         if (table.equals("drugs")) {
             lookupTables.add("provider");
+            lookupTables.add(CdsExportMedicationReasonMapper.TABLE);
             if (tables.contains("medication_reference")) lookupTables.add("medication_reference");
         }
         var first =
@@ -724,6 +753,15 @@ public class CdsExportClinicalOccurrenceService {
                             if (row.table().equals("medication_reference")) {
                                 String id = row.fields().get("drugid");
                                 if (id == null || references.putIfAbsent(id, row) != null) scope();
+                                return;
+                            }
+                            // Grouped by their prescription; one with no exported prescription
+                            // is refused after the occurrences (a reason is never left behind).
+                            if (row.table().equals(CdsExportMedicationReasonMapper.TABLE)) {
+                                String drug = row.fields().get("drugId");
+                                if (drug == null) scope();
+                                reasons.computeIfAbsent(drug, ignored -> new ArrayList<>())
+                                        .add(row);
                                 return;
                             }
                             if (row.table().equals("provider")) {
@@ -761,7 +799,7 @@ public class CdsExportClinicalOccurrenceService {
                                     .add(row);
                         });
         if (!first.equals(source.capture())) scope();
-        return new Lookups(precision, providers, references);
+        return new Lookups(precision, providers, references, reasons);
     }
 
     private Map<String, CdsExportNativeRowReceiptDto> scanWitnesses(

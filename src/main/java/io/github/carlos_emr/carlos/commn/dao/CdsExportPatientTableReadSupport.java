@@ -692,6 +692,30 @@ public final class CdsExportPatientTableReadSupport {
                         "unit",
                         "unitName",
                         "written_date")),
+        /**
+         * The indications (reasons) of the patient's prescriptions, archived ones included. A
+         * reason belongs to the chart only when its own {@code demographicNo} and the owner of
+         * its {@code drugId} are both the patient;
+         * {@link CdsExportPatientTableReadSupport#requireLocalDrugReasonAssociations} refuses a
+         * reason on which the two disagree, or whose drug is missing, before any row is read, so
+         * no reason is left outside every chart's capture.
+         */
+        DRUG_REASONS(
+                "drugReason",
+                "id",
+                "demographicNo",
+                List.of(
+                        "archivedFlag",
+                        "archivedReason",
+                        "code",
+                        "codingSystem",
+                        "comments",
+                        "dateCoded",
+                        "demographicNo",
+                        "drugId",
+                        "id",
+                        "primaryReasonFlag",
+                        "providerNo")),
         ALLERGIES(
                 "allergies",
                 "allergyid",
@@ -1208,6 +1232,11 @@ public final class CdsExportPatientTableReadSupport {
                                 ? medications
                                 : "(" + allergies + " or " + medications + ")";
             }
+            // Both owners must be the patient. The drugs index on demographic_no and the
+            // drugReason index on drugId drive the semi-join; drugReason has no demographicNo index.
+            if (this == DRUG_REASONS)
+                return "d.`demographicNo`=:patient and d.`drugId` in (select x.`drugid` from"
+                        + " `drugs` x where x.`demographic_no`=:patient)";
             if (this == IMPORT_FIELDS)
                 return "d.`demographic_no`=:patient and d.`category` in (:categories)";
             if (this == IMPORT_RUNS)
@@ -1378,6 +1407,9 @@ public final class CdsExportPatientTableReadSupport {
     /** Transaction resource key for the patients whose measurement associations were proven. */
     private static final Object MEASUREMENT_ASSOCIATIONS = new Object();
 
+    /** Transaction resource key for the patients whose drug reason associations were proven. */
+    private static final Object DRUG_REASON_ASSOCIATIONS = new Object();
+
     /**
      * The association check scans measurementsDeleted, which has no index on originalId or
      * demographicNo, and every count, page and chunk call of the four measurement DAOs runs it.
@@ -1386,32 +1418,83 @@ public final class CdsExportPatientTableReadSupport {
      * for that transaction only. Any other transaction checks on every call, as before.
      */
     private static boolean measurementAssociationsVerified(int patient) {
+        return associationsVerified(MEASUREMENT_ASSOCIATIONS, patient);
+    }
+
+    private static void rememberMeasurementAssociations(int patient) {
+        rememberAssociations(MEASUREMENT_ASSOCIATIONS, patient);
+    }
+
+    /** True when this snapshot transaction already proved the associations named by {@code key}. */
+    private static boolean associationsVerified(Object key, int patient) {
         if (!snapshotTransaction()) return false;
-        return TransactionSynchronizationManager.getResource(MEASUREMENT_ASSOCIATIONS)
+        return TransactionSynchronizationManager.getResource(key)
                         instanceof java.util.Set<?> verified
                 && verified.contains(patient);
     }
 
     @SuppressWarnings("unchecked")
-    private static void rememberMeasurementAssociations(int patient) {
+    private static void rememberAssociations(Object key, int patient) {
         if (!snapshotTransaction() || !TransactionSynchronizationManager.isSynchronizationActive())
             return;
-        var verified =
-                (java.util.Set<Integer>)
-                        TransactionSynchronizationManager.getResource(MEASUREMENT_ASSOCIATIONS);
+        var verified = (java.util.Set<Integer>) TransactionSynchronizationManager.getResource(key);
         if (verified == null) {
             verified = new java.util.HashSet<>();
-            TransactionSynchronizationManager.bindResource(MEASUREMENT_ASSOCIATIONS, verified);
+            TransactionSynchronizationManager.bindResource(key, verified);
             TransactionSynchronizationManager.registerSynchronization(
                     new org.springframework.transaction.support.TransactionSynchronization() {
                         @Override
                         public void afterCompletion(int status) {
-                            TransactionSynchronizationManager.unbindResourceIfPossible(
-                                    MEASUREMENT_ASSOCIATIONS);
+                            TransactionSynchronizationManager.unbindResourceIfPossible(key);
                         }
                     });
         }
         verified.add(patient);
+    }
+
+    /**
+     * A drug reason belongs to a chart only when its {@code demographicNo} and the owner of its
+     * {@code drugId} are both that chart ({@link Plan#DRUG_REASONS}). CARLOS writes a reason only
+     * on the patient's own drug ({@code RxReason2Action}, {@code RxWriteScript2Action}), so a
+     * reason on which the two disagree, or whose drug no longer exists, is shown in two charts
+     * (the drug's prescription list and the named patient's flowsheet) or in none: it holds the
+     * drug's owner and the named patient alike instead of being left out of both captures.
+     *
+     * <p>The second probe scans drugReason, which has no demographicNo index; like the
+     * measurement check it runs once per patient in a read-only snapshot transaction.</p>
+     */
+    public static void requireLocalDrugReasonAssociations(EntityManager em, int patient) {
+        patient(patient);
+        if (associationsVerified(DRUG_REASON_ASSOCIATIONS, patient)) return;
+        var foreignOwner =
+                query(
+                                em,
+                                """
+                                select 1,1 from drugs x join drugReason r on r.drugId=x.drugid
+                                where x.demographic_no=:patient and r.demographicNo<>:patient
+                                """)
+                        .setParameter("patient", patient)
+                        .setMaxResults(1)
+                        .getResultList();
+        var foreignDrug =
+                foreignOwner.isEmpty()
+                        ? query(
+                                        em,
+                                        """
+                                        select 1,1 from drugReason r where r.demographicNo=:patient
+                                        and not exists (select 1 from drugs x where x.drugid=r.drugId
+                                        and x.demographic_no=:patient)
+                                        """)
+                                .setParameter("patient", patient)
+                                .setMaxResults(1)
+                                .getResultList()
+                        : foreignOwner;
+        if (!foreignOwner.isEmpty() || !foreignDrug.isEmpty())
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportReviewException(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+        rememberAssociations(DRUG_REASON_ASSOCIATIONS, patient);
     }
 
     private static boolean snapshotTransaction() {

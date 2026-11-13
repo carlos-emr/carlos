@@ -35,7 +35,13 @@ import java.util.List;
 
 import io.github.carlos_emr.carlos.commn.model.DrugReason;
 
-public interface DrugReasonDao extends AbstractDao<DrugReason> {
+/**
+ * Indications (reasons) of a prescription. The CDS export reads a patient's reasons through
+ * {@link CdsExportPatientTableReadSupport.Plan#DRUG_REASONS}, after proving that every reason it
+ * could miss agrees with its drug's owner
+ * ({@link CdsExportPatientTableReadSupport#requireLocalDrugReasonAssociations}).
+ */
+public interface DrugReasonDao extends AbstractDao<DrugReason>, CdsExportPatientTableReadDao {
 
     boolean addNewDrugReason(DrugReason d);
 

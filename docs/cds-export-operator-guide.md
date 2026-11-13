@@ -245,6 +245,20 @@ and a registry entry is two records in CARLOS and is sent as two ProblemList ite
 ProblemList requires read access to `_dxresearch` (the Disease Registry), which by default only
 the doctor role has; admission refuses a missing one by name.
 
+A prescription's reasons (indications, the Reason link on the Rx page) are exported with it.
+Every reason the chart shows travels in full in the CARLOS extension
+`CARLOS.Medication.Reasons.v1`: its coding system, code, comments, primary flag, the provider who
+recorded it and the date. The standard ProblemCode holds a single ICD-9 code with no coding
+system, so it carries the code of the reason that is the prescription's indication: the reason
+marked primary, or the only reason when none is marked (the Rx page does not mark the reasons it
+records). It is left out when several reasons compete, or the code is not ICD-9 or does not fit
+its ten characters; the reasons are still in the extension. Archived reasons are shown nowhere in
+CARLOS and are not exported; they do not hold the patient. On a medication that came from an
+earlier CDS import, the sending EMR's ProblemCode is kept as it was and reasons recorded in CARLOS
+are added beside it. A reason whose patient differs from its prescription's patient, or whose
+prescription no longer exists, holds both charts (`CDS_EXPORT_AMBIGUOUS_SOURCE`); CARLOS does not
+write such a reason, so it means the data was changed outside CARLOS and needs correcting.
+
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name
 and complete compound-strength text remain intact; the standard strength uses the

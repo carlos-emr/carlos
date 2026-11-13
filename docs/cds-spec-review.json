@@ -3017,12 +3017,13 @@
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
     "medication-native-residual-extensions": {
-      "destination": "The exact CARLOS.Medication.Archived.v1 boolean carrier preserves native Drug.archived independently of clinical PrescriptionStatus/currentness. Complete native prescription context and all unknown residual names remain protected source values.",
+      "destination": "The exact CARLOS.Medication.Archived.v1 boolean carrier preserves native Drug.archived independently of clinical PrescriptionStatus/currentness. Complete native prescription context and all unknown residual names remain protected source values. A prescription's drugReason rows the chart shows (archivedFlag 0) are exported whole in the CARLOS.Medication.Reasons.v1 string carrier (token-safe JSON, SQL NULL and empty distinct); the indication's ICD-9 code (the one active primary reason, else the only active reason) is ProblemCode when it is one to ten printable characters without spaces. On an imported medication the sender's ProblemCode is never replaced or repeated: CARLOS reasons are added beside it, and their ProblemCode only when the source occurrence has none.",
       "disposition": "native-and-source",
       "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
       "implementation": [
         "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java",
+        "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationReasonMapper.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsMedicationNativeDto.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsClinicalNormalizationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java",
@@ -3032,7 +3033,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java"
       ],
-      "normalization": "Only CARLOS.Medication.Archived.v1 is interpreted as a native archive flag. Its complete Name/DataType/Content group must have boolean type and true/false/1/0 content, with no duplicate known marker. Unknown vendor names and the CARLOS.Medication.Source.v1 JSON context remain opaque protected source; they never establish DIN authority, strength, dose, authorship or clinical currentness. Explicit native archive true supplements existing clinical historical archiving and never changes clinical PrescriptionStatus. A missing optional archive flag defaults false only AFTER verifying the original prepared payload bytes and seal. New false values remain omitted from serialized preparations for byte compatibility. Native export preserves all drugs fields, exact numeric witnesses, unknown status and nonstandard regimen/source details; it writes only established values into standard fields. Regional identifiers lacking an authority discriminator remain explicitly UNQUALIFIED in source context, never standard DIN.",
+      "normalization": "Only CARLOS.Medication.Archived.v1 is interpreted as a native archive flag. Its complete Name/DataType/Content group must have boolean type and true/false/1/0 content, with no duplicate known marker. Unknown vendor names and the CARLOS.Medication.Source.v1 JSON context remain opaque protected source; they never establish DIN authority, strength, dose, authorship or clinical currentness. Explicit native archive true supplements existing clinical historical archiving and never changes clinical PrescriptionStatus. A missing optional archive flag defaults false only AFTER verifying the original prepared payload bytes and seal. New false values remain omitted from serialized preparations for byte compatibility. Native export preserves all drugs fields, exact numeric witnesses, unknown status and nonstandard regimen/source details; it writes only established values into standard fields. Regional identifiers lacking an authority discriminator remain explicitly UNQUALIFIED in source context, never standard DIN. The importer does not interpret CARLOS.Medication.Reasons.v1 or ProblemCode and writes no drugReason; both remain retained source fields.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 section 10 (MedicationsAndTreatments)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3055,6 +3056,7 @@
       ],
       "testScope": "Named tests cover representative projections, refusal and reader semantics. The separate all-choice corpus proves every listed structural path reaches the real schema validator/parser; it does not claim a native round-trip assertion per leaf.",
       "tests": [
+        "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationReasonMapperUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapperUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/CdsXmlParserUnitTest.java",
         "src/test/java/io/github/carlos_emr/carlos/demographic/cdsimport/assembler/CdsSourceFieldsViewModelAssemblerUnitTest.java",
@@ -3959,7 +3961,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7361c58b4e786c59f47a9e171e793ffb22b5b295bc04cde259641818178b5d24",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "113f4e787652fed3e451ea6b7211e0763d0472dd080483f19907eafff4435d7b",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "eac0407d47d720d0a0fbda720c8da65a83e875c52e7108ff076e1493224e49ac",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPatientStatusLabels.java": "72b2b720de7a371ac3a05a1754288f552b58080a9dc6856965a5e049c4766701",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "c76dd4f71330ec1a7195498a635234f686fa5ce8c24150701807b83d3f76bcb5",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": "acf6c0755d5e794e3ed2576afb82ff7f5985747781c91a1b2a2bd3ea175d7c48",
@@ -3967,7 +3969,8 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceLookupService.java": "5e2b1905b882627033f4c30e8cecc203f43b0c9ca7919d3160edd7f0427113f1",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceProjectionService.java": "c2085c72cd13965a577731eadb067fe82f744980818ba0a234ad72d8eb53a357",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportDrugReferenceSourceReader.java": "b6c198929cbd84627e4c3409a7e7dcd70d8aa16fe6e3454d63dfb20fd99b0d9d",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java": "285b63ed93081e1930d36d05e9cec7bf4c3272f2023c9a4abb6bd13ea9617dc1",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportMedicationReasonMapper.java": "a47a73c7b23cfa42f6bc7041e34b6aaf4bd77d664f7e3bd3be4b1b4e312e953f",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/service/CdsExportNativeMedicationMapper.java": "959a69f0613215ea1a5270cc23d51e92750a186a95fce298d5c47b6eb37ce037",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsAllergyDto.java": "dcb507f86973af575249c66d2ab182dbb0a6fd0c2863520a61c9917adcf1ea06",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsDemographicNativeDto.java": "3f903623636da5d822c5d539167f4efbb10220f0c8ef69727e698460c3e5e911",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsHistoryNativeDto.java": "e193e07f9a4737553b8cdbcdcb8aeb082deb054382e735b1bf741f89e47cd6a0",

@@ -25,9 +25,29 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /** Reconciled standard prescription fields plus every untouched retained extension, in one authenticated source occurrence. */
 public final class CdsExportMedicationRetainedAssembler {
+    private static final Pattern DATA_ELEMENT =
+            Pattern.compile("ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]{0,17})\\](?:/.*)?");
+
+    /**
+     * The prepared occurrence and whether it carries the CARLOS indication's code as a new
+     * ProblemCode (false when there is none, or the imported medication keeps its own).
+     */
+    public record Assembly(
+            CdsExportRetainedSectionWriter.Prepared prepared, boolean problemCodeWritten) {
+        public Assembly {
+            Objects.requireNonNull(prepared);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportMedicationRetainedAssembler.Assembly[protected]";
+        }
+    }
+
     public CdsExportRetainedSectionWriter.Prepared prepare(
             int patient,
             CdsExportMedicationFieldReconciler.Result decision,
@@ -37,6 +57,37 @@ public final class CdsExportMedicationRetainedAssembler {
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
+        return prepare(
+                        patient,
+                        decision,
+                        CdsExportMedicationReasonMapper.Result.NONE,
+                        index,
+                        checked,
+                        allFields,
+                        values,
+                        checkpoint)
+                .prepared();
+    }
+
+    /**
+     * As the reasonless form, with the indications recorded in CARLOS on the imported medication.
+     * The CDS importer never writes {@code drugReason}, so every one was added after the import.
+     * All of them are added to the original occurrence as one more
+     * {@code CARLOS.Medication.Reasons.v1} residual element beside the sender's untouched
+     * residual data, and the indication's ICD-9 code becomes ProblemCode only when the source
+     * occurrence has none: an original ProblemCode is never replaced or repeated.
+     */
+    public Assembly prepare(
+            int patient,
+            CdsExportMedicationFieldReconciler.Result decision,
+            CdsExportMedicationReasonMapper.Result reasons,
+            CdsExportRetainedIndexDto index,
+            CdsExportRetainedReceiptVerificationDto checked,
+            List<CdsExportRetainedFieldDto> allFields,
+            CdsExportRetainedSectionWriter.Values values,
+            Runnable checkpoint)
+            throws IOException {
+        Objects.requireNonNull(reasons);
         Objects.requireNonNull(values);
         Objects.requireNonNull(checkpoint);
         values.requireActive();
@@ -84,10 +135,66 @@ public final class CdsExportMedicationRetainedAssembler {
                 changes.add(
                         new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
         }
+        boolean problemCodeWritten =
+                reasons.problemCode() != null && ids(relative, "ProblemCode[1]").isEmpty();
+        if (problemCodeWritten) {
+            String code = reasons.problemCode();
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "ProblemCode[1]", Set.of(), xml -> xml.text(code)));
+        }
+        if (reasons.residual() != null) residual(relative, reasons.residual(), changes, checkpoint);
         values.requireActive();
         checkpoint.run();
-        return new CdsExportRetainedSectionWriter()
-                .prepareChanges(fields, values, changes, checkpoint);
+        return new Assembly(
+                new CdsExportRetainedSectionWriter()
+                        .prepareChanges(fields, values, changes, checkpoint),
+                problemCodeWritten);
+    }
+
+    /**
+     * Adds the reasons carrier after the occurrence's own residual elements, or as a new
+     * ResidualInfo when it has none (an empty source ResidualInfo is replaced, as the allergy
+     * assembler does). Existing elements, an earlier CARLOS export's reasons included, stay
+     * untouched.
+     */
+    private static void residual(
+            Map<String, CdsExportRetainedFieldDto> relative,
+            String content,
+            List<CdsExportRetainedSectionWriter.Change> changes,
+            Runnable checkpoint) {
+        boolean present = false;
+        long maximum = 0;
+        for (String path : relative.keySet()) {
+            checkpoint.run();
+            if (!path.equals("ResidualInfo[1]") && !path.startsWith("ResidualInfo[1]/")) continue;
+            present = true;
+            var match = DATA_ELEMENT.matcher(path);
+            if (match.matches()) maximum = Math.max(maximum, Long.parseLong(match.group(1)));
+        }
+        if (!present || relative.containsKey("ResidualInfo[1]"))
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "ResidualInfo[1]",
+                            ids(relative, "ResidualInfo[1]"),
+                            xml -> {
+                                xml.start("cds_dt", "DataElement");
+                                reasons(xml, content);
+                                xml.end();
+                            }));
+        else
+            changes.add(
+                    new CdsExportRetainedSectionWriter.Change(
+                            "ResidualInfo[1]/DataElement[" + (maximum + 1) + "]",
+                            Set.of(),
+                            xml -> reasons(xml, content)));
+    }
+
+    private static void reasons(CdsExportXmlComposer.ContentWriter xml, String content)
+            throws IOException {
+        xml.element("cds_dt", "Name", CdsNativeExtensionContract.MEDICATION_REASONS);
+        xml.element("cds_dt", "DataType", CdsNativeExtensionContract.STRING_TYPE);
+        xml.element("cds_dt", "Content", content);
     }
 
     private static boolean preservedPart(Set<String> prepared, String part) {
@@ -106,7 +213,9 @@ public final class CdsExportMedicationRetainedAssembler {
         date(result, "StartDate", value.start(), false);
         for (var field : CdsExportMedicationDto.Field.values()) {
             // ProblemCode is standard source-only content not represented by the historical
-            // medication preparation; preserve its original field rather than deleting it.
+            // medication preparation (the importer writes no drugReason), and the reconciled
+            // value never carries one; preserve the original field rather than deleting it. A
+            // reason recorded in CARLOS later is added by prepare(), never over the original.
             if (field == CdsExportMedicationDto.Field.ProblemCode) continue;
             String text = value.fields().get(field);
             result.put(

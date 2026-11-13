@@ -197,6 +197,8 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportDemographicCustSourceReader.class,
     CdsExportAllergySourceReader.class,
     CdsExportMedicationSourceReader.class,
+    io.github.carlos_emr.carlos.commn.dao.DrugReasonDaoImpl.class,
+    CdsExportMedicationReasonSourceReader.class,
     CdsExportDrugReferenceSourceReader.class,
     CdsExportDrugReferenceProjectionService.class,
     CdsExportDrugReferenceLookupService.class,

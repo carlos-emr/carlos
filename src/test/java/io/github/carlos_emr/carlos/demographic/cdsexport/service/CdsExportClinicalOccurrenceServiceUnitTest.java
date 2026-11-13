@@ -269,6 +269,108 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
     }
 
     @Test
+    void shouldExportANativeMedicationsIndication_asProblemCodeWithAReceiptForEveryReasonField()
+            throws Exception {
+        var f = nativeMedication();
+        var archived = CdsExportMedicationReasonMapperUnitTest.reason(4, "icd9", "401", "1");
+        archived.put("archivedFlag", "1");
+        archived.put("archivedReason", "Wrong drug");
+        f.lookupRows =
+                List.of(
+                        CdsExportMedicationReasonMapperUnitTest.row(
+                                CdsExportMedicationReasonMapperUnitTest.reason(
+                                        3, "icd9", "250", "0")),
+                        CdsExportMedicationReasonMapperUnitTest.row(archived));
+        var records = parse(compose(f, false), MEDICATION, "native-medication-reason");
+        assertThat(new CdsFieldParser().firstToken(records.get(1), "ProblemCode", 100))
+                .isEqualTo("250");
+        assertThat(f.receipts).hasSize(1);
+        var reasonFields =
+                f.receipts.getFirst().fields().entrySet().stream()
+                        .filter(entry -> entry.getKey().table().equals("drugReason"))
+                        .toList();
+        assertThat(reasonFields).hasSize(22);
+        assertThat(reasonFields)
+                .anySatisfy(
+                        entry -> {
+                            assertThat(entry.getKey().column()).isEqualTo("code");
+                            assertThat(entry.getValue().destination()).isEqualTo("ProblemCode");
+                        });
+    }
+
+    @Test
+    void shouldAddAReasonRecordedAfterTheImport_withoutReplacingTheOriginalProblemCode()
+            throws Exception {
+        var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        var retained = CdsExportMedicationRetainedAssemblerUnitTest.fixture(current);
+        var nativeSource =
+                CdsExportMedicationFieldReconcilerUnitTest.fixture(
+                        current, CdsExportMedicationFieldReconcilerUnitTest.numbers(), true);
+        var f =
+                fixture(
+                        MEDICATION,
+                        retained.index(),
+                        retained.checked(),
+                        retained.fields(),
+                        List.of(nativeSource.row()),
+                        List.of(nativeSource.witness()));
+        f.lookupRows =
+                List.of(
+                        CdsExportMedicationReasonMapperUnitTest.row(
+                                CdsExportMedicationReasonMapperUnitTest.reason(
+                                        3, "icd9", "250", "1")));
+        byte[] xml = compose(f, false);
+        var records = parse(xml, MEDICATION, "imported-medication-reason");
+        assertThat(new CdsFieldParser().firstToken(records.get(1), "ProblemCode", 100))
+                .isEqualTo("B01");
+        assertThat(new String(xml, java.nio.charset.StandardCharsets.UTF_8))
+                .contains("CARLOS.Medication.Reasons.v1", "Vendor café 😀 content");
+        assertThat(f.result.retainedSourceFields()).isEqualTo(retained.fields().size());
+        assertThat(f.receipts.getFirst().fields().keySet())
+                .filteredOn(field -> field.table().equals("drugReason"))
+                .hasSize(11);
+    }
+
+    @Test
+    void shouldRefuseAReasonOfNoExportedPrescription_orAMedicationCaptureWithoutReasons()
+            throws Exception {
+        var orphan = nativeMedication();
+        var foreign = CdsExportMedicationReasonMapperUnitTest.reason(3, "icd9", "250", "1");
+        foreign.put("drugId", "52");
+        orphan.lookupRows = List.of(CdsExportMedicationReasonMapperUnitTest.row(foreign));
+        assertThatThrownBy(() -> compose(orphan, false))
+                .hasMessage("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
+        var withoutReasons = nativeMedication();
+        withoutReasons.source.capture().tables().remove("drugReason");
+        withoutReasons.tables = Set.copyOf(withoutReasons.source.capture().tables().keySet());
+        assertThatThrownBy(() -> compose(withoutReasons, false))
+                .hasMessage("CDS_EXPORT_OCCURRENCE_ASSEMBLY_SCOPE_INVALID");
+        assertThat(withoutReasons.receipts).isEmpty();
+    }
+
+    private Fixture nativeMedication() throws Exception {
+        var row =
+                CdsExportMedicationMapperUnitTest.medication(
+                        CdsExportNativeMedicationMapperUnitTest.source());
+        var index =
+                new CdsExportRetainedIndexDto(
+                        SOURCE,
+                        0,
+                        0,
+                        Map.of("cds_import_unit", Map.of(), "cds_import_field", Map.of()),
+                        Set.of(),
+                        Map.of(),
+                        Map.of());
+        return fixture(
+                MEDICATION,
+                index,
+                new CdsExportRetainedReceiptVerificationDto(SOURCE, Map.of(), Set.of(), Set.of()),
+                List.of(),
+                List.of(row),
+                List.of(new CdsExportNativeRowReceiptDto("drugs", "51", row.recordKey(), "c".repeat(64))));
+    }
+
+    @Test
     void shouldRefuseMissingDuplicateOrOrphanRows_insteadOfReturningACompletePatientDocument()
             throws Exception {
         var missing = nativeOnly();
@@ -697,13 +799,20 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
                                         .columns()),
                         0,
                         "c".repeat(64)));
-        if (category == MEDICATION)
+        if (category == MEDICATION) {
             scopes.put(
                     "provider",
                     new CdsExportCapturedTableDto(
                             io.github.carlos_emr.carlos.commn.dto.CdsExportProviderRowDto.COLUMNS,
                             0,
                             "c".repeat(64)));
+            scopes.put(
+                    "drugReason",
+                    new CdsExportCapturedTableDto(
+                            Set.copyOf(CdsExportPatientTableReadSupport.Plan.DRUG_REASONS.columns()),
+                            0,
+                            "c".repeat(64)));
+        }
         for (var entry : index.tables().entrySet())
             scopes.put(
                     entry.getKey(),

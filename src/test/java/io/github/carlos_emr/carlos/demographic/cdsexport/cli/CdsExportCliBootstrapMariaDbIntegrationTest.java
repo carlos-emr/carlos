@@ -134,6 +134,12 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
                             io.github.carlos_emr.carlos.demographic.cdsexport.service
                                     .CdsExportProblemRegistryOccurrenceService.class))
                 assertThat(context.getBean(registry)).isNotNull();
+            // MedicationsAndTreatments requires the prescriptions' reasons in the CLI too.
+            assertThat(
+                            context.getBean(
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                            .CdsExportMedicationReasonSourceReader.class))
+                    .isNotNull();
             assertThat(
                             context.getBean(
                                     io.github.carlos_emr.carlos.demographic.cdsexport.service

@@ -2390,6 +2390,51 @@ after the original payload seal has been verified. Unknown residual context rema
 source, with the receiving importer's existing clinical-reconciliation diagnostics; this is
 not a claim that another vendor will interpret CARLOS extensions.
 
+Medication reasons (indications, `drugReason`) are exported with their prescription (review
+finding P3). The table used to be ruled `REFERENCE` as if it were global terminology, so no
+ProblemCode was ever written and no reason was accounted. It is now `MAPPED_SOURCE` in the
+MedicationsAndTreatments scope, read by `CdsExportMedicationReasonSourceReader` through
+`DrugReasonDao` and `Plan.DRUG_REASONS`: every reason, archived ones included, whose
+`demographicNo` is the patient and whose `drugId` is one of the patient's `drugs` rows.
+CARLOS writes a reason only on the patient's own drug (`RxReason2Action` checks the drug's owner,
+`RxWriteScript2Action` files the prescription's own reason), so
+`CdsExportPatientTableReadSupport.requireLocalDrugReasonAssociations` refuses, before any row is
+read, a reason whose two owners disagree (it would show on the drug owner's Rx profile and on the
+named patient's flowsheet) or whose drug is missing: both the drug's owner and the named patient
+are held with `CDS_EXPORT_AMBIGUOUS_SOURCE`, so no reason is left outside every capture. The
+second probe scans `drugReason`, which has no `demographicNo` index; like the measurement check
+it runs once per patient in each read-only REPEATABLE READ capture snapshot.
+`CdsExportClinicalOccurrenceService` requires the capture with every medication export, groups
+the reasons by prescription and refuses a reason of no exported prescription;
+`CdsExportMedicationReasonMapper` decides each field:
+
+- CARLOS shows a reason while its `archivedFlag` is 0 (the Rx profile, the prescription record,
+  the flowsheet and BPMH all read `archivedFlag = false`). Every such reason travels whole in
+  `CARLOS.Medication.Reasons.v1` (`DataType` string): one JSON object per reason in id order with
+  its coding system, code, comments, primary and archived flags, archive reason, recording
+  provider number and coded date, SQL NULL and empty text distinct and every space escaped as
+  ` `. The row id, drug id and patient are operational identities and stay out.
+- CDS 5.2 ProblemCode (`text10`, at most one, no coding system) carries the code of the
+  prescription's indication: the one active reason flagged primary, or, when none is flagged,
+  the only active reason. The Rx page files the reasons it records with a prescription unflagged,
+  so requiring the primary flag would leave almost every ProblemCode out; the legacy exporter
+  wrote the first active reason's code. The code is written only for coding system `icd9` (the
+  system a receiver reads ProblemCode as) and only as one to ten printable characters without
+  spaces. Two flagged or two unflagged candidates, a primary flag CARLOS does not write, an
+  overlong or spaced code and an ICD-10, SNOMED CT, ICHPPC or MSP code leave ProblemCode out;
+  the reason is still exported whole in the residual.
+- An archived reason (any other `archivedFlag`; the Rx reason page writes 1 with the archive
+  reason the clinician typed) is shown nowhere in CARLOS and was never exported by the legacy
+  exporter: every field gets `ARCHIVED_DRUG_REASON_NOT_SHOWN_IN_CHART` and it holds no one.
+- An imported medication: the CDS importer writes no `drugReason` (an incoming ProblemCode stays
+  only in its retained source fields), so every reason on an imported drug was recorded in CARLOS
+  after the import. `CdsExportMedicationRetainedAssembler` still never rewrites or deletes the
+  sender's ProblemCode, which the historical preparation does not represent. It adds the CARLOS
+  reasons as one more `CARLOS.Medication.Reasons.v1` element after the sender's residual elements
+  (or as a new ResidualInfo), and writes the indication's code as ProblemCode only when the source
+  occurrence has none. The original ProblemCode is therefore never lost or written twice, and a
+  later reason is never dropped; the field decisions record which of the two happened.
+
 The owning `PrescriptionDao` also captures printed script text, comments and reprint history,
 including scripts without remaining drug rows. Independent inventory accounts for every
 parent as `CARLOS.NativePrescription.v1` supporting clinical data. Select `NewCategory` with

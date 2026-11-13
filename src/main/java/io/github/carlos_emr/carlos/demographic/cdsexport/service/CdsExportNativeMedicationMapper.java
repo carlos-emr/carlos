@@ -50,11 +50,16 @@ public final class CdsExportNativeMedicationMapper {
                     "CONFLICTING_NATIVE_DOSE_UNITS",
                     "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT");
 
+    /**
+     * One mapped prescription. {@code reasons} is the {@code CARLOS.Medication.Reasons.v1}
+     * content, or null when the chart shows no indication for it.
+     */
     public record Result(
             CdsExportMedicationDto value,
             String metadata,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
-            boolean archived) {
+            boolean archived,
+            String reasons) {
         public Result {
             fields = Map.copyOf(fields);
         }
@@ -80,6 +85,23 @@ public final class CdsExportNativeMedicationMapper {
             List<CdsExportCapturedTextRowDto> precision,
             Map<String, CdsExportCapturedTextRowDto> providers,
             CdsExportCapturedTextRowDto referenceRow)
+            throws IOException {
+        return map(patient, row, precision, providers, referenceRow, List.of());
+    }
+
+    /**
+     * As {@link #map(int, CdsExportCapturedTextRowDto, List, Map, CdsExportCapturedTextRowDto)},
+     * with the prescription's captured {@code drugReason} rows: the indication's ICD-9 code
+     * becomes ProblemCode when it fits, and every reason the chart shows travels in
+     * {@code CARLOS.Medication.Reasons.v1} ({@link CdsExportMedicationReasonMapper}).
+     */
+    public Result map(
+            int patient,
+            CdsExportCapturedTextRowDto row,
+            List<CdsExportCapturedTextRowDto> precision,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            CdsExportCapturedTextRowDto referenceRow,
+            List<CdsExportCapturedTextRowDto> reasonRows)
             throws IOException {
         var candidate =
                 new CdsExportMedicationMapper().candidate(patient, row, precision, providers);
@@ -263,6 +285,10 @@ public final class CdsExportNativeMedicationMapper {
         details.put("currentness", knownStatus ? status : "UNESTABLISHED");
         String metadata = JsonMapper.builder().build().writeValueAsString(details);
         if (!CdsExportNativeFieldAssessments.legal(metadata, 1 << 24)) review();
+        var reasons = new CdsExportMedicationReasonMapper().map(patient, row, reasonRows);
+        if (reasons.problemCode() != null)
+            values.put(Field.ProblemCode, reasons.problemCode());
+        fields.putAll(reasons.fields(reasons.problemCode() != null));
         var value =
                 new CdsExportMedicationDto(
                         candidate.written(),
@@ -272,7 +298,7 @@ public final class CdsExportNativeMedicationMapper {
                         candidate.prescriber(),
                         values);
         CdsExportMedicationXmlWriter.validate(value);
-        return new Result(value, metadata, fields, archived);
+        return new Result(value, metadata, fields, archived, reasons.residual());
     }
 
     /**
@@ -398,6 +424,12 @@ public final class CdsExportNativeMedicationMapper {
                             CdsNativeExtensionContract.MEDICATION_ARCHIVED,
                             "boolean",
                             Boolean.toString(result.archived()));
+                    if (result.reasons() != null)
+                        CdsExportNativeHistoryXmlWriter.residualElement(
+                                writer,
+                                CdsNativeExtensionContract.MEDICATION_REASONS,
+                                CdsNativeExtensionContract.STRING_TYPE,
+                                result.reasons());
                     writer.end();
                     new CdsExportMedicationXmlWriter().write(result.value(), writer);
                 });
