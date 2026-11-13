@@ -371,10 +371,10 @@
             </td>
         </tr>
         <tr>
-            <td>Description:</td>
+            <td><label for="docDesc">Description:</label></td>
             <%-- maxlength is twice the column: it counts UTF-16 units, the column code points. --%>
             <td><input <% if (linkhtmlerrors.containsKey("descmissing") || linkhtmlerrors.containsKey("desctoolong")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30" maxlength="<%= Document.DESCRIPTION_MAX_LENGTH * 2 %>"
+                    class="warning" <%}%> type="text" name="docDesc" id="docDesc" size="30" maxlength="<%= Document.DESCRIPTION_MAX_LENGTH * 2 %>"
                     onfocus="checkDefaultValue(this)" value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>"></td>
         </tr>
         <tr>
