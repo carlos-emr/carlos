@@ -752,7 +752,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                             demo.setPersonStatusDate(Util.calDate(patientStatusDate));
 
                         //patient notes
-                        String demoNotes = d.getDemographicNotes(demoNo);
+                        String demoNotes = noteAboutPatient(d.getDemographicNotes(demoNo), d.getDemographicAlert(demoNo));
                         if (StringUtils.filled(demoNotes)) demo.setNoteAboutPatient(demoNotes);
 
                         String dob = StringUtils.noNull(DemographicData.getDob(demographic, "-"));
@@ -2162,9 +2162,10 @@ public class DemographicExportAction42Action extends ActionSupport {
                                 }
                                 if (!f.exists()) {
                                     exportError.add("Error! Document \"" + f.getName() + "\" does not exist!");
-                                } else if (f.length() > Runtime.getRuntime().freeMemory()) {
-                                    exportError.add("Error! Document \"" + f.getName() + "\" too big to be exported. Not enough memory!");
                                 } else {
+                                    // #3968: a document above the embedding limit is not read into memory; the
+                                    // report names the file and the user is told to transfer it separately.
+                                    boolean embedded = f.length() <= maxEmbeddedDocumentBytes();
                                     Reports rpr = patientRec.addNewReports();
                                     if (edoc.getType() != null) {
                                         cdsDt.ReportMedia.Enum mediaEnum = cdsDt.ReportMedia.Enum.forString(formatHrmEnum(edoc.getType()));
@@ -2174,6 +2175,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     }
                                     rpr.setFormat(cdsDt.ReportFormat.TEXT);
 
+                                    if (!embedded) {
+                                        rpr.setFormat(cdsDt.ReportFormat.BINARY);
+                                        String reference = edoc.getFileName() == null ? f.getName() : edoc.getFileName();
+                                        rpr.setFilePath(reference.length() > 250 ? reference.substring(0, 250) : reference);
+                                        exportError.add("Document \"" + Encode.forHtml(reference) + "\" is larger than the "
+                                                + (maxEmbeddedDocumentBytes() >> 20) + " MB embedding limit; it is referenced by name"
+                                                + " and must be transferred separately.");
+                                        addOneEntry(REPORTBINARY);
+                                    } else {
                                     cdsDt.ReportContent rpc = rpr.addNewContent();
                                     byte[] b = readExportDocumentBytes(f);
                                     if (edoc.getContentType() != null && edoc.getContentType().startsWith("text")) {
@@ -2185,6 +2195,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         rpc.setMedia(b);
                                         rpr.setFormat(cdsDt.ReportFormat.BINARY);
                                         addOneEntry(REPORTBINARY);
+                                    }
                                     }
 
                                     String contentType = Util.mimeToExt(edoc.getContentType());
@@ -2472,13 +2483,13 @@ public class DemographicExportAction42Action extends ActionSupport {
                                     height.setHeight(meas.getDataField());
                                     height.setHeightUnit(cdsDt.Height.HeightUnit.CM);
                                     addOneEntry(CAREELEMENTS);
-                                } else if (meas.getType().equals("WT") && meas.getMeasuringInstruction().equalsIgnoreCase("in kg")) { //Weight in kg
+                                } else if (meas.getType().equals("WT") && weightInKg(meas.getMeasuringInstruction(), meas.getDataField()) != null) { //Weight, exported in kg
                                     cdsDt.Weight weight = careElm.addNewWeight();
                                     weight.setDate(Util.calDate(meas.getDateObserved()));
                                     if (meas.getDateObserved() == null) {
                                         exportError.add("Error! No Date for Weight (id=" + meas.getId() + ") for Patient " + demoNo);
                                     }
-                                    weight.setWeight(meas.getDataField());
+                                    weight.setWeight(weightInKg(meas.getMeasuringInstruction(), meas.getDataField()));
                                     weight.setWeightUnit(cdsDt.Weight.WeightUnit.KG);
                                     addOneEntry(CAREELEMENTS);
                                 } else if (meas.getType().equals("WAIS") || meas.getType().equals("WC")) { //Waist Circumference in cm
@@ -2728,10 +2739,15 @@ public class DemographicExportAction42Action extends ActionSupport {
                     int exportIndex = 0;
                     for (File f : files) {
                         exportIndex++;
-                        Boolean valid = validateExport(f);
-                        if (!valid) {
+                        ExportValidation validation = checkExport(f);
+                        if (validation == ExportValidation.SCHEMA_INVALID) {
                             String msg = "Exported file " + f.getName() + " fails OntarioMD XSD validation";
                             logger.warn("Exported file {} of {} fails OntarioMD XSD validation",
+                                    exportIndex, files.size());
+                            exportError.add(msg);
+                        } else if (validation == ExportValidation.UNREADABLE) {
+                            String msg = "Exported file " + f.getName() + " could not be re-read to check it against the OntarioMD schema";
+                            logger.warn("Exported file {} of {} could not be re-read for schema validation",
                                     exportIndex, files.size());
                             exportError.add(msg);
                         } else {
@@ -2953,19 +2969,70 @@ public class DemographicExportAction42Action extends ActionSupport {
     // FindSecBugs PATH_TRAVERSAL_IN: FileInputStream reads only from a previously PathValidationUtils-validated document path
     @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "FileInputStream reads only from a previously PathValidationUtils-validated document path")
     private byte[] readExportDocumentBytes(File file) throws IOException {
-        byte[] bytes = new byte[(int) file.length()];
-        try (InputStream in = new FileInputStream(file)) {
-            int offset = 0;
-            int numRead;
-            while ((numRead = in.read(bytes, offset, bytes.length - offset)) >= 0
-                    && offset < bytes.length) {
-                offset += numRead;
-            }
-            if (offset < bytes.length) {
-                throw new IOException("Could not completely read file " + file.getName());
-            }
+        // The caller admits only files within the embedding limit, which is below the largest
+        // Java array; the old (int) cast overflowed above 2 GB (#3968).
+        long size = file.length();
+        if (size > maxEmbeddedDocumentBytes()) {
+            throw new IOException("Document exceeds the embedding limit");
+        }
+        byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
+        if (bytes.length != size) {
+            throw new IOException("Could not completely read file " + file.getName());
         }
         return bytes;
+    }
+
+    /** Default largest document embedded in a legacy CDS export, in bytes (#3968). */
+    static final long DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES = 64L << 20;
+
+    /**
+     * The largest document embedded in a legacy export, from
+     * {@code cds.legacyExport.maxEmbeddedDocumentBytes} (bytes; default 64 MB, never above 1 GB).
+     */
+    long maxEmbeddedDocumentBytes() {
+        String configured = oscarProperties.getProperty("cds.legacyExport.maxEmbeddedDocumentBytes");
+        try {
+            long value = configured == null ? DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES : Long.parseLong(configured.trim());
+            return value < 1 ? DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES : Math.min(value, 1L << 30);
+        } catch (NumberFormatException invalid) {
+            return DEFAULT_MAX_EMBEDDED_DOCUMENT_BYTES;
+        }
+    }
+
+    /**
+     * The chart's patient notes with its alert first (#3959): CDS has no alert element, so the
+     * demographic alert travels in NoteAboutPatient rather than being left out.
+     */
+    static String noteAboutPatient(String notes, String alert) {
+        if (StringUtils.empty(alert)) return notes;
+        String stated = "Alert: " + alert.strip();
+        return StringUtils.filled(notes) ? stated + "\n" + notes : stated;
+    }
+
+    private static final java.util.regex.Pattern KILOGRAMS =
+            java.util.regex.Pattern.compile("(?i).*\\b(kg|kgs|kilo|kilos|kilogram|kilograms)\\b.*");
+    private static final java.util.regex.Pattern POUNDS =
+            java.util.regex.Pattern.compile("(?i).*\\b(lb|lbs|pound|pounds)\\b.*");
+
+    /**
+     * A weight in kilograms, or null when its unit is not stated (#3959). The measuring
+     * instruction is the unit text a clinic may have edited ("in kg", "kg", "Kilograms"); a weight
+     * recorded in pounds is converted exactly and rounded to 0.01 kg, since the CDS weight unit
+     * is kg only.
+     */
+    static String weightInKg(String instruction, String value) {
+        if (instruction == null || value == null) return null;
+        if (KILOGRAMS.matcher(instruction).matches()) return value;
+        if (!POUNDS.matcher(instruction).matches()) return null;
+        try {
+            return new java.math.BigDecimal(value.strip())
+                    .multiply(new java.math.BigDecimal("0.45359237"))
+                    .setScale(2, java.math.RoundingMode.HALF_UP)
+                    .stripTrailingZeros()
+                    .toPlainString();
+        } catch (NumberFormatException notNumeric) {
+            return null;
+        }
     }
 
     // FindSecBugs PATH_TRAVERSAL_IN: HRM report path is validated against DOCUMENT_DIR before use
@@ -3783,12 +3850,14 @@ public class DemographicExportAction42Action extends ActionSupport {
 
         //lab test code, test name, test name reported by lab
         if (StringUtils.filled(labMea.get("identifier"))) labResults.setLabTestCode(labMea.get("identifier"));
-        // TODO: populate TestName as maintained by EMR properly.  The key "name_internal" isn't used anywhere.
+        // TestName is the EMR's own name when one was imported, otherwise the laboratory's (#3959).
         if (StringUtils.filled(labMea.get("name_internal"))) labResults.setTestName(labMea.get("name_internal"));
+        else if (StringUtils.filled(labMea.get("name"))) labResults.setTestName(labMea.get("name"));
         if (StringUtils.filled(labMea.get("name"))) labResults.setTestNameReportedByLab(labMea.get("name"));
 
         //laboratory name
-        labResults.setLaboratoryName(StringUtils.noNull(labMea.get("labname")) + "^" + StringUtils.noNull(labMea.get("labType")));
+        // The HL7 handler type (MDS, CML, ...) is not part of the laboratory's name (#3959).
+        labResults.setLaboratoryName(StringUtils.noNull(labMea.get("labname")));
         addOneEntry(LABS);
         if (StringUtils.empty(labResults.getLaboratoryName())) {
             exportError.add("Error! No Laboratory Name for Lab Test " + labResults.getLabTestCode() + " for Patient " + demoNo);
@@ -3938,16 +4007,32 @@ public class DemographicExportAction42Action extends ActionSupport {
         return p.getFirstName() + "_" + p.getLastName() + "_" + p.getOhipNo();
     }
 
-    public Boolean validateExport(File f) {
-        Boolean result = true;
+    /** Outcome of re-reading one generated export file against the OntarioMD schema. */
+    enum ExportValidation {
+        VALID,
+        SCHEMA_INVALID,
+        /** The file could not be re-read; this says nothing about the schema (#5845). */
+        UNREADABLE
+    }
 
+    public Boolean validateExport(File f) {
+        return checkExport(f) == ExportValidation.VALID;
+    }
+
+    ExportValidation checkExport(File f) {
         DocumentBuilderFactory factory = null;
         try {
             factory = XmlUtils.createSecureDocumentBuilderFactory();
             factory.setNamespaceAware(true);
-        } catch (ParserConfigurationException e) {
+            // The JDK counts every predefined reference (&amp;, &lt;, ...) against these ceilings
+            // (default 100,000), so a large chart's escaped notes failed re-reading as if invalid.
+            // This is the export's own output with DOCTYPE refused: only the five one-character
+            // predefined entities can occur, so no expansion is possible (#5845, as #5466).
+            factory.setAttribute("jdk.xml.maxGeneralEntitySizeLimit", "0");
+            factory.setAttribute("jdk.xml.totalEntitySizeLimit", "0");
+        } catch (ParserConfigurationException | IllegalArgumentException e) {
             logger.error("Failed to create secure XML parser factory: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         URL url = getClass().getResource("/omdDataMigration/EMR_Data_Migration_Schema.xsd");
@@ -3961,14 +4046,14 @@ public class DemographicExportAction42Action extends ActionSupport {
                     ONTARIOMD_EXPORT_SCHEMA_IMPORTS));
         } catch (SAXException e) {
             logger.error("Failed to create secure schema factory: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
         Schema schema = null;
         try {
             schema = xsdFactory.newSchema(url);
         } catch (SAXException e) {
             logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         DocumentBuilder builder = null;
@@ -3976,18 +4061,18 @@ public class DemographicExportAction42Action extends ActionSupport {
             builder = factory.newDocumentBuilder();
         } catch (ParserConfigurationException e1) {
             logger.error("Parse exception: {}", LogSafe.exceptionTrace(e1));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
 
         Document doc = null;
         try {
             doc = builder.parse(f);
         } catch (SAXException e) {
-            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            logger.error("Export file could not be re-read: {}", LogSafe.exceptionTrace(e));
+            return ExportValidation.UNREADABLE;
         } catch (IOException e) {
-            logger.error("Parse exception: {}", LogSafe.exceptionTrace(e));
-            return false;
+            logger.error("Export file could not be re-read: {}", LogSafe.exceptionTrace(e));
+            return ExportValidation.UNREADABLE;
         }
 
         // Check whether document is valid; validation stops at first error detected.
@@ -3996,18 +4081,18 @@ public class DemographicExportAction42Action extends ActionSupport {
             validator = XmlUtils.createSecureValidator(schema); // nosemgrep: validator-xxe -- XXE protection applied by XmlUtils.createSecureValidator()
         } catch (SAXException e) {
             logger.error("Failed to create secure validator: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
         try {
             validator.validate(new DOMSource(doc));
         } catch (SAXException e) {
             logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.SCHEMA_INVALID;
         } catch (IOException e) {
             logger.error("Failed to process demographic export file: {}", LogSafe.exceptionTrace(e));
-            return false;
+            return ExportValidation.UNREADABLE;
         }
-        return result;
+        return ExportValidation.VALID;
 
     }
 

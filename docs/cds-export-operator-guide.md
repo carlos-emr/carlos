@@ -328,3 +328,16 @@ Reviewed provider preferences, report definitions, referral directories and mess
 locks do not block a clinical export merely by existing. Their contents are not
 published or executed. The [source rulings](cds-export-source-rulings.md) identify
 the exact tables and owning evidence; clinical instances remain separately gated.
+
+## The legacy CDS 4 export
+
+The older demographic export (Demographic Export, template CMS4) remains available and is not
+this exporter. It now names the laboratory without the HL7 type suffix and writes the
+laboratory's test name as TestName when no other name was imported, exports weights whose unit
+text was edited ("kg", "Kilograms") and converts weights recorded in pounds to kilograms (to
+0.01 kg), and puts the patient alert first in NoteAboutPatient (#3959). A document larger than
+`cds.legacyExport.maxEmbeddedDocumentBytes` (bytes; default 64 MB, at most 1 GB) is not read
+into memory: its report names the file and the export lists a warning to transfer it
+separately (#3968). Each generated file is re-read with the JDK's predefined-entity ceilings
+lifted, so a large chart's escaped notes are no longer reported as failing the schema, and a
+file that cannot be re-read is reported as such rather than as a schema failure (#5845).
