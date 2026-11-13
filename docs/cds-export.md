@@ -1038,21 +1038,23 @@ inspection or text results fail explicitly. Required tests cover actual float bi
 text-result refusal, statement ownership and bypass attempts.
 
 The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
-predecessors intact. Its unpublished 1.3.4 candidate is separately bound to the exact
-companion fallback commit and actual CI-built Debian bytes (359,318 bytes,
-SHA-256 `787bb45be3edd6693d7ee50ded3f201b05a51088d905f7d1c9813140c2621b00`,
-workflow 43375301857, artifact 14014850258). All 30 installed Python modules,
-the executable shim, manual and changelog were compared with that source, and a
-local `dpkg-buildpackage` of the same commit reproduces the package byte for byte.
+predecessors intact. Its unpublished 1.3.5 candidate is separately bound to the exact
+companion fallback commit and its reproducible Debian bytes (360,754 bytes,
+SHA-256 `b7e1e4469a89ee4133c72bb4e8a1e57c28009537344fb57d528177c3aff46d6e`).
+Two `dpkg-buildpackage` runs of that commit in the digest-pinned `ubuntu:26.04`
+image produce those bytes exactly, and package smoke rebuilds and checks them in CI.
+Companion CI (workflow 43500753482, artifact 14074425829) built the same package
+files. It ran before the changelog's timestamp, which clamps file times, so only
+its archive timestamps differ.
 Source-built mode asserts no published tag or release-download URL. Lifecycle
 configuration must supply this exact candidate package; predecessor packages
 cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
 `84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
-`9b746149af1f0707ef7c48185eb22097291a9753` (unpublished 1.3.4, adding the export
-command's run-id, exit-status and ticket-sweep fixes), with schema manifest format 2 and
-ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
+`af1bb40c413e820ae1e78d9940f8b470c2db8159` (unpublished 1.3.5, adding the export
+command's run-id, exit-status and ticket-sweep fixes and `cds-import --abandon`), with
+schema manifest format 2 and ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
 line; those changes are not part of this release pair.
 
 | Release migration | Purpose | Earlier unpublished develop numbering |

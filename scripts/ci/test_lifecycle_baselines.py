@@ -23,7 +23,7 @@ class LifecycleBaselineTest(unittest.TestCase):
 
     def test_candidate_cli_upgrade_keeps_both_published_predecessors_unchanged(self):
         document = self.document()
-        self.assertEqual(candidate_cli(document)['version'], '1.3.4')
+        self.assertEqual(candidate_cli(document)['version'], '1.3.5')
         self.assertEqual([row['cliVersion'] for row in required_baselines(document)], ['1.3.1', '1.3.0'])
         predecessor = next(row for row in document['assets'] if row['name'].startswith('carlos-ctl_'))
         self.assertNotEqual(candidate_cli(document)['sha256'], predecessor['sha256'])
