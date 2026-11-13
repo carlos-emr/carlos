@@ -16,7 +16,8 @@ function browser() {
     const node = id => {
         if (!nodes.has(id)) nodes.set(id, {value: '', dataset: {}, listeners: new Map(),
             addEventListener(type, handler) { this.listeners.set(type, handler); },
-            removeAttribute(name) { delete this[name]; }, replaceChildren() {}});
+            removeAttribute(name) { delete this[name]; }, setAttribute(name, value) { this[name] = value; },
+            querySelectorAll() { return []; }, replaceChildren() {}});
         return nodes.get(id);
     };
     node('cdsExport').dataset = {context: '/carlos', owner: 'web-fixture'};

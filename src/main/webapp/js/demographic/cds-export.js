@@ -5,16 +5,65 @@
     const API_HEADER = 'X-CARLOS-CDS-Export-API-Version';
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     const FINAL = new Set(['READY', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED', 'EXPIRED']);
-    const LABELS = {
-        ACCEPTED: 'Accepted — waiting for processing', DISCOVERING: 'Finding the selected records',
-        CAPTURING: 'Capturing the selected records', RECONCILING: 'Checking retained and current records',
-        SERIALIZING: 'Preparing patient files', VALIDATING: 'Checking patient files and coverage',
-        PACKAGING: 'Preparing the transfer archive', ENCRYPTING: 'Encrypting and checking delivery',
-        READY: 'Transfer package ready', REVIEW_REQUIRED: 'Review required — package unavailable',
-        FAILED: 'Export stopped — package unavailable', CANCELLED: 'Export cancelled', EXPIRED: 'Transfer package expired'
+    /**
+     * English defaults; the page replaces them with its language's text from #cdsExportText
+     * (useMessages). Positional {0}/{1} markers are filled by text().
+     */
+    const TEXT = {
+        stateAccepted: 'Accepted — waiting for processing', stateDiscovering: 'Finding the selected records',
+        stateCapturing: 'Capturing the selected records', stateReconciling: 'Checking retained and current records',
+        stateSerializing: 'Preparing patient files', stateValidating: 'Checking patient files and coverage',
+        statePackaging: 'Preparing the transfer archive', stateEncrypting: 'Encrypting and checking delivery',
+        stateReady: 'Transfer package ready', stateReviewRequired: 'Review required — package unavailable',
+        stateFailed: 'Export stopped — package unavailable', stateCancelled: 'Export cancelled', stateExpired: 'Transfer package expired',
+        heldBack: 'Transfer package ready without {0} held patient(s) — not a complete migration',
+        readyUnavailable: 'Package unavailable — check job status',
+        countUnknown: 'Patient total is not yet known.', countProgress: '{0} of {1} patients processed.',
+        heldListed: 'Held back: {0} (listed in the package ReadMe and the report).', heldNone: 'Held back: {0}.',
+        workerBusy: 'A worker is processing this job now, so it cannot be resumed or changed. Refresh to see its progress.',
+        resumeInvalid: 'This job cannot be resumed in its current state.',
+        cancelInvalid: 'This job cannot be cancelled in its current state.',
+        runtimeChangedControl: 'The export implementation changed since this job was accepted. Start a new export.',
+        statusChanged: 'The job changed since it was shown. Refresh it and try again.',
+        admissionDisabled: 'New exports are turned off on this server. Nothing was submitted.',
+        profileNotQualified: 'This server cannot export the selected profile. Nothing was submitted.',
+        controlUnconfirmed: 'The control outcome could not be confirmed. Refresh the saved job before retrying.',
+        missingRight: 'Export refused: the export provider\'s roles lack read access to {0}. Grant that right, or leave out the categories that need it, then submit again.',
+        submissionUnconfirmed: 'Submission could not be confirmed ({0}). Check saved key {1} before starting another export.',
+        keepKey: 'Keep submission key {0}. This browser could not save it for recovery.',
+        waiting: 'Saved; waiting for a compatible worker.', confirmed: 'Status confirmed by the server.',
+        runtimeChanged: 'The export implementation changed while this job was waiting or running. Start a new export.',
+        refreshBeforeDownload: 'Refresh job status before downloading.',
+        downloadFailed: 'The download could not start. Refresh the page and try again.',
+        stale: 'Status could not be refreshed. The job may still be processing; check again before acting.',
+        sessionEnded: 'Status could not be refreshed several times. Your session may have ended: reload the page (and sign in again) to check the job.',
+        invalidJobId: 'Enter a valid job ID.', checking: 'Checking saved job',
+        historyFailed: 'Saved job history could not be loaded. Try again.',
+        confirming: 'Confirming submission {0}. Keep this key if the connection is interrupted.',
+        accepted: 'Export accepted. Job {0}. Acceptance does not mean the package is ready.',
+        savedUnconfirmed: 'The saved submission could not be confirmed. Keep its key and check again before submitting another export.',
+        cancelRecorded: 'Cancellation recorded. Check the final job outcome.',
+        resumeRequested: 'Resume requested. Processing may still be waiting.',
+        confirmNew: 'Start a separate export? Check the saved submission first if its outcome is unknown.',
+        newKey: 'New submission key created. Earlier jobs remain saved.',
+        storageUnavailable: 'Browser recovery storage is unavailable. Keep the submission key shown on this page.',
+        noRandomUuid: 'This browser cannot safely create a submission key. Use a current browser.'
     };
+    /** Replaces known keys with page text; unknown keys and non-text values are ignored. */
+    function useMessages(messages) {
+        for (const [key, value] of Object.entries(messages || {}))
+            if (Object.hasOwn(TEXT, key) && typeof value === 'string' && value.length > 0) TEXT[key] = value;
+    }
+    function text(key, ...values) {
+        return TEXT[key].replace(/\{(\d)\}/g, (marker, index) => index < values.length ? String(values[index]) : marker);
+    }
+    const STATES = ['ACCEPTED', 'DISCOVERING', 'CAPTURING', 'RECONCILING', 'SERIALIZING', 'VALIDATING', 'PACKAGING',
+        'ENCRYPTING', 'READY', 'REVIEW_REQUIRED', 'FAILED', 'CANCELLED', 'EXPIRED'];
+    function stateLabel(state) {
+        return text('state' + state.toLowerCase().replace(/(^|_)([a-z])/g, (all, sep, letter) => letter.toUpperCase()));
+    }
     function checkedJob(job) {
-        if (!job || !UUID.test(job.id || '') || !Object.hasOwn(LABELS, job.state)
+        if (!job || !UUID.test(job.id || '') || !STATES.includes(job.state)
                 || !Number.isSafeInteger(job.revision) || job.revision < 0 || !Number.isSafeInteger(job.epoch) || job.epoch < 0
                 || !(job.totalPatients === null || Number.isSafeInteger(job.totalPatients) && job.totalPatients >= 0)
                 || ![job.processedPatients, job.blockedPatients].every(n => Number.isSafeInteger(n) && n >= 0)
@@ -41,10 +90,10 @@
     function presentation(job) {
         checkedJob(job);
         const label = job.heldBack
-            ? 'Transfer package ready without ' + job.blockedPatients + ' held patient(s) — not a complete migration'
-            : job.state === 'READY' && !job.complete ? 'Package unavailable — check job status' : LABELS[job.state];
+            ? text('heldBack', job.blockedPatients)
+            : job.state === 'READY' && !job.complete ? text('readyUnavailable') : stateLabel(job.state);
         return {label, complete: job.complete, downloadable: job.complete || job.heldBack, terminal: FINAL.has(job.state),
-            count: job.totalPatients === null ? 'Patient total is not yet known.' : job.processedPatients + ' of ' + job.totalPatients + ' patients processed.',
+            count: job.totalPatients === null ? text('countUnknown') : text('countProgress', job.processedPatients, job.totalPatients),
             canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
@@ -61,43 +110,50 @@
     }
     /** Known definitive control refusals; anything else stays an unconfirmed outcome. */
     const CONTROL_REFUSALS = {
-        CDS_EXPORT_WORKER_BUSY: 'A worker is processing this job now, so it cannot be resumed or changed. Refresh to see its progress.',
-        CDS_EXPORT_RESUME_INVALID: 'This job cannot be resumed in its current state.',
-        CDS_EXPORT_CANCEL_INVALID: 'This job cannot be cancelled in its current state.',
-        CDS_EXPORT_RUNTIME_CHANGED: 'The export implementation changed since this job was accepted. Start a new export.',
-        CDS_EXPORT_STATUS_CHANGED: 'The job changed since it was shown. Refresh it and try again.',
-        CDS_EXPORT_ADMISSION_DISABLED: 'New exports are turned off on this server. Nothing was submitted.',
-        CDS_EXPORT_PROFILE_NOT_QUALIFIED: 'This server cannot export the selected profile. Nothing was submitted.'
+        CDS_EXPORT_WORKER_BUSY: 'workerBusy',
+        CDS_EXPORT_RESUME_INVALID: 'resumeInvalid',
+        CDS_EXPORT_CANCEL_INVALID: 'cancelInvalid',
+        CDS_EXPORT_RUNTIME_CHANGED: 'runtimeChangedControl',
+        CDS_EXPORT_STATUS_CHANGED: 'statusChanged',
+        CDS_EXPORT_ADMISSION_DISABLED: 'admissionDisabled',
+        CDS_EXPORT_PROFILE_NOT_QUALIFIED: 'profileNotQualified'
     };
     function controlNotice(error) {
-        return CONTROL_REFUSALS[error && error.message]
-            || 'The control outcome could not be confirmed. Refresh the saved job before retrying.';
+        const key = error && Object.hasOwn(CONTROL_REFUSALS, error.message) ? CONTROL_REFUSALS[error.message] : null;
+        return key ? text(key) : text('controlUnconfirmed');
     }
     function submissionNotice(error, key) {
         if (error && error.missingRight)
-            return 'Export refused: the export provider\'s roles lack read access to ' + error.missingRight + '. Grant that right, or leave out the categories that need it, then submit again.';
+            return text('missingRight', error.missingRight);
         if (error && (error.message === 'CDS_EXPORT_ADMISSION_DISABLED' || error.message === 'CDS_EXPORT_PROFILE_NOT_QUALIFIED'))
-            return CONTROL_REFUSALS[error.message];
-        return 'Submission could not be confirmed (' + error.message + '). Check saved key ' + key + ' before starting another export.';
+            return text(CONTROL_REFUSALS[error.message]);
+        return text('submissionUnconfirmed', error.message, key);
     }
-    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay};
+    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, controlNotice, pollDelay, useMessages};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CdsExportPage = api;
     if (!global.document) return;
     document.addEventListener('DOMContentLoaded', function () {
         const root = document.getElementById('cdsExport'); if (!root) return;
+        const pageText = {};
+        for (const entry of document.getElementById('cdsExportText')?.querySelectorAll('[data-key]') || []) pageText[entry.dataset.key] = entry.dataset.value;
+        useMessages(pageText);
         const byId = id => document.getElementById(id), context = root.dataset.context;
         if (!/^(?:\/[A-Za-z0-9_.-]+)*$/.test(context) || context.split('/').some(v => ['.', '..'].includes(v))) return;
         let current = null, view = 0, timer = null, fresh = false, busy = false, cursor = '', historyGeneration = 0;
         const storageKey = 'carlos.cds.export.submission.' + root.dataset.owner;
         function notice(message, failure = false) {
-            const node = byId('exportNotice'); node.textContent = message;
+            // A failure is announced at once (role=alert); progress notes stay polite.
+            const node = byId('exportNotice');
+            node.setAttribute('role', failure ? 'alert' : 'status');
+            node.setAttribute('aria-live', failure ? 'assertive' : 'polite');
+            node.textContent = message;
             node.className = 'alert ' + (failure ? 'alert-danger' : 'alert-info'); node.hidden = false;
         }
         function store(key) {
             byId('submissionKey').value = key; byId('savedSubmission').value = key;
             try { global.sessionStorage.setItem(storageKey, key); }
-            catch (_) { notice('Keep submission key ' + key + '. This browser could not save it for recovery.'); }
+            catch (_) { notice(text('keepKey', key)); }
         }
         async function request(route, values = {}, post = false) {
             const params = new URLSearchParams({...values, apiVersion: String(API_VERSION)});
@@ -133,11 +189,11 @@
         function render(job) {
             current = newest(current, job); const shown = presentation(current); fresh = true;
             byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('runId').value = current.id; byId('exportStatus').hidden = false;
-            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' Held back: ' + current.blockedPatients
-                + (current.blockedPatients > 0 ? ' (listed in the package ReadMe and the report).' : '.');
-            byId('exportConnection').textContent = current.waiting ? 'Saved; waiting for a compatible worker.' : 'Status confirmed by the server.';
+            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' '
+                + text(current.blockedPatients > 0 ? 'heldListed' : 'heldNone', current.blockedPatients);
+            byId('exportConnection').textContent = current.waiting ? text('waiting') : text('confirmed');
             byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
-                ? 'The export implementation changed while this job was waiting or running. Start a new export.'
+                ? text('runtimeChanged')
                 : current.safeCode || '';
             const progress = byId('exportProgress');
             if (current.totalPatients === null) progress.removeAttribute('value');
@@ -147,21 +203,21 @@
         function artifactForm(id, csrfId, needsPackage) {
             byId(id).addEventListener('submit', async function (event) {
                 event.preventDefault();
-                if (!fresh || busy || !current || needsPackage && !(current.complete || current.heldBack)) { notice('Refresh job status before downloading.', true); return; }
+                if (!fresh || busy || !current || needsPackage && !(current.complete || current.heldBack)) { notice(text('refreshBeforeDownload'), true); return; }
                 try {
                     if (global.csrfTokenReady) await global.csrfTokenReady;
                     const token = document.querySelector('input[name="CSRF-TOKEN"]')?.value;
                     if (!token) throw new Error('CDS_EXPORT_CSRF_UNAVAILABLE');
                     byId(csrfId).value = token;
                     HTMLFormElement.prototype.submit.call(this);
-                } catch (_) { notice('The download could not start. Refresh the page and try again.', true); }
+                } catch (_) { notice(text('downloadFailed'), true); }
             });
         }
         artifactForm('exportDownloadForm', 'downloadCsrf', true);
         artifactForm('exportReportForm', 'reportCsrf', false);
         function stale() {
             fresh = false; controls();
-            byId('exportConnection').textContent = 'Status could not be refreshed. The job may still be processing; check again before acting.';
+            byId('exportConnection').textContent = text('stale');
         }
         let failures = 0;
         async function poll(id, generation, background = false) {
@@ -176,15 +232,15 @@
             const delay = pollDelay(failures);
             // After repeated failures (for example an inactivity logout) stop polling and say so.
             if (delay === null) {
-                byId('exportConnection').textContent = 'Status could not be refreshed several times. Your session may have ended: reload the page (and sign in again) to check the job.';
+                byId('exportConnection').textContent = text('sessionEnded');
                 return;
             }
             timer = setTimeout(() => poll(id, generation, true), delay);
         }
         async function open(id) {
-            if (!UUID.test(id || '')) { notice('Enter a valid job ID.', true); return; }
+            if (!UUID.test(id || '')) { notice(text('invalidJobId'), true); return; }
             clearTimeout(timer); const generation = ++view; current = null; fresh = false; controls();
-            byId('exportStatus').hidden = false; byId('exportState').textContent = 'Checking saved job';
+            byId('exportStatus').hidden = false; byId('exportState').textContent = text('checking');
             byId('exportCounts').textContent = ''; byId('exportCode').textContent = '';
             byId('exportProgress').removeAttribute('value'); await poll(id, generation);
         }
@@ -199,7 +255,7 @@
                 });
                 byId('exportHistory').replaceChildren(...nodes); cursor = data.nextAfter;
                 byId('nextExports').disabled = data.mayHaveMore !== true;
-            } catch (_) { if (generation === historyGeneration) notice('Saved job history could not be loaded. Try again.', true); }
+            } catch (_) { if (generation === historyGeneration) notice(text('historyFailed'), true); }
         }
         function selection() {
             const roster = byId('selection').value === 'PHYSICIAN_ROSTER';
@@ -212,9 +268,9 @@
                 const params = Object.fromEntries(new FormData(event.target));
                 delete params['CSRF-TOKEN'];
                 params.categories = [...root.querySelectorAll('.export-category:checked')].map(input => input.value).join(',');
-                notice('Confirming submission ' + params.submissionKey + '. Keep this key if the connection is interrupted.');
+                notice(text('confirming', params.submissionKey));
                 const data = await request('cdsExportSubmit', params, true);
-                notice('Export accepted. Job ' + data.job.id + '. Acceptance does not mean the package is ready.');
+                notice(text('accepted', data.job.id));
                 await open(checkedJob(data.job).id); history();
             } catch (error) {
                 notice(submissionNotice(error, byId('submissionKey').value), true);
@@ -225,7 +281,7 @@
             try {
                 const data = await request('cdsExportStatus', {submissionKey: byId('savedSubmission').value});
                 if (generation === view) await open(checkedJob(data.job).id);
-            } catch (_) { if (generation === view) notice('The saved submission could not be confirmed. Keep its key and check again before submitting another export.', true); }
+            } catch (_) { if (generation === view) notice(text('savedUnconfirmed'), true); }
         });
         async function control(operation) {
             if (!fresh || busy || !current) return;
@@ -235,7 +291,7 @@
             try {
                 const data = await request('cdsExportControl', {runId: id, operation, expectedRevision: String(revision)}, true);
                 if (generation !== view) return; render(data.job);
-                notice(operation === 'cancel' ? 'Cancellation recorded. Check the final job outcome.' : 'Resume requested. Processing may still be waiting.');
+                notice(operation === 'cancel' ? text('cancelRecorded') : text('resumeRequested'));
             } catch (error) {
                 if (generation === view) { stale(); notice(controlNotice(error), true); }
             } finally {
@@ -250,14 +306,14 @@
         byId('nextExports').addEventListener('click', () => history(true));
         byId('newSubmission').addEventListener('click', () => {
             if (busy || !global.crypto?.randomUUID) return;
-            if (!global.confirm('Start a separate export? Check the saved submission first if its outcome is unknown.')) return;
-            store(global.crypto.randomUUID()); notice('New submission key created. Earlier jobs remain saved.');
+            if (!global.confirm(text('confirmNew'))) return;
+            store(global.crypto.randomUUID()); notice(text('newKey'));
         });
         let saved = '';
         try { saved = global.sessionStorage.getItem(storageKey) || ''; }
-        catch (_) { notice('Browser recovery storage is unavailable. Keep the submission key shown on this page.'); }
+        catch (_) { notice(text('storageUnavailable')); }
         if (!global.crypto?.randomUUID) {
-            byId('exportOptions').disabled = true; notice('This browser cannot safely create a submission key. Use a current browser.', true);
+            byId('exportOptions').disabled = true; notice(text('noRandomUuid'), true);
         } else store(/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/.test(saved) ? saved : global.crypto.randomUUID());
         selection(); history();
         const initial = new URLSearchParams(global.location.search).get('runId'); if (initial) open(initial);

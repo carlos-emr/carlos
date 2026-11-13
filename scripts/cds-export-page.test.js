@@ -75,7 +75,7 @@ for (const controlSucceeds of [true, false]) {
         function node(id) {
             if (!nodes.has(id)) nodes.set(id, {value: '', dataset: {}, events: {},
                 addEventListener(event, handler) { this.events[event] = handler; },
-                removeAttribute() {}, replaceChildren() {}, querySelectorAll() { return []; }});
+                removeAttribute() {}, setAttribute() {}, replaceChildren() {}, querySelectorAll() { return []; }});
             return nodes.get(id);
         }
         node('cdsExport').dataset = {context: '', owner: 'web-7', canResume: 'true'};
@@ -148,4 +148,26 @@ test('status polling backs off after failures and stops after six', () => {
     assert.equal(pollDelay(4), 60000);
     assert.equal(pollDelay(5), 60000);
     assert.equal(pollDelay(6), null);
+});
+test('page text replaces the English defaults and fills its markers', () => {
+    // A fresh copy of the script, so the shared module keeps its English defaults for the other tests.
+    const vm = require('node:vm'), fs = require('node:fs');
+    const sandbox = {module: {exports: {}}};
+    vm.runInNewContext(fs.readFileSync(require.resolve('../src/main/webapp/js/demographic/cds-export.js'), 'utf8'), sandbox);
+    const page = sandbox.module.exports;
+    page.useMessages({heldBack: 'Dossier prêt sans {0} patient(s) retenu(s)', countProgress: '{0} sur {1}',
+        stateAccepted: 'Acceptée', unknownKey: 'ignored', stateReady: 42, workerBusy: '',
+        submissionUnconfirmed: 'Non confirmée ({0}); clé {1}'});
+    const held = job({state: 'READY', artifactAvailable: true, heldBack: true, waiting: false,
+        totalPatients: 3, processedPatients: 3, blockedPatients: 1});
+    assert.equal(page.presentation(held).label, 'Dossier prêt sans 1 patient(s) retenu(s)');
+    assert.equal(page.presentation(held).count, '3 sur 3');
+    assert.equal(page.presentation(job()).label, 'Acceptée');
+    // Non-text or empty values and unknown keys leave the English default in place.
+    assert.equal(page.controlNotice(new Error('CDS_EXPORT_WORKER_BUSY')),
+        'A worker is processing this job now, so it cannot be resumed or changed. Refresh to see its progress.');
+    assert.equal(page.submissionNotice(new Error('CDS_EXPORT_RESPONSE_UNCONFIRMED'), 'key-1'),
+        'Non confirmée (CDS_EXPORT_RESPONSE_UNCONFIRMED); clé key-1');
+    // The shared module still speaks English.
+    assert.equal(presentation(held).count, '3 of 3 patients processed.');
 });
