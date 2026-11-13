@@ -113,6 +113,12 @@ the patient with `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` before any 
 is read. When LaboratoryResults is not selected, filed results are not exported: the operator
 excluded laboratory results.
 
+One patient's care capture is bounded by `cds.export.maxNativeRows` observations (current and
+deleted rows; default and maximum 8,192) and by `cds.export.maxIndexBytes` of retained rows
+(default and maximum 64 MiB), which the extension and vocabulary rows count toward. A chart over
+either bound holds only that patient with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the
+job continues.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture

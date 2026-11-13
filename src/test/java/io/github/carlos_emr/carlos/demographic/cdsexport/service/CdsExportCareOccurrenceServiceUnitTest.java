@@ -194,4 +194,47 @@ class CdsExportCareOccurrenceServiceUnitTest {
         extension("cdsShiftDays", "2");
         assertThatCode(this::bind).doesNotThrowAnyException();
     }
+
+    private static CdsExportCapturedTextRowDto captured(String table, long id) {
+        var fields = new HashMap<String, String>();
+        fields.put("id", Long.toString(id));
+        fields.put("measurement_id", "7");
+        fields.put("keyval", "unit");
+        fields.put("val", "kg");
+        return new CdsExportCapturedTextRowDto(
+                table, CdsExportPatientTableSourceReader.key(id), fields);
+    }
+
+    @Test
+    void shouldBoundObservationsNotTheirExtensions_andHoldOnlyThePatientWhenExceeded()
+            throws Exception {
+        // Before: one bound of nativeRows covered every measurement, extension, deleted and
+        // vocabulary row, and exceeding it stopped the whole job (RESOURCE_LIMIT).
+        var budget =
+                new CdsExportCareOccurrenceService.Budget(
+                        new CdsExportClinicalOccurrenceService.Bounds(
+                                1_000, 1 << 20, 1_000, 1L << 20, 2, 1_000));
+        budget.add(captured("measurements", 1));
+        for (int i = 0; i < 20; i++) budget.add(captured("measurementsExt", 100 + i));
+        budget.add(captured("measurementType", 50));
+        budget.add(captured("measurementsDeleted", 2));
+        assertThatThrownBy(() -> budget.add(captured("measurements", 3)))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
+        var memory =
+                new CdsExportCareOccurrenceService.Budget(
+                        new CdsExportClinicalOccurrenceService.Bounds(
+                                1_000, 1 << 20, 1_000, 8_192, 8_192, 1_000));
+        assertThatThrownBy(
+                        () -> {
+                            for (int i = 0; i < 100; i++)
+                                memory.add(captured("measurementsExt", 100 + i));
+                        })
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
+    }
 }

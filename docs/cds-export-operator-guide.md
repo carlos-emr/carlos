@@ -236,6 +236,12 @@ the number may be the physician's CPSO number, which receivers use to match the 
 or a BC MSP or nursing number, so it is neither labelled CPSO nor dropped. Set the type on
 the provider record (Administration > Providers) and export those patients again.
 
+A single chart with more measurements than one export holds
+(`cds.export.maxNativeRows` observations, default and maximum 8,192, or
+`cds.export.maxIndexBytes` of captured measurement rows, default and maximum 64 MiB)
+is held with `CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED`; the other patients are
+still exported.
+
 Every chart the export read is in the normal chart audit (`log`): an `EXPORT`
 row for each patient of a prepared package, and a `read` row marked
 `CDS_EXPORT_CHART_ACCESS ... outcome=HELD` for a held patient or `outcome=STOPPED`

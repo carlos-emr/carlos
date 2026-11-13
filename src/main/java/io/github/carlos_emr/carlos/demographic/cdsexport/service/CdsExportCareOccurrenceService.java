@@ -637,7 +637,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             throws IOException {
         var current = new TreeMap<String, CdsExportCapturedTextRowDto>();
         var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-        long[] memory = {0};
+        var budget = new Budget(bounds);
         var scanned =
                 rows.forEachTable(
                         lease,
@@ -653,17 +653,7 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                             String id = id(row);
                             if (!row.fields().keySet().equals(columns(row.table()))
                                     || !row.exactNumbers().isEmpty()) invalid();
-                            memory[0] =
-                                    Math.addExact(memory[0], 1024L + row.fields().size() * 256L);
-                            for (String value : row.fields().values())
-                                if (value != null)
-                                    memory[0] =
-                                            Math.addExact(
-                                                    memory[0],
-                                                    value.getBytes(StandardCharsets.UTF_8).length
-                                                            + 64L);
-                            if (current.size() >= bounds.nativeRows()
-                                    || memory[0] > bounds.indexBytes()) limit();
+                            budget.add(row);
                             if (current.putIfAbsent(key(row.table(), id), row) != null) invalid();
                         });
         if (!scanned.equals(source.capture())) invalid();
@@ -678,7 +668,8 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
                         control,
                         row -> {
                             if (!TABLES.contains(row.table())) return;
-                            if (exact.size() >= bounds.nativeRows()) limit();
+                            // Witnesses must match the rows already admitted by the budget.
+                            if (exact.size() >= current.size()) invalid();
                             if (exact.putIfAbsent(key(row.table(), row.id()), row) != null)
                                 invalid();
                         });
@@ -693,6 +684,36 @@ public class CdsExportCareOccurrenceService implements CdsExportCategoryOccurren
             invalid();
         requireOwners(patient.patient(), current);
         return new CapturedCare(current, exact);
+    }
+
+    /**
+     * One patient's care capture budget. The observation count (current and deleted rows) is
+     * bounded by {@code nativeRows}; extension and vocabulary rows, which a chronic chart can
+     * multiply, count only toward the retained-row memory bound ({@code indexBytes}). A chart
+     * over either bound is a fact about that patient: it is held for review and named, and the
+     * job continues, instead of stopping every patient with RESOURCE_LIMIT.
+     */
+    static final class Budget {
+        private final long observations, bytes;
+        private long seen, used;
+
+        Budget(CdsExportClinicalOccurrenceService.Bounds bounds) {
+            observations = bounds.nativeRows();
+            bytes = bounds.indexBytes();
+        }
+
+        void add(CdsExportCapturedTextRowDto row) throws CdsExportMappingReviewException {
+            if (Set.of("measurements", "measurementsDeleted").contains(row.table())) seen++;
+            used = Math.addExact(used, 1024L + row.fields().size() * 256L);
+            for (String value : row.fields().values())
+                if (value != null)
+                    used =
+                            Math.addExact(
+                                    used, value.getBytes(StandardCharsets.UTF_8).length + 64L);
+            if (seen > observations || used > bytes)
+                throw new CdsExportMappingReviewException(
+                        "CDS_EXPORT_NATIVE_CARE_PATIENT_LIMIT_EXCEEDED");
+        }
     }
 
     /**
