@@ -89,7 +89,24 @@ residual stay in the retained CDS source fields.
 
 Native measurements are exported as CareElements where a standard element represents them
 exactly, and each current observation also travels in full as a
-`CARLOS.NativeObservation.v1` NewCategory record. Deleted measurements are not exported. A
+`CARLOS.NativeObservation.v1` NewCategory record. The native types and codes follow the CARLOS
+importer and the legacy exporter: WT, HT, WAIS and WC (Weight, Height, WaistCircumference, in
+kg/cm; lb, g, m and inches convert by exact decimal factors, and a bare WT/HT/WAIS number is
+kg/cm as CARLOS displays it, while WC needs a stated unit), BP (mmHg; the instruction is
+posture text), SKST and POSK (SmokingStatus Y/N, SmokingPacks per day), SMBG
+(SelfMonitoringBloodGlucose), DMME (DiabetesEducationalSelfManagement), SMCD
+(DiabetesSelfManagementChallenges, 44941-3), HYPE (HypoglycemicEpisodes, a whole count),
+MCCN/MCCE/MCCS/MCCO (DiabetesMotivationalCounselling Nutrition/Exercise/Smoking
+Cessation/Other) and EYEE/FTE/FTLS/NRTF (DiabetesComplicationsScreening 32468-1, 11397-7 and
+67536-3 for both neurological exams). The diabetes kinds map only under no instruction or the
+one CARLOS seeds for the type ("Yes/No", "Discussed", "since last visit", "Exam Done",
+"Normal"), because a reworded local instruction can change what "Yes" asserts. Counselling and
+screening elements can only say the counselling or exam was performed, so they map only from
+"Yes": "No" or "NA" (not done, or under "Normal" possibly an abnormal result) stays in the
+supporting record. CGSD records Yes/No, not the documented goals that
+DiabetesSelfManagementCollaborative requires, so it is supporting-only, as is any value with
+words in it, a fractional or signed episode count, an unknown unit or a partial date. No value
+is rounded and no unit is guessed. Deleted measurements are not exported. A
 `measurementsDeleted` row is either a clinician's deletion of an erroneous entry
 (`EctDeleteData2Action`) or an HL7 result version superseded by a newer report
 (`Hl7textResultsData`); neither is a current fact, and the legacy exporter, which read

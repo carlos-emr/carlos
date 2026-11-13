@@ -32,20 +32,74 @@ import java.util.*;
 
 /** Standard care values and their complete native supporting context from one verified observation. */
 public final class CdsExportNativeCareMapper {
+    /**
+     * The CareElements child each native type can map to; the value, unit, instruction and date
+     * decide whether it does. The native types and the code choices are those of the CARLOS
+     * importer (CdsCareNormalizationService) and the legacy exporter.
+     */
     private static final Map<String, String> ELEMENTS =
+            Map.ofEntries(
+                    Map.entry("WT", "Weight"),
+                    Map.entry("HT", "Height"),
+                    Map.entry("WAIS", "WaistCircumference"),
+                    // "Waist Circumference" in the seeded measurement map (LOINC 8280-0); no
+                    // seeded vocabulary implies its unit, so it maps only with a stated one.
+                    Map.entry("WC", "WaistCircumference"),
+                    Map.entry("BP", "BloodPressure"),
+                    Map.entry("SKST", "SmokingStatus"),
+                    Map.entry("POSK", "SmokingPacks"),
+                    Map.entry("SMBG", "SelfMonitoringBloodGlucose"),
+                    Map.entry("DMME", "DiabetesEducationalSelfManagement"),
+                    Map.entry("SMCD", "DiabetesSelfManagementChallenges"),
+                    Map.entry("HYPE", "HypoglycemicEpisodes"),
+                    Map.entry("MCCN", "DiabetesMotivationalCounselling"),
+                    Map.entry("MCCE", "DiabetesMotivationalCounselling"),
+                    Map.entry("MCCS", "DiabetesMotivationalCounselling"),
+                    Map.entry("MCCO", "DiabetesMotivationalCounselling"),
+                    Map.entry("EYEE", "DiabetesComplicationsScreening"),
+                    Map.entry("FTE", "DiabetesComplicationsScreening"),
+                    Map.entry("FTLS", "DiabetesComplicationsScreening"),
+                    Map.entry("NRTF", "DiabetesComplicationsScreening"));
+
+    /**
+     * Instructions under which a diabetes assertion means what its CDS element says: none, or the
+     * text CARLOS seeds for the type (V1.0.2 data, V1.0.32 for NRTF; the flowsheets reuse it).
+     * A locally reworded instruction (for example "Referred") may change what "Yes" asserts, so
+     * the observation stays supporting-only rather than being reinterpreted.
+     */
+    private static final Map<String, Set<String>> ASSERTION_INSTRUCTIONS =
+            Map.ofEntries(
+                    Map.entry("SMBG", Set.of("", "yes/no")),
+                    Map.entry("SMCD", Set.of("", "yes/no")),
+                    Map.entry("DMME", Set.of("", "discussed")),
+                    Map.entry("HYPE", Set.of("", "since last visit")),
+                    Map.entry("MCCN", Set.of("", "yes/no")),
+                    Map.entry("MCCE", Set.of("", "yes/no")),
+                    Map.entry("MCCS", Set.of("", "yes/no")),
+                    Map.entry("MCCO", Set.of("", "yes/no")),
+                    Map.entry("EYEE", Set.of("", "exam done")),
+                    Map.entry("FTE", Set.of("", "normal")),
+                    Map.entry("FTLS", Set.of("", "normal")),
+                    Map.entry("NRTF", Set.of("", "normal")));
+
+    /** DiabetesMotivationalCounselling/CounsellingPerformed, as the importer maps it back. */
+    private static final Map<String, String> COUNSELLING =
             Map.of(
-                    "WT",
-                    "Weight",
-                    "HT",
-                    "Height",
-                    "WAIS",
-                    "WaistCircumference",
-                    "BP",
-                    "BloodPressure",
-                    "SKST",
-                    "SmokingStatus",
-                    "POSK",
-                    "SmokingPacks");
+                    "MCCN", "Nutrition",
+                    "MCCE", "Exercise",
+                    "MCCS", "Smoking Cessation",
+                    "MCCO", "Other");
+
+    /**
+     * DiabetesComplicationsScreening/ExamCode: retinal 32468-1, foot 11397-7, and the one
+     * neurological code 67536-3 for both the monofilament (FTLS) and tuning-fork (NRTF) exams.
+     */
+    private static final Map<String, String> EXAM_CODES =
+            Map.of(
+                    "EYEE", "32468-1",
+                    "FTE", "11397-7",
+                    "FTLS", "67536-3",
+                    "NRTF", "67536-3");
 
     public record Result(
             String table,
@@ -104,16 +158,45 @@ public final class CdsExportNativeCareMapper {
         String explicit = extra.containsKey("unit") ? extra.get("unit") : extra.get("units");
         String unit = careUnit(type, explicit, observation.get("measuringInstruction"));
         var output = new LinkedHashMap<String, String>();
+        if (ASSERTION_INSTRUCTIONS.containsKey(type)
+                && !ASSERTION_INSTRUCTIONS
+                        .get(type)
+                        .contains(assertionInstruction(observation.get("measuringInstruction"))))
+            return null;
         switch (element) {
             case "SmokingStatus" -> {
-                String status =
-                        switch (value.strip()) {
-                            case "Y", "Yes", "yes" -> "Y";
-                            case "N", "No", "no" -> "N";
-                            default -> null;
-                        };
+                String status = yesNo(value);
                 if (status == null) return null;
                 output.put("Status", status);
+            }
+            case "SelfMonitoringBloodGlucose", "DiabetesEducationalSelfManagement" -> {
+                String asserted = yesNo(value);
+                if (asserted == null) return null;
+                output.put(
+                        element.equals("SelfMonitoringBloodGlucose")
+                                ? "SelfMonitoring"
+                                : "EducationalTrainingPerformed",
+                        asserted);
+            }
+            case "DiabetesSelfManagementChallenges" -> {
+                String asserted = yesNo(value);
+                if (asserted == null) return null;
+                output.put("CodeValue", "44941-3");
+                output.put("ChallengesIdentified", asserted);
+            }
+            case "HypoglycemicEpisodes" -> {
+                // A count of episodes: xs:integer, never a fraction or a sign.
+                if (!value.strip().matches("[0-9]{1,18}")) return null;
+                output.put("NumOfReportedEpisodes", Long.toString(Long.parseLong(value.strip())));
+            }
+            case "DiabetesMotivationalCounselling", "DiabetesComplicationsScreening" -> {
+                // These elements can only say that the counselling or exam was performed. "No"
+                // or "NA" (not done; under the exams' "Normal", possibly an abnormal result)
+                // has no standard form and stays in the supporting record.
+                if (!"Y".equals(yesNo(value))) return null;
+                if (element.equals("DiabetesMotivationalCounselling"))
+                    output.put("CounsellingPerformed", COUNSELLING.get(type));
+                else output.put("ExamCode", EXAM_CODES.get(type));
             }
             case "SmokingPacks" -> {
                 String perDay = decimalOrNull(value);
@@ -188,6 +271,7 @@ public final class CdsExportNativeCareMapper {
         return switch (type) {
             case "WT" -> "kg";
             case "HT", "WAIS" -> "cm";
+            // WC: no seeded vocabulary says which unit a bare number is in.
             default -> null;
         };
     }
@@ -213,6 +297,26 @@ public final class CdsExportNativeCareMapper {
                 || factor("HT", unit) != null
                 || unit.equals("mmhg")
                 || Set.of("pack/day", "packs/day", "packs per day").contains(unit);
+    }
+
+    /** Y or N from the spellings the seeded Yes/No validations accept; null otherwise. */
+    private static String yesNo(String value) {
+        return switch (value.strip()) {
+            case "Y", "Yes", "yes", "YES" -> "Y";
+            case "N", "No", "no", "NO" -> "N";
+            default -> null;
+        };
+    }
+
+    /** The instruction without CARLOS's flowsheet hint ("(...) Range:... Interval:..."). */
+    private static String assertionInstruction(String instruction) {
+        if (instruction == null) return "";
+        return instruction
+                .strip()
+                .toLowerCase(Locale.ROOT)
+                .replaceFirst("\\s*\\(.*$", "")
+                .replaceFirst("\\s*range:.*$", "")
+                .strip();
     }
 
     private static String decimalOrNull(String value) {
@@ -343,6 +447,15 @@ public final class CdsExportNativeCareMapper {
                     case "BloodPressure" -> List.of("SystolicBP", "DiastolicBP", "BPUnit", "Date");
                     case "SmokingStatus" -> List.of("Status", "Date");
                     case "SmokingPacks" -> List.of("PerDay", "Date");
+                    case "SelfMonitoringBloodGlucose" -> List.of("SelfMonitoring", "Date");
+                    case "DiabetesEducationalSelfManagement" ->
+                            List.of("EducationalTrainingPerformed", "Date");
+                    case "DiabetesSelfManagementChallenges" ->
+                            List.of("CodeValue", "ChallengesIdentified", "Date");
+                    case "HypoglycemicEpisodes" -> List.of("NumOfReportedEpisodes", "Date");
+                    case "DiabetesMotivationalCounselling" ->
+                            List.of("CounsellingPerformed", "Date");
+                    case "DiabetesComplicationsScreening" -> List.of("ExamCode", "Date");
                     default -> throw new IOException("CDS_EXPORT_NATIVE_CARE_ELEMENT_INVALID");
                 };
         for (String name : order) xml.element("cds_dt", name, result.values().get(name));

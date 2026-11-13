@@ -117,6 +117,81 @@ class CdsExportNativeCareMapperUnitTest {
     }
 
     @Test
+    void shouldMapNativeDiabetesCare_toTheExactStandardElementsWithTheSeededInstructions()
+            throws Exception {
+        // Before: only six of the thirteen CareElements kinds were produced from native data,
+        // so flowsheet diabetes care reached the receiver only as residual JSON.
+        record Case(String type, String value, String instruction, String element, Map<String, String> values) {}
+        var cases =
+                List.of(
+                        new Case("SMBG", "Yes", "Yes/No", "SelfMonitoringBloodGlucose", Map.of("SelfMonitoring", "Y")),
+                        new Case("SMBG", "NO", "", "SelfMonitoringBloodGlucose", Map.of("SelfMonitoring", "N")),
+                        new Case("DMME", "yes", "Discussed", "DiabetesEducationalSelfManagement", Map.of("EducationalTrainingPerformed", "Y")),
+                        new Case("SMCD", "No", "Yes/No", "DiabetesSelfManagementChallenges", Map.of("CodeValue", "44941-3", "ChallengesIdentified", "N")),
+                        new Case("HYPE", "03", "since last visit", "HypoglycemicEpisodes", Map.of("NumOfReportedEpisodes", "3")),
+                        new Case("MCCN", "Yes", "Yes/No", "DiabetesMotivationalCounselling", Map.of("CounsellingPerformed", "Nutrition")),
+                        new Case("MCCE", "Y", "Yes/No", "DiabetesMotivationalCounselling", Map.of("CounsellingPerformed", "Exercise")),
+                        new Case("MCCS", "Yes", "Yes/No", "DiabetesMotivationalCounselling", Map.of("CounsellingPerformed", "Smoking Cessation")),
+                        new Case("MCCO", "Yes", "", "DiabetesMotivationalCounselling", Map.of("CounsellingPerformed", "Other")),
+                        new Case("EYEE", "Yes", "Exam Done", "DiabetesComplicationsScreening", Map.of("ExamCode", "32468-1")),
+                        new Case("FTE", "Yes", "Normal", "DiabetesComplicationsScreening", Map.of("ExamCode", "11397-7")),
+                        new Case("FTLS", "Yes", "Normal", "DiabetesComplicationsScreening", Map.of("ExamCode", "67536-3")),
+                        new Case("NRTF", "Yes", "Normal", "DiabetesComplicationsScreening", Map.of("ExamCode", "67536-3")),
+                        new Case("WC", "90", "in cm", "WaistCircumference", Map.of("WaistCircumference", "90", "WaistCircumferenceUnit", "cm")));
+        for (var value : cases) {
+            var mapped = map(value.type(), value.value(), value.instruction());
+            assertThat(mapped.element()).as(value.toString()).isEqualTo(value.element());
+            var expected = new LinkedHashMap<>(value.values());
+            expected.put("Date", "2026-07-09");
+            assertThat(mapped.values()).as(value.toString()).isEqualTo(expected);
+            String xml =
+                    new String(
+                            render(
+                                    CdsCategory.CARE_ELEMENTS,
+                                    body -> mapper.writeCare(mapped, body)),
+                            StandardCharsets.UTF_8);
+            assertThat(xml).contains("<" + value.element() + ">", "2026-07-09");
+            assertThat(
+                            CdsExportNativeCareMapper.standard(
+                                    observation(value.type(), value.value(), value.instruction())
+                                            .fields(),
+                                    Map.of()))
+                    .extracting(CdsExportNativeCareMapper.Standard::element)
+                    .isEqualTo(value.element());
+        }
+    }
+
+    @Test
+    void shouldKeepDiabetesCareSupportingOnly_whenTheStandardElementWouldNotSayTheSameThing()
+            throws Exception {
+        for (var value :
+                List.of(
+                        // Counselling and exams that were not done have no CDS form: the
+                        // standard elements only record that they were performed.
+                        List.of("MCCN", "No", "Yes/No"),
+                        List.of("EYEE", "No", "Exam Done"),
+                        List.of("EYEE", "NA", "Exam Done"),
+                        // Under "Normal", No is an abnormal result or an exam not done.
+                        List.of("FTE", "No", "Normal"),
+                        List.of("SMBG", "NA", "Yes/No"),
+                        // A locally reworded instruction may change what Yes means.
+                        List.of("SMBG", "Yes", "Referred to educator"),
+                        List.of("EYEE", "Yes", "Referred"),
+                        List.of("HYPE", "2.5", "since last visit"),
+                        List.of("HYPE", "several", "since last visit"),
+                        List.of("HYPE", "-1", "since last visit"),
+                        // CGSD records Yes/No, not the documented goals the element requires.
+                        List.of("CGSD", "Yes", "Yes/No"),
+                        // No stated unit: WC has no seeded vocabulary that implies one.
+                        List.of("WC", "90", ""))) {
+            var mapped = map(value.get(0), value.get(1), value.get(2));
+            assertThat(mapped.element()).as(value.toString()).isNull();
+            assertThat(mapped.values()).isEmpty();
+            assertThat(mapped.metadata()).contains(value.get(1));
+        }
+    }
+
+    @Test
     void shouldConvertOnlyExplicitUnits_withExactDecimalFactorsAndRetainTheOriginal()
             throws Exception {
         var weight = map("WT", "100", "lbs");
