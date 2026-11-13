@@ -940,8 +940,14 @@ STATEMENT_DIGEST_SQL = """SELECT COALESCE(DIGEST,'OVERFLOW'),LOWER(SHA2(DIGEST_T
  GROUP BY DIGEST,DIGEST_TEXT ORDER BY DIGEST LIMIT 4097"""
 
 
-def statement_digest_snapshot(rows: list[list[str]]) -> dict:
-    """Accept bounded hashes/classes/counters only; SQL text and bound values never leave the server."""
+def statement_digest_snapshot(
+    rows: list[list[str]], classes: frozenset = STATEMENT_CLASSES
+) -> dict:
+    """Accept bounded hashes/classes/counters only; SQL text and bound values never leave the server.
+
+    ``classes`` is the finite class set of the classifying query; the export scaling gate
+    (run-cds-export-scaling.py) supplies its own, which adds a privilege-read class.
+    """
     if len(rows) > 4096:
         raise RuntimeError("statement digest inventory capacity exceeded")
     result = {}
@@ -950,7 +956,7 @@ def statement_digest_snapshot(rows: list[list[str]]) -> dict:
             len(row) != 5
             or not re.fullmatch(r"[0-9a-fA-F]{32}|[0-9a-fA-F]{64}", row[0])
             or not re.fullmatch(r"[0-9a-f]{64}", row[1])
-            or row[2] not in STATEMENT_CLASSES
+            or row[2] not in classes
             or not row[3].isdecimal()
             or not row[4].isdecimal()
             or row[0] in result

@@ -2,6 +2,11 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Own an ephemeral installed CLI/runtime/database for one mandatory resource profile.
 
+The import profiles run run-cds-performance.py or run-cds-disk-failures.py. The export
+profiles (export-{native,imported}-{patients,charts}) run run-cds-export-scaling.py in the same owned
+runtime, after the same import fixture, so both directions qualify the identical packaged WAR,
+paired CLI package and database server configuration.
+
 Never point this harness at an existing runtime or database. Large accepted
 sources remain intact until the entire owned CI environment is retired. Only
 whitelisted hashes/counts/resource evidence are copied to the public artifact.
@@ -63,7 +68,17 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("scaling", "aggregate20", "zip64", "disk-reserve", "disk-enospc"),
+        choices=(
+            "scaling",
+            "aggregate20",
+            "zip64",
+            "disk-reserve",
+            "disk-enospc",
+            "export-native-patients",
+            "export-native-charts",
+            "export-imported-patients",
+            "export-imported-charts",
+        ),
         required=True,
     )
     parser.add_argument("--cli-source", type=Path, required=True)
@@ -195,9 +210,10 @@ def main() -> int:
             )
             status["productionJars"] = len(list((webapp / "WEB-INF/lib").glob("*.jar")))
             disk_fault = args.profile.startswith("disk-")
+            export = args.profile.startswith("export-")
             required = (
                 4
-                if args.profile == "scaling" or disk_fault
+                if args.profile == "scaling" or disk_fault or export
                 else 50
                 if args.profile == "aggregate20"
                 else 20
@@ -310,6 +326,7 @@ def main() -> int:
                     helper,
                     "scripts/ci/CdsImportMariaDbBootstrap.java",
                     "scripts/ci/CdsWorkloadValidator.java",
+                    *(["scripts/ci/CdsExportScalingFixture.java"] if export else []),
                 ]
             )
             credentials = "/workspace/target/" + base.name + "/private/jdbc.properties"
@@ -418,6 +435,21 @@ def main() -> int:
                     "-v",
                 ]
             )
+            if export:
+                execute(
+                    runtime_exec
+                    + [
+                        "python3",
+                        "-m",
+                        "unittest",
+                        "discover",
+                        "-s",
+                        "scripts/ci",
+                        "-p",
+                        "test_run_cds_export_scaling.py",
+                        "-v",
+                    ]
+                )
             status["stage"] = "INSTALLED_PROFILE"
             if disk_fault:
                 if args.profile == "disk-enospc":
@@ -470,6 +502,34 @@ def main() -> int:
                     check=False,
                 )
                 proof_path = "/run/cds-disk-evidence/proof.json"
+            elif export:
+                executed = execute(
+                    runtime_exec
+                    + [
+                        "python3",
+                        "scripts/ci/run-cds-export-scaling.py",
+                        "--disposable",
+                        "--exclusive-server",
+                        "--profile",
+                        args.profile.removeprefix("export-"),
+                        "--fixture-metadata",
+                        root + "/fixture.json",
+                        "--jdbc-properties",
+                        "/run/cds-test/jdbc.properties",
+                        "--root",
+                        root + "/source/export-scaling",
+                        "--classpath",
+                        runtime_cp,
+                        "--candidate-sha256",
+                        status["warSha256"],
+                        "--expected-memory-mib",
+                        "1536",
+                        "--expected-cpus",
+                        "2",
+                    ],
+                    check=False,
+                )
+                proof_path = root + "/source/export-scaling/evidence/proof.json"
             else:
                 executed = execute(
                     runtime_exec
@@ -558,7 +618,9 @@ def main() -> int:
                     raise RuntimeError(
                         "raw-register-only kernel proof artifact hash/size differs"
                     )
-            if proof.get("status") != "PASSED":
+            if proof.get("status") != "PASSED" or (
+                export and proof.get("completeCaseSet") is not True
+            ):
                 raise RuntimeError("profile evidence did not pass")
             if executed.returncode:
                 raise RuntimeError("installed resource profile failed")
