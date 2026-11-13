@@ -207,7 +207,9 @@ counts the rows that are shown, and a list that cannot be loaded says so
   cannot list, open, print, download or change that patient's hospital reports from
   the chart, the HRM list, the inbox or as an attachment, and the inbox sidebar neither
   names that patient nor counts the report. Reports not yet matched to a patient are
-  unaffected.
+  unaffected. Before upgrading, check custom roles: a role that holds `_hrm` but not
+  `_demographic` read can no longer open patient-matched hospital reports. The seeded
+  roles are not affected; only `doctor` holds `_hrm`, and it holds both.
 - Changing your own password from Preferences applies the clinic's password policy on
   the server as well as in the browser. A password that does not meet it, or a new PIN
   shorter than `password_pin_min_length`, is refused with the form's message and
@@ -269,6 +271,8 @@ counts the rows that are shown, and a list that cannot be loaded says so
   are recorded under the appointment and its patient with the user and client
   address, including the Group Appt and Repeat actions. The deletion entry is now action
   `delete`, content `appointment`; it was action `Appointment.delete` with no content.
+  Entries written before the upgrade are not rewritten, so a query over a period that
+  spans the upgrade must match both forms.
   An edit made on the Edit Appointment popup is recorded once, as action
   `AppointmentManager.updateAppointment` (the entry an edit through the REST API also
   writes), and names a changed status. Adjust saved audit queries.
