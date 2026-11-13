@@ -208,6 +208,10 @@ final class CdsExportDataSummaryHtmlComposer {
             byte[] content,
             CdsExportDataSummaryRegistry.BinaryPresentation presentation) {
         if (content == null || presentation == null) return;
+        if (presentation == CdsExportDataSummaryRegistry.BinaryPresentation.ENCRYPTED_SIGNATURE) {
+            signature(html, content);
+            return;
+        }
         if (presentation == CdsExportDataSummaryRegistry.BinaryPresentation.IMAGE) {
             String type = imageType(content);
             byte[] image = content;
@@ -236,6 +240,79 @@ final class CdsExportDataSummaryHtmlComposer {
                     .append(" characters):</div><div class=\"value\">")
                     .append(SafeEncode.forHtmlContent(text))
                     .append("</div>");
+    }
+
+    /** The note a stored signature that cannot be shown carries, as the printed letter's. */
+    static final String SIGNATURE_UNDECRYPTABLE =
+            "Stored encrypted. It could not be decrypted when it was exported, so the signature"
+                    + " image is not shown (SIGNATURE_UNAVAILABLE).";
+
+    /**
+     * A stored signature image ({@code DigitalSignature.signatureImage}). CARLOS stores it
+     * encrypted, so its stored bytes (whose size and SHA-256 are listed above) are ciphertext and
+     * are never shown as an image. It is read through the one decryption path for stored
+     * signatures, the one the chart's Print uses ({@link
+     * io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl#readStoredImage}): the
+     * decrypted image is embedded and labelled as decrypted; a legacy row stored unencrypted is
+     * shown as stored and labelled so; a value that cannot be decrypted is named, not shown.
+     */
+    private static void signature(StringBuilder html, byte[] content) {
+        var read =
+                io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl.readStoredImage(
+                        content);
+        switch (read.form()) {
+            case DECRYPTED -> {
+                String type = imageType(read.image());
+                html.append("<div class=\"state\">");
+                if (type == null)
+                    html.append(
+                            "Stored encrypted. Its decrypted value is not a PNG, JPEG or GIF image,"
+                                    + " so no image is shown.</div>");
+                else
+                    html.append(
+                                    "Stored encrypted. The signature image, decrypted as CARLOS EMR"
+                                            + " prints it:</div><div><img alt=\"signature image\""
+                                            + " src=\"data:")
+                            .append(SafeEncode.forHtmlAttribute(type))
+                            .append(";base64,")
+                            .append(Base64.getEncoder().encodeToString(read.image()))
+                            .append("\"/></div>");
+                if (read.image() != null) java.util.Arrays.fill(read.image(), (byte) 0);
+            }
+            case LEGACY_PLAINTEXT -> {
+                // Undecryptable bytes are shown as stored only when they decode as a real image:
+                // ciphertext that merely starts like one is never shown.
+                String type = decodable(content) ? imageType(content) : null;
+                html.append("<div class=\"state\">");
+                if (type == null)
+                    html.append(
+                            "It could not be decrypted when it was exported, and it is not a"
+                                    + " readable PNG, JPEG or GIF image, so no image is shown"
+                                    + " (SIGNATURE_UNAVAILABLE).</div>");
+                else
+                    html.append(
+                                    "Stored unencrypted by an earlier release. The signature image as"
+                                            + " stored:</div><div><img alt=\"signature image\""
+                                            + " src=\"data:")
+                            .append(SafeEncode.forHtmlAttribute(type))
+                            .append(";base64,")
+                            .append(Base64.getEncoder().encodeToString(content))
+                            .append("\"/></div>");
+            }
+            case UNREADABLE ->
+                    html.append("<div class=\"state\">")
+                            .append(SIGNATURE_UNDECRYPTABLE)
+                            .append("</div>");
+        }
+    }
+
+    /** True when the bytes decode as a raster image (not merely start with an image signature). */
+    private static boolean decodable(byte[] bytes) {
+        try {
+            return javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes)) != null;
+        } catch (java.io.IOException | RuntimeException unreadable) {
+            return false;
+        }
     }
 
     /** The media type of a PNG, JPEG or GIF by its file signature, never by a stored type name. */

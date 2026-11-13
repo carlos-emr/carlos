@@ -484,7 +484,11 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 new CdsExportDataSummaryOccurrenceService.Plan(
                         groups, CdsExportDataSummaryHtmlComposer.Patient.of(demographic), demographic);
         var consultation = byKind.get(Kind.CONSULTATION_REQUEST).getFirst();
-        var letterComposer = new CdsExportConsultationLetterComposer(references);
+        var letterComposer =
+                new CdsExportConsultationLetterComposer(
+                        references,
+                        org.mockito.Mockito.mock(
+                                io.github.carlos_emr.carlos.managers.DigitalSignatureManager.class));
         assertThat(letterComposer.prints(consultation)).isTrue();
         var letter = letterComposer.print(consultation, plan);
         CdsExportDataSummaryPdfService.requirePdf(letter.pdf());
@@ -743,7 +747,13 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
             values.put("specId", CdsExportDataSummaryPlanner.Value.sqlNull());
             var request =
                     new Row("consultationRequests", CdsExportPatientTableSourceReader.key(patient), values);
-            var consultant = new CdsExportConsultationLetterComposer(references).consultant(request);
+            var consultant =
+                    new CdsExportConsultationLetterComposer(
+                                    references,
+                                    org.mockito.Mockito.mock(
+                                            io.github.carlos_emr.carlos.managers
+                                                    .DigitalSignatureManager.class))
+                            .consultant(request);
             assertThat(consultant.name()).isEqualTo("NURSE, Nora");
             assertThat(consultant.phone()).isEqualTo("555-0500 ext 12");
             assertThat(consultant.fax()).isEqualTo("555-0501");

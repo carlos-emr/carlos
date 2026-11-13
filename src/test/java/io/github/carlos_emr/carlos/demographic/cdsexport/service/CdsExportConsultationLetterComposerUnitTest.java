@@ -23,10 +23,19 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao;
+import io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDao;
+import io.github.carlos_emr.carlos.commn.model.DigitalSignature;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl;
+import io.github.carlos_emr.carlos.utility.EncryptionUtils;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Group;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Row;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryPlanner.Value;
@@ -53,12 +62,15 @@ import org.junit.jupiter.api.Test;
 /**
  * The exported consultation letter is the creator's request-free letter filled from the captured
  * request, its extensions, the captured demographic row and the reference values, with the
- * patient's own stored signature; a missing signature is reported, never substituted.
+ * patient's own stored signature, checked and decrypted through {@link DigitalSignatureManager} as
+ * the chart's Print does; a missing, foreign or undecryptable signature is reported, never
+ * substituted.
  */
 @Tag("unit")
 @Tag("cds-export")
 class CdsExportConsultationLetterComposerUnitTest {
     private CdsExportPrintedFormReadDao references;
+    private DigitalSignatureManager signatures;
     private CdsExportConsultationLetterComposer composer;
     private final Map<String, String> previous = new HashMap<>();
 
@@ -80,7 +92,7 @@ class CdsExportConsultationLetterComposerUnitTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
         property("faxLogoInConsultation", null);
         references = mock(CdsExportPrintedFormReadDao.class);
         when(references.clinic()).thenReturn(new CdsExportPrintedFormReadDao.Clinic(
@@ -92,7 +104,25 @@ class CdsExportConsultationLetterComposerUnitTest {
         when(references.provider("999")).thenReturn(new CdsExportPrintedFormReadDao.Provider("Fay", "FAMILY", "654321"));
         when(references.appointmentInstruction("A1")).thenReturn("Please book within two weeks");
         when(references.cellPhone(27)).thenReturn("555-0301");
-        composer = new CdsExportConsultationLetterComposer(references);
+        signatures = mock(DigitalSignatureManager.class);
+        when(signatures.getDigitalSignatureMetadata(44)).thenReturn(owner(27, ModuleType.CONSULTATION));
+        stored(png());
+        composer = new CdsExportConsultationLetterComposer(references, signatures);
+    }
+
+    /** The ownership metadata the manager returns for a stored signature. */
+    private static DigitalSignature owner(Integer patient, ModuleType module) {
+        var metadata = new DigitalSignature();
+        metadata.setDemographicId(patient);
+        metadata.setModuleType(module);
+        return metadata;
+    }
+
+    /** The manager's (decrypted) signature as the chart's Print receives it. */
+    private void stored(byte[] image) {
+        var signature = owner(27, ModuleType.CONSULTATION);
+        signature.setSignatureImage(image);
+        when(signatures.getDigitalSignature(44)).thenReturn(signature);
     }
 
     private static Row row(String table, long id, String... columns) {
@@ -190,6 +220,7 @@ class CdsExportConsultationLetterComposerUnitTest {
     void shouldPrintWithoutALogoOrNote_whenTheConfiguredLogoFileIsNotInstalled() throws Exception {
         property("faxLogoInConsultation", temp.resolve("absent.png").toString());
         var request = request("44", null);
+        stored(png());
         var printed = composer.print(request, plan(request, png()));
 
         assertThat(printed.notes()).isEmpty();
@@ -238,9 +269,111 @@ class CdsExportConsultationLetterComposerUnitTest {
     @Test
     void shouldReportTheSignature_whenTheStoredSignatureIsNotAnImage() throws Exception {
         var request = request("44", null);
+        stored("text".getBytes(java.nio.charset.StandardCharsets.US_ASCII));
         var printed = composer.print(request, plan(request, "text".getBytes(java.nio.charset.StandardCharsets.US_ASCII)));
 
         assertThat(printed.notes()).containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
+    }
+
+    /**
+     * Runs {@code body} with a fresh signature key in place, as the chart's installation has one,
+     * then restores the key and the cached key spec exactly.
+     */
+    private static void withSignatureKey(String key, ThrowingRunnable body) throws Exception {
+        var props = CarlosProperties.getInstance();
+        boolean had = props.containsKey(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        Object previousKey = props.get(EncryptionUtils.SECRET_KEY_ENV_VAR);
+        var specField = EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        specField.setAccessible(true);
+        Object previousSpec = specField.get(null);
+        try {
+            props.setProperty(EncryptionUtils.SECRET_KEY_ENV_VAR, key);
+            EncryptionUtils.prepareSecretKeySpec();
+            body.run();
+        } finally {
+            if (had) props.put(EncryptionUtils.SECRET_KEY_ENV_VAR, previousKey);
+            else props.remove(EncryptionUtils.SECRET_KEY_ENV_VAR);
+            specField.set(null, previousSpec);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    /**
+     * The real manager over a stored row: the export reads the signature exactly as the chart's
+     * Print does, through DigitalSignatureManagerImpl's metadata and decryption.
+     */
+    private CdsExportConsultationLetterComposer chartPath(byte[] stored, DigitalSignatureDao dao) {
+        when(dao.findMetadataById(44)).thenReturn(owner(27, ModuleType.CONSULTATION));
+        var row = owner(27, ModuleType.CONSULTATION);
+        row.setSignatureImage(stored);
+        when(dao.findDetached(44)).thenReturn(row);
+        return new CdsExportConsultationLetterComposer(references, new DigitalSignatureManagerImpl(dao));
+    }
+
+    @Test
+    void shouldPrintTheDecryptedSignature_whenTheStoredSignatureIsEncrypted() throws Exception {
+        byte[] image = png();
+        withSignatureKey(EncryptionUtils.generateSecretKey(), () -> {
+            byte[] encrypted = EncryptionUtils.encrypt(image);
+            var request = request("44", null);
+            // The captured row holds what is stored: the ciphertext, never an image.
+            var printed = chartPath(encrypted, mock(DigitalSignatureDao.class))
+                    .print(request, plan(request, encrypted));
+
+            assertThat(printed.notes()).isEmpty();
+            try (var pdf = Loader.loadPDF(printed.pdf())) {
+                assertThat(new PDFTextStripper().getText(pdf)).contains("Signature:");
+                int images = 0;
+                for (var page : pdf.getPages())
+                    for (var name : page.getResources().getXObjectNames()) images++;
+                assertThat(images).isEqualTo(1);
+            }
+        });
+    }
+
+    @Test
+    void shouldNameTheSignature_whenTheStoredSignatureCannotBeDecrypted() throws Exception {
+        byte[] image = png();
+        byte[][] encrypted = new byte[1][];
+        withSignatureKey(EncryptionUtils.generateSecretKey(), () -> encrypted[0] = EncryptionUtils.encrypt(image));
+        // Another installation's key (a rotated or missing key): the stored value cannot be read.
+        withSignatureKey(EncryptionUtils.generateSecretKey(), () -> {
+            var request = request("44", null);
+            var printed = chartPath(encrypted[0], mock(DigitalSignatureDao.class))
+                    .print(request, plan(request, encrypted[0]));
+
+            assertThat(printed.notes()).containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
+            try (var pdf = Loader.loadPDF(printed.pdf())) {
+                assertThat(new PDFTextStripper().getText(pdf)).doesNotContain("Signature:");
+            }
+        });
+    }
+
+    @Test
+    void shouldNameTheSignature_whenItIsNotThisPatientsConsultationSignature() throws Exception {
+        var request = request("44", null);
+        for (var foreign : java.util.Arrays.asList(
+                owner(28, ModuleType.CONSULTATION), owner(27, ModuleType.E_FORM), owner(null, ModuleType.CONSULTATION),
+                null)) {
+            when(signatures.getDigitalSignatureMetadata(44)).thenReturn(foreign);
+            assertThat(composer.print(request, plan(request, png())).notes())
+                    .containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
+        }
+        // Ownership is refused before any signature image is loaded.
+        verify(signatures, never()).getDigitalSignature(anyInt());
+    }
+
+    @Test
+    void shouldNameTheSignature_whenTheSignatureLookupFails() throws Exception {
+        var request = request("44", null);
+        when(signatures.getDigitalSignature(44)).thenThrow(new IllegalStateException("database unavailable"));
+
+        assertThat(composer.print(request, plan(request, png())).notes())
+                .containsExactly(CdsExportConsultationLetterComposer.SIGNATURE_NOTE);
     }
 
     /** A professional health-care-team contact (TYPE_CONTACT 2) with every value the letter shows. */

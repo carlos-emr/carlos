@@ -30,6 +30,8 @@ import io.github.carlos_emr.carlos.commn.model.ProfessionalSpecialist;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationLetterDto;
 import io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultationPDFCreator;
+import io.github.carlos_emr.carlos.commn.model.enumerator.ModuleType;
+import io.github.carlos_emr.carlos.managers.DigitalSignatureManager;
 import io.github.carlos_emr.carlos.utility.ClinicLogoUtility;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -55,8 +57,10 @@ import org.springframework.stereotype.Service;
  * demographic row); the reference values the chart's Print looks up (clinic letterhead, service,
  * specialist directory or health-care-team contact, provider names and billing numbers, program
  * name, appointment instruction label, the patient's cell phone) are read when it is printed. The
- * stored signature is the patient's captured {@code DigitalSignature} the request names, and the
- * clinic logo is the configured file: neither is ever substituted, and when one cannot be included
+ * signature is the patient's captured {@code DigitalSignature} the request names, checked and
+ * decrypted through {@link DigitalSignatureManager} as the chart's Print does ({@link #signature}),
+ * and the clinic logo is the configured file:
+ * neither is ever substituted, and when one cannot be included
  * the letter says so in its Notes and in its data summary's Notes. A configured logo that is not installed
  * is not an omission: the letter prints without a logo, as the clinic's own Print does.
  *
@@ -76,9 +80,12 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
 
     /** The {@code Contact} subtype of a professional contact (its JPA discriminator). */
     private static final String PROFESSIONAL_CONTACT = "ProfessionalContact";
+    /** The named reason a requested signature is not in the printed letter. */
+    static final String SIGNATURE_NOTE_CODE = "SIGNATURE_UNAVAILABLE";
+
     static final String SIGNATURE_NOTE =
             "The provider's signature image could not be included in the printed letter"
-                    + " (SIGNATURE_UNAVAILABLE).";
+                    + " (" + SIGNATURE_NOTE_CODE + ").";
     static final String LOGO_NOTE =
             "The clinic logo could not be included in the printed letter (LOGO_UNAVAILABLE).";
 
@@ -86,9 +93,12 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     private static final long MAXIMUM_LOGO_BYTES = 4L << 20;
 
     private final CdsExportPrintedFormReadDao references;
+    private final DigitalSignatureManager signatures;
 
-    public CdsExportConsultationLetterComposer(CdsExportPrintedFormReadDao references) {
+    public CdsExportConsultationLetterComposer(
+            CdsExportPrintedFormReadDao references, DigitalSignatureManager signatures) {
         this.references = Objects.requireNonNull(references);
+        this.signatures = Objects.requireNonNull(signatures);
     }
 
     @Override
@@ -343,18 +353,39 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     }
 
     /**
-     * The stored signature the request names: the patient's captured {@code DigitalSignature}
-     * row with that id, as stored. Null (reported, never substituted) when the id is not a stored
-     * signature of this chart.
+     * The signature image the request names, resolved as the chart's Print resolves it: the id
+     * must name a {@code DigitalSignature} row captured for this chart, whose stored ownership
+     * ({@link DigitalSignatureManager#getDigitalSignatureMetadata}) is a consultation signature of
+     * this patient; its image is then read through {@link DigitalSignatureManager#getDigitalSignature},
+     * which decrypts the stored value (it is stored encrypted, so the captured bytes are never
+     * printed as they are stored). Null (reported as {@value #SIGNATURE_NOTE_CODE}, never
+     * substituted) when any of that fails: an id that is not a captured signature of this chart, a
+     * signature owned by another patient or module, or one that cannot be read or decrypted.
      */
-    static byte[] signature(CdsExportDataSummaryOccurrenceService.Plan plan, String id) {
+    byte[] signature(CdsExportDataSummaryOccurrenceService.Plan plan, String id) {
         if (!id.matches("[1-9][0-9]{0,9}")) return null;
+        boolean captured = false;
         for (var group : plan.groups())
             if ("DigitalSignature".equals(group.table()) && id.equals(group.id()) && !group.rows().isEmpty()) {
-                var image = group.rows().getFirst().values().get("signatureImage");
-                return image == null ? null : image.content();
+                captured = true;
+                break;
             }
-        return null;
+        Integer patient = number(plan.demographic().get("demographic_no"));
+        if (!captured || patient == null) return null;
+        int signatureId = Integer.parseInt(id);
+        try {
+            var owner = signatures.getDigitalSignatureMetadata(signatureId);
+            if (owner == null
+                    || owner.getModuleType() != ModuleType.CONSULTATION
+                    || owner.getDemographicId() == null
+                    || owner.getDemographicId().intValue() != patient) return null;
+            var stored = signatures.getDigitalSignature(signatureId);
+            byte[] image = stored == null ? null : stored.getSignatureImage();
+            return image == null || image.length == 0 ? null : image;
+        } catch (RuntimeException unreadable) {
+            // A lookup or decryption failure leaves the letter unsigned and named, never a hold.
+            return null;
+        }
     }
 
     /** The configured consultation logo file, or null (reported) when it cannot be read. */

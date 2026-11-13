@@ -236,7 +236,10 @@ final class CdsExportDataSummaryPlanner {
             for (var row : rows) {
                 var rule = CdsExportDataSummaryRegistry.rule(row.table());
                 for (var entry : rule.binaries().entrySet())
-                    if (entry.getValue() == CdsExportDataSummaryRegistry.BinaryPresentation.IMAGE
+                    if ((entry.getValue() == CdsExportDataSummaryRegistry.BinaryPresentation.IMAGE
+                                    || entry.getValue()
+                                            == CdsExportDataSummaryRegistry.BinaryPresentation
+                                                    .ENCRYPTED_SIGNATURE)
                             && row.values().get(entry.getKey()) != null
                             && row.values().get(entry.getKey()).content() != null) return true;
             }

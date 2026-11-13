@@ -1174,7 +1174,12 @@ an original document, then each source row with its table and every column with 
 HTML-encoded with `SafeEncode`. SQL NULL, empty and a value are labelled outside the value, long
 text is printed whole and wraps, and a binary value shows its size and SHA-256 and is embedded when
 its bytes (or their strict Base64 decoding) are a PNG, JPEG or GIF; e-mail bodies stored as Base64
-are decoded when they are UTF-8 text. The password and password hint of an encrypted e-mail
+are decoded when they are UTF-8 text. A stored signature image (`DigitalSignature.signatureImage`)
+is kept encrypted by CARLOS, so its stored bytes are listed by size and SHA-256 only and never shown
+as an image: the summary embeds the image as it decrypts through the chart's own path
+(`DigitalSignatureManagerImpl.readStoredImage`, which `getDigitalSignature` uses) and says it was
+decrypted, shows a legacy unencrypted row only when its bytes decode as an image, and otherwise
+says it could not be decrypted (`SIGNATURE_UNAVAILABLE`). The password and password hint of an encrypted e-mail
 (`emailLog.password`, `emailLog.passwordClue`) are access credentials, not chart content: the
 summary states that a value is held and withheld and never prints it or its length.
 `CdsExportDataSummaryPdfService` renders it through
@@ -1317,9 +1322,14 @@ stays the lossless accounting. Two printers are registered (web context by compo
   captured demographic row; the reference values the chart's Print looks up (clinic letterhead,
   consultation service, specialist directory, provider names and billing numbers, program name,
   appointment-instruction label and the patient's current `demo_cell`) are read by
-  `CdsExportPrintedFormReadDao` in a short read-only transaction. The stored signature is the
-  patient's captured `DigitalSignature` row the request names; the logo is the configured
-  `faxLogoInConsultation` file. When either is requested but cannot be included, `printLetter()`
+  `CdsExportPrintedFormReadDao` in a short read-only transaction. The signature is resolved as the
+  chart's Print resolves it: the request's `signature_img` must name a `DigitalSignature` row
+  captured for this chart whose stored ownership (`DigitalSignatureManager.getDigitalSignatureMetadata`)
+  is a consultation signature of this patient, and its image is read through
+  `DigitalSignatureManager.getDigitalSignature`, which decrypts the stored value (the stored bytes are
+  ciphertext and are never printed as they are). Any other owner or module, or a lookup or
+  decryption failure, leaves the letter unsigned with `SIGNATURE_UNAVAILABLE`, never a hold. The
+  logo is the configured `faxLogoInConsultation` file. When either is requested but cannot be included, `printLetter()`
   reports it (`ConsultationPDFCreator.Omission`) and both Notes say `SIGNATURE_UNAVAILABLE` /
   `LOGO_UNAVAILABLE`: nothing is substituted. A configured logo file that is not installed (the
   packaged sample path, for example) is not an omission: the letter prints without a logo, as the

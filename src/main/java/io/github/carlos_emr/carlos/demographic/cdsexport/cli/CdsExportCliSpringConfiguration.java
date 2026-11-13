@@ -76,6 +76,9 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
     CdsExportEformRenderingSourceReader.class,
     // The clinician's printed consultation letters and Rourke charts beside their data summaries.
     io.github.carlos_emr.carlos.commn.dao.CdsExportPrintedFormReadDao.class,
+    // The letter's stored signature is checked and decrypted as the chart's Print does it.
+    io.github.carlos_emr.carlos.commn.dao.DigitalSignatureDaoImpl.class,
+    io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl.class,
     CdsExportConsultationLetterComposer.class,
     CdsExportRourkeChartComposer.class,
     io.github.carlos_emr.carlos.commn.dao.CdsExportHospitalReportReadDao.class,

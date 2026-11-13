@@ -71,31 +71,73 @@ public class DigitalSignatureManagerImpl implements DigitalSignatureManager {
             return digitalSignature;
         }
 
-        try {
-            digitalSignature.setSignatureImage(EncryptionUtils.decrypt(digitalSignature.getSignatureImage()));
-        } catch (Exception e) {
-            // Decryption failed. The record is NOT mutated here (the old code destructively re-encrypted
-            // and persisted the bytes, permanently double-encrypting a merely-undecryptable record).
-            // setSignatureImage was not reached, so the entity still holds its original stored bytes.
-            //
-            // Those bytes are only safe to return when they really are a plaintext image (the legacy
-            // case). For a genuinely encrypted record whose key is currently unavailable (rotation,
-            // outage), the ciphertext is undecodable — returning it would stream garbage as image/jpeg
-            // with HTTP 200, and a signed eForm would fax/archive with a blank signature block while the
-            // render gate (which only trips on >= 400) sees success. So sniff the bytes: keep them only
-            // if they look like a real image; otherwise null the image so the signature servlet 404s and
-            // the render fails honestly.
-            byte[] stored = digitalSignature.getSignatureImage();
-            if (looksLikeImage(stored)) {
-                logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
-            } else {
+        // Decryption failure never mutates the record (the old code destructively re-encrypted and
+        // persisted the bytes, permanently double-encrypting a merely-undecryptable record).
+        StoredImage read = readStoredImage(digitalSignature.getSignatureImage());
+        switch (read.form()) {
+            case DECRYPTED -> digitalSignature.setSignatureImage(read.image());
+            case LEGACY_PLAINTEXT ->
+                    logger.warn("Could not decrypt signature ID {}; stored bytes look like a legacy plaintext image, returning as-is", id);
+            case UNREADABLE -> {
                 logger.error("Could not decrypt signature ID {} and the stored bytes are not a recognizable image "
-                        + "(likely encrypted with a currently-unavailable key); returning no image", id, e);
+                        + "(likely encrypted with a currently-unavailable key); returning no image", id, read.failure());
                 digitalSignature.setSignatureImage(null);
             }
         }
 
         return digitalSignature;
+    }
+
+    /** How a stored signature image was read by {@link #readStoredImage}. */
+    public enum StoredImageForm {
+        /** The stored bytes were decrypted with the signature key: the normal case. */
+        DECRYPTED,
+        /** They could not be decrypted but are themselves a raster image: a legacy plaintext row. */
+        LEGACY_PLAINTEXT,
+        /** They could not be decrypted and are not an image (for example, the key is unavailable). */
+        UNREADABLE
+    }
+
+    /**
+     * A stored signature image as read: its form, the printable image (null when
+     * {@link StoredImageForm#UNREADABLE}) and the decryption failure, if any.
+     */
+    public record StoredImage(StoredImageForm form, byte[] image, Exception failure) {
+        public StoredImage {
+            Objects.requireNonNull(form);
+        }
+
+        @Override
+        public String toString() {
+            return "StoredImage[" + form + "]";
+        }
+    }
+
+    /**
+     * Reads a stored {@code DigitalSignature.signatureImage} value as every printed record shows it:
+     * the one decryption path for stored signatures, used by {@link #getDigitalSignature} (the
+     * chart's Print, eForm and prescription rendering) and by the CDS export, which prints the
+     * signature from the patient's captured row rather than from today's database.
+     *
+     * <p>The stored value is decrypted with the signature key. When that fails, the stored bytes
+     * are only safe to show when they really are a plaintext image (the legacy case). For a
+     * genuinely encrypted record whose key is currently unavailable (rotation, outage) the
+     * ciphertext is undecodable: returning it would stream garbage as an image, and a signed form
+     * would fax or archive with a blank signature block while every check sees success. So the
+     * bytes are sniffed: kept only if they look like a real image, otherwise no image is returned
+     * and the caller reports the signature as unavailable. Nothing is logged or written here.
+     *
+     * @param stored the stored value, never null
+     * @return how it was read; {@link StoredImage#image()} is null only when unreadable
+     */
+    public static StoredImage readStoredImage(byte[] stored) {
+        Objects.requireNonNull(stored);
+        try {
+            return new StoredImage(StoredImageForm.DECRYPTED, EncryptionUtils.decrypt(stored), null);
+        } catch (Exception e) {
+            if (looksLikeImage(stored)) return new StoredImage(StoredImageForm.LEGACY_PLAINTEXT, stored, e);
+            return new StoredImage(StoredImageForm.UNREADABLE, null, e);
+        }
     }
 
     /**

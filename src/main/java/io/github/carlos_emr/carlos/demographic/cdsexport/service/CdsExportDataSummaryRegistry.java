@@ -99,11 +99,15 @@ public final class CdsExportDataSummaryRegistry {
      * How a binary column is shown. Every binary value also shows its stored size and SHA-256.
      * {@code IMAGE}: the bytes, or their strict Base64 decoding, are embedded when they carry a PNG,
      * JPEG or GIF signature. {@code BASE64_TEXT}: the strict Base64 decoding is shown as text when it
-     * is valid UTF-8 (CARLOS stores e-mail bodies this way).
+     * is valid UTF-8 (CARLOS stores e-mail bodies this way). {@code ENCRYPTED_SIGNATURE}: a stored
+     * signature image, which CARLOS keeps encrypted; the summary says so, and embeds the image only
+     * as the stored value decrypts through the chart's own path (never the stored ciphertext), or
+     * says it could not be decrypted ({@code SIGNATURE_UNAVAILABLE}).
      */
     public enum BinaryPresentation {
         IMAGE,
-        BASE64_TEXT
+        BASE64_TEXT,
+        ENCRYPTED_SIGNATURE
     }
 
     /**
@@ -399,14 +403,15 @@ public final class CdsExportDataSummaryRegistry {
                         List.of("responseId"),
                         List.of("responseId"),
                         null));
-        // The signature row names its module but not the record; it stays its own summary.
+        // The signature row names its module but not the record; it stays its own summary. Its
+        // image is stored encrypted (DigitalSignatureManagerImpl): never shown as an image as stored.
         root(
                 rules,
                 "DigitalSignature",
                 Kind.DIGITAL_SIGNATURE,
                 false,
                 new Event("dateSigned", null),
-                Map.of("signatureImage", BinaryPresentation.IMAGE));
+                Map.of("signatureImage", BinaryPresentation.ENCRYPTED_SIGNATURE));
         // Ticklers with their comments, updates and attachment references.
         root(rules, "tickler", Kind.TICKLER, false, new Event("service_date", null), Map.of());
         for (String table : List.of("tickler_comments", "tickler_update"))

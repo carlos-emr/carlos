@@ -174,6 +174,98 @@ class CdsExportDataSummaryHtmlComposerUnitTest {
         assertThat(html).contains("no value (SQL NULL)", "empty").doesNotContain("withheld");
     }
 
+    /** Runs {@code body} with a fresh signature key, restoring the key and its cached spec. */
+    private static void withSignatureKey(String key, ThrowingRunnable body) throws Exception {
+        var props = io.github.carlos_emr.CarlosProperties.getInstance();
+        String name = io.github.carlos_emr.carlos.utility.EncryptionUtils.SECRET_KEY_ENV_VAR;
+        boolean had = props.containsKey(name);
+        Object previousKey = props.get(name);
+        var specField =
+                io.github.carlos_emr.carlos.utility.EncryptionUtils.class.getDeclaredField("SECRET_KEY_SPEC");
+        specField.setAccessible(true);
+        Object previousSpec = specField.get(null);
+        try {
+            props.setProperty(name, key);
+            io.github.carlos_emr.carlos.utility.EncryptionUtils.prepareSecretKeySpec();
+            body.run();
+        } finally {
+            if (had) props.put(name, previousKey);
+            else props.remove(name);
+            specField.set(null, previousSpec);
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
+    }
+
+    private static Map<String, Value> signatureRow(byte[] stored) throws Exception {
+        var values = new LinkedHashMap<String, Value>();
+        values.put("ModuleType", Value.text("CONSULTATION"));
+        values.put("id", Value.text("5"));
+        values.put("signatureImage", binary(stored));
+        return values;
+    }
+
+    @Test
+    void shouldShowTheDecryptedImage_whenTheStoredSignatureIsEncrypted() throws Exception {
+        withSignatureKey(io.github.carlos_emr.carlos.utility.EncryptionUtils.generateSecretKey(), () -> {
+            byte[] encrypted = io.github.carlos_emr.carlos.utility.EncryptionUtils.encrypt(PNG);
+            String html = new CdsExportDataSummaryHtmlComposer()
+                    .compose(group("DigitalSignature", Kind.DIGITAL_SIGNATURE, signatureRow(encrypted)), PATIENT);
+            // The stored value is accounted for exactly; only the decrypted image is shown.
+            assertThat(html)
+                    .contains("binary, " + encrypted.length + " bytes, SHA-256 "
+                            + HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(encrypted)))
+                    .contains("Stored encrypted. The signature image, decrypted as CARLOS EMR prints it:")
+                    .contains("src=\"data:image/png;base64," + Base64.getEncoder().encodeToString(PNG) + "\"")
+                    .doesNotContain(Base64.getEncoder().encodeToString(encrypted));
+        });
+    }
+
+    @Test
+    void shouldNameTheSignatureUnavailable_whenTheStoredSignatureCannotBeDecrypted() throws Exception {
+        byte[][] encrypted = new byte[1][];
+        withSignatureKey(io.github.carlos_emr.carlos.utility.EncryptionUtils.generateSecretKey(),
+                () -> encrypted[0] = io.github.carlos_emr.carlos.utility.EncryptionUtils.encrypt(PNG));
+        withSignatureKey(io.github.carlos_emr.carlos.utility.EncryptionUtils.generateSecretKey(), () -> {
+            String html = new CdsExportDataSummaryHtmlComposer()
+                    .compose(group("DigitalSignature", Kind.DIGITAL_SIGNATURE, signatureRow(encrypted[0])), PATIENT);
+            assertThat(html)
+                    .contains(CdsExportDataSummaryHtmlComposer.SIGNATURE_UNDECRYPTABLE)
+                    .contains("SIGNATURE_UNAVAILABLE")
+                    .doesNotContain("<img");
+        });
+    }
+
+    @Test
+    void shouldNeverShowUndecryptableBytesAsAnImage_whenTheyOnlyStartLikeOne() throws Exception {
+        // Not ciphertext of this key, and starting with a JPEG signature: not a readable image.
+        byte[] lookalike = new byte[64];
+        lookalike[0] = (byte) 0xFF;
+        lookalike[1] = (byte) 0xD8;
+        lookalike[2] = (byte) 0xFF;
+        withSignatureKey(io.github.carlos_emr.carlos.utility.EncryptionUtils.generateSecretKey(), () -> {
+            String html = new CdsExportDataSummaryHtmlComposer()
+                    .compose(group("DigitalSignature", Kind.DIGITAL_SIGNATURE, signatureRow(lookalike)), PATIENT);
+            assertThat(html).contains("SIGNATURE_UNAVAILABLE").doesNotContain("<img");
+            // A legacy row stored unencrypted that is a real image is shown, and labelled so.
+            String legacy = new CdsExportDataSummaryHtmlComposer()
+                    .compose(group("DigitalSignature", Kind.DIGITAL_SIGNATURE, signatureRow(PNG)), PATIENT);
+            assertThat(legacy)
+                    .contains("Stored unencrypted by an earlier release. The signature image as stored:")
+                    .contains("src=\"data:image/png;base64," + Base64.getEncoder().encodeToString(PNG) + "\"");
+        });
+    }
+
+    @Test
+    void shouldHoldTheRecordToItsImage_whenTheSignatureIsEmbedded() throws Exception {
+        var group = group("DigitalSignature", Kind.DIGITAL_SIGNATURE, signatureRow(new byte[] {1, 2, 3}));
+        // A captured signature counts as an image, so losing it in the render holds the patient.
+        assertThat(group.hasImage()).isTrue();
+    }
+
     @Test
     void shouldRenderAValidatedPdf_throughTheBundledFontRenderer() throws Exception {
         var values = new LinkedHashMap<String, Value>();
