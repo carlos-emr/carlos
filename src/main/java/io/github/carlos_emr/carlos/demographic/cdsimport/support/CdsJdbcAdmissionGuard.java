@@ -775,7 +775,36 @@ public final class CdsJdbcAdmissionGuard implements InvocationHandler {
                         .contains(name);
     }
 
+    /**
+     * Admitted shapes by exact SQL text. Classification is a pure function of the text and the
+     * static rule sets above, and every guarded statement used to be parsed again on a new
+     * parser thread; repeated statements (Hibernate and the CDS readers reuse a small set of
+     * parameterized texts) now parse once. Only admitted shapes are kept, never a refusal, and
+     * only for text with no quoted literal and at most {@link #MAXIMUM_CACHED_SQL} characters, so
+     * no literal value (which could be clinical) is retained beyond the statement itself. The
+     * cache is in memory only and never logged or exposed.
+     */
+    private static final com.github.benmanes.caffeine.cache.Cache<String, SqlShape> SHAPES =
+            com.github.benmanes.caffeine.cache.Caffeine.newBuilder().maximumSize(4096).build();
+
+    private static final int MAXIMUM_CACHED_SQL = 64 * 1024;
+
     private static SqlShape classify(String sql) throws SQLException {
+        boolean cacheable =
+                sql != null
+                        && sql.length() <= MAXIMUM_CACHED_SQL
+                        && sql.indexOf('\'') < 0
+                        && sql.indexOf('"') < 0;
+        if (cacheable) {
+            SqlShape known = SHAPES.getIfPresent(sql);
+            if (known != null) return known;
+        }
+        SqlShape shape = classifyUncached(sql);
+        if (cacheable) SHAPES.put(sql, shape);
+        return shape;
+    }
+
+    private static SqlShape classifyUncached(String sql) throws SQLException {
         String normalized = stripTerminalSemicolons(sql);
         // Hibernate's MariaDB PESSIMISTIC_READ spelling is not supported by JSQLParser.
         // Normalize only the terminal lock clause for classification; execute the original

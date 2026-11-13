@@ -2701,6 +2701,26 @@ History and clinical-note payloads require the shared worker's `authorizeNote` b
 
 The policy follows the active `CaseManagementManager.filterNotes` and chart entry routes. A patient with admissions requires a provider membership in an admitted program (including historical admissions), or an active referral into a provider program. With no admissions, the domain check allows the ordinary chart read. Empty and zero program numbers use that domain and the chart/category rights. A positive note program supplies the exporter’s program context: an unambiguous membership role is required, and the reporter’s same-role default or a `read ROLE notes` default/program grant must allow reading. Role names and program map keys use the active reader’s lowercase spelling with spaces preserved. Access-type labels do not substitute for these names. Different membership roles or duplicate program map keys refuse disclosure instead of choosing an arbitrary row.
 
+**One authorization session per patient.** Every capture, reconciliation, mapping and emission
+step asks the worker again whether the exporting identities may read the patient, a category, a
+note, a program-restricted record or a printed record; answered fresh each time, a chart of a few
+hundred notes cost hundreds of thousands of identity and privilege queries (an installed 69-chart
+census sat in capture for over an hour and a half without finishing a chart). The worker now opens
+a session for each patient (`CdsExportRunControl.beginPatient`, `CdsExportPatientAuthorization`)
+in which each distinct check is answered once: the chart and category gates once per category
+(`CdsExportAccessService.PatientGrants`), the program and reporter-role grant once per distinct
+grant, and each note's exact live scope once per note. After the patient's last read and before
+its output is accepted, `endPatient` runs every check that granted access again, uncached: the
+patient, pharmacy, case-management and category gates, every note in ascending batches
+(`requireNotesRead`) and every program-restricted and printed-record answer that was yes. A
+revocation at any point while the patient was read is therefore still refused before anything of
+that patient is accepted, and the patient is held as `CDS_EXPORT_ACCESS_CHANGED`. A session is
+never shared between patients, jobs or threads and is discarded however the patient ends; the
+download path and the final cohort pass keep their own fresh batch checks. Separately, the
+maintenance SQL guard (`CdsJdbcAdmissionGuard`) keeps the admitted shape of each exact statement
+text instead of parsing every repeated statement again on a new parser thread; refusals and text
+with quoted literals are never kept.
+
 The trusted server setting `FILTER_ON_FACILITY` defaults to true, as in the chart. A positive note program then requires the command’s verified facility to match the program; disabling the setting does not remove program-domain, membership, chart or category checks. Invalid settings refuse the operation. Locked notes, unknown lock flags and malformed or changed dependencies also refuse disclosure. The unused `filterNotesByAccess` helper’s legacy `ROLEnotes` and admission-interval rules are not used. Earlier component evidence used that helper; the current active-policy checks below supersede those authorization claims. History issue/revision reconciliation and complete clinical output remain separate work.
 
 

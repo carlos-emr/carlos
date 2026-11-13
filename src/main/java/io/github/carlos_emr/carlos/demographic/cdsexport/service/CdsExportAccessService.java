@@ -178,19 +178,7 @@ public class CdsExportAccessService {
             CdsExportCommand command,
             CdsCategory category,
             io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected) {
-        if (expected == null
-                || category == null
-                || !java.util.Set.of(
-                                CdsCategory.PERSONAL_HISTORY,
-                                CdsCategory.FAMILY_HISTORY,
-                                CdsCategory.PAST_HEALTH,
-                                CdsCategory.PROBLEM_LIST,
-                                CdsCategory.RISK_FACTORS,
-                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
-                                CdsCategory.CLINICAL_NOTES)
-                        .contains(category)
-                || command == null
-                || !command.categories().contains(category)) deny();
+        requireNoteCategory(command, category, expected);
         CurrentIdentity current = chartIdentity(actor, command, expected.patient(), category);
         if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
                 || !notes.canRead(
@@ -204,6 +192,93 @@ public class CdsExportAccessService {
                                 expected,
                                 command.facilityId(),
                                 configuration.filterNotesOnFacility())) deny();
+    }
+
+    private static void requireNoteCategory(
+            CdsExportCommand command,
+            CdsCategory category,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected) {
+        if (expected == null
+                || category == null
+                || !java.util.Set.of(
+                                CdsCategory.PERSONAL_HISTORY,
+                                CdsCategory.FAMILY_HISTORY,
+                                CdsCategory.PAST_HEALTH,
+                                CdsCategory.PROBLEM_LIST,
+                                CdsCategory.RISK_FACTORS,
+                                CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                                CdsCategory.CLINICAL_NOTES)
+                        .contains(category)
+                || command == null
+                || !command.categories().contains(category)) deny();
+    }
+
+    /**
+     * One patient's note grants inside one export worker's authorization session
+     * ({@link CdsExportPatientAuthorization}). It lives only while that worker captures and emits
+     * that one patient, is never shared with another patient, job or thread, and is discarded
+     * once the session ends; the session's closing check runs every grant again, fresh
+     * ({@link #requireNotesRead}).
+     */
+    public static final class PatientGrants {
+        private final int patient;
+        private final java.util.Map<CdsCategory, CurrentIdentity> chart =
+                new java.util.EnumMap<>(CdsCategory.class);
+        private final java.util.Set<String> noteGrants = new java.util.HashSet<>();
+
+        public PatientGrants(int patient) {
+            if (patient < 1) deny();
+            this.patient = patient;
+        }
+
+        public int patient() {
+            return patient;
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAccessService.PatientGrants[protected]";
+        }
+    }
+
+    /**
+     * {@link #requireNoteRead}, inside one patient's authorization session. The note's exact live
+     * scope is still read for every note, but the chart gates of the category and the program and
+     * reporter-role grant are evaluated once per patient: they are the same for every note of that
+     * patient with the same program and role, as {@link #requireNotesRead} already treats them.
+     * Freshness is restored by the session's closing check, which re-runs every grant uncached
+     * before the patient's output is accepted.
+     */
+    public void requireNoteRead(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected,
+            PatientGrants grants) {
+        requireNoteCategory(command, category, expected);
+        if (grants == null || expected.patient() != grants.patient) deny();
+        CurrentIdentity current = grants.chart.get(category);
+        if (current == null) {
+            current = chartIdentity(actor, command, expected.patient(), category);
+            grants.chart.put(category, current);
+        }
+        if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))) deny();
+        String grant =
+                category.name() + '\u0000' + expected.program() + '\u0000' + expected.reporterRole();
+        if (grants.noteGrants.contains(grant)) return;
+        boolean filter = configuration.filterNotesOnFacility();
+        if (!notes.canRead(
+                        current.effective().getLoggedInProviderNo(),
+                        expected,
+                        command.facilityId(),
+                        filter)
+                || current.operator() != null
+                        && !notes.canRead(
+                                current.operator().getLoggedInProviderNo(),
+                                expected,
+                                command.facilityId(),
+                                filter)) deny();
+        grants.noteGrants.add(grant);
     }
 
     /**

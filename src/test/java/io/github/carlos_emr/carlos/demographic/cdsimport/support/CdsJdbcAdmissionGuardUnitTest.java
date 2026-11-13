@@ -209,6 +209,23 @@ class CdsJdbcAdmissionGuardUnitTest {
     }
 
     @Test
+    void shouldClassifyARepeatedStatementAlike_andNeverRememberARefusal() throws Exception {
+        String admitted = "select d.demographic_no from demographic d where d.demographic_no = ?";
+        for (int i = 0; i < 3; i++) assertThat(CdsJdbcAdmissionGuard.clinical(admitted)).isTrue();
+        String ledger = "select r.id from cds_import_run r where r.id = ?";
+        for (int i = 0; i < 3; i++) assertThat(CdsJdbcAdmissionGuard.clinical(ledger)).isFalse();
+        // A refusal is decided afresh every time; only admitted shapes are remembered.
+        String refused = "select my_stored_routine(1) from demographic";
+        for (int i = 0; i < 3; i++)
+            assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical(refused))
+                    .isInstanceOf(SQLException.class);
+        // Text with a quoted literal is classified the same way but never kept.
+        String literal = "select * from demographic where last_name = 'FAKE-NAME'";
+        assertThat(CdsJdbcAdmissionGuard.clinical(literal)).isTrue();
+        assertThat(CdsJdbcAdmissionGuard.clinical(literal)).isTrue();
+    }
+
+    @Test
     void shouldRetireItsParserWorker_afterBothSuccessfulAndRefusedStatements() throws Exception {
         assertThat(CdsJdbcAdmissionGuard.clinical("select * from demographic")).isTrue();
         assertThatThrownBy(() -> CdsJdbcAdmissionGuard.clinical("select ( from demographic"))

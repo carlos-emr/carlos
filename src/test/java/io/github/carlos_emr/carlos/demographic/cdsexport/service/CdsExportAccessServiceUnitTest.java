@@ -37,6 +37,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportJobDocumentDto;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Properties;
@@ -251,6 +252,57 @@ class CdsExportAccessServiceUnitTest {
                                         actor, command, CdsCategory.CLINICAL_NOTES, scope))
                 .hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
         verify(notes, never()).canRead(anyString(), any(), nullable(Integer.class), anyBoolean());
+    }
+
+    @Test
+    void shouldReadEveryNotesExactScope_butEvaluateChartGatesAndGrantsOncePerPatient() {
+        var command = noteCommand("100");
+        var actor = access.webActor(session, command);
+        var grants = new CdsExportAccessService.PatientGrants(27);
+        var notesOfOneGrant = new ArrayList<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto>();
+        for (long id = 91; id < 191; id++) {
+            var scope =
+                    new io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto(
+                            id, 27, "17", "1");
+            notesOfOneGrant.add(scope);
+            when(notes.findScope(27, id)).thenReturn(scope);
+        }
+        when(notes.canRead(eq("100"), any(), nullable(Integer.class), anyBoolean())).thenReturn(true);
+        clearInvocations(permissions, providers, accounts, notes);
+
+        for (var scope : notesOfOneGrant)
+            access.requireNoteRead(actor, command, CdsCategory.CLINICAL_NOTES, scope, grants);
+
+        // One chart gate evaluation (identity, category and eChart privileges) for 100 notes ...
+        verify(permissions, times(1))
+                .hasPrivilegeReadOnly(any(), eq("_eChart"), eq("r"), isNull());
+        // ... one live scope read per note, and the shared program/role grant asked once.
+        verify(notes, times(100)).findScope(eq(27), anyLong());
+        verify(notes, times(1)).canRead(eq("100"), any(), nullable(Integer.class), anyBoolean());
+        // A note whose live scope changed is still refused inside the session.
+        when(notes.findScope(27, 91))
+                .thenReturn(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNoteAccessDto(91, 27, "18", "1"));
+        assertThatThrownBy(
+                        () ->
+                                access.requireNoteRead(
+                                        actor,
+                                        command,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        notesOfOneGrant.getFirst(),
+                                        grants))
+                .hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        // Grants of one patient never answer for another.
+        assertThatThrownBy(
+                        () ->
+                                access.requireNoteRead(
+                                        actor,
+                                        command,
+                                        CdsCategory.CLINICAL_NOTES,
+                                        notesOfOneGrant.get(1),
+                                        new CdsExportAccessService.PatientGrants(28)))
+                .hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
     }
 
     @Test

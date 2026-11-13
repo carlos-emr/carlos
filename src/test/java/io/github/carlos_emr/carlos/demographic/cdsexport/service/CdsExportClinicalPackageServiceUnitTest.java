@@ -426,6 +426,33 @@ class CdsExportClinicalPackageServiceUnitTest {
     }
 
     @Test
+    void shouldHoldThePatient_whenItsClosingAuthorizationCheckRefuses() throws Exception {
+        var second = secondPatient();
+        doThrow(new SecurityException("REVOKED")).when(fixture.control).endPatient(28);
+
+        var prepared = compose();
+
+        assertThat(prepared.patients()).isEqualTo(2);
+        assertThat(prepared.metadata().heldPatients())
+                .containsExactly(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportHeldPatientDto(28, "CDS_EXPORT_ACCESS_CHANGED"));
+        // Each patient's session starts before its capture, closes after it, and never outlives it.
+        var order = inOrder(fixture.control, fixture.captures);
+        order.verify(fixture.control).beginPatient(27);
+        order.verify(fixture.captures)
+                .capture(any(), eq(fixture.patient), anySet(), anyLong(), anyLong(), any());
+        order.verify(fixture.control).endPatient(27);
+        order.verify(fixture.control).discardPatient();
+        order.verify(fixture.control).beginPatient(28);
+        order.verify(fixture.captures)
+                .capture(any(), eq(second), anySet(), anyLong(), anyLong(), any());
+        order.verify(fixture.control).endPatient(28);
+        order.verify(fixture.control).discardPatient();
+        verify(fixture.captures, never()).authorizeSources(any(), eq(second), anySet(), any());
+    }
+
+    @Test
     void shouldStillStopTheWholeJob_whenARefusalConcernsEveryPatient() throws Exception {
         var second = secondPatient();
         when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))

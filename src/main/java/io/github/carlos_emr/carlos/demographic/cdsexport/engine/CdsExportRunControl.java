@@ -94,6 +94,24 @@ public interface CdsExportRunControl {
     }
 
     /**
+     * Starts one patient's authorization session: until {@link #endPatient} or
+     * {@link #discardPatient}, a check for this patient that already granted access may be
+     * answered from the session instead of asked again. An adapter without sessions answers every
+     * check fresh, which is always correct.
+     */
+    default void beginPatient(int patient) {}
+
+    /**
+     * Ends the patient's session after its last read and before its output is accepted, by
+     * running every check that granted access again, uncached. A refusal or changed answer is a
+     * {@link SecurityException} (the patient is held as {@code CDS_EXPORT_ACCESS_CHANGED}).
+     */
+    default void endPatient(int patient) {}
+
+    /** Discards any session without checking; always safe, and called when a patient ends. */
+    default void discardPatient() {}
+
+    /**
      * Fresh Reports and eForm read check for one patient, outside any source transaction, returning
      * the job's effective provider identity an eForm of that patient is rendered as. Never a system
      * identity; an adapter without a renderer identity refuses, so it stays fail-closed.

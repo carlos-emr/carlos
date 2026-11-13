@@ -332,6 +332,115 @@ public class CdsExportExecutionService {
                 throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
         }
 
+        /** The current patient's session, or null (checks are then answered fresh). */
+        private CdsExportPatientAuthorization session;
+
+        private CdsExportPatientAuthorization session(int patient) {
+            var current = session;
+            return current != null && current.patient() == patient ? current : null;
+        }
+
+        @Override
+        public void beginPatient(int patient) {
+            outsideCapture();
+            session = new CdsExportPatientAuthorization(patient, new FreshChecks());
+        }
+
+        @Override
+        public void endPatient(int patient) {
+            var current = session(patient);
+            session = null;
+            if (current == null) throw new IllegalStateException("CDS_EXPORT_SESSION_NOT_STARTED");
+            outsideCapture();
+            current.finish();
+        }
+
+        @Override
+        public void discardPatient() {
+            session = null;
+        }
+
+        /** The uncached checks the session falls back to and re-runs when it closes. */
+        private final class FreshChecks implements CdsExportPatientAuthorization.Fresh {
+            @Override
+            public void patient(int patient) {
+                access.requirePatient(lease.document().actor(), lease.document().command(), patient);
+            }
+
+            @Override
+            public void pharmacy(int patient) {
+                access.requirePharmacyRead(
+                        lease.document().actor(), lease.document().command(), patient);
+            }
+
+            @Override
+            public void caseManagement(int patient) {
+                access.requireCaseManagementRead(
+                        lease.document().actor(), lease.document().command(), patient);
+            }
+
+            @Override
+            public void category(int patient, CdsCategory category, boolean sensitiveLaboratory) {
+                access.requireCategory(
+                        lease.document().actor(),
+                        lease.document().command(),
+                        patient,
+                        category,
+                        sensitiveLaboratory);
+            }
+
+            @Override
+            public void note(
+                    CdsCategory category,
+                    io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto
+                            scope,
+                    CdsExportAccessService.PatientGrants grants) {
+                access.requireNoteRead(
+                        lease.document().actor(),
+                        lease.document().command(),
+                        category,
+                        scope,
+                        grants);
+            }
+
+            @Override
+            public void notes(
+                    CdsCategory category,
+                    java.util.List<
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportNoteAccessDto>
+                            scopes) {
+                access.requireNotesRead(
+                        lease.document().actor(), lease.document().command(), category, scopes);
+            }
+
+            @Override
+            public boolean issueProgram(int patient, CdsCategory category, String program) {
+                return access.canReadIssueProgram(
+                        lease.document().actor(),
+                        lease.document().command(),
+                        category,
+                        patient,
+                        program);
+            }
+
+            @Override
+            public boolean restrictedProgram(int patient, CdsCategory category, String program) {
+                return access.canReadRestrictedProgram(
+                        lease.document().actor(),
+                        lease.document().command(),
+                        category,
+                        patient,
+                        program);
+            }
+
+            @Override
+            public boolean record(int patient, String object) {
+                return access.canReadRecordObject(
+                        lease.document().actor(), lease.document().command(), patient, object);
+            }
+        }
+
         private void outsideCapture() {
             if (TransactionSynchronizationManager.isActualTransactionActive()) {
                 throw new IllegalStateException("CDS_EXPORT_AUTHORIZATION_INSIDE_CAPTURE_REFUSED");
@@ -342,21 +451,29 @@ public class CdsExportExecutionService {
         @Override
         public void authorizePatient(int patient) {
             outsideCapture();
-            access.requirePatient(lease.document().actor(), lease.document().command(), patient);
+            var current = session(patient);
+            if (current != null) current.patient(patient);
+            else access.requirePatient(lease.document().actor(), lease.document().command(), patient);
         }
 
         @Override
         public void authorizePharmacy(int patient) {
             outsideCapture();
-            access.requirePharmacyRead(
-                    lease.document().actor(), lease.document().command(), patient);
+            var current = session(patient);
+            if (current != null) current.pharmacy(patient);
+            else
+                access.requirePharmacyRead(
+                        lease.document().actor(), lease.document().command(), patient);
         }
 
         @Override
         public void authorizeCaseManagement(int patient) {
             outsideCapture();
-            access.requireCaseManagementRead(
-                    lease.document().actor(), lease.document().command(), patient);
+            var current = session(patient);
+            if (current != null) current.caseManagement(patient);
+            else
+                access.requireCaseManagementRead(
+                        lease.document().actor(), lease.document().command(), patient);
         }
 
         @Override
@@ -365,13 +482,18 @@ public class CdsExportExecutionService {
                 io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto
                         scope) {
             outsideCapture();
-            access.requireNoteRead(
-                    lease.document().actor(), lease.document().command(), category, scope);
+            var current = scope == null ? null : session(scope.patient());
+            if (current != null) current.note(category, scope);
+            else
+                access.requireNoteRead(
+                        lease.document().actor(), lease.document().command(), category, scope);
         }
 
         @Override
         public boolean issueProgramReadable(int patient, CdsCategory category, String program) {
             outsideCapture();
+            var current = session(patient);
+            if (current != null) return current.issueProgram(patient, category, program);
             return access.canReadIssueProgram(
                     lease.document().actor(), lease.document().command(), category, patient,
                     program);
@@ -381,6 +503,8 @@ public class CdsExportExecutionService {
         public boolean restrictedProgramReadable(
                 int patient, CdsCategory category, String program) {
             outsideCapture();
+            var current = session(patient);
+            if (current != null) return current.restrictedProgram(patient, category, program);
             return access.canReadRestrictedProgram(
                     lease.document().actor(), lease.document().command(), category, patient,
                     program);
@@ -389,6 +513,8 @@ public class CdsExportExecutionService {
         @Override
         public boolean recordReadable(int patient, String object) {
             outsideCapture();
+            var current = session(patient);
+            if (current != null) return current.record(patient, object);
             return access.canReadRecordObject(
                     lease.document().actor(), lease.document().command(), patient, object);
         }
@@ -401,8 +527,14 @@ public class CdsExportExecutionService {
                                         .CdsExportNoteAccessDto>
                         scopes) {
             outsideCapture();
+            var batch = java.util.List.copyOf(scopes);
+            var current = batch.isEmpty() ? null : session(batch.getFirst().patient());
+            if (current != null) {
+                for (var scope : batch) current.note(category, scope);
+                return;
+            }
             access.requireNotesRead(
-                    lease.document().actor(), lease.document().command(), category, scopes);
+                    lease.document().actor(), lease.document().command(), category, batch);
         }
 
         @Override
@@ -416,12 +548,15 @@ public class CdsExportExecutionService {
         public void authorizeCategory(
                 int patient, CdsCategory category, boolean sensitiveLaboratory) {
             outsideCapture();
-            access.requireCategory(
-                    lease.document().actor(),
-                    lease.document().command(),
-                    patient,
-                    category,
-                    sensitiveLaboratory);
+            var current = session(patient);
+            if (current != null) current.category(patient, category, sensitiveLaboratory);
+            else
+                access.requireCategory(
+                        lease.document().actor(),
+                        lease.document().command(),
+                        patient,
+                        category,
+                        sensitiveLaboratory);
         }
     }
 }

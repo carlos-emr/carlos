@@ -222,6 +222,10 @@ public class CdsExportClinicalPackageService {
                     Captured captured;
                     read.add(patient.patient());
                     try {
+                        // One authorization session per patient: every step's check is answered
+                        // once, and endPatient re-runs every grant fresh after the last read and
+                        // before this patient's output is accepted (CdsExportPatientAuthorization).
+                        control.beginPatient(patient.patient());
                         captured =
                                 capturePatient(
                                         lease,
@@ -234,6 +238,7 @@ public class CdsExportClinicalPackageService {
                                         control,
                                         owned,
                                         metadataBytes);
+                        control.endPatient(patient.patient());
                     } catch (CdsExportReviewException
                             | CdsExportMappingReviewException
                             | SecurityException refused) {
@@ -247,6 +252,9 @@ public class CdsExportClinicalPackageService {
                         // disclosure manifest and the encrypted ReadMe, not in the log.
                         LOG.warn("CDS_EXPORT_PATIENT_HELD run={} code={}", lease.runId(), code);
                         continue;
+                    } finally {
+                        // Never let a session outlive its patient, whatever ended it.
+                        control.discardPatient();
                     }
                     var source = captured.source();
                     var document = captured.document();
