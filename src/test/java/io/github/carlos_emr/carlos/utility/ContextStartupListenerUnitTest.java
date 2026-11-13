@@ -53,6 +53,19 @@ import static org.mockito.Mockito.*;
 
 @Tag("unit")
 class ContextStartupListenerUnitTest {
+    @Test void shouldLeaveExportStopped_whenItsDispatcherCannotStart() {
+        var export = mock(io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class);
+        doThrow(new IllegalStateException("synthetic start failure")).when(export).start();
+        try (var spring = mockStatic(SpringUtils.class)) {
+            spring.when(() -> SpringUtils.getBean(
+                    io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportService.class))
+                    .thenReturn(export);
+            // Optional export must never decide whether the clinical application deploys.
+            assertThatCode(ContextStartupListener::startCdsExport).doesNotThrowAnyException();
+            verify(export).start();
+        }
+    }
+
     @Test void shouldRetryFaxInitialization_onlyAfterTheGuardedClinicalStartupPhases() {
         var maintenance = mock(CdsImportMaintenanceService.class);
         var coordinator = mock(ClinicalStartupCoordinator.class);
