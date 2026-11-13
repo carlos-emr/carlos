@@ -101,14 +101,21 @@ class CdsExportAppointmentTimingMapperUnitTest {
 
     @Test
     void
-            shouldRefuseAmbiguousMissingAndOffsetChangingDaylightSavingSlots_forAppointmentTimingMapperContract() {
+            shouldWriteTheScheduleClockWithoutAnOffset_forAmbiguousMissingAndOffsetChangingDaylightSavingSlots()
+                    throws Exception {
+        // The add-appointment screen accepts these slots (an overlap, the spring-forward gap and a
+        // slot spanning the change). They are exported as the schedule shows them: the exact date,
+        // wall-clock time and minutes, with no offset rather than an invented one.
         for (var slot :
                 List.of(
-                        List.of("2026-11-01", "01:15:00", "01:45:00"),
-                        List.of("2026-03-08", "02:15:00", "02:45:00"),
-                        List.of("2026-03-08", "01:30:00", "03:30:00"))) {
-            assertThatThrownBy(() -> mapper.map(slot.get(0), slot.get(1), slot.get(2), zone))
-                    .hasMessage("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+                        List.of("2026-11-01", "01:15:00", "01:45:00", "31"),
+                        List.of("2026-03-08", "02:15:00", "02:45:00", "31"),
+                        List.of("2026-03-08", "01:30:00", "03:30:00", "121"))) {
+            var timing = mapper.map(slot.get(0), slot.get(1), slot.get(2), zone);
+            assertThat(timing.date().lexical()).isEqualTo(slot.get(0));
+            assertThat(timing.offset()).isNull();
+            assertThat(timing.wireTime()).isEqualTo(slot.get(1));
+            assertThat(timing.durationMinutes()).isEqualTo(Integer.parseInt(slot.get(3)));
         }
     }
 

@@ -42,6 +42,11 @@ import java.util.Set;
  */
 public final class CdsExportAppointmentMapper {
     /**
+     * Rule of a start time written as the schedule's wall-clock time with no offset, because it
+     * falls in, or the appointment spans, a daylight-saving transition of the clinical zone.
+     */
+    static final String LOCAL_TIME_RULE = "LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION";
+    /**
      * Scheduler, site, billing-workflow and booking-provenance columns CARLOS writes with every
      * booking. CDS 5.2 Appointments has no field for them and no ResidualInfo; the appointment
      * template's reason and notes already reach AppointmentPurpose/AppointmentNotes.
@@ -172,7 +177,9 @@ public final class CdsExportAppointmentMapper {
                     "start_time",
                     Outcome.MAPPED,
                     "AppointmentTime",
-                    "EXACT_NATIVE_APPOINTMENT_CLOCK");
+                    timing.offset() == null
+                            ? LOCAL_TIME_RULE
+                            : "EXACT_NATIVE_APPOINTMENT_CLOCK");
             source.set(
                     "end_time", Outcome.MAPPED, "Duration", "EXACT_SAME_DAY_WHOLE_MINUTE_DURATION");
         } catch (IOException review) {

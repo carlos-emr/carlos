@@ -1801,8 +1801,12 @@ selected patient/category references.
 
 The native appointment mapper accounts for every row and used lookup field. It requires
 exact captured identities and an unambiguous full-code status definition. It preserves
-literal times and derives only a positive same-day whole-minute duration; overnight,
-subminute and daylight-saving ambiguity require review. Imported status never substitutes
+literal times and derives only a positive same-day whole-minute duration; overnight and
+subminute slots require review. A slot the schedule accepts at a daylight-saving change (inside
+the spring-forward gap, inside the fall-back overlap, or spanning the change) is written as the
+schedule's exact date, wall-clock time and minutes with no UTC offset
+(`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`); every other time carries the clinical
+zone's single offset, and none is ever invented. Imported status never substitutes
 for a changed or cleared current status. This category has no `ResidualInfo`. The writer's
 actual bytes pass the pinned XSD and receiving parser checks.
 

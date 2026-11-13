@@ -505,14 +505,19 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyOvernightAndAmbiguousLocalTimingAreNotReconstructed_fromOldFields() throws Exception {
+    void shouldVerifyOvernightTimingIsNotReconstructed_andAmbiguousLocalTimingKeepsTheScheduleClock() throws Exception {
         current.put("start_time", "23:30:00");
         current.put("end_time", "00:30:00");
         assertThat(reconcile().mapping().value()).isNull();
+        // A slot in the fall-back overlap is exported as the schedule's wall-clock time with no
+        // offset (none is invented), as on a never-imported chart; nothing is read from old fields.
         current.put("appointment_date", "2024-11-03");
         current.put("start_time", "01:15:00");
         current.put("end_time", "01:45:00");
-        assertThat(reconcile().mapping().value()).isNull();
+        var timing = reconcile().mapping().value().timing();
+        assertThat(timing.offset()).isNull();
+        assertThat(timing.wireTime()).isEqualTo("01:15:00");
+        assertThat(timing.date().lexical()).isEqualTo("2024-11-03");
     }
 
     @Test

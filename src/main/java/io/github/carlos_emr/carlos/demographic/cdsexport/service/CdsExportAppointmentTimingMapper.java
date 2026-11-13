@@ -30,7 +30,13 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.DateTimeException;
 
-/** No guessed overnight date, rounded minutes, invented offset or ambiguous daylight-saving interpretation. */
+/**
+ * No guessed overnight date, rounded minutes, invented offset or ambiguous daylight-saving
+ * interpretation. An appointment the schedule shows at a wall-clock time that has no single offset
+ * in the clinical zone (inside the spring-forward gap, inside the fall-back overlap, or spanning a
+ * transition) is written as that wall-clock time with no offset, which {@code xs:time} allows,
+ * rather than holding the chart: the date, time and duration are exactly what the schedule shows.
+ */
 public final class CdsExportAppointmentTimingMapper {
     public enum EndConvention {
         NATIVE_INCLUSIVE,
@@ -72,7 +78,12 @@ public final class CdsExportAppointmentTimingMapper {
             var after = rules.getValidOffsets(day.atTime(to));
             if (before.size() != 1
                     || after.size() != 1
-                    || !before.getFirst().equals(after.getFirst())) review();
+                    || !before.getFirst().equals(after.getFirst()))
+                return new CdsExportAppointmentTimingDto(
+                        new CdsExportDateDto(CdsExportDateDto.Precision.DATE, date),
+                        start,
+                        Math.toIntExact(minutes),
+                        null);
             var offset = before.getFirst();
             if (offset.getTotalSeconds() % 60 != 0
                     || Math.abs(offset.getTotalSeconds()) > 14 * 3600) review();

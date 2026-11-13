@@ -54,8 +54,8 @@ public final class CdsExportAppointmentXmlWriter {
 
     static void validate(CdsExportAppointmentDto appointment) throws IOException {
         Objects.requireNonNull(appointment);
-        if (appointment.timing().offset() == null)
-            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+        // A time with no offset is the schedule's wall-clock time at a daylight-saving transition
+        // (CdsExportAppointmentTimingMapper); xs:time allows it and the importer reads it as local.
         if (appointment.status() != null
                         && !CdsExportNativeFieldAssessments.legal(appointment.status(), 250)
                 || appointment.purpose() != null

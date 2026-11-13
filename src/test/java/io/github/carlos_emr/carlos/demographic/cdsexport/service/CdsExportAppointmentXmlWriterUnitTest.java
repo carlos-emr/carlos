@@ -168,12 +168,14 @@ class CdsExportAppointmentXmlWriterUnitTest {
     }
 
     @Test
-    void shouldVerifyAnUnboundSourceClockCannotBeSerialized_withAnInventedOffset() {
+    void shouldSerializeAnUnboundSourceClock_withoutInventingAnOffset() throws Exception {
+        // A clock with no single offset (a daylight-saving transition) is written as the schedule's
+        // wall-clock time with no offset; none is invented.
         var date = new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2024-02-29");
         var timing = new CdsExportAppointmentTimingDto(date, "09:00:00", 60);
         var value = new CdsExportAppointmentDto(timing, null, null, null, null);
-        assertThatThrownBy(() -> CdsExportAppointmentXmlWriter.validate(value))
-                .hasMessage("CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW");
+        CdsExportAppointmentXmlWriter.validate(value);
+        assertThat(timing.wireTime()).isEqualTo("09:00:00");
     }
 
     @Test
