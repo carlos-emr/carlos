@@ -79,8 +79,9 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
                         + table
                         + "` d where "
                         + CdsExportIndirectPatientScopeReadSupport.predicate(table, profile);
+        int parameters = sql.split(":patient", -1).length - 1;
         try (var s = db.prepareStatement(sql.replace(":patient", "?"))) {
-            s.setInt(1, patient);
+            for (int i = 1; i <= parameters; i++) s.setInt(i, patient);
             try (var rows = s.executeQuery()) {
                 return rows.next();
             }
@@ -145,10 +146,20 @@ class CdsExportIndirectPatientScopeReadSupportUnitTest {
         var catalogue = CdsExportSourceCatalogue.current();
         for (var candidate : catalogue.profiles())
             for (String table : CdsExportIndirectPatientScopeReadSupport.tables()) {
+                // Data-summary and listed children keep a parent scope too (decisions 6 and 20).
                 assertThat(catalogue.tables().get(table))
-                        .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
+                        .isIn(
+                                CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY,
+                                CdsExportSourceCatalogue.Disposition.DOCUMENT,
+                                CdsExportSourceCatalogue.Disposition.LISTED);
+                // The BC antenatal record 2020 pages exist only in the BC profile.
+                if (!candidate.tables().containsKey(table)) continue;
+                // An orphan or unattributable child still blocks every selection.
                 assertThat(CdsExportIndirectPatientScopeReadSupport.predicate(table, candidate))
-                        .contains(":patient", "not exists", "ownedPatient");
+                        .contains(":patient", "or not (exists", "ownedPatient");
+                assertThat(CdsExportIndirectPatientScopeReadSupport.owned(table, candidate))
+                        .contains(":patient")
+                        .doesNotContain("not exists", "ownedPatient");
             }
         assertThatThrownBy(
                         () ->

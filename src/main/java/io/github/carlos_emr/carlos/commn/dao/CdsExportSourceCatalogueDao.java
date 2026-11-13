@@ -121,6 +121,9 @@ public class CdsExportSourceCatalogueDao {
             if (!profile.tables().get(table).engine().equals("InnoDB"))
                 CdsExportSourceReadLock.requirePinned();
             var disposition = catalogue.tables().get(table);
+            // DOCUMENT rows are captured and exported as data summaries when Reports is selected
+            // (CdsExportDataSummaryReadDao); LISTED rows are only counted for the ReadMe. Neither
+            // holds the patient here, exactly like a mapped table of an unselected category.
             if (disposition == CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY
                     || disposition == CdsExportSourceCatalogue.Disposition.ACCESS_CONTROL) {
                 String statement = presenceQuery(table, profile, catalogue);

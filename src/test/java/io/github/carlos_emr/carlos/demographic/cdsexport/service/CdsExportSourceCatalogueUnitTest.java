@@ -118,9 +118,15 @@ class CdsExportSourceCatalogueUnitTest {
     @Test
     void shouldScopeUnmappedPatientRecords_withoutApprovingTheirClinicalContent() {
         var catalogue = CdsExportSourceCatalogue.current();
+        // Encounter forms are now exported as data summaries (decision 6) and keep their scope.
         assertThat(catalogue.patientScopes().get("form2MinWalk")).containsExactly("demographic_no");
         assertThat(catalogue.tables().get("form2MinWalk"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.DOCUMENT);
+        assertThat(catalogue.patientScopes().get("dxresearch")).containsExactly("demographic_no");
+        assertThat(catalogue.tables().get("dxresearch"))
                 .isEqualTo(CdsExportSourceCatalogue.Disposition.REQUIRE_EMPTY);
+        assertThat(catalogue.tables().get("CdsHospitalisationDays"))
+                .isEqualTo(CdsExportSourceCatalogue.Disposition.LISTED);
         assertThat(catalogue.patientScopes().get("relationships"))
                 .containsExactly("demographic_no", "relation_demographic_no");
         assertThat(catalogue.tables().get("admission"))

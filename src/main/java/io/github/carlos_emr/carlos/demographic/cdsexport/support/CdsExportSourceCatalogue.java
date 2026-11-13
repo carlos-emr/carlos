@@ -36,7 +36,21 @@ public final class CdsExportSourceCatalogue {
         OPERATIONAL,
         REFERENCE,
         ACCESS_CONTROL,
-        REQUIRE_EMPTY
+        REQUIRE_EMPTY,
+        /**
+         * Patient records with no faithful CDS element of their own (encounter forms, eForms,
+         * consultations, ticklers, messages, consents and similar). Every physical column is
+         * captured when Reports is selected and exported as a CARLOS data summary Report
+         * (maintainer decision 6). The table keeps a reviewed patient scope, direct or through a
+         * parent, and must be named in the Reports capture scope.
+         */
+        DOCUMENT,
+        /**
+         * Records of a removed CARLOS feature. Populated patient rows are listed, by table name
+         * and row count, in the encrypted package ReadMe; they are never exported and never hold
+         * the patient (maintainer decision 20).
+         */
+        LISTED
     }
 
     public record Profile(String name, Map<String, CdsExportTableSchemaDto> tables) {
@@ -68,6 +82,25 @@ public final class CdsExportSourceCatalogue {
             var result = new HashMap<String, List<String>>();
             source.forEach((table, columns) -> result.put(table, List.copyOf(columns)));
             return Map.copyOf(result);
+        }
+
+        /** The reviewed tables of one disposition, in a stable order. */
+        public SortedSet<String> tables(Disposition disposition) {
+            var result = new TreeSet<String>();
+            tables.forEach(
+                    (table, ruling) -> {
+                        if (ruling == disposition) result.add(table);
+                    });
+            return Collections.unmodifiableSortedSet(result);
+        }
+
+        /** The pinned physical structure of a table in the first profile that has it, if any. */
+        public Optional<CdsExportTableSchemaDto> physical(String table) {
+            for (var profile : profiles) {
+                var schema = profile.tables().get(table);
+                if (schema != null) return Optional.of(schema);
+            }
+            return Optional.empty();
         }
 
         public Set<String> required(Set<CdsCategory> selected) {
@@ -172,10 +205,13 @@ public final class CdsExportSourceCatalogue {
             for (var row : schema.path("tables")) {
                 String table = row.get(0).asText();
                 identifier(table);
+                // formRourke2009 alone may be a non-transactional legacy table; it is read only
+                // under the pinned source read lock (CdsExportSourceReadLock).
                 if (!"InnoDB".equals(row.get(1).asText())
                         && !(table.equals("formRourke2009")
                                 && Set.of("Aria", "MyISAM").contains(row.get(1).asText())
-                                && rulings.get(table) == Disposition.REQUIRE_EMPTY)) invalid();
+                                && Set.of(Disposition.REQUIRE_EMPTY, Disposition.DOCUMENT)
+                                        .contains(rulings.get(table)))) invalid();
                 var fields = columns.get(table);
                 if (fields == null || fields.isEmpty() || fields.size() > 4096) invalid();
                 fields.sort(Comparator.comparing(CdsExportTableSchemaDto.Column::name));
@@ -220,7 +256,18 @@ public final class CdsExportSourceCatalogue {
         var registeredPhysical = new HashSet<String>();
         var declaredScopes = new HashSet<String>();
         required.values().forEach(declaredScopes::addAll);
+        // A data-summary table is read through the pinned physical contract itself, so it has no
+        // separate source-schema descriptor; it must be captured with Reports and only there.
+        var reports = required.get(CdsCategory.REPORTS.wireName());
+        for (var entry : rulings.entrySet())
+            if (entry.getValue() == Disposition.DOCUMENT && !reports.contains(entry.getKey()))
+                invalid();
+        for (var entry : required.entrySet())
+            for (String name : entry.getValue())
+                if (rulings.get(name) == Disposition.DOCUMENT
+                        && !entry.getKey().equals(CdsCategory.REPORTS.wireName())) invalid();
         for (String name : declaredScopes) {
+            if (rulings.get(name) == Disposition.DOCUMENT) continue;
             var descriptor =
                     JSON.readValue(
                             resource("source-schema/" + name + ".json"),
@@ -269,8 +316,12 @@ public final class CdsExportSourceCatalogue {
             var ruling = rulings.get(table);
             if (ruling == null
                     || (owner
-                            ? ruling != Disposition.REQUIRE_EMPTY
-                                    && ruling != Disposition.ACCESS_CONTROL
+                            ? !Set.of(
+                                            Disposition.REQUIRE_EMPTY,
+                                            Disposition.ACCESS_CONTROL,
+                                            Disposition.DOCUMENT,
+                                            Disposition.LISTED)
+                                    .contains(ruling)
                             : ruling != Disposition.ACCESS_CONTROL)) invalid();
             if (!field.getValue().isArray()
                     || field.getValue().isEmpty()

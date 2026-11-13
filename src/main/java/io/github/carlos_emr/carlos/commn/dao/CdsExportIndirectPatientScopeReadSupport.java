@@ -22,7 +22,13 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSource
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.util.*;
 
-/** Finite reviewed parent relationships for presence checks; these scopes do not qualify clinical mapping. */
+/**
+ * Finite reviewed parent relationships. {@link #predicate} is the presence check of a table that
+ * must stay empty for the selected patient (an orphan or unattributable row blocks every
+ * selection); {@link #owned} is the read scope of a data-summary or listed child table, which
+ * selects exactly the rows whose parent belongs to the selected patient. A scope never qualifies
+ * a clinical mapping by itself.
+ */
 final class CdsExportIndirectPatientScopeReadSupport {
     private record Step(
             String table,
@@ -35,13 +41,27 @@ final class CdsExportIndirectPatientScopeReadSupport {
         }
     }
 
-    private record Scope(List<Step> steps, String owner, boolean demographicModule) {
+    /**
+     * One parent chain. {@code constantColumn}/{@code constantValue}, when present, restrict the
+     * child row to the parent table it names (form_boolean_value.form_name names its Rourke
+     * table), compared as exact bytes.
+     */
+    private record Scope(
+            List<Step> steps,
+            String owner,
+            boolean demographicModule,
+            String constantColumn,
+            String constantValue) {
         Scope {
             steps = List.copyOf(steps);
         }
+
+        Scope(List<Step> steps, String owner, boolean demographicModule) {
+            this(steps, owner, demographicModule, null, null);
+        }
     }
 
-    private static final Map<String, Scope> SCOPES = scopes();
+    private static final Map<String, List<Scope>> SCOPES = scopes();
 
     static boolean supports(String table) {
         return SCOPES.containsKey(table);
@@ -53,12 +73,54 @@ final class CdsExportIndirectPatientScopeReadSupport {
 
     /** Orphans and unattributable owners block every selection; known other-patient children do not. */
     static String predicate(String table, CdsExportSourceCatalogue.Profile profile) {
-        var scope = SCOPES.get(table);
-        if (scope == null) throw new IllegalArgumentException("CDS_EXPORT_INDIRECT_SCOPE_UNKNOWN");
+        var scopes = SCOPES.get(table);
+        if (scopes == null)
+            throw new IllegalArgumentException("CDS_EXPORT_INDIRECT_SCOPE_UNKNOWN");
+        var owned = new ArrayList<String>();
+        var linked = new ArrayList<String>();
+        for (var scope : scopes) {
+            String chain = chain(table, scope, profile, true);
+            owned.add("exists (" + chain + " and ownedPatient.`demographic_no`=:patient)");
+            linked.add("exists (" + chain + ")");
+        }
+        return "(("
+                + String.join(" or ", owned)
+                + ") or not ("
+                + String.join(" or ", linked)
+                + "))";
+    }
+
+    /**
+     * Rows of {@code table} (alias {@code d}) whose reviewed parent chain ends at the selected
+     * patient ({@code :patient}). Orphans and other patients' children are excluded; they are not
+     * part of this chart.
+     */
+    static String owned(String table, CdsExportSourceCatalogue.Profile profile) {
+        var scopes = SCOPES.get(table);
+        if (scopes == null)
+            throw new IllegalArgumentException("CDS_EXPORT_INDIRECT_SCOPE_UNKNOWN");
+        var owned = new ArrayList<String>();
+        for (var scope : scopes) owned.add("exists (" + chain(table, scope, profile, false) + ")");
+        return "(" + String.join(" or ", owned) + ")";
+    }
+
+    /** The select over one parent chain; {@code withOwner} joins the owning demographic row. */
+    private static String chain(
+            String table, Scope scope, CdsExportSourceCatalogue.Profile profile, boolean withOwner) {
         var first = scope.steps().getFirst();
         StringBuilder from = new StringBuilder("select 1 from `" + first.table() + "` s1");
         String previousTable = table, previousAlias = "d";
         var links = new ArrayList<String>();
+        if (scope.constantColumn() != null) {
+            column(profile, table, scope.constantColumn());
+            // The literal comes from the compiled scope list below, never from data.
+            links.add(
+                    "CAST(d.`"
+                            + scope.constantColumn()
+                            + "` AS BINARY)=CAST('"
+                            + scope.constantValue()
+                            + "' AS BINARY)");
+        }
         for (int i = 0; i < scope.steps().size(); i++) {
             var step = scope.steps().get(i);
             String alias = "s" + (i + 1);
@@ -92,21 +154,18 @@ final class CdsExportIndirectPatientScopeReadSupport {
             previousTable = step.table();
             previousAlias = alias;
         }
-        from.append(" join `demographic` ownedPatient on ")
-                .append(numeric(profile, previousTable, previousAlias, scope.owner()))
-                .append("=")
-                .append(numeric(profile, "demographic", "ownedPatient", "demographic_no"));
+        if (withOwner)
+            from.append(" join `demographic` ownedPatient on ")
+                    .append(numeric(profile, previousTable, previousAlias, scope.owner()))
+                    .append("=")
+                    .append(numeric(profile, "demographic", "ownedPatient", "demographic_no"));
+        else links.add(numeric(profile, previousTable, previousAlias, scope.owner()) + "=:patient");
         if (scope.demographicModule()) {
             column(profile, previousTable, "module");
             links.add(
                     "CAST(" + previousAlias + ".`module` AS BINARY)=CAST('demographic' AS BINARY)");
         }
-        String linked = from + " where (" + String.join(" and ", links) + ")";
-        return "(exists ("
-                + linked
-                + " and ownedPatient.`demographic_no`=:patient) or not exists ("
-                + linked
-                + "))";
+        return from + " where (" + String.join(" and ", links) + ")";
     }
 
     private static String numeric(
@@ -138,8 +197,8 @@ final class CdsExportIndirectPatientScopeReadSupport {
                                                 .CLINICAL_SOURCE_UNREVIEWED));
     }
 
-    private static Map<String, Scope> scopes() {
-        var result = new LinkedHashMap<String, Scope>();
+    private static Map<String, List<Scope>> scopes() {
+        var result = new LinkedHashMap<String, List<Scope>>();
         add(result, "CdsClientFormData", "CdsClientForm", "cdsClientFormId", "id", "clientId");
         add(result, "EFormDocs", "eform_data", "fdid", "fdid", "demographic_no");
         add(result, "casemgmt_note_link", "casemgmt_note", "note_id", "note_id", "demographic_no");
@@ -178,50 +237,87 @@ final class CdsExportIndirectPatientScopeReadSupport {
         for (String table : List.of("DocumentExtraReviewer", "document_review", "document_storage"))
             result.put(
                     table,
-                    new Scope(
-                            List.of(
-                                    new Step(
-                                            "document",
-                                            table.equals("document_review")
-                                                    ? "document_no"
-                                                    : "documentNo",
-                                            "document_no"),
-                                    new Step("ctl_document", "document_no", "document_no")),
-                            "module_id",
-                            true));
+                    List.of(
+                            new Scope(
+                                    List.of(
+                                            new Step(
+                                                    "document",
+                                                    table.equals("document_review")
+                                                            ? "document_no"
+                                                            : "documentNo",
+                                                    "document_no"),
+                                            new Step(
+                                                    "ctl_document", "document_no", "document_no")),
+                                    "module_id",
+                                    true)));
         result.put(
                 "providerLabRouting",
-                new Scope(
-                        List.of(
-                                new Step(
-                                        "patientLabRouting",
-                                        "lab_no",
-                                        "lab_no",
-                                        "lab_type",
-                                        "lab_type")),
-                        "demographic_no",
-                        false));
+                List.of(
+                        new Scope(
+                                List.of(
+                                        new Step(
+                                                "patientLabRouting",
+                                                "lab_no",
+                                                "lab_no",
+                                                "lab_type",
+                                                "lab_type")),
+                                "demographic_no",
+                                false)));
         result.put(
                 "HRMDocument",
-                new Scope(
-                        List.of(new Step("HRMDocumentToDemographic", "id", "hrmDocumentId")),
-                        "demographicNo",
-                        false));
+                List.of(
+                        new Scope(
+                                List.of(
+                                        new Step(
+                                                "HRMDocumentToDemographic", "id", "hrmDocumentId")),
+                                "demographicNo",
+                                false)));
         for (String table :
                 List.of("HRMDocumentComment", "HRMDocumentSubClass", "HRMDocumentToProvider"))
             result.put(
                     table,
-                    new Scope(
-                            List.of(
-                                    new Step("HRMDocument", "hrmDocumentId", "id"),
-                                    new Step("HRMDocumentToDemographic", "id", "hrmDocumentId")),
-                            "demographicNo",
-                            false));
+                    List.of(
+                            new Scope(
+                                    List.of(
+                                            new Step("HRMDocument", "hrmDocumentId", "id"),
+                                            new Step(
+                                                    "HRMDocumentToDemographic",
+                                                    "id",
+                                                    "hrmDocumentId")),
+                                    "demographicNo",
+                                    false)));
+        // Data-summary children (DOCUMENT): each row belongs to the chart of its parent record.
+        add(result, "emailAttachment", "emailLog", "logId", "id", "demographicNo");
+        add(result, "formBCAR2020Data", "formBCAR2020", "form_id", "id", "demographic_no");
+        add(result, "formBCAR2020Text", "formBCAR2020", "form_id", "id", "demographic_no");
+        // A message belongs to every chart msgDemoMap links it to.
+        add(result, "messagetbl", "msgDemoMap", "messageid", "messageID", "demographic_no");
+        // Rourke checkbox values name their form table in form_name; the same form_id in the
+        // other Rourke table is a different record.
+        result.put(
+                "form_boolean_value",
+                List.of(
+                        new Scope(
+                                List.of(new Step("formRourke2017", "form_id", "ID")),
+                                "demographic_no",
+                                false,
+                                "form_name",
+                                "formRourke2017"),
+                        new Scope(
+                                List.of(new Step("formRourke2020", "form_id", "ID")),
+                                "demographic_no",
+                                false,
+                                "form_name",
+                                "formRourke2020")));
+        // Listed children of removed features (LISTED): counted per chart, never exported.
+        add(result, "caisi_form_data", "caisi_form_instance", "instance_id", "id", "client_id");
+        add(result, "mdsZFR", "mdsMSH", "segmentID", "segmentID", "demographic_no");
+        add(result, "mdsZLB", "mdsMSH", "segmentID", "segmentID", "demographic_no");
         return Collections.unmodifiableMap(result);
     }
 
     private static void add(
-            Map<String, Scope> result,
+            Map<String, List<Scope>> result,
             String table,
             String parent,
             String childColumn,
@@ -229,7 +325,11 @@ final class CdsExportIndirectPatientScopeReadSupport {
             String owner) {
         result.put(
                 table,
-                new Scope(List.of(new Step(parent, childColumn, parentColumn)), owner, false));
+                List.of(
+                        new Scope(
+                                List.of(new Step(parent, childColumn, parentColumn)),
+                                owner,
+                                false)));
     }
 
     private static void review() {

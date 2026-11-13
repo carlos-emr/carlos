@@ -43,6 +43,45 @@ class OptimizedCatalogueGateTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('Every physical table requires its own explicit ruling', result.stderr)
 
+    def _mutate(self, tree, change):
+        path = tree / 'src/main/resources/cds-export/source-catalogue.json'
+        catalogue = json.loads(path.read_text())
+        change(catalogue)
+        path.write_text(json.dumps(catalogue, indent=2) + '\n')
+
+    def test_refuses_a_data_summary_table_outside_the_reports_capture_under_python_optimize(self):
+        # A DOCUMENT table that Reports does not capture would be silently missing from every
+        # export instead of exported as a data summary.
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            self._mutate(tree, lambda c: c['requiredScopes']['Reports'].remove('tickler'))
+            result = self._run(tree)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('tickler must be captured with Reports', result.stderr)
+
+    def test_refuses_a_data_summary_table_in_another_category_under_python_optimize(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            self._mutate(tree, lambda c: c['requiredScopes']['Appointments'].append('tickler'))
+            result = self._run(tree)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('tickler is a data summary of Reports only', result.stderr)
+
+    def test_refuses_a_listed_table_without_its_ruling_note_under_python_optimize(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            self._mutate(tree, lambda c: c['rulingNotes'].pop('DrugProduct'))
+            result = self._run(tree)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('DrugProduct needs a ruling note', result.stderr)
+
+    def test_refuses_an_unknown_disposition_under_python_optimize(self):
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            self._mutate(tree, lambda c: c['tables'].__setitem__('tickler', 'EXPORT_SOMEHOW'))
+            result = self._run(tree)
+            self.assertNotEqual(result.returncode, 0)
+
 
 if __name__ == '__main__':
     unittest.main()

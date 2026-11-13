@@ -4,6 +4,12 @@
 
 New tables require an explicit ruling. This tool never guesses patient ownership,
 classifies a populated source as operational, or qualifies a clinical engine.
+
+DOCUMENT tables are exported as CARLOS data-summary Reports: each must be captured with the
+Reports category (and only there), keeps a reviewed patient scope and is read through the pinned
+physical contract, so it has no separate source-schema descriptor. LISTED tables belong to removed
+features: populated patient rows are listed in the encrypted ReadMe and never exported. Both
+dispositions require a written ruling note.
 """
 import argparse
 import hashlib
@@ -12,6 +18,9 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+DISPOSITIONS = {'MAPPED_SOURCE', 'REFERENCE', 'OPERATIONAL', 'ACCESS_CONTROL', 'REQUIRE_EMPTY',
+                'DOCUMENT', 'LISTED'}
+OWNED = {'REQUIRE_EMPTY', 'ACCESS_CONTROL', 'DOCUMENT', 'LISTED'}
 CATALOGUE = ROOT / 'src/main/resources/cds-export/source-catalogue.json'
 SCOPE = ROOT / 'src/main/resources/cds-export/source-schema/clinical_source_catalogue.json'
 
@@ -43,8 +52,8 @@ def main():
         else:
             require(catalogue['profiles'][province]['physicalContractSha256'] == digest, province + ' contract drift')
     require(actual == set(catalogue['tables']), 'Every physical table requires its own explicit ruling')
-    require(set(catalogue['tables'].values()) <= {'MAPPED_SOURCE', 'REFERENCE', 'OPERATIONAL', 'ACCESS_CONTROL', 'REQUIRE_EMPTY'}, 'source catalogue verification failed')
-    for field, allowed in [('patientScopes', {'REQUIRE_EMPTY', 'ACCESS_CONTROL'}),
+    require(set(catalogue['tables'].values()) <= DISPOSITIONS, 'source catalogue verification failed')
+    for field, allowed in [('patientScopes', OWNED),
                            ('clinicalRemainders', {'ACCESS_CONTROL'})]:
         mapping = catalogue[field]
         require(isinstance(mapping, dict), 'source catalogue verification failed')
@@ -69,7 +78,20 @@ def main():
     for table, disposition in catalogue['tables'].items():
         if disposition == 'ACCESS_CONTROL':
             require(table in catalogue['patientScopes'] and table in catalogue['clinicalRemainders'], 'source catalogue verification failed')
-    declared = {name for names in catalogue['requiredScopes'].values() for name in names}
+    notes = catalogue.get('rulingNotes', {})
+    reports = set(catalogue['requiredScopes'].get('Reports', []))
+    for table, disposition in catalogue['tables'].items():
+        if disposition in ('DOCUMENT', 'LISTED'):
+            note = notes.get(table)
+            require(isinstance(note, str) and note.strip(), table + ' needs a ruling note')
+        if disposition == 'DOCUMENT':
+            require(table in reports, table + ' must be captured with Reports')
+    for category, names in catalogue['requiredScopes'].items():
+        for name in names:
+            if catalogue['tables'].get(name) == 'DOCUMENT':
+                require(category == 'Reports', name + ' is a data summary of Reports only')
+    declared = {name for names in catalogue['requiredScopes'].values() for name in names
+                if catalogue['tables'].get(name) != 'DOCUMENT'}
     mapped = set()
     for name in declared:
         descriptor = json.loads((ROOT / 'src/main/resources/cds-export/source-schema' / (name + '.json')).read_text())
