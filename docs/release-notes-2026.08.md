@@ -283,6 +283,15 @@ counts the rows that are shown, and a list that cannot be loaded says so
   being cut short without notice. The typed text is kept where the page already kept it.
   Reply, Reply All and Forward shorten an over-long "Re:" or "Fwd:" subject in the compose
   box. Characters are counted as the database counts them, so an emoji is one character.
+- The same applies to every other place a description is typed: the document viewer and
+  inbox, filing an incoming document, and the HRM report viewer's Set Description refuse
+  a description longer than 255 characters with a message, and nothing is saved.
+- Descriptions CARLOS builds itself or receives through the API are shortened to 255
+  characters at a character boundary instead of being cut by the database: annotated
+  copies (which always keep " (annotated)"), eForm template documents, FHIR referral
+  attachments, REST document uploads and consultation attachments (a file name used as
+  the description keeps its extension), and OTN eConsult imports. API clients keep
+  working, and the upload response shows the stored description.
 
 ### Audit trail
 
