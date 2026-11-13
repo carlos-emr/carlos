@@ -10,4 +10,13 @@
         response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN);
         return;
     }
+    // Conversion/workflow may select INPUT before execute() restores the originating form.
+    // Initial setup and execute() already issue/bind this request attribute; a fresh INPUT
+    // request must bind its posted token before EL can fall back to another tab's session state.
+    if (request.getAttribute(io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.CdmReportContexts.PARAMETER) == null
+            && !io.github.carlos_emr.carlos.report.oscarMeasurements.pageUtil.CdmReportContexts.bind(request)) {
+        response.sendError(jakarta.servlet.http.HttpServletResponse.SC_CONFLICT,
+                jakarta.servlet.jsp.jstl.fmt.LocaleSupport.getLocalizedMessage(pageContext, "oscarReport.CDMReport.msgStaleForm"));
+        return;
+    }
 %>

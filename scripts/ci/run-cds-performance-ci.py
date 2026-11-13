@@ -154,7 +154,8 @@ def main() -> int:
                 context / "Dockerfile",
             )
             status["stage"] = "RUNTIME_PACKAGE_BUILD"
-            execute(docker + ["build", "-t", image, str(context)])
+            execute(docker + ["build", "--secret", "id=ci_ca,src=/etc/ssl/certs/ca-certificates.crt",
+                              "-t", image, str(context)])
             # One Maven writer and a real WAR: no substitutions of test classes in the installed engine.
             status["stage"] = "CANDIDATE_WAR_BUILD"
             build(["mvn", "-B", "-DskipTests", "package"])

@@ -94,7 +94,7 @@ function acknowledgementFixture(response, failure) {
   const context = vm.createContext({jQuery, contextpath: '', alert() {},
     document: {getElementById: () => ({})}, serializeFormToObject: () => ({labType: 'HL7'}),
     window: {}, _in_window: false, labDocumentRows: () => ({slideUp() { notified++; }}),
-    updateGlobalDataAndSideNav() {}});
+    updateGlobalDataAndSideNav() {}, refreshView() {}});
   vm.runInContext(index.slice(index.indexOf('function serverClearedCount('), index.indexOf('function fileDoc(')), context);
   return {run: () => context.updateStatus('acknowledgeForm_30', true), notified: () => notified};
 }

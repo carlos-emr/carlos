@@ -24,12 +24,14 @@ function harness(kind, patient, appointment) {
       get firstChild() { return this.children[0]; },
       removeChild(child) { this.children.splice(this.children.indexOf(child), 1); },
       update(html) { this.html = html; },
+      querySelector() { return null; },
+      appendChild(child) { this.children.push(child); },
     };
   }
   const reloadField = {value: 'forms'};
   const editor = {value: 'Own draft', scrollHeight: 80, dispatchEvent(event) { events.push(event.type); }};
   const context = {
-    URL, Event, ctx: '/carlos', chartContext: '', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
+    URL, Event, savingNoteError: 'Save failed', chartLoadError: 'Load failed', ctx: '/carlos', chartContext: '', location: new URL(`https://fixture.invalid/carlos/encounter?demographicNo=${patient}`),
     // Legacy windows must use encounterConfig even when obsolete globals describe another chart.
     demographicNo: kind === 'legacy' ? '999' : patient,
     appointmentNo: kind === 'legacy' ? '999' : appointment,
@@ -37,6 +39,7 @@ function harness(kind, patient, appointment) {
     encounterConfig: {demographicNo: patient, appointmentNo: appointment,
       urls: {navSections: {forms: '/carlos/encounter/displayForms?hC=917611'}}},
     document: {
+      createElement() { return {setAttribute() {}}; },
       getElementById(id) { return id === 'reloadDiv' ? reloadField : panels[id]; },
       querySelectorAll() { return [{value: patient}]; },
       querySelector(selector) { return selector === 'textarea[name="caseNote_note"]' ? editor : null; },
@@ -206,7 +209,8 @@ test('modern loadDiv retains success and failure completion callbacks with expli
   }
   assert.deepEqual(completed, [true, false]);
   assert.deepEqual(f.notifications, ['forms']);
-  assert.match(f.panels.forms.html, /503/);
+  assert.equal(f.panels.forms.html, 'Saved form', 'failed refresh preserves the last successfully rendered HTML');
+  assert.match(f.panels.forms.children.at(-1).textContent, /503/);
 });
 
 test('form completion refreshes both own panels through the real modern hook with appointment zero and no stale global', () => {

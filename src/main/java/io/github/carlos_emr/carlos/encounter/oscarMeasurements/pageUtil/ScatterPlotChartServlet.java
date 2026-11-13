@@ -109,10 +109,13 @@ public class ScatterPlotChartServlet extends HttpServlet {
                 image.writeTo(httpServletResponse.getOutputStream());
             }
         } catch (Exception t) {
-            MiscUtils.getLogger().warn("Scatter graph unavailable ({})", t.getClass().getSimpleName());
+            MiscUtils.getLogger().warn("Scatter graph unavailable: reason={}, exception={}",
+                    io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.code(t), t.getClass().getName());
             if (!httpServletResponse.isCommitted()) {
                 httpServletResponse.resetBuffer();
-                httpServletResponse.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+                int status = io.github.carlos_emr.carlos.eform.util.ChartRenderFailure.status(t);
+                if (status == 503) httpServletResponse.setHeader("Retry-After", "5");
+                httpServletResponse.sendError(status, "Graph unavailable; retry or contact your administrator.");
             }
         }
     }

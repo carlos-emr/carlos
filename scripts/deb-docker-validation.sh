@@ -214,14 +214,24 @@ ARG AXE_CORE_VERSION
 ARG ENTITIES_VERSION
 ARG PNGJS_VERSION
 RUN --mount=type=secret,id=validation_ca,required=true,mode=0444 set -e; \
-    if [ "$APT_FORCE_HTTPS" = true ]; then sed -i 's#http://#https://#g' /etc/apt/sources.list.d/*.sources; fi; \
+    if [ "$APT_FORCE_HTTPS" = true ]; then \
+      sed -i -e 's#http://#https://#g' \
+        -e 's#https://security.ubuntu.com/ubuntu#https://archive.ubuntu.com/ubuntu#g' \
+        /etc/apt/sources.list.d/*.sources; \
+    fi; \
     if [ -n "$BUILD_PROXY" ]; then printf 'Acquire::http::Proxy "%s";\nAcquire::https::Proxy "%s";\n' "$BUILD_PROXY" "$BUILD_PROXY" > /etc/apt/apt.conf.d/99carlos-validation-proxy; fi; \
     printf 'Acquire::https::CaInfo "/run/secrets/validation_ca";\n' > /etc/apt/apt.conf.d/98carlos-validation-ca; \
-    apt-get -o APT::Update::Error-Mode=any update; \
-    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
-      nodejs npm poppler-utils tesseract-ocr tesseract-ocr-eng fonts-liberation gnupg libxml2-utils \
-      python3 python3-defusedxml openjdk-25-jdk-headless; \
+    for attempt in 1 2 3; do \
+      apt-get -o Acquire::https::No-Cache=true -o APT::Update::Error-Mode=any update \
+        && DEBIAN_FRONTEND=noninteractive apt-get -o Acquire::https::No-Cache=true install -y --no-install-recommends \
+          ca-certificates systemd systemd-sysv dbus iproute2 procps curl \
+          nodejs npm poppler-utils tesseract-ocr tesseract-ocr-eng fonts-liberation gnupg libxml2-utils \
+          python3 python3-defusedxml openjdk-25-jdk-headless \
+        && break; \
+      test "$attempt" -lt 3 || exit 1; \
+      rm -rf /var/lib/apt/lists/*; \
+      sleep 2; \
+    done; \
     update-ca-certificates; \
     rm -f /etc/apt/apt.conf.d/98carlos-validation-ca; \
     rm -rf /var/lib/apt/lists/*; \
