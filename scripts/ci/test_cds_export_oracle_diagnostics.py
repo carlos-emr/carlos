@@ -54,6 +54,27 @@ class OracleDiagnosticsTest(unittest.TestCase):
             with self.subTest(actual=actual):
                 self.assertFalse(ORACLE.medication_value_matches("c:Dosage", actual, expected))
 
+    def test_personal_narrative_is_read_from_its_whitespace_safe_json_carrier(self):
+        expected = "Native SocHistory narrative café 😀"
+        for encoded in ('"Native\\u0020SocHistory\\u0020narrative\\u0020café\\u0020😀"',
+                        '"Native\\u0020SocHistory\\u0020narrative\\u0020caf\\u00e9\\u0020\\ud83d\\ude00"'):
+            with self.subTest(encoded=encoded):
+                self.assertTrue(ORACLE.narrative_matches(encoded, expected))
+                self.assertTrue(ORACLE.history_value_matches(ORACLE.PERSONAL_NARRATIVE, encoded, expected))
+
+    def test_raw_collapsible_or_non_string_narratives_are_refused(self):
+        expected = "Native SocHistory narrative café 😀"
+        for actual in (expected, '"' + expected + '"', '"Native\\u0020SocHistory"',
+                       '"Native\\u0020SocHistory\\u0020narrative\\u0020café\\u0020😀"\n',
+                       '["Native\\u0020SocHistory\\u0020narrative\\u0020café\\u0020😀"]',
+                       '"Native\\u0020SocHistory\\u0020narrative\\u0020café\\u0020😀"x',
+                       "null", "", None):
+            with self.subTest(actual=actual):
+                self.assertFalse(ORACLE.narrative_matches(actual, expected))
+        # Other history facts keep their exact literal comparison.
+        self.assertFalse(ORACLE.history_value_matches(
+            "c:FamilyHistory/c:Relationship", '"Mother"', "Mother"))
+
     def archive(self, path, *, reference=None, member=None, body=None):
         relative = "Reports/" + "a" * 64 + ".txt"
         reference = relative if reference is None else reference

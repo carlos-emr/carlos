@@ -354,6 +354,33 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldKeepTheStoredAccessionOnASecondOrdersResults_andNoteThatOrdersOwnNumber()
+            throws Exception {
+        // The installed-export oracle expects exactly this for its fixture's second OBR.
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        var values = mapper.map(source(message()), ZoneId.of("America/Toronto"));
+        assertThat(values.getFirst().text())
+                .containsEntry("AccessionNumber", "ACC-1")
+                .containsEntry(
+                        "TestResultsInformationReportedByTheLab", "Ordered test: Metabolic panel");
+        for (var value : values.subList(2, 4)) {
+            assertThat(value.text())
+                    .containsEntry("AccessionNumber", "ACC-1")
+                    .containsEntry(
+                            "TestResultsInformationReportedByTheLab",
+                            "Ordered test: Other panel\nOrder number: ACC-2");
+            assertThat(
+                            new String(
+                                    render(
+                                            CdsCategory.LABORATORY_RESULTS,
+                                            xml -> mapper.write(value, xml)),
+                                    StandardCharsets.UTF_8))
+                    .contains("resultNormalAbnormalFlagAsEnum>U<")
+                    .doesNotContain("resultNormalAbnormalFlagAsPlainText");
+        }
+    }
+
+    @Test
     void shouldWriteTheSupportingRecordInOneFixedKeyOrder_soAnUnchangedReportRepeatsItsBytes()
             throws Exception {
         var source = source(message());

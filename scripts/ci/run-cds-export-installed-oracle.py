@@ -42,10 +42,35 @@ def expected(patient: int) -> dict[str, str]:
     }
 
 
+PERSONAL_NARRATIVE = "c:PersonalHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Narrative.v1']/d:Content"
+# The earlier raw carrier, whose xs:token content lost line breaks; the exporter no longer writes it.
+RAW_PERSONAL_NARRATIVE = "c:PersonalHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.PersonalNarrative.v1']/d:Content"
+
+
+def narrative_matches(actual, expected_value: str) -> bool:
+    # PersonalHistory allows only residual data, whose Content is xs:token. The documented
+    # carrier (docs/cds-export-operator-guide.md, CARLOS.History.Narrative.v1) is one JSON
+    # string literal with every XML whitespace character escaped, so token collapse cannot
+    # alter it. Decode it as any receiver would; never accept the raw, collapsible text.
+    if not isinstance(actual, str) or not actual or any(c in actual for c in " \t\r\n"):
+        return False
+    try:
+        decoded = json.loads(actual)
+    except ValueError:
+        return False
+    return isinstance(decoded, str) and decoded == expected_value
+
+
+def history_value_matches(path: str, actual, expected_value: str) -> bool:
+    if path == PERSONAL_NARRATIVE:
+        return narrative_matches(actual, expected_value)
+    return actual == expected_value
+
+
 def history_expected() -> dict[str, str]:
     # Literal facts written by the independent fixture, without transfer mapper output.
     return {
-        "c:PersonalHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.PersonalNarrative.v1']/d:Content": "Native SocHistory narrative café 😀",
+        PERSONAL_NARRATIVE: "Native SocHistory narrative café 😀",
         "c:FamilyHistory/c:ProblemDiagnosisProcedureDescription": "Native FamHistory narrative café 😀",
         "c:FamilyHistory/c:Relationship": "Mother",
         "c:FamilyHistory/c:StartDate/d:YearMonth": "2020-02",
@@ -58,8 +83,11 @@ def history_expected() -> dict[str, str]:
 
 
 def history_equal(record) -> bool:
-    if not all(len(record.findall(path, NS)) == 1 and record.find(path, NS).text == value
+    if not all(len(record.findall(path, NS)) == 1
+               and history_value_matches(path, record.find(path, NS).text, value)
                for path, value in history_expected().items()):
+        return False
+    if record.findall(RAW_PERSONAL_NARRATIVE, NS):
         return False
     for category in ("PersonalHistory", "FamilyHistory", "PastHealth", "ProblemList", "RiskFactors", "AlertsAndSpecialNeeds"):
         path = "c:" + category + "/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content"
@@ -73,8 +101,16 @@ def history_equal(record) -> bool:
     details = json.loads(metadata)
     if details.get("version") != 1 or len(details.get("revisions", [])) != 2:
         return False
+    # The fixture's provider wrote both revisions; each revision keeps its author in the details.
+    if [revision.get("revision") for revision in details["revisions"]] != [1, 2] or any(
+            revision.get("author", {}).get("firstName") != "Synthetic"
+            or revision.get("author", {}).get("lastName") != "Native Export"
+            for revision in details["revisions"]):
+        return False
+    # One participant per distinct author, at that author's first revision: repeating one
+    # author makes a receiving CARLOS treat the note as multi-author and drop its author.
     participants = note.findall("c:ParticipatingProviders", NS)
-    if len(participants) != 2:
+    if len(participants) != 1:
         return False
     for participant in participants:
         if (participant.find("c:Name/d:FirstName", NS).text != "Synthetic"
@@ -128,6 +164,9 @@ def care_equal(record, patient: int) -> bool:
 
 
 def laboratory_expected() -> list[dict[str, str]]:
+    # AccessionNumber is the accession CARLOS stores for the report (hl7TextInfo.accessionNum,
+    # "ACC-1" in the fixture) on every result; a second order's own number ("ACC-2", OBR-3)
+    # is a laboratory fact in TestResultsInformationReportedByTheLab (docs/cds-export.md).
     return [
         {"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Glucose",
          "c:LabTestCode": "2345-7", "c:AccessionNumber": "ACC-1", "c:Result/c:Value": "5.4",
@@ -135,15 +174,21 @@ def laboratory_expected() -> list[dict[str, str]]:
          "c:CollectionDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
          "c:LabRequisitionDateTime/d:FullDateTime": "2026-07-08T10:00:00-04:00",
          "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "N",
+         "c:TestResultsInformationReportedByTheLab": "Ordered test: Metabolic panel",
          "c:NotesFromLab": "Exact café | details 😀", "c:TestResultStatus": "F"},
         {"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Narrative",
          "c:LabTestCode": "COMMENT", "c:AccessionNumber": "ACC-1", "c:Result/c:Value": "A&B",
          "c:CollectionDateTime/d:FullDateTime": "2026-07-09T14:35:00-04:00",
-         "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "A", "c:TestResultStatus": "F"},
+         "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "A",
+         "c:TestResultsInformationReportedByTheLab": "Ordered test: Metabolic panel",
+         "c:TestResultStatus": "F"},
+        # The fixture's OBX-8 is empty: the CDS data dictionary's Unknown, the schema enum's "U".
         *[{"c:LaboratoryName": "Native Lab", "c:TestNameReportedByLab": "Repeated native result",
-           "c:LabTestCode": "NATIVE", "c:AccessionNumber": "ACC-2", "c:Result/c:Value": value,
+           "c:LabTestCode": "NATIVE", "c:AccessionNumber": "ACC-1", "c:Result/c:Value": value,
            "c:Result/c:UnitOfMeasure": "mg/L", "c:CollectionDateTime/d:FullDate": "2026-07-09",
-           "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsPlainText": "", "c:TestResultStatus": "P"}
+           "c:ResultNormalAbnormalFlag/d:resultNormalAbnormalFlagAsEnum": "U",
+           "c:TestResultsInformationReportedByTheLab": "Ordered test: Other panel\nOrder number: ACC-2",
+           "c:TestResultStatus": "P"}
           for value in ("10", "11")],
     ]
 
@@ -228,8 +273,10 @@ def medication_expected() -> list[dict[str, str]]:
          "c:PrescriptionStatus": "Aborted", "c:PastMedications/d:ynIndicatorsimple": "Y",
          "c:StartDate/d:FullDate": "2026-07-11", "c:Notes": "Native medication provider note café 😀",
          "c:PrescriptionInstructions": "Authored native SIG café 😀\n[Native pharmacy instructions]\nTake after food"},
+        # Fixture duration 1, unit M. A month is no exact number of days, so it keeps its unit
+        # as Duration text, never the calculator's 30 days (weeks above are exact days).
         {**author, "c:DrugName": "Native status unknown treatment", "c:DrugDescription": "2 mg", "c:Frequency": "BID",
-         "c:Duration": "30", "c:Quantity": "10", "c:NumberOfRefills": "0", "c:StartDate/d:FullDate": "2026-07-12",
+         "c:Duration": "1 month", "c:Quantity": "10", "c:NumberOfRefills": "0", "c:StartDate/d:FullDate": "2026-07-12",
          "c:Notes": "Native unknown-currentness source note"},
         {**author, "c:DrugName": "Authored generic medication", "c:DrugIdentificationNumber": "00999999",
          "c:Strength/d:Amount": "5", "c:Strength/d:UnitOfMeasure": "mg", "c:Dosage": "1",
@@ -320,13 +367,17 @@ def clinical_mismatches(root, patient: int) -> list[str]:
     record = root.find("./c:PatientRecord", NS)
     issues = []
 
+    def matches(prefix, path, actual, value):
+        if prefix.startswith("MedicationsAndTreatments["):
+            return medication_value_matches(path, actual, value)
+        if prefix == "PatientRecord":
+            return history_value_matches(path, actual, value)
+        return (actual or "") == value
+
     def check_fields(node, prefix, fields):
         for path, value in fields.items():
             found = [] if node is None else node.findall(path, NS)
-            if len(found) != 1 or not (
-                    medication_value_matches(path, found[0].text, value)
-                    if prefix.startswith("MedicationsAndTreatments[")
-                    else (found[0].text or "") == value):
+            if len(found) != 1 or not matches(prefix, path, found[0].text, value):
                 issues.append(prefix + "/" + path)
 
     check_fields(record.find("c:Demographics", NS), "Demographics", expected(patient))
@@ -435,7 +486,11 @@ def qualify(args) -> int:
             ("../c:ClinicalNotes/c:MyClinicalNotesContent", "Edited native clinical note café 😀"),
             ("../c:FamilyHistory/c:ResidualInfo/d:DataElement[d:Name='CARLOS.History.Archived.v1']/d:Content", "false"),
             ("../c:Reports/c:SourceAuthorPhysician/c:AuthorFreeText", "Wrong author"),
+            # The raw spelling of the narrative is schema valid but not the whitespace-safe carrier.
+            ("../" + PERSONAL_NARRATIVE, "Native SocHistory narrative café 😀"),
             ("../c:LaboratoryResults[1]/c:Result/c:Value", "6.4"),
+            ("../c:LaboratoryResults[3]/c:AccessionNumber", "ACC-2"),
+            ("../c:LaboratoryResults[3]/c:TestResultsInformationReportedByTheLab", "Ordered test: Other panel"),
             ("../c:MedicationsAndTreatments[1]/c:Dosage", "0.5-2"),
             ("../c:MedicationsAndTreatments[1]/c:ResidualInfo/d:DataElement[d:Name='CARLOS.Medication.Archived.v1']/d:Content", "false"),
             ("../c:MedicationsAndTreatments[1]/c:PrescriptionStatus", "Completed"),
