@@ -111,6 +111,8 @@ class CdsExportLegacyDaoWiringUnitTest {
         var scopes = mock(CdsExportNoteAccessDao.class);
         var projection = mock(CdsExportNoteScopeProjectionService.class);
         when(documents.countCdsExportRows(27)).thenReturn(5L);
+        // The file reader counts only documents whose content is a stored file (review R6).
+        when(documents.countCdsExportFileRows(27)).thenReturn(2L);
         when(issues.countCdsExportRows(27)).thenReturn(3L);
         when(notes.countCdsExportIssueLinks(27)).thenReturn(4L);
         when(projection.read(27, 8192)).thenReturn(List.of());
@@ -134,7 +136,7 @@ class CdsExportLegacyDaoWiringUnitTest {
             context.refresh();
             assertThat(context.getBean(CdsExportDocumentSourceReader.class).count(27)).isEqualTo(5);
             assertThat(context.getBean(CdsExportDocumentFileSourceReader.class).count(27))
-                    .isEqualTo(5);
+                    .isEqualTo(2);
             assertThat(context.getBean(CdsExportCaseIssueSourceReader.class).count(27))
                     .isEqualTo(3);
             assertThat(context.getBean(CdsExportNoteIssueLinkSourceReader.class).count(27))
@@ -146,7 +148,8 @@ class CdsExportLegacyDaoWiringUnitTest {
             verify(issues).countCdsExportRows(27);
             verify(notes).countCdsExportIssueLinks(27);
             verify(notes).countCdsExportRows(27);
-            verify(documents, times(2)).countCdsExportRows(27);
+            verify(documents).countCdsExportRows(27);
+            verify(documents).countCdsExportFileRows(27);
             verifyNoInteractions(oldIssues, oldNotes, mergedDocuments);
         }
     }
