@@ -173,7 +173,10 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
 
     @Override
     public List<Prevention> findNotDeletedByDemographicId(Integer demographicId) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.demographicId=?1 and x.deleted=?2";
+        // The extension join changes the plan the single-table query used, which returned rows in
+        // demographic-index (id) order; callers such as the BC health passport forms number their
+        // date slots in list order, so that order is now stated rather than left to the plan.
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.demographicId=?1 and x.deleted=?2 order by x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, demographicId);
@@ -190,7 +193,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
         // This legacy query cannot account for unknown membership in a date interval.
         // Check the full type scope before filtering; otherwise undated records disappear.
         requireExactDates(DateScope.TYPE, preventionType);
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.preventionDate>=?2 and x.preventionDate<=?3 and x.deleted='0' and x.refused='0' order by x.preventionDate";
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.preventionDate>=?2 and x.preventionDate<=?3 and x.deleted='0' and x.refused='0' order by x.preventionDate, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, preventionType);
@@ -208,7 +211,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
      * Retrieves a list of Prevention entities by prevention type and demographic number.
      */
     public List<Prevention> findByTypeAndDemoNo(String preventionType, Integer demoNo) {
-        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.demographicId=?2 and x.deleted='0' order by x.preventionDate asc";
+        String sqlCommand = "select x from " + modelClass.getSimpleName() + " x left join fetch x.preventionExts where x.preventionType=?1 and x.demographicId=?2 and x.deleted='0' order by x.preventionDate asc, x.id";
 
         Query query = entityManager.createQuery(sqlCommand);
         query.setParameter(1, preventionType);
@@ -223,7 +226,7 @@ public class PreventionDaoImpl extends AbstractDaoImpl<Prevention> implements Pr
     @Override
     public List<Prevention> findActiveByDemoId(Integer demoId) {
         Query query = entityManager.createQuery("select p from Prevention p left join fetch p.preventionExts "
-                + "where p.demographicId = ?1 and p.deleted <> '1' order by p.preventionType, p.preventionDate");
+                + "where p.demographicId = ?1 and p.deleted <> '1' order by p.preventionType, p.preventionDate, p.id");
         query.setParameter(1, demoId);
         return query.getResultList();
     }

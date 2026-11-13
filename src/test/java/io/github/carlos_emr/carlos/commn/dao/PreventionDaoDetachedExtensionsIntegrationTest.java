@@ -190,6 +190,43 @@ class PreventionDaoDetachedExtensionsIntegrationTest extends CarlosTestBase {
         }
     }
 
+    @Test
+    @Tag("query")
+    @DisplayName("owning clinical lists keep a stable prevention order behind the extension join")
+    void shouldReturnPreventionsInStableOrder_forEveryOwningClinicalList() {
+        Date sameDay = new Date();
+        List<Integer> added = new java.util.ArrayList<>();
+        transactions.executeWithoutResult(status -> {
+            for (int i = 0; i < 3; i++) {
+                Prevention prevention = new Prevention();
+                prevention.setDemographicId(DEMOGRAPHIC);
+                prevention.setPreventionType(PREVENTION_TYPE);
+                prevention.setPreventionDate(sameDay);
+                prevention.setProviderNo("-1");
+                prevention.setCreatorProviderNo("999998");
+                prevention.setDeleted(false);
+                prevention.setRefused(false);
+                preventionDao.persist(prevention);
+                persistExt(prevention.getId(), ImmunizationProperty.lot.name(), "LOT-" + i);
+                persistExt(prevention.getId(), "cdsDatePrecision", "FULL_DATE");
+                added.add(prevention.getId());
+            }
+        });
+        List<Integer> byId = preventionDao.findNotDeletedByDemographicId(DEMOGRAPHIC).stream()
+                .map(Prevention::getId).toList();
+        assertThat(byId).hasSize(4).isSorted().containsAll(added);
+        for (List<Prevention> results : List.of(
+                preventionDao.findByTypeAndDate(PREVENTION_TYPE, new Date(0), new Date(System.currentTimeMillis() + 86400000)),
+                preventionDao.findByTypeAndDemoNo(PREVENTION_TYPE, DEMOGRAPHIC),
+                preventionDao.findActiveByDemoId(DEMOGRAPHIC))) {
+            // Same type, so the date then the identifier decide: the three same-day additions
+            // keep their identifier order and no prevention appears twice.
+            List<Integer> ids = results.stream().map(Prevention::getId).toList();
+            assertThat(ids).doesNotHaveDuplicates().hasSize(4);
+            assertThat(ids.stream().filter(added::contains).toList()).isSorted();
+        }
+    }
+
     private void persistExt(Integer preventionId, String key, String value) {
         PreventionExt ext = new PreventionExt();
         ext.setPreventionId(preventionId);
