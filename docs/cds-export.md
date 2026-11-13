@@ -152,18 +152,30 @@ decision names the rule.
   `EDITED_BIRTH_DATE_SUPERSEDES_SOURCE_OFFSET`); an edited patient note replaces the complete
   source note the native column could not hold
   (`EDITED_CURRENT_PATIENT_NOTE_SUPERSEDES_SOURCE_ONLY_NOTE`).
-- Roster (`CdsExportRetainedEnrolmentReconciler`): the imported enrolment history exports as
-  imported, and native events recorded after it follow `CdsExportEnrolmentHistory`. Only RO and
-  TE are enrolment events; FS, clinic-defined statuses and NR with leftover values are carried in
-  the record's `roster` object. Per episode (start and physician) the latest native version
-  decides; an open episode exports while it is current or the source records its termination;
-  one the current state contradicts (re-rostered without a termination, cleared, moved to FS) or
-  dated after it is a superseded snapshot (`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`), its
-  provider `SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT`. No termination is invented, so a
-  patient moved to FS without a termination keeps the imported open enrolment in the file beside
-  the carried FS state. The four review rules for re-rostering, a cleared current enrolment, a
-  conflicting termination and a stale current state are gone, and an FS current state sharing an
-  archived event's provider no longer fails the job.
+- Roster (`CdsExportRetainedEnrolmentReconciler`): native events recorded after the import
+  follow `CdsExportEnrolmentHistory`. Only RO and TE are enrolment events; FS, clinic-defined
+  statuses and NR with leftover values are carried in the record's `roster` object. Per episode
+  (start and physician) the latest native version decides; an open episode exports while it is
+  current or the source records its termination; one the current state contradicts
+  (re-rostered without a termination, cleared, moved to FS) or dated after it is a superseded
+  snapshot (`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`), its provider
+  `SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT`. Once the roster is edited (the current row is
+  no longer the import's own projection) the same rule applies to the imported history: an
+  imported episode that is open (no imported termination and no kept native one) and is not the
+  current episode, because the current state is FS, NR or another non-enrolment status or RO
+  with another physician or start date without a termination, is superseded. Its
+  `EnrolmentHistory` is removed from the export (with its date normalization), its source fields
+  stay in the retained source and the receipt lists them as replaced, an archive snapshot of that
+  imported state is `SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`, and the current roster
+  status keeps its outcome and destination under
+  `CURRENT_ROSTER_SUPERSEDES_IMPORTED_OPEN_ENROLMENT`; when nothing of the imported enrolment
+  remains and no native event is added, the `Enrolment` element is removed. The export
+  therefore never claims a patient is still enrolled in an episode CARLOS no longer shows.
+  Closed imported episodes, an RO still in the imported episode, an episode a current TE
+  terminates (exported terminated) and every imported episode of an unedited roster export
+  exactly as imported. No termination is invented. The four review rules for re-rostering, a
+  cleared current enrolment, a conflicting termination and a stale current state are gone, and
+  an FS current state sharing an archived event's provider no longer fails the job.
 
 An empty value a Master Record save writes over a column the importer left NULL is not an edit:
 a source-only value, part, address or phone is kept (`UNPROJECTED_SOURCE_*_KEPT_WITHOUT_A_CURRENT_*`),

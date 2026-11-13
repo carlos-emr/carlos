@@ -163,9 +163,14 @@ too long to import, re-rostering, a move to fee for service or another physician
 CARLOS value is exported and the imported value it replaced stays in the import's protected
 source fields, listed as replaced in the export audit; it is not in the package. Unedited
 imported charts export exactly as before, and a save that leaves an imported-only value blank
-does not erase it. The imported enrolment history is always exported as imported, so a patient
-moved to fee for service without a termination still shows the imported enrolment in the file,
-with the fee-for-service state in the NewCategory record. Still held: removing an imported contact
+does not erase it. An imported enrolment that CARLOS no longer shows (the patient was moved to
+fee for service, non-rostered or another roster status, or re-rostered to another physician,
+without a termination) is not exported as a current enrolment: like an earlier roster state on
+any chart, it stays in the import's protected source fields and the audit, and the file carries
+the current state instead (the new enrolment, or the fee-for-service state in the NewCategory
+record). Closed imported enrolments, an imported enrolment that is still current, one ended
+with a termination in CARLOS, and the whole history of a chart whose roster was not edited
+export as imported. Still held: removing an imported contact
 or pharmacy preference (review it), a value with a character no XML file can hold, and an
 imported chart that matched an existing CARLOS chart whose values the import cannot prove.
 
