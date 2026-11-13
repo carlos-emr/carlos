@@ -1,0 +1,111 @@
+# Copyright (c) 2026 CARLOS Contributors. GPL-2.0-or-later
+name: CDS installed export scaling
+
+# Installed export resource lane (docs/cds-export.md, "Installed export scaling lane"): the real
+# packaged WAR and pinned carlos-ctl export native and imported charts of growing size, measured
+# against fixed time, statement, privilege-statement and memory budgets. The import lane's owner
+# (run-cds-performance-ci.py) builds and retires the runtime, database and evidence.
+on:
+  pull_request:
+    branches: [main, develop, experimental, 'release/*', 'staging/*', 'hotfix/*']
+    paths:
+      - 'src/main/**'
+      - 'src/test/java/**/cdsimport/cli/**'
+      - 'src/test/resources/demographic/cds-import-*.xml'
+      - 'database/mysql/migration/**'
+      - 'scripts/ci/run-cds-export-scaling.py'
+      - 'scripts/ci/test_run_cds_export_scaling.py'
+      - 'scripts/ci/CdsExportScalingFixture.java'
+      - 'scripts/ci/run-cds-performance.py'
+      - 'scripts/ci/run-cds-performance-ci.py'
+      - 'scripts/ci/test_run_cds_performance.py'
+      - 'scripts/ci/cds-performance-runtime.Dockerfile'
+      - 'scripts/ci/cds_war_manifest.py'
+      - 'scripts/ci/test_cds_war_manifest.py'
+      - 'scripts/ci/CdsImportMariaDbBootstrap.java'
+      - 'scripts/ci/CdsWorkloadValidator.java'
+      - 'debian/carlos-ctl.pin'
+      - 'pom.xml'
+      - '.github/actions/dev-container/**'
+      - '.github/workflows/cds-export-performance.yml'
+  # No workflow_dispatch: this job runs the carlos-ctl commit named by the committed pin, a ref
+  # computed at run time, so a manual run from the default branch would execute it with
+  # default-branch cache scope. Pull requests cover every qualifying head.
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: cds-export-performance-${{ github.event.pull_request.number || github.run_id }}
+  # Qualify the current PR source/WAR instead of queueing behind obsolete proofs.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  installed-export-scaling:
+    name: Installed CDS export ${{ matrix.profile }}
+    runs-on: ubuntu-24.04
+    # The longest job, imported-charts, first imports its 2048-note chart (about 19 minutes on
+    # a hosted runner, as in the import scaling lane) and then exports all three charts.
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        # native: charts entered as the CARLOS screens store them; imported: the same sizes
+        # imported with carlos-ctl cds-import first (retained receipt/witness reconciliation).
+        # patients: 1/8/32 one-note charts; charts: one chart of 128/512/2048 notes and results.
+        # Each job measures its own growth series, so they run in parallel.
+        profile: [native-patients, native-charts, imported-patients, imported-charts]
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify bounded WAR content evidence tooling
+        run: python3 scripts/ci/test_cds_war_manifest.py
+      - name: Free unused SDK space on this ephemeral runner
+        run: |
+          test "$RUNNER_ENVIRONMENT" = github-hosted
+          test "$RUNNER_OS" = Linux
+          # The owner requires 4 GiB free after the images, WAR and exploded webapp exist.
+          # All compilation and application execution below take place in Docker.
+          sudo rm -rf -- /usr/local/lib/android /opt/ghc /usr/share/dotnet
+          df -h "$GITHUB_WORKSPACE"
+      - name: Resolve exact paired CLI source
+        id: cli
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re
+          rows = dict(line.split('=',1) for line in pathlib.Path('debian/carlos-ctl.pin').read_text().splitlines()
+                      if line and not line.startswith('#'))
+          ref = rows.get('fallback','')
+          if not re.fullmatch(r'[0-9a-f]{40}',ref):
+              raise SystemExit('This installed candidate gate requires an exact pinned companion source commit')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              output.write('ref='+ref+'\n')
+          PY
+      - name: Checkout paired CLI
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: carlos-emr/carlos-ctl
+          ref: ${{ steps.cli.outputs.ref }}
+          path: target/cds-ctl-source
+          persist-credentials: false
+      - name: Start Java25 build container
+        uses: ./.github/actions/dev-container
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          maven-cache: restore
+      - name: Build and measure the actual installed export
+        run: >-
+          python3 scripts/ci/run-cds-performance-ci.py
+          --profile 'export-${{ matrix.profile }}'
+          --cli-source target/cds-ctl-source
+      - name: Preserve bounded sanitized export scaling evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: cds-installed-export-${{ matrix.profile }}-evidence
+          path: target/cds-performance-*/public/*
+          if-no-files-found: error
+          retention-days: 14
