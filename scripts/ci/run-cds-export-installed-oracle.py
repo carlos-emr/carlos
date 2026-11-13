@@ -224,7 +224,8 @@ def medication_expected() -> list[dict[str, str]]:
     return [
         {**author, "c:DrugName": "Native archived treatment", "c:DrugDescription": "5 mg", "c:Dosage": "0.5-1",
          "c:Frequency": "QD", "c:Duration": "14", "c:Quantity": "30", "c:NumberOfRefills": "2",
-         "c:PrescriptionStatus": "Active", "c:PastMedications/d:ynIndicatorsimple": "N",
+         # Archived with a non-standard reason: stopped (Aborted) and past, not the stale "Active".
+         "c:PrescriptionStatus": "Aborted", "c:PastMedications/d:ynIndicatorsimple": "Y",
          "c:StartDate/d:FullDate": "2026-07-11", "c:Notes": "Native medication provider note café 😀",
          "c:PrescriptionInstructions": "Authored native SIG café 😀\n[Native pharmacy instructions]\nTake after food"},
         {**author, "c:DrugName": "Native status unknown treatment", "c:DrugDescription": "2 mg", "c:Frequency": "BID",

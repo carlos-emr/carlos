@@ -240,15 +240,20 @@ class CdsExportNativeMedicationMapperUnitTest {
 
     @Test
     void
-            shouldKeepAnArchivedActivePrescriptionArchived_withoutConvertingArchiveIntoAClinicalStatus()
+            shouldKeepAnArchivedPrescriptionArchived_andNeverExportItsStaleActiveStatus()
                     throws Exception {
+        // Every CARLOS archive path (re-prescribe, delete, discontinue, long-term toggle) means
+        // the row is no longer the current prescription; exporting its copied "Active" would
+        // duplicate or resurrect the medication at the receiver (review M2).
         var fields = source();
         fields.put("archived", "1");
         fields.put("archived_reason", "Stopped display");
         fields.put("rxStatus", "Active");
         var result = mapper.map(27, medication(fields), List.of(), Map.of());
         assertThat(result.archived()).isTrue();
-        assertThat(result.value().fields()).containsEntry(Field.PrescriptionStatus, "Active");
+        assertThat(result.value().fields())
+                .containsEntry(Field.PrescriptionStatus, "Aborted")
+                .containsEntry(Field.PastMedications, "Y");
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, x -> mapper.write(result, x));
     }
 
@@ -333,10 +338,56 @@ class CdsExportNativeMedicationMapperUnitTest {
         fields.put("BN", "Separate brand");
         fields.put("unitName", "different unit");
         var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        // unit and unitName are not ambiguous: on the Rx page unit is the dose unit (when the
+        // strength does not name it) and a different unitName is the quantity's unit.
         assertThat(result.value().fields())
                 .containsEntry(Field.DrugName, "Synthetic café 😀")
-                .doesNotContainKey(Field.DosageUnitOfMeasure);
+                .containsEntry(Field.DosageUnitOfMeasure, "tablet");
+        assertThat(result.value().fields().get(Field.Quantity)).endsWith(" different unit");
         assertThat(result.metadata()).contains("Separate brand", "different unit");
+    }
+
+    @Test
+    void shouldExportAnArchivedPrescriptionAsNoLongerCurrent_byItsArchiveReason() throws Exception {
+        for (var reason :
+                List.of(
+                        List.of("represcribed", "Obsolete"),
+                        List.of("doseChange", "Obsolete"),
+                        List.of("deleted", "Nullified"),
+                        List.of("prescribingError", "Nullified"),
+                        List.of("adverseReaction", "Aborted"),
+                        List.of("noLongerNecessary", "Aborted"))) {
+            var fields = source();
+            fields.put("archived", "1");
+            fields.put("archived_reason", reason.get(0));
+            fields.put("rxStatus", "Active"); // re-prescribing copies the old status
+            fields.put("past_med", "0");
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields())
+                    .as(reason.get(0))
+                    .containsEntry(Field.PrescriptionStatus, reason.get(1))
+                    .containsEntry(Field.PastMedications, "Y");
+            assertThat(result.metadata()).contains(reason.get(0), "\"rxStatus\":\"Active\"");
+        }
+    }
+
+    @Test
+    void shouldMapTheRxPagesAsNeededChoices_insteadOfRefusingThePatient() throws Exception {
+        var fields = source();
+        fields.put("eTreatmentType", "PRNL");
+        fields.put("prn", "1");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.TreatmentType, "PRN Long-term");
+        fields.put("eTreatmentType", "PRNS");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.TreatmentType, "PRN Short-term");
+        // The as-needed box with an ordinary frequency: "QD as needed".
+        fields.put("eTreatmentType", "CHRON");
+        var qualified = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(qualified.value().fields())
+                .containsEntry(Field.Frequency, "QD PRN")
+                .containsEntry(Field.TreatmentType, "CHRON");
+        render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(qualified, xml));
     }
 
     @Test

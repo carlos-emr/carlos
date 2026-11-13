@@ -1783,7 +1783,14 @@ DIN. Native `OD` maps to CT-024 `QD`; native duration weeks/months use the presc
 7/30-day rules without multiplying refills. Unknown status and a false past-medication flag do
 not establish current treatment. Unbound import-provenance markers require review.
 
-`CARLOS.Medication.Archived.v1` carries archive state independently of clinical currentness. The
+`CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
+CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies
+"Active"), a natively archived prescription is exported as no longer current: re-prescribed,
+dose-changed or long-term-toggled rows as `Obsolete`, deleted rows and prescribing errors as
+`Nullified`, every discontinuation reason as `Aborted`, each with `PastMedications` Y; the stored
+status and reason stay in the source residual. The Rx page's as-needed choices `PRNL`/`PRNS` are
+the CDS treatment types `PRN Long-term`/`PRN Short-term`, and its as-needed box with an ordinary
+frequency is written as that frequency followed by `PRN` (for example `BID PRN`). The
 receiving importer reads only that exact boolean marker, refuses malformed/duplicate values,
 and supplements existing historical archiving. The optional prepared flag is defaulted only
 after the original payload seal has been verified. Unknown residual context remains protected

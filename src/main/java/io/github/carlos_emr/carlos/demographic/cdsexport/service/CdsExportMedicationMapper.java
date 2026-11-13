@@ -214,6 +214,14 @@ public final class CdsExportMedicationMapper {
                         "eTreatmentType",
                         Field.TreatmentType.name(),
                         Field.TreatmentType.maximum());
+        // prescribe.jsp stores the long- and short-term as-needed choices as PRNL and PRNS, and
+        // its unselected "--" option as text; they are the CDS PRN treatment types and absence.
+        if ("PRNL".equals(treatment)) treatment = "PRN Long-term";
+        else if ("PRNS".equals(treatment)) treatment = "PRN Short-term";
+        else if ("--".equals(treatment)) {
+            treatment = null;
+            source.operational("eTreatmentType", "NATIVE_UNSELECTED_TREATMENT_OPTION");
+        }
         if (treatment != null && !TREATMENTS.contains(treatment))
             source.review(
                     "eTreatmentType", Field.TreatmentType.name(), "UNRECOGNIZED_TREATMENT_TYPE");

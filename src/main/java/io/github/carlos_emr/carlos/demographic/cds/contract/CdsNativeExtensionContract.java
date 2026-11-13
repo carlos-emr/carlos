@@ -56,7 +56,10 @@ public final class CdsNativeExtensionContract {
     /** Complete native prescription context; unqualified codes remain explicitly unqualified. */
     public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
 
-    /** Native archive state is independent of prescription status and clinical currentness. */
+    /**
+     * Exact native archive state. The exported PrescriptionStatus of an archived row is derived
+     * from its archive reason (Obsolete, Nullified or Aborted), never its stale copied status.
+     */
     public static final String MEDICATION_ARCHIVED = "CARLOS.Medication.Archived.v1";
 
     public static final String BOOLEAN_TYPE = "boolean";

@@ -138,8 +138,7 @@ public final class CdsExportNativeMedicationMapper {
         String doseUnit =
                 doseUnit(source.get("unit"), source.get("dosage"), source.get("drug_form"));
         values.remove(Field.DosageUnitOfMeasure);
-        if (doseUnit != null && values.containsKey(Field.Dosage))
-            values.put(Field.DosageUnitOfMeasure, doseUnit);
+        if (doseUnit != null) values.put(Field.DosageUnitOfMeasure, doseUnit);
         String quantityUnit = source.get("unitName");
         if (populated(quantityUnit)
                 && !quantityUnit.equals(source.get("unit"))
@@ -165,9 +164,32 @@ public final class CdsExportNativeMedicationMapper {
                                         "Obsolete",
                                         "Nullified")
                                 .contains(status);
-        if (!knownStatus) {
+        String archivedStatus = archived ? archivedStatus(source.get("archived_reason")) : null;
+        if (archivedStatus != null) {
+            // An archived row keeps the rxStatus it had (re-prescribing copies "Active"), so the
+            // archive decides currentness; the stored status and reason stay in the residual.
+            status = archivedStatus;
+            knownStatus = true;
+            values.put(Field.PrescriptionStatus, status);
+            values.put(Field.PastMedications, "Y");
+        } else if (!knownStatus) {
             values.remove(Field.PrescriptionStatus);
             if (!"1".equals(source.get("past_med"))) values.remove(Field.PastMedications);
+        }
+        boolean asNeeded = "1".equals(source.get("prn"));
+        String frequencyValue = values.get(Field.Frequency);
+        String treatmentValue = values.get(Field.TreatmentType);
+        boolean prnResolved = false;
+        if (asNeeded
+                && frequencyValue != null
+                && !frequencyValue.toUpperCase(Locale.ROOT).contains("PRN")
+                && (treatmentValue == null || !treatmentValue.startsWith("PRN "))) {
+            // The Rx page's as-needed box with an ordinary frequency means "BID as needed".
+            String qualified = frequencyValue + " PRN";
+            if (!CdsExportNativeFieldAssessments.legal(qualified, Field.Frequency.maximum()))
+                review();
+            values.put(Field.Frequency, qualified);
+            prnResolved = true;
         }
         // A flag saying the start date is unknown takes precedence over a stored anchor.
         var start = candidate.start();
@@ -182,6 +204,16 @@ public final class CdsExportNativeMedicationMapper {
             }
             if (assessment.outcome() == Outcome.REQUIRES_REVIEW
                     && !CONTEXT_RULES.contains(assessment.rule())
+                    && !(prnResolved
+                            && key.column().equals("prn")
+                            && assessment
+                                    .rule()
+                                    .equals("CONFLICTING_NATIVE_AS_NEEDED_INDICATOR"))
+                    && !(archivedStatus != null
+                            && Set.of("rxStatus", "past_med").contains(key.column())
+                            && assessment
+                                    .rule()
+                                    .equals("CONFLICTING_MEDICATION_CURRENTNESS"))
                     && !(reference != null
                             && Set.of("BN", "customName").contains(key.column())
                             && Set.of("WIRE_TEXT_REQUIRES_REVIEW", "MEDICATION_IDENTITY_REQUIRED")
@@ -231,6 +263,22 @@ public final class CdsExportNativeMedicationMapper {
                         values);
         CdsExportMedicationXmlWriter.validate(value);
         return new Result(value, metadata, fields, archived);
+    }
+
+    /**
+     * The CDS 5.2 prescription status of an archived native row, following the HL7 act statuses
+     * the CDS values come from: a row replaced by a new prescription (re-prescribed, dose or
+     * long-term status changed) is Obsolete; a deleted row or a prescribing error is Nullified
+     * (entered in error); any discontinuation reason is Aborted (stopped before its end).
+     */
+    static String archivedStatus(String reason) {
+        if (reason == null) return "Aborted";
+        return switch (reason) {
+            case "represcribed", "doseChange", "Updated Long-term status: ON",
+                    "Updated Long-term status: OFF" -> "Obsolete";
+            case "deleted", "prescribingError" -> "Nullified";
+            default -> "Aborted";
+        };
     }
 
     private static final java.util.regex.Pattern STRENGTH_UNIT =
