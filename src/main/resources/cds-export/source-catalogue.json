@@ -30,7 +30,7 @@
     "DemographicContact": "MAPPED_SOURCE",
     "Department": "REFERENCE",
     "DigitalSignature": "DOCUMENT",
-    "DocumentExtraReviewer": "REQUIRE_EMPTY",
+    "DocumentExtraReviewer": "MAPPED_SOURCE",
     "DrugProduct": "LISTED",
     "EFormDocs": "DOCUMENT",
     "EFormReportTool": "REFERENCE",
@@ -232,7 +232,7 @@
     "diseases": "LISTED",
     "document": "MAPPED_SOURCE",
     "documentDescriptionTemplate": "REFERENCE",
-    "document_review": "REQUIRE_EMPTY",
+    "document_review": "MAPPED_SOURCE",
     "document_storage": "LISTED",
     "drugReason": "REFERENCE",
     "drugs": "MAPPED_SOURCE",
@@ -683,7 +683,10 @@
       "ticklerdocs",
       "waitingList",
       "wcb",
-      "workflow"
+      "workflow",
+      "providerLabRouting_documents",
+      "document_review",
+      "DocumentExtraReviewer"
     ],
     "CareElements": [
       "measurements",
@@ -1422,9 +1425,11 @@
     "icd10": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
     "Episode": "Coded episodes, pregnancies included, are exported as ProblemList (ProblemList scope; read plan EPISODES): Current as Active, Complete as Resolved, start and end dates as OnsetDate and ResolutionDate, the description and notes in standard elements. Episodes saved as Deleted are accounted, not exported; any other status holds the patient for review.",
     "HRMDocumentComment": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
-    "providerLabRouting": "Inbox routing of lab and document reports. A route of one of a selected patient's HL7 labs (patientLabRouting of the same lab number and type) is captured in the LaboratoryResults scope: an acknowledgement (status A) by a real provider is exported as ResultReviewer, a comment travels whole in the native laboratory residual record, and new, filed, removed and unclaimed routes are operational inbox workflow. A DOC route is scoped through its document's ctl_document chart link. A route linked to no patient (an unmatched lab, an unfiled incoming document) is in no chart: it is counted per job, never read. A route whose link is broken holds every patient.",
+    "providerLabRouting": "Inbox routing of lab and document reports. A route of one of a selected patient's HL7 labs (patientLabRouting of the same lab number and type) is captured in the LaboratoryResults scope; a DOC route of one of the patient's documents (its ctl_document chart link) is captured in the Reports scope as providerLabRouting_documents. An acknowledgement (status A) by a real provider is exported as ResultReviewer or ReportReviewed; a comment travels whole in the native laboratory residual record or the report Notes; new, filed, removed and unclaimed routes are operational inbox workflow. A route linked to no patient (an unmatched lab, an unfiled incoming document) is in no chart: it is counted per job, never read. A route whose link is broken holds every patient.",
     "HRMDocumentToProvider": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
     "HRMDocumentSubClass": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
-    "HRMDocument": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient."
+    "HRMDocument": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "DocumentExtraReviewer": "Reviews of a selected patient's documents (their ctl_document chart link) are captured in the Reports scope and exported as ReportReviewed beside the document's first reviewer (document.reviewer), with the exact review time in the report Notes; reviews of a removed document are accounted as not shown in the chart. Reviews of an incoming document not yet filed are in no chart: counted per job, never read. A review whose document or chart link is broken holds every patient.",
+    "document_review": "Reviews of a selected patient's documents (their ctl_document chart link) are captured in the Reports scope and exported as ReportReviewed beside the document's first reviewer (document.reviewer), with the exact review time in the report Notes; reviews of a removed document are accounted as not shown in the chart. Reviews of an incoming document not yet filed are in no chart: counted per job, never read. A review whose document or chart link is broken holds every patient."
   }
 }

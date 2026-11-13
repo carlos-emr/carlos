@@ -18,6 +18,7 @@
   "CdsExportReportOccurrenceServiceUnitTest",
   "CdsExportReportPublicationEvidenceUnitTest",
   "CdsExportReportRetainedSourceUnitTest",
+  "CdsExportReportReviewerMappingUnitTest",
   "CdsExportRetainedContactBindingUnitTest",
   "CdsExportScreeningMapperUnitTest",
   "CdsExportScreeningOccurrenceServiceUnitTest",

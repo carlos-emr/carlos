@@ -229,6 +229,40 @@ public final class CdsExportPatientTableReadSupport {
                         "provider_no",
                         "status",
                         "timestamp")),
+        /**
+         * Inbox routes of the patient's documents ({@code lab_type} DOC): the providers a document
+         * was routed to for review, their status, time and comment. A document's chart is its
+         * {@code ctl_document} link, exactly as {@link #DOCUMENTS} scopes the documents, not its
+         * {@code patientLabRouting} DOC row, which a reassigned document keeps.
+         */
+        DOCUMENT_ROUTES(
+                "providerLabRouting",
+                "id",
+                null,
+                List.of(
+                        "comment",
+                        "id",
+                        "lab_no",
+                        "lab_type",
+                        "mrpDemographicNo",
+                        "provider_no",
+                        "status",
+                        "timestamp")),
+        /** Review records of the patient's documents, as {@link #DOCUMENTS} scopes the documents. */
+        DOCUMENT_REVIEWS(
+                "document_review",
+                "id",
+                null,
+                List.of("date_reviewed", "document_no", "id", "provider_no")),
+        /**
+         * Additional reviewers of the patient's documents ({@code AddEditDocument2Action}: the
+         * first review is {@code document.reviewer}, each later one a row here).
+         */
+        DOCUMENT_EXTRA_REVIEWERS(
+                "DocumentExtraReviewer",
+                "id",
+                null,
+                List.of("documentNo", "id", "reviewDateTime", "reviewerProviderNo")),
         CASE_ISSUES(
                 "casemgmt_issue",
                 "id",
@@ -1063,6 +1097,16 @@ public final class CdsExportPatientTableReadSupport {
             // The collation comparisons let the type and patient indexes drive the semi-join;
             // the byte comparisons keep a type spelled differently out, as the presence scope
             // does (CdsExportIndirectPatientScopeReadSupport).
+            if (this == DOCUMENT_ROUTES)
+                return "d.`lab_type`='DOC' and CAST(d.`lab_type` AS BINARY)=CAST('DOC' AS BINARY)"
+                        + " and d.`lab_no` in (select c.`document_no` from `ctl_document` c where"
+                        + " c.`module`='demographic' and c.`module_id`=:patient)";
+            if (this == DOCUMENT_REVIEWS)
+                return "d.`document_no` in (select c.`document_no` from `ctl_document` c where"
+                        + " c.`module`='demographic' and c.`module_id`=:patient)";
+            if (this == DOCUMENT_EXTRA_REVIEWERS)
+                return "d.`documentNo` in (select c.`document_no` from `ctl_document` c where"
+                        + " c.`module`='demographic' and c.`module_id`=:patient)";
             if (this == LABORATORY_REVIEWERS)
                 return "d.`lab_type`='HL7' and CAST(d.`lab_type` AS BINARY)=CAST('HL7' AS BINARY)"
                         + " and d.`lab_no` in (select r.`lab_no` from `patientLabRouting` r where"
@@ -1255,9 +1299,7 @@ public final class CdsExportPatientTableReadSupport {
                                 """
                                 select 1,1 from document d where exists (select 1 from ctl_document c
                                   where c.module='demographic' and c.module_id=:patient and c.document_no=d.document_no)
-                                and (exists (select 1 from document_review r where r.document_no=d.document_no)
-                                  or exists (select 1 from DocumentExtraReviewer r where r.documentNo=d.document_no)
-                                  or exists (select 1 from document_storage s where s.documentNo=d.document_no))
+                                and exists (select 1 from document_storage s where s.documentNo=d.document_no)
                                 """)
                         .setParameter("patient", patient)
                         .setMaxResults(1)

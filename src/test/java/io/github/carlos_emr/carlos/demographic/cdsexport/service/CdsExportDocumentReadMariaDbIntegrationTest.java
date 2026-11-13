@@ -131,7 +131,8 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         .class,
                 DocumentDaoImpl.class,
                 CtlDocumentDaoImpl.class,
-                CdsExportDataSummaryReadDao.class);
+                CdsExportDataSummaryReadDao.class,
+                io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao.class);
         // Sealed native-baseline witnesses need an installation key (IMP-1).
         context.registerBean(
                 io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptService.class,
@@ -511,7 +512,7 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     }
 
     @Test
-    void shouldRequireReview_forSeparateNativeReviewerHistory() {
+    void shouldCaptureSeparateNativeReviewerHistory_withThePatientsDocuments() {
         assertThat(
                         sql.queryForObject(
                                 "select count(*) from provider where provider_no='989875'",
@@ -528,19 +529,89 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                         + " values(?,?,'989875',CURRENT_TIMESTAMP)",
                 patient,
                 patient);
-        assertThatThrownBy(() -> read.execute(status -> documents.countCdsExportRows(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        // A review is exported with its document now, so it no longer holds the chart.
+        Long count = read.execute(status -> documents.countCdsExportRows(patient));
+        assertThat(count).isEqualTo(35L);
+        var reviewers =
+                context.getBean(io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao.class);
+        var plan = CdsExportPatientTableReadSupport.Plan.DOCUMENT_REVIEWS;
+        Long reviews = read.execute(status -> reviewers.count(plan, patient));
+        assertThat(reviews).isEqualTo(1L);
+        // Another patient's document review is not this chart's.
+        Long others = read.execute(status -> reviewers.count(plan, patient + 1));
+        assertThat(others).isZero();
+        Long providers =
+                read.execute(
+                        status ->
+                                (long)
+                                        CdsExportProviderReadSupport.page(
+                                                        org.springframework.orm.jpa
+                                                                .EntityManagerFactoryUtils
+                                                                .getTransactionalEntityManager(
+                                                                        context.getBean(
+                                                                                jakarta.persistence
+                                                                                        .EntityManagerFactory
+                                                                                        .class)),
+                                                        patient,
+                                                        Set.of("Reports"),
+                                                        null,
+                                                        32)
+                                                .stream()
+                                                .filter(row -> row.id().equals("989875"))
+                                                .count());
+        assertThat(providers).isEqualTo(1L);
     }
 
     @Test
-    void shouldRequireReview_forAdditionalNativeReviewerAssociations() {
+    void shouldCaptureAdditionalNativeReviewersAndDocumentRoutes_withThePatientsDocuments() {
         sql.update(
                 "insert into DocumentExtraReviewer(id,documentNo,reviewerProviderNo,reviewDateTime)"
                         + " values(?,?,'989879',CURRENT_TIMESTAMP)",
                 patient,
                 patient);
-        assertThatThrownBy(() -> read.execute(status -> links.countCdsExportRows(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+        sql.update(
+                "insert into"
+                    + " providerLabRouting(id,lab_no,lab_type,provider_no,status,comment,timestamp)"
+                    + " values(?,?,'DOC','989879','A','Seen',CURRENT_TIMESTAMP),"
+                    + " (?,?,'DOC','989879','N','',CURRENT_TIMESTAMP),"
+                    + " (?,?,'HL7','989879','A','',CURRENT_TIMESTAMP)",
+                patient,
+                patient,
+                patient + 1,
+                patient + 35,
+                patient + 2,
+                patient);
+        try {
+            Long links = read.execute(status -> this.links.countCdsExportRows(patient));
+            assertThat(links).isEqualTo(35L);
+            var reviewers =
+                    context.getBean(
+                            io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao.class);
+            Long extra =
+                    read.execute(
+                            status ->
+                                    reviewers.count(
+                                            CdsExportPatientTableReadSupport.Plan
+                                                    .DOCUMENT_EXTRA_REVIEWERS,
+                                            patient));
+            assertThat(extra).isEqualTo(1L);
+            // Only the DOC route of the patient's own document; document patient + 35 is filed
+            // to another chart and the HL7 route is a lab.
+            var routes =
+                    read.execute(
+                            status ->
+                                    reviewers.page(
+                                            CdsExportPatientTableReadSupport.Plan.DOCUMENT_ROUTES,
+                                            patient,
+                                            null,
+                                            32));
+            assertThat(routes).extracting(row -> row.id()).containsExactly((long) patient);
+        } finally {
+            sql.update(
+                    "delete from providerLabRouting where id between ? and ? and provider_no='989879'",
+                    patient,
+                    patient + 2);
+        }
     }
 
     @Test

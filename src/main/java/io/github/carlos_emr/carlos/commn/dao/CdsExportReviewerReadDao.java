@@ -45,7 +45,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true, propagation = Propagation.MANDATORY)
 public class CdsExportReviewerReadDao {
     private static final Set<CdsExportPatientTableReadSupport.Plan> PLANS =
-            Set.of(CdsExportPatientTableReadSupport.Plan.LABORATORY_REVIEWERS);
+            Set.of(
+                    CdsExportPatientTableReadSupport.Plan.LABORATORY_REVIEWERS,
+                    CdsExportPatientTableReadSupport.Plan.DOCUMENT_ROUTES,
+                    CdsExportPatientTableReadSupport.Plan.DOCUMENT_REVIEWS,
+                    CdsExportPatientTableReadSupport.Plan.DOCUMENT_EXTRA_REVIEWERS);
 
     @PersistenceContext private EntityManager entityManager;
 

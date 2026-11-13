@@ -168,12 +168,33 @@ public final class CdsExportProviderReadSupport {
             selected.add(
                     "exists (select 1 from casemgmt_note n where n.demographic_no=:patient and"
                         + " (n.provider_no=d.provider_no or n.signing_provider_no=d.provider_no))");
-        if (categories.contains("Reports"))
+        if (categories.contains("Reports")) {
             selected.add(
                     "exists (select 1 from document r join ctl_document c on"
                             + " c.document_no=r.document_no where c.module='demographic' and"
                             + " CAST(c.module_id AS DECIMAL(65,0))=:patient and"
                             + " r.reviewer=d.provider_no)");
+            // Reviewers recorded beside the document, and every provider it was routed to.
+            String documents =
+                    " in (select c.document_no from ctl_document c where c.module='demographic'"
+                            + " and c.module_id=:patient)";
+            selected.add(
+                    "exists (select 1 from document_review r where r.provider_no=d.provider_no"
+                            + " and r.document_no"
+                            + documents
+                            + ")");
+            selected.add(
+                    "exists (select 1 from DocumentExtraReviewer r where"
+                            + " r.reviewerProviderNo=d.provider_no and r.documentNo"
+                            + documents
+                            + ")");
+            selected.add(
+                    "exists (select 1 from providerLabRouting w where w.lab_type='DOC' and"
+                            + " CAST(w.lab_type AS BINARY)=CAST('DOC' AS BINARY) and"
+                            + " w.provider_no=d.provider_no and w.lab_no"
+                            + documents
+                            + ")");
+        }
         // Every provider an HL7 report of the patient was routed to, whatever the route's status
         // (Plan.LABORATORY_REVIEWERS); the laboratory mapper exports only acknowledgements.
         if (categories.contains("LaboratoryResults"))

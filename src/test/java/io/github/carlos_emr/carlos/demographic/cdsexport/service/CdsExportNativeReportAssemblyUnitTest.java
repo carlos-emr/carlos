@@ -77,6 +77,8 @@ class CdsExportNativeReportAssemblyUnitTest {
     private final List<CdsExportClinicalOccurrenceService.Receipt> receipts = new ArrayList<>();
     private final Map<String, CdsExportPackageMemberDto> attachments = new TreeMap<>();
     private final List<Doc> documents = new ArrayList<>();
+    /** Captured reviewer, route and provider rows by capture table, each in record-key order. */
+    private final Map<String, TreeMap<String, Map<String, String>>> reviewerRows = new TreeMap<>();
     private CdsExportStagingService store, service;
     private CdsExportStagedFileDto valuesMember;
     private CdsExportLeaseDto lease;
@@ -175,6 +177,53 @@ class CdsExportNativeReportAssemblyUnitTest {
         documents.add(new Doc(id, document, link(id, linkStatus), file));
     }
 
+    private TreeMap<String, Map<String, String>> rows(String table) {
+        return reviewerRows.computeIfAbsent(table, ignored -> new TreeMap<>());
+    }
+
+    private void provider(String number, String first, String last, String ohip) {
+        var row = new TreeMap<String, String>();
+        CdsExportProviderRowDto.COLUMNS.forEach(column -> row.put(column, null));
+        row.put("provider_no", number);
+        row.put("first_name", first);
+        row.put("last_name", last);
+        row.put("ohip_no", ohip);
+        rows("provider").put(CdsExportPublicProviderSourceReader.key(number), row);
+    }
+
+    /** An inbox route of a document (lab_type DOC), as the document inbox writes it. */
+    private void route(int id, int document, String provider, String status, String time, String comment) {
+        var row = new TreeMap<String, String>();
+        Plan.DOCUMENT_ROUTES.columns().forEach(column -> row.put(column, null));
+        row.put("id", Integer.toString(id));
+        row.put("lab_no", Integer.toString(document));
+        row.put("lab_type", "DOC");
+        row.put("provider_no", provider);
+        row.put("status", status);
+        row.put("timestamp", time);
+        row.put("comment", comment);
+        rows(CdsExportDocumentRouteSourceReader.TABLE)
+                .put(CdsExportPatientTableSourceReader.key(id), row);
+    }
+
+    private void review(int id, int document, String provider, String time) {
+        var row = new TreeMap<String, String>();
+        row.put("id", Integer.toString(id));
+        row.put("document_no", Integer.toString(document));
+        row.put("provider_no", provider);
+        row.put("date_reviewed", time);
+        rows("document_review").put(CdsExportPatientTableSourceReader.key(id), row);
+    }
+
+    private void extraReviewer(int id, int document, String provider, String time) {
+        var row = new TreeMap<String, String>();
+        row.put("id", Integer.toString(id));
+        row.put("documentNo", Integer.toString(document));
+        row.put("reviewerProviderNo", provider);
+        row.put("reviewDateTime", time);
+        rows("DocumentExtraReviewer").put(CdsExportPatientTableSourceReader.key(id), row);
+    }
+
     private Map<String, CdsExportCapturedTableDto> scopes() {
         var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
         long files = documents.stream().filter(doc -> doc.file() != null).count();
@@ -198,7 +247,27 @@ class CdsExportNativeReportAssemblyUnitTest {
                 new CdsExportCapturedTableDto(
                         Set.copyOf(Plan.DEMOGRAPHIC_MERGES.columns()), 0, HASH));
         scopes.put(
-                "provider", new CdsExportCapturedTableDto(CdsExportProviderRowDto.COLUMNS, 0, HASH));
+                "provider",
+                new CdsExportCapturedTableDto(
+                        CdsExportProviderRowDto.COLUMNS, rows("provider").size(), HASH));
+        scopes.put(
+                CdsExportDocumentRouteSourceReader.TABLE,
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(Plan.DOCUMENT_ROUTES.columns()),
+                        rows(CdsExportDocumentRouteSourceReader.TABLE).size(),
+                        HASH));
+        scopes.put(
+                "document_review",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(Plan.DOCUMENT_REVIEWS.columns()),
+                        rows("document_review").size(),
+                        HASH));
+        scopes.put(
+                "DocumentExtraReviewer",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(Plan.DOCUMENT_EXTRA_REVIEWERS.columns()),
+                        rows("DocumentExtraReviewer").size(),
+                        HASH));
         scopes.put(
                 "clinical_timezone",
                 new CdsExportCapturedTableDto(Set.of("sha256", "tzdbVersion", "zoneId"), 1, HASH));
@@ -244,6 +313,16 @@ class CdsExportNativeReportAssemblyUnitTest {
                                                                                                 .getKey(),
                                                                                         sorted,
                                                                                         zone);
+                                                                                for (var row :
+                                                                                        rows(
+                                                                                                        entry
+                                                                                                                .getKey())
+                                                                                                .entrySet())
+                                                                                    writer.row(
+                                                                                            row
+                                                                                                    .getKey(),
+                                                                                            row
+                                                                                                    .getValue());
                                                                                 writer.endTable();
                                                                             }
                                                                         })));
@@ -589,6 +668,91 @@ class CdsExportNativeReportAssemblyUnitTest {
         assertThat(receipts).hasSize(1);
         assertThat(attachments).hasSize(1);
         assertThat(result.nativeRows()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldExportEveryReviewOfADocument_asReportReviewedAfterItsFirstReviewer()
+            throws Exception {
+        var document = uploaded(91, "20260305101400consult-letter.pdf", "application/pdf");
+        document.put("reviewer", "101");
+        document.put("reviewdatetime", "2026-03-06 09:00:00");
+        add(91, document, "A", PDF);
+        provider("101", "Ada", "First", "123456");
+        provider("102", "Bea", "Extra", "234567");
+        provider("103", "Cy", "Inbox", "12345");
+        // The first reviewer again on the same day repeats the first element and is not written.
+        review(501, 91, "101", "2026-03-06 15:30:00");
+        extraReviewer(601, 91, "102", "2026-03-07 10:15:00");
+        route(701, 91, "103", "A", "2026-03-08 11:45:00", "Booked a follow-up");
+        route(702, 91, "0", "N", "2026-03-05 10:14:00", "");
+        String xml = assemble();
+        var report = reports(xml).getFirst();
+        assertThat(report.split("<ReportReviewed>", -1)).hasSize(4);
+        assertThat(report)
+                .contains(
+                        "<cdsd:FirstName>Ada</cdsd:FirstName>",
+                        "<ReviewingOHIPPhysicianId>234567</ReviewingOHIPPhysicianId>",
+                        "<cdsd:FullDate>2026-03-07</cdsd:FullDate>",
+                        "<cdsd:LastName>Inbox</cdsd:LastName>",
+                        "<cdsd:FullDate>2026-03-08</cdsd:FullDate>",
+                        // Exact times and the inbox comment are kept in the source context.
+                        "2026-03-06 15:30:00",
+                        "2026-03-07 10:15:00",
+                        "Booked a follow-up")
+                .doesNotContain("<ReviewingOHIPPhysicianId>12345<");
+        assertThat(receipts).hasSize(1);
+        var fields = receipts.getFirst().fields();
+        assertThat(fields.values())
+                .noneMatch(
+                        field ->
+                                field.outcome()
+                                        == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        // Every reviewer, route and provider row is accounted in the report's receipt.
+        assertThat(fields.keySet())
+                .extracting(CdsExportNativeFieldKeyDto::table)
+                .contains(
+                        "document_review",
+                        "DocumentExtraReviewer",
+                        CdsExportDocumentRouteSourceReader.TABLE,
+                        "provider");
+        assertThat(
+                        fields.entrySet().stream()
+                                .filter(
+                                        e ->
+                                                e.getKey().table()
+                                                                .equals(
+                                                                        CdsExportDocumentRouteSourceReader
+                                                                                .TABLE)
+                                                        && e.getKey().column().equals("status"))
+                                .map(e -> e.getValue().rule()))
+                .containsExactlyInAnyOrder(
+                        "ACKNOWLEDGED_INBOX_STATUS", "UNCLAIMED_INBOX_ROUTING_PLACEHOLDER");
+    }
+
+    @Test
+    void shouldAccountTheReviewersOfARemovedDocument_withoutExportingThem() throws Exception {
+        add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        var deleted = uploaded(94, "20260101090000old-letter.pdf", "application/pdf");
+        deleted.put("status", "D");
+        add(94, deleted, "A", null);
+        provider("102", "Bea", "Extra", "234567");
+        extraReviewer(601, 94, "102", "2026-03-07 10:15:00");
+        review(501, 94, "102", "2026-03-07 10:20:00");
+        route(701, 94, "102", "A", "2026-03-08 11:45:00", "Removed by mistake?");
+        String xml = assemble();
+        assertThat(reports(xml)).hasSize(1);
+        assertThat(xml).doesNotContain("Bea", "Removed by mistake?", "old-letter");
+        assertThat(receipts).hasSize(1);
+    }
+
+    @Test
+    void shouldHoldOnlyThisPatient_forAReviewByAProviderWithNoRecord() throws Exception {
+        add(91, uploaded(91, "20260305101400consult-letter.pdf", "application/pdf"), "A", PDF);
+        extraReviewer(601, 91, "777", "2026-03-07 10:15:00");
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
+        assertThat(attachments).isEmpty();
     }
 
     @Test

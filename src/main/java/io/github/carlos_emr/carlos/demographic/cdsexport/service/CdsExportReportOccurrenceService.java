@@ -46,7 +46,17 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                     "ctl_document",
                     CdsExportDocumentFileSourceReader.TABLE,
                     "cds_import_file",
-                    "cds_import_file_reference");
+                    "cds_import_file_reference",
+                    CdsExportDocumentRouteSourceReader.TABLE,
+                    "document_review",
+                    "DocumentExtraReviewer",
+                    "provider");
+    /** Reviewer captures of the patient's documents, each with its document reference column. */
+    private static final Map<String, String> REVIEWERS =
+            Map.of(
+                    CdsExportDocumentRouteSourceReader.TABLE, "lab_no",
+                    "document_review", "document_no",
+                    "DocumentExtraReviewer", "documentNo");
     private final CdsExportRetainedValuesService values;
     private final CdsExportRetainedReceiptVerificationService verification;
     private final CdsExportNativeRowReceiptReader witnesses;
@@ -228,6 +238,10 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         for (String table : METADATA)
             if (current.values().stream().filter(row -> row.table().equals(table)).count()
                     != source.capture().tables().get(table).rows()) invalid();
+        var reviewers = reviewers(lease, patient, tables, source, bounds, control, current);
+        // Every reviewer and route row is accounted with the document it reviews.
+        var reviewed = new HashSet<String>();
+        long reviewerRows = reviewers.values().stream().mapToLong(List::size).sum();
         var files =
                 new CdsExportCapturedDocumentFiles()
                         .read(captures, lease, patient, tables, source, bounds, control);
@@ -441,6 +455,25 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                         expectedFilename,
                                         patient.patient());
                                 assess(document, link, assessments);
+                                // The retained report keeps the reviewers the sending EMR
+                                // recorded. A CARLOS inbox route of it is inbox workflow; a
+                                // review recorded in CARLOS after the import, like a changed
+                                // document reviewer (bind), has no place in it.
+                                var imported =
+                                        reviewers.getOrDefault(
+                                                Integer.toString(documentId), List.of());
+                                var importedRoutes = new ArrayList<CdsExportCapturedTextRowDto>();
+                                for (var row : imported) {
+                                    if (!reviewed.add(key(row.table(), row.recordKey())))
+                                        invalid();
+                                    if (!row.table().equals(CdsExportDocumentRouteSourceReader.TABLE))
+                                        throw new CdsExportMappingReviewException(
+                                                "CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW");
+                                    importedRoutes.add(row);
+                                    nativeRows.add(row);
+                                }
+                                assessments.putAll(
+                                        CdsExportInboxReviewMapper.importedReport(importedRoutes));
                                 assessFile(file, variant.name(), fileAssessments);
                                 if (variant.name().equals("referenced")) {
                                     if (sourceValues.filePath() == null
@@ -564,6 +597,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                     || !owned.add(key("document", documentId))
                                     || !owned.add(linkKey)) invalid();
                             var file = files.get(entry.getKey());
+                            var documentReviewers = reviewers.getOrDefault(documentId, List.of());
+                            for (var row : documentReviewers)
+                                if (!reviewed.add(key(row.table(), row.recordKey()))) invalid();
                             var representation =
                                     CdsExportDocumentRepresentation.of(
                                             document.fields(), link.fields());
@@ -575,11 +611,23 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                 // Soft-deleted, or its patient link deleted: the chart no longer
                                 // shows it, so it is not exported, and every captured field is
                                 // still accounted for explicitly.
+                                // Its reviewers and routes go with it, under the same rule.
+                                var removedRows = new ArrayList<>(List.of(document, link));
+                                removedRows.addAll(documentReviewers);
+                                var removedFields =
+                                        new LinkedHashMap<
+                                                CdsExportNativeFieldKeyDto,
+                                                CdsExportFieldAssessmentDto>(
+                                                CdsExportDocumentRepresentation.removedDispositions(
+                                                        document, link));
+                                removedFields.putAll(
+                                        CdsExportInboxReviewMapper.removed(
+                                                documentReviewers,
+                                                CdsExportDocumentRepresentation.REMOVED_RULE));
                                 new CdsExportNativeFieldAssessmentValidator()
                                         .requireRepresentable(
-                                                List.of(document, link),
-                                                CdsExportDocumentRepresentation.removedDispositions(
-                                                        document, link),
+                                                removedRows,
+                                                removedFields,
                                                 1_000_000,
                                                 control::checkpoint);
                                 continue;
@@ -599,6 +647,27 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     patientKey,
                                                     documentId,
                                                     CdsExportReportFileFormats.OPAQUE);
+                            var reviews =
+                                    CdsExportInboxReviewMapper.report()
+                                            .map(
+                                                    documentReviewers.stream()
+                                                            .filter(
+                                                                    row ->
+                                                                            row.table()
+                                                                                    .equals(
+                                                                                            CdsExportDocumentRouteSourceReader
+                                                                                                    .TABLE))
+                                                            .toList(),
+                                                    documentReviewers.stream()
+                                                            .filter(
+                                                                    row ->
+                                                                            !row.table()
+                                                                                    .equals(
+                                                                                            CdsExportDocumentRouteSourceReader
+                                                                                                    .TABLE))
+                                                            .toList(),
+                                                    providers,
+                                                    zone);
                             var mapped =
                                     new CdsExportNativeReportMapper()
                                             .map(
@@ -607,14 +676,17 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                     link,
                                                     content,
                                                     providers,
-                                                    zone);
+                                                    zone,
+                                                    reviews);
                             new CdsExportNativeFieldAssessmentValidator()
                                     .requireRepresentable(
                                             mapped.rows(),
                                             mapped.fields(),
                                             1_000_000,
                                             control::checkpoint);
-                            natives.add(new NativeDocument(documentId, document, link, file, mapped));
+                            natives.add(
+                                    new NativeDocument(
+                                            documentId, document, link, file, reviews, mapped));
                         }
                         for (var report : natives) {
                             control.checkpoint();
@@ -668,7 +740,8 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                                                                 .get("contenttype"),
                                                                         prefix.toByteArray())),
                                                         providers,
-                                                        zone);
+                                                        zone,
+                                                        report.reviews());
                                 new CdsExportNativeFieldAssessmentValidator()
                                         .requireRepresentable(
                                                 mapped.rows(),
@@ -722,8 +795,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         var expectedSource = new HashSet<String>();
                         for (var field : retained)
                             if (field.category() == category()) expectedSource.add(field.id());
-                        if (!owned.equals(current.keySet()) || !usedFiles.equals(files.keySet()))
-                            review();
+                        if (!owned.equals(current.keySet())
+                                || !usedFiles.equals(files.keySet())
+                                || reviewed.size() != reviewerRows) review();
                         if (!consumed.equals(expectedSource)) invalid();
                         streams.requireActive();
                         captures.authorizeSources(lease, patient, tables, control);
@@ -812,11 +886,105 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             CdsExportCapturedTextRowDto document,
             CdsExportCapturedTextRowDto link,
             CdsExportCapturedDocumentFiles.File file,
+            CdsExportInboxReviewMapper.Reviews reviews,
             CdsExportNativeReportMapper.Result mapped) {
         @Override
         public String toString() {
             return "NativeDocument[protected]";
         }
+    }
+
+    /**
+     * The reviewer and inbox route rows of the patient's documents, by document number, from the
+     * authenticated capture (Plan.DOCUMENT_ROUTES, DOCUMENT_REVIEWS, DOCUMENT_EXTRA_REVIEWERS). Read
+     * like the public provider lookup: they have no historical receipt, and each one is accounted
+     * with the captured document it reviews.
+     */
+    private Map<String, List<CdsExportCapturedTextRowDto>> reviewers(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> tables,
+            CdsExportPatientCaptureDto source,
+            CdsExportClinicalOccurrenceService.Bounds bounds,
+            CdsExportRunControl control,
+            Map<String, CdsExportCapturedTextRowDto> current)
+            throws IOException {
+        long expected = 0;
+        for (String table : REVIEWERS.keySet()) {
+            var scope = source.capture().tables().get(table);
+            if (scope == null || !scope.columns().equals(reviewerColumns(table))) invalid();
+            expected = Math.addExact(expected, scope.rows());
+        }
+        if (expected > bounds.nativeRows()) limit();
+        var result = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        var ids = new HashSet<String>();
+        long[] memory = {0};
+        var read =
+                rows.forEachTable(
+                        lease,
+                        patient,
+                        tables,
+                        REVIEWERS.keySet(),
+                        source.manifest(),
+                        bounds.fields(),
+                        bounds.bytes(),
+                        67_108_864,
+                        control,
+                        row -> {
+                            control.checkpoint();
+                            if (!row.fields().keySet().equals(reviewerColumns(row.table()))
+                                    || !row.exactNumbers().isEmpty()
+                                    || !ids.add(key(row.table(), number(row, "id"))))
+                                invalid();
+                            if (!CdsExportPatientTableSourceReader.key(
+                                            Long.parseLong(row.fields().get("id")))
+                                    .equals(row.recordKey())) invalid();
+                            if (row.table().equals(CdsExportDocumentRouteSourceReader.TABLE)
+                                    && !"DOC".equals(row.fields().get("lab_type"))) invalid();
+                            String document = number(row, REVIEWERS.get(row.table()));
+                            if (!current.containsKey(key("document", document))) invalid();
+                            for (var value : row.fields().values())
+                                if (value != null)
+                                    memory[0] =
+                                            Math.addExact(
+                                                    memory[0],
+                                                    value.getBytes(StandardCharsets.UTF_8).length
+                                                            + 64L);
+                            memory[0] = Math.addExact(memory[0], 1024L);
+                            if (memory[0] > bounds.indexBytes()) limit();
+                            result.computeIfAbsent(document, ignored -> new ArrayList<>()).add(row);
+                        });
+        if (!read.equals(source.capture()) || ids.size() != expected) invalid();
+        var copy = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        result.forEach((document, list) -> copy.put(document, List.copyOf(list)));
+        return Collections.unmodifiableMap(copy);
+    }
+
+    private static Set<String> reviewerColumns(String table) throws IOException {
+        return Set.copyOf(
+                switch (table) {
+                    case CdsExportDocumentRouteSourceReader.TABLE ->
+                            CdsExportPatientTableReadSupport.Plan.DOCUMENT_ROUTES.columns();
+                    case "document_review" ->
+                            CdsExportPatientTableReadSupport.Plan.DOCUMENT_REVIEWS.columns();
+                    case "DocumentExtraReviewer" ->
+                            CdsExportPatientTableReadSupport.Plan.DOCUMENT_EXTRA_REVIEWERS
+                                    .columns();
+                    default -> throw new IOException("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+                });
+    }
+
+    /** A positive canonical decimal number stored in one column of a captured row. */
+    private static String number(CdsExportCapturedTextRowDto row, String column)
+            throws IOException {
+        String value = row.fields().get(column);
+        try {
+            long number = Long.parseLong(value);
+            if (number < 1 || !Long.toString(number).equals(value)) invalid();
+        } catch (NumberFormatException malformed) {
+            invalid();
+        }
+        return value;
     }
 
     private static CdsExportNativeReportMapper.Content nativeFile(

@@ -93,7 +93,13 @@ public class CdsExportPublicProviderSourceReader implements CdsExportNativeSourc
             required.add("casemgmt_note");
         if (selected.contains(CdsCategory.MEDICATIONS_AND_TREATMENTS)) required.add("prescription");
         if (selected.contains(CdsCategory.REPORTS))
-            required.addAll(Set.of("document", "ctl_document"));
+            required.addAll(
+                    Set.of(
+                            "document",
+                            "ctl_document",
+                            CdsExportDocumentRouteSourceReader.TABLE,
+                            "document_review",
+                            "DocumentExtraReviewer"));
         if (selected.contains(CdsCategory.LABORATORY_RESULTS))
             required.addAll(Set.of("patientLabRouting", "providerLabRouting"));
         return Set.copyOf(required);

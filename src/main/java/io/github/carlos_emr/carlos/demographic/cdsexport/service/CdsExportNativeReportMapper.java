@@ -51,17 +51,37 @@ public final class CdsExportNativeReportMapper {
             CdsExportPublicProviderDto reviewer,
             CdsExportDateDto reviewDate,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
-            List<CdsExportCapturedTextRowDto> rows) {
+            List<CdsExportCapturedTextRowDto> rows,
+            List<Reviewed> additionalReviewers) {
         public Result {
             text = Map.copyOf(text);
             dates = Map.copyOf(dates);
             fields = Map.copyOf(fields);
             rows = List.copyOf(rows);
+            additionalReviewers = List.copyOf(additionalReviewers);
+        }
+
+        public Result(
+                Map<String, String> text,
+                Map<String, CdsExportDateDto> dates,
+                CdsExportPublicProviderDto reviewer,
+                CdsExportDateDto reviewDate,
+                Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields,
+                List<CdsExportCapturedTextRowDto> rows) {
+            this(text, dates, reviewer, reviewDate, fields, rows, List.of());
         }
 
         @Override
         public String toString() {
             return "CdsExportNativeReportMapper.Result[protected]";
+        }
+    }
+
+    /** One more ReportReviewed after the document's first reviewer: who, and on which date. */
+    public record Reviewed(CdsExportPublicProviderDto provider, CdsExportDateDto date) {
+        @Override
+        public String toString() {
+            return "Reviewed[protected]";
         }
     }
 
@@ -89,6 +109,35 @@ public final class CdsExportNativeReportMapper {
             Map<String, CdsExportCapturedTextRowDto> providers,
             ZoneId zone)
             throws IOException {
+        return map(
+                patient,
+                document,
+                link,
+                content,
+                providers,
+                zone,
+                CdsExportInboxReviewMapper.Reviews.NONE);
+    }
+
+    /**
+     * Maps one document with the reviews recorded beside it ({@code document_review},
+     * {@code DocumentExtraReviewer}) and the acknowledgements of its inbox routes, decided by
+     * {@link CdsExportInboxReviewMapper#report()}. Each becomes one more ReportReviewed after
+     * the first reviewer ({@code document.reviewer}); a review naming the same provider on the
+     * same date as an earlier one would repeat that element and is not written again. Those rows
+     * travel whole in Notes, which keeps the exact review times the date-only element cannot,
+     * and every inbox comment.
+     */
+    public Result map(
+            int patient,
+            CdsExportCapturedTextRowDto document,
+            CdsExportCapturedTextRowDto link,
+            Content content,
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            ZoneId zone,
+            CdsExportInboxReviewMapper.Reviews reviews)
+            throws IOException {
+        java.util.Objects.requireNonNull(reviews);
         if (patient < 1
                 || content == null
                 || !document.table().equals("document")
@@ -254,13 +303,59 @@ public final class CdsExportNativeReportMapper {
                                                         "UNDATED_PUBLIC_REVIEWER_IN_SOURCE_CONTEXT")));
             }
         }
+        // The first reviewer's element is written first; a later review of the same provider on
+        // the same date would repeat it.
+        var additional = new ArrayList<Reviewed>();
+        var written = new HashSet<String>();
+        if (reviewer != null && reviewDate != null)
+            written.add(reviewerId + "\u0000" + reviewDate.lexical());
+        for (var review : reviews.reviewers()) {
+            var date =
+                    new CdsExportDateDto(
+                            CdsExportDateDto.Precision.DATE,
+                            review.reviewed().lexical().substring(0, 10));
+            if (written.add(review.providerNo() + "\u0000" + date.lexical()))
+                additional.add(new Reviewed(review.provider(), date));
+        }
+        fields.putAll(reviews.fields());
+        var present = new HashSet<String>();
+        for (var row : rows) present.add(row.table() + "/" + row.recordKey());
+        for (var row : reviews.rows())
+            if (present.add(row.table() + "/" + row.recordKey())) rows.add(row);
+        if (!reviews.carried().isEmpty()) {
+            var carried = new ArrayList<Map<String, Object>>();
+            for (var row : reviews.carried()) {
+                // Fixed key order, so an unchanged chart produces the same Notes bytes.
+                var entry = new LinkedHashMap<String, Object>();
+                entry.put(
+                        "table",
+                        row.table().equals(CdsExportDocumentRouteSourceReader.TABLE)
+                                ? "providerLabRouting"
+                                : row.table());
+                entry.put("fields", new TreeMap<>(row.fields()));
+                carried.add(entry);
+            }
+            details.put("reviews", carried);
+            var named = new LinkedHashMap<String, Object>();
+            reviews.providers()
+                    .forEach(
+                            (number, value) -> {
+                                var publicReviewer = new LinkedHashMap<String, String>();
+                                publicReviewer.put("firstName", value.firstName());
+                                publicReviewer.put("lastName", value.lastName());
+                                if (value.ohipNumber() != null)
+                                    publicReviewer.put("ohip", value.ohipNumber());
+                                named.put(number, publicReviewer);
+                            });
+            if (!named.isEmpty()) details.put("reviewers", named);
+        }
         String notes =
                 "[CARLOS native report source context]\n"
                         + JsonMapper.builder().build().writeValueAsString(details);
         if (!CdsExportNativeFieldAssessments.legal(notes, 32000))
             review("CDS_EXPORT_NATIVE_REPORT_METADATA_CAPACITY");
         text.put("Notes", notes);
-        return new Result(text, dates, reviewer, reviewDate, fields, rows);
+        return new Result(text, dates, reviewer, reviewDate, fields, rows, additional);
     }
 
     public void write(Result result, CdsExportXmlComposer.ContentWriter xml) throws IOException {
@@ -283,21 +378,26 @@ public final class CdsExportNativeReportMapper {
             xml.end();
         }
         text(result, xml, "SourceFacility");
-        if (result.reviewer() != null && result.reviewDate() != null) {
-            xml.start("cds", "ReportReviewed");
-            xml.start("cds", "Name");
-            xml.element("cds_dt", "FirstName", result.reviewer().firstName());
-            xml.element("cds_dt", "LastName", result.reviewer().lastName());
-            xml.end();
-            if (result.reviewer().ohipNumber() != null)
-                xml.element("cds", "ReviewingOHIPPhysicianId", result.reviewer().ohipNumber());
-            xml.start("cds", "DateTimeReportReviewed");
-            CdsExportNativeHistoryXmlWriter.dateContents(xml, result.reviewDate());
-            xml.end();
-            xml.end();
-        }
+        if (result.reviewer() != null && result.reviewDate() != null)
+            reviewed(xml, new Reviewed(result.reviewer(), result.reviewDate()));
+        for (var review : result.additionalReviewers()) reviewed(xml, review);
         text(result, xml, "Notes");
         date(result, xml, "SentDateTime");
+    }
+
+    private static void reviewed(CdsExportXmlComposer.ContentWriter xml, Reviewed review)
+            throws IOException {
+        xml.start("cds", "ReportReviewed");
+        xml.start("cds", "Name");
+        xml.element("cds_dt", "FirstName", review.provider().firstName());
+        xml.element("cds_dt", "LastName", review.provider().lastName());
+        xml.end();
+        if (review.provider().ohipNumber() != null)
+            xml.element("cds", "ReviewingOHIPPhysicianId", review.provider().ohipNumber());
+        xml.start("cds", "DateTimeReportReviewed");
+        CdsExportNativeHistoryXmlWriter.dateContents(xml, review.date());
+        xml.end();
+        xml.end();
     }
 
     private static void text(Result result, CdsExportXmlComposer.ContentWriter xml, String name)

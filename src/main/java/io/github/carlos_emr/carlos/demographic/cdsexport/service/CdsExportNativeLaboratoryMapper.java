@@ -347,7 +347,11 @@ final class CdsExportNativeLaboratoryMapper {
             rows.add(Map.of("table", row.table(), "fields", row.fields()));
         for (var row : CdsExportInboxReviewMapper.carried(carried)) {
             if (!row.table().equals("providerLabRouting")) throw new IOException("CDS_EXPORT_NATIVE_LAB_ROUTE_INVALID");
-            rows.add(Map.of("table", row.table(), "fields", new TreeMap<>(row.fields())));
+            // Fixed key order, so an unchanged report produces the same residual bytes.
+            var entry = new LinkedHashMap<String, Object>();
+            entry.put("table", row.table());
+            entry.put("fields", new TreeMap<>(row.fields()));
+            rows.add(entry);
         }
         CdsExportNativeHistoryXmlWriter.residualElement(
                 xml,

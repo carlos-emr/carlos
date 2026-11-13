@@ -132,7 +132,16 @@ stored name or content type gives when the file's bytes bear that out (otherwise
 the bytes show, or `bin`), and an Add HTML or Add Link document as its stored HTML text. A
 deleted document, or one whose patient link was deleted, is not exported and does not hold
 the patient. The package does not say how a document was received (Media), because CARLOS
-does not record it. Revised notes retain
+does not record it. Every review of a document is exported as a ReportReviewed with the
+reviewer's name, OHIP number (six digits only) and review date: the first reviewer, each
+later reviewer, each review record and each provider who acknowledged the document in the
+inbox; the same provider reviewing on the same day is written once. The element holds a date
+only, so the exact review times, and every inbox comment on the document, are kept in the
+report's Notes. Unacknowledged and unclaimed inbox routes are not exported. The reviews of a
+deleted document are not exported either, like the document. A review recorded in CARLOS on a
+document that came from an earlier CDS import holds the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`), as a changed first reviewer already
+does. Revised notes retain
 the original and edits in one clinical occurrence. A clinical note whose latest
 revision is archived (removed from the active record) is still exported, because the
 encounter list still shows it, but its text begins with a statement that it is

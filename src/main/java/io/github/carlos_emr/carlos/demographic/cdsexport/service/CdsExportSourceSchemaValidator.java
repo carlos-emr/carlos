@@ -49,6 +49,9 @@ public final class CdsExportSourceSchemaValidator {
                     "hl7TextInfo",
                     "patientLabRouting",
                     "providerLabRouting",
+                    CdsExportDocumentRouteSourceReader.TABLE,
+                    "document_review",
+                    "DocumentExtraReviewer",
                     "casemgmt_issue",
                     "issue",
                     "casemgmt_issue_notes",
@@ -256,6 +259,7 @@ public final class CdsExportSourceSchemaValidator {
     }
 
     private static String physical(String scope) {
+        if (scope.equals(CdsExportDocumentRouteSourceReader.TABLE)) return "providerLabRouting";
         return scope.equals("preventions_scope")
                 ? "preventions"
                 : CdsExportProblemRegistrySources.PRECISION.equals(scope)

@@ -304,6 +304,31 @@ encrypted capture through one authenticated pass of its values member
 (`CdsExportStagingService.verifiedRanges`), which is verified again as a whole before the
 patient's output is accepted.
 
+A native document report carries every review of the document. `document_review` and
+`DocumentExtraReviewer` are mapped sources and a DOC inbox route is captured as the logical
+table `providerLabRouting_documents` (its schema contract names the physical
+`providerLabRouting`; LaboratoryResults reads the HL7 routes of the same table), all in the
+Reports scope and scoped by the document's `ctl_document` chart link exactly as
+`Plan.DOCUMENTS` scopes the document (`Plan.DOCUMENT_ROUTES`, `DOCUMENT_REVIEWS`,
+`DOCUMENT_EXTRA_REVIEWERS`, through `CdsExportReviewerReadDao`, which proves the patient's
+document associations first; `requireLocalDocumentAssociations` no longer refuses these
+sidecars, only `document_storage`). The public provider lookup names their providers. The
+first reviewer (`document.reviewer`, `reviewdatetime`) stays as it was; each review record,
+each later reviewer (`AddEditDocument2Action` writes a `DocumentExtraReviewer` row for every
+review after the first) and each acknowledged route becomes one more `Reports/ReportReviewed`
+(unbounded in the XSD), decided by `CdsExportInboxReviewMapper.report()` with the routing
+rules the laboratory path uses. DateTimeReportReviewed is a date, so a review naming the same
+provider on the same date as an earlier element is not written again, and every review row,
+acknowledged route and commented route travels whole in the report's Notes source context
+(`reviews`, with the public names of the reviewers in `reviewers`), which keeps the exact
+times and the comments. A document without such rows has unchanged Notes. An undated review
+record stays in Notes only. The reviewers and routes of a removed document get the same
+`DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART` disposition as the document. On a document
+exported from its import, a CARLOS inbox route is `INBOX_ROUTING_OF_AN_IMPORTED_REPORT`
+(operational) and a review record, like a changed first reviewer (`bind`), holds the patient
+(`CDS_EXPORT_IMPORTED_REPORT_REVIEW_REQUIRES_REVIEW`). Every reviewer row belongs to exactly
+one captured document.
+
 Inbox rows that name no patient hold no chart. The presence check of a must-be-empty table
 reached through a parent (`CdsExportIndirectPatientScopeReadSupport`) used to treat every
 row whose parent chain reached no patient as possibly anyone's, so an HL7 lab that the
