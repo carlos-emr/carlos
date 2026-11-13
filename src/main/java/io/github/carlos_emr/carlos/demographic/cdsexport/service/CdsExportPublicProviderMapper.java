@@ -66,40 +66,60 @@ public final class CdsExportPublicProviderMapper {
         String last = state.text("last_name", target.path + "/Name/LastName", 50);
         if ("".equals(state.raw("first_name"))) first = "";
         if ("".equals(state.raw("last_name"))) last = "";
-        String ohip = token(state, "ohip_no", target.path + "/OHIPPhysicianId");
         // The schema type is only a six-character token, but the data dictionary defines the
         // OHIP billing number as six digits. Outside Ontario the same column holds another
-        // jurisdiction's practitioner number (a five-character BC MSP number, for example) and
-        // sites use placeholders such as "0"; neither is an OHIP number, so it is not asserted
-        // as one. The physician's name is still exported.
-        if (ohip != null && !ohip.matches("[0-9]{6}")) {
+        // jurisdiction's practitioner number (a five-character BC MSP number, for example), sites
+        // use placeholders such as "0", and the Add/Edit Provider form accepts up to twenty
+        // characters with spaces. None of these is an OHIP number, so none is asserted as one;
+        // nothing is trimmed or truncated into one either. The value belongs to the provider
+        // record, not to the patient's chart, and the physician's name is still exported.
+        String ohip = null;
+        String billing = state.raw("ohip_no");
+        if (billing != null && billing.matches("[0-9]{6}")) {
+            state.set(
+                    "ohip_no",
+                    Outcome.MAPPED,
+                    target.path + "/OHIPPhysicianId",
+                    "EXACT_NATIVE_TEXT");
+            ohip = billing;
+        } else if (billing != null && !billing.isEmpty())
             state.operational("ohip_no", "NON_OHIP_BILLING_NUMBER_NOT_ASSERTED");
-            ohip = null;
-        }
         String cpso = null;
         // Other public registration authorities are lookup metadata, not Ontario CPSO assertions.
         state.operational("practitionerNoType", "CAPTURED_PUBLIC_REGISTRATION_AUTHORITY");
-        if (target == Target.PRIMARY_PHYSICIAN && "CPSO".equals(state.raw("practitionerNoType"))) {
-            cpso = token(state, "practitionerNo", "PrimaryPhysician/PrimaryPhysicianCPSO");
-            if (cpso != null)
-                state.set(
-                        "practitionerNoType",
-                        Outcome.MAPPED,
-                        "PrimaryPhysician/PrimaryPhysicianCPSO",
-                        "EXPLICIT_CPSO_AUTHORITY");
+        String registration = state.raw("practitionerNo");
+        boolean registered = registration != null && !registration.isEmpty();
+        if (target == Target.PRIMARY_PHYSICIAN
+                && "CPSO".equals(state.raw("practitionerNoType"))
+                && registered
+                && token(registration)) {
+            cpso = registration;
+            state.set(
+                    "practitionerNo",
+                    Outcome.MAPPED,
+                    "PrimaryPhysician/PrimaryPhysicianCPSO",
+                    "EXACT_NATIVE_TEXT");
+            state.set(
+                    "practitionerNoType",
+                    Outcome.MAPPED,
+                    "PrimaryPhysician/PrimaryPhysicianCPSO",
+                    "EXPLICIT_CPSO_AUTHORITY");
         } else if (target == Target.PRIMARY_PHYSICIAN
-                && state.raw("practitionerNo") != null
-                && !state.raw("practitionerNo").isBlank()
+                && "CPSO".equals(state.raw("practitionerNoType"))
+                && registered)
+            // A CPSO-typed number that is not a six-character token (spaces, more characters)
+            // cannot be written as PrimaryPhysicianCPSO without changing it. It is a provider
+            // record value, so it is not asserted rather than holding the physician's patients.
+            state.operational("practitionerNo", "UNREPRESENTABLE_CPSO_NUMBER_NOT_ASSERTED");
+        else if (target == Target.PRIMARY_PHYSICIAN
+                && registered
                 && (state.raw("practitionerNoType") == null
                         || state.raw("practitionerNoType").isBlank()))
             // A registration number with no recorded authority (provider rows created before the
-            // type was recorded) may be the MRP's CPSO number, which receivers use to match the
-            // physician, or a BC MSP or nursing number. It is neither asserted as CPSO nor
-            // dropped: the provider record needs its practitioner number type set.
-            state.review(
-                    "practitionerNo",
-                    "PrimaryPhysician/PrimaryPhysicianCPSO",
-                    "PRACTITIONER_NUMBER_AUTHORITY_REQUIRED");
+            // type was recorded) may be the MRP's CPSO number or a BC MSP or nursing number. It
+            // is not asserted as CPSO; it is provider-record lookup metadata, not chart content,
+            // so it no longer holds every patient of that physician.
+            state.operational("practitionerNo", "UNTYPED_REGISTRATION_NUMBER_NOT_ASSERTED");
         else state.operational("practitionerNo", "CAPTURED_PUBLIC_REGISTRATION_LOOKUP_METADATA");
         CdsExportPublicProviderDto value = null;
         try {
@@ -112,18 +132,12 @@ public final class CdsExportPublicProviderMapper {
         return new CdsExportPublicProviderMappingDto(value, decisions);
     }
 
-    private static String token(
-            CdsExportNativeFieldAssessments state, String column, String destination) {
-        String value = state.text(column, destination, 6);
-        if (value != null
-                && (value.startsWith(" ")
-                        || value.endsWith(" ")
-                        || value.contains("  ")
-                        || value.codePoints().anyMatch(Character::isISOControl))) {
-            state.review(column, destination, "TOKEN_NORMALIZATION_REQUIRES_REVIEW");
-            return null;
-        }
-        return value;
+    /** A value the six-character xs:token type carries exactly, with no normalization. */
+    private static boolean token(String value) {
+        return CdsExportNativeFieldAssessments.legal(value, 6)
+                && value.equals(value.strip())
+                && !value.contains("  ")
+                && value.codePoints().noneMatch(Character::isISOControl);
     }
 
     private static void scope() throws IOException {

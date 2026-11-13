@@ -219,18 +219,20 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void shouldVerifyUnknownOhipAndOverlengthProviderDataCannotCreateAnOtherwiseValidEvent_forEnrolmentHistoryContract() throws Exception {
+    void shouldVerifyAnOverlengthBillingNumberIsNotAssertedAsTheEnrolledPhysiciansOhip_forEnrolmentHistoryContract() throws Exception {
+        // A17: a provider-record format never holds the patient; a seven-character number is not
+        // a six-digit OHIP number, so the enrolled physician is named without one.
         var fields = new TreeMap<>(provider("0é27").fields());
         fields.put("ohip_no", "1234567");
-        assertThat(
-                        new CdsExportEnrolmentMapper()
-                                .map(
-                                        27,
-                                        current("RO", "2020-01-01", null, null, "0é27"),
-                                        new CdsExportCapturedTextRowDto(
-                                                "provider", provider("0é27").recordKey(), fields))
-                                .representable())
-                .isFalse();
+        var mapped =
+                new CdsExportEnrolmentMapper()
+                        .map(
+                                27,
+                                current("RO", "2020-01-01", null, null, "0é27"),
+                                new CdsExportCapturedTextRowDto(
+                                        "provider", provider("0é27").recordKey(), fields));
+        assertThat(mapped.representable()).isTrue();
+        assertThat(mapped.event().physician().ohipNumber()).isNull();
     }
 
     @Test

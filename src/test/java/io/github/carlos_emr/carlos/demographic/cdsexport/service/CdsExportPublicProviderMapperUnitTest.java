@@ -59,23 +59,26 @@ class CdsExportPublicProviderMapperUnitTest {
             assertThat(mapped.value().cpsoNumber()).isNull();
             assertThat(mapped.value().ohipNumber()).isEqualTo("001234");
         }
-        // A missing authority is never relabelled either, and is no longer silently dropped:
-        // the patient is held until the provider record names it (review P4).
+        // A missing authority is never relabelled either; the number is provider-record lookup
+        // metadata under its own rule, and the physician is still named.
         for (String authority : Arrays.asList(null, "")) {
             var mapped =
                     new CdsExportPublicProviderMapper()
                             .map(
                                     provider(authority, "000123"),
                                     CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-            assertThat(mapped.representable()).isFalse();
-            assertThat(mapped.value()).isNull();
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.value().cpsoNumber()).isNull();
+            assertThat(mapped.value().ohipNumber()).isEqualTo("001234");
         }
     }
 
     @Test
-    void shouldBlockTheExactInvalidIdentifierField_withoutTrimmingTruncatingOrChangingNames()
+    void shouldNotAssertAnUnrepresentableCpsoNumber_withoutTrimmingOrTruncatingIt()
             throws Exception {
-        for (String identifier : List.of(" 01234", "0123456", "01\t234")) {
+        // A CPSO-typed number that is not a six-character token cannot be written as
+        // PrimaryPhysicianCPSO without changing it; it is not asserted, and nothing is held.
+        for (String identifier : List.of(" 01234", "0123456", "01\t234", "01  23")) {
             var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
             fields.put("practitionerNo", identifier);
             var mapped =
@@ -86,9 +89,45 @@ class CdsExportPublicProviderMapperUnitTest {
                                             CdsExportPublicProviderSourceReader.key("0é27"),
                                             fields),
                                     CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-            assertThat(mapped.representable()).isFalse();
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.value().cpsoNumber()).isNull();
+            assertThat(mapped.value().firstName()).isEqualTo("Zoë😀");
             assertThat(mapped.fields().get(key("practitionerNo")).outcome())
-                    .isEqualTo(Outcome.REQUIRES_REVIEW);
+                    .isEqualTo(Outcome.OPERATIONAL);
+            assertThat(mapped.fields().get(key("practitionerNo")).rule())
+                    .isEqualTo("UNREPRESENTABLE_CPSO_NUMBER_NOT_ASSERTED");
+        }
+    }
+
+    @Test
+    void shouldNotAssertALongOrSpacedBillingNumber_forAnyProviderTarget() throws Exception {
+        // A17: Add/Edit Provider accepts up to twenty characters with spaces in ohip_no. None of
+        // these is a six-digit OHIP number; it is neither asserted, trimmed nor truncated.
+        for (String number :
+                List.of(
+                        "1234567",
+                        "12345678901234567890",
+                        "123 456",
+                        " 123456",
+                        "123456 ",
+                        "12\t3456")) {
+            for (var target : CdsExportPublicProviderMapper.Target.values()) {
+                var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
+                fields.put("ohip_no", number);
+                var mapped =
+                        new CdsExportPublicProviderMapper()
+                                .map(
+                                        new CdsExportCapturedTextRowDto(
+                                                "provider",
+                                                CdsExportPublicProviderSourceReader.key("0é27"),
+                                                fields),
+                                        target);
+                assertThat(mapped.representable()).isTrue();
+                assertThat(mapped.value().ohipNumber()).isNull();
+                assertThat(mapped.value().lastName()).isEqualTo(fields.get("last_name"));
+                assertThat(mapped.fields().get(key("ohip_no")).rule())
+                        .isEqualTo("NON_OHIP_BILLING_NUMBER_NOT_ASSERTED");
+            }
         }
     }
 
@@ -132,19 +171,22 @@ class CdsExportPublicProviderMapperUnitTest {
     }
 
     @Test
-    void shouldHoldAnUntypedRegistrationNumber_ofThePrimaryPhysicianInsteadOfDroppingIt()
+    void shouldNotAssertAnUntypedRegistrationNumber_insteadOfHoldingThePhysiciansPatients()
             throws Exception {
-        // Review P4: it may be the MRP's CPSO number or another authority's; neither asserted
-        // nor silently lost.
-        for (String authority : Arrays.asList(null, "")) {
+        // A17 (supersedes review P4): it may be the MRP's CPSO number or another authority's.
+        // It is not asserted as CPSO; it is provider-record lookup metadata with its own rule.
+        for (String authority : Arrays.asList(null, "", " ")) {
             var mapped =
                     new CdsExportPublicProviderMapper()
                             .map(
                                     provider(authority, "12345"),
                                     CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN);
-            assertThat(mapped.representable()).isFalse();
+            assertThat(mapped.representable()).isTrue();
+            assertThat(mapped.value().cpsoNumber()).isNull();
+            assertThat(mapped.fields().get(key("practitionerNo")).outcome())
+                    .isEqualTo(Outcome.OPERATIONAL);
             assertThat(mapped.fields().get(key("practitionerNo")).rule())
-                    .isEqualTo("PRACTITIONER_NUMBER_AUTHORITY_REQUIRED");
+                    .isEqualTo("UNTYPED_REGISTRATION_NUMBER_NOT_ASSERTED");
         }
         assertThat(
                         new CdsExportPublicProviderMapper()
@@ -154,7 +196,6 @@ class CdsExportPublicProviderMapperUnitTest {
                                 .value()
                                 .cpsoNumber())
                 .isEqualTo("12345");
-        // Without a number, or for an appointment provider, nothing is held.
         assertThat(
                         new CdsExportPublicProviderMapper()
                                 .map(
@@ -169,6 +210,25 @@ class CdsExportPublicProviderMapperUnitTest {
                                         CdsExportPublicProviderMapper.Target.APPOINTMENT)
                                 .representable())
                 .isTrue();
+    }
+
+    @Test
+    void shouldHoldOnlyAnXmlIllegalProviderName_asGenuinelyMalformed() throws Exception {
+        // first_name/last_name are varchar(30) on the pinned schema, so only a control character
+        // CARLOS's provider form cannot enter can make a name unrepresentable.
+        var fields = new LinkedHashMap<>(provider("CPSO", "000123").fields());
+        fields.put("last_name", "Bad\u0001Name");
+        var mapped =
+                new CdsExportPublicProviderMapper()
+                        .map(
+                                new CdsExportCapturedTextRowDto(
+                                        "provider",
+                                        CdsExportPublicProviderSourceReader.key("0é27"),
+                                        fields),
+                                CdsExportPublicProviderMapper.Target.APPOINTMENT);
+        assertThat(mapped.representable()).isFalse();
+        assertThat(mapped.fields().get(key("last_name")).rule())
+                .isEqualTo("WIRE_TEXT_REQUIRES_REVIEW");
     }
 
     static CdsExportCapturedTextRowDto provider(String authority, String number) {
