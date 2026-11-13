@@ -8,7 +8,7 @@
  */
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { idleProviderNo } = require('./gap-records-usage-report-playwright-checks');
+const { idleProviderNo, billingCellProblem } = require('./gap-records-usage-report-playwright-checks');
 const { SkipCheck } = require('./lib/playwright-harness');
 
 /** A stand-in SQL runner for a schema that has, or lacks, the Ontario bill header table. */
@@ -51,4 +51,18 @@ test('no idle provider is a skip on either schema, not a failure', () => {
     assert.throws(() => idleProviderNo(schema({ ontarioBills, idle: [] })),
       error => error instanceof SkipCheck && /no idle demo provider/.test(error.message));
   }
+});
+
+test('the Billing cell reads 0 for the idle provider where the schema has Ontario invoices', () => {
+  assert.equal(billingCellProblem('0', true), null);
+  assert.match(billingCellProblem('2', true), /Billing reads 2 for a provider with no invoices/);
+  // The not-available text on an Ontario schema would hide a lost count.
+  assert.match(billingCellProblem('n/a', true), /Billing reads n\/a/);
+});
+
+test('the Billing cell reads n/a, not a count or an error, on a schema without Ontario invoices', () => {
+  assert.equal(billingCellProblem(' n/a\n', false), null);
+  assert.match(billingCellProblem('0', false), /instead of "n\/a"/);
+  assert.match(billingCellProblem('', false), /instead of "n\/a"/);
+  assert.match(billingCellProblem(undefined, false), /instead of "n\/a"/);
 });

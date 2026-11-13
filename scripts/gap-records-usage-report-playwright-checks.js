@@ -10,7 +10,8 @@
  * share (and "---" for an empty group); Scheduled Appts, Encounter Note and Rx counts equal the rows
  * dated inside the typed range (2024-05-01 .. 2024-05-31); the last steps assert that the End Date is
  * inclusive (an appointment and an encounter note dated on it are counted) and that percentages read as
- * clean numbers (issue #4176; both hold on 2026.08 now).
+ * clean numbers (issue #4176; both hold on 2026.08 now). The Billing figure counts Ontario invoices: on an Ontario
+ * schema it reads 0 for the idle provider, on any other (BC) it reads "n/a", where the report used to answer HTTP 500.
  * Fixtures: an idle demo provider (no patients or activity of any kind, else SKIP), six active + one inactive patient (marker surname), appointments, encounter
  * notes and prescriptions with the marker; all deleted in cleanup and checked gone. Counts are scoped to the
  * owned provider, so nothing global is asserted.
@@ -24,6 +25,17 @@ const TIMEOUT = 20000;
 
 /** The Ontario bill header table. Only an Ontario schema has it (migration/on/V1.0.1__on_schema.sql). */
 const ONTARIO_BILL_HEADER = 'billing_on_cheader1';
+
+/**
+ * What is wrong with the counts table's Billing cell, or null. The figure counts the Ontario bill header, so on a
+ * schema that has it the idle provider reads 0; elsewhere the report shows it as not available ("n/a",
+ * admin.UsageReport.billingNotAvailable) instead of failing on the missing table with HTTP 500.
+ */
+function billingCellProblem(text, ontarioBills) {
+  const shown = String(text == null ? '' : text).trim();
+  if (ontarioBills) return shown === '0' ? null : `Billing reads ${shown} for a provider with no invoices`;
+  return shown === 'n/a' ? null : `Billing reads "${shown}" on a schema without Ontario invoices instead of "n/a" (not available)`;
+}
 
 /** Whether the installed schema has `table`. */
 function hasTable(sql, table) {
@@ -130,8 +142,9 @@ async function workflow(s) {
     const rows = await admin.locator('#dynamic-content table').first().locator('tbody tr').evaluateAll(trs =>
       trs.map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.trim())));
     h.assert(rows.length === 5, 'The age/sex table does not have its five age groups');
-    const counts = (await admin.locator('#dynamic-content table').nth(1).locator('tbody tr td').allInnerTexts()).map(text => Number(text.trim()));
-    numbers = { rows, counts };
+    const cells = (await admin.locator('#dynamic-content table').nth(1).locator('tbody tr td').allInnerTexts()).map(text => text.trim());
+    const counts = cells.map(Number);
+    numbers = { rows, counts, cells };
     // Share of the six-patient roster, within 0.01 (exact: 16.67 / 33.33 / 16.67 / 16.67 / 16.67).
     const expected = [[1 / 6, 1, 0], [2 / 6, 0.5, 0.5], [1 / 6, 0, 1], [1 / 6, 1, 0], [1 / 6, 0, 1]];
     rows.forEach((row, index) => {
@@ -145,10 +158,11 @@ async function workflow(s) {
   });
 
   await s.step('Encounter Note and Rx counts equal the rows dated inside the range', async () => {
-    const { counts } = numbers;
+    const { counts, cells } = numbers;
     // encounter notes 2024-05-15 (+ the 05-31 10:00 one, asserted in the End Date step), distinct patients with Rx = 2.
     h.assert(counts[5] === 2, `Rx New/Renewals reads ${counts[5]} instead of the two patients prescribed to in the range`);
-    h.assert(counts[1] === 0, `Billing reads ${counts[1]} for a provider with no invoices`);
+    const billing = billingCellProblem(cells[1], hasTable(sql, ONTARIO_BILL_HEADER));
+    h.assert(!billing, billing);
   });
 
   await s.step('the End Date is inclusive and percentages read as clean numbers', async () => {
@@ -162,5 +176,5 @@ async function workflow(s) {
   });
 }
 
-module.exports = { workflow, idleProviderNo };
+module.exports = { workflow, idleProviderNo, billingCellProblem };
 if (require.main === module) runWorkflow('gap-records-usage-report', workflow, { openPatient: true, openMaster: false });
