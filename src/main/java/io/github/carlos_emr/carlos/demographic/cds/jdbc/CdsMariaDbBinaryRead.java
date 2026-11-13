@@ -111,11 +111,29 @@ final class CdsMariaDbBinaryRead {
         return proxy;
     }
 
+    /**
+     * IMP-2: Connector/J applies a query timeout to a server-prepared statement only as a
+     * {@code SET STATEMENT max_statement_time=N FOR} prefix on its first prepare, which already
+     * happened above (parameter metadata), so {@code setQueryTimeout} alone is a silent no-op and
+     * a read blocked on a metadata lock waits up to {@code lock_wait_timeout}. The deadline is
+     * enforced client side instead: a daemon timer cancels the statement (Connector/J sends
+     * {@code KILL QUERY} on a separate connection) and the read fails with
+     * {@link java.sql.SQLTimeoutException}. No session variable is changed.
+     */
+    private static final java.util.concurrent.ScheduledExecutorService DEADLINES =
+            java.util.concurrent.Executors.newSingleThreadScheduledExecutor(
+                    task -> {
+                        var thread = new Thread(task, "cds-binary-read-deadline");
+                        thread.setDaemon(true);
+                        return thread;
+                    });
+
     private static final class ReadStatement implements InvocationHandler {
         private final PreparedStatement raw;
         private final Connection owner;
         private final int parameters;
         private PreparedStatement proxy;
+        private int timeoutSeconds;
 
         private ReadStatement(PreparedStatement raw, Connection owner, int parameters) {
             this.raw = raw;
@@ -154,11 +172,70 @@ final class CdsMariaDbBinaryRead {
                     && arguments[0] instanceof Integer index
                     && (index < 1 || index > parameters))
                 throw refused("CDS_BINARY_PARAMETER_INDEX_INVALID");
-            Object returned = CdsMariaDbBinaryRead.invoke(method, raw, arguments);
+            if (name.equals("setQueryTimeout")) {
+                int seconds = (Integer) arguments[0];
+                if (seconds < 0) throw refused("CDS_BINARY_QUERY_TIMEOUT_INVALID");
+                timeoutSeconds = seconds;
+                return null;
+            }
+            if (name.equals("getQueryTimeout")) return timeoutSeconds;
+            Object returned =
+                    name.startsWith("execute") && timeoutSeconds > 0
+                            ? bounded(method, arguments)
+                            : CdsMariaDbBinaryRead.invoke(method, raw, arguments);
             if (returned instanceof ResultSet rows) return checked(rows);
             if ((name.equals("execute") || name.equals("getMoreResults"))
                     && Boolean.TRUE.equals(returned)) checked(raw.getResultSet());
             return returned;
+        }
+
+        /** Runs one execution under the configured deadline; see {@link #DEADLINES}. */
+        private Object bounded(Method method, Object[] arguments) throws Throwable {
+            var lock = new Object();
+            boolean[] running = {true}, cancelled = {false};
+            var deadline =
+                    DEADLINES.schedule(
+                            () -> {
+                                synchronized (lock) {
+                                    if (!running[0]) return;
+                                    cancelled[0] = true;
+                                    try {
+                                        raw.cancel();
+                                    } catch (SQLException | RuntimeException ignored) {
+                                        // The execution still fails or completes on its own;
+                                        // a cancellation failure is reported by its outcome.
+                                    }
+                                }
+                            },
+                            timeoutSeconds,
+                            java.util.concurrent.TimeUnit.SECONDS);
+            try {
+                Object returned = CdsMariaDbBinaryRead.invoke(method, raw, arguments);
+                synchronized (lock) {
+                    running[0] = false;
+                    // A cancelled SLEEP() and some interrupted reads return normally; a read
+                    // that reached its deadline is never treated as complete.
+                    if (cancelled[0]) {
+                        if (returned instanceof ResultSet rows) rows.close();
+                        throw new java.sql.SQLTimeoutException("CDS_BINARY_READ_TIMEOUT", "70100");
+                    }
+                }
+                return returned;
+            } catch (SQLException failure) {
+                if (failure instanceof java.sql.SQLTimeoutException
+                        && "CDS_BINARY_READ_TIMEOUT".equals(failure.getMessage())) throw failure;
+                synchronized (lock) {
+                    if (cancelled[0])
+                        throw new java.sql.SQLTimeoutException(
+                                "CDS_BINARY_READ_TIMEOUT", "70100", failure);
+                }
+                throw failure;
+            } finally {
+                synchronized (lock) {
+                    running[0] = false;
+                }
+                deadline.cancel(false);
+            }
         }
 
         private ResultSet checked(ResultSet rows) throws SQLException {

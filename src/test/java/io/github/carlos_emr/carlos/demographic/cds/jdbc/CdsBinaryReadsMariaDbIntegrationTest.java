@@ -54,6 +54,35 @@ class CdsBinaryReadsMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldCancelABoundedServerPreparedRead_atItsQueryTimeout() throws Exception {
+        // IMP-2: setQueryTimeout used to be a silent no-op on these statements, because the
+        // driver had already server-prepared them. A SLEEP() stands in for a read blocked on a
+        // metadata lock; it must end at the deadline, not after the server-side wait.
+        try (var connection = open();
+                var query =
+                        CdsBinaryReads.prepareDriver(
+                                connection, "SELECT SLEEP(30) AS waited, ? AS bound_value")) {
+            query.setString(1, "controlled");
+            query.setQueryTimeout(1);
+            assertThat(query.getQueryTimeout()).isEqualTo(1);
+            long started = System.nanoTime();
+            assertThatThrownBy(query::executeQuery)
+                    .isInstanceOf(java.sql.SQLTimeoutException.class)
+                    .hasMessage("CDS_BINARY_READ_TIMEOUT");
+            assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+                    .isLessThan(java.time.Duration.ofSeconds(15));
+            try (var next = CdsBinaryReads.prepareDriver(connection, "SELECT ? AS value")) {
+                next.setInt(1, 7);
+                next.setQueryTimeout(30);
+                try (var rows = next.executeQuery()) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt("value")).isEqualTo(7);
+                }
+            }
+        }
+    }
+
+    @Test
     void shouldRefuseAnActualTextProtocolResult_beforeReadingItsValues() throws Exception {
         try (var connection = open();
                 var query = connection.createStatement();

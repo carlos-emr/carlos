@@ -43,3 +43,19 @@ four real loopback silent-handshake paths (maintenance, ordinary lease, opted-in
 focused CLI). Each test peer retires within three seconds even if a timeout regresses. The HRM
 MariaDB tier additionally reads back the actual 60000 ms network timeout on pooled/nonpooled
 connections while proving abandoned-pool reclamation cannot release a filesystem admission lease.
+
+## Server-prepared binary reads
+
+Receipt capture and verification of rows with FLOAT/DOUBLE columns, and the exporter's exact
+numeric reads, use `CdsBinaryReads`: a server-prepared statement whose binary result keeps exact
+IEEE bits. Connector/J applies `setQueryTimeout` to such a statement only as a
+`SET STATEMENT max_statement_time=N FOR` prefix on its first prepare, and the statement is
+already prepared (its parameter metadata is read) before a caller can set a timeout, so the
+timeout used to be a silent no-op (IMP-2): a read blocked on a metadata lock waited up to the
+server's `lock_wait_timeout`. The reviewed statement now enforces the caller's timeout on the
+client: a daemon timer cancels the execution at the deadline (Connector/J sends `KILL QUERY`
+on a separate connection) and the read fails with `SQLTimeoutException`
+(`CDS_BINARY_READ_TIMEOUT`). A read cancelled at its deadline is never treated as complete,
+even when the server returns normally (an interrupted `SLEEP()` returns 1). No session variable
+changes. `CdsBinaryReadsMariaDbIntegrationTest` times out a `SLEEP(30)` through it after one
+second and reuses the connection afterwards.
