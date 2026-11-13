@@ -26,6 +26,7 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPathComposer;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSupportingFilesComposer;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import java.io.*;
 import java.nio.charset.CodingErrorAction;
@@ -117,6 +118,9 @@ public final class CdsExportSupportingFilesValidator {
                         .filter(metadata.categories()::contains)
                         .map(CdsCategory::wireName)
                         .collect(java.util.stream.Collectors.joining(", ")));
+        text.field(
+                CdsExportSupportingFilesComposer.SCREENINGS,
+                metadata.categories().contains(CdsCategory.PAST_HEALTH) ? "INCLUDED" : "NOT_SELECTED");
         text.field("Audit information access after migration", metadata.auditAccessDescription());
         text.field("Held patients not in this package", Long.toString(metadata.heldPatients().size()));
         for (var held : metadata.heldPatients()) {

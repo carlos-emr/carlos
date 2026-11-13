@@ -207,6 +207,22 @@ class CdsExportSupportingFilesValidatorUnitTest {
         assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }
 
+    // The ReadMe must not claim screenings that a package without PastHealth does not carry.
+    @Test
+    void shouldRefuseAReadme_thatMisstatesWhetherScreeningsAreIncluded() {
+        String field = "Prevention screenings (exported only as PastHealth): ";
+        String actualValue =
+                new String(readMe, java.nio.charset.StandardCharsets.UTF_8).contains(field + "\"INCLUDED\"")
+                        ? "\"INCLUDED\""
+                        : "\"NOT_SELECTED\"";
+        readMe =
+                replace(
+                        readMe,
+                        field + actualValue,
+                        field + (actualValue.equals("\"INCLUDED\"") ? "\"NOT_SELECTED\"" : "\"INCLUDED\""));
+        assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
+    }
+
     @Test
     void shouldBindLegalDateWhitespace_toTheSameCalendarDayAndFilename() throws Exception {
         var first = actual.getFirst();

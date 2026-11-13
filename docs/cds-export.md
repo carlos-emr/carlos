@@ -33,7 +33,8 @@ superseded edited) rows, program-restricted rows, rows whose type is not a prove
 unknown status codes, duplicate result/reason/comments extensions and unsupported date
 precision hold the patient for review, and any unclassifiable prevention row also holds a
 PastHealth export because it may be a screening. Without PastHealth, screenings are an explicit
-scope exclusion. The CARLOS importer files each entry as a Past Health (MedHistory) note
+scope exclusion, and the ReadMe field `Prevention screenings (exported only as PastHealth)`
+says `NOT_SELECTED`. The CARLOS importer files each entry as a Past Health (MedHistory) note
 whose text is the description and whose observation date is the ProcedureDate; Notes and the
 residual stay in the retained CDS source fields.
 

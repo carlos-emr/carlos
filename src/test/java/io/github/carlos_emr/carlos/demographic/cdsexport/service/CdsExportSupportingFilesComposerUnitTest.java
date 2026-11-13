@@ -72,7 +72,8 @@ class CdsExportSupportingFilesComposerUnitTest {
                 "2026-11-04T16:00:00-05:00", "Physician: \"Alice Test\"",
                 "Physician patient files: \"1\"",
                 "ExportRoot/Alice_Test_123456/First_Test_C27_04031971.xml",
-                "Audit information access after migration: \"Fixture retained audit access arrangement\"");
+                "Audit information access after migration: \"Fixture retained audit access arrangement\"",
+                "Prevention screenings (exported only as PastHealth): \"INCLUDED\"");
         String[] lines = events.toString(StandardCharsets.UTF_8).split("\n");
         assertThat(lines).hasSize(2);
         String[] columns = lines[0].split(","), values = lines[1].split(",");
@@ -98,6 +99,20 @@ class CdsExportSupportingFilesComposerUnitTest {
         String text = events.toString(StandardCharsets.UTF_8);
         assertThat(text).contains("\"NOT_SELECTED\"").contains("\"0\"");
         assertThat(text.lines().toList().get(1)).startsWith("\"C27\",\"1\",\"NOT_SELECTED\"");
+    }
+
+    // A package without PastHealth must not be read as carrying the screening history: CARLOS
+    // keeps screenings with the vaccines, but CDS carries them only as PastHealth procedures.
+    @Test void shouldStateScreeningsAreNotIncluded_whenPastHealthWasNotSelected() throws Exception {
+        var readMe = new ByteArrayOutputStream();
+        Set<CdsCategory> categories = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS);
+        var patient = new CdsExportPatientSummaryDto(patient("C27", "First"),
+                Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.IMMUNIZATIONS, 0L),
+                null, null, "a".repeat(64), 123);
+        composer.compose(readMe, new ByteArrayOutputStream(), metadata(categories),
+                List.of(physician(1)).iterator(), List.of(patient).iterator(), () -> {});
+        assertThat(readMe.toString(StandardCharsets.UTF_8))
+                .contains("Prevention screenings (exported only as PastHealth): \"NOT_SELECTED\"");
     }
 
     @Test void shouldRejectMissingSelectedCategoryCounts_insteadOfTreatingThemAsZero() {

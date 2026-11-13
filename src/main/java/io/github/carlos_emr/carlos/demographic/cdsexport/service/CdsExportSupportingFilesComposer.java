@@ -43,6 +43,8 @@ import java.util.Objects;
  * on failure; successful composition alone never authorizes package publication or audit access.
  */
 public final class CdsExportSupportingFilesComposer {
+    /** ReadMe field naming where CARLOS prevention screenings travel in a CDS package. */
+    public static final String SCREENINGS = "Prevention screenings (exported only as PastHealth)";
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsExportPathComposer paths = new CdsExportPathComposer();
 
@@ -84,6 +86,12 @@ public final class CdsExportSupportingFilesComposer {
                         .filter(metadata.categories()::contains)
                         .map(CdsCategory::wireName)
                         .collect(java.util.stream.Collectors.joining(", ")));
+        // Screenings are CARLOS preventions, but CDS carries them only as PastHealth procedures;
+        // say so, so an Immunizations-only package is not read as holding the screening history.
+        line(
+                readMe,
+                SCREENINGS,
+                metadata.categories().contains(CdsCategory.PAST_HEALTH) ? "INCLUDED" : "NOT_SELECTED");
         line(readMe, "Audit information access after migration", metadata.auditAccessDescription());
         // A partial transfer must say so inside the package itself, not only in the sender's ledger.
         line(readMe, "Held patients not in this package", Long.toString(metadata.heldPatients().size()));
