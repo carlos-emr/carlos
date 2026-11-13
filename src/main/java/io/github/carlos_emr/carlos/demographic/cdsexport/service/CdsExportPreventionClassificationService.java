@@ -21,34 +21,60 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.*;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-/** Complete frozen metadata classification after both authenticated EOFs, protected configuration and final live authority. No clinical serialization or coverage claim. */
+/**
+ * Complete frozen metadata classification after both authenticated EOFs, protected configuration
+ * and final live authority. No clinical serialization or coverage claim. With Immunizations
+ * selected, a row the classification cannot place is an immunization when an authenticated
+ * import receipt among the captured {@code cds_import_unit} rows proves it was imported from a
+ * CDS Immunizations element, exactly as capture-time selection decided
+ * ({@link CdsExportImmunizationImportReceipts}).
+ */
 @Service
 public class CdsExportPreventionClassificationService {
     private final CdsExportNativeCaptureService captures;
     private final CdsExportPreventionConfigurationService configuration;
     private final CdsExportCapturedTextRowsReader rows;
+    private final CdsNativeBaselineKeys keys;
 
     @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionClassificationService(
             CdsExportNativeCaptureService captures,
-            CdsExportPreventionConfigurationService configuration) {
-        this(captures, configuration, new CdsExportCapturedTextRowsReader(captures));
+            CdsExportPreventionConfigurationService configuration,
+            @Qualifier("cdsExportProperties") Properties settings) {
+        this(
+                captures,
+                configuration,
+                new CdsExportCapturedTextRowsReader(captures),
+                CdsNativeBaselineKeys.fromProperties(settings));
+    }
+
+    /** Without installation keys: a sealed witness that must be opened refuses the job. */
+    CdsExportPreventionClassificationService(
+            CdsExportNativeCaptureService captures,
+            CdsExportPreventionConfigurationService configuration,
+            CdsExportCapturedTextRowsReader rows) {
+        this(captures, configuration, rows, CdsNativeBaselineKeys.of(null, Map.of()));
     }
 
     CdsExportPreventionClassificationService(
             CdsExportNativeCaptureService captures,
             CdsExportPreventionConfigurationService configuration,
-            CdsExportCapturedTextRowsReader rows) {
+            CdsExportCapturedTextRowsReader rows,
+            CdsNativeBaselineKeys keys) {
         this.captures = Objects.requireNonNull(captures);
         this.configuration = Objects.requireNonNull(configuration);
         this.rows = Objects.requireNonNull(rows);
+        this.keys = Objects.requireNonNull(keys);
     }
 
     public CdsExportPreventionScopePlanner.Result classify(
@@ -157,10 +183,69 @@ public class CdsExportPreventionClassificationService {
         if (!actual.equals(source.capture()))
             throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
         var result =
-                new CdsExportPreventionScopePlanner().plan(patient.patient(), classifier, metadata);
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                patient.patient(),
+                                classifier,
+                                metadata,
+                                candidates ->
+                                        imported(
+                                                lease,
+                                                patient,
+                                                requiredTables,
+                                                source,
+                                                maximumFields,
+                                                maximumBytes,
+                                                control,
+                                                candidates));
         captures.authorizeSources(lease, patient, requiredTables, control);
         patient.require(lease);
         control.checkpoint();
         return result;
+    }
+
+    /**
+     * Candidate rows proved by the captured Immunizations import receipts. The capture copies the
+     * patient's Immunizations units only when that category is selected, which is also the only
+     * case in which capture-time selection consults them.
+     */
+    private Set<Integer> imported(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patient,
+            Set<String> requiredTables,
+            CdsExportPatientCaptureDto source,
+            long maximumFields,
+            long maximumBytes,
+            CdsExportRunControl control,
+            Set<Integer> candidates)
+            throws IOException {
+        if (!lease.document().command().categories().contains(CdsCategory.IMMUNIZATIONS)
+                || !requiredTables.contains(CdsExportImmunizationImportReceipts.TABLE))
+            return Set.of();
+        var proof =
+                new CdsExportImmunizationImportReceipts.Proof(patient.patient(), candidates, keys);
+        var actual =
+                rows.forEach(
+                        lease,
+                        patient,
+                        requiredTables,
+                        CdsExportImmunizationImportReceipts.TABLE,
+                        source.manifest(),
+                        maximumFields,
+                        maximumBytes,
+                        CdsExportImmunizationImportReceipts.MAX_UNIT_ROW_BYTES,
+                        control,
+                        row -> {
+                            if (!CdsExportImmunizationImportReceipts.TABLE.equals(row.table())
+                                    || !row.fields()
+                                            .keySet()
+                                            .equals(CdsExportImmunizationImportReceipts.COLUMNS))
+                                throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
+                            control.checkpoint();
+                            proof.accept(row.fields());
+                        });
+        if (!actual.equals(source.capture()))
+            throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
+        return proof.proven();
     }
 }

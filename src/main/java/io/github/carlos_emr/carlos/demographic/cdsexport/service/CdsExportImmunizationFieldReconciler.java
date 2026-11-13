@@ -212,8 +212,15 @@ public final class CdsExportImmunizationFieldReconciler {
                                 .definition(nativeType)
                                 .map(CdsExportPreventionClassifier.Definition::healthCanadaType)
                                 .orElse(null);
+                // The importer writes the catch-all type for any incoming ImmunizationType that
+                // its configuration did not map, absent included (review F10). The sealed baseline
+                // then witnesses that projection itself: today's declaration for the catch-all
+                // says nothing about the original element, which is exported unchanged. A native
+                // type change still fails the baseline match below and holds the patient.
+                boolean catchAll =
+                        CdsExportImmunizationMapper.CATCH_ALL_TYPE.equals(nativeType);
                 proved &=
-                        Objects.equals(declared, prepared.type())
+                        (catchAll || Objects.equals(declared, prepared.type()))
                                 && CdsExportImmunizationProjectionEvidence.matches(
                                         root.baseline(), "prevention_type", nativeType);
                 unchanged &= !root.difference().changedColumns().contains("prevention_type");

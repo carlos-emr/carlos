@@ -42,6 +42,12 @@ import org.springframework.transaction.support.*;
  * are read once within the same bounded source snapshot. Nothing survives transaction completion;
  * nested or foreign transactions cannot reuse this state. This is selection, not captured evidence
  * or permission. Finished encrypted source must independently reprove the complete partition.
+ *
+ * <p>When Immunizations is selected, a row the classification cannot place is an immunization if
+ * an authenticated import receipt proves it was imported from a CDS Immunizations element. The
+ * receipts are the patient's {@code cds_import_unit} rows read through their owning DAO in this
+ * same snapshot, the rows the capture itself copies, so the finished-capture reclassification
+ * reaches the same partition ({@link CdsExportImmunizationImportReceipts}).
  */
 @Service
 public class CdsExportPreventionSnapshotService {
@@ -51,21 +57,74 @@ public class CdsExportPreventionSnapshotService {
     private final CVCImmunizationDao vaccines;
     private final CVCMappingDao mappings;
     private final PreventionDao preventions;
+    private final CdsImportUnitDao units;
+    private final io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public CdsExportPreventionSnapshotService(
             @Qualifier("entityManagerFactory") EntityManagerFactory factory,
             CdsExportPreventionConfigurationLoader loader,
             CVCImmunizationDao vaccines,
             CVCMappingDao mappings,
+            PreventionDao preventions,
+            CdsImportUnitDao units,
+            @Qualifier("cdsExportProperties") java.util.Properties settings) {
+        this(
+                factory,
+                loader,
+                vaccines,
+                mappings,
+                preventions,
+                Objects.requireNonNull(units),
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys
+                        .fromProperties(settings));
+    }
+
+    /** Without import receipts: a receipt-proven imported vaccine stays a classification review. */
+    CdsExportPreventionSnapshotService(
+            EntityManagerFactory factory,
+            CdsExportPreventionConfigurationLoader loader,
+            CVCImmunizationDao vaccines,
+            CVCMappingDao mappings,
             PreventionDao preventions) {
+        this(
+                factory,
+                loader,
+                vaccines,
+                mappings,
+                preventions,
+                null,
+                (io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys) null);
+    }
+
+    CdsExportPreventionSnapshotService(
+            EntityManagerFactory factory,
+            CdsExportPreventionConfigurationLoader loader,
+            CVCImmunizationDao vaccines,
+            CVCMappingDao mappings,
+            PreventionDao preventions,
+            CdsImportUnitDao units,
+            io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKeys keys) {
         this.factory = Objects.requireNonNull(factory);
         this.loader = Objects.requireNonNull(loader);
         this.vaccines = Objects.requireNonNull(vaccines);
         this.mappings = Objects.requireNonNull(mappings);
         this.preventions = Objects.requireNonNull(preventions);
+        if ((units == null) != (keys == null))
+            throw new IllegalArgumentException("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+        this.units = units;
+        this.keys = keys;
     }
 
     State prepare(int patient, Runnable checkpoint) throws IOException {
+        return prepare(patient, checkpoint, false);
+    }
+
+    /**
+     * @param receipts whether Immunizations is selected, so the capture copies the patient's
+     *     Immunizations import units and an import receipt may prove an unplaced row
+     */
+    State prepare(int patient, Runnable checkpoint, boolean receipts) throws IOException {
         Object owner = transaction();
         if (patient < 1 || checkpoint == null) invalid();
         var existing = TransactionSynchronizationManager.getResource(key);
@@ -73,6 +132,7 @@ public class CdsExportPreventionSnapshotService {
             if (!(existing instanceof State)) invalid();
             var state = (State) existing;
             state.require(patient);
+            if (state.receipts != receipts) invalid();
             return state;
         }
         checkpoint.run();
@@ -117,7 +177,16 @@ public class CdsExportPreventionSnapshotService {
                             checkpoint);
             var definitions = CdsExportPreventionClassifier.forSelection(xml, catalogue);
             var selected =
-                    new CdsExportPreventionScopePlanner().select(patient, definitions, metadata);
+                    new CdsExportPreventionScopePlanner()
+                            .select(
+                                    patient,
+                                    definitions,
+                                    metadata,
+                                    receipts && units != null
+                                            ? candidates ->
+                                                    imported(patient, candidates, checkpoint)
+                                            : CdsExportPreventionScopePlanner.ImportedImmunizations
+                                                    .NONE);
             checkpoint.run();
             var state =
                     new State(
@@ -126,7 +195,8 @@ public class CdsExportPreventionSnapshotService {
                             xml,
                             definitions.configurationSha256(),
                             definitions.catalogueSha256(),
-                            selected);
+                            selected,
+                            receipts);
             TransactionSynchronizationManager.bindResource(key, state);
             try {
                 TransactionSynchronizationManager.registerSynchronization(
@@ -182,6 +252,7 @@ public class CdsExportPreventionSnapshotService {
         private final byte[] xml;
         private final String configurationSha256, catalogueSha256;
         private final CdsExportPreventionScopePlanner.Selection selection;
+        private final boolean receipts;
         private boolean closed;
 
         private State(
@@ -190,13 +261,15 @@ public class CdsExportPreventionSnapshotService {
                 byte[] xml,
                 String configurationSha256,
                 String catalogueSha256,
-                CdsExportPreventionScopePlanner.Selection selection) {
+                CdsExportPreventionScopePlanner.Selection selection,
+                boolean receipts) {
             this.patient = patient;
             this.owner = owner;
             this.xml = xml;
             this.configurationSha256 = configurationSha256;
             this.catalogueSha256 = catalogueSha256;
             this.selection = selection;
+            this.receipts = receipts;
         }
 
         private void require(int requested) {
@@ -361,6 +434,98 @@ public class CdsExportPreventionSnapshotService {
         }
         if (result.size() != count) invalid();
         return List.copyOf(result);
+    }
+
+    /**
+     * Candidate rows proved by the patient's applied Immunizations import receipts. The unit rows
+     * are the ones the capture copies from this snapshot; a large sealed witness is read only for
+     * a unit whose receipt names a candidate.
+     */
+    private Set<Integer> imported(int patient, Set<Integer> candidates, Runnable checkpoint)
+            throws IOException {
+        var proof = new CdsExportImmunizationImportReceipts.Proof(patient, candidates, keys);
+        var categories = Set.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                .IMMUNIZATIONS.wireName());
+        String after = null;
+        long rows = 0, bytes = 0;
+        while (true) {
+            checkpoint.run();
+            var page = units.findCdsExportRetainedRowsAfter(patient, categories, after, 32);
+            if (page.size() > 32) invalid();
+            for (var row : page) {
+                if (after != null && row.id().compareTo(after) <= 0
+                        || !row.cells().keySet().equals(CdsExportImmunizationImportReceipts.COLUMNS)
+                        || ++rows > 1_000_000) invalid();
+                String references =
+                        text(
+                                patient,
+                                categories,
+                                row,
+                                "target_references",
+                                CdsExportImmunizationImportReceipts.MAX_REFERENCE_BYTES);
+                String targetDigest = text(patient, categories, row, "target_digest", 64);
+                Integer id =
+                        proof.named(
+                                text(patient, categories, row, "category", 255),
+                                text(patient, categories, row, "state", 255),
+                                references,
+                                targetDigest,
+                                !row.cells().get("native_baseline").sqlNull());
+                if (id != null) {
+                    String sealed =
+                            text(
+                                    patient,
+                                    categories,
+                                    row,
+                                    "native_baseline",
+                                    io.github.carlos_emr.carlos.demographic.cds.contract
+                                            .CdsNativeBaselineCodec.MAX_SEALED_BYTES);
+                    if (sealed != null) {
+                        bytes += sealed.length();
+                        if (bytes > 64L << 20) invalid();
+                    }
+                    proof.witness(id, references, targetDigest, sealed);
+                }
+                after = row.id();
+            }
+            if (page.size() < 32) break;
+        }
+        return proof.proven();
+    }
+
+    /**
+     * Exact strict-UTF-8 text of one unit cell, or {@code null} for SQL NULL and for a value over
+     * its bound: an oversized value cannot prove anything here or in the captured copy.
+     */
+    private String text(
+            int patient,
+            Set<String> categories,
+            io.github.carlos_emr.carlos.commn.dto.CdsExportRawKeyRowDto row,
+            String column,
+            int maximum)
+            throws IOException {
+        var cell = row.cells().get(column);
+        if (cell.sqlNull() || cell.bytes() > maximum) return null;
+        byte[] value;
+        try (var input =
+                new CdsExportRawValueInputStream(
+                        cell,
+                        (offset, length) ->
+                                units.readCdsExportRetainedChunk(
+                                        patient, categories, row.id(), column, offset, length))) {
+            value = input.readNBytes(maximum + 1);
+            if (value.length != cell.bytes() || input.read() != -1) invalid();
+        }
+        try {
+            return StandardCharsets.UTF_8
+                    .newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(value))
+                    .toString();
+        } catch (CharacterCodingException failed) {
+            throw new IOException("CDS_EXPORT_PREVENTION_METADATA_UTF8_INVALID");
+        }
     }
 
     private static void program() {

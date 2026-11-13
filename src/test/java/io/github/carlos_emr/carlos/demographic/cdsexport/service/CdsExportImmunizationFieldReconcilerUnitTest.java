@@ -65,6 +65,12 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     private CdsExportRetainedReceiptVerificationDto checked;
     private List<CdsExportNativeRowReceiptDto> witnesses;
     private boolean withBaseline = true;
+    private String sourceType = "Td", nativeType = "Td";
+    private static final String CONFIGURATION =
+            "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/></preventions>";
+    private static final String CATCH_ALL_CONFIGURATION =
+            "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>";
+    private String configuration = CONFIGURATION;
 
     @BeforeEach
     void prepare() throws Exception {
@@ -75,7 +81,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
         source =
                 new CdsImmunizationDto(
                         "Original café vaccine",
-                        "Td",
+                        sourceType,
                         "Original maker",
                         null,
                         "IM",
@@ -89,10 +95,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         date);
         definitions =
                 CdsExportPreventionClassifier.fromCaptured(
-                        SOURCE,
-                        "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/></preventions>"
-                                .getBytes(StandardCharsets.UTF_8),
-                        List.of());
+                        SOURCE, configuration.getBytes(StandardCharsets.UTF_8), List.of());
         oldRoot = new LinkedHashMap<>();
         CdsExportPatientTableReadSupport.Plan.PREVENTIONS_FULL
                 .columns()
@@ -104,7 +107,7 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         "demographic_no",
                         "27",
                         "prevention_type",
-                        "Td",
+                        nativeType,
                         "provider_no",
                         "",
                         "deleted",
@@ -571,6 +574,83 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                 .hasMessage("CDS_EXPORT_IMMUNIZATION_ALIAS_REQUIRES_REVIEW");
     }
 
+    /**
+     * Review finding F10: the importer files a vaccine whose ImmunizationType is absent or not
+     * configured as the catch-all OtherA. Its sealed baseline witnesses that projection, so the
+     * original elements are exported (an absent type stays absent) and survive the receiving
+     * parser; a native type change still holds the patient.
+     */
+    private void catchAll(String type) throws Exception {
+        sourceType = type;
+        nativeType = "OtherA";
+        configuration = CATCH_ALL_CONFIGURATION;
+        prepare();
+    }
+
+    @Test
+    void shouldExportAnImportedCatchAllVaccineWithoutAType_fromItsOriginalElements() throws Exception {
+        catchAll(null);
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value())
+                .isEqualTo(new CdsExportPreparedImmunizationMapper().map(source));
+        assertThat(result.mapping().value().type()).isNull();
+        assertThat(result.preparedPaths()).contains("ImmunizationType", "ImmunizationName");
+        var key =
+                new CdsExportNativeFieldKeyDto(
+                        "preventions",
+                        CdsExportPatientTableSourceReader.key(17),
+                        "prevention_type");
+        assertThat(result.mapping().fields().get(key).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        for (var profile :
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile.values()) {
+            var received = roundTrip(result.mapping().value(), profile);
+            assertThat(received.type()).isNull();
+            assertThat(received.name()).isEqualTo(source.name());
+            assertThat(received.code()).isEqualTo(source.code());
+            assertThat(received.date().original()).isEqualTo("2024-02-29");
+        }
+    }
+
+    @Test
+    void shouldExportAnImportedCatchAllVaccine_withItsUnconfiguredOriginalType() throws Exception {
+        catchAll("Chol-O");
+        edit("comments").put("val", "Current notes");
+        var value = reconcile().mapping().value();
+        assertThat(value).isNotNull();
+        var received =
+                roundTrip(
+                        value,
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile
+                                .ONTARIO_MD_5_2);
+        assertThat(received.type()).isEqualTo("Chol-O");
+        assertThat(received.notes()).isEqualTo("Current notes");
+    }
+
+    @Test
+    void shouldHoldAnImportedCatchAllVaccine_whenItsNativeTypeChanged() throws Exception {
+        catchAll(null);
+        currentRoot.put("prevention_type", "HB");
+        var result = reconcile();
+        assertThat(result.mapping().value()).isNull();
+        var key =
+                new CdsExportNativeFieldKeyDto(
+                        "preventions",
+                        CdsExportPatientTableSourceReader.key(17),
+                        "prevention_type");
+        assertThat(result.mapping().fields().get(key).rule())
+                .isEqualTo("PREPARED_NATIVE_PROJECTION_NOT_PROVEN");
+    }
+
+    @Test
+    void shouldStillRequireTheDeclaredTypeToMatch_forAnImportedConfiguredVaccine() throws Exception {
+        // Outside the catch-all, today's declaration must still match the original type.
+        sourceType = "HB";
+        prepare();
+        assertThat(reconcile().mapping().value()).isNull();
+    }
+
     private CdsImmunizationDto roundTrip(
             CdsExportImmunizationDto value,
             io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile profile)
@@ -667,6 +747,24 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
 
     Fixture fixture(CdsTemporalDto date, String currentNotes) throws Exception {
         prepare(date);
+        return fixture(currentNotes);
+    }
+
+    /** An imported vaccine filed as the catch-all OtherA, with the given original type. */
+    Fixture catchAllFixture(CdsTemporalDto date, String type, String currentNotes)
+            throws Exception {
+        sourceType = type;
+        nativeType = "OtherA";
+        configuration = CATCH_ALL_CONFIGURATION;
+        prepare(date);
+        return fixture(currentNotes);
+    }
+
+    static String catchAllConfiguration() {
+        return CATCH_ALL_CONFIGURATION;
+    }
+
+    private Fixture fixture(String currentNotes) throws Exception {
         edit("comments").put("val", currentNotes);
         var result = reconcile();
         return new Fixture(

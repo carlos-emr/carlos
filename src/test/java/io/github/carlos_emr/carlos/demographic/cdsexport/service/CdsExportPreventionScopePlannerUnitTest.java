@@ -224,6 +224,122 @@ class CdsExportPreventionScopePlannerUnitTest {
         assertThat(result.toString()).doesNotContain("27", "Td", result.scopeSha256());
     }
 
+    private static CdsExportPreventionClassifier withCatchAll() throws IOException {
+        return CdsExportPreventionClassifier.fromCaptured(
+                "a".repeat(64),
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/><item name='OtherB' layout='PAPMAM' headingName='Other'/></preventions>"
+                        .getBytes(StandardCharsets.UTF_8),
+                List.of());
+    }
+
+    // Review finding F10: the importer files a vaccine with an absent or unconfigured
+    // ImmunizationType as OtherA, which the classification alone cannot prove.
+    @Test
+    void shouldSelectAReceiptProvenImportedCatchAllVaccine_asAnImmunization() throws Exception {
+        var asked = new ArrayList<Set<Integer>>();
+        var result =
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                27,
+                                withCatchAll(),
+                                List.of(row(1, "OtherA", null, null), row(2, "Td", "0", null)),
+                                candidates -> {
+                                    asked.add(candidates);
+                                    return Set.of(1);
+                                });
+        assertThat(asked).containsExactly(Set.of(1));
+        assertThat(result.immunizations()).containsExactlyInAnyOrder(1, 2);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.scopeSha256())
+                .isNotEqualTo(
+                        new CdsExportPreventionScopePlanner()
+                                .plan(
+                                        27,
+                                        withCatchAll(),
+                                        List.of(
+                                                row(1, "OtherA", null, null),
+                                                row(2, "Td", "0", null)))
+                                .scopeSha256());
+    }
+
+    @Test
+    void shouldHoldANativeCatchAllRow_withCategoryNotProven() throws Exception {
+        var result =
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                27,
+                                withCatchAll(),
+                                List.of(row(1, "OtherA", "0", null), row(2, "unknown", "0", null)),
+                                candidates -> Set.of());
+        assertThat(result.reviews())
+                .containsExactlyInAnyOrderEntriesOf(
+                        Map.of(
+                                1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN,
+                                2, CdsExportPreventionScopePlanner.Review.UNKNOWN_TYPE));
+        assertThat(result.immunizations()).isEmpty();
+        assertThat(result.representable()).isFalse();
+    }
+
+    @Test
+    void shouldNeverLetAnImportReceiptOverrideAProgramRestrictionOrAPlacedRow_forPreventionScopePlannerContract()
+            throws Exception {
+        var result =
+                new CdsExportPreventionScopePlanner()
+                        .plan(
+                                27,
+                                withCatchAll(),
+                                List.of(
+                                        row(1, "OtherA", "1", "5"),
+                                        row(2, "OtherB", "0", null),
+                                        row(3, "Td", "0", null)),
+                                candidates -> {
+                                    throw new AssertionError("No row needs a receipt");
+                                });
+        assertThat(result.reviews())
+                .containsExactlyEntriesOf(
+                        Map.of(1, CdsExportPreventionScopePlanner.Review.PROGRAM_SCOPE));
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.immunizations()).containsExactly(3);
+    }
+
+    @Test
+    void shouldRefuseAReceiptProofForARowThatWasNotACandidate_forPreventionScopePlannerContract() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportPreventionScopePlanner()
+                                        .plan(
+                                                27,
+                                                withCatchAll(),
+                                                List.of(
+                                                        row(1, "OtherA", "0", null),
+                                                        row(2, "OtherB", "0", null)),
+                                                candidates -> Set.of(1, 2)))
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldRefuseACorruptLaterRow_beforeAnyReceiptIsConsulted() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportPreventionScopePlanner()
+                                        .plan(
+                                                27,
+                                                withCatchAll(),
+                                                List.of(
+                                                        row(1, "OtherA", "0", null),
+                                                        changed(
+                                                                row(2, "Td", "0", null),
+                                                                "demographic_no",
+                                                                "28")),
+                                                candidates -> {
+                                                    throw new AssertionError("Consulted early");
+                                                }))
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
+    }
+
     private static CdsExportCapturedTextRowDto row(
             int id, String type, String flag, String program) {
         var values = new TreeMap<String, String>();

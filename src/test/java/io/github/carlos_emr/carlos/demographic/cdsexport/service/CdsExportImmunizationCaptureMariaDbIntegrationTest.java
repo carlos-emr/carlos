@@ -73,6 +73,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     private PartialDateDaoImpl precision;
     private CdsExportPreventionSnapshotService snapshots;
     private final String largeText = "Chosen café 😀\r\n".repeat(10000);
+    private final String run = UUID.randomUUID().toString();
+    private boolean seededImport;
 
     private java.util.Set<Integer> vaccineIds() {
         return java.util.Set.of(first, first + 2);
@@ -114,7 +116,8 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                                     PreventionExt.class.getName(),
                                     PartialDate.class.getName(),
                                     CVCImmunization.class.getName(),
-                                    CVCMapping.class.getName()));
+                                    CVCMapping.class.getName(),
+                                    CdsImportUnit.class.getName()));
                     factory.setJpaPropertyMap(
                             Map.of(
                                     "hibernate.hbm2ddl.auto",
@@ -132,7 +135,12 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                         new JpaTransactionManager(
                                 context.getBean(jakarta.persistence.EntityManagerFactory.class)));
         context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
+        // The snapshot reads the patient's import receipts (review F10); no key root is needed
+        // here because the receipt scenario seals its synthetic witness with test keys.
+        context.registerBean(
+                "cdsExportProperties", Properties.class, () -> new Properties());
         context.register(
+                CdsImportUnitDao.class,
                 PreventionDaoImpl.class,
                 PreventionExtDaoImpl.class,
                 PartialDateDaoImpl.class,
@@ -240,6 +248,10 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
     @AfterEach
     void cleanup() throws Exception {
         try {
+            if (sql != null && seededImport)
+                for (String table : List.of("cds_import_unit", "cds_import_patient"))
+                    sql.update("delete from `" + table + "` where run_id=?", run);
+            if (sql != null && seededImport) sql.update("delete from cds_import_run where id=?", run);
             if (sql != null) {
                 for (int id : extIds)
                     sql.update(
@@ -576,6 +588,200 @@ class CdsExportImmunizationCaptureMariaDbIntegrationTest {
                         throw new UncheckedIOException(failed);
                     }
                 });
+    }
+
+    // Review finding F10: the importer files a vaccine with an absent or unconfigured type as
+    // OtherA. Its applied Immunizations import unit, read from the same snapshot through the
+    // owning DAO, proves the row was imported, so capture selects it as a vaccine.
+    @Test
+    void shouldCaptureAReceiptProvenImportedCatchAllVaccine_fromTheSnapshotsImportUnits()
+            throws Exception {
+        sql.update(
+                "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
+                first,
+                patient);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        seedImport(patient, CdsExportImmunizationImportReceiptFixture.unit(run, patient, first, keys));
+        var receipts =
+                new CdsExportPreventionSnapshotService(
+                        context.getBean(jakarta.persistence.EntityManagerFactory.class),
+                        context.getBean(CdsExportPreventionConfigurationLoader.class),
+                        context.getBean(CVCImmunizationDaoImpl.class),
+                        context.getBean(CVCMappingDaoImpl.class),
+                        dao,
+                        context.getBean(CdsImportUnitDao.class),
+                        keys);
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        var state = receipts.prepare(patient, () -> {}, true);
+                        assertThat(state.clinicalIds()).isEqualTo(vaccineIds());
+                        assertThat(state.selection().otherPreventions())
+                                .containsExactly(first + 1);
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+        // Without Immunizations the capture copies no Immunizations unit: the row stays held.
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        assertThat(receipts.prepare(patient, () -> {}, false).selection().reviews())
+                                .containsEntry(
+                                        first,
+                                        CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+    }
+
+    @Test
+    void shouldHoldACatchAllVaccine_whenTheImportReceiptBelongsToAnotherPatientsImport()
+            throws Exception {
+        sql.update(
+                "update preventions set prevention_type='OtherA' where id=? and demographic_no=?",
+                first,
+                patient);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        seedImport(patient + 1, CdsExportImmunizationImportReceiptFixture.unit(run, patient, first, keys));
+        var receipts =
+                new CdsExportPreventionSnapshotService(
+                        context.getBean(jakarta.persistence.EntityManagerFactory.class),
+                        context.getBean(CdsExportPreventionConfigurationLoader.class),
+                        context.getBean(CVCImmunizationDaoImpl.class),
+                        context.getBean(CVCMappingDaoImpl.class),
+                        dao,
+                        context.getBean(CdsImportUnitDao.class),
+                        keys);
+        read.executeWithoutResult(
+                status -> {
+                    try {
+                        var state = receipts.prepare(patient, () -> {}, true);
+                        assertThat(state.selection().reviews())
+                                .containsEntry(
+                                        first,
+                                        CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                        assertThatThrownBy(state::clinicalIds)
+                                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    } catch (IOException failed) {
+                        throw new UncheckedIOException(failed);
+                    }
+                });
+    }
+
+    /** One synthetic published import run whose patient targets {@code owner}. */
+    private void seedImport(int owner, Map<String, String> unit) {
+        seededImport = true;
+        var runRow = new LinkedHashMap<String, Object>();
+        runRow.putAll(
+                Map.of(
+                        "id",
+                        run,
+                        "submission_key",
+                        "f10-" + run,
+                        "operator",
+                        "f10-test",
+                        "provider_no",
+                        "999998",
+                        "profile",
+                        "omd-5.2",
+                        "source_namespace",
+                        "f10-" + run,
+                        "source_digest",
+                        "a".repeat(64),
+                        "options_digest",
+                        "b".repeat(64),
+                        "ruleset_digest",
+                        "c".repeat(64),
+                        "snapshot_location",
+                        "/synthetic/" + run));
+        runRow.putAll(
+                Map.of(
+                        "state",
+                        "COMPLETE",
+                        "report_state",
+                        "UNAVAILABLE",
+                        "cleanup_state",
+                        "RETAINED",
+                        "dry_run",
+                        0,
+                        "review_version",
+                        0,
+                        "discovery_complete",
+                        1,
+                        "discovered_files",
+                        1,
+                        "patient_xml_files",
+                        1,
+                        "source_bytes",
+                        100));
+        runRow.putAll(
+                Map.of(
+                        "expected_patients",
+                        1,
+                        "expected_units",
+                        1,
+                        "owner_epoch",
+                        1,
+                        "cancel_requested",
+                        0,
+                        "report_generation",
+                        0,
+                        "created_at",
+                        java.sql.Timestamp.from(java.time.Instant.now()),
+                        "updated_at",
+                        java.sql.Timestamp.from(java.time.Instant.now())));
+        insert("cds_import_run", runRow);
+        var patientRow =
+                new LinkedHashMap<String, Object>(
+                        Map.of(
+                                "id",
+                                CdsExportImmunizationImportReceiptFixture.sha("patient-" + run),
+                                "run_id",
+                                run,
+                                "patient_key",
+                                CdsExportImmunizationImportReceiptFixture.PATIENT_KEY,
+                                "source_patient_id",
+                                "SYNTHETIC-F10",
+                                "copy_key",
+                                "e".repeat(64),
+                                "lineage_key",
+                                "e".repeat(64),
+                                "source_digest",
+                                "c".repeat(64),
+                                "target_demographic_no",
+                                owner,
+                                "state",
+                                "COMPLETE",
+                                "held",
+                                0));
+        patientRow.put("expected_units", 1);
+        insert("cds_import_patient", patientRow);
+        var unitRow = new LinkedHashMap<String, Object>();
+        unit.forEach(
+                (column, value) -> {
+                    if (value != null) unitRow.put(column, value);
+                });
+        unitRow.put("ordinal", Integer.parseInt(unit.get("ordinal")));
+        insert("cds_import_unit", unitRow);
+    }
+
+    private void insert(String table, Map<String, Object> row) {
+        var columns = new ArrayList<>(row.keySet());
+        sql.update(
+                "insert into `"
+                        + table
+                        + "` (`"
+                        + String.join("`,`", columns)
+                        + "`) values ("
+                        + String.join(",", Collections.nCopies(columns.size(), "?"))
+                        + ")",
+                columns.stream().map(row::get).toArray());
     }
 
     @Test

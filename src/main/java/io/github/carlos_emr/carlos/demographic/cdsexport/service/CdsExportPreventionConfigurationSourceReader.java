@@ -100,7 +100,10 @@ public class CdsExportPreventionConfigurationSourceReader implements CdsExportNa
     @Override
     public long count(int patient, Runnable checkpoint) {
         try {
-            snapshots.prepare(patient, checkpoint);
+            // An Immunizations capture also copies the patient's Immunizations import units, so
+            // their receipts may prove a row the classification cannot place (review F10).
+            snapshots.prepare(
+                    patient, checkpoint, selected.contains(CdsCategory.IMMUNIZATIONS));
             return 1;
         } catch (IOException failed) {
             throw new UncheckedIOException(failed);

@@ -262,10 +262,32 @@ class CdsExportImmunizationRetainedAssemblerUnitTest {
     }
 
     Fixture fixture(int patientOrdinal, CdsTemporalDto date, String currentNotes) throws Exception {
-        var base = new CdsExportImmunizationFieldReconcilerUnitTest().fixture(date, currentNotes);
+        return fixture(
+                patientOrdinal,
+                new CdsExportImmunizationFieldReconcilerUnitTest().fixture(date, currentNotes),
+                date);
+    }
+
+    /** Review finding F10: an imported vaccine the importer filed as the catch-all OtherA. */
+    Fixture catchAllFixture(int patientOrdinal, CdsTemporalDto date, String type, String notes)
+            throws Exception {
+        return fixture(
+                patientOrdinal,
+                new CdsExportImmunizationFieldReconcilerUnitTest()
+                        .catchAllFixture(date, type, notes),
+                date);
+    }
+
+    private Fixture fixture(
+            int patientOrdinal,
+            CdsExportImmunizationFieldReconcilerUnitTest.Fixture base,
+            CdsTemporalDto date)
+            throws Exception {
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field(patientOrdinal, "ImmunizationName[1]", "cds", base.source().name()));
-        fields.add(field(patientOrdinal, "ImmunizationType[1]", "cds", base.source().type()));
+        // An absent ImmunizationType retained no source field.
+        if (base.source().type() != null)
+            fields.add(field(patientOrdinal, "ImmunizationType[1]", "cds", base.source().type()));
         fields.add(field(patientOrdinal, "Manufacturer[1]", "cds", base.source().manufacturer()));
         fields.add(field(patientOrdinal, "Route[1]", "cds", base.source().route()));
         fields.add(field(patientOrdinal, "Site[1]", "cds", base.source().site()));

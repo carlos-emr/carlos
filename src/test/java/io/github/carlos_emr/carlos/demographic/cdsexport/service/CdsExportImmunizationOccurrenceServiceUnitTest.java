@@ -129,6 +129,31 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         assertThat(f.receipts.getFirst().importedUnit()).isNotNull();
     }
 
+    // Review finding F10: the receipt-proven OtherA row reaches this service as an immunization
+    // and is written from its retained original elements, with every source field accounted.
+    @Test
+    void shouldReexportAnImportedCatchAllVaccine_withoutAHoldAndThroughTheReceivingParser()
+            throws Exception {
+        var f = catchAllFixture(null, "Current note");
+        var records = parse(compose(f, false));
+        var value =
+                new CdsClinicalNormalizationService(new CdsFieldParser())
+                        .immunization(records.get(1));
+        assertThat(value.type()).isNull();
+        assertThat(value.name()).isEqualTo("Original café vaccine");
+        assertThat(value.notes()).isEqualTo("Current note");
+        assertThat(value.code()).isEqualTo("00123456");
+        assertThat(f.result.importedRows()).isEqualTo(1);
+        assertThat(f.result.retainedSourceFields()).isEqualTo(f.retained.size());
+        assertThat(f.receipts).singleElement().satisfies(r -> assertThat(r.importedUnit()).isNotNull());
+        var typed = catchAllFixture("Chol-O", "Current note");
+        assertThat(
+                        new CdsClinicalNormalizationService(new CdsFieldParser())
+                                .immunization(parse(compose(typed, false)).get(1))
+                                .type())
+                .isEqualTo("Chol-O");
+    }
+
     @Test
     void shouldVerifyImportedClearNeverReplaysOldNotes_forImmunizationOccurrenceServiceContract()
             throws Exception {
@@ -444,6 +469,17 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
     }
 
     private Fixture fixture(boolean imported, String notes, String year) throws Exception {
+        return fixture(imported, notes, year, false, null);
+    }
+
+    /** Review finding F10: an imported vaccine the importer filed as the catch-all OtherA. */
+    private Fixture catchAllFixture(String type, String notes) throws Exception {
+        return fixture(true, notes, null, true, type);
+    }
+
+    private Fixture fixture(
+            boolean imported, String notes, String year, boolean catchAll, String type)
+            throws Exception {
         var f = new Fixture();
         var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS);
         var command =
@@ -477,8 +513,17 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
                 year == null
                         ? CdsTemporal.parse(null, null, "2024-02-29", null, "Date")
                         : CdsTemporal.parse(year, null, null, null, "Date");
-        var base = new CdsExportImmunizationFieldReconcilerUnitTest().fixture(date, notes);
-        var saved = new CdsExportImmunizationRetainedAssemblerUnitTest().fixture(2, date, notes);
+        var base =
+                catchAll
+                        ? new CdsExportImmunizationFieldReconcilerUnitTest()
+                                .catchAllFixture(date, type, notes)
+                        : new CdsExportImmunizationFieldReconcilerUnitTest().fixture(date, notes);
+        var saved =
+                catchAll
+                        ? new CdsExportImmunizationRetainedAssemblerUnitTest()
+                                .catchAllFixture(2, date, type, notes)
+                        : new CdsExportImmunizationRetainedAssemblerUnitTest()
+                                .fixture(2, date, notes);
         CdsExportRetainedIndexDto index;
         CdsExportRetainedReceiptVerificationDto checked;
         if (imported) {
@@ -544,7 +589,14 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         when(generation.values()).thenReturn(file("1", "SOURCE_VALUES"));
         when(generation.index()).thenReturn(file("2", "SOURCE_INDEX"));
         f.source = new CdsExportPatientCaptureDto(generation, file("3", "SOURCE_MANIFEST"));
-        var definitions = definitions(SOURCE);
+        var definitions =
+                catchAll
+                        ? CdsExportPreventionClassifier.fromCaptured(
+                                SOURCE,
+                                CdsExportImmunizationFieldReconcilerUnitTest.catchAllConfiguration()
+                                        .getBytes(StandardCharsets.UTF_8),
+                                List.of())
+                        : definitions(SOURCE);
         when(f.configurations.readEmbedded(
                         any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(definitions);

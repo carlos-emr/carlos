@@ -312,6 +312,184 @@ class CdsExportPreventionClassificationServiceUnitTest {
                 .hasMessage("EMBEDDED_PLAN_REVOKED");
     }
 
+    // Review finding F10: an imported vaccine filed as the catch-all OtherA type.
+    private static final Set<String> UNIT_TABLES =
+            Set.of("preventions_scope", "CVCImmunization", "CVCMapping", "cds_import_unit");
+
+    private List<Map<String, String>> units = List.of();
+
+    private CdsExportPreventionScopePlanner.Result classifyWithReceipts(
+            Set<CdsCategory> categories) throws Exception {
+        metadata = List.of(row(1, "OtherA"), row(2, "PAP"));
+        var scopes = new HashMap<>(generation.tables());
+        scopes.put(
+                "cds_import_unit",
+                new CdsExportCapturedTableDto(
+                        CdsExportImmunizationImportReceipts.COLUMNS, units.size(), "a".repeat(64)));
+        when(generation.tables()).thenReturn(Map.copyOf(scopes));
+        var selected = lease(categories);
+        when(configuration.readEmbedded(
+                        selected, patient, UNIT_TABLES, source, 1000, 4L << 20, control))
+                .thenReturn(catchAll(source.manifest().plaintextSha256()));
+        when(rows.forEach(
+                        eq(selected),
+                        eq(patient),
+                        eq(UNIT_TABLES),
+                        anyString(),
+                        eq(source.manifest()),
+                        anyLong(),
+                        anyLong(),
+                        anyInt(),
+                        eq(control),
+                        any()))
+                .thenAnswer(
+                        call -> {
+                            CdsExportCapturedTextRowsReader.Rows sink = call.getArgument(9);
+                            if ("preventions_scope".equals(call.getArgument(3)))
+                                for (var row : metadata) sink.accept(row);
+                            else if ("cds_import_unit".equals(call.getArgument(3)))
+                                for (var unit : units)
+                                    sink.accept(
+                                            CdsExportImmunizationImportReceiptFixture.captured(
+                                                    unit));
+                            else throw new AssertionError("Unexpected captured table");
+                            return generation;
+                        });
+        return new CdsExportPreventionClassificationService(
+                        captures,
+                        configuration,
+                        rows,
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys())
+                .classifyEmbedded(selected, patient, UNIT_TABLES, source, 1000, 4L << 20, control);
+    }
+
+    @Test
+    void shouldClassifyAReceiptProvenImportedCatchAllVaccine_asAnImmunization() throws Exception {
+        units =
+                List.of(
+                        CdsExportImmunizationImportReceiptFixture.unit(
+                                27,
+                                1,
+                                io.github.carlos_emr.carlos.demographic.cds.security
+                                        .CdsNativeBaselineTestKeys.keys()));
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
+        assertThat(result.immunizations()).containsExactly(1);
+        assertThat(result.otherPreventions()).containsExactly(2);
+        assertThat(result.reviews()).isEmpty();
+        assertThat(result.representable()).isTrue();
+    }
+
+    @Test
+    void shouldHoldANativeCatchAllVaccine_withCategoryNotProven() throws Exception {
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
+        assertThat(result.reviews())
+                .containsExactlyEntriesOf(
+                        Map.of(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN));
+        assertThat(result.immunizations()).isEmpty();
+    }
+
+    @Test
+    void shouldHoldACatchAllVaccine_whenItsImportReceiptDoesNotVerify() throws Exception {
+        // An authentic receipt for row 9, rewritten in the database to claim row 1.
+        units =
+                List.of(
+                        CdsExportImmunizationImportReceiptFixture.forged(
+                                27,
+                                9,
+                                1,
+                                io.github.carlos_emr.carlos.demographic.cds.security
+                                        .CdsNativeBaselineTestKeys.keys()));
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
+        assertThat(result.reviews())
+                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+        assertThat(result.representable()).isFalse();
+    }
+
+    @Test
+    void shouldHoldACatchAllVaccine_withProvenanceExtensionsButNoReceiptProof() throws Exception {
+        // The importer's cdsName/cdsDatePrecision extensions are editable chart rows: a legacy
+        // unit without a sealed witness proves nothing, and the extensions are never consulted.
+        units = List.of(CdsExportImmunizationImportReceiptFixture.unwitnessed(27, 1));
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS));
+        assertThat(result.reviews())
+                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+        verify(rows, never())
+                .forEach(
+                        any(),
+                        any(),
+                        anySet(),
+                        eq("preventionsExt"),
+                        any(),
+                        anyLong(),
+                        anyLong(),
+                        anyInt(),
+                        any(),
+                        any());
+    }
+
+    @Test
+    void shouldNotConsultImportReceipts_whenImmunizationsIsNotSelected() throws Exception {
+        units =
+                List.of(
+                        CdsExportImmunizationImportReceiptFixture.unit(
+                                27,
+                                1,
+                                io.github.carlos_emr.carlos.demographic.cds.security
+                                        .CdsNativeBaselineTestKeys.keys()));
+        var result = classifyWithReceipts(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.PAST_HEALTH));
+        assertThat(result.reviews())
+                .containsEntry(1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+        verify(rows, never())
+                .forEach(
+                        any(),
+                        any(),
+                        anySet(),
+                        eq("cds_import_unit"),
+                        any(),
+                        anyLong(),
+                        anyLong(),
+                        anyInt(),
+                        any(),
+                        any());
+    }
+
+    private CdsExportLeaseDto lease(Set<CdsCategory> categories) {
+        var command =
+                new CdsExportCommand(
+                        "classify",
+                        "999998",
+                        null,
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportCommand.Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(27),
+                        categories,
+                        "recipient",
+                        "audit");
+        return new CdsExportLeaseDto(
+                lease.runId(),
+                1,
+                "a".repeat(64),
+                new CdsExportJobDocumentDto(
+                        2,
+                        new CdsExportActorDto("agent", "999998", null, null),
+                        command,
+                        "b".repeat(64),
+                        "sender",
+                        "c".repeat(64),
+                        "d".repeat(64),
+                        new CdsExportStorageBindingDto("primary", "primary", "a".repeat(64))));
+    }
+
+    private static CdsExportPreventionClassifier catchAll(String digest) throws IOException {
+        return CdsExportPreventionClassifier.fromCaptured(
+                digest,
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>"
+                        .getBytes(StandardCharsets.UTF_8),
+                List.of());
+    }
+
     private static CdsExportPreventionClassifier classifier(String digest) throws IOException {
         return CdsExportPreventionClassifier.fromCaptured(
                 digest,

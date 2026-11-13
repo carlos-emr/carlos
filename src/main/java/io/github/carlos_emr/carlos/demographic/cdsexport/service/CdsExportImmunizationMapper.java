@@ -54,6 +54,12 @@ public final class CdsExportImmunizationMapper {
     static final String RESIDUAL = "ResidualInfo";
 
     static final String CARRIED = "EXACT_NATIVE_PREVENTION_SOURCE_CONTEXT";
+
+    /**
+     * The catch-all injection type, and the CARLOS importer's fallback for a vaccine whose CDS
+     * ImmunizationType is absent or not configured (CdsImmunizationPersister.preventionType).
+     */
+    static final String CATCH_ALL_TYPE = "OtherA";
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     /**
@@ -158,7 +164,7 @@ public final class CdsExportImmunizationMapper {
         if (!byKey.containsKey("name")
                 && !byKey.containsKey("cdsName")
                 && nativeType != null
-                && !nativeType.equals("OtherA")
+                && !nativeType.equals(CATCH_ALL_TYPE)
                 && CdsExportNativeFieldAssessments.legal(nativeType, 120)) name = nativeType;
         if (name == null || name.isBlank())
             source.review("prevention_type", "ImmunizationName", "IMMUNIZATION_NAME_REQUIRED");

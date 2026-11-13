@@ -33,6 +33,13 @@ import java.util.*;
  * review partition cannot authorize clinical capture or complete export. The source adapter
  * must check program restrictions before loading type metadata; this planner is an additional
  * independent check of the subsequently authenticated frozen metadata, not a disclosure gate.
+ *
+ * <p>The one exception to classification is origin proof (review finding F10): an unrestricted
+ * row the classification cannot place, which an authenticated CARLOS import receipt proves was
+ * written from a CDS Immunizations element ({@link CdsExportImmunizationImportReceipts}), is an
+ * immunization; it then travels through the retained-import path, whose field reconciler still
+ * holds any native change it cannot represent. A program restriction is never overridden, and
+ * a row the classification places is never moved.
  */
 public final class CdsExportPreventionScopePlanner {
     static final Set<String> COLUMNS =
@@ -43,6 +50,18 @@ public final class CdsExportPreventionScopePlanner {
                     "snomedId",
                     "restrictToProgram",
                     "programNo");
+
+    /**
+     * Origin proof for rows the classification cannot place. It receives the candidate row ids
+     * (unrestricted rows classified for review) once, and returns the ids an authenticated import
+     * receipt proves are imported immunizations; a returned id outside the candidates is refused.
+     */
+    @FunctionalInterface
+    interface ImportedImmunizations {
+        ImportedImmunizations NONE = candidates -> Set.of();
+
+        Set<Integer> proven(Set<Integer> candidates) throws IOException;
+    }
 
     public enum Review {
         PROGRAM_SCOPE,
@@ -124,9 +143,18 @@ public final class CdsExportPreventionScopePlanner {
             CdsExportPreventionClassifier classifier,
             Iterable<CdsExportCapturedTextRowDto> metadata)
             throws IOException {
+        return plan(patient, classifier, metadata, ImportedImmunizations.NONE);
+    }
+
+    Result plan(
+            int patient,
+            CdsExportPreventionClassifier classifier,
+            Iterable<CdsExportCapturedTextRowDto> metadata,
+            ImportedImmunizations imported)
+            throws IOException {
         if (classifier == null) invalid();
         String binding = classifier.sourceManifestSha256();
-        var selected = partition(patient, classifier, metadata, binding);
+        var selected = partition(patient, classifier, metadata, binding, imported);
         return new Result(
                 patient,
                 binding,
@@ -144,22 +172,88 @@ public final class CdsExportPreventionScopePlanner {
             CdsExportPreventionClassifier classifier,
             Iterable<CdsExportCapturedTextRowDto> metadata)
             throws IOException {
-        return partition(patient, classifier, metadata, null);
+        return select(patient, classifier, metadata, ImportedImmunizations.NONE);
+    }
+
+    Selection select(
+            int patient,
+            CdsExportPreventionClassifier classifier,
+            Iterable<CdsExportCapturedTextRowDto> metadata,
+            ImportedImmunizations imported)
+            throws IOException {
+        return partition(patient, classifier, metadata, null, imported);
+    }
+
+    private record Classified(
+            int id,
+            String recordKey,
+            Map<String, String> fields,
+            boolean unrestricted,
+            CdsExportPreventionClassifier.Decision decision) {
+        @Override
+        public String toString() {
+            return "CdsExportPreventionScopePlanner.Classified[protected]";
+        }
     }
 
     private Selection partition(
             int patient,
             CdsExportPreventionClassifier classifier,
             Iterable<CdsExportCapturedTextRowDto> metadata,
-            String sourceBinding)
+            String sourceBinding,
+            ImportedImmunizations imported)
             throws IOException {
-        if (patient < 1 || classifier == null || metadata == null) invalid();
+        if (patient < 1 || classifier == null || metadata == null || imported == null) invalid();
+        // Every row is validated and classified before any receipt is consulted, so a corrupt or
+        // foreign later row is refused even when an earlier row would have needed a receipt.
+        var rows = new ArrayList<Classified>();
+        var candidates = new TreeSet<Integer>();
+        long total = 0;
+        String after = null;
+        for (var row : metadata) {
+            if (row == null
+                    || ++total > 10_000
+                    || !"preventions_scope".equals(row.table())
+                    || !row.fields().keySet().equals(COLUMNS)
+                    || !row.exactNumbers().isEmpty()
+                    || after != null && row.recordKey().compareTo(after) <= 0) invalid();
+            int id = integer(row.fields().get("id"));
+            if (!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
+                    || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
+                invalid();
+            String flag = row.fields().get("restrictToProgram"),
+                    program = row.fields().get("programNo"),
+                    type = row.fields().get("prevention_type"),
+                    code = row.fields().get("snomedId");
+            if (program != null) integer(program);
+            for (String value : row.fields().values())
+                if (value != null && !CdsExportNativeFieldAssessments.legal(value, 255))
+                    invalid();
+            // Historical NULL/no-program means no recorded restriction. Explicit false remains
+            // false even with an affiliation. An active/unknown flag never supplies a grant.
+            boolean unrestricted = "0".equals(flag) || flag == null && program == null;
+            var decision = classifier.classify(type, code);
+            if (unrestricted
+                    && decision.kind() == CdsExportPreventionClassifier.Kind.REQUIRES_REVIEW)
+                candidates.add(id);
+            rows.add(
+                    new Classified(
+                            id,
+                            row.recordKey(),
+                            new TreeMap<>(row.fields()),
+                            unrestricted,
+                            decision));
+            after = row.recordKey();
+        }
+        var proven =
+                candidates.isEmpty()
+                        ? Set.<Integer>of()
+                        : Set.copyOf(imported.proven(Set.copyOf(candidates)));
+        if (!candidates.containsAll(proven)) invalid();
         var selected = new HashSet<Integer>();
         var other = new HashSet<Integer>();
         var reviews = new HashMap<Integer, Review>();
         var digest = digest();
-        long total = 0;
-        String after = null;
         try (var output =
                 new DataOutputStream(
                         new DigestOutputStream(OutputStream.nullOutputStream(), digest))) {
@@ -168,37 +262,21 @@ public final class CdsExportPreventionScopePlanner {
             frame(output, sourceBinding);
             frame(output, classifier.configurationSha256());
             frame(output, classifier.catalogueSha256());
-            for (var row : metadata) {
-                if (row == null
-                        || ++total > 10_000
-                        || !"preventions_scope".equals(row.table())
-                        || !row.fields().keySet().equals(COLUMNS)
-                        || !row.exactNumbers().isEmpty()
-                        || after != null && row.recordKey().compareTo(after) <= 0) invalid();
-                int id = integer(row.fields().get("id"));
-                if (!CdsExportPatientTableSourceReader.key(id).equals(row.recordKey())
-                        || !Integer.toString(patient).equals(row.fields().get("demographic_no")))
-                    invalid();
-                String flag = row.fields().get("restrictToProgram"),
-                        program = row.fields().get("programNo"),
-                        type = row.fields().get("prevention_type"),
-                        code = row.fields().get("snomedId");
-                if (program != null) integer(program);
-                for (String value : row.fields().values())
-                    if (value != null && !CdsExportNativeFieldAssessments.legal(value, 255))
-                        invalid();
+            for (var row : rows) {
+                int id = row.id();
                 frame(output, row.recordKey());
-                for (var entry : new TreeMap<>(row.fields()).entrySet()) {
+                for (var entry : row.fields().entrySet()) {
                     frame(output, entry.getKey());
                     frame(output, entry.getValue());
                 }
-                // Historical NULL/no-program means no recorded restriction. Explicit false remains
-                // false even with an affiliation. An active/unknown flag never supplies a grant.
-                boolean unrestricted = "0".equals(flag) || flag == null && program == null;
-                var decision = classifier.classify(type, code);
-                if (!unrestricted) {
+                var decision = row.decision();
+                if (!row.unrestricted()) {
                     reviews.put(id, Review.PROGRAM_SCOPE);
                     frame(output, "REVIEW_PROGRAM_SCOPE");
+                } else if (proven.contains(id)) {
+                    // Receipt-proven imported vaccine the classification could not place.
+                    selected.add(id);
+                    frame(output, "IMMUNIZATION_IMPORT_RECEIPT_" + decision.rule().name());
                 } else
                     switch (decision.kind()) {
                         case IMMUNIZATION -> {
@@ -215,7 +293,6 @@ public final class CdsExportPreventionScopePlanner {
                         }
                         default -> throw new IOException("CDS_EXPORT_PREVENTION_SCOPE_INVALID");
                     }
-                after = row.recordKey();
             }
         }
         return new Selection(

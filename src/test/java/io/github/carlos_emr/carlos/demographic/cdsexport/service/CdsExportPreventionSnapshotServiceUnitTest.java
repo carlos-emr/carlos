@@ -314,6 +314,131 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                 .hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
     }
 
+    // Review finding F10: capture-time selection reads the same import receipts the finished
+    // capture reclassifies, so an imported OtherA vaccine is captured as an immunization.
+    private CdsExportPreventionSnapshotService withReceipts(
+            CdsImportUnitDao units, List<Map<String, String>> unitRows) throws Exception {
+        Files.writeString(
+                file,
+                "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='PAP' layout='PAPMAM' headingName='Screenings'/><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>");
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenReturn(List.of(raw(1, "OtherA"), raw(2, "PAP")));
+        var pages = new ArrayList<CdsExportRawKeyRowDto>();
+        for (var unit : unitRows) pages.add(CdsExportImmunizationImportReceiptFixture.raw(unit));
+        when(units.findCdsExportRetainedRowsAfter(eq(27), eq(Set.of("Immunizations")), any(), eq(32)))
+                .thenReturn(pages);
+        return new CdsExportPreventionSnapshotService(
+                factory,
+                new CdsExportPreventionConfigurationLoader(file.toString()),
+                vaccines,
+                mappings,
+                preventions,
+                units,
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys());
+    }
+
+    @Test
+    void shouldCaptureAReceiptProvenImportedCatchAllVaccine_asAnImmunization() throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var service =
+                withReceipts(
+                        units,
+                        List.of(
+                                CdsExportImmunizationImportReceiptFixture.unit(
+                                        27,
+                                        1,
+                                        io.github.carlos_emr.carlos.demographic.cds.security
+                                                .CdsNativeBaselineTestKeys.keys())));
+        transaction(
+                () -> {
+                    var state = service.prepare(27, () -> {}, true);
+                    assertThat(state.clinicalIds()).containsExactly(1);
+                    assertThat(state.screeningIds()).containsExactly(2);
+                    // One snapshot cannot be reused for a request that would not copy receipts.
+                    assertThatThrownBy(() -> service.prepare(27, () -> {}, false))
+                            .hasMessage("CDS_EXPORT_PREVENTION_SELECTION_INVALID");
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldHoldACatchAllVaccine_whenImmunizationsIsNotSelectedOrItsReceiptIsForged()
+            throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var keys =
+                io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys
+                        .keys();
+        var service =
+                withReceipts(
+                        units, List.of(CdsExportImmunizationImportReceiptFixture.unit(27, 1, keys)));
+        transaction(
+                () -> {
+                    var state = service.prepare(27, () -> {}, false);
+                    assertThat(state.selection().reviews())
+                            .containsEntry(
+                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    assertThatThrownBy(state::clinicalIds).hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+                    return null;
+                });
+        verifyNoInteractions(units);
+        var forged =
+                withReceipts(
+                        units,
+                        List.of(CdsExportImmunizationImportReceiptFixture.forged(27, 9, 1, keys)));
+        transaction(
+                () -> {
+                    assertThat(forged.prepare(27, () -> {}, true).selection().reviews())
+                            .containsEntry(
+                                    1, CdsExportPreventionScopePlanner.Review.CATEGORY_NOT_PROVEN);
+                    return null;
+                });
+    }
+
+    @Test
+    void shouldReadALargeSealedWitnessInSnapshotChunks_forPreventionSnapshotServiceContract()
+            throws Exception {
+        var units = mock(CdsImportUnitDao.class);
+        var unit =
+                CdsExportImmunizationImportReceiptFixture.unit(
+                        27,
+                        1,
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
+        var service = withReceipts(units, List.of());
+        var inline = CdsExportImmunizationImportReceiptFixture.raw(unit);
+        var cells = new TreeMap<>(inline.cells());
+        var witness = cells.get("native_baseline");
+        byte[] bytes = unit.get("native_baseline").getBytes(StandardCharsets.UTF_8);
+        cells.put(
+                "native_baseline",
+                new CdsExportRawCellDto(false, witness.bytes(), witness.sha256(), null));
+        when(units.findCdsExportRetainedRowsAfter(eq(27), eq(Set.of("Immunizations")), any(), eq(32)))
+                .thenReturn(List.of(new CdsExportRawKeyRowDto(inline.id(), cells)));
+        when(units.readCdsExportRetainedChunk(
+                        eq(27),
+                        eq(Set.of("Immunizations")),
+                        eq(inline.id()),
+                        eq("native_baseline"),
+                        anyLong(),
+                        anyInt()))
+                .thenAnswer(
+                        call -> {
+                            long offset = call.getArgument(4);
+                            int length = call.getArgument(5);
+                            return Arrays.copyOfRange(
+                                    bytes,
+                                    (int) offset,
+                                    (int) Math.min(bytes.length, offset + length));
+                        });
+        transaction(
+                () -> {
+                    assertThat(service.prepare(27, () -> {}, true).clinicalIds())
+                            .containsExactly(1);
+                    return null;
+                });
+    }
+
     private static CdsExportTableSchemaDto schema(String name) throws IOException {
         try (var input =
                 CdsExportPreventionSnapshotServiceUnitTest.class.getResourceAsStream(
