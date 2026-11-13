@@ -270,6 +270,15 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             when(mockLoggedInInfo.getLoggedInProviderNo()).thenReturn("123456");
         }
 
+        private void allowConfiguredBloodPressure() {
+            MeasurementType type = new MeasurementType();
+            type.setType("BP");
+            type.setMeasuringInstruction("Standing");
+
+            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("BP", "Standing"))
+                .thenReturn(List.of(type));
+        }
+
         @Test
         @DisplayName("should record a new measurement for an authorized patient")
         void shouldRecordMeasurement_whenAuthorizedForPatient() {
@@ -424,13 +433,19 @@ class MeasurementServiceEndpointTest extends CarlosRestTestBase {
             verifyNoInteractions(mockMeasurementManager);
         }
 
-        private void allowConfiguredBloodPressure() {
-            MeasurementType type = new MeasurementType();
-            type.setType("BP");
-            type.setMeasuringInstruction("Standing");
+        @Test
+        @DisplayName("should reject dateObserved outside the database DATETIME range")
+        void shouldReturn400_whenDateObservedIsOutsideDatabaseRange() {
+            allowMeasurementWrite();
+            when(mockDemographicDao.getDemographicById(123)).thenReturn(new Demographic());
+            allowConfiguredBloodPressure();
 
-            when(mockMeasurementTypeDao.findByTypeAndMeasuringInstruction("BP", "Standing"))
-                .thenReturn(List.of(type));
+            Response response = request().path("/measurements/123/new")
+                .post(Entity.json("{\"type\":\"BP\",\"dataField\":\"122/80\","
+                    + "\"dateObserved\":253402300800000}"));
+
+            assertThat(response.getStatus()).isEqualTo(400);
+            verifyNoInteractions(mockMeasurementManager);
         }
     }
 }

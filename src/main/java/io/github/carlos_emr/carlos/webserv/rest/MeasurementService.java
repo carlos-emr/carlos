@@ -132,6 +132,9 @@ public class MeasurementService extends AbstractServiceImpl {
     private io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService projections;
     private final EctValidation ectValidation = new EctValidation();
 
+    private static final long MIN_DATETIME_MILLIS = -30610224000000L;
+    private static final long MAX_DATETIME_MILLIS = 253402300799000L;
+
     /** Keeps the framework's public no-argument endpoint lifecycle and requires its projection guard. */
     @Autowired
     public void setCdsLegacyProjectionService(io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsLegacyProjectionService service) {
@@ -240,9 +243,16 @@ public class MeasurementService extends AbstractServiceImpl {
         }
         String comments = optionalText(json, "comments", 255);
         String instruction = optionalText(json, "measuringInstruction", 255);
-        if (json.has("dateObserved") && (!json.get("dateObserved").isIntegralNumber()
-                || !json.get("dateObserved").canConvertToLong())) {
-            throw new BadRequestException("dateObserved must be epoch milliseconds");
+        if (json.has("dateObserved")) {
+            if (!json.get("dateObserved").isIntegralNumber()
+                    || !json.get("dateObserved").canConvertToLong()) {
+                throw new BadRequestException("dateObserved must be epoch milliseconds");
+            }
+
+            long timestamp = json.get("dateObserved").longValue();
+            if (timestamp < MIN_DATETIME_MILLIS || timestamp > MAX_DATETIME_MILLIS) {
+                throw new BadRequestException("dateObserved is outside the supported database DATETIME range");
+            }
         }
 
         LoggedInInfo loggedInInfo = getLoggedInInfo();
