@@ -60,14 +60,27 @@ public final class CdsExportNativeHistoryXmlWriter {
                 CdsNativeExtensionContract.HISTORY_ARCHIVED,
                 "boolean",
                 Boolean.toString(value.archived()));
-        if (value.category() == CdsCategory.PERSONAL_HISTORY
-                && value.text().containsKey("NativePersonalNarrative"))
-            residualElement(
-                    xml,
-                    CdsNativeExtensionContract.HISTORY_NARRATIVE,
-                    "string",
-                    CdsNativeExtensionContract.encodeNarrative(
-                            value.text().get("NativePersonalNarrative")));
+        if (value.category() == CdsCategory.PERSONAL_HISTORY) {
+            String narrative = value.text().get("NativePersonalNarrative");
+            if (narrative != null)
+                residualElement(
+                        xml,
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                        "string",
+                        CdsNativeExtensionContract.encodeNarrative(narrative));
+            // The carrier above is an escaped JSON string that only CARLOS decodes; PersonalHistory
+            // has no other element, so the same text, with the item's CPP values, is also written
+            // in plain words for every other receiver.
+            String readable =
+                    CdsExportNativeHistoryMapper.readableText(
+                            narrative, value.text().get(CdsExportNativeHistoryMapper.STATEMENTS));
+            if (!readable.isEmpty())
+                residualElement(
+                        xml,
+                        CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT,
+                        CdsNativeExtensionContract.STRING_TYPE,
+                        readable);
+        }
         if (value.category() != CdsCategory.PERSONAL_HISTORY
                 && value.text().containsKey("NativeNarrative"))
             residualElement(

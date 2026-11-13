@@ -247,6 +247,56 @@ class CdsExportHistoryInteroperabilityUnitTest {
     }
 
     @Test
+    void shouldImportTheExactPersonalNarrative_andNeverItsPlainTextCopy() throws Exception {
+        // The export adds a whitespace-collapsed copy, with the item's Social History dates, for
+        // other EMRs; the receiving CARLOS restores the narrative from the exact carrier only.
+        String narrative = "FAKE lives alone.\n  Walks   daily café 😀";
+        var mapped =
+                new CdsExportNativeHistoryMapper()
+                        .map(
+                                27,
+                                CdsCategory.PERSONAL_HISTORY,
+                                List.of(
+                                        note(
+                                                91,
+                                                narrative,
+                                                "SocHistory",
+                                                List.of(
+                                                        dated(
+                                                                101,
+                                                                "Start Date",
+                                                                "YYYY",
+                                                                "2010-01-01 00:00:00")))),
+                                providers(),
+                                ZoneId.of("America/Toronto"));
+        byte[] xml = render(mapped.value());
+        assertThat(residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT))
+                .isEqualTo("FAKE lives alone. Walks daily café 😀 Start Date: 2010");
+        var imported = roundTrip(CdsCategory.PERSONAL_HISTORY, xml, "SocHistory");
+        assertThat(imported.note().getNote()).isEqualTo(narrative);
+        assertThat(imported.prepared().diagnostics())
+                .noneMatch(d -> d.code().equals("CDS_HISTORY_STRUCTURED_SOURCE_FIELDS"));
+        // A file carrying only the copy has no narrative for CARLOS: the importer files its
+        // placeholder, never the copy as the item's text.
+        byte[] copyOnly =
+                render(
+                        CdsCategory.PERSONAL_HISTORY,
+                        body -> {
+                            body.start("cds", "ResidualInfo");
+                            CdsExportNativeHistoryXmlWriter.residualElement(
+                                    body,
+                                    CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT,
+                                    CdsNativeExtensionContract.STRING_TYPE,
+                                    "FAKE plain copy");
+                            body.end();
+                        });
+        var placeholder = roundTrip(CdsCategory.PERSONAL_HISTORY, copyOnly, "SocHistory");
+        assertThat(placeholder.note().getNote()).doesNotContain("FAKE plain copy");
+        assertThat(placeholder.prepared().diagnostics())
+                .anyMatch(d -> d.code().equals("CDS_HISTORY_STRUCTURED_SOURCE_FIELDS"));
+    }
+
+    @Test
     void shouldRestoreLongNativeCppNarratives_insteadOfAPlaceholder() throws Exception {
         var tags =
                 Map.of(

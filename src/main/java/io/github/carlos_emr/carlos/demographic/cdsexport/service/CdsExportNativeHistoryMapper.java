@@ -62,6 +62,27 @@ public final class CdsExportNativeHistoryMapper {
                     "appointmentNo");
 
     /**
+     * The CPP editor's value fields (newEncounterLayout.jsp, CaseManagementEntry2Action
+     * {@code issueNoteSave}, NotesService), beside its three dates. "Hide Cpp" is not one: it is
+     * a display option of the chart's CPP boxes, as a prescription's hide-from-CPP flag is, and
+     * travels only in the item's revision context. Other keys (the importer's {@code cdsDate*}
+     * metadata rows) are not clinical values either.
+     */
+    private static final Set<String> CPP_VALUES =
+            Set.of(
+                    "Age at Onset",
+                    "Treatment",
+                    "Problem Status",
+                    "Exposure Details",
+                    "Relationship",
+                    "Life Stage",
+                    "Problem Description",
+                    "Procedure");
+
+    private static final Set<String> CPP_DATES =
+            Set.of("Start Date", "Resolution Date", "Procedure Date");
+
+    /**
      * Leads the text of a ClinicalNotes entry whose current revision is archived. CARLOS archives
      * a note by saving a new revision with {@code archived = 1} (the CPP editor's Archive button,
      * NotesService); the CPP boxes, CPP print and CPP text drop it, but the encounter note list
@@ -458,6 +479,9 @@ public final class CdsExportNativeHistoryMapper {
             if (observed != null) dates.put("EventDateTime", clock(observed, zone));
         } else if (category == CdsCategory.PERSONAL_HISTORY) {
             text.put("NativePersonalNarrative", body);
+            // PersonalHistory has no element but ResidualInfo, so no Notes either: its CPP values
+            // follow the narrative in the plain-text copy (CdsExportNativeHistoryXmlWriter).
+            if (!overflow.isEmpty()) text.put(STATEMENTS, String.join("\n\n", overflow));
         } else {
             String path = bodyPath(category);
             int cap = bodyMaximum(category);
@@ -909,6 +933,30 @@ public final class CdsExportNativeHistoryMapper {
         return value.replaceAll("[\t\n\r ]+", " ").strip();
     }
 
+    /**
+     * The plain-text copy of a PersonalHistory item ({@code CARLOS.History.NarrativeText.v1}):
+     * its narrative, then its {@link #STATEMENTS}, as the xs:token value residual Content keeps.
+     * Other receivers show {@code CARLOS.History.Narrative.v1} as an escaped JSON string. Empty
+     * when there is neither.
+     *
+     * @param narrative the item's exact narrative, or null when none is written
+     * @param statements the item's labelled CPP values, or null
+     */
+    static String readableText(String narrative, String statements) {
+        var parts = new ArrayList<String>();
+        if (narrative != null) parts.add(narrative);
+        if (statements != null) parts.add(statements);
+        return tokenValue(String.join("\n\n", parts));
+    }
+
+    /**
+     * Places one current CPP extension value: in its section's standard element when it has one
+     * and the value fits it, otherwise labelled in {@code overflow} (the item's Notes, or the
+     * plain-text copy of a PersonalHistory item, which has no Notes). The editor shows fields a
+     * section has no element for (Medical History's Treatment and Procedure, Family History's
+     * Resolution Date, Social History's dates), and a re-filed item keeps the values of its
+     * former section; none is left only in the CARLOS revision context.
+     */
     private static void extension(
             CdsCategory category,
             String key,
@@ -918,6 +966,8 @@ public final class CdsExportNativeHistoryMapper {
             Map<String, CdsExportDateDto> dates,
             Set<String> overflow)
             throws IOException {
+        // An encounter note carries every extension in its own text (the revision details).
+        if (category == CdsCategory.CLINICAL_NOTES) return;
         String datePath =
                 switch (key) {
                     case "Start Date" ->
@@ -939,8 +989,16 @@ public final class CdsExportNativeHistoryMapper {
                             category == CdsCategory.PAST_HEALTH ? "ProcedureDate" : null;
                     default -> null;
                 };
-        if (datePath != null && date != null) {
+        if (CPP_DATES.contains(key)) {
+            // A date row stores the date and its precision marker; with no date it names nothing.
+            if (date == null) return;
             var parsed = partialDate(date, value);
+            if (datePath == null) {
+                // No date element in this section (a family history's Resolution Date, a social
+                // history's dates): written in its precision, labelled, like any other value.
+                overflow.add(key + ":\n" + parsed.lexical());
+                return;
+            }
             var old = dates.putIfAbsent(datePath, parsed);
             if (old != null && !old.equals(parsed))
                 review("CDS_EXPORT_NATIVE_HISTORY_EXTENSION_CONFLICT");
@@ -976,7 +1034,12 @@ public final class CdsExportNativeHistoryMapper {
                             category == CdsCategory.PROBLEM_LIST ? "ProblemDescription" : null;
                     default -> null;
                 };
-        if (target == null) return;
+        if (target == null) {
+            // A CPP field with no element in this section (Medical History's Treatment and
+            // Procedure, ...) is written, labelled, as a value too long for its element is.
+            if (CPP_VALUES.contains(key)) overflow.add(key + ":\n" + value);
+            return;
+        }
         int maximum =
                 switch (target) {
                     case "Treatment", "ProblemDescription" -> 250;

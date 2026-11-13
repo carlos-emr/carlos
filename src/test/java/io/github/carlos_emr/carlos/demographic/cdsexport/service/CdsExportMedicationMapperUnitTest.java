@@ -283,6 +283,42 @@ class CdsExportMedicationMapperUnitTest {
     }
 
     @Test
+    void shouldReadTheParsersZeroDuration_asNotStatedOnTheSharedCandidate() throws Exception {
+        // RxUtil stores duration "0" when the directions name none, with the unit it deduced
+        // from a frequency (D for BID) or none at all; with no frequency the empty unit and
+        // frequency are stored as NULL by Drug's setters.
+        for (var saved :
+                List.of(
+                        Map.of("duration", "0", "durunit", "D", "freqcode", "BID"),
+                        Map.of("duration", "0", "freqcode", "BID"),
+                        Map.of("duration", "00", "durunit", "W", "freqcode", "BID"))) {
+            var fields = baseline();
+            fields.put("durunit", null);
+            fields.putAll(saved);
+            var mapped = mapper.map(27, medication(fields), List.of());
+            assertThat(mapped.nativeRowRepresentable()).as(saved.toString()).isTrue();
+            assertThat(mapped.value().fields())
+                    .doesNotContainKey(CdsExportMedicationDto.Field.Duration);
+            assertThat(mapped.fields().get(key("duration")).outcome())
+                    .isEqualTo(Outcome.OPERATIONAL);
+            assertThat(mapped.fields().get(key("duration")).rule())
+                    .isEqualTo("NATIVE_DURATION_NOT_STATED");
+            if (fields.get("durunit") != null)
+                assertThat(mapped.fields().get(key("durunit")).rule())
+                        .isEqualTo("NATIVE_DURATION_NOT_STATED");
+        }
+        // A unit with no duration at all (findDuration found none to derive) qualifies nothing.
+        var unitOnly = baseline();
+        unitOnly.put("duration", null);
+        var mapped = mapper.map(27, medication(unitOnly), List.of());
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        assertThat(mapped.fields().get(key("durunit")).outcome()).isEqualTo(Outcome.OPERATIONAL);
+        // An authored duration is unchanged.
+        assertThat(mapper.map(27, medication(baseline()), List.of()).value().fields())
+                .containsEntry(CdsExportMedicationDto.Field.Duration, "030");
+    }
+
+    @Test
     void shouldKeepMissingDateUnknown_andRejectSentinelsConflictsOrInventedPrecision()
             throws Exception {
         var fields = baseline();

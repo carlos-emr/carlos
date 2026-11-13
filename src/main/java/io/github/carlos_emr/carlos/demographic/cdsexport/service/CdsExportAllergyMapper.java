@@ -93,6 +93,14 @@ public final class CdsExportAllergyMapper {
 
     private static final Set<String> SEARCH_TYPES = Set.of("10", "11", "12", "14");
 
+    /**
+     * The ATC class category: an allergy filed under its class code (the Penicillin and Sulfa
+     * shortcuts, #4576), or an allergen picked under the allergy search's "ATC Class" heading,
+     * which is saved with its DrugRef search id and no class code (ChooseAllergy2.jsp posts none
+     * for a search result; RxAddAllergy2Action).
+     */
+    private static final String ATC_CLASS_TYPE = "8";
+
     /** Partial native values stay package-private; callers must retain every unresolved field disposition. */
     record Candidate(
             CdsExportAllergyDto value,
@@ -215,13 +223,16 @@ public final class CdsExportAllergyMapper {
                 if (CdsNativeExtensionContract.validAllergyAtc(code)) type = "ATC";
                 else source.review("atc", atcPath, "SINGLE_ATC_CODE_REQUIRES_REVIEW");
             }
+            String atc = source.raw("atc");
             if ("0".equals(typeCode))
                 source.operational("TYPECODE", "NATIVE_CATALOGUE_TYPE_UNSPECIFIED");
-            else if ("8".equals(typeCode) && type != null)
+            else if (ATC_CLASS_TYPE.equals(typeCode) && type != null)
                 source.set("TYPECODE", Outcome.MAPPED, atcPath, "EXPLICIT_ATC_CLASS_TYPE");
-            else if (SEARCH_TYPES.contains(typeCode))
+            else if (SEARCH_TYPES.contains(typeCode)
+                    || ATC_CLASS_TYPE.equals(typeCode) && (atc == null || atc.isEmpty()))
                 // Generic, ingredient and class search results name the allergen by their
-                // description; the search category is catalogue lookup metadata, not a code.
+                // description; the search category is catalogue lookup metadata, not a code. An
+                // "ATC Class" search result carries no class code, so it is one of them too.
                 source.operational("TYPECODE", "DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE");
             else if (BRAND_TYPE.equals(typeCode) && (din == null || din.isEmpty()))
                 // A brand chosen from the drug search whose DrugRef lookup returned no DIN:

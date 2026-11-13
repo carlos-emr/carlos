@@ -74,6 +74,7 @@ are added only after seal verification).
 | `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
 | `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |
 | `CARLOS.History.PersonalNarrative.v1` | string | PersonalHistory | Earlier raw narrative carrier, still read. |
+| `CARLOS.History.NarrativeText.v1` | string | PersonalHistory | Not interpreted: the exporter's whitespace-collapsed copy of the narrative (and Social History dates) for other EMRs. The narrative is restored from `CARLOS.History.Narrative.v1` only; the copy is retained as protected source data and never imported as a second value. |
 | `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |

@@ -78,6 +78,17 @@ public final class CdsNativeExtensionContract {
      */
     public static final String HISTORY_NARRATIVE = "CARLOS.History.Narrative.v1";
 
+    /**
+     * A PersonalHistory item in plain words, for receivers that do not decode {@link
+     * #HISTORY_NARRATIVE}: the exporter writes the narrative beside that carrier, followed by the
+     * item's CPP values that have no element there (Start Date, Resolution Date, ...), labelled
+     * as in Notes. Residual Content is {@code xs:token}, so the text is written whitespace
+     * collapsed, as every schema-aware reader keeps it. This copy is presentation only: a CARLOS
+     * importer restores the narrative from {@link #HISTORY_NARRATIVE} and never reads this one
+     * (CdsHistoryResidualReader ignores names it does not know).
+     */
+    public static final String HISTORY_NARRATIVE_TEXT = "CARLOS.History.NarrativeText.v1";
+
     private static final com.fasterxml.jackson.databind.ObjectMapper NARRATIVE_JSON =
             new com.fasterxml.jackson.databind.ObjectMapper()
                     .enable(

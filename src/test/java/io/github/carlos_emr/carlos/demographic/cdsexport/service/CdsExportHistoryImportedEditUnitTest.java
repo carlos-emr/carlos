@@ -251,6 +251,49 @@ class CdsExportHistoryImportedEditUnitTest {
     }
 
     @Test
+    void shouldRewriteThePlainTextCopy_whenAnImportedPersonalHistoryIsEdited() throws Exception {
+        // An item imported from a CARLOS export carries the carrier and its plain-text copy. The
+        // edit (a new narrative and a Social History start date) rewrites both; a stale copy
+        // beside the current carrier would show other EMRs the imported text.
+        imported(CdsCategory.PERSONAL_HISTORY, "SocHistory", false);
+        source("ResidualInfo[1]/DataElement[1]/Name[1]", CdsNativeExtensionContract.HISTORY_NARRATIVE);
+        source("ResidualInfo[1]/DataElement[1]/DataType[1]", "string");
+        source(
+                "ResidualInfo[1]/DataElement[1]/Content[1]",
+                CdsNativeExtensionContract.encodeNarrative("Imported narrative"));
+        source(
+                "ResidualInfo[1]/DataElement[2]/Name[1]",
+                CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT);
+        source("ResidualInfo[1]/DataElement[2]/DataType[1]", "string");
+        source("ResidualInfo[1]/DataElement[2]/Content[1]", "Imported narrative");
+        String narrative = "Lives alone.\n  Walks   daily";
+        String xml =
+                export(
+                        edited(
+                                92,
+                                Map.of("note", narrative),
+                                List.of(
+                                        extension(
+                                                301,
+                                                92,
+                                                "Start Date",
+                                                "YYYY",
+                                                "2010-01-01 00:00:00")),
+                                Map.of()));
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        assertThat(
+                        CdsExportNativeHistoryMapperUnitTest.residual(
+                                bytes, CdsNativeExtensionContract.HISTORY_NARRATIVE))
+                .isEqualTo(CdsNativeExtensionContract.encodeNarrative(narrative));
+        assertThat(
+                        CdsExportNativeHistoryMapperUnitTest.residual(
+                                bytes, CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT))
+                .isEqualTo("Lives alone. Walks daily Start Date: 2010");
+        // PersonalHistory has no Notes; the date is not written as one.
+        assertThat(xml).doesNotContain("<Notes>");
+    }
+
+    @Test
     void shouldExportADiagnosisAssignedToAnImportedCppItem_asItsCode() throws Exception {
         // B5: "Assign issues" links an ICD-9 diagnosis to the imported family history.
         imported(CdsCategory.FAMILY_HISTORY, "FamHistory", true);

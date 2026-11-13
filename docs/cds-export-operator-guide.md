@@ -280,8 +280,13 @@ history item longer than its description element (250 characters, 120 for a risk
 factor) has no description; its complete text is in Notes, and also in the versioned
 `CARLOS.History.Narrative.v1` residual (whitespace escaped), from which a CARLOS
 importer restores the item's exact text. Personal history, which CDS allows only as
-residual data, travels in the same carrier, so its line breaks survive; other
-schema-aware receivers collapse whitespace in residual content.
+residual data, travels in the same carrier, so a CARLOS importer restores it exactly, line
+breaks included. That carrier is an escaped JSON string (quotes, `\u0020` for each space,
+`\n` for each line break), which another EMR shows literally, so the same text is also
+written in plain words in `CARLOS.History.NarrativeText.v1`, followed by the item's Social
+History Start Date and Resolution Date; residual content is collapsed to single spaces by
+every schema-aware reader, so this copy is written that way. A CARLOS importer never reads the
+copy.
 
 Note access is decided per note, in the note's own program, because an export has no
 selected chart program. A note filed under a program needs the provider's single
@@ -471,14 +476,25 @@ fallback hides an outage.
 Ordinary prescription, allergy and CPP entries no longer hold a patient when the screen saved
 values a CDS element cannot hold: "Past medication" Yes beside status Active (both are sent as
 saved); a treatment type that disagrees with the short-term box; the as-needed box without a
-frequency (sent as frequency `PRN`); a dispense interval over 10 or a protocol over 20 characters
+frequency (sent as frequency `PRN`, as for "2 puffs prn"); directions that name no duration ("use
+as directed", "apply thin layer", "2 puffs prn", or "1 tab BID" with no length: the Rx page stores
+duration `0`, which is sent as no Duration, never as a 0-day course) and a duration typed without
+a unit (sent as no Duration; the exact values are in the CARLOS residual; a unit other than days,
+weeks, months or years still holds the patient); a dispense interval
+over 10 or a protocol over 20 characters
 (left out of its element, kept in the CARLOS residual); a prescription recorded for an outside
 provider (sent without a prescriber; the outside name and number are in the CARLOS residual); an
 allergy reaction over 120 characters
-(sent in full in the allergy's Notes); a brand allergy saved without a DIN; a CPP item with two
+(sent in full in the allergy's Notes); a brand allergy saved without a DIN; an allergen picked
+under the allergy search's "ATC Class" heading (named by its description, as the other search
+headings are); a CPP item with two
 or more assigned diagnoses (all listed in its Notes, none in the single code element); a
 free-text Age at Onset or an over-long Treatment, Exposure, Relationship or Problem Status (in the
-item's Notes). An item imported from a CDS file and then archived, edited, given a new issue or
+item's Notes); a CPP field its section has no element for, such as a Medical History Treatment or
+Procedure or a Family History Resolution Date (in the item's Notes, labelled), or a Social History
+Start or Resolution Date (in its plain-text copy, `CARLOS.History.NarrativeText.v1`). The CPP
+editor's "Hide Cpp" choice is a display setting and stays in the CARLOS residual only. An item
+imported from a CDS file and then archived, edited, given a new issue or
 CPP date, or (for an encounter note) given a new observation date in CARLOS is also exported. An
 imported CPP item moved into another CPP section is exported under its new section, with the
 elements of its imported record kept in the CARLOS residual. An allergy reaction over 120

@@ -48,6 +48,9 @@ public final class CdsExportMedicationMapper {
     private static final Set<String> TREATMENTS =
             Set.of("CHRON", "ACU", "ONET", "PRN Long-term", "PRN Short-term");
 
+    /** Rule of a duration the prescription does not state (see {@link #notStated}). */
+    static final String NOT_STATED = "NATIVE_DURATION_NOT_STATED";
+
     public CdsExportMedicationMappingDto map(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -163,14 +166,27 @@ public final class CdsExportMedicationMapper {
         }
         put(values, Field.DosageUnitOfMeasure, unit == null ? unitName : unit);
         text(source, values, "duration", Field.Duration);
+        String durationUnit = source.raw("durunit");
         if (values.containsKey(Field.Duration)) {
-            String durationUnit = source.raw("durunit");
             String rendered = duration(values.get(Field.Duration), durationUnit);
             if (!values.get(Field.Duration).matches("[0-9]+"))
                 source.review(
                         "duration", Field.Duration.name(), "NUMERIC_DAY_DURATION_REQUIRES_REVIEW");
-            else if (rendered == null
+            else if (notStated(values.get(Field.Duration))) {
+                // The Rx directions parser stores "0" when the directions name no duration ("use as
+                // directed", "2 puffs prn"; RxUtil), with the unit it deduced from a frequency or
+                // none at all (Drug.setDurUnit stores the empty unit as NULL). That is "not
+                // stated", never a 0-day course: no Duration is written, on the native and the
+                // reconciled paths alike.
+                values.remove(Field.Duration);
+                source.operational("duration", NOT_STATED);
+                if (!empty(durationUnit)) source.operational("durunit", NOT_STATED);
+            } else if (rendered == null
                     || !CdsExportNativeFieldAssessments.legal(rendered, Field.Duration.maximum())) {
+                // An amount without a CARLOS unit is never written as a bare number, which a
+                // receiver reads as days. The native mapper carries an amount saved with no unit
+                // in its residual; a unit CARLOS never writes stays a review.
+                values.remove(Field.Duration);
                 source.review("durunit", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
                 source.review("duration", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
             } else {
@@ -185,7 +201,9 @@ public final class CdsExportMedicationMapper {
                             default -> "CALENDAR_DURATION_UNIT_PRESERVED";
                         });
             }
-        }
+        } else if (empty(source.raw("duration")) && !empty(durationUnit))
+            // The unit the parser deduced from a frequency, with no duration to qualify.
+            source.operational("durunit", NOT_STATED);
         for (var pair :
                 Map.of(
                                 "long_term",
@@ -594,6 +612,35 @@ public final class CdsExportMedicationMapper {
             case "Y" -> amount + (one ? " year" : " years");
             default -> null;
         };
+    }
+
+    /**
+     * Whether a whole-number native duration states no course length: the Rx directions parser's
+     * {@code "0"}, which it stores whenever the directions name no duration, whatever unit it
+     * deduced from a frequency. Such a duration has no Duration element.
+     */
+    static boolean notStated(String amount) {
+        return amount != null
+                && amount.matches("[0-9]+")
+                && new java.math.BigInteger(amount).signum() == 0;
+    }
+
+    /**
+     * Whether a native duration names a unit CARLOS never writes (anything but D, W, M or Y), so
+     * its amount cannot be read as a length of time. A duration that is not stated ({@link
+     * #notStated}), and an amount saved with no unit at all, are not: they have no Duration
+     * element, and the native mapper carries their exact columns in its residual.
+     */
+    static boolean unknownDurationUnit(String amount, String unit) {
+        return amount != null
+                && amount.matches("[0-9]+")
+                && !notStated(amount)
+                && !empty(unit)
+                && duration(amount, unit) == null;
+    }
+
+    private static boolean empty(String value) {
+        return value == null || value.isEmpty();
     }
 
     private static void text(

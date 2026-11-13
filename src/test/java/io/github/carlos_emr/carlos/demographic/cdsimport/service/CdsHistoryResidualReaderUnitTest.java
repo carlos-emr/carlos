@@ -174,6 +174,46 @@ class CdsHistoryResidualReaderUnitTest {
     }
 
     @Test
+    void shouldRestoreThePersonalNarrativeFromItsCarrier_andNeverFromItsPlainTextCopy()
+            throws Exception {
+        // A CARLOS export writes PersonalHistory's narrative twice: exactly in the encoded
+        // carrier, and whitespace collapsed in CARLOS.History.NarrativeText.v1 for other EMRs.
+        String narrative = "FAKE lives alone.\n  Walks   daily";
+        var record =
+                parsed(
+                        "PersonalHistory",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.HISTORY_NARRATIVE,
+                                        "string",
+                                        CdsNativeExtensionContract.encodeNarrative(narrative))
+                                + element(
+                                        CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT,
+                                        "string",
+                                        "FAKE lives alone. Walks daily Start Date: 2010")
+                                + "</ResidualInfo>");
+        var result = new CdsHistoryResidualReader(fields).read(record);
+        assertThat(
+                        CdsNativeExtensionContract.decodeNarrative(
+                                fields.readLogicalText(record, result.narrative(), 1000)))
+                .isEqualTo(narrative);
+        assertThat(result.personalNarrative()).isNull();
+        // The copy alone is not a narrative carrier: the importer files no second value from it.
+        var copyOnly =
+                parsed(
+                        "PersonalHistory",
+                        "<ResidualInfo>"
+                                + element(
+                                        CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT,
+                                        "string",
+                                        "FAKE plain copy")
+                                + "</ResidualInfo>");
+        var ignored = new CdsHistoryResidualReader(fields).read(copyOnly);
+        assertThat(ignored.narrative()).isNull();
+        assertThat(ignored.personalNarrative()).isNull();
+    }
+
+    @Test
     void shouldEncodeNarrativeWhitespace_soTokenNormalizationCannotChangeIt() {
         String text = "Line one\n\tLine  two\r\n \"quoted\" café 😀 ";
         String encoded = CdsNativeExtensionContract.encodeNarrative(text);

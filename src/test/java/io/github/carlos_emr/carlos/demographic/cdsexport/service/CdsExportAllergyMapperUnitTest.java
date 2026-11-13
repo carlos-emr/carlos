@@ -248,6 +248,55 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
+    void shouldNameAnAllergenPickedUnderTheAtcClassHeading_byItsDescriptionInsteadOfHolding()
+            throws Exception {
+        // ChooseAllergy2.jsp: a search result under "ATC Class" (DrugRef category 8) posts its
+        // search id and no class code, so RxAddAllergy2Action stores TYPECODE 8, the search id
+        // in drugref_id and atc NULL, exactly as it stores a generic (11) or AHFS class (10) pick.
+        var fields = baseline();
+        fields.putAll(
+                Map.of(
+                        "TYPECODE", "8",
+                        "drugref_id", "4242",
+                        "DESCRIPTION", "FAKE-ATC class allergen",
+                        "nonDrug", "0"));
+        var picked = mapper.map(27, allergy(fields), List.of());
+        assertThat(picked.nativeRowRepresentable()).isTrue();
+        assertThat(picked.value().description()).isEqualTo("FAKE-ATC class allergen");
+        assertThat(picked.value().codeType()).isNull();
+        assertThat(picked.value().codeValue()).isNull();
+        assertThat(picked.fields().get(key("TYPECODE")).rule())
+                .isEqualTo("DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE");
+        assertThat(picked.fields().get(key("drugref_id")).rule())
+                .isEqualTo("DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(allergy(fields)), picked.fields(), 1000, () -> {});
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                                body -> new CdsExportAllergyXmlWriter().write(picked.value(), body)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains("FAKE-ATC class allergen")
+                .doesNotContain(CdsNativeExtensionContract.ALLERGY_ATC, "4242");
+        // An empty class code is no code either.
+        fields.put("atc", "");
+        assertThat(mapper.map(27, allergy(fields), List.of()).nativeRowRepresentable()).isTrue();
+        // A class allergen filed under its class code (the Penicillin and Sulfa shortcuts) still
+        // carries that code, and a malformed one still holds.
+        fields.put("atc", "J01C");
+        var shortcut = mapper.map(27, allergy(fields), List.of());
+        assertThat(shortcut.nativeRowRepresentable()).isTrue();
+        assertThat(shortcut.value().codeType()).isEqualTo("ATC");
+        assertThat(shortcut.value().codeValue()).isEqualTo("J01C");
+        assertThat(shortcut.fields().get(key("TYPECODE")).rule())
+                .isEqualTo("EXPLICIT_ATC_CLASS_TYPE");
+        fields.put("atc", "j01c");
+        assertThat(mapper.map(27, allergy(fields), List.of()).nativeRowRepresentable()).isFalse();
+    }
+
+    @Test
     void shouldDistinguishUnknownDrugPropertyFromDrugAndNonDrug_withoutTruthyOrEmptyCoercion()
             throws Exception {
         var fields = baseline();

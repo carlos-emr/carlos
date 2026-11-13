@@ -807,6 +807,214 @@ class CdsExportNativeHistoryMapperUnitTest {
                 Plan.CASE_NOTE_EXT, id, Map.of("note_id", "91", "key_val", key, "value", value));
     }
 
+    /** A CPP date as the editor saves it: its precision marker in value ("" for a full date). */
+    static CdsExportHistoryFieldReconciler.Row dated(
+            long id, String key, String precision, String date) {
+        return row(
+                Plan.CASE_NOTE_EXT,
+                id,
+                Map.of(
+                        "note_id", "91",
+                        "key_val", key,
+                        "value", precision,
+                        "date_value", date));
+    }
+
+    /** The Content of the one residual DataElement named {@code name}, or null when none is. */
+    static String residual(byte[] xml, String name) throws Exception {
+        var factory = DocumentBuilderFactory.newDefaultInstance();
+        factory.setNamespaceAware(true);
+        var document = factory.newDocumentBuilder().parse(new ByteArrayInputStream(xml));
+        var elements = document.getElementsByTagNameNS("cds_dt", "DataElement");
+        String found = null;
+        for (int i = 0; i < elements.getLength(); i++) {
+            var element = (org.w3c.dom.Element) elements.item(i);
+            var names = element.getElementsByTagNameNS("cds_dt", "Name");
+            if (names.getLength() != 1 || !name.equals(names.item(0).getTextContent())) continue;
+            assertThat(found).as(name + " is written once").isNull();
+            found = element.getElementsByTagNameNS("cds_dt", "Content").item(0).getTextContent();
+        }
+        return found;
+    }
+
+    @Test
+    void shouldWriteMedicalHistoryTreatmentAndProcedure_inNotesBesideItsStandardElements()
+            throws Exception {
+        // The Medical History editor (newCaseManagementView.js.jsp prepareExtraFields) shows
+        // Procedure Date, Treatment, Problem Status, Life Stage, Hide Cpp and Procedure beside
+        // the two dates every section shows. PastHealth has no Treatment or procedure element,
+        // nor an Age at Onset, which an item re-filed from Family History keeps.
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "YYYY", "2019-01-01 00:00:00"),
+                        dated(102, "Resolution Date", "", "2020-06-15 00:00:00"),
+                        dated(103, "Procedure Date", "YYYY-MM", "2019-03-01 00:00:00"),
+                        extension(104, "Treatment", "FAKE physiotherapy"),
+                        extension(105, "Problem Status", "Resolved"),
+                        extension(106, "Life Stage", "A"),
+                        extension(107, "Hide Cpp", "0"),
+                        extension(108, "Procedure", "FAKE arthroscopy"),
+                        extension(109, "Age at Onset", "45"),
+                        extension(110, "cdsDatePrecision", "FULL_DATE"));
+        var result =
+                map(
+                        CdsCategory.PAST_HEALTH,
+                        List.of(note(91, "FAKE knee injury", "MedHistory", rows)));
+        // Hide Cpp (a display option) and the importer's date metadata are not clinical values.
+        assertThat(result.value().text())
+                .containsEntry("ProblemStatus", "Resolved")
+                .containsEntry("LifeStage", "A")
+                .containsEntry(
+                        "Notes",
+                        "Treatment:\nFAKE physiotherapy\n\nProcedure:\nFAKE arthroscopy"
+                                + "\n\nAge at Onset:\n45");
+        assertThat(result.value().dates().get("OnsetOrEventDate").lexical()).isEqualTo("2019");
+        assertThat(result.value().dates().get("ResolvedDate").lexical()).isEqualTo("2020-06-15");
+        assertThat(result.value().dates().get("ProcedureDate").lexical()).isEqualTo("2019-03");
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("Treatment:\nFAKE physiotherapy", "Procedure:\nFAKE arthroscopy");
+    }
+
+    @Test
+    void shouldWriteAFamilyHistoryResolutionDate_inNotesInItsPrecision() throws Exception {
+        // The Family History editor shows Age at Onset, Treatment, Relationship, Life Stage and
+        // Hide Cpp beside the two dates; FamilyHistory has a StartDate but no resolution element.
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "", "2001-05-14 00:00:00"),
+                        dated(102, "Resolution Date", "YYYY-MM", "2021-03-01 00:00:00"),
+                        extension(103, "Age at Onset", "40"),
+                        extension(104, "Treatment", "FAKE inhaler"),
+                        extension(105, "Relationship", "Mother"),
+                        extension(106, "Life Stage", "A"),
+                        extension(107, "Hide Cpp", "1"));
+        var result =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(note(91, "FAKE asthma", "FamHistory", rows)));
+        assertThat(result.value().text())
+                .containsEntry("AgeAtOnset", "40")
+                .containsEntry("Treatment", "FAKE inhaler")
+                .containsEntry("Relationship", "Mother")
+                .containsEntry("LifeStage", "A")
+                .containsEntry("Notes", "Resolution Date:\n2021-03");
+        assertThat(result.value().dates().get("StartDate").lexical()).isEqualTo("2001-05-14");
+        assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
+                .contains("Resolution Date:\n2021-03");
+    }
+
+    @Test
+    void shouldMapEveryOngoingConcernsEditorField_toAProblemListElement() throws Exception {
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "YYYY-MM", "2018-02-01 00:00:00"),
+                        dated(102, "Resolution Date", "", "2019-01-10 00:00:00"),
+                        extension(103, "Problem Status", "Active"),
+                        extension(104, "Life Stage", "A"),
+                        extension(105, "Problem Description", "FAKE recurring episodes"),
+                        extension(106, "Hide Cpp", "0"));
+        var result =
+                map(
+                        CdsCategory.PROBLEM_LIST,
+                        List.of(note(91, "FAKE back pain", "Concerns", rows)));
+        assertThat(result.value().text())
+                .containsEntry("ProblemStatus", "Active")
+                .containsEntry("LifeStage", "A")
+                .containsEntry("ProblemDescription", "FAKE recurring episodes")
+                .doesNotContainKey("Notes");
+        assertThat(result.value().dates().get("OnsetDate").lexical()).isEqualTo("2018-02");
+        assertThat(result.value().dates().get("ResolutionDate").lexical()).isEqualTo("2019-01-10");
+        render(result.value());
+    }
+
+    @Test
+    void shouldMapEveryRiskFactorsEditorField_toARiskFactorsElement() throws Exception {
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "YYYY", "2005-01-01 00:00:00"),
+                        dated(102, "Resolution Date", "", "2015-08-20 00:00:00"),
+                        extension(103, "Age at Onset", "16"),
+                        extension(104, "Exposure Details", "FAKE ten a day"),
+                        extension(105, "Life Stage", "T"),
+                        extension(106, "Hide Cpp", "0"));
+        var result =
+                map(
+                        CdsCategory.RISK_FACTORS,
+                        List.of(note(91, "FAKE smoking", "RiskFactors", rows)));
+        assertThat(result.value().text())
+                .containsEntry("AgeOfOnset", "16")
+                .containsEntry("ExposureDetails", "FAKE ten a day")
+                .containsEntry("LifeStage", "T")
+                .doesNotContainKey("Notes");
+        assertThat(result.value().dates().get("StartDate").lexical()).isEqualTo("2005");
+        assertThat(result.value().dates().get("EndDate").lexical()).isEqualTo("2015-08-20");
+        render(result.value());
+    }
+
+    @Test
+    void shouldMapBothReminderDates_toTheAlertElements() throws Exception {
+        // The Reminders editor shows only the two dates every section shows.
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "", "2026-01-05 00:00:00"),
+                        dated(102, "Resolution Date", "", "2026-12-31 00:00:00"),
+                        extension(103, "Hide Cpp", "0"));
+        var result =
+                map(
+                        CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                        List.of(note(91, "FAKE needs an interpreter", "Reminders", rows)));
+        assertThat(result.value().text()).doesNotContainKey("Notes");
+        assertThat(result.value().dates().get("DateActive").lexical()).isEqualTo("2026-01-05");
+        assertThat(result.value().dates().get("EndDate").lexical()).isEqualTo("2026-12-31");
+        render(result.value());
+    }
+
+    @Test
+    void shouldWriteSocialHistoryDates_inThePlainTextCopyBesideTheExactCarrier() throws Exception {
+        // The Social History editor shows only the two dates, and PersonalHistory has no
+        // element for either (nor Notes): they follow the narrative in its plain-text copy.
+        String narrative = "FAKE smoker.\n  Lives   alone.";
+        var rows =
+                List.of(
+                        dated(101, "Start Date", "YYYY", "2010-01-01 00:00:00"),
+                        dated(102, "Resolution Date", "", "2020-06-15 00:00:00"),
+                        extension(103, "Hide Cpp", "0"));
+        var result =
+                map(
+                        CdsCategory.PERSONAL_HISTORY,
+                        List.of(note(91, narrative, "SocHistory", rows)));
+        byte[] xml = render(result.value());
+        assertThat(residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE))
+                .isEqualTo(CdsNativeExtensionContract.encodeNarrative(narrative));
+        assertThat(residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT))
+                .isEqualTo("FAKE smoker. Lives alone. Start Date: 2010 Resolution Date: 2020-06-15");
+    }
+
+    @Test
+    void shouldWriteThePersonalHistoryNarrativeInPlainWords_besideItsExactCarrier()
+            throws Exception {
+        // Another EMR shows CARLOS.History.Narrative.v1 literally: a quoted JSON string with an
+        // escape for every space and line break. Residual Content is an xs:token, so the plain
+        // copy is written whitespace collapsed, as every schema-aware reader keeps it.
+        String narrative = "FAKE \"quoted\" history & <notes>\n\tsecond   line café 😀";
+        var result =
+                map(
+                        CdsCategory.PERSONAL_HISTORY,
+                        List.of(note(91, narrative, "SocHistory", List.of())));
+        byte[] xml = render(result.value());
+        assertThat(residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE))
+                .isEqualTo(CdsNativeExtensionContract.encodeNarrative(narrative));
+        assertThat(residual(xml, CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT))
+                .isEqualTo("FAKE \"quoted\" history & <notes> second line café 😀");
+        // Every other CPP category keeps its text in its own elements and writes no copy.
+        var family =
+                map(
+                        CdsCategory.FAMILY_HISTORY,
+                        List.of(note(91, "FAKE asthma", "FamHistory", List.of())));
+        assertThat(residual(render(family.value()), CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT))
+                .isNull();
+    }
+
     @Test
     void shouldRefuseUnqualifiedIssueProgramOwnership_andSqlNullNoteBodies() throws Exception {
         var issue =

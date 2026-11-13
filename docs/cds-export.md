@@ -1906,7 +1906,9 @@ The native allergy mapper classifies all 24 physical columns plus linked precisi
 It distinguishes nullable drug-property flags, maps only explicit code authorities, preserves
 partial dates, and never substitutes a modification clock for recorded date. Native severe
 does not prove life-threatening severity; that case requires source reconciliation. Unresolved
-catalogue IDs and recording clinicians remain explicit review blockers. The bounded projection
+catalogue IDs and recording clinicians remain explicit review blockers; no CARLOS screen writes a
+recording clinician (`allergies.providerNo`: the Add Allergy page never sets it and the CDS
+importer stores NULL), so only data written outside CARLOS reaches that blocker. The bounded projection
 service joins only the authenticated allergy/date generation, refuses orphan/extra precision
 rows, and retains every field assessment. Its results establish native-row representability,
 not complete clinical coverage or source-only reconciliation.
@@ -1937,7 +1939,13 @@ allergy the carrier is kept while the reaction is unchanged (`CdsExportPreparedA
 patient (`LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW`). A brand allergen saved after
 the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
 is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
-one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`).
+one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`). An allergen picked under the allergy search's
+"ATC Class" heading (DrugRef category 8, `RxSearchAllergy2Action`) is saved as `TYPECODE` 8 with
+its search id in `drugref_id` and no class code, because `ChooseAllergy2.jsp` posts none for a
+search result (`RxAddAllergy2Action`). It is named by its description like the generic, ingredient
+and AHFS class results (`DRUGREF_SEARCH_CATEGORY_NOT_A_DRUG_CODE`, the search id
+`DRUGREF_SEARCH_ID_IS_NOT_A_DRUG_CODE`); only a type 8 allergy filed under its class code (the
+Penicillin and Sulfa shortcuts) writes `CARLOS.Allergy.Atc.v1`.
 Age text and onset speed use `CARLOS.Allergy.AgeOfOnset.v1` and
 `CARLOS.Allergy.OnsetOfReaction.v1` string residuals: exact native age text retains leading
 zeroes without an inferred unit; onset labels are Unknown, Immediate, Gradual and Slow.
@@ -2912,9 +2920,32 @@ instead of holding the patient; the exact rows still travel in `CARLOS.NativeHis
   Details over 120, Relationship or Problem Status over 50. The element is left out and Notes holds
   `Age at Onset:` (the key) and the exact value. Notes keeps the long narrative first when there is
   one, and the archived statement leads it. An invalid Life Stage (a select) still holds.
+- A CPP editor field its section has no element for: the editor (`prepareExtraFields` in
+  `newCaseManagementView.js.jsp`) shows Start Date and Resolution Date in every section, and
+  Medical History also Procedure Date, Treatment, Problem Status, Life Stage and Procedure, and an
+  item re-filed into another section keeps the values of its former one. Such a value (Medical
+  History's Treatment and Procedure, a family history's Resolution Date, ...) is written in Notes
+  the same way, labelled with its key (`Procedure:` then the value; a date in its own precision,
+  `Resolution Date:` then `2021-03`). A PersonalHistory item has no Notes: its Start Date and
+  Resolution Date follow its narrative in the plain-text copy `CARLOS.History.NarrativeText.v1`
+  (below). The CPP editor's "Hide Cpp" select is a display setting of the chart's CPP boxes, as a
+  prescription's hide-from-CPP flag is, and the importer's `cdsDate*` rows are import metadata;
+  neither is written in Notes. Every extension row stays exact in `CARLOS.NativeHistory.v1`.
 - A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
   a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
   schema-aware reader keeps it anyway (A26); the exact description is in the context.
+
+PersonalHistory allows only `ResidualInfo`. Its narrative travels exactly in
+`CARLOS.History.Narrative.v1`, an escaped JSON string (`"Lives\u0020alone.\n..."`) that a CARLOS
+importer decodes but any other EMR shows literally. The exporter therefore also writes
+`CARLOS.History.NarrativeText.v1` (`string`) beside it: the narrative followed by the item's CPP
+statements, in plain words and whitespace collapsed, since residual `Content` is an `xs:token`
+that every schema-aware reader collapses anyway (`CdsExportNativeHistoryMapper.readableText`).
+The CARLOS importer restores the narrative from the carrier only: `CdsHistoryResidualReader`
+does not know the copy's name, so it is never imported as a second value, and a file with the
+copy but no carrier imports the structured-source placeholder. When an imported PersonalHistory
+item is edited in CARLOS, the native reconciler rewrites the copy with the carrier (or adds it),
+so a copy from an earlier CARLOS export never sits beside a changed narrative.
 
 An item that came from a CDS import and was then edited in CARLOS goes through the native revision
 context (`CdsExportHistoryFieldReconciler.reconcileNative`, B5 and B10). The strict guard still
@@ -3454,7 +3485,17 @@ days as authored, weeks as their exact day count (`2 W` is `14`), and months or 
 unit as text (`3 months`, `1 year`; the medication `Duration` is CDS text), because a month or a
 year is not an exact number of days. Refills never multiply the duration. The CARLOS importer
 reads the unit back (#3958), and the same rendering applies to imported prescriptions whose
-duration was edited in CARLOS. Unknown status and a false past-medication flag do not establish
+duration was edited in CARLOS. A duration the prescription does not state has no Duration: the
+Rx directions parser (`RxUtil`) stores `0` whenever the directions name none ("use as directed",
+"apply thin layer", "2 puffs prn", or "1 tab BID" with no length), beside the unit it deduced from
+a frequency (`D` for BID) or no unit at all (`Drug.setDurUnit` stores the empty unit as NULL), so
+that `0` is never written as a 0-day course nor holds the patient (the shared candidate assesses
+it `NATIVE_DURATION_NOT_STATED`, `CdsExportMedicationMapper.NOT_STATED`, so neither the native nor
+the reconciled path holds it). An amount saved without a unit (typed into the Rx card's duration box when
+the directions named none) is not written either, since a bare number reads as days; the native
+mapper carries it (`DURATION_IS_NOT_KNOWN_DAYS`, a `CONTEXT_RULES` entry). Both travel exactly in
+`CARLOS.Medication.Source.v1`. Only a unit CARLOS never writes (anything but `D`, `W`, `M` or `Y`)
+still requires review (`CdsExportMedicationMapper.unknownDurationUnit`). Unknown status and a false past-medication flag do not establish
 current treatment. Unbound import-provenance markers require review.
 
 The Rx page saves several values independently, and the exporter no longer holds a patient when

@@ -142,8 +142,10 @@ final class CdsExportHistoryNativeReconciler {
             // cannot hold and several coded diagnoses (CdsExportNativeHistoryMapper), and a
             // diagnosis assigned in CARLOS to an item whose imported record already has a code.
             var statements = new ArrayList<String>();
-            // An edited item's native Notes already holds the mapper's statements.
-            if (nativeValue.text().containsKey(CdsExportNativeHistoryMapper.STATEMENTS)
+            // An edited item's native Notes already holds the mapper's statements. PersonalHistory
+            // has no Notes: its statements travel in its plain-text residual copy (below).
+            if (category != CdsCategory.PERSONAL_HISTORY
+                    && nativeValue.text().containsKey(CdsExportNativeHistoryMapper.STATEMENTS)
                     && !(edited && nativeValue.text().containsKey("Notes")))
                 statements.add(nativeValue.text().get(CdsExportNativeHistoryMapper.STATEMENTS));
             for (var entry : nativeValue.text().entrySet()) {
@@ -256,6 +258,19 @@ final class CdsExportHistoryNativeReconciler {
                         CdsNativeExtensionContract.HISTORY_NARRATIVE,
                         CdsNativeExtensionContract.encodeNarrative(
                                 nativeValue.text().get("NativePersonalNarrative")));
+            // The plain-text copy follows the carrier it restates, with the item's current CPP
+            // values; one left from an earlier CARLOS export is rewritten below, never kept
+            // beside a changed narrative.
+            if (category == CdsCategory.PERSONAL_HISTORY) {
+                String readable =
+                        CdsExportNativeHistoryMapper.readableText(
+                                markers.containsKey(CdsNativeExtensionContract.HISTORY_NARRATIVE)
+                                        ? nativeValue.text().get("NativePersonalNarrative")
+                                        : null,
+                                nativeValue.text().get(CdsExportNativeHistoryMapper.STATEMENTS));
+                if (!readable.isEmpty())
+                    markers.put(CdsNativeExtensionContract.HISTORY_NARRATIVE_TEXT, readable);
+            }
             // The earlier raw PersonalHistory carrier would otherwise keep the imported text
             // beside the current one.
             if (category == CdsCategory.PERSONAL_HISTORY

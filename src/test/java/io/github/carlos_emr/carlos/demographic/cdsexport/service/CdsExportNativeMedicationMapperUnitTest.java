@@ -708,6 +708,83 @@ class CdsExportNativeMedicationMapperUnitTest {
                 .containsEntry(Field.TreatmentType, "PRN Long-term");
     }
 
+    /**
+     * A prescription as the Rx page saves it when its directions name no duration: RxUtil's
+     * directions parser stores duration "0", the frequency it found and the unit it deduced from
+     * that frequency, each "" when there is none, and Drug's setters store "" as NULL.
+     */
+    private static Map<String, String> savedWithoutDuration(
+            String directions, String frequency, String unit, boolean asNeeded) {
+        var fields = source();
+        fields.put("special", directions);
+        fields.put("duration", "0");
+        fields.put("durunit", unit);
+        fields.put("freqcode", frequency);
+        fields.put("prn", asNeeded ? "1" : "0");
+        return fields;
+    }
+
+    @Test
+    void shouldExportDirectionsThatNameNoDuration_withoutHoldingOrWritingAZeroDayCourse()
+            throws Exception {
+        // "use as directed" and "apply thin layer": no frequency, no duration, box unticked.
+        for (String directions : List.of("use as directed", "apply thin layer")) {
+            var fields = savedWithoutDuration(directions, null, null, false);
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields())
+                    .as(directions)
+                    .doesNotContainKeys(Field.Duration, Field.Frequency)
+                    .containsKey(Field.PrescriptionInstructions);
+            // The exact columns travel in CARLOS.Medication.Source.v1.
+            assertThat(result.metadata())
+                    .contains("\"duration\":\"0\"", "\"durunit\":null", "\"freqcode\":null");
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            assertThat(
+                            new String(
+                                    render(
+                                            CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                            xml -> mapper.write(result, xml)),
+                                    StandardCharsets.UTF_8))
+                    .doesNotContain("Duration>");
+        }
+        // "2 puffs prn": the as-needed box with no frequency is the frequency PRN, as the
+        // operator guide promises, and a receiving CARLOS reads no duration back.
+        var asNeeded = savedWithoutDuration("2 puffs prn", null, null, true);
+        var puffs = mapper.map(27, medication(asNeeded), List.of(), Map.of());
+        assertThat(puffs.value().fields())
+                .containsEntry(Field.Frequency, "PRN")
+                .doesNotContainKey(Field.Duration);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(medication(asNeeded)), puffs.fields(), 1000, () -> {});
+        var received = receive(puffs);
+        assertThat(received.frequency()).isEqualTo("PRN");
+        assertThat(received.asNeeded()).isTrue();
+        assertThat(received.duration()).isNull();
+        // "1 tab BID": the parser deduces unit D from the frequency, and its "0" still means no
+        // duration was stated, never a 0-day course.
+        var daily = savedWithoutDuration("1 tab BID", "BID", "D", false);
+        var bid = mapper.map(27, medication(daily), List.of(), Map.of());
+        assertThat(bid.value().fields())
+                .containsEntry(Field.Frequency, "BID")
+                .doesNotContainKey(Field.Duration);
+        assertThat(receive(bid).duration()).isNull();
+        // An amount typed into the card's duration box when the directions named no unit is not
+        // written as a bare number (a receiver reads days); it stays exact in the residual.
+        var typed = savedWithoutDuration("use as directed", null, null, false);
+        typed.put("duration", "7");
+        var amount = mapper.map(27, medication(typed), List.of(), Map.of());
+        assertThat(amount.value().fields()).doesNotContainKey(Field.Duration);
+        assertThat(amount.metadata()).contains("\"duration\":\"7\"", "\"durunit\":null");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(medication(typed)), amount.fields(), 1000, () -> {});
+        // A unit CARLOS never writes is still not read as a length of time.
+        typed.put("durunit", "X");
+        assertThatThrownBy(() -> mapper.map(27, medication(typed), List.of(), Map.of()))
+                .isInstanceOf(java.io.IOException.class);
+    }
+
     @Test
     void shouldCarryAnOverlongDispenseIntervalAndProtocol_inTheResidualOnly() throws Exception {
         // A20: the Rx page sets no maximum length on these; the elements hold 10 and 20.

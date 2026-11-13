@@ -46,6 +46,9 @@ public final class CdsExportNativeMedicationMapper {
                     "MEDICATION_CURRENTNESS_NOT_ESTABLISHED",
                     "UNRECOGNIZED_PRESCRIPTION_STATUS",
                     "SQL_FLOAT_DISPLAY_IS_NOT_AN_EXACT_DOSE_WITNESS",
+                    // A duration amount saved with no unit (typed into the Rx card's duration box
+                    // when the directions named none): no Duration is written, and the amount
+                    // travels in the residual. A unit CARLOS never writes is refused in map().
                     "DURATION_IS_NOT_KNOWN_DAYS",
                     "CONFLICTING_NATIVE_DOSE_UNITS",
                     "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT",
@@ -158,11 +161,14 @@ public final class CdsExportNativeMedicationMapper {
                 review();
             values.put(Field.DrugDescription, strength);
         }
-        String duration = source.get("duration"), unit = source.get("durunit");
         // The shared candidate wrote days, weeks as exact days, and months/years with their
-        // unit (never the calculator's 30-day month); any other unit is not established.
-        if (populated(duration) && CdsExportMedicationMapper.duration(duration, unit) == null)
-            review();
+        // unit (never the calculator's 30-day month). It wrote no Duration for one the
+        // prescription does not state (the Rx directions parser's "0", stored for "use as
+        // directed" or "2 puffs prn"), nor for an amount saved with no unit: both are ordinary
+        // saved prescriptions, and their exact columns travel in the residual. Only a unit
+        // CARLOS never writes is not established.
+        if (CdsExportMedicationMapper.unknownDurationUnit(
+                source.get("duration"), source.get("durunit"))) review();
         String sig = source.get("special");
         if (populated(sig)) {
             String pharmacy = source.get("special_instruction");
