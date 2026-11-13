@@ -104,7 +104,9 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "notes", "Additional clinical context"); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
     }
     @Test void shouldRequireReviewForInactiveAndChangedPreferences_beforeOfferingAnySourceReplacement() throws Exception {
-        for (String column : List.of("status", "preferredOrder", "consentToContact")) { setup(); change("demographicPharmacy", column, "0"); assertThat(reconcile().representable()).isFalse(); }
+        for (String column : List.of("status", "preferredOrder")) { setup(); change("demographicPharmacy", column, "0"); assertThat(reconcile().representable()).isFalse(); }
+        // "No Consent" set on the imported link in CARLOS is carried in the native record and no longer holds the chart.
+        setup(); change("demographicPharmacy", "consentToContact", "0"); assertThat(reconcile().representable()).isTrue();
     }
     @Test void shouldRequireReviewForDuplicateFirstPreferences_withoutChoosingTheOriginalByConvenience() throws Exception {
         rows.add(CdsExportPharmacyMapperUnitTest.link(2, 9)); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();

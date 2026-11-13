@@ -134,7 +134,8 @@ Every value the demographic screens write is exported; none holds the patient. T
 alert (the Alert box) is exported as an AlertsAndSpecialNeeds item when that category is
 selected. Details CDS 5.2 Demographics has no place for (preferred name, alias, pronoun, gender
 identity, the referral doctor, the nurse, resident and midwife, the "Date Joined" and health card
-"EFF Date", ethnicity, consents, paper-chart status, First Nations details, a site's own extra
+"EFF Date", ethnicity, consents (including "No Consent" on a contact or pharmacy, which is an
+instruction not to contact them), paper-chart status, First Nations details, a site's own extra
 fields, and a phone extension or mobile number too long for the CDS phone element) travel exactly
 in one NewCategory record per patient,
 `CARLOS.NativeDemographic.v1`. Select NewCategory to send them; without it they are not

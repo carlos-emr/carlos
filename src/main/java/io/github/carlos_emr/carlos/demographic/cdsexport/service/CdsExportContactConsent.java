@@ -32,11 +32,18 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAsses
  * persists that default for every pharmacy a patient is linked to, contact.jsp and procontact.jsp
  * list "Consent" first, manageHealthCareTeam.jsp posts 1 and {@code Contact2Action} starts a new
  * professional link at TRUE. Exporting the contact without it says nothing a receiver would not
- * already assume, so it is operational. "0" is a deliberate instruction not to contact that person
- * or pharmacy; dropping it would silently lift a restriction, so it requires review, as does any
- * other spelling. SQL NULL (the form's "Unknown") is absent.
+ * already assume, so it is operational. "0" ("No Consent", an ordinary choice on the same screens)
+ * is a deliberate instruction not to contact that person or pharmacy: dropping it would silently
+ * lift a restriction, so it travels exactly in the native demographic NewCategory record
+ * ({@value #REFUSAL_CARRIED_RULE}) beside the exported contact, never held and never dropped. Any
+ * other spelling, which no screen writes, requires review. SQL NULL (the form's "Unknown") is
+ * absent.
  */
 final class CdsExportContactConsent {
+    /** Rule of a consent refusal carried in the native demographic record. */
+    static final String REFUSAL_CARRIED_RULE =
+            "CONTACT_CONSENT_REFUSAL_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD";
+
     private CdsExportContactConsent() {}
 
     static void assess(CdsExportNativeFieldAssessments state, String destination) {
@@ -45,11 +52,10 @@ final class CdsExportContactConsent {
             state.set("consentToContact", Outcome.ABSENT, "", "ABSENT_CONTACT_CONSENT");
         else if (value.equals("1"))
             state.operational("consentToContact", "DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER");
-        else if (value.equals("0"))
-            state.review(
-                    "consentToContact",
-                    destination,
-                    "CONTACT_CONSENT_REFUSAL_HAS_NO_CDS_CARRIER");
+        else if (value.equals("0")) {
+            var carried = CdsExportDemographicSupportingMapper.carried(value);
+            state.set("consentToContact", carried.outcome(), carried.destination(), REFUSAL_CARRIED_RULE);
+        }
         else
             state.review(
                     "consentToContact", destination, "UNKNOWN_CONTACT_CONSENT_REQUIRES_REVIEW");

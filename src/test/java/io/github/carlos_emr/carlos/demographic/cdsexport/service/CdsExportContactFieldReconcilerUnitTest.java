@@ -235,16 +235,16 @@ class CdsExportContactFieldReconcilerUnitTest {
     void shouldVerifyNativeConsentHistoryAndAdditionalPopulatedFieldsRemainExplicitReviewRequirements_forContactFieldReconcilerContract()
             throws Exception {
         // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
-        // no longer holds the chart; an explicit refusal still does.
-        for (var entry :
-                List.of(
-                        Map.entry("consentToContact", "0"),
-                        Map.entry("active", "0"),
-                        Map.entry("deleted", "1"))) {
+        // no longer holds the chart, and an explicit refusal ("0") is now carried in the native
+        // demographic record; an inactive or deleted imported association still requires review.
+        for (var entry : List.of(Map.entry("active", "0"), Map.entry("deleted", "1"))) {
             association = new LinkedHashMap<>(oldAssociation);
             association.put(entry.getKey(), entry.getValue());
             assertThat(invoke().representable()).isFalse();
         }
+        association = new LinkedHashMap<>(oldAssociation);
+        association.put("consentToContact", "0");
+        assertThat(invoke().representable()).isTrue();
         association = new LinkedHashMap<>(oldAssociation);
         // A contact address has no Demographics/Contact element: it travels in the native
         // demographic NewCategory record and no longer holds the imported chart.

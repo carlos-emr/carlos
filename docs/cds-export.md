@@ -2998,8 +2998,11 @@ writes for every blank listed key (`PROPERTY_KEY_OF_AN_EMPTY_EXTENSION`), on bot
 the imported-chart path; `rxInteractionWarningLevel` `0` ("Not specified"); and consent to contact
 `1` on contact and pharmacy links, which is the model and form default
 (`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`). A value that someone chose and that has no CDS 5.2
-home still requires review: another newsletter choice or country, a populated unsupported
-extension, a warning level, or consent `0`, which is an instruction not to contact that person.
+home travels exactly in the native demographic NewCategory record (`CARLOS.NativeDemographic.v1`)
+instead of holding the chart: another newsletter choice or country, a populated unsupported
+extension, a warning level, and consent `0` ("No Consent", an instruction not to contact that
+person or pharmacy; `CONTACT_CONSENT_REFUSAL_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD`), on native and
+imported charts alike. Only a consent spelling no screen writes still requires review.
 
 Two user-entered demographic dates are practice-administrative and have no CDS 5.2
 Demographics element: "Date Joined" (`date_joined`) and the health card "EFF Date"

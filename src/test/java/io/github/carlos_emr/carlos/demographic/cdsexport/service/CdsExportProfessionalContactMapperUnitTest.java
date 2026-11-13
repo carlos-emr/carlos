@@ -54,10 +54,16 @@ class CdsExportProfessionalContactMapperUnitTest {
     @Test void shouldKeepIdenticalNamesInDifferentRoles_asDistinctRelationshipFacts()throws Exception {var result=map(List.of(association(1, 9, "Family Doctor"), association(2, 10, "Referring Doctor")), List.of(contact(9), contact(10))); assertThat(result.physicians()).hasSize(2); assertThat(result.fields()).hasSize(80); assertThat(result.physicians().getFirst().contactRecordKey()).isNotEqualTo(result.physicians().getLast().contactRecordKey()); }
     @Test void shouldRequireReviewForDuplicateAssociations_insteadOfCollapsingTwoNativeRowsIntoOneRole()throws Exception {var result=map(List.of(association(1, 9, "Family Doctor"), association(2, 9, "Family Doctor")), List.of(contact(9))); assertThat(result.representable()).isFalse(); assertThat(result.physicians()).isEmpty(); }
     @Test void shouldRequireReviewForMultipleFamilyPhysicians_withoutChoosingByIdOrName()throws Exception {assertThat(map(List.of(association(1, 9, "Family Doctor"), association(2, 10, "Family Doctor")), List.of(contact(9), contact(10))).representable()).isFalse(); }
-    @Test void shouldAcceptTheDefaultContactConsent_whileHoldingAnExplicitRefusal()throws Exception {
+    @Test void shouldAcceptTheDefaultContactConsent_andCarryAnExplicitRefusal()throws Exception {
         // D5: Contact2Action starts a new professional link at consentToContact TRUE and procontact.jsp lists "Consent" first.
         assertThat(map(List.of(changed(association(1, 9, "Family Doctor"), "consentToContact", "1")), List.of(contact(9))).representable()).isTrue();
-        assertThat(map(List.of(changed(association(1, 9, "Family Doctor"), "consentToContact", "0")), List.of(contact(9))).representable()).isFalse();
+        // "No Consent" is ordinary: the physician is exported and the refusal is carried exactly.
+        var refused = changed(association(1, 9, "Family Doctor"), "consentToContact", "0");
+        var carried = map(List.of(refused), List.of(contact(9)));
+        assertThat(carried.representable()).isTrue();
+        var decision = carried.fields().get(new CdsExportNativeFieldKeyDto("DemographicContact", refused.recordKey(), "consentToContact"));
+        assertThat(CdsExportDemographicSupportingMapper.carries(decision)).isTrue();
+        assertThat(decision.rule()).isEqualTo(CdsExportContactConsent.REFUSAL_CARRIED_RULE);
     }
     @Test void shouldCarryOtherRoles_withoutInventingAStandardRelationship()throws Exception {
         // procontact.jsp offers Specialist and Dietician: no CDS physician element means them, so the relationship travels in the native record.
@@ -70,7 +76,11 @@ class CdsExportProfessionalContactMapperUnitTest {
     @Test void shouldRejectPersonalContactSubtypes_forProfessionalNameProjection()throws Exception {assertThat(family(changed(contact(9), "type", "Contact")).representable()).isFalse(); }
     @Test void shouldPreserveMissingVersusEmptyNameParts_withoutInventingASurnameOrGivenName()throws Exception {assertThat(family(changed(contact(9), "firstName", null)).representable()).isFalse(); var empty=family(changed(contact(9), "firstName", "")); assertThat(empty.representable()).isTrue(); assertThat(element(render(empty, false), "FamilyPhysician").getElementsByTagNameNS("cds_dt", "FirstName").item(0).getTextContent()).isEmpty(); }
     @Test void shouldCarryAdditionalClinicalAttributes_besideTheExportedPhysicianName()throws Exception {for (var entry:List.of(Map.entry("cpso", "001234"), Map.entry("fax", "6135550101"), Map.entry("specialty", "Neurology"), Map.entry("note", "Important context"))){var result=family(changed(contact(9), entry.getKey(), entry.getValue())); assertThat(result.representable()).isTrue(); assertThat(result.physicians()).hasSize(1); assertThat(CdsExportDemographicSupportingMapper.carries(result.fields().get(new CdsExportNativeFieldKeyDto("Contact", contact(9).recordKey(), entry.getKey())))).isTrue(); }}
-    @Test void shouldKeepCommunicationConsentSeparate_fromDisclosureAndNameProjection()throws Exception {assertThat(map(List.of(changed(association(1, 9, "Family Doctor"), "consentToContact", "0")), List.of(contact(9))).representable()).isFalse(); }
+    @Test void shouldKeepCommunicationConsentSeparate_fromDisclosureAndNameProjection()throws Exception {
+        // A refusal does not suppress or hold the physician's name: the name is exported and the refusal is carried beside it.
+        var result=map(List.of(changed(association(1, 9, "Family Doctor"), "consentToContact", "0")), List.of(contact(9)));
+        assertThat(result.representable()).isTrue(); assertThat(result.physicians()).hasSize(1);
+    }
     @Test void shouldRefuseAdditionalClinicalRoles_withoutDroppingTheExtraPurpose()throws Exception {for (String field:List.of("mrp", "ec", "sdm")){assertThat(map(List.of(changed(association(1, 9, "Family Doctor"), field, field.equals("mrp")?"1":"true")), List.of(contact(9))).representable()).isFalse(); }}
     @Test void shouldRefuseOverlengthNames_withoutTruncatingAnyUnicodeCodePoint()throws Exception {assertThat(family(changed(contact(9), "firstName", "😀".repeat(51))).representable()).isFalse(); }
     @Test void shouldPreserveCarriageReturns_andLiteralMarkupInRepresentableNames()throws Exception {var name="A\r\nB <literal> & C"; var result=family(changed(contact(9), "firstName", name)); assertThat(result.representable()).isTrue(); assertThat(element(render(result, false), "FamilyPhysician").getElementsByTagNameNS("cds_dt", "FirstName").item(0).getTextContent()).isEqualTo(name); }

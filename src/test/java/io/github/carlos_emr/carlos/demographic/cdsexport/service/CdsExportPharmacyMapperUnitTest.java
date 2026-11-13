@@ -204,18 +204,22 @@ class CdsExportPharmacyMapperUnitTest {
     void shouldVerifyContactConsentIsCapturedSourceContextAndNeverInventedOrDiscarded_forPharmacyMapperContract() throws Exception {
         // Updated for D5: "1" is the model default that DemographicPharmacyDaoImpl persists for every
         // pharmacy a patient is linked to, so it used to hold every UI-linked pharmacy. It is now
-        // operational; an explicit refusal ("0") or an unknown spelling still requires review.
-        for (String value : List.of("0", "true"))
-            assertThat(
-                            map(
-                                            List.of(
-                                                    changed(
-                                                            link(-1, 9),
-                                                            "consentToContact",
-                                                            value)),
-                                            List.of(pharmacy(9)))
-                                    .nativeRepresentable())
-                    .isFalse();
+        // operational. An explicit refusal ("0", "No Consent") is carried exactly in the native
+        // demographic record; only an unknown spelling, which no screen writes, requires review.
+        assertThat(
+                        map(List.of(changed(link(-1, 9), "consentToContact", "true")), List.of(pharmacy(9)))
+                                .nativeRepresentable())
+                .isFalse();
+        var refused = changed(link(-1, 9), "consentToContact", "0");
+        var carried = map(List.of(refused), List.of(pharmacy(9)));
+        assertThat(carried.nativeRepresentable()).isTrue();
+        assertThat(
+                        carried.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicPharmacy", refused.recordKey(), "consentToContact"))
+                                .rule())
+                .isEqualTo(CdsExportContactConsent.REFUSAL_CARRIED_RULE);
         var linked = changed(link(-1, 9), "consentToContact", "1");
         var result = map(List.of(linked), List.of(pharmacy(9)));
         assertThat(result.nativeRepresentable()).isTrue();

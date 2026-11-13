@@ -193,7 +193,7 @@ class CdsExportPersonalContactMapperUnitTest {
     }
 
     @Test
-    void shouldAcceptTheDefaultContactConsent_whileHoldingAnExplicitRefusal() throws Exception {
+    void shouldAcceptTheDefaultContactConsent_andCarryAnExplicitRefusal() throws Exception {
         // D5: contact.jsp lists "Consent" (1) first and manageHealthCareTeam.jsp posts 1, so a
         // contact added through the UI carries consentToContact 1. CDS 5.2 has no element for it.
         var consenting = changed(association(-1, 9), "consentToContact", "1");
@@ -209,8 +209,18 @@ class CdsExportPersonalContactMapperUnitTest {
                                 .outcome())
                 .isEqualTo(CdsExportFieldAssessmentDto.Outcome.OPERATIONAL);
         parse(result, HASH);
+        // "No Consent" is an ordinary choice on the same screen: the contact is exported and the
+        // refusal travels exactly in the native demographic record instead of holding the chart.
         var refused = changed(association(-1, 9), "consentToContact", "0");
-        assertThat(map(List.of(refused), List.of(contact(9))).nativeRepresentable()).isFalse();
+        var carried = map(List.of(refused), List.of(contact(9)));
+        assertThat(carried.nativeRepresentable()).isTrue();
+        var decision =
+                carried.fields()
+                        .get(
+                                new CdsExportNativeFieldKeyDto(
+                                        "DemographicContact", refused.recordKey(), "consentToContact"));
+        assertThat(CdsExportDemographicSupportingMapper.carries(decision)).isTrue();
+        assertThat(decision.rule()).isEqualTo(CdsExportContactConsent.REFUSAL_CARRIED_RULE);
     }
 
     @Test
@@ -402,14 +412,13 @@ class CdsExportPersonalContactMapperUnitTest {
             shouldVerifyUnknownPurposeFlagsConflictingAssertionsConsentAndResponsibleProviderContextAreNotDiscarded_forPersonalContactMapperContract()
                     throws Exception {
         // Updated for D5: consent "1" is the UI and model default (see CdsExportContactConsent) and
-        // is covered by shouldAcceptTheDefaultContactConsent_whileHoldingAnExplicitRefusal; an
-        // explicit refusal or an unknown spelling still holds the chart.
+        // is covered by shouldAcceptTheDefaultContactConsent_andCarryAnExplicitRefusal, which also
+        // carries an explicit refusal ("0"); an unknown spelling still holds the chart.
         for (var pair :
                 List.of(
                         Map.entry("ec", "yes"),
                         Map.entry("sdm", "1"),
                         Map.entry("consentToContact", "true"),
-                        Map.entry("consentToContact", "0"),
                         Map.entry("mrp", "1")))
             assertThat(
                             map(
