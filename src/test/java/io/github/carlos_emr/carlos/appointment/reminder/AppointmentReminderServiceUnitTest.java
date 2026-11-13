@@ -395,6 +395,28 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
          * for it, once that booking has left (here, moved away). The earlier reminder was about the other booking.
          */
         @Test
+        void shouldReadTheBookingHistoryOnce_whenSeveralDepartedBookingsWereReminded() {
+            Appointment appointment = appointment(start, PATIENT, "t");
+            appointment.setUpdateDateTime(at(NOW.minusMinutes(30)));
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            when(reminders.findArchivedVersions(APPOINTMENT, PATIENT))
+                    .thenReturn(List.of(version(start.plusHours(5), NOW.minusDays(3))));
+            ReminderCandidate earlier = changed(sibling(12L, "t", AppointmentReminderStatus.SENT), "moved");
+            ReminderCandidate later = changed(sibling(14L, "t", AppointmentReminderStatus.SENT), "moved");
+            // This booking arrived after the first handover but before the second.
+            later.reminder().startSending(at(start), at(NOW.minusMinutes(20)));
+            later.reminder().finish(AppointmentReminderStatus.SENT, null, at(NOW.minusMinutes(20)));
+            siblings(earlier, later);
+
+            service.processDue(10);
+
+            assertThat(handed).isEmpty();
+            assertThat(reminder.getLastStatus()).isEqualTo(AppointmentReminderStatus.DUPLICATE);
+            verify(reminders).findArchivedVersions(APPOINTMENT, PATIENT);
+        }
+
+        @Test
         void shouldSend_whenThisBookingMovedIntoTheStartAfterTheOtherWasReminded() {
             Appointment appointment = appointment(start, PATIENT, "t");
             appointment.setUpdateDateTime(at(NOW.minusMinutes(30)));
