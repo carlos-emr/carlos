@@ -256,6 +256,29 @@ reacquires the real maintenance owner, verifies the target catalogue and global 
 then retries release and regenerates the reports; it does not replay clinical writes. The explicit
 release-retry request is durable even if its queued worker is lost or the process restarts.
 
+### Abandoned runs
+
+`ABANDONED` is the final state of a stopped written run (`INCOMPLETE` or
+`RECONCILIATION_REQUIRED`) that its own operator cancelled and then abandoned through the one-shot
+CLI, and of each of its held, partial or uncertain charts. It is the only transition that
+releases a hold without completing its patient. The abandon takes the coordinator lock and a new
+verified maintenance owner, claims a new owner epoch and the global admission row
+(`ABANDON_OWNER_ACQUIRED`), re-verifies each held chart's committed units against their
+checkpoints and sealed receipts, and stores the operator's stated reason in a protected record
+before anything changes. One transaction then sets each held chart `ABANDONED` with
+`held=false` (a `PATIENT_ABANDONED` diagnostic carrying the receipt result, a `PATIENT_ABANDONED`
+event and a chart-audit `log` row admitted under the claimed epoch), sets the run `ABANDONED`
+with its maintenance release pending, records `RUN_ABANDONED` as a diagnostic (pointing to the
+protected record) and as an actor event (the reason's SHA-256 and the release counts, never the
+reason), and gives back the global admission row. Units, checkpoints, lineage, source fields,
+file references and native rows are never changed, so the lineage still names the chart and its
+checkpoints are not reusable as a completed patient's. Maintenance is released through
+the ordinary owner read-back proof, recorded as `RELEASED`, `RELEASE_DEFERRED` (another run's
+hold) or `REQUIRES_RECONCILIATION`, exactly as for a completed run. An abandoned run is never
+`clinicalComplete` or `cleanComplete`; claims for planning, preparation or execution refuse it
+with `IMPORT_ABANDONED`, cancel leaves it unchanged, and resume is refused unless it only retries
+a pending maintenance release. A refused abandon changes nothing and takes no maintenance window.
+
 Cleanup records an actual bounded catalogue of retained/removed artifact counts and logical bytes.
 Accepted snapshots, parsed source, review evidence, durable report sets and resumable native
 publications have explicit retention reasons. Unknown ownership, missing registered publications

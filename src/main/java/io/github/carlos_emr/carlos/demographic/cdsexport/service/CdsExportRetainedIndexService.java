@@ -272,10 +272,7 @@ public class CdsExportRetainedIndexService {
             if (!runs.containsKey(run)
                     || !Integer.toString(demographic).equals(value(row, "target_demographic_no"))
                     || patients.putIfAbsent(address(run, key), row) != null) invalid();
-            if (!"0".equals(value(row, "held")))
-                throw new IOException("CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
-            if (!PUBLISHED.contains(value(row, "state"))
-                    && !UNWRITTEN.contains(value(row, "state"))) invalid();
+            requireExportableImportPatient(value(row, "held"), value(row, "state"));
         }
         var units = new HashMap<String, CdsExportCapturedTextRowDto>();
         var applied = new HashSet<String>();
@@ -516,6 +513,20 @@ public class CdsExportRetainedIndexService {
     private static void exact(JsonNode value, Set<String> keys) throws IOException {
         if (value == null || !value.isObject() || value.size() != keys.size()) invalid();
         for (String key : keys) if (!value.has(key)) invalid();
+    }
+
+    /**
+     * Refuses a chart whose import is held, or ended without a published or unwritten outcome.
+     * A chart released by an abandoned import keeps only part of its source and is refused by
+     * name until it is reconciled; the exporter never treats it as a completed import.
+     */
+    public static void requireExportableImportPatient(String held, String state)
+            throws IOException {
+        if (!"0".equals(held))
+            throw new IOException("CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
+        if ("ABANDONED".equals(state))
+            throw new IOException("CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
+        if (!PUBLISHED.contains(state) && !UNWRITTEN.contains(state)) invalid();
     }
 
     private static void invalid() throws IOException {

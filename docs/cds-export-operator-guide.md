@@ -545,6 +545,10 @@ or review those charts and export them in a new job. A failure that concerns the
 whole job (storage, recipient policy, audit arrangement, limits, runtime change)
 still stops it, and a job in which every patient was held produces no package.
 
+A chart released by an abandoned CDS import keeps only the part of its source committed before
+that import stopped. The exporter refuses it with `CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`
+until it has been reconciled; it is never exported as a completed import.
+
 A provider record's format never holds a patient. A billing number (`ohip_no`) that is not
 exactly six digits (a BC MSP number, a placeholder, a longer number or one with spaces) is
 exported as no OHIP number; the provider is still named. A practitioner number with no

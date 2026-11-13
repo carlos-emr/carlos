@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
 import io.github.carlos_emr.carlos.commn.dao.CdsImportCheckpointDao;
@@ -78,6 +79,10 @@ public class CdsImportLedgerService {
     static final String MAINTENANCE_PENDING_CODE = "MAINTENANCE_RELEASE_PENDING";
     static final String MAINTENANCE_DEFERRED_CODE = "MAINTENANCE_RELEASE_DEFERRED";
     static final String MAINTENANCE_RELEASE_CODE = "MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION";
+
+    /** Run states that end by releasing the maintenance window, and record that release. */
+    private static final Set<String> RELEASE_STATES =
+            Set.of("COMPLETE", "DRY_RUN_COMPLETE", "ABANDONED");
     static final Set<String> COMPLETE_PATIENT =
             Set.of("COMPLETE", "COMPLETE_WITH_NONLOSSY_WARNINGS", "ALREADY_COMPLETE");
     static final Set<String> FINAL_PATIENT =
@@ -90,7 +95,23 @@ public class CdsImportLedgerService {
                     "CANCELLED_BEFORE_WRITE",
                     "NOT_STARTED",
                     "PARTIAL_COMMITTED",
-                    "RECONCILIATION_REQUIRED");
+                    "RECONCILIATION_REQUIRED",
+                    "ABANDONED");
+
+    /**
+     * The final state of a run, and of each of its written charts, that an authorized operator
+     * abandoned after it stopped and could not complete. It is never a completed import: the
+     * released charts keep only the units committed before the stop.
+     */
+    static final String ABANDONED = "ABANDONED";
+
+    /** Stopped written runs an operator may abandon. */
+    static final Set<String> ABANDONABLE_RUN = Set.of("INCOMPLETE", "RECONCILIATION_REQUIRED");
+
+    /** Written or uncertain charts whose import hold an abandon releases. */
+    static final Set<String> ABANDONABLE_PATIENT =
+            Set.of("PARTIAL_COMMITTED", "RECONCILIATION_REQUIRED", "IMPORTING", "FINALIZING");
+
     private final CdsImportRunDao runs;
     private final CdsImportPatientDao patients;
     private final CdsImportUnitDao units;
@@ -562,6 +583,7 @@ public class CdsImportLedgerService {
             coordinator.check();
             Objects.requireNonNull(window, "window").requireVerifiedRecoveryOwner();
         }
+        if (ABANDONED.equals(run.getState())) throw new CdsImportException("IMPORT_ABANDONED");
         if (run.getExecutionDigest() == null)
             throw new CdsImportException("UNSEALED_MANIFEST_REFUSED");
         if (run.isCancelRequested()) throw new CdsImportException("IMPORT_CANCELLED");
@@ -602,6 +624,8 @@ public class CdsImportLedgerService {
                                             && !runId.equals(gate.getOwnerRunId()))
                                         throw new CdsImportException("IMPORT_BUSY");
                                     CdsImportRun run = requiredRun(runId, true);
+                                    if (ABANDONED.equals(run.getState()))
+                                        throw new CdsImportException("IMPORT_ABANDONED");
                                     if (run.getOwnerEpoch() == Long.MAX_VALUE)
                                         throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
                                     coordinator.check();
@@ -1422,7 +1446,7 @@ public class CdsImportLedgerService {
             String operation,
             long osUid,
             String verifiedNonce) {
-        if (!Set.of("import", "resume", "cancel", "status", "report").contains(operation)
+        if (!Set.of("import", "resume", "cancel", "status", "report", "abandon").contains(operation)
                 || osUid < 0) throw new IllegalArgumentException("Invalid CLI observation");
         CdsImportKeys.token(verifiedNonce, "verified delegation nonce", 128);
         write(
@@ -1463,7 +1487,8 @@ public class CdsImportLedgerService {
                                     "RECONCILIATION_REQUIRED",
                                     "FAILED_BEFORE_WRITE",
                                     "CANCELLED_BEFORE_WRITE",
-                                    "REVIEW_REQUIRED")
+                                    "REVIEW_REQUIRED",
+                                    ABANDONED)
                             .contains(run.getState()))
                         throw new CdsImportException("REPORT_OWNER_REQUIRES_STOPPED_RUN");
                     if (run.getOwnerEpoch() == Long.MAX_VALUE)
@@ -1706,7 +1731,8 @@ public class CdsImportLedgerService {
                                 "RECONCILIATION_REQUIRED",
                                 "FAILED_BEFORE_WRITE",
                                 "CANCELLED_BEFORE_WRITE",
-                                "REVIEW_REQUIRED")
+                                "REVIEW_REQUIRED",
+                                ABANDONED)
                         .contains(run.getState());
         value.put("maintenanceReleasePending", releasePending);
         value.put("maintenanceReleaseState", releaseState);
@@ -1746,8 +1772,7 @@ public class CdsImportLedgerService {
             CdsImportRun run,
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticSummaryDto
                     diagnostics) {
-        if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState()))
-            return "NOT_APPLICABLE";
+        if (!RELEASE_STATES.contains(run.getState())) return "NOT_APPLICABLE";
         if (diagnostics.releaseFailures() > 0) return "REQUIRES_RECONCILIATION";
         if (diagnostics.releaseDeferred() > 0) return "RELEASE_DEFERRED";
         return diagnostics.releasePending() > 0 ? "RELEASE_PENDING" : "RELEASED";
@@ -2270,7 +2295,7 @@ public class CdsImportLedgerService {
         write(
                 () -> {
                     CdsImportRun run = lockOperational(runId, epoch);
-                    if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState()))
+                    if (!RELEASE_STATES.contains(run.getState()))
                         throw new CdsImportException("CLINICAL_COMPLETION_REQUIRED");
                     if (!maintenanceReleaseFailed(run))
                         addDiagnostic(
@@ -2281,8 +2306,11 @@ public class CdsImportLedgerService {
                                 MAINTENANCE_RELEASE_CODE,
                                 "MAINTENANCE",
                                 null,
-                                "Clinical processing completed, but reopening clinical access"
-                                        + " requires verified maintenance recovery",
+                                (ABANDONED.equals(run.getState())
+                                                ? "The import was abandoned, but reopening"
+                                                : "Clinical processing completed, but reopening")
+                                        + " clinical access requires verified maintenance"
+                                        + " recovery",
                                 protectedEvidence,
                                 false);
                     run.setCleanupState("FAILED");
@@ -2309,8 +2337,11 @@ public class CdsImportLedgerService {
                     MAINTENANCE_PENDING_CODE,
                     "MAINTENANCE",
                     null,
-                    "Clinical processing completed; the maintenance owner's durable release still"
-                            + " requires verification",
+                    (ABANDONED.equals(run.getState())
+                                    ? "The import was abandoned; the maintenance owner's durable"
+                                            + " release still requires verification"
+                                    : "Clinical processing completed; the maintenance owner's"
+                                            + " durable release still requires verification"),
                     null,
                     false);
         run.setCleanupState("PENDING");
@@ -2358,8 +2389,7 @@ public class CdsImportLedgerService {
     }
 
     private String maintenanceReleaseState(CdsImportRun run) {
-        if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState()))
-            return "NOT_APPLICABLE";
+        if (!RELEASE_STATES.contains(run.getState())) return "NOT_APPLICABLE";
         if (maintenanceReleaseFailed(run)) return "REQUIRES_RECONCILIATION";
         if (!diagnostics
                 .unresolvedOperationalCode(run.getId(), MAINTENANCE_DEFERRED_CODE, 1)
@@ -2390,7 +2420,11 @@ public class CdsImportLedgerService {
                                 MAINTENANCE_DEFERRED_CODE,
                                 "MAINTENANCE",
                                 null,
-                                "Clinical processing completed; operational release is deferred: "
+                                (ABANDONED.equals(run.getState())
+                                                ? "The import was abandoned; operational release"
+                                                        + " is deferred: "
+                                                : "Clinical processing completed; operational"
+                                                        + " release is deferred: ")
                                         + reason,
                                 null,
                                 false);
@@ -2407,7 +2441,7 @@ public class CdsImportLedgerService {
         while (write(
                 () -> {
                     CdsImportRun run = lockOperational(runId, epoch);
-                    if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState()))
+                    if (!RELEASE_STATES.contains(run.getState()))
                         throw new CdsImportException("CLINICAL_COMPLETION_REQUIRED");
                     List<CdsImportDiagnostic> page = new ArrayList<>();
                     for (String code :
@@ -2483,7 +2517,8 @@ public class CdsImportLedgerService {
                 write(
                         () -> {
                             CdsImportRun run = lockOperational(runId, epoch);
-                            return Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState());
+                            return Set.of("COMPLETE", "DRY_RUN_COMPLETE", ABANDONED)
+                                    .contains(run.getState());
                         });
         if (published) {
             write(
@@ -2631,6 +2666,31 @@ public class CdsImportLedgerService {
     private void applyResume(CdsImportRun run) {
         if ("REPLANNING".equals(run.getState()))
             throw new CdsImportException("REVIEW_RESET_IN_PROGRESS");
+        if (ABANDONED.equals(run.getState())) {
+            // An abandoned run never imports again. Its only operational retry is the maintenance
+            // release proof, exactly as for a completed run; nothing else is pending.
+            if (!maintenanceReleasePending(run)) throw new CdsImportException("IMPORT_ABANDONED");
+            if (diagnostics
+                    .unresolvedOperationalCode(run.getId(), MAINTENANCE_RETRY_CODE, 1)
+                    .isEmpty())
+                addDiagnostic(
+                        run.getId(),
+                        null,
+                        null,
+                        "INFO",
+                        MAINTENANCE_RETRY_CODE,
+                        "MAINTENANCE",
+                        null,
+                        "An authorized operator requested maintenance release recovery for the"
+                                + " abandoned import; the request remains durable across worker"
+                                + " restart",
+                        null,
+                        false);
+            run.setReportState("PENDING");
+            run.setCleanupState("PENDING");
+            touch(run);
+            return;
+        }
         if (!Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState()))
             run.setResumeRequested(true);
         if (Set.of(
@@ -2701,6 +2761,325 @@ public class CdsImportLedgerService {
                 });
     }
 
+    /**
+     * The stable refusal of an abandon request for a run in this state, or null when it may be
+     * abandoned. Only a stopped written run that its operator already cancelled, with no pending
+     * resume or review, can be abandoned; a dry run never holds a chart.
+     */
+    static String abandonRefusal(
+            String state,
+            boolean dryRun,
+            boolean cancelRequested,
+            boolean resumeRequested,
+            boolean reviewPending) {
+        if (ABANDONED.equals(state)) return "IMPORT_ABANDONED";
+        if (dryRun || !ABANDONABLE_RUN.contains(state)) return "ABANDON_RUN_NOT_STOPPED";
+        if (!cancelRequested) return "ABANDON_CANCEL_REQUIRED";
+        if (resumeRequested) return "ABANDON_RESUME_PENDING";
+        if (reviewPending) return "ABANDON_REVIEW_PENDING";
+        return null;
+    }
+
+    private void requireAbandonable(
+            CdsImportRun run,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor) {
+        // Only the run's own delegated operator and provider may abandon it.
+        if (actor == null
+                || !Objects.equals(run.getOperator(), actor.operator())
+                || !Objects.equals(run.getProviderNo(), actor.providerNo()))
+            throw new SecurityException("IMPORT_ACCESS_DENIED");
+        String refusal =
+                abandonRefusal(
+                        run.getState(),
+                        run.isDryRun(),
+                        run.isCancelRequested(),
+                        run.isResumeRequested(),
+                        runs.reviewBlocksExecution(run.getId()));
+        if (refusal != null) throw new CdsImportException(refusal);
+    }
+
+    /** Read-only check before the maintenance window is taken, so a refusal never closes the clinic. */
+    public void requireAbandonable(
+            String runId,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor) {
+        write(
+                () -> {
+                    requireAbandonable(requiredRun(runId, false), actor);
+                    return null;
+                });
+    }
+
+    /**
+     * Fences the run to a new owner epoch for its abandon. Like a resume, it requires both
+     * physical owners: the coordinator lock proves no worker still runs this import, and the
+     * verified maintenance owner keeps ordinary clinical work out while holds change.
+     */
+    long claimAbandon(
+            String runId,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor,
+            CdsImportCoordinatorService.Owner coordinator,
+            CdsImportMaintenanceService.Owner window) {
+        Objects.requireNonNull(coordinator, "coordinator");
+        Objects.requireNonNull(window, "window");
+        coordinator.check();
+        return window.read(
+                () ->
+                        write(
+                                () -> {
+                                    CdsImportAdmission gate = admission.lock("global");
+                                    if (gate == null)
+                                        throw new CdsImportException("IMPORT_SCHEMA_NOT_READY");
+                                    if (gate.getOwnerRunId() != null
+                                            && !runId.equals(gate.getOwnerRunId()))
+                                        throw new CdsImportException("IMPORT_BUSY");
+                                    CdsImportRun run = requiredRun(runId, true);
+                                    requireAbandonable(run, actor);
+                                    if (run.getExecutionDigest() == null)
+                                        throw new CdsImportException("ABANDON_RUN_NOT_STOPPED");
+                                    if (run.getOwnerEpoch() == Long.MAX_VALUE)
+                                        throw new CdsImportException("OWNER_EPOCH_EXHAUSTED");
+                                    coordinator.check();
+                                    window.requireVerifiedRecoveryOwner();
+                                    gate.setOwnerRunId(runId);
+                                    run.setOwnerEpoch(run.getOwnerEpoch() + 1);
+                                    touch(run);
+                                    actorEvent(run, actor, "ABANDON_OWNER_ACQUIRED");
+                                    return run.getOwnerEpoch();
+                                }));
+    }
+
+    /**
+     * Re-verifies one patient's committed native rows against their sealed receipts, as patient
+     * finalization does, and names the result instead of stopping: VERIFIED, CHANGED (a row
+     * differs from its receipt), UNVERIFIABLE (the receipt or its witness cannot be read) or
+     * NOT_WRITTEN. An abandon records the result; it never changes a row.
+     */
+    String abandonVerification(
+            String runId, long epoch, String patientKey, CdsImportUnitService.Verifier verifier) {
+        Objects.requireNonNull(verifier, "verifier");
+        String outcome = "NOT_WRITTEN";
+        String after = "";
+        while (true) {
+            String cursor = after;
+            String[] pageOutcome = {outcome};
+            List<String> keys =
+                    write(
+                            () -> {
+                                lockOwned(runId, epoch);
+                                List<CdsImportUnit> page = units.page(runId, patientKey, cursor, 50);
+                                List<String> seen = new ArrayList<>();
+                                for (CdsImportUnit unit : page) {
+                                    seen.add(unit.getUnitKey());
+                                    if (!Set.of("COMMITTED", "ALREADY_COMPLETE")
+                                            .contains(unit.getState())) continue;
+                                    pageOutcome[0] =
+                                            worse(pageOutcome[0], verifyUnit(unit, verifier));
+                                }
+                                units.flushAndClear();
+                                return seen;
+                            });
+            outcome = pageOutcome[0];
+            if (keys.isEmpty()) break;
+            after = keys.get(keys.size() - 1);
+        }
+        return outcome;
+    }
+
+    private String verifyUnit(CdsImportUnit unit, CdsImportUnitService.Verifier verifier) {
+        CdsImportCheckpoint checkpoint = checkpoints.get(unit.getUnitKey());
+        if (checkpoint == null
+                || !checkpoint.getSourceDigest().equals(unit.getSourceDigest())
+                || !Objects.equals(checkpoint.getTargetDigest(), unit.getTargetDigest())
+                || !Objects.equals(checkpoint.getTargetReferences(), unit.getTargetReferences()))
+            return "UNVERIFIABLE";
+        try {
+            return verifier.verify(
+                            new io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                    .CdsImportReceiptDto(
+                                    unit.getTargetReferences(),
+                                    unit.getTargetDigest(),
+                                    true,
+                                    unit.getNativeBaseline()))
+                    ? "VERIFIED"
+                    : "CHANGED";
+        } catch (Exception unreadable) {
+            return "UNVERIFIABLE";
+        }
+    }
+
+    private static String worse(String current, String next) {
+        List<String> order = List.of("NOT_WRITTEN", "VERIFIED", "UNVERIFIABLE", "CHANGED");
+        return order.indexOf(next) > order.indexOf(current) ? next : current;
+    }
+
+    /** Writes one released chart's audit row inside the abandon transaction. */
+    @FunctionalInterface
+    interface AbandonedChartAudit {
+        void record(int demographicNo, String verification);
+    }
+
+    /** The counts an abandon records: charts released and their witness results. */
+    public record AbandonOutcome(
+            long releasedCharts, long verified, long changed, long unverifiable, long notWritten) {}
+
+    /**
+     * The abandon itself, in one transaction under the claimed epoch: every held, written or
+     * uncertain patient of the run becomes ABANDONED and loses its hold, with a patient
+     * diagnostic, a PATIENT_ABANDONED event and a chart-audit row for its chart; the run becomes
+     * ABANDONED with its maintenance release pending, a RUN_ABANDONED diagnostic naming the
+     * protected evidence, and a RUN_ABANDONED event for the operator. No clinical row, unit,
+     * checkpoint, lineage, source field or file is changed or removed.
+     */
+    AbandonOutcome abandon(
+            String runId,
+            long epoch,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor,
+            Map<String, String> verification,
+            String reasonSha256,
+            String evidence,
+            AbandonedChartAudit chartAudit) {
+        Objects.requireNonNull(verification, "verification");
+        Objects.requireNonNull(chartAudit, "chartAudit");
+        CdsImportKeys.token(reasonSha256, "abandon reason digest", 64);
+        CdsImportKeys.required(evidence, "abandon evidence", 1024);
+        return write(
+                () -> {
+                    CdsImportRun run = lockOwned(runId, epoch);
+                    requireAbandonable(run, actor);
+                    long[] counts = new long[5];
+                    String after = "";
+                    while (true) {
+                        List<CdsImportPatient> page = patients.page(runId, after, 200);
+                        if (page.isEmpty()) break;
+                        for (CdsImportPatient patient : page) {
+                            after = patient.getPatientKey();
+                            if (!patient.isHeld()
+                                    && !ABANDONABLE_PATIENT.contains(patient.getState())) continue;
+                            String checked =
+                                    verification.getOrDefault(
+                                            patient.getPatientKey(), "UNVERIFIABLE");
+                            patient.setState(ABANDONED);
+                            patient.setHeld(false);
+                            int bucket =
+                                    switch (checked) {
+                                        case "VERIFIED" -> 1;
+                                        case "CHANGED" -> 2;
+                                        case "NOT_WRITTEN" -> 4;
+                                        default -> 3;
+                                    };
+                            counts[0]++;
+                            counts[bucket]++;
+                            addDiagnostic(
+                                    runId,
+                                    patient.getPatientKey(),
+                                    null,
+                                    "CHANGED".equals(checked) ? "ERROR" : "WARNING",
+                                    "PATIENT_ABANDONED",
+                                    "CONTROL",
+                                    null,
+                                    "The import of this chart was abandoned before it completed"
+                                            + " and its hold was released. The chart keeps only"
+                                            + " the units committed before the stop and must be"
+                                            + " reconciled against the original source."
+                                            + " Committed rows against their receipts: "
+                                            + checked,
+                                    null,
+                                    false);
+                            event(run, null, "PATIENT_ABANDONED");
+                            if (patient.getTargetDemographicNo() != null) {
+                                // The chart-audit row is a clinical-table write: it is admitted
+                                // only inside this owned transaction, under the claimed epoch.
+                                CdsImportUnitContext.bind(runId, epoch, "ABANDON");
+                                try {
+                                    chartAudit.record(patient.getTargetDemographicNo(), checked);
+                                } finally {
+                                    CdsImportUnitContext.unbind();
+                                }
+                            }
+                        }
+                        if (page.size() < 200) break;
+                    }
+                    run.setState(ABANDONED);
+                    run.setResumeRequested(false);
+                    awaitMaintenanceRelease(run);
+                    addDiagnostic(
+                            runId,
+                            null,
+                            null,
+                            "WARNING",
+                            "RUN_ABANDONED",
+                            "CONTROL",
+                            null,
+                            "An authorized operator abandoned this stopped import: "
+                                    + counts[0]
+                                    + " chart(s) were released incomplete. This is not a"
+                                    + " completed import; the protected record holds the"
+                                    + " operator's stated reason.",
+                            evidence,
+                            false);
+                    Map<String, Object> facts = new LinkedHashMap<>();
+                    facts.put("reasonSha256", reasonSha256);
+                    facts.put("releasedCharts", counts[0]);
+                    facts.put("verified", counts[1]);
+                    facts.put("changed", counts[2]);
+                    facts.put("unverifiable", counts[3]);
+                    facts.put("notWritten", counts[4]);
+                    actorEvent(run, actor, "RUN_ABANDONED", facts);
+                    CdsImportAdmission gate = admission.lock("global");
+                    if (gate != null && runId.equals(gate.getOwnerRunId()))
+                        gate.setOwnerRunId(null);
+                    touch(run);
+                    return new AbandonOutcome(counts[0], counts[1], counts[2], counts[3], counts[4]);
+                });
+    }
+
+    /**
+     * The abandonment facts for an abandoned run's reports: when and by whom, the stated
+     * reason's digest, the release counts and the protected record's location. Null for any
+     * other run.
+     */
+    public Map<String, Object> abandonment(String runId) {
+        return write(
+                () -> {
+                    CdsImportRun run = requiredRun(runId, false);
+                    if (!ABANDONED.equals(run.getState())) return null;
+                    CdsImportEvent event = events.latest(runId, "RUN_ABANDONED");
+                    Map<String, Object> value = new LinkedHashMap<>();
+                    if (event != null) {
+                        value.put("abandonedAt", event.getCreatedAt().toString());
+                        value.put("operator", event.getOperator());
+                        value.put("providerNo", event.getProviderNo());
+                        value.put("ownerEpoch", event.getEpoch());
+                        try {
+                            var context =
+                                    new com.fasterxml.jackson.databind.ObjectMapper()
+                                            .readTree(event.getObservationContext());
+                            for (String name :
+                                    List.of(
+                                            "reasonSha256",
+                                            "releasedCharts",
+                                            "verified",
+                                            "changed",
+                                            "unverifiable",
+                                            "notWritten"))
+                                if (context != null && context.has(name))
+                                    value.put(
+                                            name,
+                                            context.get(name).isNumber()
+                                                    ? context.get(name).longValue()
+                                                    : context.get(name).asText());
+                        } catch (java.io.IOException | RuntimeException unreadable) {
+                            value.put("contextReadable", false);
+                        }
+                    }
+                    var recorded = diagnostics.latestCode(runId, "RUN_ABANDONED");
+                    value.put(
+                            "protectedRecord",
+                            recorded == null ? null : recorded.getProtectedDetailLocation());
+                    return java.util.Collections.unmodifiableMap(value);
+                });
+    }
+
     public void cancel(String runId) {
         write(
                 () -> {
@@ -2712,7 +3091,7 @@ public class CdsImportLedgerService {
     }
 
     private void applyCancel(CdsImportRun run) {
-        if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(run.getState())) return;
+        if (Set.of("COMPLETE", "DRY_RUN_COMPLETE", ABANDONED).contains(run.getState())) return;
         run.setResumeRequested(false);
         run.setCancelRequested(true);
         run.setReportState("PENDING");
@@ -2925,6 +3304,14 @@ public class CdsImportLedgerService {
             CdsImportRun run,
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor,
             String type) {
+        actorEvent(run, actor, type, Map.of());
+    }
+
+    void actorEvent(
+            CdsImportRun run,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor,
+            String type,
+            Map<String, Object> facts) {
         if (!TransactionSynchronizationManager.isActualTransactionActive())
             throw new CdsImportException("CONTROL_AUDIT_REQUIRES_TRANSACTION");
         CdsImportKeys.required(actor.operator(), "current operator", 128);
@@ -2938,6 +3325,7 @@ public class CdsImportLedgerService {
         context.put("originalJobOperator", run.getOperator());
         context.put("facilityId", actor.facilityId());
         context.put("programId", actor.programId());
+        context.putAll(facts);
         CdsImportEvent item = new CdsImportEvent();
         item.setRunId(run.getId());
         item.setEpoch(run.getOwnerEpoch());

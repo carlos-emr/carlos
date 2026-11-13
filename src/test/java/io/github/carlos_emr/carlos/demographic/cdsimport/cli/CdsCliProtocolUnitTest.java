@@ -540,6 +540,117 @@ class CdsCliProtocolUnitTest {
         assertThat(clean.technicalReads).isZero();
     }
 
+    private static String[] abandon(String... extra) {
+        return concat(
+                new String[] {
+                    "--operation",
+                    "abandon",
+                    "--provider",
+                    "999998",
+                    "--run",
+                    NONCE,
+                    "--confirm",
+                    NONCE,
+                    "--reason",
+                    "sensitive stated reason"
+                },
+                extra);
+    }
+
+    @Test
+    void shouldAcceptAnAbandon_onlyWithTheRunTypedTwiceAndAStatedReason() {
+        var parsed = CdsCliArguments.parse(abandon());
+        assertThat(parsed.operation()).isEqualTo("abandon");
+        assertThat(parsed.runId()).isEqualTo(NONCE);
+        assertThat(parsed.confirmation()).isEqualTo(NONCE);
+        assertThat(parsed.reason()).isEqualTo("sensitive stated reason");
+        String other = "5613b36a-4909-48bd-86f1-bd07b31c11f2";
+        for (String[] refused :
+                new String[][] {
+                    {"--operation", "abandon", "--provider", "999998", "--run", NONCE},
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", other, "--reason", "stated"
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", " "
+                    },
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", "x".repeat(1001)
+                    },
+                    abandon("--input", "/allowed/source.xml"),
+                    {
+                        "--operation", "resume", "--provider", "999998", "--run", NONCE,
+                        "--reason", "stated"
+                    }
+                })
+            assertThatThrownBy(() -> CdsCliArguments.parse(refused))
+                    .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void shouldCloseTheRunAsAbandoned_withExitFourAndNoReasonOnTheConsole() {
+        FakeRuntime runtime = new FakeRuntime();
+        runtime.clean = false;
+        runtime.expectAcceptedHandle = false;
+        int code =
+                CdsImportCli.runAuthorized(
+                        new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                        CdsCliArguments.parse(abandon()),
+                        new CdsDelegationVerifier.Delegation("synthetic-operator", 999998, NONCE),
+                        out,
+                        err,
+                        (config, selected, delegation) -> runtime);
+        assertThat(code).isEqualTo(4);
+        assertThat(runtime.calls).containsExactly("observe:abandon", "abandon", "summary", "close");
+        assertThat(runtime.abandonedConfirmation).isEqualTo(NONCE);
+        assertThat(runtime.abandonedReason).isEqualTo("sensitive stated reason");
+        assertThat(stderr.toString(StandardCharsets.UTF_8))
+                .contains("CDS_ABANDONED:")
+                .doesNotContain("sensitive stated reason", "CDS_TECHNICAL:");
+        assertThat(stdout.toString(StandardCharsets.UTF_8))
+                .contains("\"operation\":\"abandon\"", "RESULT")
+                .doesNotContain("sensitive stated reason");
+        assertThat(runtime.technicalReads).isZero();
+    }
+
+    @Test
+    void shouldNameARefusedAbandon_byItsPublicCode() {
+        for (String refusal :
+                new String[] {
+                    "IMPORT_ABANDONED",
+                    "ABANDON_RUN_NOT_STOPPED",
+                    "ABANDON_CANCEL_REQUIRED",
+                    "ABANDON_RESUME_PENDING",
+                    "ABANDON_REVIEW_PENDING",
+                    "ABANDON_EVIDENCE_UNAVAILABLE"
+                }) {
+            stderr.reset();
+            FakeRuntime runtime = new FakeRuntime();
+            runtime.abandonFailureCode = refusal;
+            runtime.expectAcceptedHandle = false;
+            int code =
+                    CdsImportCli.runAuthorized(
+                            new CdsCliConfiguration(Path.of("/unused"), new Properties(), 512),
+                            CdsCliArguments.parse(abandon()),
+                            new CdsDelegationVerifier.Delegation(
+                                    "synthetic-operator", 999998, NONCE),
+                            out,
+                            err,
+                            (config, selected, delegation) -> runtime);
+            assertThat(code).as(refusal).isEqualTo(4);
+            assertThat(stderr.toString(StandardCharsets.UTF_8))
+                    .contains("CDS_REASON: safeCode=" + refusal + " ")
+                    .doesNotContain("CDS_ABANDONED:");
+        }
+    }
+
     @Test
     void shouldValidateArgumentCombinations_whenConstructingSharedCommand() {
         var command = CdsCliArguments.parse(IMPORT).command(NONCE);
@@ -1122,6 +1233,16 @@ class CdsCliProtocolUnitTest {
         private Map<String, Object> technical;
         private boolean technicalFailure;
         private int technicalReads;
+        private String abandonedConfirmation, abandonedReason;
+        private String abandonFailureCode;
+
+        @Override
+        public void abandon(String run, String confirmation, String reason) {
+            calls.add("abandon");
+            if (abandonFailureCode != null) throw new CdsImportException(abandonFailureCode);
+            abandonedConfirmation = confirmation;
+            abandonedReason = reason;
+        }
 
         @Override
         public Map<String, Object> failureEvidence(String run) throws IOException {

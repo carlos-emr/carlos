@@ -110,7 +110,8 @@ def main() -> None:
         os.chmod(ticket, 0o640)
         caps = json.loads(invoke(["--capabilities"], 0))
         if caps != {"protocol": 1, "java": 25, "cliHeapMiB": 768, "submissionLookup": True,
-                    "operations": ["import", "status", "resume", "cancel", "report"]}:
+                    "operations": ["import", "status", "resume", "cancel", "report",
+                                   "abandon"]}:
             raise RuntimeError("actual Java capability contract did not match")
         invoke(source_arguments, 3)
         # Valid root proof reaches explicit disabled refusal before Spring/DB.

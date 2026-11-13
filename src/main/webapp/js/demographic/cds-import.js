@@ -8,7 +8,7 @@
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
     const COMPLETE = new Set(['COMPLETE', 'COMPLETE_WITH_NONLOSSY_WARNINGS', 'ALREADY_COMPLETE', 'DRY_RUN_COMPLETE']);
     const FINAL = new Set([...COMPLETE, 'FAILED_BEFORE_WRITE', 'REFUSED', 'CANCELLED_BEFORE_WRITE',
-        'PARTIAL_COMMITTED', 'RECONCILIATION_REQUIRED', 'CANCELLED', 'FAILED']);
+        'PARTIAL_COMMITTED', 'RECONCILIATION_REQUIRED', 'CANCELLED', 'FAILED', 'ABANDONED']);
 
     function statusPresentation(job, summary) {
         if (!job || !UUID.test(job.id || '') || typeof job.state !== 'string'
@@ -69,7 +69,9 @@
             OPEN: ['Transfer in progress', 'Transfert en cours'],
             SUBMITTING: ['Confirming acceptance', 'Confirmation de l’acceptation'],
             SUBMITTED: ['Accepted for processing', 'Accepté pour traitement'],
-            ABANDONED: ['Unsubmitted transfer abandoned', 'Transfert non soumis abandonné'],
+            // A job or chart state: an operator closed a stopped import without completing it.
+            // An unsubmitted transfer's ABANDONED is labelled by uploadPresentation instead.
+            ABANDONED: ['Import abandoned — charts released incomplete', 'Importation abandonnée — dossiers libérés incomplets'],
             EXPIRED: ['Transfer expired', 'Transfert expiré'],
             REFUSED: ['Import refused — inspect findings', 'Importation refusée — vérifier les résultats'],
             FAILED: ['Stopped — attention needed', 'Arrêt — intervention requise'],
@@ -120,7 +122,7 @@
             stage = french ? 'Données enregistrées — finalisation des rapports et de l’accès' : 'Data saved — finishing reports and access';
         if (clean && count(outcomes?.COMPLETE_WITH_NONLOSSY_WARNINGS) > 0) stage = friendlyState('COMPLETE_WITH_NONLOSSY_WARNINGS', french);
         if (baseClean && !clean) stage = french ? 'Les totaux doivent être vérifiés' : 'Counts need review';
-        const attention = reportFailed || cleanupFailed || ['INCOMPLETE','RECONCILIATION_REQUIRED','PARTIAL_COMMITTED','FAILED_BEFORE_WRITE','FAILED','REFUSED','REVIEW_REQUIRED','DRY_RUN_INCOMPLETE'].includes(job?.state)
+        const attention = reportFailed || cleanupFailed || ['INCOMPLETE','RECONCILIATION_REQUIRED','PARTIAL_COMMITTED','FAILED_BEFORE_WRITE','FAILED','REFUSED','REVIEW_REQUIRED','DRY_RUN_INCOMPLETE','ABANDONED'].includes(job?.state)
             || (!clean && !preview && summary.operationTerminal === true && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state));
         if (reportFailed || cleanupFailed || (attention && ['COMPLETE','COMPLETE_WITH_NONLOSSY_WARNINGS','ALREADY_COMPLETE'].includes(job?.state)))
             stage = preview ? (french ? 'Validation terminée — intervention requise pour les rapports ou le nettoyage; aucune donnée clinique importée' : 'Validation finished — reports or cleanup need attention; no clinical data imported')

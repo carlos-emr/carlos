@@ -55,7 +55,8 @@ SQL keyword and allowlist-token classification folds ASCII letters only. The cla
 `Owner.close()` stops new unit admission, drains old units and releases the advisory connection.
 It retains durable maintenance by default, including after failure or process/connection loss.
 Only an explicit `allowReopen()` after successful clinical reconciliation and backlog/care-owner
-policy can reopen, and a remaining chart hold vetoes reopening. A successor first drains old units
+policy, or after an operator's audited abandon has released a stopped run's holds, can reopen,
+and a remaining chart hold vetoes reopening. A successor first drains old units
 and advances the owner generation. The HTTP filter keeps login, static assets and authenticated
 import/recovery routes available; clinical chart/API/print/download routes receive a safe 503.
 It does not grant import privileges.

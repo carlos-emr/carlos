@@ -55,41 +55,69 @@ public class CdsImportFailureEvidenceService {
     public String write(String runId, long epoch, Throwable failure) {
         CdsImportLedgerService.requireNoTransaction();
         try {
-            Path root = jobs.root(runId), directory = root.resolve("diagnostics");
-            if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
-                try {
-                    CdsPaths.privateDirectory(directory, root);
-                } catch (java.nio.file.FileAlreadyExistsException concurrent) {
-                    /* Validate below. */
-                }
-            }
-            directory = CdsPaths.within(directory, root);
-            if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
-                    || Files.isSymbolicLink(directory)
-                    || (((int)
-                                            Files.getAttribute(
-                                                    directory,
-                                                    "unix:mode",
-                                                    LinkOption.NOFOLLOW_LINKS))
-                                    & 0077)
-                            != 0) return null;
-            byte[] bytes = document(epoch, failure);
-            Path file = directory.resolve("failure-" + epoch + "-" + UUID.randomUUID() + ".json");
-            try (var output = CdsPaths.newPrivateFile(file, directory)) {
-                output.write(bytes);
-            }
-            CdsPaths.forceFile(file);
-            CdsPaths.forceDirectory(directory);
-            files.reconcilePublication(
-                    runId,
-                    epoch,
-                    file.toString(),
-                    CdsPaths.hex(CdsPaths.sha256().digest(bytes)),
-                    bytes.length);
-            return file.toString();
+            return publish(runId, epoch, "failure", document(epoch, failure));
         } catch (IOException | RuntimeException unavailable) {
             return null;
         }
+    }
+
+    /**
+     * The protected record of an abandon: the operator's own stated reason (which may name
+     * patients, so it is kept here and never in a log, console line or ledger column), the
+     * acting operator and provider, and each released chart's witness result. Returns its
+     * location, or null when it could not be stored; an abandon then changes nothing.
+     */
+    public String writeAbandonment(String runId, long epoch, Map<String, Object> record) {
+        CdsImportLedgerService.requireNoTransaction();
+        try {
+            Map<String, Object> document = new LinkedHashMap<>();
+            document.put("version", 1);
+            document.put("kind", "CDS_IMPORT_ABANDONMENT");
+            document.put("ownerEpoch", epoch);
+            document.putAll(record);
+            return publish(
+                    runId,
+                    epoch,
+                    "abandonment",
+                    new ObjectMapper().writeValueAsBytes(document));
+        } catch (IOException | RuntimeException unavailable) {
+            return null;
+        }
+    }
+
+    private String publish(String runId, long epoch, String prefix, byte[] bytes)
+            throws IOException {
+        Path root = jobs.root(runId), directory = root.resolve("diagnostics");
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+            try {
+                CdsPaths.privateDirectory(directory, root);
+            } catch (java.nio.file.FileAlreadyExistsException concurrent) {
+                /* Validate below. */
+            }
+        }
+        directory = CdsPaths.within(directory, root);
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(directory)
+                || (((int)
+                                        Files.getAttribute(
+                                                directory,
+                                                "unix:mode",
+                                                LinkOption.NOFOLLOW_LINKS))
+                                & 0077)
+                        != 0) return null;
+        Path file = directory.resolve(prefix + "-" + epoch + "-" + UUID.randomUUID() + ".json");
+        try (var output = CdsPaths.newPrivateFile(file, directory)) {
+            output.write(bytes);
+        }
+        CdsPaths.forceFile(file);
+        CdsPaths.forceDirectory(directory);
+        files.reconcilePublication(
+                runId,
+                epoch,
+                file.toString(),
+                CdsPaths.hex(CdsPaths.sha256().digest(bytes)),
+                bytes.length);
+        return file.toString();
     }
 
     /** Internal: the facade must authorize the operator and exact diagnostic/run association first. */

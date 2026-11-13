@@ -114,6 +114,20 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
                 .getResultList();
     }
 
+    /** The run's most recent run-level diagnostic with this code, or null. */
+    public CdsImportDiagnostic latestCode(String runId, String code) {
+        var rows =
+                entityManager
+                        .createQuery(
+                                "select d from CdsImportDiagnostic d where d.runId=:run and d.patientKey is null and d.code=:code order by d.id desc",
+                                CdsImportDiagnostic.class)
+                        .setParameter("run", runId)
+                        .setParameter("code", code)
+                        .setMaxResults(1)
+                        .getResultList();
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
     public List<CdsImportDiagnostic> unresolvedOperationalCode(
             String runId, String code, int limit) {
         return entityManager

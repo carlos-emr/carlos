@@ -162,6 +162,17 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
     }
 
     @Override
+    public void abandon(String runId, String confirmation, String reason) throws Exception {
+        // The shared facade authorizes this actor for the run first; the abandon service then
+        // checks the run's own operator and provider again under its lock.
+        service.status(actor, runId);
+        context.getBean(
+                        io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsImportAbandonService.class)
+                .abandon(runId, actor, confirmation, reason);
+    }
+
+    @Override
     public Map<String, Object> summary(String runId) throws Exception {
         return service.summary(actor, runId);
     }

@@ -59,6 +59,11 @@ public class LogConst {
     public static final String EXPORT = "export";
     /** A CDS import wrote a unit of the patient's chart (see cds_import_event for its outcome). */
     public static final String IMPORT = "import";
+    /**
+     * A CDS import of the patient's chart was abandoned before it completed and its hold was
+     * released; the chart keeps only the units committed before the stop.
+     */
+    public static final String IMPORT_ABANDONED = "import abandoned";
     // OHIP file generation and simulation (Ontario billing), as OSCAR 19 audited them.
     public static final String SIMULATE = "simulate";
     public static final String GENERATE = "generate";

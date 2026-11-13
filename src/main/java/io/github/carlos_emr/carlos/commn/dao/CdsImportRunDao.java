@@ -241,7 +241,7 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
         var reports =
                 entityManager
                         .createQuery(
-                                "select r from CdsImportRun r where r.id>:after and r.reportState='PENDING' and r.state in ('COMPLETE','DRY_RUN_COMPLETE','DRY_RUN_INCOMPLETE','INCOMPLETE','RECONCILIATION_REQUIRED','REVIEW_REQUIRED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE') order by r.id",
+                                "select r from CdsImportRun r where r.id>:after and r.reportState='PENDING' and r.state in ('COMPLETE','DRY_RUN_COMPLETE','DRY_RUN_INCOMPLETE','INCOMPLETE','RECONCILIATION_REQUIRED','REVIEW_REQUIRED','FAILED_BEFORE_WRITE','CANCELLED_BEFORE_WRITE','ABANDONED') order by r.id",
                                 CdsImportRun.class)
                         .setParameter("after", afterId)
                         .setMaxResults(limit)

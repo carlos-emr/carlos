@@ -34,6 +34,8 @@
   "CdsExportRourkeChartComposerUnitTest",
   "CdsExportScreeningMapperUnitTest",
   "CdsExportScreeningOccurrenceServiceUnitTest",
+  "CdsImportAbandonMariaDbIntegrationTest",
+  "CdsImportAbandonServiceUnitTest",
   "CdsNativeBaselineFieldPageMariaDbIntegrationTest",
   "CdsSourceFieldPresenceIntegrationTest",
   "CdsSourceFieldPresenceResolverUnitTest",

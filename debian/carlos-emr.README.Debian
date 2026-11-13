@@ -900,7 +900,12 @@ import started by this one, and while an import keeps its maintenance window
 open or holds imported patients the EMR stays closed for clinical use, so the
 preinst refuses the upgrade (before the service is stopped) and names the held
 import runs. Finish the import first (`carlos-ctl cds-import --status <run-id>`,
-then resume it until it completes). The check only reads the database and
+then resume it until it completes). A stopped import that cannot complete is
+closed instead by its operator's audited abandon, after cancelling it
+(`carlos-ctl cds-import --provider <id> --abandon --run <run-id>
+--confirm <run-id> --reason "..."`),
+which releases its holds and the maintenance window without changing any
+clinical data; the upgrade then proceeds. The check only reads the database and
 continues with a note if the local database cannot be reached. To upgrade anyway,
 for example to install a fix for the import itself:
     sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>

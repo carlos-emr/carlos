@@ -114,6 +114,22 @@ class TestUpgradeGuardVerdicts(unittest.TestCase):
         self.assertIn("3 imported patient(s) are still held", result.stderr)
         self.assertIn(f"import run(s): {run_a} {run_b}", result.stderr)
 
+    def test_refusal_names_the_supported_abandon_for_an_import_that_cannot_complete(self):
+        host = self._host(row="1\t2\t0f6e1c2a-1111-4c3b-9a55-000000000003")
+        result = host.run("upgrade", "2026.08.0")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("carlos-ctl cds-import --provider <id> --abandon --run <run-id>"
+                      " --confirm <run-id> --reason", result.stderr)
+        self.assertIn("after cancelling it", result.stderr)
+
+    def test_upgrade_proceeds_after_an_abandon_released_the_holds_and_the_window(self):
+        # An abandon leaves held=FALSE for its charts and maintenance inactive; the run itself
+        # stays in the ledger as ABANDONED, which the guard does not read.
+        host = self._host(row="0\t0\t")
+        result = host.run("upgrade", "2026.08.0")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stderr, "")
+
     def test_override_skips_the_check_with_a_warning(self):
         host = self._host(row="1\t5\tx")
         result = host.run("upgrade", "2026.08.0",

@@ -182,12 +182,14 @@ public class CdsImportExecutionService {
                                     "FAILED_BEFORE_WRITE",
                                     "CANCELLED_BEFORE_WRITE",
                                     "DRY_RUN_INCOMPLETE",
-                                    "REVIEW_REQUIRED")
+                                    "REVIEW_REQUIRED",
+                                    "ABANDONED")
                             .contains(job.state())) return ledger.status(runId);
             // The durable current control is authoritative; a stale queue boolean is never new
             // consent.
             boolean resume = !reportOnly && resumeEvent > 0;
-            if (Set.of("COMPLETE", "DRY_RUN_COMPLETE").contains(job.state())
+            // An abandoned run, like a completed one, only retries its release proof and reports.
+            if (Set.of("COMPLETE", "DRY_RUN_COMPLETE", "ABANDONED").contains(job.state())
                     || reportOnly
                     || !resume
                             && Set.of(

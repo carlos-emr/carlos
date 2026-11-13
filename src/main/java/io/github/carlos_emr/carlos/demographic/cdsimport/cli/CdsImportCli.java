@@ -74,7 +74,16 @@ public final class CdsImportCli {
                     "PREACCEPT_INDEX_CANCELLED",
                     "CDS_XML_SCHEMA_INVALID",
                     "CDS_XML_READ_FAILED",
-                    "CDS_CORRECTION_STAGE_INVALID");
+                    "CDS_CORRECTION_STAGE_INVALID",
+                    "IMPORT_ABANDONED",
+                    "ABANDON_RUN_NOT_STOPPED",
+                    "ABANDON_CANCEL_REQUIRED",
+                    "ABANDON_RESUME_PENDING",
+                    "ABANDON_REVIEW_PENDING",
+                    "ABANDON_CONFIRMATION_MISMATCH",
+                    "ABANDON_REASON_INVALID",
+                    "ABANDON_EVIDENCE_UNAVAILABLE",
+                    "ABANDON_UNSUPPORTED");
 
     private static final Set<String> PUBLIC_RELEASE_STATES =
             Set.of(
@@ -112,7 +121,7 @@ public final class CdsImportCli {
                 out.println(
                         "{\"protocol\":1,\"java\":25,\"cliHeapMiB\":"
                                 + config.heapMiB()
-                                + ",\"submissionLookup\":true,\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\"]}");
+                                + ",\"submissionLookup\":true,\"operations\":[\"import\",\"status\",\"resume\",\"cancel\",\"report\",\"abandon\"]}");
                 return out.checkError() ? 2 : 0;
             } catch (IOException | RuntimeException failure) {
                 err.println(
@@ -143,7 +152,9 @@ public final class CdsImportCli {
             err.println("CDS_AUTHORIZATION: root-issued operator delegation could not be verified");
             return 3;
         }
-        if (("import".equals(arguments.operation()) || "resume".equals(arguments.operation()))
+        if (("import".equals(arguments.operation())
+                        || "resume".equals(arguments.operation())
+                        || "abandon".equals(arguments.operation()))
                 && !Boolean.parseBoolean(
                         config.properties().getProperty("cds.import.enabled", "false"))) {
             err.println("CDS_REFUSED: import admission is disabled in production configuration");
@@ -247,6 +258,8 @@ public final class CdsImportCli {
         if ("import".equals(arguments.operation()) || "resume".equals(arguments.operation())) {
             execute(runtime, run, "resume".equals(arguments.operation()), out, err);
         } else if ("cancel".equals(arguments.operation())) runtime.cancel(run);
+        else if ("abandon".equals(arguments.operation()))
+            runtime.abandon(run, arguments.confirmation(), arguments.reason());
         Map<String, Object> summary = runtime.summary(run);
         line(out, consoleSummary(summary, arguments.operation(), "RESULT"));
         if (("import".equals(arguments.operation()) || "resume".equals(arguments.operation()))
@@ -261,6 +274,14 @@ public final class CdsImportCli {
         if ("status".equals(arguments.operation()) || "report".equals(arguments.operation()))
             return 0;
         if ("cancel".equals(arguments.operation())) return 4;
+        if ("abandon".equals(arguments.operation())) {
+            // An abandoned import is closed for good, never completed: exit 4, never 0.
+            err.println(
+                    "CDS_ABANDONED: the import is closed without completing; its released charts"
+                            + " keep only the data committed before it stopped and need clinical"
+                            + " reconciliation against the original source");
+            return 4;
+        }
         return Boolean.TRUE.equals(summary.get("cleanComplete")) ? 0 : 4;
     }
 

@@ -174,6 +174,34 @@ class CdsExportRetainedIndexServiceUnitTest {
     }
 
     @Test
+    void shouldRefuseAChartReleasedByAnAbandonedImport_byItsOwnCode() {
+        assertThatThrownBy(
+                        () ->
+                                CdsExportRetainedIndexService.requireExportableImportPatient(
+                                        "0", "ABANDONED"))
+                .isInstanceOf(java.io.IOException.class)
+                .hasMessage("CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportRetainedIndexService.requireExportableImportPatient(
+                                        "1", "PARTIAL_COMMITTED"))
+                .hasMessage("CDS_EXPORT_CAPTURED_IMPORT_HOLD_REQUIRES_REVIEW");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportRetainedIndexService.requireExportableImportPatient(
+                                        "0", "PARTIAL_COMMITTED"))
+                .hasMessage("CDS_EXPORT_RETAINED_INDEX_REQUIRES_REVIEW");
+        assertThatCode(
+                        () -> {
+                            CdsExportRetainedIndexService.requireExportableImportPatient(
+                                    "0", "COMPLETE");
+                            CdsExportRetainedIndexService.requireExportableImportPatient(
+                                    "0", "NOT_STARTED");
+                        })
+                .doesNotThrowAnyException();
+    }
+
+    @Test
     void shouldRetainOriginalPublicationMetadata_whenReportsNeedItsReceiptClosure()
             throws Exception {
         var scope = reportScope();

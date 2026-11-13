@@ -425,7 +425,7 @@ class RecoveryProtocolTests(unittest.TestCase):
         def fake_bounded(command, timeout):
             if command[-1] == "--capabilities":
                 return {"protocol": 1, "java": 25, "cliHeapMiB": 512, "submissionLookup": True,
-                        "operations": ["import", "status", "resume", "cancel", "report"]}
+                        "operations": ["import", "status", "resume", "cancel", "report", "abandon"]}
             return memory
 
         with tempfile.TemporaryDirectory() as directory:

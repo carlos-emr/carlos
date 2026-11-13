@@ -63,7 +63,8 @@ public class CdsImportResultService {
                     "RECONCILIATION_REQUIRED",
                     "FAILED_BEFORE_WRITE",
                     "CANCELLED_BEFORE_WRITE",
-                    "REVIEW_REQUIRED");
+                    "REVIEW_REQUIRED",
+                    "ABANDONED");
     private static final List<String> SOURCE_CATEGORIES =
             List.of(
                     "Demographics",
@@ -385,6 +386,11 @@ public class CdsImportResultService {
                 completion.put("startedAt", before.createdAt().toString());
                 completion.put("receiptAt", Instant.now().toString());
                 completion.put("sourceDisposition", "RETAINED_FOR_RECONCILIATION");
+                // An abandoned run's receipt says so in its own section: who abandoned it and
+                // when, the stated reason's digest (the reason itself stays in the protected
+                // record named here) and how many charts were released with which receipt result.
+                Map<String, Object> abandonment = ledger.abandonment(runId);
+                if (abandonment != null) completion.put("abandonment", abandonment);
                 // This receipt describes the durable projection just generated, not an old
                 // pending-report observation.
                 completion.put("reportState", "DELIVERED");

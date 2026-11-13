@@ -59,6 +59,20 @@ public class CdsImportEventDao extends AbstractDaoImpl<CdsImportEvent> {
         return rows.isEmpty() ? 0 : rows.getFirst();
     }
 
+    /** The run's most recent event of one type, or null. */
+    public CdsImportEvent latest(String runId, String eventType) {
+        var rows =
+                entityManager
+                        .createQuery(
+                                "select e from CdsImportEvent e where e.runId=:run and e.eventType=:type order by e.id desc",
+                                CdsImportEvent.class)
+                        .setParameter("run", runId)
+                        .setParameter("type", eventType)
+                        .setMaxResults(1)
+                        .getResultList();
+        return rows.isEmpty() ? null : rows.getFirst();
+    }
+
     public List<CdsImportEvent> page(String runId, long afterId, int limit) {
         return entityManager
                 .createQuery(

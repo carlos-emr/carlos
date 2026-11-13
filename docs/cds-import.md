@@ -29,6 +29,7 @@ residual markers it adds are listed under
 | Deployment preparation, rehearsal, reconciliation and operator exit meanings | [Operator guide](cds-import-operator-guide.md) |
 | Server defaults, source registration, delegation and capacities | [Configuration reference](cds-import-configuration.md) |
 | Failure diagnosis, safe continuation, unknown outcomes and retained evidence | [Recovery runbook](cds-import-recovery-runbook.md) |
+| Closing a stopped written import that cannot complete (audited abandon) | [Operator guide](cds-import-operator-guide.md#abandoning-an-import-that-cannot-complete) |
 | Ownership, epochs, seals, checkpoints, review publication and finalization | [Ledger contract](cds-import-ledger.md) |
 | Writer exclusion, physical connection guard, startup and maintenance release | [Maintenance admission](cds-maintenance-admission.md) |
 | Source normalization, existing DAO composition and historical clinical semantics | [Clinical contract](cds-clinical-import-contract.md) |
