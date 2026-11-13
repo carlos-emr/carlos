@@ -95,6 +95,23 @@ class CdsReportMediaUnitTest {
     }
 
     @Test
+    void shouldPublishAnExportedPdfReportAsAPdfDocument_withoutMediaReview() throws Exception {
+        // CARLOS exports native PDF documents and its data-summary reports as Format Binary with
+        // FileExtensionAndVersion "pdf"; such a report is a plain PDF document on import.
+        for (String declaration : java.util.List.of("pdf", "PDF", ".pdf", "application/pdf")) {
+            var result =
+                    inspect(
+                            declaration,
+                            "%PDF-1.7\n%synthetic exported report\n".getBytes(
+                                    StandardCharsets.US_ASCII));
+            assertThat(result.extension()).isEqualTo("pdf");
+            assertThat(result.mime()).isEqualTo("application/pdf");
+            assertThat(result.reviewRequired()).isFalse();
+            assertThat(result.diagnostics()).isEmpty();
+        }
+    }
+
+    @Test
     void shouldRetainOpaqueBytesAndWarn_whenMediaDeclarationMismatches() throws Exception {
         byte[] original = "This is not a PDF report".getBytes(StandardCharsets.UTF_8);
         byte[] before = original.clone();
