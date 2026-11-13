@@ -1,0 +1,116 @@
+#!/bin/sh
+# preinst for carlos-emr.
+#
+# Refuse an upgrade while a CDS import keeps the EMR in its maintenance window or still holds
+# imported patients (carlos-emr/carlos#6199).
+#
+# A CDS import binds its committed units to the deployed ruleset fingerprint, so after any
+# upgrade the new build refuses to resume or replay it (IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE).
+# Meanwhile CdsImportMaintenanceFilter keeps every clinical read and write closed until a
+# successful run of that same import releases maintenance with zero holds. An upgrade in the
+# middle of an import could therefore leave the EMR closed until a manual clinical reconciliation
+# (docs/cds-import-operator-guide.md). Finishing the import first is always possible.
+#
+# The check runs before the debhelper snippet below stops the service, so a refusal leaves the
+# running EMR exactly as it was: dpkg keeps the installed version, and that version's postinst
+# abort-upgrade branch only starts the service if it is stopped.
+#
+# What this check deliberately does not do:
+# - It never blocks a fresh install, an upgrade from a release without the CDS import tables, or
+#   an upgrade where the local database cannot be reached (MariaDB stopped, a remote server).
+#   In those cases it cannot know, says so, and continues; it must not turn an unrelated outage
+#   into a failed upgrade.
+# - It is read-only and names only run IDs (random UUIDs), never patient data.
+# - An operator who has decided to upgrade anyway, for example to install a fix for the import
+#   itself, sets CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1:
+#       sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>
+set -e
+
+# The same database name carlos-ctl uses: the LAST CARLOS_DB_NAME= in carlos-emr.env (what shell
+# sourcing and systemd EnvironmentFile both take), default "carlos". The path can be overridden
+# only so the packaging tests can run this script against a scratch file.
+cds_import_db_name() {
+    env_file="${CARLOS_EMR_ENV_FILE:-/etc/carlos-emr/carlos-emr.env}"
+    name=""
+    if [ -r "$env_file" ]; then
+        name=$(sed -n 's/^CARLOS_DB_NAME=//p' "$env_file" | tail -n 1)
+        name=$(printf '%s' "$name" | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+    fi
+    printf '%s' "${name:-carlos}"
+}
+
+cds_import_upgrade_guard() {
+    if [ "${CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT:-}" = "1" ]; then
+        echo "carlos-emr: WARNING: CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1: not checking for an" >&2
+        echo "carlos-emr: unfinished CDS import before this upgrade." >&2
+        return 0
+    fi
+    command -v mariadb >/dev/null 2>&1 || return 0
+    db=$(cds_import_db_name)
+    case "$db" in
+        ''|*[!A-Za-z0-9_]*)
+            echo "carlos-emr: note: CARLOS_DB_NAME is not a plain identifier; not checking for an" >&2
+            echo "carlos-emr: unfinished CDS import before this upgrade." >&2
+            return 0
+            ;;
+    esac
+    # One row: maintenance active (0/1), held patient count, up to five run IDs with holds.
+    # An error (no local server, no socket access, a release without these tables) is "cannot
+    # tell", never a refusal.
+    if ! row=$(mariadb --protocol=socket --user=root --batch --skip-column-names "$db" -e "
+            SELECT
+              (SELECT COUNT(*) FROM cds_import_admission
+                 WHERE id = 'clinical-maintenance' AND maintenance_active),
+              (SELECT COUNT(*) FROM cds_import_patient WHERE held),
+              COALESCE((SELECT GROUP_CONCAT(run_id ORDER BY run_id SEPARATOR ' ')
+                 FROM (SELECT DISTINCT run_id FROM cds_import_patient WHERE held
+                       ORDER BY run_id LIMIT 5) AS held_runs), '')" 2>/dev/null); then
+        echo "carlos-emr: note: could not check the database for an unfinished CDS import" >&2
+        echo "carlos-emr: (database not reachable over the local socket); continuing." >&2
+        return 0
+    fi
+    # Tab-separated: maintenance, held count, run IDs.
+    maintenance=$(printf '%s\n' "$row" | head -n 1 | cut -f 1)
+    held=$(printf '%s\n' "$row" | head -n 1 | cut -f 2)
+    runs=$(printf '%s\n' "$row" | head -n 1 | cut -f 3)
+    case "$maintenance$held" in
+        *[!0-9]*|'')
+            echo "carlos-emr: note: unexpected answer while checking for an unfinished CDS import;" >&2
+            echo "carlos-emr: continuing." >&2
+            return 0
+            ;;
+    esac
+    if [ "$maintenance" -eq 0 ] && [ "$held" -eq 0 ]; then
+        return 0
+    fi
+    echo "carlos-emr: refusing to upgrade: a CDS import is not finished." >&2
+    if [ "$maintenance" -ne 0 ]; then
+        echo "carlos-emr:   the EMR is in the CDS import maintenance window" >&2
+    fi
+    if [ "$held" -ne 0 ]; then
+        echo "carlos-emr:   ${held} imported patient(s) are still held" >&2
+        if [ -n "$runs" ]; then
+            echo "carlos-emr:   import run(s): ${runs}" >&2
+        fi
+    fi
+    echo "carlos-emr: The upgraded build cannot resume an import started by this one, and the EMR" >&2
+    echo "carlos-emr: stays closed for clinical use until the import releases it. Finish it first:" >&2
+    echo "carlos-emr:   sudo carlos-ctl cds-import --status <run-id>    (then resume until COMPLETE)" >&2
+    echo "carlos-emr: To upgrade anyway (for example to install a fix for the import itself):" >&2
+    echo "carlos-emr:   sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>" >&2
+    return 1
+}
+
+case "$1" in
+    upgrade)
+        cds_import_upgrade_guard || exit 1
+        ;;
+    install|abort-upgrade)
+        ;;
+    *)
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

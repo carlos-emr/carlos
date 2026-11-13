@@ -66,7 +66,15 @@ Corrections require the exact indexed field, original source identity, proposed 
 
 When a source or effective policy changed after an actual zero-write failure, submit the revised immutable input/options and use the explicit **Approve unwritten revision** review. Both revisions must have no clinical target, checkpoint, hold or uncertain commit, checked under the same durable locks. Old provenance and plans remain retained. Any evidence of clinical writes requires recovery of the original run; changing the source namespace or deleting ledger rows is not a supported workaround.
 
-Finish or cancel every import before upgrading CARLOS. Any change to the deployed import or
+Finish or cancel every import before upgrading CARLOS. The `carlos-emr` package enforces this
+for the case that would leave the EMR closed: its preinst refuses an upgrade, before the service
+is stopped, while the import maintenance window is open or any imported patient is still held,
+and names the held runs. Finish such an import (resume it until it completes and releases
+maintenance), then upgrade. The check is read-only, never blocks a fresh install, and continues
+with a note when the local database cannot be reached. To upgrade anyway, for example to install
+a fix for the import itself, run
+`sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>` and then follow the
+recovery below. Any change to the deployed import or
 export classes changes the ruleset fingerprint, so after an upgrade an attempt accepted by the
 earlier build is refused before any claim with `IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE`; its
 committed units, patient holds and maintenance window are left exactly as they were, and its
