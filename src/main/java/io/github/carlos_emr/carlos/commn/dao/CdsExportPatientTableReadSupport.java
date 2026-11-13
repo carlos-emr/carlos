@@ -930,6 +930,15 @@ public final class CdsExportPatientTableReadSupport {
             };
         }
 
+        /**
+         * No exact lab_no extension on the observation id. A scalar count keeps the lookup a
+         * dependent index probe on measurement_id; NOT EXISTS lets the optimizer materialize
+         * every lab_no row of the clinic first.
+         */
+        private static final String NOT_LABORATORY_FILED =
+                "(select count(*) from `measurementsExt` l where l.`measurement_id`=%s and"
+                        + " l.`keyval`='lab_no' and CAST(l.`keyval` AS BINARY)='lab_no')=0";
+
         private String patientPredicate() {
             if (this == HRM_REPORT_LINKS) return "d.`cds_patient_key`=:patient";
             if (this == DOCUMENT_LINKS)
@@ -937,6 +946,18 @@ public final class CdsExportPatientTableReadSupport {
             if (this == DOCUMENTS)
                 return "exists (select 1 from `ctl_document` c where c.`module`='demographic' and"
                         + " c.`module_id`=:patient and c.`document_no`=d.`document_no`)";
+            // A measurement carrying a lab_no extension is an HL7 result that
+            // Hl7textResultsData.fileMeasurements indexed for flowsheets. It is a laboratory
+            // result: the complete report is exported (and authorized, including sensitive
+            // results) by the LaboratoryResults path, so care capture never reads its values.
+            // Its own rows, its extensions and the vocabulary only it uses stay out of every
+            // measurement plan; a filed result naming no report that path can export is refused
+            // separately (unroutedLaboratoryMeasurements).
+            if (this == MEASUREMENTS_CURRENT)
+                return "d.`demographicNo`=:patient and " + NOT_LABORATORY_FILED.formatted("d.`id`");
+            if (this == MEASUREMENTS_DELETED)
+                return "d.`demographicNo`=:patient and "
+                        + NOT_LABORATORY_FILED.formatted("d.`originalId`");
             // Deleting an observation (EctDeleteData2Action, a superseded HL7 version) moves the
             // measurements row to measurementsDeleted but leaves its extensions keyed by the old
             // id, so an extension belongs to the patient through either owner. The owner ids are
@@ -944,14 +965,19 @@ public final class CdsExportPatientTableReadSupport {
             // scan the whole extension table for every page.
             if (this == MEASUREMENTS_EXT)
                 return "d.`measurement_id` in (select o.`k` from (select m.`id` k from"
-                        + " `measurements` m where m.`demographicNo`=:patient union all select"
-                        + " x.`originalId` from `measurementsDeleted` x where"
-                        + " x.`demographicNo`=:patient) o)";
+                        + " `measurements` m where m.`demographicNo`=:patient and "
+                        + NOT_LABORATORY_FILED.formatted("m.`id`")
+                        + " union all select x.`originalId` from `measurementsDeleted` x where"
+                        + " x.`demographicNo`=:patient and "
+                        + NOT_LABORATORY_FILED.formatted("x.`originalId`")
+                        + ") o)";
             if (this == MEASUREMENT_TYPES)
                 return "exists (select 1 from `measurements` m where m.`demographicNo`=:patient and"
                         + " CAST(m.`type` AS BINARY)=CAST(d.`type` AS BINARY) and"
                         + " CAST(m.`measuringInstruction` AS"
-                        + " BINARY)=CAST(d.`measuringInstruction` AS BINARY))";
+                        + " BINARY)=CAST(d.`measuringInstruction` AS BINARY) and "
+                        + NOT_LABORATORY_FILED.formatted("m.`id`")
+                        + ")";
             if (this == LABORATORY_ROUTING)
                 return "d.`demographic_no`=:patient and d.`lab_type`='HL7'";
             if (this == LABORATORY_MESSAGES || this == LABORATORY_INFORMATION) {
@@ -1201,6 +1227,28 @@ public final class CdsExportPatientTableReadSupport {
                     .CdsExportReviewException(
                     io.github.carlos_emr.carlos.demographic.cdsexport.support
                             .CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
+    }
+
+    /**
+     * An HL7 result filed as a measurement whose lab_no names no HL7 report routed to this
+     * patient: the LaboratoryResults path, which exports only routed HL7 reports, cannot carry
+     * it, and care capture never reads laboratory-filed rows. The text value is compared exactly
+     * with the routed number's decimal spelling, never coerced to a number.
+     */
+    public static boolean unroutedLaboratoryMeasurements(EntityManager em, int patient) {
+        patient(patient);
+        return !query(
+                                em,
+                                """
+                                select 1,1 from measurements m join measurementsExt e on e.measurement_id=m.id
+                                where m.demographicNo=:patient and e.keyval='lab_no' and CAST(e.keyval AS BINARY)='lab_no'
+                                and not exists (select 1 from patientLabRouting r where r.lab_type='HL7'
+                                and r.demographic_no=:patient and CAST(CAST(r.lab_no AS CHAR) AS BINARY)=CAST(e.val AS BINARY))
+                                """)
+                        .setParameter("patient", patient)
+                        .setMaxResults(1)
+                        .getResultList()
+                        .isEmpty();
     }
 
     /** Exact string-key paging for the structured result's SHA-256 identity, never a numeric conversion. */

@@ -141,8 +141,13 @@ PastHealth, ProblemList, RiskFactors, AlertsAndSpecialNeeds and ClinicalNotes. S
 NewCategory when exporting native measurements/labs or printed prescription context.
 It carries generic observations, complete original lab messages and printed script
 history. Deleted measurements (a clinician's deletion or an HL7 result superseded by a
-newer version) are not exported, as with the legacy exporter. Excluding a required supporting category requests review;
-the exporter does not silently expand the accepted selection.
+newer version) are not exported, as with the legacy exporter. Lab results that CARLOS
+copies into the measurement flowsheets travel only with their HL7 report under
+LaboratoryResults, never as care elements: without LaboratoryResults they are not exported.
+With it, a copied result whose report is not routed to the patient holds the patient
+(`CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED`); correct the lab's patient match
+and export again. Excluding a required supporting category requests review; the exporter
+does not silently expand the accepted selection.
 
 Vaccines export under Immunizations. Prevention screenings (the Screenings types and
 OtherB) export only under PastHealth, so a package without the history categories carries no

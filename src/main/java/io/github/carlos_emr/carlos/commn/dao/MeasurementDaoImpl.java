@@ -83,6 +83,12 @@ public class MeasurementDaoImpl extends AbstractDaoImpl<Measurement> implements 
         return CdsExportPatientTableReadSupport.chunk(entityManager, CdsExportPatientTableReadSupport.Plan.MEASUREMENTS_CURRENT, patient, rowId, column, offset, length);
     }
 
+    @Override
+    @org.springframework.transaction.annotation.Transactional(readOnly = true, propagation = org.springframework.transaction.annotation.Propagation.MANDATORY)
+    public boolean hasCdsExportUnroutedLaboratoryMeasurements(int patient) {
+        return CdsExportPatientTableReadSupport.unroutedLaboratoryMeasurements(entityManager, patient);
+    }
+
 
     public MeasurementDaoImpl() {
         super(Measurement.class);

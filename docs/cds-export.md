@@ -102,6 +102,17 @@ NewCategory selection. An extension whose id names both a current and a deleted 
 two deleted ones, holds the patient (`CDS_EXPORT_NATIVE_CARE_EXTENSION_OWNER_AMBIGUOUS`); an
 original id deleted from two charts holds both (`CDS_EXPORT_AMBIGUOUS_SOURCE`).
 
+An HL7 result that `Hl7textResultsData.fileMeasurements` filed as a measurement (one row per
+OBX with `lab_no`, test name, abnormal flag, lab, accession, range and blocked extensions) is a
+laboratory result, not a care element. The measurement capture plans leave every measurement
+carrying an exact `lab_no` extension, current or deleted, its extensions and the vocabulary only
+it uses to the LaboratoryResults path, which exports the complete report and applies the
+laboratory and sensitive-laboratory rights. When LaboratoryResults is selected, a filed result
+whose `lab_no` names no HL7 report routed to the patient (so neither path could carry it) holds
+the patient with `CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED` before any observation value
+is read. When LaboratoryResults is not selected, filed results are not exported: the operator
+excluded laboratory results.
+
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
 range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
 and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). Patient capture

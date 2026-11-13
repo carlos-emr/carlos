@@ -387,6 +387,168 @@ class CdsExportMeasurementReadMariaDbIntegrationTest {
         }
     }
 
+    /**
+     * One OBX result as Hl7textResultsData.fileMeasurements files it: provider "0", the mapped
+     * flowsheet code (or empty), and the report's identity and context in extensions.
+     */
+    private void laboratoryFiled(int id, String labNo, boolean deletedVersion) {
+        if (deletedVersion)
+            sql.update(
+                    "insert into measurementsDeleted(id,originalId,demographicNo,providerNo,type,dataField,measuringInstruction,dateObserved,dateEntered,dateDeleted) values(?,?,?,'0',?,'5.4','','2020-02-29',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)",
+                    id,
+                    id,
+                    patient,
+                    marker);
+        else
+            sql.update(
+                    "insert into measurements(id,demographicNo,providerNo,type,dataField,measuringInstruction,dateObserved,dateEntered,comments,appointmentNo) values(?,?,'0',?,'5.4','','2020-02-29 12:34:56',CURRENT_TIMESTAMP,'',0)",
+                    id,
+                    patient,
+                    marker);
+        String[][] context = {
+            {"lab_no", labNo}, {"abnormal", "N"}, {"identifier", "4548-4"}, {"name", "HbA1c"},
+            {"labname", "Fixture lab"}, {"accession", "ACC-1"}, {"request_datetime", "2020-02-28"},
+            {"datetime", "2020-02-29 12:34:56"}, {"unit", "%"}, {"range", "4.0-6.0"}
+        };
+        for (int i = 0; i < context.length; i++)
+            sql.update(
+                    "insert into measurementsExt(id,measurement_id,keyval,val) values(?,?,?,?)",
+                    id + 1000L * (i + 1),
+                    id,
+                    context[i][0],
+                    context[i][1]);
+    }
+
+    private void removeLaboratoryFiled(int id) {
+        for (int i = 0; i < 10; i++)
+            sql.update(
+                    "delete from measurementsExt where id=? and measurement_id=?",
+                    id + 1000L * (i + 1),
+                    id);
+        sql.update("delete from measurements where id=? and type=?", id, marker);
+        sql.update("delete from measurementsDeleted where id=? and type=?", id, marker);
+    }
+
+    @Test
+    void shouldLeaveLaboratoryFiledResultsToTheLaboratoryPath_insteadOfCapturingThemAsCare() {
+        // Before: every OBX result filed as a measurement left as CareElements/NewCategory
+        // supporting data under the measurement right alone, bypassing the LaboratoryResults
+        // selection and the laboratory rights; the complete HL7 report is exported there.
+        laboratoryFiled(patient + 40, "77", false);
+        laboratoryFiled(patient + 41, "76", true);
+        try {
+            read.executeWithoutResult(
+                    status -> {
+                        assertThat(measurements.countCdsExportRows(patient)).isEqualTo(35);
+                        assertThat(extensions.countCdsExportRows(patient)).isEqualTo(35);
+                        assertThat(
+                                        context.getBean(MeasurementsDeletedDao.class)
+                                                .countCdsExportRows(patient))
+                                .isZero();
+                        assertThat(
+                                        measurements.findCdsExportRowsAfter(
+                                                patient, (long) patient + 34, 32))
+                                .isEmpty();
+                    });
+            assertThatThrownBy(
+                            () ->
+                                    read.execute(
+                                            status ->
+                                                    measurements.readCdsExportValueChunk(
+                                                            patient, patient + 40, "dataField", 0, 3)))
+                    .isInstanceOf(IllegalStateException.class);
+        } finally {
+            removeLaboratoryFiled(patient + 40);
+            removeLaboratoryFiled(patient + 41);
+        }
+    }
+
+    @Test
+    void shouldHoldThePatient_whenALaboratoryFiledResultNamesNoReportTheLaboratoryPathExports()
+            throws Exception {
+        laboratoryFiled(patient + 40, "77", false);
+        var command =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
+                        "laboratory-scope",
+                        "999998",
+                        null,
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile
+                                .ONTARIO_MD_5_2,
+                        io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand
+                                .Selection.SELECTED_PATIENTS,
+                        List.of(),
+                        List.of(patient),
+                        Set.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .DEMOGRAPHICS,
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .CARE_ELEMENTS,
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .LABORATORY_RESULTS),
+                        "receiver",
+                        "audit");
+        var withoutLabs =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
+                        "laboratory-scope",
+                        "999998",
+                        null,
+                        command.profile(),
+                        command.selection(),
+                        List.of(),
+                        List.of(patient),
+                        Set.of(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .DEMOGRAPHICS,
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .CARE_ELEMENTS),
+                        "receiver",
+                        "audit");
+        var reader = new CdsExportMeasurementSourceReader(measurements);
+        try {
+            // No HL7 report 77 is routed to this patient: neither path could carry the value.
+            assertThatThrownBy(() -> read.execute(status -> capture(reader.forRequest(command))))
+                    .hasRootCauseMessage("CDS_EXPORT_NATIVE_CARE_LABORATORY_RESULT_UNROUTED");
+            // Laboratory results were not selected: the operator excluded them deliberately.
+            assertThat((Long) read.execute(status -> capture(reader.forRequest(withoutLabs))))
+                    .isEqualTo(35L);
+            sql.update(
+                    "insert into patientLabRouting(id,demographic_no,lab_no,lab_type,created) values(?,?,77,'HL7',CURRENT_TIMESTAMP)",
+                    patient,
+                    patient);
+            assertThat((Long) read.execute(status -> capture(reader.forRequest(command))))
+                    .isEqualTo(35L);
+        } finally {
+            sql.update(
+                    "delete from patientLabRouting where id=? and demographic_no=? and lab_no=77",
+                    patient,
+                    patient);
+            removeLaboratoryFiled(patient + 40);
+        }
+    }
+
+    /** Captures one reader's rows for the fixture patient and returns how many it wrote. */
+    private long capture(CdsExportNativeSourceReader reader) {
+        long count = reader.count(patient);
+        try {
+            new CdsExportNativeCaptureComposer()
+                    .compose(
+                            new java.io.ByteArrayOutputStream(),
+                            new java.io.ByteArrayOutputStream(),
+                            Set.of(reader.table()),
+                            100_000,
+                            1L << 26,
+                            () -> {},
+                            out -> {
+                                out.beginTable(reader.table(), reader.columns(), count);
+                                reader.capture(patient, out);
+                                out.endTable();
+                            });
+        } catch (java.io.IOException failed) {
+            throw new java.io.UncheckedIOException(failed);
+        }
+        return count;
+    }
+
     @Test
     void shouldRefuseSharedCurrentAndForeignDeletedIdentities_withoutReadingExtensions() {
         deleted(patient + 1, patient);
