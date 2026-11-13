@@ -466,7 +466,7 @@ def main():
                     proof = json.loads((output / ('upgrade-' + province + '.json')).read_text())
                     expected = {'status': 'CLI_AND_RETENTION_PASSED', 'baseCommit': RELEASE_UPGRADE_BASE, 'province': province,
                                 'baseMigrations': 78 if province == 'on' else 77,
-                                'headMigrations': head_migrations(repository, province), 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1,
+                                'headMigrations': head_migrations(repository, province), 'retainedClinicalRows': 4, 'retainedAuditRows': 2, 'retainedPropertyRows': 1, 'retainedHrmLinks': 4,
                                 'appliedHistoryUnchanged': True, 'cliMigrate': True, 'cliValidate': True,
                                 'bootValidate': True, 'pending': 0}
                     if proof != expected:

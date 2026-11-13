@@ -37,13 +37,28 @@ public final class CdsReleaseUpgradeProof {
     private static final String PROPERTY =
             "SELECT * FROM property WHERE name='synthetic_cds_upgrade'";
 
+    /**
+     * V1.0.59.42 adds an invisible generated patient key and an index over existing free-text
+     * HRMDocumentToDemographic.demographicNo values (review CI-10). The seeded links cover a
+     * plain number, a padded signed number, text and SQL NULL; the visible columns must be
+     * unchanged and the key derived exactly.
+     */
+    private static final String HRM_LINKS =
+            "SELECT id,demographicNo,hrmDocumentId,timeAssigned FROM HRMDocumentToDemographic"
+                    + " WHERE hrmDocumentId LIKE 'SYNTHETIC-7300%' ORDER BY hrmDocumentId";
+
+    private static final String HRM_KEYS =
+            "SELECT hrmDocumentId,cds_patient_key FROM HRMDocumentToDemographic"
+                    + " WHERE hrmDocumentId LIKE 'SYNTHETIC-7300%' ORDER BY hrmDocumentId";
+
     private record Snapshot(
             List<Map<String, String>> history,
             List<Map<String, String>> patient,
             List<Map<String, String>> consent,
             List<Map<String, String>> message,
             List<Map<String, String>> audit,
-            List<Map<String, String>> property) {
+            List<Map<String, String>> property,
+            List<Map<String, String>> hrmLinks) {
         @Override
         public String toString() {
             return "Snapshot[protected]";
@@ -113,7 +128,7 @@ public final class CdsReleaseUpgradeProof {
                         + initial
                         + ",\"headMigrations\":"
                         + applied
-                        + ",\"retainedClinicalRows\":4,\"retainedAuditRows\":2,\"retainedPropertyRows\":1,\"appliedHistoryUnchanged\":true,\"cliMigrate\":true,\"cliValidate\":true,\"bootValidate\":true,\"pending\":0}\n");
+                        + ",\"retainedClinicalRows\":4,\"retainedAuditRows\":2,\"retainedPropertyRows\":1,\"retainedHrmLinks\":4,\"appliedHistoryUnchanged\":true,\"cliMigrate\":true,\"cliValidate\":true,\"bootValidate\":true,\"pending\":0}\n");
         System.out.println(
                 "CDS release upgrade passed: "
                         + province
@@ -160,6 +175,13 @@ public final class CdsReleaseUpgradeProof {
                                 + " message',UNHEX('00010203FEFF'))");
                 sql.executeUpdate(
                         "INSERT INTO"
+                                + " HRMDocumentToDemographic(demographicNo,hrmDocumentId,timeAssigned)"
+                                + " VALUES('730000001','SYNTHETIC-73001','2026-01-02 03:04:05'),"
+                                + "(' +730000001','SYNTHETIC-73002','2026-01-02 03:04:06'),"
+                                + "('SYNTHETIC text','SYNTHETIC-73003',NULL),"
+                                + "(NULL,'SYNTHETIC-73004','2026-01-02 03:04:07')");
+                sql.executeUpdate(
+                        "INSERT INTO"
                             + " Consent_migration_audit(consent_id,migration,reason,prior_explicit,prior_optout,prior_deleted,recorded_at)"
                             + " SELECT id,'synthetic_upgrade','preserve',NULL,1,NULL,'2024-01-02"
                             + " 03:04:05' FROM Consent WHERE demographic_no=730000001");
@@ -178,8 +200,10 @@ public final class CdsReleaseUpgradeProof {
                             rows(connection, CONSENT),
                             rows(connection, MESSAGE),
                             rows(connection, AUDIT),
-                            rows(connection, PROPERTY));
+                            rows(connection, PROPERTY),
+                            rows(connection, HRM_LINKS));
             require(before.audit().size() == 2, "AUDIT_FIXTURE_MISSING");
+            require(before.hrmLinks().size() == 4, "HRM_FIXTURE_MISSING");
             return before;
         }
     }
@@ -201,6 +225,20 @@ public final class CdsReleaseUpgradeProof {
             require(
                     rows(connection, PROPERTY).equals(before.property()),
                     "PROPERTY_VALUES_CHANGED");
+            require(rows(connection, HRM_LINKS).equals(before.hrmLinks()), "HRM_LINKS_CHANGED");
+            var keys = new ArrayList<String>();
+            for (var row : rows(connection, HRM_KEYS)) {
+                String key = row.get("cds_patient_key");
+                keys.add(
+                        key == null
+                                ? null
+                                : new String(
+                                        HexFormat.of().parseHex(key),
+                                        java.nio.charset.StandardCharsets.UTF_8));
+            }
+            require(
+                    java.util.Arrays.asList("730000001", "730000001", null, null).equals(keys),
+                    "HRM_PATIENT_KEY_INVALID");
         }
     }
 
@@ -238,6 +276,12 @@ public final class CdsReleaseUpgradeProof {
                     sql.executeUpdate("DELETE FROM property WHERE name='synthetic_cds_upgrade'")
                             == 1,
                     "PROPERTY_TEARDOWN");
+            require(
+                    sql.executeUpdate(
+                                    "DELETE FROM HRMDocumentToDemographic WHERE hrmDocumentId"
+                                            + " LIKE 'SYNTHETIC-7300%'")
+                            == 4,
+                    "HRM_TEARDOWN");
         }
     }
 
