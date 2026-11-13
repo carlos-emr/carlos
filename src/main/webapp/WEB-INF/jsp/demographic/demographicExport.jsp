@@ -408,7 +408,11 @@
             </div>
         </div>
         <h3><fmt:message key="demographic.demographicexport.title"/> </h3>
-        <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport">Asynchronous CDS Export</a></p>
+<% if (io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportWebService.mayOpen(
+        io.github.carlos_emr.carlos.utility.LoggedInInfo.getLoggedInInfoFromSession(request),
+        io.github.carlos_emr.carlos.utility.SpringUtils.getBean(io.github.carlos_emr.carlos.managers.SecurityInfoManager.class))) { %>
+        <p><a href="${carlos:forHtmlAttribute(pageContext.request.contextPath)}/form/cdsExport"><fmt:message key="demographic.demographicexport.cdsExportLink"/></a></p>
+<% } %>
 
         <div class="col-md-2">
             <% if (demographicNo == null) { %>
@@ -432,6 +436,7 @@
             -->
             <div id="exportErrorReasons" style="display: none;">
                 <span data-export-error-code="unsupportedTemplate"><fmt:message key="demographic.demographicexport.unsupportedTemplate"/></span>
+                <span data-export-error-code="preventionSourceUnavailable"><fmt:message key="demographic.demographicexport.preventionSourceUnavailable"/></span>
             </div>
 
             <!-- Error message shown if export fails -->

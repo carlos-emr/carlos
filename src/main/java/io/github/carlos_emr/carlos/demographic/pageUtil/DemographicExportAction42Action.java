@@ -309,6 +309,12 @@ public class DemographicExportAction42Action extends ActionSupport {
      */
     static final String UNSUPPORTED_TEMPLATE_CODE = "unsupportedTemplate";
 
+    /**
+     * Reason code for an export stopped because prevention records could not be read; the page
+     * shows {@code demographic.demographicexport.preventionSourceUnavailable}.
+     */
+    static final String PREVENTION_SOURCE_UNAVAILABLE_CODE = "preventionSourceUnavailable";
+
     /** Response header carrying the validation reason code for a rejected export request. */
     private static final String EXPORT_ERROR_HEADER = "X-Export-Error";
 
@@ -2179,7 +2185,7 @@ public class DemographicExportAction42Action extends ActionSupport {
                                         rpr.setFormat(cdsDt.ReportFormat.BINARY);
                                         String reference = edoc.getFileName() == null ? f.getName() : edoc.getFileName();
                                         rpr.setFilePath(reference.length() > 250 ? reference.substring(0, 250) : reference);
-                                        exportError.add("Document \"" + Encode.forHtml(reference) + "\" is larger than the "
+                                        exportError.add("Document \"" + reference + "\" is larger than the "
                                                 + (maxEmbeddedDocumentBytes() >> 20) + " MB embedding limit; it is referenced by name"
                                                 + " and must be transferred separately.");
                                         addOneEntry(REPORTBINARY);
@@ -2864,18 +2870,21 @@ public class DemographicExportAction42Action extends ActionSupport {
         } catch (IllegalStateException failure) {
             discardExportDirectory(tmpDir);
             if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(failure.getMessage())) {
-                writeExportAuditLog(loggedInInfo, list.size(), "error", "<unavailable>", failure.getClass().getSimpleName());
+                auditFailure(loggedInInfo, list.size(), failure);
                 throw failure;
             }
             writeExportAuditLog(loggedInInfo, list.size(), "prevention_source_unavailable", "<unavailable>", null);
             if (!response.isCommitted()) {
-                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE,
-                        "Prevention records could not be read; no export was produced.");
+                // Same shape as the unsupported-template refusal: status and a fixed reason code
+                // the page localizes, with no body for the error page to replay.
+                setExportStatusHeader(response, "error");
+                response.setHeader(EXPORT_ERROR_HEADER, PREVENTION_SOURCE_UNAVAILABLE_CODE);
+                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
             }
             return NONE;
         } catch (RuntimeException failure) {
             discardExportDirectory(tmpDir);
-            writeExportAuditLog(loggedInInfo, list.size(), "error", "<unavailable>", failure.getClass().getSimpleName());
+            auditFailure(loggedInInfo, list.size(), failure);
             throw failure;
         }
 
@@ -4352,6 +4361,18 @@ public class DemographicExportAction42Action extends ActionSupport {
      * @param exportedIds    pre-formatted, length-capped identifier list for the audit trail
      * @param exportException simple exception class name when the attempt threw, otherwise {@code null}
      */
+    /**
+     * Records a failed export without letting an audit write failure replace the export's own
+     * failure: the audit error is attached to it as suppressed, and the caller rethrows it.
+     */
+    private void auditFailure(LoggedInInfo loggedInInfo, int recordCount, RuntimeException failure) {
+        try {
+            writeExportAuditLog(loggedInInfo, recordCount, "error", "<unavailable>", failure.getClass().getSimpleName());
+        } catch (RuntimeException auditFailure) {
+            failure.addSuppressed(auditFailure);
+        }
+    }
+
     private void writeExportAuditLog(LoggedInInfo loggedInInfo, int recordCount, String outcome,
                                      String exportedIds, String exportException) {
         OscarLog exportAuditLog = new OscarLog();

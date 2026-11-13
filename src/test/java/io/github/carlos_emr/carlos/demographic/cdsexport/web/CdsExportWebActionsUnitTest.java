@@ -125,6 +125,23 @@ class CdsExportWebActionsUnitTest {
     }
 
     @Test
+    void shouldOfferTheExportLink_onlyToUsersTheExportPageAdmits() {
+        var actor = mock(LoggedInInfo.class);
+        var security = mock(SecurityInfoManager.class);
+        when(security.hasPrivilege(actor, "_demographic", "r", (String) null)).thenReturn(true);
+        assertThat(CdsExportWebService.mayOpen(actor, security)).isFalse();
+        when(security.hasPrivilege(actor, "_cds_export", "w", (String) null)).thenReturn(true);
+        assertThat(CdsExportWebService.mayOpen(actor, security)).isTrue();
+        when(security.hasPrivilege(actor, "_demographic", "r", (String) null)).thenReturn(false);
+        assertThat(CdsExportWebService.mayOpen(actor, security)).isFalse();
+        var administrator = mock(LoggedInInfo.class);
+        when(security.hasPrivilege(administrator, "_demographic", "r", (String) null)).thenReturn(true);
+        when(security.hasPrivilege(administrator, "_admin", "w", (String) null)).thenReturn(true);
+        assertThat(CdsExportWebService.mayOpen(administrator, security)).isTrue();
+        assertThat(CdsExportWebService.mayOpen(null, security)).isFalse();
+    }
+
+    @Test
     void shouldResumeOnlyTheObservedJobRevision_andReturnItsDurableState() throws Exception {
         request.setMethod("POST");
         var job = job();

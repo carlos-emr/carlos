@@ -66,13 +66,28 @@ public class CdsExportWebService {
             throw new SecurityException("CDS_EXPORT_SESSION_REQUIRED");
         if (!security.hasPrivilege(actor, "_demographic", "r", (String) null))
             throw new SecurityException("missing required sec object (_demographic)");
-        if (!security.hasPrivilege(actor, "_admin", "w", (String) null)
-                && !security.hasPrivilege(actor, "_cds_export", "w", (String) null))
+        if (!exportRight(actor, security))
             throw new SecurityException("missing required sec object (_cds_export)");
         // The request gate uses the captured session; the service independently rebuilds
         // the current account/provider and read-only grants to detect revocation.
         access.operatorSession(actor);
         return actor;
+    }
+
+    /**
+     * Whether pages that link to the export page should show the link: the same rights
+     * {@link #authorize} requires, so no user is offered a page that refuses them. The page
+     * itself still authorizes every request.
+     */
+    public static boolean mayOpen(LoggedInInfo actor, SecurityInfoManager security) {
+        return actor != null
+                && security.hasPrivilege(actor, "_demographic", "r", (String) null)
+                && exportRight(actor, security);
+    }
+
+    private static boolean exportRight(LoggedInInfo actor, SecurityInfoManager security) {
+        return security.hasPrivilege(actor, "_admin", "w", (String) null)
+                || security.hasPrivilege(actor, "_cds_export", "w", (String) null);
     }
 
     public void parameters(HttpServletRequest request, Set<String> accepted, boolean page) {

@@ -226,6 +226,20 @@ class DemographicExportAction42ActionTemplateValidationUnitTest extends Demograp
         }
 
         @Test
+        @DisplayName("should render and define localized text for the prevention source failure code")
+        void shouldRenderLocalizedReason_forPreventionSourceUnavailableCode() throws Exception {
+            String jsp = Files.readString(EXPORT_JSP, StandardCharsets.UTF_8);
+            String key = "demographic.demographicexport.preventionSourceUnavailable";
+
+            assertThat(jsp).contains("data-export-error-code=\""
+                    + DemographicExportAction42Action.PREVENTION_SOURCE_UNAVAILABLE_CODE + "\"");
+            assertThat(jsp).contains(key);
+            // The page only accepts letters in a reason code before using it in a selector.
+            assertThat(DemographicExportAction42Action.PREVENTION_SOURCE_UNAVAILABLE_CODE).matches("[A-Za-z]+");
+            assertThat(Files.readString(ENGLISH_RESOURCES, StandardCharsets.UTF_8)).contains(key + "=");
+        }
+
+        @Test
         @DisplayName("should define the reason message in the resource bundle")
         void shouldDefineReasonMessage_inResourceBundle() throws Exception {
             assertThat(Files.readString(ENGLISH_RESOURCES, StandardCharsets.UTF_8))
