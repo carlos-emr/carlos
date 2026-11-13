@@ -553,14 +553,33 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .requireRepresentable(result.rows(), result.fields(), 10000, () -> {});
         assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
                 .contains("DIABETES MELLITUS", "250", "Active");
-        // The same issue, linked to a note of another program, needs the exporter's own check.
+        // The same issue, linked to a note of another program: a program the exporter works in
+        // is accepted as before; otherwise the issue follows the exported note's access and its
+        // program is carried exactly instead of holding the patient.
         var foreign =
                 uiNote(91, "Follow-up for diabetes", "10035", List.of(issue), List.of(definition));
-        assertThatThrownBy(
-                        () -> mapper.mapIssue(27, issue, definition, List.of(foreign), p -> false))
-                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
         assertThat(mapper.mapIssue(27, issue, definition, List.of(foreign), p -> true).value())
                 .isNotNull();
+        var followed = mapper.mapIssue(27, issue, definition, List.of(foreign), p -> false);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(followed.rows(), followed.fields(), 10000, () -> {});
+        assertThat(followed.value().code().value()).isEqualTo("250");
+        assertThat(programDecision(followed, issue))
+                .isEqualTo(
+                        new CdsExportFieldAssessmentDto(
+                                CdsExportFieldAssessmentDto.Presence.VALUE,
+                                CdsExportFieldAssessmentDto.Outcome.MAPPED,
+                                "ResidualInfo",
+                                CdsExportNativeHistoryMapper.FOREIGN_PROGRAM_ISSUE_RULE));
+        assertThat(followed.value().metadata()).contains("\"program_id\":\"10034\"");
+    }
+
+    private static CdsExportFieldAssessmentDto programDecision(
+            CdsExportNativeHistoryMapper.Result result, CdsExportHistoryFieldReconciler.Row issue) {
+        return result.fields()
+                .get(
+                        new CdsExportNativeFieldKeyDto(
+                                issue.value().table(), issue.value().recordKey(), "program_id"));
     }
 
     @Test
@@ -588,8 +607,9 @@ class CdsExportNativeHistoryMapperUnitTest {
                                         List.of(),
                                         program -> program.equals("10034")))
                 .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
-        // A CPP issue created in one program and written to by a provider of another program
-        // follows the same rule inside the note mapper.
+        // A CPP issue created in one program and written to by a provider of another program:
+        // inside the note mapper it follows the note's access when the exporter does not work in
+        // the issue's program, with the program carried in the item's native context.
         var concerns = uiIssue(43, 68, "10034");
         var concernsDefinition = catalogue(68, "Concerns", "system");
         var item =
@@ -599,16 +619,21 @@ class CdsExportNativeHistoryMapperUnitTest {
                         "10035",
                         List.of(concerns),
                         List.of(concernsDefinition));
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        CdsCategory.PROBLEM_LIST,
-                                        List.of(item),
-                                        providers(),
-                                        ZONE,
-                                        program -> false))
-                .hasMessage("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        var followed =
+                mapper.map(
+                        27,
+                        CdsCategory.PROBLEM_LIST,
+                        List.of(item),
+                        providers(),
+                        ZONE,
+                        program -> false);
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(followed.rows(), followed.fields(), 10000, () -> {});
+        assertThat(programDecision(followed, concerns).outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+        assertThat(programDecision(followed, concerns).rule())
+                .isEqualTo(CdsExportNativeHistoryMapper.FOREIGN_PROGRAM_ISSUE_RULE);
+        assertThat(followed.value().metadata()).contains("\"program_id\":\"10034\"");
         var mapped =
                 mapper.map(
                         27,

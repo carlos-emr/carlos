@@ -100,6 +100,13 @@ public final class CdsExportNativeHistoryMapper {
      */
     static final String STATEMENTS = "NativeStatements";
 
+    /**
+     * Rule of a patient issue owned by a program the exporting identities do not work in, exported
+     * because the notes being exported link it: the chart shows it beside every note a provider
+     * can read. Its {@code program_id} is carried exactly.
+     */
+    static final String FOREIGN_PROGRAM_ISSUE_RULE = "FOREIGN_PROGRAM_ISSUE_FOLLOWS_LINKED_NOTE_ACCESS";
+
     static final String ARCHIVED_CLINICAL_NOTE_STATEMENT =
             "[CARLOS: this note was archived (removed from the active record) in its latest"
                     + " revision. It is kept for the record and is not a current note.]";
@@ -343,10 +350,16 @@ public final class CdsExportNativeHistoryMapper {
                 if (definition == null) invalid();
                 CdsExportCaseManagementProjectionEvidence.verify(linked.value(), linked.witness());
                 String issueProgram = linked.value().fields().get("program_id");
-                if (scopedProgram(issueProgram)
-                        && !issueProgram.equals(note.fields().get("program_no"))
-                        && !readableProgram.test(issueProgram))
-                    review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+                // One patient issue serves every program's notes (casemgmt_issue is unique per
+                // patient and issue), so a note can be filed under an issue another program
+                // created. The chart shows that issue beside every note a provider can read, so
+                // an issue of a program the exporting identities do not work in follows this
+                // note's access (the note is authorized before mapping and again after emission)
+                // and its program is carried, instead of holding the patient.
+                boolean followsNote =
+                        scopedProgram(issueProgram)
+                                && !issueProgram.equals(note.fields().get("program_no"))
+                                && !readableProgram.test(issueProgram);
                 CdsExportCaseManagementProjectionEvidence.verify(
                         definition.value(), definition.witness());
                 add(rows, linked.value());
@@ -359,7 +372,14 @@ public final class CdsExportNativeHistoryMapper {
                         new CdsExportNativeFieldAssessments(definition.value(), decisions);
                 var facts = new LinkedHashMap<String, String>();
                 for (var e : linked.value().fields().entrySet()) {
-                    if (Set.of("id", "demographic_no", "issue_id", "program_id")
+                    if (followsNote && e.getKey().equals("program_id")) {
+                        facts.put("program_id", e.getValue());
+                        issueState.set(
+                                "program_id",
+                                Outcome.MAPPED,
+                                metadataPath(category),
+                                FOREIGN_PROGRAM_ISSUE_RULE);
+                    } else if (Set.of("id", "demographic_no", "issue_id", "program_id")
                             .contains(e.getKey()))
                         issueState.operational(
                                 e.getKey(), "VERIFIED_NATIVE_ISSUE_IDENTITY_OR_ACCESS");
@@ -614,8 +634,11 @@ public final class CdsExportNativeHistoryMapper {
      * Maps one standalone patient issue. Its {@code program_id} follows the same rule as an issue
      * linked to a note in {@link #map}: no program, the program of every note revision linked to
      * it (each of those notes is itself authorized under its program), or a program the exporting
-     * identities work in ({@code readableProgram}, a fresh check). Only a genuinely foreign
-     * program is held for review; CARLOS stamps the chart's program on ordinary issues.
+     * identities work in ({@code readableProgram}, a fresh check). An issue of another program
+     * that exported notes link follows those notes' access, as the chart shows it beside them,
+     * and its program is carried ({@link #FOREIGN_PROGRAM_ISSUE_RULE}). Only an issue of a
+     * foreign program that no exported note links (one picked in the encounter editor and never
+     * saved with a note) is held for review.
      *
      * @param linked every captured note revision that links this patient issue
      */
@@ -656,8 +679,11 @@ public final class CdsExportNativeHistoryMapper {
                                                     .equals(link.fields().get("id")))) invalid();
             if (!Objects.equals(program, note.fields().get("program_no"))) linkedProgram = false;
         }
-        if (scopedProgram(program) && !linkedProgram && !readableProgram.test(program))
-            review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+        boolean followsNotes = false;
+        if (scopedProgram(program) && !linkedProgram && !readableProgram.test(program)) {
+            if (linked.isEmpty()) review("CDS_EXPORT_NATIVE_ISSUE_PROGRAM_REQUIRES_REVIEW");
+            followsNotes = true;
+        }
         var category = issueCategory(definition);
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var metadata = new LinkedHashMap<String, Object>();
@@ -665,7 +691,13 @@ public final class CdsExportNativeHistoryMapper {
             var state = new CdsExportNativeFieldAssessments(row, fields);
             var attributes = new LinkedHashMap<String, String>();
             for (var entry : row.fields().entrySet()) {
-                if (Set.of(
+                if (followsNotes
+                        && row.table().equals(issue.value().table())
+                        && entry.getKey().equals("program_id")) {
+                    attributes.put("program_id", entry.getValue());
+                    state.set(
+                            "program_id", Outcome.MAPPED, "ResidualInfo", FOREIGN_PROGRAM_ISSUE_RULE);
+                } else if (Set.of(
                                 "id",
                                 "issue_id",
                                 "demographic_no",

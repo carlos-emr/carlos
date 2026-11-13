@@ -268,8 +268,13 @@ program) needs only the patient's program domain, as in the chart when no progra
 is selected. The chart opened with a selected program applies that program's role
 grants to every note and hides role-less unscoped notes, so the export can include
 notes such a chart view hides. A patient issue filed under a program is exported when
-it is the program of its linked notes or one the provider works in; an issue from a
-foreign program holds the patient for review.
+it is the program of its linked notes or one the provider works in. CARLOS keeps one
+issue per patient for every program, so in a clinic with several programs a note can
+be filed under an issue another program created; such an issue is exported with the
+notes that link it, as the chart shows it beside them, and its program is carried
+(`FOREIGN_PROGRAM_ISSUE_FOLLOWS_LINKED_NOTE_ACCESS`). Only an issue of a program the
+provider does not work in that no exported note links (picked in the encounter
+editor and never saved with a note) still holds the patient for review.
 
 A note that CARLOS attached to another record is exported with the other notes, and says
 what it is attached to. CARLOS attaches a note when a document is filed ("Document ...
