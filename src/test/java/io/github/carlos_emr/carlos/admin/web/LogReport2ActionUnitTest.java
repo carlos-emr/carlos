@@ -173,6 +173,25 @@ class LogReport2ActionUnitTest extends CarlosUnitTestBase {
         assertThat(siteProviderNosCaptor.getValue()).containsExactlyInAnyOrder("prov-a", "prov-b");
     }
 
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(delimiter = '|', value = {
+            "admin|admin", "login|login",
+            "AI chart update|AI chart update", "AI clinical summary|AI clinical summary",
+            "AI document summary|AI document summary",
+            "hrm|%", "AI|%", "ai chart update|%", "AI chart update%|%", "x'|%"})
+    @DisplayName("should pass only allowlisted content values to the report query")
+    void shouldAllowlistContent_forTheReportQuery(String requested, String expected) throws Exception {
+        request.setParameter("providerNo", "*");
+        request.setParameter("content", requested);
+        when(securityInfoManager.hasPrivilege(loggedInInfo, "_site_access_privacy", "r", null)).thenReturn(false);
+        when(providerDataDao.findAllOrderByLastName()).thenReturn(new ArrayList<>());
+        when(oscarLogDao.findForReport(any(), any(), any(), any(), any())).thenReturn(List.of());
+
+        assertThat(new LogReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+
+        verify(oscarLogDao).findForReport(any(), any(), eq(expected), any(), any());
+    }
+
     @Test
     @DisplayName("should query specific provider without site filter when user is unrestricted")
     void shouldQuerySpecificProvider_whenUnrestrictedUserRequestsProvider() throws Exception {
