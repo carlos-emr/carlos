@@ -80,15 +80,15 @@
     "tag": "1.3.4",
     "version": "1.3.4",
     "name": "carlos-ctl_1.3.4_all.deb",
-    "bytes": 358440,
-    "sha256": "918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170",
+    "bytes": 359318,
+    "sha256": "787bb45be3edd6693d7ee50ded3f201b05a51088d905f7d1c9813140c2621b00",
     "sourceRepository": "https://github.com/carlos-emr/carlos-ctl",
-    "sourceCommit": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa"
+    "sourceCommit": "9b746149af1f0707ef7c48185eb22097291a9753"
   },
   "candidateCliEvidence": {
-    "workflowRun": 42759435594,
-    "artifact": 13740162733,
-    "archiveSha256": "17964de0c543c0ea6dee25be3c90139d1d8e792d1b08fc13559b4cf0b917a8b4",
+    "workflowRun": 43375301857,
+    "artifact": 14014850258,
+    "archiveSha256": "131f2df6d91e5a9c387714d15ef9870d939b0594dcef102a4f1ea0c93df16a2a",
     "scope": "Actual Debian package from successful companion CI at the exact fallback commit; unpublished source candidate, no release URL or tag publication asserted."
   }
 }

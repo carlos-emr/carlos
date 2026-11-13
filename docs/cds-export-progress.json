@@ -23,7 +23,7 @@
     "coreBase": "38cfc10c0ae72c66ebe501703de462f59249da1f",
     "upgradeSqlBaseline": "ef69eea17a4cc3fb288b26327471fce1e20dcd8f",
     "releaseSqlUnchangedSinceUpgradeBaseline": true,
-    "cliHead": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
+    "cliHead": "9b746149af1f0707ef7c48185eb22097291a9753",
     "cliVersion": "1.3.4",
     "coreIntendedTarget": "release/2026.08",
     "cliIntendedTarget": "release/2026.08",
@@ -55,11 +55,11 @@
     },
     "mergeReadinessAuthority": "Current required checks and reviews on carlos#5706",
     "candidateCliPackage": {
-      "sha256": "918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170",
-      "bytes": 358440,
-      "sourceCommit": "be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa",
-      "workflowRun": 42759435594,
-      "artifact": 13740162733,
+      "sha256": "787bb45be3edd6693d7ee50ded3f201b05a51088d905f7d1c9813140c2621b00",
+      "bytes": 359318,
+      "sourceCommit": "9b746149af1f0707ef7c48185eb22097291a9753",
+      "workflowRun": 43375301857,
+      "artifact": 14014850258,
       "publication": false
     }
   },

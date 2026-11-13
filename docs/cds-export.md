@@ -188,17 +188,19 @@ text-result refusal, statement ownership and bypass attempts.
 
 The package lifecycle gate keeps its published beta6/CLI 1.3.1 and beta5/CLI 1.3.0
 predecessors intact. Its unpublished 1.3.4 candidate is separately bound to the exact
-companion fallback commit and actual CI-built Debian bytes (358,440 bytes,
-SHA-256 `918a8b12ddc299c8dddab44013c5bcced9a7ab3002c6d4622b31e57feb0a3170`,
-workflow 42759435594, artifact 13740162733). All 30 installed Python modules,
-the executable shim, manual and changelog were compared with that source.
+companion fallback commit and actual CI-built Debian bytes (359,318 bytes,
+SHA-256 `787bb45be3edd6693d7ee50ded3f201b05a51088d905f7d1c9813140c2621b00`,
+workflow 43375301857, artifact 14014850258). All 30 installed Python modules,
+the executable shim, manual and changelog were compared with that source, and a
+local `dpkg-buildpackage` of the same commit reproduces the package byte for byte.
 Source-built mode asserts no published tag or release-download URL. Lifecycle
 configuration must supply this exact candidate package; predecessor packages
 cannot substitute for it.
 
 The companion CLI PR also targets `release/2026.08`, starting at its compatible
-`84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime remains
-`be395c7cfa008d45f6f1bb0a38bdd40d49f51cfa` (unpublished 1.3.4), with schema manifest format 2 and
+`84adfc5c237d4a536300a9d7e74e19599df23dcc` baseline. Its pinned runtime is
+`9b746149af1f0707ef7c48185eb22097291a9753` (unpublished 1.3.4, adding the export
+command's run-id, exit-status and ticket-sweep fixes), with schema manifest format 2 and
 ETL contract 4. CLI main has advanced to format 3 / ETL 6 for a newer application
 line; those changes are not part of this release pair.
 
