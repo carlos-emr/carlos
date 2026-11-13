@@ -589,48 +589,50 @@ public class PreventionData {
 
                 addToHashIfNotNull(h, "brandSnomedId", ext.get("brandSnomedId"));
 
+                // preventionsExt.val is nullable (OSCAR 19 migrations store NULL name, lot or
+                // reason): every filled-value test is null-safe so a NULL never fails the read.
                 if (ext.containsKey("result")) { //This is a preventive Test
                     addToHashIfNotNull(h, "result", ext.get("result"));
-                    summary += "\nResult: " + ext.get("result");
-                    if (ext.containsKey("reason") && !ext.get("reason").equals("")) {
+                    summary += "\nResult: " + StringUtils.defaultString(ext.get("result"));
+                    if (StringUtils.isNotEmpty(ext.get("reason"))) {
                         addToHashIfNotNull(h, "reason", ext.get("reason"));
                         summary += "\nReason: " + ext.get("reason");
                     }
                 } else { //This is an immunization
-                    if (ext.containsKey("name") && !ext.get("name").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("name"))) {
                         addToHashIfNotNull(h, "name", ext.get("name"));
                         summary += "\nName: " + ext.get("name");
                     }
-                    if (ext.containsKey("location") && !ext.get("location").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("location"))) {
                         addToHashIfNotNull(h, "location", ext.get("location"));
                         summary += "\nLocation: " + ext.get("location");
                     }
-                    if (ext.containsKey("expiryDate") && !ext.get("expiryDate").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("expiryDate"))) {
                         addToHashIfNotNull(h, "expiryDate", ext.get("expiryDate"));
                         summary += "\nExpiryDate: " + ext.get("expiryDate");
                     }
-                    if (ext.containsKey("route") && !ext.get("route").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("route"))) {
                         addToHashIfNotNull(h, "route", ext.get("route"));
                         summary += "\nRoute: " + ext.get("route");
                     }
-                    if (ext.containsKey("dose") && !ext.get("dose").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("dose"))) {
                         addToHashIfNotNull(h, "dose", ext.get("dose"));
                         summary += "\nDose: " + ext.get("dose");
                     }
-                    if (ext.containsKey("lot") && !ext.get("lot").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("lot"))) {
                         addToHashIfNotNull(h, "lot", ext.get("lot"));
                         summary += "\nLot: " + ext.get("lot");
                     }
-                    if (ext.containsKey("manufacture") && !ext.get("manufacture").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("manufacture"))) {
                         addToHashIfNotNull(h, "manufacture", ext.get("manufacture"));
                         summary += "\nManufacturer: " + ext.get("manufacture");
                     }
-                    if (ext.containsKey("din") && !ext.get("din").equals("")) {
+                    if (StringUtils.isNotEmpty(ext.get("din"))) {
                         addToHashIfNotNull(h, "din", ext.get("din"));
                         summary += "\nDIN: " + ext.get("din");
                     }
                 }
-                if (ext.containsKey("comments") && !ext.get("comments").equals("")) {
+                if (StringUtils.isNotEmpty(ext.get("comments"))) {
                     addToHashIfNotNull(h, "comments", ext.get("comments"));
                     summary += "\nComments: " + ext.get("comments");
                 }
