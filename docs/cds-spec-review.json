@@ -2543,7 +2543,7 @@
       "transaction": "All source/native units are sealed before writes. Category anchor/native child and <=32-field preservation pages have independent short owning transactions with epoch fence, strict audit, exact target receipts and source checkpoint; chart hold releases only after expected-key reconciliation. Source-only disposition is not a native clinical fact."
     },
     "history-native-residual-extensions": {
-      "destination": "Exact recognized CARLOS CPP residual markers project archive state to casemgmt_note.archived and authored PersonalHistory narrative to casemgmt_note.note. Unrecognized residual names remain complete protected source values.",
+      "destination": "Exact recognized CARLOS CPP residual markers project archive state to casemgmt_note.archived and an authored narrative (PersonalHistory, or a CPP item whose text did not fit its description element) to casemgmt_note.note. Unrecognized residual names remain complete protected source values.",
       "disposition": "native-and-source",
       "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
       "implementation": [
@@ -2554,7 +2554,7 @@
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java",
         "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsNativePreparationService.java"
       ],
-      "normalization": "Only CARLOS.History.Archived.v1 (boolean) and CARLOS.History.PersonalNarrative.v1 (string) are interpreted. One complete Name/DataType/Content group is required per known marker; malformed, duplicated, conflicting or wrong-category markers block projection. The archive carrier is limited to six CPP categories; the authored narrative carrier is limited to PersonalHistory. Missing archive defaults false only after verification of the original preparation seal and never changes its stored bytes. Structured-only PersonalHistory keeps its explicit source-view reference; large authored narratives retain complete source text with a bounded native reference and durable warning. Imported archive state produces an explicit vendor-context warning; source participants/reviewers never become a native signature.",
+      "normalization": "Only CARLOS.History.Archived.v1 (boolean), CARLOS.History.PersonalNarrative.v1 (string, raw) and CARLOS.History.Narrative.v1 (string, whitespace-free escaped encoding decoded by CdsNativeExtensionContract.decodeNarrative) are interpreted; a narrative carrier is used only when the description element is absent, the encoded one in preference to the raw one, and a malformed encoding blocks projection. One complete Name/DataType/Content group is required per known marker; malformed, duplicated, conflicting or wrong-category markers block projection. The archive carrier is limited to six CPP categories; the raw narrative carrier is limited to PersonalHistory and the encoded one to the six CPP categories. Missing archive defaults false only after verification of the original preparation seal and never changes its stored bytes. Structured-only PersonalHistory keeps its explicit source-view reference; large authored narratives retain complete source text with a bounded native reference and durable warning. Imported archive state produces an explicit vendor-context warning; source participants/reviewers never become a native signature.",
       "normativeBasis": [
         "EMR Data Migration Implementation Guide v1.1 sections 4-8, 16 and 18.1.1 (CPP and nonstandard residual concepts)",
         "EMR Data Migration Requirements v1.1 DP02.01",
@@ -3953,7 +3953,7 @@
     "src/main/java/io/github/carlos_emr/carlos/commn/model/Drug.java": "7361c58b4e786c59f47a9e171e793ffb22b5b295bc04cde259641818178b5d24",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/PharmacyInfo.java": "de6f091818d30531a93ec6d08e97c84dab5860619c45c10d6986db9440f16bc5",
     "src/main/java/io/github/carlos_emr/carlos/commn/model/ProfessionalContact.java": "f20b8173073ba12f3da1b9dc2bc63708d5a2a9c2d45adf71c04396b85de8c5f1",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "c31be933bdcde55febd2b1cc9260d8a758e28a2f1e49b1c804bd8df58ba7d507",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsNativeExtensionContract.java": "113f4e787652fed3e451ea6b7211e0763d0472dd080483f19907eafff4435d7b",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedAllergyDefaults.java": "21d0efa50e05aadfb9d823c026e3f9f663aad9465b5be2b100a1523583cd7477",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsPreparedHistoryDefaults.java": "acf6c0755d5e794e3ed2576afb82ff7f5985747781c91a1b2a2bd3ea175d7c48",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsexport/dto/CdsExportDrugReferenceDto.java": "5043e4045ffc6bca0268d686465fca46f23947a91aff600c186faae0f6f309e8",
@@ -3981,8 +3981,8 @@
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicPersister.java": "dab512ddfbc7b68986b7f26ff5b904897b716bffbb4268700824436e94f09648",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDemographicRelationsService.java": "9107ad8cde3b8ff8bded2f40c6b0afadba9f8ca68b258ee709ec070fc08e62f5",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsDocumentPublicationService.java": "a92b47bc176b3d6aa218ef7a14d2c1922418a45e26376c370409fe27097ca939",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "24853264767b3da149b6b78c9db23a4f29f425db407b169b3c4e6f48ea125954",
-    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": "c20859436e8b18bd32bb6cdc1d0af83463ae177e67e6e954dee7d42625c52275",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryPersister.java": "fc61bb2e562a592d1d6b485275be220ff4377e2d3f16ffb3619f6dc131b3b7e2",
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsHistoryResidualReader.java": "d4dd99983e76ca28004d5b644198c3f84d5c21f6a6fd7795a6ae162838f881e6",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImmunizationPersister.java": "9a6adf440305e52b2a93ab47bcbbb3696c3f8a3ecf74bc4fbf8bbf664771b076",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java": "42721f4156fd018be1ca6e5a6828175435b369b2adce58bf71ecc4a791d7aa3e",
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportNativeService.java": "db4e4da8f0e0cea462a63ced4e330ffc895728bb2ebf7306392edb037d2ad47f",
