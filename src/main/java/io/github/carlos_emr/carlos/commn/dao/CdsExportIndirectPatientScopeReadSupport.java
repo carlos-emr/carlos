@@ -468,6 +468,14 @@ final class CdsExportIndirectPatientScopeReadSupport {
                 "requestId",
                 "requestId",
                 "demographicNo");
+        // Extension values copied with an archived request version name that version's Id.
+        add(
+                result,
+                "consultationRequestExtArchive",
+                "consultationRequestsArchive",
+                "consultationRequestArchiveId",
+                "Id",
+                "demographicNo");
         add(
                 result,
                 "consultResponseDoc",

@@ -53,6 +53,7 @@ public final class CdsExportDataSummaryRegistry {
         EFORM("eForm", "Medical Records Report"),
         CONSULTATION_REQUEST("Consultation request", "Other Letter"),
         CONSULTATION_RESPONSE("Consultation response", "Consultant Report"),
+        CONSULTATION_REQUEST_VERSION("Archived consultation", "Other Letter"),
         DIGITAL_SIGNATURE("Digital signature", "Medical Records Report"),
         TICKLER("Tickler", "Medical Records Report"),
         EMAIL("E-mail", "Other Letter"),
@@ -134,7 +135,9 @@ public final class CdsExportDataSummaryRegistry {
 
     /**
      * The reviewed rule of one table. A root has no links; a child has one or more candidate
-     * parents. {@code revisioned} roots number their rows "revision n of m" in identity order.
+     * parents. {@code revisioned} roots number their rows "revision n of m" in identity order:
+     * across the patient's rows of the table, or, with a {@code revisionGroup} column, among the
+     * rows that share its value (the archived versions of one consultation request).
      */
     public record Rule(
             String table,
@@ -142,12 +145,25 @@ public final class CdsExportDataSummaryRegistry {
             boolean revisioned,
             List<Link> links,
             Event event,
-            Map<String, BinaryPresentation> binaries) {
+            Map<String, BinaryPresentation> binaries,
+            String revisionGroup) {
         public Rule {
             Objects.requireNonNull(table);
             Objects.requireNonNull(kind);
             links = List.copyOf(links);
             binaries = Map.copyOf(binaries);
+            if (revisionGroup != null && (!revisioned || !links.isEmpty()))
+                throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_RULE_INVALID");
+        }
+
+        public Rule(
+                String table,
+                Kind kind,
+                boolean revisioned,
+                List<Link> links,
+                Event event,
+                Map<String, BinaryPresentation> binaries) {
+            this(table, kind, revisioned, links, event, binaries, null);
         }
 
         public boolean root() {
@@ -343,6 +359,28 @@ public final class CdsExportDataSummaryRegistry {
                         "consultationRequests",
                         List.of("requestId"),
                         List.of("requestId"),
+                        null));
+        // Earlier versions of a request: each update copies the request (and its extensions)
+        // here first. Numbered among the archived versions of the same request.
+        rules.put(
+                "consultationRequestsArchive",
+                new Rule(
+                        "consultationRequestsArchive",
+                        Kind.CONSULTATION_REQUEST_VERSION,
+                        true,
+                        List.of(),
+                        new Event("referalDate", null),
+                        Map.of(),
+                        "requestId"));
+        child(
+                rules,
+                "consultationRequestExtArchive",
+                Kind.CONSULTATION_REQUEST_VERSION,
+                new Event("dateCreated", null),
+                new Link(
+                        "consultationRequestsArchive",
+                        List.of("consultationRequestArchiveId"),
+                        List.of("Id"),
                         null));
         root(
                 rules,

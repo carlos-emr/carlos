@@ -57,9 +57,9 @@ class CdsExportDataSummaryRegistryUnitTest {
         var catalogue = CdsExportSourceCatalogue.current();
         assertThat(CdsExportDataSummaryRegistry.tables())
                 .containsExactlyInAnyOrderElementsOf(catalogue.tables(Disposition.DOCUMENT));
-        // 94 records of current features, 23 legacy tables of older releases and admissions with a
-        // narrative.
-        assertThat(catalogue.tables(Disposition.DOCUMENT)).hasSize(118);
+        // 96 records of current features (with the archived consultation request versions and
+        // their extensions), 23 legacy tables of older releases and admissions with a narrative.
+        assertThat(catalogue.tables(Disposition.DOCUMENT)).hasSize(120);
         assertThat(catalogue.tables(Disposition.LISTED)).hasSize(37);
         assertThat(catalogue.required(Set.of(CdsCategory.REPORTS)))
                 .containsAll(catalogue.tables(Disposition.DOCUMENT));
@@ -131,7 +131,11 @@ class CdsExportDataSummaryRegistryUnitTest {
                         .isIn(
                                 CdsExportDataSummaryRegistry.Kind.ENCOUNTER_FORM,
                                 CdsExportDataSummaryRegistry.Kind.LEGACY_ENCOUNTER,
-                                CdsExportDataSummaryRegistry.Kind.IMMUNIZATION_SCHEDULE);
+                                CdsExportDataSummaryRegistry.Kind.IMMUNIZATION_SCHEDULE,
+                                CdsExportDataSummaryRegistry.Kind.CONSULTATION_REQUEST_VERSION);
+            // A revision group is a stored column of the root (the archived versions of a request).
+            if (rule.revisionGroup() != null)
+                assertThat(columns).as(table).contains(rule.revisionGroup());
         }
     }
 

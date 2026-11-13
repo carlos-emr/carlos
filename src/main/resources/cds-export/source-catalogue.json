@@ -183,9 +183,9 @@
     "consentType": "REFERENCE",
     "consultResponseDoc": "DOCUMENT",
     "consultationRequestExt": "DOCUMENT",
-    "consultationRequestExtArchive": "OPERATIONAL",
+    "consultationRequestExtArchive": "DOCUMENT",
     "consultationRequests": "DOCUMENT",
-    "consultationRequestsArchive": "OPERATIONAL",
+    "consultationRequestsArchive": "DOCUMENT",
     "consultationResponse": "DOCUMENT",
     "consultationServices": "REFERENCE",
     "consultdocs": "DOCUMENT",
@@ -717,7 +717,9 @@
       "hl7_orc",
       "hl7_obr",
       "hl7_obx",
-      "admission"
+      "admission",
+      "consultationRequestsArchive",
+      "consultationRequestExtArchive"
     ],
     "CareElements": [
       "measurements",
@@ -1126,6 +1128,9 @@
     ],
     "workflow": [
       "demographic_no"
+    ],
+    "consultationRequestsArchive": [
+      "demographicNo"
     ]
   },
   "clinicalRemainders": {
@@ -1280,8 +1285,8 @@
     "demographicExtArchive": "Superseded demographicExt snapshot: DemographicAddRecord2Action and DemographicUpdate2Action write one row per edited extension key on every save, keyed by the same demographicArchive id; DemographicManagerImpl.archiveExtension keeps the prior value. Guide 18.2 transfers the current snapshot, which demographicExt carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence.",
     "demographiccustArchive": "Superseded demographiccust snapshot (alert, care-team names, patient note) kept by DemographicManagerImpl.createUpdateDemographicCust when a value changes. Guide 18.2 transfers the current snapshot, which demographiccust carries. Like demographicArchive's non-roster columns, superseded values stay in the approved patient audit arrangement (operator guide step 6) and are not a separate clinical occurrence.",
     "EFormReportTool": "A saved report definition (eForm id, target table name). NOTE: populating it runs CREATE TABLE <tableName> (EFormReportToolDaoImpl.java:116) holding per-patient eForm values; that runtime table is outside the pinned profile and would block every export like DOC-GAPS B1.",
-    "consultationRequestExtArchive": "Superseded version or audit history; the current record is exported. Child of the superseded request snapshot.",
-    "consultationRequestsArchive": "Superseded version or audit history; the current record is exported. Edit history of a consultation request, same class as appointment edit history; the current request is exported. (Maintainer: alternatively export as \"revision n of m\" like encounter forms.)",
+    "consultationRequestExtArchive": "Exported as a CARLOS data-summary Report (consultation): every column of each patient row is rendered with its exact value. Extension values copied with an archived request version (consultationRequestArchiveId); rendered inside that version's Report.",
+    "consultationRequestsArchive": "Exported as a CARLOS data-summary Report (consultation): every column of each patient row is rendered with its exact value. Earlier versions of a consultation request: ConsultationManagerImpl.archiveConsultationRequest copies the request here before each update. One Report per archived version, labelled \"revision n of m\" among the archived versions of the same request (requestId); the current request is its own Report.",
     "erefer_attachment": "a one-hour staging list of chart item ids for an Ocean submission, no clinical text; the referenced items are exported themselves.",
     "erefer_attachment_data": "PATIENT-LINKED via parent: (lab_type, lab_id) references only. Today unscoped, so 220 demo rows block every patient.",
     "queue_document_link": "PATIENT-LINKED via document: inbox routing state (queue id, status) only. Today unscoped, so 2 demo rows block every patient.",

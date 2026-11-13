@@ -185,6 +185,8 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 sql.update("delete from consultationRequestExt where id=?", patient);
                 sql.update("delete from consultdocs where id=?", patient);
                 sql.update("delete from consultationRequests where requestId=?", patient);
+                sql.update("delete from consultationRequestExtArchive where id=?", patient);
+                sql.update("delete from consultationRequestsArchive where Id=?", patient);
                 sql.update("delete from emailAttachment where id=?", patient);
                 sql.update("delete from emailLog where id=?", patient);
                 sql.update("delete from client_image where image_id=?", patient);
@@ -268,6 +270,21 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
         sql.update(
                 "insert into consultdocs(id,requestId,document_no,doctype,provider_no,attach_date)"
                         + " values(?,?,1,'D','999998','2024-07-08')",
+                patient,
+                patient);
+        // The version the request had before its last update, as CARLOS archives it.
+        sql.update(
+                "insert into consultationRequestsArchive(Id,requestId,demographicNo,referalDate,reason,"
+                        + "lastUpdateDate,status,urgency) values(?,?,?,'2024-07-01','Earlier reason',"
+                        + "'2024-07-02 10:00:00','1','3')",
+                patient,
+                patient,
+                patient);
+        sql.update(
+                "insert into consultationRequestExtArchive(id,originalId,requestId,name,value,dateCreated,"
+                        + "consultationRequestArchiveId) values(?,?,?,'ebs','true','2024-07-01',?)",
+                patient,
+                patient,
                 patient,
                 patient);
         sql.update(
@@ -394,6 +411,7 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                         Kind.ENCOUNTER_FORM,
                         Kind.EFORM,
                         Kind.CONSULTATION_REQUEST,
+                        Kind.CONSULTATION_REQUEST_VERSION,
                         Kind.TICKLER,
                         Kind.EMAIL,
                         Kind.PATIENT_PHOTO,
@@ -433,6 +451,11 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 .containsExactly("eform_data", "eform_values");
         assertThat(byKind.get(Kind.CONSULTATION_REQUEST).getFirst().rows()).extracting(Row::table)
                 .containsExactly("consultationRequests", "consultationRequestExt", "consultdocs");
+        var version = byKind.get(Kind.CONSULTATION_REQUEST_VERSION).getFirst();
+        assertThat(version.rows()).extracting(Row::table)
+                .containsExactly("consultationRequestsArchive", "consultationRequestExtArchive");
+        assertThat(version.revisionLabel()).isEqualTo("Revision 1 of 1, saved 2024-07-02 10:00:00");
+        assertThat(version.rows().getFirst().text("reason")).isEqualTo("Earlier reason");
         assertThat(byKind.get(Kind.EMAIL).getFirst().rows()).extracting(Row::table)
                 .containsExactly("emailLog", "emailAttachment");
         var photo = byKind.get(Kind.PATIENT_PHOTO).getFirst();

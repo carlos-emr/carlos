@@ -126,6 +126,39 @@ class CdsExportDataSummaryPlannerUnitTest {
     }
 
     @Test
+    void shouldNumberArchivedConsultationVersions_amongTheVersionsOfTheSameRequest() {
+        var rows = new HashMap<String, List<Row>>();
+        rows.put(
+                "consultationRequestsArchive",
+                List.of(
+                        row("consultationRequestsArchive", key(3), "Id", "3", "requestId", "5",
+                                "referalDate", "2024-02-03", "lastUpdateDate", "2024-02-05 09:00:00"),
+                        row("consultationRequestsArchive", key(1), "Id", "1", "requestId", "5",
+                                "referalDate", "2024-02-03", "lastUpdateDate", "2024-02-04 09:00:00"),
+                        row("consultationRequestsArchive", key(2), "Id", "2", "requestId", "6",
+                                "referalDate", "2024-03-01", "lastUpdateDate", null)));
+        rows.put(
+                "consultationRequestExtArchive",
+                List.of(row("consultationRequestExtArchive", key(7), "id", "7", "requestId", "5",
+                        "consultationRequestArchiveId", "3", "name", "letterheadTitle", "value", "Dr")));
+
+        var groups = CdsExportDataSummaryPlanner.plan(rows, TORONTO);
+
+        assertThat(groups).extracting(CdsExportDataSummaryPlanner.Group::id).containsExactly("1", "2", "3");
+        assertThat(groups).extracting(CdsExportDataSummaryPlanner.Group::kind)
+                .containsOnly(Kind.CONSULTATION_REQUEST_VERSION);
+        assertThat(groups).extracting(CdsExportDataSummaryPlanner.Group::revisionLabel)
+                .containsExactly(
+                        "Revision 1 of 2, saved 2024-02-04 09:00:00",
+                        "Revision 1 of 1",
+                        "Revision 2 of 2, saved 2024-02-05 09:00:00");
+        assertThat(groups.get(2).rows()).extracting(Row::table)
+                .containsExactly("consultationRequestsArchive", "consultationRequestExtArchive");
+        assertThat(groups.get(0).subClass()).isEqualTo("consultationRequestsArchive revision 1 of 2");
+        assertThat(groups.get(2).event().lexical()).isEqualTo("2024-02-03");
+    }
+
+    @Test
     void shouldKeepAnAmbiguousPlannerRecordOnItsOwn_insteadOfGuessingItsForm() {
         var rows = new HashMap<String, List<Row>>();
         rows.put("formBCAR", List.of(row("formBCAR", key(5), "ID", "5", "formCreated", "2020-01-01")));

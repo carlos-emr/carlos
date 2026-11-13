@@ -218,8 +218,9 @@ final class CdsExportDataSummaryPlanner {
 
         /**
          * The stored time this revision was saved, as stored (a local wall-clock value), or null:
-         * {@code formEdited} of an encounter form, {@code timeStamp} of a legacy encounter and
-         * {@code save_date} of an immunization schedule.
+         * {@code formEdited} of an encounter form, {@code timeStamp} of a legacy encounter,
+         * {@code save_date} of an immunization schedule and {@code lastUpdateDate} of an archived
+         * consultation request version.
          */
         String saved() {
             if (rows.isEmpty()) return null;
@@ -249,7 +250,11 @@ final class CdsExportDataSummaryPlanner {
     }
 
     /** The save-time column of the revisioned tables that do not use {@code formEdited}. */
-    private static final Map<String, String> SAVED = Map.of("eChart", "timeStamp", "immunizations", "save_date");
+    private static final Map<String, String> SAVED =
+            Map.of(
+                    "eChart", "timeStamp",
+                    "immunizations", "save_date",
+                    "consultationRequestsArchive", "lastUpdateDate");
 
     private CdsExportDataSummaryPlanner() {}
 
@@ -276,10 +281,21 @@ final class CdsExportDataSummaryPlanner {
                     throw new IllegalStateException("CDS_EXPORT_DATA_SUMMARY_IDENTITY_DUPLICATE");
             }
             if (rule.revisioned()) {
-                int n = 0;
+                // One sequence for the table, or one per value of the rule's revision group.
+                var sequences = new LinkedHashMap<String, List<Builder>>();
                 for (var builder : byId.values()) {
-                    builder.revision = ++n;
-                    builder.revisions = byId.size();
+                    String group =
+                            rule.revisionGroup() == null
+                                    ? ""
+                                    : String.valueOf(builder.root.text(rule.revisionGroup())) + '\0';
+                    sequences.computeIfAbsent(group, ignored -> new ArrayList<>()).add(builder);
+                }
+                for (var sequence : sequences.values()) {
+                    int n = 0;
+                    for (var builder : sequence) {
+                        builder.revision = ++n;
+                        builder.revisions = sequence.size();
+                    }
                 }
             }
             roots.put(table, byId);

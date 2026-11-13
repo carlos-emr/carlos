@@ -445,7 +445,7 @@ are printed on the technical channel (CLI standard error, web application log)
 as `CDS_EXPORT_SOURCE: {"code":...,"tables":[...]}`, with no row values.
 
 Chart records that CDS 5.2 has no element for (encounter forms, eForms,
-consultations, ticklers, e-mails, faxes, messages, consents, the cumulative
+consultations and the earlier versions CARLOS keeps of each edited consultation request, ticklers, e-mails, faxes, messages, consents, the cumulative
 patient profile, the patient photo and similar) do not hold a patient. When
 Reports is selected, each record is exported as a Reports entry holding a PDF
 "CARLOS data summary": every stored field of the record and its related rows

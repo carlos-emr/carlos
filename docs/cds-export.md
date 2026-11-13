@@ -119,9 +119,9 @@ CT-024 "QD" on both the native and reconciled paths, and when a prescription's s
 marked unknown its date-precision rows travel in the medication residual instead of being
 counted as a StartDate.
 
-Thirty-six further patient-linked tables are classified rather than refused. Edit history whose
-current record is exported (consultation request and extension archives, tickler links left
-after their migration to ticklerdocs, the consent migration audit), working state that is not
+Thirty-four further patient-linked tables are classified rather than refused. Edit history whose
+current record is exported (tickler links left after their migration to ticklerdocs, the consent
+migration audit), working state that is not
 part of the record (autosaved note drafts, eRefer and document-queue staging, the recycle bin,
 vacancy matching, saved demographic sets, report and letter scratch tables) and per-patient
 reference or configuration rows (saved filters and queries, eForm report-tool definitions,
@@ -129,9 +129,10 @@ flowsheet and prevention-report settings, letter templates, WCB code lists) are 
 no longer hold a patient. Each table's reason is its ruling note in
 `src/main/resources/cds-export/source-catalogue.json`.
 
-Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 118
+Records that CDS 5.2 has no element for are exported, not refused (maintainer decision 6). The 120
 tables ruled `DOCUMENT` (every encounter-form table, eForms and their values, consultation
-requests and responses with their extensions and attachment references, ticklers with their
+requests and responses with their extensions and attachment references, the archived earlier
+versions of consultation requests with their extensions, ticklers with their
 comments, updates and attachment references, e-mails with their attachment references, faxes,
 patient-linked messages, digital signatures, consents, the cumulative patient profile, the patient
 photo, the waiting list, workflows and the CAISI referral, queue, restriction and joint-admission
@@ -1011,8 +1012,17 @@ random six-letter tag on each font subset. The export removes the dates, derives
 from the table and record id, and renames the subset tags in file order, so an unchanged record
 gives the same bytes. The data summary PDF itself (`HtmlPdfRenderService`) is not normalized.
 
-Consultation responses, other encounter forms and every earlier form revision remain data
-summaries only.
+Consultation responses, archived consultation request versions, other encounter forms and every
+earlier form revision remain data summaries only.
+
+**Archived consultation request versions.** Each update of a consultation request first copies
+the request to `consultationRequestsArchive` and its extensions to `consultationRequestExtArchive`
+(`ConsultationManagerImpl.archiveConsultationRequest`). Both are `DOCUMENT` tables: each archived
+version is an "Archived consultation" record (Class Other Letter) with its copied
+extensions (linked by `consultationRequestArchiveId`), numbered "revision n of m" among the archived
+versions of the same request (`requestId`, the rule's revision group) and labelled with its stored
+`lastUpdateDate`. The archive is scoped by its own `demographicNo`; its extension rows by the
+version they name (`CdsExportIndirectPatientScopeReadSupport`).
 
 ### Legacy records of older releases
 
