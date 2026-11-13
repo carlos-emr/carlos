@@ -43,7 +43,14 @@ public final class CdsExportReviewException extends RuntimeException {
          * The installed schema, or a clinic-wide table with no patient link, cannot be closed for
          * any patient; the whole job stops instead of holding every patient one by one.
          */
-        CLINIC_SOURCE_UNREVIEWED;
+        CLINIC_SOURCE_UNREVIEWED,
+        /**
+         * DOCUMENT_DIR, one of its parents or an entry below it is not trusted storage: a
+         * symbolic link, a directory or file writable by group or others, or one owned by
+         * neither root nor the service account. No chart's documents can then be read safely,
+         * so the whole job stops instead of failing as an unexplained I/O error.
+         */
+        DOCUMENT_STORAGE_UNTRUSTED;
 
         public String code() {
             return "CDS_EXPORT_" + name();

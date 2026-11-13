@@ -477,4 +477,21 @@ class CdsExportClinicalPackageServiceUnitTest {
                                         CdsExportReviewException.Reason.RECIPIENT_UNAVAILABLE)))
                 .isNull();
     }
+
+    @Test
+    void shouldStopTheJobForUntrustedDocumentStorage_butHoldOnlyThePatientForItsOwnDocument() {
+        // DOCUMENT_DIR itself concerns every chart; a purged file concerns one (review R3).
+        assertThat(
+                        CdsExportClinicalPackageService.heldCode(
+                                new CdsExportReviewException(
+                                        CdsExportReviewException.Reason
+                                                .DOCUMENT_STORAGE_UNTRUSTED)))
+                .isNull();
+        assertThat(
+                        CdsExportClinicalPackageService.heldCode(
+                                new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                        .CdsExportMappingReviewException(
+                                        "CDS_EXPORT_NATIVE_REPORT_FILE_MISSING")))
+                .isEqualTo("CDS_EXPORT_NATIVE_REPORT_FILE_MISSING");
+    }
 }

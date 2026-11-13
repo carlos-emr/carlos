@@ -77,6 +77,20 @@ requires review; deleting clinical rows or weakening the gate is not a resolutio
 Catalogue matching follows MariaDB's existing table-name case mode. Column names, types,
 collations and keys remain exact, and unknown or ambiguous table mappings still require review.
 
+Document reports read their files from the configured `DOCUMENT_DIR`. That directory,
+each of its parent directories and every directory and file below it must be the real
+directory or regular file (never a symbolic link), owned by `root` or the account the
+export runs as, and not writable by group or others. Configure `DOCUMENT_DIR` with its
+real path: a path that passes through a symbolic link, such as the packaged
+`OscarDocument` compatibility link or a symlinked data volume, or a group-writable parent
+stops the whole job for review with `CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED` before any
+document is read. A problem with one document holds only its patient:
+`CDS_EXPORT_NATIVE_REPORT_FILE_MISSING` (the file the document row names is not there, for
+example after a purge), `CDS_EXPORT_NATIVE_REPORT_FILENAME_UNSUPPORTED` (a stored name
+that is absolute, leaves the directory, or contains a colon, backslash or control
+character) and `CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` (larger than
+`cds.export.maxDocumentBytes`, 1 GiB by default).
+
 ## Submit and recover a browser job
 
 Open the normal authenticated CDS Export page. Choose the authorizing provider,

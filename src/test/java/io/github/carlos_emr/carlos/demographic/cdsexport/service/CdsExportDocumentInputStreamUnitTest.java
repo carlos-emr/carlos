@@ -118,14 +118,47 @@ class CdsExportDocumentInputStreamUnitTest {
             })
     void shouldRefuseTraversalAbsoluteAndAmbiguousPaths_forDocumentInputStreamContract(
             String name) {
-        assertThatThrownBy(() -> open(name)).hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
+        // A stored name that is not a plain relative name under DOCUMENT_DIR concerns this one
+        // document, so it now holds only its patient (review R3) instead of failing the job.
+        assertThatThrownBy(() -> open(name))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILENAME_UNSUPPORTED");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"purged.pdf", "gone/purged.pdf"})
+    void shouldHoldOnlyThePatient_whenADocumentFileIsMissing(String name) {
+        assertThatThrownBy(() -> open(name))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_MISSING");
+    }
+
+    @Test
+    void shouldStopTheJob_whenTheDocumentDirectoryIsMissing() {
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportDocumentInputStream(
+                                        root.resolve("absent"), "report.bin", 4L << 20, () -> {}))
+                .isNotInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
     }
 
     @Test
     void shouldRefuseASymlinkFile_withoutOpeningItsTarget() throws Exception {
         Files.createSymbolicLink(root.resolve("alias.bin"), Path.of("report.bin"));
+        // A trust-policy violation concerns the storage, not one chart: it stops the job for
+        // review under its own code instead of an unexplained I/O failure (review R3).
         assertThatThrownBy(() -> open("alias.bin"))
-                .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
     }
 
     @Test
@@ -134,7 +167,23 @@ class CdsExportDocumentInputStreamUnitTest {
         Files.write(root.resolve("real/report.bin"), body);
         Files.createSymbolicLink(root.resolve("alias"), Path.of("real"));
         assertThatThrownBy(() -> open("alias/report.bin"))
-                .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
+                .hasMessage("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
+    }
+
+    @Test
+    void shouldStopTheJobWithTheTrustCode_whenTheDocumentDirectoryIsReachedThroughASymlink()
+            throws Exception {
+        Path alias = Files.createSymbolicLink(root.resolve("documents"), root);
+        assertThatThrownBy(
+                        () -> new CdsExportDocumentInputStream(alias, "report.bin", 4L << 20, () -> {}))
+                .hasMessage("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
+    }
+
+    @Test
+    void shouldStopTheJobWithTheTrustCode_whenADirectoryIsGroupWritable() throws Exception {
+        Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwxrwx---"));
+        assertThatThrownBy(() -> open("report.bin"))
+                .hasMessage("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
     }
 
     @Test
@@ -148,8 +197,13 @@ class CdsExportDocumentInputStreamUnitTest {
 
     @Test
     void shouldRefuseAFileLargerThanTheExplicitByteBudget_forDocumentInputStreamContract() {
+        // One oversized document holds its patient (cds.export.maxDocumentBytes names the bound)
+        // rather than failing every other patient's export.
         assertThatThrownBy(() -> new CdsExportDocumentInputStream(root, "report.bin", 2, () -> {}))
-                .hasMessage("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE");
     }
 
     @Test

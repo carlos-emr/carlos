@@ -22,6 +22,8 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import com.sun.security.auth.module.UnixSystem;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.SeekableByteChannel;
@@ -54,23 +56,8 @@ final class CdsExportDocumentInputStream extends InputStream {
             if (root == null
                     || !root.isAbsolute()
                     || !root.equals(root.normalize())
-                    || maximumBytes < 1
-                    || filename == null
-                    || filename.isEmpty()
-                    || filename.length() > 1024
-                    || filename.contains("\\")
-                    || filename.contains(":")
-                    || filename.codePoints().anyMatch(Character::isISOControl)) invalid();
-            Path relative = Path.of(filename);
-            if (relative.isAbsolute()
-                    || !relative.equals(relative.normalize())
-                    || !relative.toString().equals(filename)
-                    || relative.getNameCount() > 16
-                    || relative.startsWith("..")) invalid();
-            for (Path part : relative)
-                if (part.toString().equals(".")
-                        || part.toString().equals("..")
-                        || part.toString().length() > 255) invalid();
+                    || maximumBytes < 1) invalid();
+            Path relative = relativeName(filename);
             for (Path cursor = root; cursor != null; cursor = cursor.getParent()) {
                 var view =
                         Files.getFileAttributeView(
@@ -90,7 +77,7 @@ final class CdsExportDocumentInputStream extends InputStream {
                 var view =
                         current.getFileAttributeView(
                                 part, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-                var attributes = view.readAttributes();
+                var attributes = present(view);
                 trusted(attributes, true);
                 views.add(view);
                 identities.add(attributes);
@@ -102,22 +89,29 @@ final class CdsExportDocumentInputStream extends InputStream {
             fileView =
                     current.getFileAttributeView(
                             name, PosixFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
-            fileIdentity = fileView.readAttributes();
+            fileIdentity = present(fileView);
             trusted(fileIdentity, false);
-            if (fileIdentity.size() < 0
-                    || fileIdentity.size() > maximumBytes
-                    || fileIdentity.fileKey() == null) invalid();
+            if (fileIdentity.size() < 0 || fileIdentity.fileKey() == null) invalid();
+            if (fileIdentity.size() > maximumBytes) hold("CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE");
             channel =
                     current.newByteChannel(
                             name, Set.of(StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
             if (channel.size() != fileIdentity.size()) invalid();
             stable();
+        } catch (CdsExportMappingReviewException hold) {
+            // This document cannot be read for a reason that concerns only it: its patient is
+            // held with this code and every other patient's export continues.
+            failed = true;
+            quietlyCloseHandles();
+            throw hold;
+        } catch (Untrusted untrusted) {
+            failed = true;
+            quietlyCloseHandles();
+            throw new CdsExportReviewException(
+                    CdsExportReviewException.Reason.DOCUMENT_STORAGE_UNTRUSTED);
         } catch (IOException | RuntimeException failure) {
             failed = true;
-            try {
-                closeHandles();
-            } catch (IOException ignored) {
-            }
+            quietlyCloseHandles();
             throw new IOException("CDS_EXPORT_DOCUMENT_SOURCE_UNAVAILABLE");
         } catch (Error failure) {
             failed = true;
@@ -130,6 +124,58 @@ final class CdsExportDocumentInputStream extends InputStream {
         }
     }
 
+    /**
+     * The stored {@code document.docfilename} as a plain name below DOCUMENT_DIR. A name that is
+     * absolute, climbs out, is not in normal form or carries characters the reader refuses
+     * concerns this one document, so it holds only its patient.
+     */
+    private static Path relativeName(String filename) throws IOException {
+        try {
+            if (filename == null
+                    || filename.isEmpty()
+                    || filename.length() > 1024
+                    || filename.contains("\\")
+                    || filename.contains(":")
+                    || filename.codePoints().anyMatch(Character::isISOControl)) unsupported();
+            Path relative = Path.of(filename);
+            if (relative.isAbsolute()
+                    || !relative.equals(relative.normalize())
+                    || !relative.toString().equals(filename)
+                    || relative.getNameCount() > 16
+                    || relative.startsWith("..")) unsupported();
+            for (Path part : relative)
+                if (part.toString().isEmpty()
+                        || part.toString().equals(".")
+                        || part.toString().equals("..")
+                        || part.toString().length() > 255) unsupported();
+            return relative;
+        } catch (InvalidPathException malformed) {
+            unsupported();
+            return null;
+        }
+    }
+
+    /**
+     * Attributes of an entry below DOCUMENT_DIR. A missing entry (a purged file, or a document
+     * row whose file was never written) holds only its patient; the directory itself was
+     * already proven present and trusted.
+     */
+    private static PosixFileAttributes present(PosixFileAttributeView view) throws IOException {
+        try {
+            return view.readAttributes();
+        } catch (NoSuchFileException missing) {
+            hold("CDS_EXPORT_NATIVE_REPORT_FILE_MISSING");
+            return null;
+        }
+    }
+
+    /**
+     * DOCUMENT_DIR, each of its ancestors and every entry below it must be a real directory
+     * or regular file (never a symbolic link) owned by root or the service account and not
+     * writable by group or others. A violation concerns the storage, not one chart, so it
+     * stops the job for review with its own code. The packaged OscarDocument compatibility
+     * link must therefore not appear in the configured DOCUMENT_DIR (see the operator guide).
+     */
     private static void trusted(PosixFileAttributes attributes, boolean directory)
             throws IOException {
         String account = new UnixSystem().getUsername();
@@ -138,7 +184,33 @@ final class CdsExportDocumentInputStream extends InputStream {
                 || !("root".equals(attributes.owner().getName())
                         || account.equals(attributes.owner().getName()))
                 || attributes.permissions().contains(PosixFilePermission.GROUP_WRITE)
-                || attributes.permissions().contains(PosixFilePermission.OTHERS_WRITE)) invalid();
+                || attributes.permissions().contains(PosixFilePermission.OTHERS_WRITE))
+            throw new Untrusted();
+    }
+
+    /** A trust-policy violation, reported under its own code rather than as unavailability. */
+    private static final class Untrusted extends IOException {
+        private static final long serialVersionUID = 1L;
+
+        Untrusted() {
+            super("CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED");
+        }
+    }
+
+    private static void hold(String code) throws CdsExportMappingReviewException {
+        throw new CdsExportMappingReviewException(code);
+    }
+
+    private static void unsupported() throws CdsExportMappingReviewException {
+        hold("CDS_EXPORT_NATIVE_REPORT_FILENAME_UNSUPPORTED");
+    }
+
+    private void quietlyCloseHandles() {
+        try {
+            closeHandles();
+        } catch (IOException ignored) {
+            /* The primary refusal is reported; handle cleanup failures carry no clinical detail. */
+        }
     }
 
     private void stable() throws IOException {
