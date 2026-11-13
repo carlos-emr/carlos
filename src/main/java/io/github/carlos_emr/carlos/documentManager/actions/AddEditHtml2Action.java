@@ -44,6 +44,7 @@ import io.github.carlos_emr.carlos.PMmodule.model.ProgramProvider;
 import io.github.carlos_emr.carlos.documentManager.DocumentLink;
 import io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao;
 import io.github.carlos_emr.carlos.commn.model.Appointment;
+import io.github.carlos_emr.carlos.commn.model.Document;
 import io.github.carlos_emr.carlos.documentManager.EDoc;
 import io.github.carlos_emr.carlos.documentManager.EDocUtil;
 import io.github.carlos_emr.carlos.managers.ProgramManager2;
@@ -81,6 +82,19 @@ public class AddEditHtml2Action extends ActionSupport {
         String fileName = "";
         if ((this.getDocDesc().length() == 0) || (this.getDocDesc().equals("Enter Title"))) {
             errors.put("descmissing", "dms.error.descriptionInvalid");
+            request.setAttribute("linkhtmlerrors", errors);
+            request.setAttribute("completedForm", submittedForm());
+            request.setAttribute("function", request.getParameter("function"));
+            request.setAttribute("functionid", request.getParameter("functionid"));
+            request.setAttribute("editDocumentNo", this.getMode());
+            return "failed";
+        }
+        // document.docdesc holds Document.DESCRIPTION_MAX_LENGTH characters and the packaged database
+        // cuts a longer description off without an error. Add Link stores the typed text with
+        // DocumentLink.DESCRIPTION_SUFFIX after it, so the limit is measured on what is stored and
+        // the message says how much a link description can hold.
+        if (!Document.descriptionFits(storedDescription())) {
+            errors.put("desctoolong", isAddLink() ? "dms.error.linkDescriptionTooLong" : "dms.error.descriptionTooLong");
             request.setAttribute("linkhtmlerrors", errors);
             request.setAttribute("completedForm", submittedForm());
             request.setAttribute("function", request.getParameter("function"));
@@ -192,6 +206,16 @@ public class AddEditHtml2Action extends ActionSupport {
             throw new RuntimeException(e);
         }
         return NONE;
+    }
+
+    private boolean isAddLink() {
+        return "addLink".equals(this.getMode());
+    }
+
+    /** The description as {@link EDoc} will store it: trimmed, and for Add Link with its suffix. */
+    private String storedDescription() {
+        String typed = this.getDocDesc() == null ? "" : this.getDocDesc();
+        return (isAddLink() ? typed + DocumentLink.DESCRIPTION_SUFFIX : typed).trim();
     }
 
     /** A new document can reference only an existing appointment for its patient; zero means no appointment. */

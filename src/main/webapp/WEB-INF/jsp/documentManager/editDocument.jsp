@@ -70,6 +70,7 @@
 <%@ page import="io.github.carlos_emr.carlos.documentManager.data.AddEditDocument2Form" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDocUtil" %>
 <%@ page import="io.github.carlos_emr.carlos.documentManager.EDoc" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.Document" %>
 
 <%
     DocumentExtraReviewerDao documentExtraReviewerDao = SpringUtils.getBean(DocumentExtraReviewerDao.class);
@@ -195,6 +196,7 @@
     <script type="text/javascript"
             src="<%= request.getContextPath() %>/share/calendar/lang/<fmt:message key="global.javascript.calendar"/>"></script>
     <script type="text/javascript" src="<%= request.getContextPath() %>/share/calendar/calendar-setup.js"></script>
+    <fmt:message key="dms.error.descriptionTooLong" var="msgDescriptionTooLongText"/>
     <script type="text/javascript">
         window.onload = function () {
             // Vanilla autocomplete replacing Autocompleter.Local
@@ -240,7 +242,14 @@
         function submitUpload(object) {
             object.Submit.disabled = true;
             var ans = true;
-            if (object.reviewerId.value != "") {
+            // document.docdesc counts code points (utf8mb4), as Array.from does; AddEditDocument2Action
+            // refuses a longer description too, and that is the check that holds.
+            if (Array.from(object.docDesc.value.trim()).length > <%= Document.DESCRIPTION_MAX_LENGTH %>) {
+                alert('${carlos:forJavaScript(msgDescriptionTooLongText)}');
+                object.docDesc.focus();
+                ans = false;
+            }
+            if (ans && object.reviewerId.value != "") {
                 ans = confirm("Updating this document will remove reviewer information. Confirm?");
             }
             if (ans && !validDate("observationDate")) {
@@ -328,8 +337,9 @@
         </tr>
         <tr>
             <td>Description:</td>
-            <td><input <% if (docerrors.containsKey("descmissing")) {%>
-                    class="warning" <%}%> type="text" name="docDesc" size="30"
+            <%-- maxlength is twice the column: it counts UTF-16 units, the column code points. --%>
+            <td><input <% if (docerrors.containsKey("descmissing") || docerrors.containsKey("desctoolong")) {%>
+                    class="warning" <%}%> type="text" name="docDesc" size="30" maxlength="<%= Document.DESCRIPTION_MAX_LENGTH * 2 %>"
                     value="<carlos:encode value='<%= formdata.getDocDesc() %>' context="htmlAttribute"/>">
             <td>
         </tr>

@@ -32,6 +32,7 @@ package io.github.carlos_emr.carlos.messenger.pageUtil;
 
 import io.github.carlos_emr.carlos.messenger.data.ContactIdentifier;
 import io.github.carlos_emr.carlos.messenger.data.MsgMessageData;
+import io.github.carlos_emr.carlos.commn.model.MessageTbl;
 import io.github.carlos_emr.carlos.commn.model.OscarMsgType;
 import io.github.carlos_emr.carlos.managers.MessengerDemographicManager;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -308,6 +309,15 @@ public class MsgCreateMessage2Action extends ActionSupport {
 
 
             subject = (subject == null) ? "" : subject.trim();
+            // messagetbl.thesubject holds MessageTbl.SUBJECT_MAX_LENGTH characters (code points) and
+            // the packaged database cuts a longer subject off without an error, so it is refused here,
+            // with what was written kept. The compose page checks the same before posting; this is
+            // the check that holds.
+            if (!MessageTbl.subjectFits(subject)) {
+                MiscUtils.getLogger().info("Refused a message whose subject is longer than a message subject can hold");
+                return redisplay(session, staged,
+                        LocaleUtils.getMessage(request, "messenger.CreateMessage.msgSubjectTooLong"), parsedDemoNo);
+            }
             if (subject.isEmpty()) {
                 subject = "none";
             }

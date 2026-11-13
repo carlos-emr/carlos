@@ -108,6 +108,7 @@
 <%@ page import="io.github.carlos_emr.carlos.utility.FormSubmissionGuard" %>
 <%@ page import="io.github.carlos_emr.carlos.managers.MessengerGroupManager" %>
 <%@ page import="io.github.carlos_emr.carlos.commn.model.Demographic" %>
+<%@ page import="io.github.carlos_emr.carlos.commn.model.MessageTbl" %>
 <%@ page import="java.util.Map" %>
 <%@ page import="java.util.List" %>
 
@@ -290,6 +291,7 @@
 <%-- Extract i18n alert messages into page-scope variables so they can be safely encoded for JavaScript --%>
 <fmt:message key="messenger.CreateMessage.msgEmptyMessage" var="msg_EmptyMessage"/>
 <fmt:message key="messenger.CreateMessage.msgNoProvider" var="msg_NoProvider"/>
+<fmt:message key="messenger.CreateMessage.msgSubjectTooLong" var="msg_SubjectTooLong"/>
 <fmt:message key="messenger.CreateMessage.archiveFailed" var="msg_ArchiveFailed"/>
 <fmt:message key="messenger.CreateMessage.archiveError" var="msg_ArchiveError"/>
 <fmt:message key="messenger.CreateMessage.archiveTimeout" var="msg_ArchiveTimeout"/>
@@ -301,6 +303,10 @@
 // (e.g. "n'a", "L'archivage") are safely escaped by forJavaScript()
 var msgEmptyMessage     = '${carlos:forJavaScript(msg_EmptyMessage)}';
 var msgNoProvider       = '${carlos:forJavaScript(msg_NoProvider)}';
+var msgSubjectTooLong   = '${carlos:forJavaScript(msg_SubjectTooLong)}';
+// messagetbl.thesubject counts Unicode code points (utf8mb4), as Array.from does; MsgCreateMessage2Action
+// refuses a longer subject too, and that is the check that holds.
+var subjectMaxLength    = <%= MessageTbl.SUBJECT_MAX_LENGTH %>;
 var msgArchiveFailed    = '${carlos:forJavaScript(msg_ArchiveFailed)}';
 var msgArchiveError     = '${carlos:forJavaScript(msg_ArchiveError)}';
 var msgArchiveTimeout   = '${carlos:forJavaScript(msg_ArchiveTimeout)}';
@@ -355,6 +361,13 @@ function validateFields() {
     var val = validateCheckBoxes(document.forms[0]);
     if (val === "0") {
         showAlert(msgNoProvider, 'warning');
+        return false;
+    }
+    // Refused here, before Send and Archive archives the original, rather than cut by the database.
+    var subjectBox = document.getElementById('subject');
+    if (subjectBox && Array.from(subjectBox.value.trim()).length > subjectMaxLength) {
+        showAlert(msgSubjectTooLong, 'warning');
+        subjectBox.focus();
         return false;
     }
     return true;
@@ -628,7 +641,10 @@ function validateFields() {
                     <div class="row"><div class="col-auto">
 					<label for="subject" class="form-label"><fmt:message key="messenger.CreateMessage.formSubject" /> :</label>
                     </div><div class="col">
-					<input type="text" name="subject" id="subject" class="form-control w-75" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
+					<%-- maxlength counts UTF-16 units and the column counts code points, so it is twice the column
+					     (an emoji is two units, one character) and never cuts a subject that fits; validateFields
+					     and MsgCreateMessage2Action refuse one longer than MessageTbl.SUBJECT_MAX_LENGTH. --%>
+					<input type="text" name="subject" id="subject" class="form-control w-75" maxlength="<%= MessageTbl.SUBJECT_MAX_LENGTH * 2 %>" value="${carlos:forHtmlAttribute(messageSubject)}"> </div>
                     <div id="messagediv"></div></div>
 					<textarea name="message" rows="15" style="min-width: 100%">${carlos:forHtml(messageBody)}</textarea>
 							<table>
