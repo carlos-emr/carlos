@@ -1,19 +1,19 @@
 {
   "schemaVersion": 1,
   "base": "e53e6cb555125a942bbb28e52097972a24c88ad1",
-  "sourceTree": "4c1558034df08979c048aa9a3cac7f40fb5a2fe5",
-  "comparisonSha256": "98bd5886c851dab2a6ebe5c2b005165f0a809403d21ccd279312863e09088d62",
-  "baselineCommit": "c15dfae068ec120d25303eb27ec1782deb3fac91",
-  "baselineSourceTree": "4c1558034df08979c048aa9a3cac7f40fb5a2fe5",
-  "baselineReportSha256": "3eaead18fe078342bd48853938718b28b57ed440b2966ba745dfd60f3e55ccbd",
-  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of release/2026.08 with main merged in and the promotion-review corrections of PR #6167: one Surefire run of 36,870 cases with three forks, zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
+  "sourceTree": "3dcb925489fa3a961a8e26b1e572e836cc64b3c2",
+  "comparisonSha256": "b5bf1301f7f7272b5379d366d5cfd867e676608eda2a25c330898c0088e630a0",
+  "baselineCommit": "2e2a941435537de4e31281ca30965ef2d2f0aa45",
+  "baselineSourceTree": "3dcb925489fa3a961a8e26b1e572e836cc64b3c2",
+  "baselineReportSha256": "fe7867fa746bbf0af8ef23b0a12b8d1655414040dbf4723082194ef63851093f",
+  "baselineLane": "Ubuntu 26.04/OpenJDK 25.0.5.0.3 complete H2 run of release/2026.08 (through #6182) with main merged in and the promotion-review corrections of PR #6167: one Surefire run of 36,899 cases with three forks, zero failures or errors, 217 registered skips and no retakes; execution data and report come from that single run. Higher historical floors, required refusal lines and zero-floor review requirements remain; this is not full release native-union qualification.",
   "baselineTestCounts": {
-    "tests": 36870,
+    "tests": 36899,
     "skipped": 217,
     "failures": 0,
     "errors": 0
   },
-  "baselineTestReportsSha256": "16574a4edda8d2d2a617011ff6de3fcd5f6f07ba8700a2ce6481c2b300f3691e",
+  "baselineTestReportsSha256": "1a95b41ea7554b9f81b6dd9891f496c0a03c4f1db993272053c29cab24568bcb",
   "files": {
     "src/main/java/io/github/carlos_emr/AppointmentMainBean.java": {
       "lines": 100.0,
@@ -842,6 +842,18 @@
       "instructions": 0.0,
       "branches": 0.0,
       "sourceBlob": "d986dc8a654089304e529ead82893e6f060f5f98"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportFieldDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "7257f26563c67d36b6f7029ed9359771e5671480"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/commn/dao/CdsImportPatientDao.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "014ef646c5a6da42367e6e3f00e4df6555372eed"
     },
     "src/main/java/io/github/carlos_emr/carlos/commn/dao/ClinicalDataRow.java": {
       "lines": 100.0,
@@ -1736,6 +1748,12 @@
       "instructions": 86.87727825030376,
       "branches": 63.0,
       "sourceBlob": "6e79b76e83de7c21121e25ef66040050044d7972"
+    },
+    "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldPresenceResolver.java": {
+      "lines": 100.0,
+      "instructions": 100.0,
+      "branches": 100.0,
+      "sourceBlob": "af231195cb063425f1848f5e8769f54f915c23ce"
     },
     "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsXmlParser.java": {
       "lines": 96.7741935483871,
@@ -4880,5 +4898,5 @@
   },
   "zeroCoverageWaivers": {},
   "baselineAdditionalTestRuns": [],
-  "baselineTestRunCommit": "c15dfae068ec120d25303eb27ec1782deb3fac91"
+  "baselineTestRunCommit": "2e2a941435537de4e31281ca30965ef2d2f0aa45"
 }
