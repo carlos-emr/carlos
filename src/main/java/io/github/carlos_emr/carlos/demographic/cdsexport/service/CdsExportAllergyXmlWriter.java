@@ -76,6 +76,13 @@ public final class CdsExportAllergyXmlWriter {
                     CdsNativeExtensionContract.STRING_TYPE,
                     onset);
         }
+        if (allergy.nativeSeverity() != null)
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES.get(
+                            allergy.nativeSeverity()));
         xml.end();
         optional(xml, "OffendingAgentDescription", allergy.description());
         optional(xml, "PropertyOfOffendingAgent", allergy.property());

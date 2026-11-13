@@ -62,6 +62,16 @@ public final class CdsExportAllergyMapper {
                 blocked ? null : candidate.value(), candidate.fields());
     }
 
+    /**
+     * CDS 5.2 allergies have no status element, and receivers ignore CARLOS residuals, so an
+     * archived allergy (removed, replaced by an edit, or marked inactive; CARLOS does not
+     * distinguish them) would otherwise reach another EMR as an active allergy. The standard
+     * Notes says so in words; the CARLOS archive residual still carries the exact state.
+     */
+    static final String ARCHIVED_NOTE =
+            "Inactive in the sending EMR: this allergy record was archived (removed, replaced by"
+                    + " an edit, or marked inactive) and is not a current allergy.";
+
     /** Partial native values stay package-private; callers must retain every unresolved field disposition. */
     record Candidate(
             CdsExportAllergyDto value,
@@ -134,11 +144,18 @@ public final class CdsExportAllergyMapper {
                     Outcome.OPERATIONAL,
                     "Severity",
                     "NATIVE_SEVERITY_UNKNOWN_NO_ASSERTION");
-        if ("3".equals(source.raw("severity_of_reaction")))
-            source.review(
+        String nativeSeverity = null;
+        if ("3".equals(source.raw("severity_of_reaction"))) {
+            // "Severe" (AddReaction2.jsp) has no CDS 5.2 value and is not evidence of a
+            // life-threatening (LT) reaction: the standard Severity stays absent and the exact
+            // native label travels in a CARLOS residual, instead of refusing the patient.
+            nativeSeverity = "3";
+            source.set(
                     "severity_of_reaction",
-                    "Severity",
-                    "SEVERE_IS_NOT_EVIDENCE_OF_LIFE_THREATENING");
+                    Outcome.MAPPED,
+                    "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                    "NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
+        }
         String atcPath = "ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_ATC;
         String type = null, code = source.token("atc", atcPath, 7);
         if (code != null) {
@@ -213,10 +230,11 @@ public final class CdsExportAllergyMapper {
                         severity,
                         reaction,
                         recorded == null ? absent : recorded,
-                        null,
+                        Boolean.parseBoolean(archived) ? ARCHIVED_NOTE : null,
                         Boolean.parseBoolean(archived),
                         age,
-                        onset);
+                        onset,
+                        nativeSeverity);
         return new Candidate(output, decisions);
     }
 

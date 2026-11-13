@@ -41,7 +41,41 @@ public record CdsExportAllergyDto(
         String notes,
         boolean archived,
         String ageOfOnset,
-        String onsetOfReaction) {
+        String onsetOfReaction,
+        String nativeSeverity) {
+    public CdsExportAllergyDto(
+            String description,
+            String property,
+            String codeType,
+            String codeValue,
+            String reactionType,
+            CdsExportDateDto start,
+            String lifeStage,
+            String severity,
+            String reaction,
+            CdsExportDateDto recorded,
+            String notes,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction) {
+        this(
+                description,
+                property,
+                codeType,
+                codeValue,
+                reactionType,
+                start,
+                lifeStage,
+                severity,
+                reaction,
+                recorded,
+                notes,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                null);
+    }
+
     public CdsExportAllergyDto(
             String description,
             String property,
@@ -69,6 +103,7 @@ public record CdsExportAllergyDto(
                 notes,
                 archived,
                 null,
+                null,
                 null);
     }
 
@@ -79,6 +114,12 @@ public record CdsExportAllergyDto(
                 || codeType != null && (codeType.isEmpty() || codeValue.isEmpty())) {
             throw new IllegalArgumentException("CDS_EXPORT_ALLERGY_CODE_INCOMPLETE");
         }
+        if (nativeSeverity != null
+                && (severity != null
+                        || !io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES
+                                .containsKey(nativeSeverity)))
+            throw new IllegalArgumentException("CDS_EXPORT_ALLERGY_SEVERITY_INVALID");
     }
 
     @Override

@@ -93,6 +93,17 @@ class CdsExportAllergyFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldStateTheInactiveStatus_whenAnImportedAllergyIsArchivedAfterImport()
+            throws Exception {
+        var fields = baseline();
+        fields.put("archived", "1");
+        var result = reconcile(fixture(fields, true, source()), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().archived()).isTrue();
+        assertThat(result.mapping().value().notes()).endsWith(CdsExportAllergyMapper.ARCHIVED_NOTE);
+    }
+
+    @Test
     void shouldRefuseAnUnprovenChangedSeverity_andAChangedDateWhoseOriginalClockCannotBeReconciled()
             throws Exception {
         var fields = baseline();
@@ -121,9 +132,13 @@ class CdsExportAllergyFieldReconcilerUnitTest {
         var previous = baseline();
         previous.put("severity_of_reaction", "2");
         var changedSeverity = reconcile(fixture(fields, true, moderate, previous), List.of());
-        assertThat(changedSeverity.mapping().nativeRowRepresentable()).isFalse();
+        // A clinician's later change to "Severe" is exported like any native Severe: no standard
+        // Severity (it is not evidence of LT) and the native label in the CARLOS residual.
+        assertThat(changedSeverity.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(changedSeverity.mapping().value().severity()).isNull();
+        assertThat(changedSeverity.mapping().value().nativeSeverity()).isEqualTo("3");
         assertThat(changedSeverity.mapping().fields().get(key("severity_of_reaction")).rule())
-                .isEqualTo("SEVERE_IS_NOT_EVIDENCE_OF_LIFE_THREATENING");
+                .isEqualTo("NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
         fields = baseline();
         fields.put("entry_date", "2024-03-01");
         var result = reconcile(fixture(fields, true, source()), List.of());

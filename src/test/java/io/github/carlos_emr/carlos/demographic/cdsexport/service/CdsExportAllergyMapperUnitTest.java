@@ -74,6 +74,8 @@ class CdsExportAllergyMapperUnitTest {
         assertThat(result.nativeRowRepresentable()).isTrue();
         assertThat(result.fields()).hasSize(34);
         assertThat(result.value().archived()).isTrue();
+        // A receiver that ignores CARLOS residuals still sees that the allergy is not current.
+        assertThat(result.value().notes()).isEqualTo(CdsExportAllergyMapper.ARCHIVED_NOTE);
         assertThat(result.value().property()).isEqualTo("UK");
         assertThat(result.value().reaction()).isEqualTo("café 😀\r\nSynthetic reaction");
         assertThat(result.value().severity()).isEqualTo("MI");
@@ -172,10 +174,21 @@ class CdsExportAllergyMapperUnitTest {
         var fields = baseline();
         fields.put("severity_of_reaction", "3");
         var result = mapper.map(27, allergy(fields), List.of());
-        assertThat(result.nativeRowRepresentable()).isFalse();
-        assertThat(result.value()).isNull();
+        // "Severe" is not exported as LT (life-threatening) and no longer refuses the patient:
+        // the standard Severity is absent and the native label travels in a CARLOS residual.
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        assertThat(result.value().severity()).isNull();
+        assertThat(result.value().nativeSeverity()).isEqualTo("3");
         assertThat(result.fields().get(key("severity_of_reaction")).rule())
-                .isEqualTo("SEVERE_IS_NOT_EVIDENCE_OF_LIFE_THREATENING");
+                .isEqualTo("NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                        .ALLERGIES_AND_ADVERSE_REACTIONS,
+                                body -> new CdsExportAllergyXmlWriter().write(result.value(), body)),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(xml).contains("CARLOS.Allergy.Severity.v1", "Severe").doesNotContain(">LT<");
         fields.put("severity_of_reaction", "0");
         var unknown = mapper.map(27, allergy(fields), List.of());
         assertThat(unknown.nativeRowRepresentable()).isTrue();

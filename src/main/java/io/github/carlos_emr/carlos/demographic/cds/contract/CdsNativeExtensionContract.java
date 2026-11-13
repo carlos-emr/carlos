@@ -36,6 +36,17 @@ public final class CdsNativeExtensionContract {
     /** An ATC class is not a DIN and cannot be written in the standard allergy Code. */
     public static final String ALLERGY_ATC = "CARLOS.Allergy.Atc.v1";
 
+    /**
+     * A native severity with no CDS 5.2 value. CDS has only NO/MI/MO/LT; CARLOS's "Severe" (3) is
+     * not evidence of a life-threatening reaction, so the standard Severity is left absent and
+     * the native label travels here instead of refusing the patient.
+     */
+    public static final String ALLERGY_SEVERITY = "CARLOS.Allergy.Severity.v1";
+
+    /** Native severity codes carried only by {@link #ALLERGY_SEVERITY}. */
+    public static final java.util.Map<String, String> ALLERGY_SEVERITY_VALUES =
+            java.util.Map.of("3", "Severe");
+
     /** CPP categories have no standard record-archive field; this is independent of problem resolution. */
     public static final String HISTORY_ARCHIVED = "CARLOS.History.Archived.v1";
 

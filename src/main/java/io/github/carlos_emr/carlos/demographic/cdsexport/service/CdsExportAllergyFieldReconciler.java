@@ -211,14 +211,22 @@ public final class CdsExportAllergyFieldReconciler {
                         choosePrepared.contains(Group.RECORDED)
                                 ? old.recorded()
                                 : values.recorded(),
-                        old.notes(),
+                        notes(
+                                old.notes(),
+                                old.archived(),
+                                choosePrepared.contains(Group.ARCHIVED)
+                                        ? old.archived()
+                                        : values.archived()),
                         choosePrepared.contains(Group.ARCHIVED)
                                 ? old.archived()
                                 : values.archived(),
                         choosePrepared.contains(Group.AGE) ? old.ageOfOnset() : values.ageOfOnset(),
                         choosePrepared.contains(Group.ONSET)
                                 ? old.onsetOfReaction()
-                                : values.onsetOfReaction());
+                                : values.onsetOfReaction(),
+                        // A natively changed "Severe" has no CDS value; its label travels in the
+                        // CARLOS residual exactly as for a native allergy.
+                        choosePrepared.contains(Group.SEVERITY) ? null : values.nativeSeverity());
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
@@ -228,6 +236,17 @@ public final class CdsExportAllergyFieldReconciler {
                 new CdsExportAllergyMappingDto(blocked ? null : result, decisions),
                 preparedPaths,
                 currentPaths);
+    }
+
+    /**
+     * An imported allergy archived in CARLOS after import must not reach another EMR looking
+     * current: the imported notes are kept and the archive statement appended once.
+     */
+    private static String notes(String imported, boolean wasArchived, boolean archived) {
+        if (!archived || wasArchived) return imported;
+        if (imported == null || imported.isEmpty()) return CdsExportAllergyMapper.ARCHIVED_NOTE;
+        if (imported.endsWith(CdsExportAllergyMapper.ARCHIVED_NOTE)) return imported;
+        return imported + "\n" + CdsExportAllergyMapper.ARCHIVED_NOTE;
     }
 
     private CdsNativeRowState verifyNativeBaseline(

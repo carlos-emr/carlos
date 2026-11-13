@@ -548,6 +548,13 @@ rows, and retains every field assessment. Its results establish native-row repre
 not complete clinical coverage or source-only reconciliation.
 
 Typed allergy XML carries the versioned `CARLOS.Allergy.Archived.v1` boolean residual.
+Because CDS 5.2 allergies have no status element and other EMRs ignore CARLOS residuals, an
+archived allergy (removed, replaced by an edit, or marked inactive) also states in its standard
+`Notes` that it is inactive in the sending EMR and not a current allergy. A native "Severe"
+reaction (severity 3) has no CDS 5.2 value and is not evidence of a life-threatening (`LT`)
+reaction: the standard `Severity` is absent and `CARLOS.Allergy.Severity.v1` (`string`,
+`Severe`) carries the native label. The CARLOS importer does not yet restore that label into the
+native severity; it keeps the residual in the retained source.
 Age text and onset speed use `CARLOS.Allergy.AgeOfOnset.v1` and
 `CARLOS.Allergy.OnsetOfReaction.v1` string residuals: exact native age text retains leading
 zeroes without an inferred unit; onset labels are Unknown, Immediate, Gradual and Slow.
