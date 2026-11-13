@@ -27,9 +27,14 @@ import java.util.*;
 
 /**
  * Folds identical roster snapshots into evidenced clinical events, retaining each native
- * field's disposition. Distinct episodes retain their explicit dates and physician identity;
- * conflicting versions of one termination, reopened episodes and stale effective dates
- * require review. This does not reconcile imported fields or certify the rest of a chart.
+ * field's disposition. The latest recorded version of an episode (start date and physician) is
+ * its truth; an earlier version of the same episode is a superseded snapshot. The current row's
+ * event is always exported. An archived episode that the current state contradicts (one left
+ * open while the patient is no longer, or differently, enrolled; one dated after the current
+ * state) was superseded without a recorded termination: its snapshot stays in the approved
+ * audit arrangement with the archive's other superseded columns, and no end date is invented.
+ * Roster states that are not enrolment events are decided by {@link CdsExportEnrolmentMapper}.
+ * This does not reconcile imported fields or certify the rest of a chart.
  */
 public final class CdsExportEnrolmentHistory {
     public record Result(
@@ -47,21 +52,22 @@ public final class CdsExportEnrolmentHistory {
         }
     }
 
-    private record EventKey(CdsExportEnrolmentEventDto value, String nativeProvider) {}
-
     private record EpisodeKey(java.time.LocalDate start, String nativeProvider) {}
+
+    /** One accepted row's mapping, in acceptance (archive key, then current) order. */
+    private record Mapped(
+            CdsExportCapturedTextRowDto row,
+            CdsExportCapturedTextRowDto provider,
+            CdsExportEnrolmentMapper.Result result) {}
+
+    private static final String SUPERSEDED = "SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT";
+    private static final String SUPERSEDED_PROVIDER = "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT";
 
     private final int patient;
     private final int maximumRows;
     private final long maximumBytes;
     private final Runnable checkpoint;
-    private final Map<EventKey, CdsExportEnrolmentEventDto> events = new LinkedHashMap<>();
-    private final Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> fields =
-            new LinkedHashMap<>();
-    private final Map<EpisodeKey, CdsExportEnrolmentEventDto> terminated = new HashMap<>();
-    private final Set<EpisodeKey> started = new HashSet<>();
-    private CdsExportEnrolmentEventDto currentEvent;
-    private String currentState;
+    private final List<Mapped> rows = new ArrayList<>();
     private final Set<String> identities = new HashSet<>();
     private String archiveKey;
     private boolean current;
@@ -101,38 +107,21 @@ public final class CdsExportEnrolmentHistory {
                 current = true;
             }
             var result = new CdsExportEnrolmentMapper().map(patient, row, provider);
+            // Only provider values no CDS name can hold remain; they hold this patient, never
+            // the whole job.
             if (!result.representable())
-                throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
-            if (result.event() != null) {
-                var episode = new EpisodeKey(result.event().start(), result.nativeProvider());
-                if (result.event().status().equals("0")) {
-                    var prior = terminated.putIfAbsent(episode, result.event());
-                    if (prior != null && !prior.equals(result.event())) ambiguous();
-                } else {
-                    if (terminated.containsKey(episode)) ambiguous();
-                    for (var prior : started)
-                        if (!prior.equals(episode) && !terminated.containsKey(prior)) ambiguous();
-                    started.add(episode);
-                }
-                events.putIfAbsent(
-                        new EventKey(result.event(), result.nativeProvider()), result.event());
-            }
-            if (row.table().equals("demographic")) {
-                currentEvent = result.event();
-                currentState = row.fields().get("roster_status");
-            }
-            for (var entry : result.fields().entrySet()) {
-                var previous = fields.putIfAbsent(entry.getKey(), entry.getValue());
-                if (previous != null && !previous.equals(entry.getValue())) invalid();
-                if (previous == null)
-                    bytes =
-                            Math.addExact(
-                                    bytes,
-                                    512L
-                                            + entry.getKey().recordKey().length() * 2L
-                                            + entry.getValue().destination().length() * 2L
-                                            + entry.getValue().rule().length() * 2L);
-            }
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException(
+                        "CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
+            rows.add(new Mapped(row, provider, result));
+            for (var entry : result.fields().entrySet())
+                bytes =
+                        Math.addExact(
+                                bytes,
+                                512L
+                                        + entry.getKey().recordKey().length() * 2L
+                                        + entry.getValue().destination().length() * 2L
+                                        + entry.getValue().rule().length() * 2L);
             bytes = Math.addExact(bytes, 1024L);
             if (bytes > maximumBytes) limit();
             checkpoint.run();
@@ -148,20 +137,100 @@ public final class CdsExportEnrolmentHistory {
             checkpoint.run();
             if (!current || expectedArchiveRows < 0 || identities.size() != expectedArchiveRows + 1)
                 invalid();
-            if (!events.isEmpty()) {
-                if (currentEvent == null) {
-                    if (!"NR".equals(currentState) || !terminated.keySet().containsAll(started))
-                        ambiguous();
-                } else {
-                    java.time.LocalDate effective = effective(currentEvent);
-                    for (var event : events.values())
-                        if (effective(event).isAfter(effective)
-                                || effective(event).equals(effective)
-                                        && !event.equals(currentEvent)) ambiguous();
+            var currentRow = rows.getLast();
+            var currentEvent = currentRow.result().event();
+            var currentEpisode =
+                    currentEvent == null
+                            ? null
+                            : new EpisodeKey(currentEvent.start(), currentRow.result().nativeProvider());
+            var episodes = new LinkedHashMap<EpisodeKey, List<Mapped>>();
+            for (var mapped : rows)
+                if (mapped.result().event() != null)
+                    episodes.computeIfAbsent(
+                                    new EpisodeKey(
+                                            mapped.result().event().start(),
+                                            mapped.result().nativeProvider()),
+                                    ignored -> new ArrayList<>())
+                            .add(mapped);
+            var exported = new HashSet<Mapped>();
+            for (var entry : episodes.entrySet()) {
+                checkpoint.run();
+                var versions = entry.getValue();
+                var latest = versions.getLast().result().event();
+                boolean open = latest.status().equals("1");
+                // An episode left open while the current state is another episode or no
+                // enrolment was superseded without a recorded termination.
+                if (open && !entry.getKey().equals(currentEpisode)) continue;
+                for (var mapped : versions) {
+                    var event = mapped.result().event();
+                    // An open episode's earlier terminations were withdrawn; a terminated
+                    // episode keeps its start and its latest termination.
+                    boolean keep =
+                            open
+                                    ? event.status().equals("1")
+                                    : event.status().equals("1") || event.equals(latest);
+                    if (keep
+                            && !entry.getKey().equals(currentEpisode)
+                            && currentEvent != null
+                            && (effective(event).isAfter(effective(currentEvent))
+                                    || effective(event).equals(effective(currentEvent))
+                                            && !event.equals(currentEvent))) keep = false;
+                    if (keep) exported.add(mapped);
                 }
             }
+            var emitted = new LinkedHashSet<CdsExportEnrolmentEventDto>();
+            for (var mapped : rows) if (exported.contains(mapped)) emitted.add(mapped.result().event());
+            var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+            for (var mapped : rows) {
+                checkpoint.run();
+                boolean audited = mapped.result().event() != null && !exported.contains(mapped);
+                for (var entry : mapped.result().fields().entrySet()) {
+                    var key = entry.getKey();
+                    var decision = entry.getValue();
+                    if (key.table().equals("provider")) continue;
+                    if (audited && decision.outcome() != CdsExportFieldAssessmentDto.Outcome.ABSENT)
+                        decision =
+                                CdsExportEnrolmentMapper.superseded(
+                                        mapped.row().fields().get(key.column()), SUPERSEDED);
+                    if (fields.put(key, decision) != null) invalid();
+                }
+            }
+            // A provider row's decision follows its uses: an exported event's physician, a
+            // carried current state, or only superseded snapshots.
+            var providerFields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+            for (int pass = 0; pass < 3; pass++)
+                for (var mapped : rows) {
+                    var provider = mapped.provider();
+                    if (provider == null) continue;
+                    boolean event = exported.contains(mapped);
+                    boolean carried =
+                            mapped.result().event() == null && mapped.row().table().equals("demographic");
+                    if (pass == 0 && !event || pass == 1 && !carried) continue;
+                    for (var entry : provider.fields().entrySet()) {
+                        var key =
+                                new CdsExportNativeFieldKeyDto(
+                                        provider.table(), provider.recordKey(), entry.getKey());
+                        var decision =
+                                pass == 2
+                                        ? CdsExportEnrolmentMapper.superseded(
+                                                entry.getValue(), SUPERSEDED_PROVIDER)
+                                        : mapped.result().fields().get(key);
+                        if (decision == null) invalid();
+                        var prior = providerFields.putIfAbsent(key, decision);
+                        if (pass == 0 && prior != null && !prior.equals(decision)) invalid();
+                    }
+                }
+            fields.putAll(providerFields);
+            for (var entry : fields.entrySet()) {
+                var key = entry.getKey();
+                bytes =
+                        Math.addExact(
+                                bytes,
+                                256L + key.recordKey().length() * 2L + entry.getValue().rule().length() * 2L);
+            }
+            if (bytes > maximumBytes) limit();
             finished = true;
-            return new Result(List.copyOf(events.values()), identities.size(), fields);
+            return new Result(List.copyOf(emitted), identities.size(), fields);
         } catch (IOException | RuntimeException failure) {
             failed = true;
             throw failure;
@@ -170,10 +239,6 @@ public final class CdsExportEnrolmentHistory {
 
     private static java.time.LocalDate effective(CdsExportEnrolmentEventDto event) {
         return event.end() == null ? event.start() : event.end();
-    }
-
-    private static void ambiguous() throws IOException {
-        throw new IOException("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
     }
 
     private void active() throws IOException {

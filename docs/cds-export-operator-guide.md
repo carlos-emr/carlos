@@ -141,6 +141,16 @@ exported and the ReadMe says so. A care-team provider is sent with the provider 
 provider's public name. Only a value containing a character no XML file can hold still holds the
 patient; correct it on the demographic page and export again.
 
+The same holds for roster, pharmacy and contact values: a fee-for-service or clinic-defined
+roster status, a roster entry missing its date, a second preferred pharmacy, Phone 2 or Notes on
+a pharmacy, an inactive or internal contact, a specialist or dietician on the health care team,
+an e-mail with a "+", a SIN typed with spaces and a province of "Other" all travel in the
+`CARLOS.NativeDemographic.v1` record instead of holding the patient. Removed pharmacy links and
+deleted contacts are no longer in the chart and are not exported. A patient re-rostered without
+a termination is exported with the current enrolment; the earlier episode's snapshot stays in
+the audit arrangement. On a chart that came from an earlier CDS import, removing an imported
+contact or pharmacy preference still holds that patient for review.
+
 Native chart support includes demographics/external physicians, all seven history/note
 categories, prescriptions and printed scripts, current measurements, supported
 HL7 ORU results, and document reports with their attachments. A document is exported as

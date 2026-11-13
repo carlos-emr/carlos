@@ -61,7 +61,7 @@ public final class CdsExportDemographicSupportingReader {
         if (custom.size() > 1) invalid();
         var properties = read(lease, patient, tables, source, bounds, control, "demographicExt");
         var row = custom.isEmpty() ? null : custom.getFirst();
-        var references = CdsExportDemographicSupportingMapper.careTeamReferences(row);
+        var references = CdsExportDemographicSupportingMapper.references(current.getFirst(), row);
         var providers = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         if (!references.isEmpty())
             new CdsExportPublicProviderReader(captures)
@@ -70,8 +70,11 @@ public final class CdsExportDemographicSupportingReader {
                             (id, provider) -> {
                                 if (references.contains(id)) providers.put(id, provider);
                             });
+        var related = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
+        for (String table : CdsExportDemographicSupportingMapper.Rows.RELATED)
+            related.put(table, read(lease, patient, tables, source, bounds, control, table));
         return new CdsExportDemographicSupportingMapper.Rows(
-                patient.patient(), current.getFirst(), row, properties, providers);
+                patient.patient(), current.getFirst(), row, properties, providers, related);
     }
 
     /**

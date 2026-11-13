@@ -104,10 +104,9 @@ public final class CdsExportPersonalContactMapper {
                                 .anyMatch(columns -> !columns.equals(Set.copyOf(plan.columns()))))
                     invalid();
             }
-            if (fields.values().stream()
-                            .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW)
-                    && ((associationRows > 0) != !contacts.isEmpty()
-                            || contacts.size() != contactRows)) invalid();
+            // Removed, inactive and non-personal associations (and their contacts) are not
+            // Contact elements, so a representable mapping may emit fewer contacts than rows.
+            if (!contacts.isEmpty() && associationRows == 0) invalid();
         }
 
         public boolean nativeRepresentable() {
@@ -193,32 +192,40 @@ public final class CdsExportPersonalContactMapper {
                 CdsExportContactConsent.assess(state, "Contact");
         }
         var groups = new TreeMap<String, List<CdsExportCapturedTextRowDto>>();
+        // Contacts named by an association the record carries, or only by removed ones.
+        var carriedContacts = new HashSet<String>();
+        var removedContacts = new HashSet<String>();
+        var identity =
+                Set.of(
+                        "id",
+                        "demographicNo",
+                        "created",
+                        "creator",
+                        "updateDate",
+                        "facilityId",
+                        "programNo");
         for (var row : associations) {
             var state = states.get(row);
             String root = "Contact";
-            if (!"2".equals(state.raw("type"))) {
-                state.review(
-                        "type",
-                        root,
-                        "PATIENT_PROVIDER_OR_SPECIALIST_CONTACT_IDENTITY_PROJECTION_REQUIRED");
+            // Manage Contacts "Delete" keeps the association with deleted=1: no longer in the
+            // chart, like a superseded snapshot, and not exported.
+            if ("1".equals(state.raw("deleted"))) {
+                for (String column : row.fields().keySet())
+                    if (present(row.fields().get(column)))
+                        state.operational(column, "REMOVED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART");
+                if ("2".equals(state.raw("type"))) removedContacts.add(state.raw("contactId"));
                 continue;
             }
-            if (!"personal".equals(state.raw("category"))) {
-                state.review(
-                        "category",
-                        root,
-                        "PROFESSIONAL_OR_UNKNOWN_RELATIONSHIP_REQUIRES_SEPARATE_PROJECTION");
-                continue;
-            }
-            if (!"0".equals(state.raw("deleted")) || !"1".equals(state.raw("active"))) {
-                state.review(
-                        "deleted",
-                        root,
-                        "HISTORICAL_OR_UNKNOWN_CONTACT_ASSOCIATION_REQUIRES_REVIEW");
-                state.review(
-                        "active",
-                        root,
-                        "HISTORICAL_OR_UNKNOWN_CONTACT_ASSOCIATION_REQUIRES_REVIEW");
+            // An "Internal" contact (another patient), a provider or specialist (type 0, 1, 3:
+            // their names live in tables this export does not read), a relationship of another
+            // category, or an association marked Inactive: the stored association travels
+            // exactly in the native demographic NewCategory record.
+            if (!"2".equals(state.raw("type"))
+                    || !"personal".equals(state.raw("category"))
+                    || !"0".equals(state.raw("deleted"))
+                    || !"1".equals(state.raw("active"))) {
+                state.carryRemaining(identity);
+                if ("2".equals(state.raw("type"))) carriedContacts.add(state.raw("contactId"));
                 continue;
             }
             var contact =
@@ -241,7 +248,17 @@ public final class CdsExportPersonalContactMapper {
                         .toList()) {
             checkpoint.run();
             var group = groups.get(row.recordKey());
-            if (group == null) continue;
+            if (group == null) {
+                var state = states.get(row);
+                if (carriedContacts.contains(row.fields().get("id")))
+                    state.carryRemaining(Set.of("id", "updateDate"));
+                else if (removedContacts.contains(row.fields().get("id")))
+                    for (String column : row.fields().keySet())
+                        if (present(row.fields().get(column)))
+                            state.operational(
+                                    column, "CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
+                continue;
+            }
             var state = states.get(row);
             String root = "Contact[" + (mapped.size() + 1) + "]";
             if ("Contact".equals(state.raw("type")))
@@ -320,22 +337,18 @@ public final class CdsExportPersonalContactMapper {
                                 root + "/PhoneNumber[W]/extension",
                                 "EXACT_NATIVE_CONTACT_WORK_EXTENSION");
                     } catch (IllegalArgumentException unsupported) {
-                        state.review(
-                                "workPhoneExtension",
-                                root + "/PhoneNumber[W]/extension",
-                                "CONTACT_PHONE_EXTENSION_REQUIRES_REVIEW");
+                        // The extension box has no length limit; the stored value is carried.
+                        state.carry("workPhoneExtension");
                     }
-                } else if (present(extension))
-                    state.review(
-                            "workPhoneExtension",
-                            root + "/PhoneNumber[W]/extension",
-                            "CONTACT_EXTENSION_WITHOUT_WORK_NUMBER");
+                } else if (present(extension)) state.carry("workPhoneExtension");
             }
-            String email = token(state, "email", root + "/EmailAddress", 50);
+            String email = state.token("email", root + "/EmailAddress", 50);
             if (email != null && !CdsExportEmailLexical.matches(email)) {
-                state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW");
+                state.carry("email");
                 email = null;
             }
+            // Contact columns Demographics/Contact has no element for travel in the record.
+            state.carryRemaining(Set.of("id", "updateDate"));
             String note = note(row, group, states, root);
             if (first != null || last != null)
                 mapped.add(
@@ -364,21 +377,16 @@ public final class CdsExportPersonalContactMapper {
         sources.addAll(links);
         for (var row : sources)
             if (present(row.fields().get("note"))) values.add(row.fields().get("note"));
-        if (values.size() > 1) {
-            for (var row : sources)
-                if (present(row.fields().get("note")))
-                    states.get(row)
-                            .review(
-                                    "note",
-                                    root + "/Note",
-                                    "DISTINCT_CONTACT_NOTES_REQUIRE_EXPLICIT_RECONCILIATION");
-            return null;
-        }
-        String value = values.isEmpty() ? null : values.iterator().next();
+        // Contact has one Note of 200 characters: distinct notes on the contact and its
+        // associations, or a longer note, travel exactly in the native demographic record.
+        String value = values.size() == 1 ? values.iterator().next() : null;
+        boolean fits = value != null && CdsExportNativeFieldAssessments.legal(value, 200);
         for (var row : sources)
-            if (present(row.fields().get("note")))
-                states.get(row).text("note", root + "/Note", 200);
-        return value != null && CdsExportNativeFieldAssessments.legal(value, 200) ? value : null;
+            if (present(row.fields().get("note"))) {
+                if (fits) states.get(row).text("note", root + "/Note", 200);
+                else states.get(row).carry("note");
+            }
+        return fits ? value : null;
     }
 
     private static void purposeFlag(
@@ -420,23 +428,8 @@ public final class CdsExportPersonalContactMapper {
             String column,
             String type,
             String root) {
-        String value = token(state, column, root + "/PhoneNumber[" + type + "]/phoneNumber", 25);
+        String value = state.token(column, root + "/PhoneNumber[" + type + "]/phoneNumber", 25);
         if (value != null) phones.add(new CdsExportDemographicMappingDto.Phone(type, value));
-    }
-
-    private static String token(
-            CdsExportNativeFieldAssessments state, String column, String path, int maximum) {
-        String value = state.raw(column);
-        if (!present(value)) return null;
-        if (value.startsWith(" ")
-                || value.endsWith(" ")
-                || value.contains("  ")
-                || value.codePoints()
-                        .anyMatch(code -> code == '\t' || code == '\r' || code == '\n')) {
-            state.review(column, path, "TOKEN_WHITESPACE_REQUIRES_REVIEW");
-            return null;
-        }
-        return state.text(column, path, maximum);
     }
 
     private static void requireRow(

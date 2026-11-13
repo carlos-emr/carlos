@@ -246,8 +246,10 @@ class CdsExportContactFieldReconcilerUnitTest {
             assertThat(invoke().representable()).isFalse();
         }
         association = new LinkedHashMap<>(oldAssociation);
+        // A contact address has no Demographics/Contact element: it travels in the native
+        // demographic NewCategory record and no longer holds the imported chart.
         contact.put("address", "Unmapped contact address");
-        assertThat(invoke().representable()).isFalse();
+        assertThat(invoke().representable()).isTrue();
     }
 
     @Test

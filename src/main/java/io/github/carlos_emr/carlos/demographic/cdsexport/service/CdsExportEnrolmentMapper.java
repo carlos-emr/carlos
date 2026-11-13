@@ -98,8 +98,10 @@ public final class CdsExportEnrolmentMapper {
                         "CURRENT_NON_ENROLLED_FLAG_WITHOUT_AN_ENROLMENT_EVENT");
             return new Result(null, null, decisions);
         }
+        // "FS" (fee for service, offered on both demographic forms), a clinic-defined roster
+        // status and NR with leftover roster values are not CDS enrolment events.
         if (!"RO".equals(nativeState) && !"TE".equals(nativeState))
-            return new Result(null, null, decisions);
+            return withoutEvent(row, provider, decisions);
         String status = "RO".equals(nativeState) ? "1" : "0";
         LocalDate start = date(row.fields().get("roster_date")),
                 end = date(row.fields().get("roster_termination_date"));
@@ -112,17 +114,10 @@ public final class CdsExportEnrolmentMapper {
                         || end != null && start != null && end.isBefore(start)
                         || reason != null
                                 && !CdsExportEnrolmentEventDto.TERMINATION_REASONS.contains(reason);
-        if (invalid) {
-            for (String column : COLUMNS.keySet())
-                if (!column.equals("roster_enrolled_to"))
-                    set(
-                            row,
-                            decisions,
-                            column,
-                            Outcome.REQUIRES_REVIEW,
-                            "ENROLMENT_STATE_DATES_OR_CODE_REQUIRES_REVIEW");
-            return new Result(null, optional(row.fields().get("roster_enrolled_to")), decisions);
-        }
+        // RO without a roster date, TE without a termination date, RO still holding a
+        // termination, or a termination reason outside CT-010: the forms let a user save each of
+        // these, and none is a well-formed CDS enrolment event, so the state travels as stored.
+        if (invalid) return withoutEvent(row, provider, decisions);
         for (String column : COLUMNS.keySet())
             if (!column.equals("roster_enrolled_to") && present(row.fields().get(column)))
                 set(row, decisions, column, Outcome.MAPPED, "EXACT_NATIVE_ENROLMENT_EVENT");
@@ -131,12 +126,12 @@ public final class CdsExportEnrolmentMapper {
         if (id == null) {
             if (provider != null) scope();
         } else if (provider == null || !id.equals(provider.fields().get("provider_no"))) {
-            set(
-                    row,
-                    decisions,
-                    "roster_enrolled_to",
-                    Outcome.REQUIRES_REVIEW,
-                    "EXACT_ENROLLED_PHYSICIAN_REFERENCE_REQUIRED");
+            // A provider number with no captured provider row: the event is exported without an
+            // invented physician and the stored number travels as stored.
+            if (provider != null) scope();
+            decisions.put(
+                    new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), "roster_enrolled_to"),
+                    stored(row, "roster_enrolled_to"));
         } else {
             var mapped =
                     new CdsExportPublicProviderMapper()
@@ -159,6 +154,68 @@ public final class CdsExportEnrolmentMapper {
                         : new CdsExportEnrolmentEventDto(status, start, end, reason, physician),
                 id,
                 decisions);
+    }
+
+    /**
+     * A roster state that is not a CDS enrolment event. The current row's values have no
+     * Demographics element and travel in the native demographic NewCategory record
+     * ({@link CdsExportDemographicSupportingMapper}); a superseded archive snapshot's values stay
+     * in the approved audit arrangement, as its other columns do. An NR flag alone is operational.
+     * The enrolled provider's public row is carried or audited with the value that names it.
+     */
+    private static Result withoutEvent(
+            CdsExportCapturedTextRowDto row,
+            CdsExportCapturedTextRowDto provider,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions)
+            throws IOException {
+        String id = optional(row.fields().get("roster_enrolled_to"));
+        if (provider != null && (id == null || !id.equals(provider.fields().get("provider_no"))))
+            scope();
+        for (String column : COLUMNS.keySet()) {
+            if (!present(row.fields().get(column))) continue;
+            if (column.equals("roster_status") && "NR".equals(row.fields().get(column)))
+                set(
+                        row,
+                        decisions,
+                        column,
+                        Outcome.OPERATIONAL,
+                        "CURRENT_NON_ENROLLED_FLAG_WITHOUT_AN_ENROLMENT_EVENT");
+            else
+                decisions.put(
+                        new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column),
+                        stored(row, column));
+        }
+        if (provider != null)
+            for (var entry : provider.fields().entrySet())
+                decisions.put(
+                        new CdsExportNativeFieldKeyDto(
+                                provider.table(), provider.recordKey(), entry.getKey()),
+                        row.table().equals("demographic")
+                                ? new CdsExportFieldAssessmentDto(
+                                        presence(entry.getValue()),
+                                        Outcome.MAPPED,
+                                        CdsExportDemographicSupportingMapper.DESTINATION,
+                                        "ROSTER_PROVIDER_PUBLIC_ROW_CARRIED")
+                                : superseded(entry.getValue(), "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT"));
+        return new Result(null, id, decisions);
+    }
+
+    /** Decision for a stored roster value outside every exported enrolment event. */
+    private static CdsExportFieldAssessmentDto stored(CdsExportCapturedTextRowDto row, String column) {
+        String value = row.fields().get(column);
+        return row.table().equals("demographic")
+                ? CdsExportDemographicSupportingMapper.carried(value)
+                : superseded(value, "SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT");
+    }
+
+    static CdsExportFieldAssessmentDto superseded(String value, String rule) {
+        return new CdsExportFieldAssessmentDto(presence(value), Outcome.OPERATIONAL, "", rule);
+    }
+
+    /** Whether this current-row roster column travels in the native demographic record. */
+    static boolean carried(CdsExportFieldAssessmentDto decision) {
+        return decision.outcome() == Outcome.MAPPED
+                && CdsExportDemographicSupportingMapper.DESTINATION.equals(decision.destination());
     }
 
     static void requireRow(int patient, CdsExportCapturedTextRowDto row) throws IOException {

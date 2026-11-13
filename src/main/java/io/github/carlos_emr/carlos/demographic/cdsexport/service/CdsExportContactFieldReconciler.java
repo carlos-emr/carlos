@@ -198,6 +198,26 @@ public final class CdsExportContactFieldReconciler {
                                                         .substring("Contact[1]".length())
                                         : field.destination(),
                                 field.rule()));
+        // An imported contact the user removed or marked inactive is not a native Contact the
+        // retained element can follow yet; it stays an explicit review (class B), never a carry
+        // beside the still-retained imported element.
+        for (String column : List.of("deleted", "active"))
+            if (!(column.equals("deleted") ? "0" : "1")
+                    .equals(association.fields().get(column))) {
+                String value = association.fields().get(column);
+                decisions.put(
+                        new CdsExportNativeFieldKeyDto(
+                                association.table(), association.recordKey(), column),
+                        new CdsExportFieldAssessmentDto(
+                                value == null
+                                        ? CdsExportFieldAssessmentDto.Presence.SQL_NULL
+                                        : value.isEmpty()
+                                                ? CdsExportFieldAssessmentDto.Presence.EMPTY
+                                                : CdsExportFieldAssessmentDto.Presence.VALUE,
+                                Outcome.REQUIRES_REVIEW,
+                                sourceContact,
+                                "EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW"));
+            }
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         var expected = projection(source);
         var nativeRows = Map.of("Contact", contact, "DemographicContact", association);

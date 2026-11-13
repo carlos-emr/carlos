@@ -99,8 +99,9 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
     @Test void shouldRequireReviewForAMissingOriginalAssociation_withoutTreatingItAsSuccessfulEmptyOutput() throws Exception {
         rows.clear(); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.blockers()).contains("ORIGINAL_PREFERRED_PHARMACY_MISSING_OR_REPLACED");
     }
-    @Test void shouldWithholdAValidNameEdit_whenAnAdditionalNativeFieldNeedsAClinicalCarrier() throws Exception {
-        change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "notes", "Additional clinical context"); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+    @Test void shouldApplyAValidNameEdit_whileTheNotesTravelInTheNativeRecord() throws Exception {
+        // Notes have no PreferredPharmacy element: they are carried in the native demographic record and no longer withhold the name edit.
+        change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "notes", "Additional clinical context"); var result = reconcile(); assertThat(result.representable()).isTrue(); assertThat(result.proposedChanges()).hasSize(1);
     }
     @Test void shouldRequireReviewForInactiveAndChangedPreferences_beforeOfferingAnySourceReplacement() throws Exception {
         for (String column : List.of("status", "preferredOrder", "consentToContact")) { setup(); change("demographicPharmacy", column, "0"); assertThat(reconcile().representable()).isFalse(); }
@@ -148,8 +149,10 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         var pharmacy = renderedPharmacy(result); assertThat(pharmacy.getElementsByTagNameNS("cds_dt", "CountrySubdivisionCode").item(0).getTextContent()).isEqualTo("US-NY");
         assertThat(pharmacy.getElementsByTagNameNS("cds_dt", "ZipCode").item(0).getTextContent()).isEqualTo("12345"); assertThat(pharmacy.getElementsByTagNameNS("cds_dt", "PostalCode").getLength()).isZero();
     }
-    @Test void shouldWithholdAllEdits_whenAnUnchangedPostalValueIsInvalidForTheNewJurisdiction() throws Exception {
-        change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "province", "US-NY"); var result = reconcile(); assertThat(result.representable()).isFalse(); assertThat(result.proposedChanges()).isEmpty();
+    @Test void shouldCarryAnUnchangedPostalValue_whenTheNewJurisdictionCannotHoldIt() throws Exception {
+        // A Canadian postal code under a US state fits neither arm: it travels in the native record and the edits still apply.
+        change("pharmacyInfo", "name", "Current"); change("pharmacyInfo", "province", "US-NY"); var result = reconcile(); assertThat(result.representable()).isTrue();
+        assertThat(CdsExportDemographicSupportingMapper.carries(result.fields().get(new CdsExportNativeFieldKeyDto("pharmacyInfo", CdsExportPharmacyMapperUnitTest.pharmacy(9).recordKey(), "postalCode")))).isTrue();
     }
     @Test void shouldRetainSourceOnlyLongCities_andRequireReviewBeforeANewNativeCityReplacesThem() throws Exception {
         fixture.source("Address[1]/Structured[1]/City[1]", "C".repeat(70)); var old = fixture.preparation;

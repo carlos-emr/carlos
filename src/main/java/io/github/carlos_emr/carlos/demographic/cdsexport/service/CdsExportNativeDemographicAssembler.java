@@ -201,6 +201,69 @@ public final class CdsExportNativeDemographicAssembler {
                     CdsExportDemographicSupportingMapper.careTeamProviders(
                             custom, providers, newCategory));
         }
+        var related = related(patient, rows, maximumRows, maximumBytes, checkpoint);
+        var pharmacy = related.pharmacy();
+        var contacts = related.contacts();
+        var professional = related.professional();
+        merge(fields, pharmacy.fields());
+        merge(fields, contacts.fields());
+        merge(fields, professional.fields());
+        var projection =
+                new CdsExportDemographicEnrolmentProjectionDto(
+                        captureDigest,
+                        base,
+                        enrolment.sourceRows(),
+                        note == null ? 0 : 1,
+                        note,
+                        enrolment.events(),
+                        enrolment.fields());
+        if (!projection.representable()
+                || !pharmacy.nativeRepresentable()
+                || !contacts.nativeRepresentable()
+                || !professional.representable()) review();
+        // Values with no Demographics element are decided for the NewCategory record; without
+        // NewCategory they are accounted for as not selected, never held.
+        fields.replaceAll(
+                (key, value) ->
+                        CdsExportDemographicSupportingMapper.withSelection(value, newCategory));
+        var expected = new ArrayList<CdsExportCapturedTextRowDto>();
+        rows.values().forEach(expected::addAll);
+        var closure =
+                new CdsExportNativeFieldAssessmentValidator()
+                        .validate(expected, fields, 1_000_000, checkpoint);
+        if (!closure.representable()) review();
+        checkpoint.run();
+        return new Result(
+                projection,
+                new CdsExportPharmacyProjectionService.Result(captureDigest, pharmacy),
+                new CdsExportPersonalContactProjectionService.Result(captureDigest, contacts),
+                professional,
+                fields);
+    }
+
+    /** The patient's pharmacy, personal-contact and professional-contact mappings. */
+    record Related(
+            CdsExportPharmacyMapper.Result pharmacy,
+            CdsExportPersonalContactMapper.Result contacts,
+            CdsExportProfessionalContactMapper.Result professional) {
+        @Override
+        public String toString() {
+            return "CdsExportNativeDemographicAssembler.Related[protected]";
+        }
+    }
+
+    /**
+     * Splits the captured contact rows into professional and personal relationships exactly as
+     * the Demographics occurrence does, so the native demographic NewCategory record carries the
+     * same values its decisions send there.
+     */
+    static Related related(
+            int patient,
+            Map<String, List<CdsExportCapturedTextRowDto>> rows,
+            int maximumRows,
+            long maximumBytes,
+            Runnable checkpoint)
+            throws IOException {
         var pharmacy =
                 new CdsExportPharmacyMapper()
                         .map(
@@ -253,40 +316,7 @@ public final class CdsExportNativeDemographicAssembler {
                                 maximumRows,
                                 maximumBytes,
                                 checkpoint);
-        merge(fields, pharmacy.fields());
-        merge(fields, contacts.fields());
-        merge(fields, professional.fields());
-        var projection =
-                new CdsExportDemographicEnrolmentProjectionDto(
-                        captureDigest,
-                        base,
-                        enrolment.sourceRows(),
-                        note == null ? 0 : 1,
-                        note,
-                        enrolment.events(),
-                        enrolment.fields());
-        if (!projection.representable()
-                || !pharmacy.nativeRepresentable()
-                || !contacts.nativeRepresentable()
-                || !professional.representable()) review();
-        // Values with no Demographics element are decided for the NewCategory record; without
-        // NewCategory they are accounted for as not selected, never held.
-        fields.replaceAll(
-                (key, value) ->
-                        CdsExportDemographicSupportingMapper.withSelection(value, newCategory));
-        var expected = new ArrayList<CdsExportCapturedTextRowDto>();
-        rows.values().forEach(expected::addAll);
-        var closure =
-                new CdsExportNativeFieldAssessmentValidator()
-                        .validate(expected, fields, 1_000_000, checkpoint);
-        if (!closure.representable()) review();
-        checkpoint.run();
-        return new Result(
-                projection,
-                new CdsExportPharmacyProjectionService.Result(captureDigest, pharmacy),
-                new CdsExportPersonalContactProjectionService.Result(captureDigest, contacts),
-                professional,
-                fields);
+        return new Related(pharmacy, contacts, professional);
     }
 
     /**

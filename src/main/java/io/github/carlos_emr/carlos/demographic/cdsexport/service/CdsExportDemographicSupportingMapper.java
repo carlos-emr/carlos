@@ -43,7 +43,9 @@ import java.util.Objects;
  * <p>The demographic add and edit screens write values that the Demographics section cannot hold:
  * preferred name, alias, pronoun and gender identity, the referral-doctor wrapper, the nurse,
  * resident and midwife selects ({@code demographiccust.cust1}, {@code cust2}, {@code cust4}),
- * and extension properties such as ethnicity, consents or paper-chart status. Demographics has no
+ * a current roster state that is not a CDS enrolment event (fee for service, a clinic-defined
+ * status, RO without a roster date), and extension properties such as ethnicity, consents or
+ * paper-chart status. Demographics has no
  * {@code ResidualInfo}, so these values travel together in one NewCategory record,
  * {@value #CATEGORY_NAME}, whose single {@value #ELEMENT_NAME} residual holds a versioned JSON
  * object in a fixed key order with every space escaped ({@link CdsExportScreeningMapper#tokenSafe}),
@@ -111,6 +113,15 @@ public final class CdsExportDemographicSupportingMapper {
      */
     static final Map<String, String> CARE_TEAM = careTeam();
 
+    /** Current roster columns, in carrier order. */
+    private static final List<String> ROSTER =
+            List.of(
+                    "roster_status",
+                    "roster_date",
+                    "roster_termination_date",
+                    "roster_termination_reason",
+                    "roster_enrolled_to");
+
     private static final List<String> PROVIDER_COLUMNS =
             List.of(
                     "provider_no",
@@ -144,11 +155,36 @@ public final class CdsExportDemographicSupportingMapper {
             CdsExportCapturedTextRowDto current,
             CdsExportCapturedTextRowDto custom,
             List<CdsExportCapturedTextRowDto> properties,
-            Map<String, CdsExportCapturedTextRowDto> providers) {
+            Map<String, CdsExportCapturedTextRowDto> providers,
+            Map<String, List<CdsExportCapturedTextRowDto>> related) {
+        /** The pharmacy and contact tables the record may carry values of. */
+        public static final java.util.Set<String> RELATED =
+                java.util.Set.of("demographicPharmacy", "pharmacyInfo", "DemographicContact", "Contact");
+
+        public Rows(
+                int patient,
+                CdsExportCapturedTextRowDto current,
+                CdsExportCapturedTextRowDto custom,
+                List<CdsExportCapturedTextRowDto> properties,
+                Map<String, CdsExportCapturedTextRowDto> providers) {
+            this(patient, current, custom, properties, providers, empty());
+        }
+
+        private static Map<String, List<CdsExportCapturedTextRowDto>> empty() {
+            var result = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
+            RELATED.forEach(table -> result.put(table, List.of()));
+            return result;
+        }
+
         public Rows {
             Objects.requireNonNull(current);
             properties = List.copyOf(properties);
             providers = Map.copyOf(providers);
+            var copy = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
+            related.forEach((table, list) -> copy.put(table, List.copyOf(list)));
+            related = Map.copyOf(copy);
+            if (!related.keySet().equals(RELATED))
+                throw new IllegalArgumentException("CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_SCOPE_INVALID");
             if (patient < 1
                     || !current.table().equals("demographic")
                     || !Integer.toString(patient).equals(current.fields().get("demographic_no"))
@@ -191,10 +227,7 @@ public final class CdsExportDemographicSupportingMapper {
             fields = Map.copyOf(fields);
             if (fields.isEmpty()
                     || fields.values().stream()
-                            .anyMatch(
-                                    field ->
-                                            field.outcome() != Outcome.MAPPED
-                                                    || !DESTINATION.equals(field.destination())))
+                            .anyMatch(field -> field.outcome() != Outcome.MAPPED || !carries(field)))
                 throw new IllegalArgumentException(
                         "CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_RECORD_INVALID");
         }
@@ -241,6 +274,13 @@ public final class CdsExportDemographicSupportingMapper {
      * Applies the job's selection: without NewCategory every value decided for the record is an
      * explicit {@code OPERATIONAL} {@value #NOT_SELECTED_RULE}; with it, decisions are unchanged.
      */
+    /** Whether a decision sends the value (or its exact form) to the record. */
+    static boolean carries(CdsExportFieldAssessmentDto decision) {
+        return decision.outcome() == Outcome.MAPPED
+                && java.util.Arrays.asList(decision.destination().split(",", -1))
+                        .contains(DESTINATION);
+    }
+
     static <K> Map<K, CdsExportFieldAssessmentDto> withSelection(
             Map<K, CdsExportFieldAssessmentDto> fields, boolean newCategory) {
         if (newCategory) return fields;
@@ -251,11 +291,18 @@ public final class CdsExportDemographicSupportingMapper {
 
     static CdsExportFieldAssessmentDto withSelection(
             CdsExportFieldAssessmentDto value, boolean newCategory) {
-        if (newCategory
-                || value.outcome() != Outcome.MAPPED
-                || !DESTINATION.equals(value.destination())) return value;
+        if (newCategory || !carries(value)) return value;
+        if (DESTINATION.equals(value.destination()))
+            return new CdsExportFieldAssessmentDto(
+                    value.presence(), Outcome.OPERATIONAL, "", NOT_SELECTED_RULE);
+        // The element still holds the normalized value; only its exact form is not sent.
+        var elements = new ArrayList<>(java.util.Arrays.asList(value.destination().split(",", -1)));
+        elements.remove(DESTINATION);
         return new CdsExportFieldAssessmentDto(
-                value.presence(), Outcome.OPERATIONAL, "", NOT_SELECTED_RULE);
+                value.presence(),
+                Outcome.MAPPED,
+                String.join(",", elements),
+                "NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED");
     }
 
     /**
@@ -289,6 +336,15 @@ public final class CdsExportDemographicSupportingMapper {
         return Map.copyOf(result);
     }
 
+    /** Provider numbers the record may name: the care team and the current enrolled provider. */
+    static List<String> references(
+            CdsExportCapturedTextRowDto current, CdsExportCapturedTextRowDto custom) {
+        var result = new ArrayList<>(careTeamReferences(custom));
+        String enrolled = current.fields().get("roster_enrolled_to");
+        if (present(enrolled) && !result.contains(enrolled)) result.add(enrolled);
+        return List.copyOf(result);
+    }
+
     /** Provider numbers the populated care-team columns of this row name. */
     static List<String> careTeamReferences(CdsExportCapturedTextRowDto custom) {
         var result = new ArrayList<String>();
@@ -314,15 +370,59 @@ public final class CdsExportDemographicSupportingMapper {
         var fields = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         var demographic = new LinkedHashMap<String, String>();
         var current = rows.current();
-        for (String column : COLUMNS) {
+        var raw = new LinkedHashMap<>(current.fields());
+        raw.remove("demographic_no");
+        var row = new CdsExportDemographicRowDto(rows.patient(), raw);
+        // Base-row values whose element cannot hold them, or holds only a normalized form.
+        var base = new CdsExportDemographicMapper().map(row);
+        for (String column : CdsExportDemographicRowDto.COLUMNS) {
+            checkpoint.run();
             String value = current.fields().get(column);
-            if (!current.fields().containsKey(column)) scope();
-            if (!carriedColumn(column, value)) continue;
+            var key = new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column);
+            if (COLUMNS.contains(column)) {
+                if (!carriedColumn(column, value)) continue;
+                fields.put(key, carried(value));
+            } else {
+                var decision = base.fields().get(column);
+                if (ROSTER.contains(column) || decision == null) continue;
+                var assessment =
+                        new CdsExportFieldAssessmentDto(
+                                Presence.valueOf(decision.presence().name()),
+                                Outcome.valueOf(decision.outcome().name()),
+                                decision.destination(),
+                                decision.rule());
+                if (!carries(assessment)) continue;
+                fields.put(key, assessment);
+            }
             demographic.put(column, value);
-            fields.put(
-                    new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column),
-                    carried(value));
         }
+        // A current roster state that is not a CDS enrolment event (fee for service, a
+        // clinic-defined status, RO without a date...): CdsExportEnrolmentMapper decides which
+        // columns, and the enrolled provider's public row, the record carries.
+        var roster = new LinkedHashMap<String, Object>();
+        String enrolledTo = current.fields().get("roster_enrolled_to");
+        var rosterProvider = present(enrolledTo) ? rows.providers().get(enrolledTo) : null;
+        var enrolment = new CdsExportEnrolmentMapper().map(rows.patient(), current, rosterProvider);
+        for (String column : ROSTER) {
+            var key = new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column);
+            var decision = enrolment.fields().get(key);
+            if (decision == null || !CdsExportEnrolmentMapper.carried(decision)) continue;
+            roster.put(column, current.fields().get(column));
+            fields.put(key, decision);
+            if (column.equals("roster_enrolled_to"))
+                roster.put(
+                        "enrolledToPublicProvider",
+                        rosterProvider == null ? null : publicProvider(rosterProvider));
+        }
+        if (roster.containsKey("enrolledToPublicProvider") && rosterProvider != null)
+            for (String column : PROVIDER_COLUMNS) {
+                var key =
+                        new CdsExportNativeFieldKeyDto(
+                                rosterProvider.table(), rosterProvider.recordKey(), column);
+                var decision = enrolment.fields().get(key);
+                if (decision != null && CdsExportEnrolmentMapper.carried(decision))
+                    fields.putIfAbsent(key, decision);
+            }
         var careTeam = new ArrayList<Map<String, Object>>();
         var custom = rows.custom();
         if (custom != null)
@@ -346,13 +446,10 @@ public final class CdsExportDemographicSupportingMapper {
         fields.putAll(careTeamProviders(custom, rows.providers(), true));
         var properties = new ArrayList<Map<String, Object>>();
         if (!rows.properties().isEmpty()) {
-            var raw = new LinkedHashMap<>(current.fields());
-            raw.remove("demographic_no");
-            var row = new CdsExportDemographicRowDto(rows.patient(), raw);
             var phones =
                     new CdsExportDemographicPhonesMapper()
                             .map(
-                                    new CdsExportDemographicMapper().map(row),
+                                    base,
                                     row,
                                     rows.properties(),
                                     8192,
@@ -367,7 +464,7 @@ public final class CdsExportDemographicSupportingMapper {
                         new CdsExportNativeFieldKeyDto(
                                 property.table(), property.recordKey(), "value");
                 var decision = phones.relatedFields().get(key);
-                if (decision == null || !DESTINATION.equals(decision.destination())) continue;
+                if (decision == null || !carries(decision)) continue;
                 var entry = new LinkedHashMap<String, Object>();
                 entry.put("id", property.fields().get("id"));
                 entry.put("key", property.fields().get("key_val"));
@@ -381,15 +478,59 @@ public final class CdsExportDemographicSupportingMapper {
                 }
             }
         }
-        if (demographic.isEmpty() && careTeam.isEmpty() && properties.isEmpty()) return null;
+        // Pharmacy and contact values PreferredPharmacy, Contact, ReferredPhysician and
+        // FamilyPhysician cannot hold (a second pharmacy, Phone 2, an inactive or internal contact,
+        // a specialist's role, a contact's address...), decided by the same mappers.
+        var relatedRows = new ArrayList<Map<String, Object>>();
+        var mapped =
+                CdsExportNativeDemographicAssembler.related(
+                        rows.patient(), rows.related(), 8192, 64L << 20, checkpoint);
+        var decisions = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        decisions.putAll(mapped.pharmacy().fields());
+        decisions.putAll(mapped.contacts().fields());
+        decisions.putAll(mapped.professional().fields());
+        var related = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (String table : List.of("demographicPharmacy", "pharmacyInfo", "DemographicContact", "Contact"))
+            rows.related().get(table).stream()
+                    .sorted(Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
+                    .forEach(related::add);
+        for (var relatedRow : related) {
+            checkpoint.run();
+            var values = new java.util.TreeMap<String, String>();
+            for (var entry : relatedRow.fields().entrySet()) {
+                var key =
+                        new CdsExportNativeFieldKeyDto(
+                                relatedRow.table(), relatedRow.recordKey(), entry.getKey());
+                var decision = decisions.get(key);
+                if (decision == null || !carries(decision)) continue;
+                values.put(entry.getKey(), entry.getValue());
+                fields.put(key, decision);
+            }
+            if (values.isEmpty()) continue;
+            var entry = new LinkedHashMap<String, Object>();
+            entry.put("table", relatedRow.table());
+            entry.put(
+                    "id",
+                    relatedRow.fields()
+                            .get(relatedRow.table().equals("pharmacyInfo") ? "recordID" : "id"));
+            entry.put("fields", values);
+            relatedRows.add(entry);
+        }
+        if (demographic.isEmpty()
+                && roster.isEmpty()
+                && careTeam.isEmpty()
+                && properties.isEmpty()
+                && relatedRows.isEmpty()) return null;
         if (fields.values().stream().anyMatch(field -> field.outcome() != Outcome.MAPPED))
             throw new CdsExportMappingReviewException(
                     "CDS_EXPORT_DEMOGRAPHIC_SUPPORTING_TEXT_REQUIRES_REVIEW");
         var context = new LinkedHashMap<String, Object>();
         context.put("version", 1);
         context.put("demographic", demographic);
+        context.put("roster", roster);
         context.put("careTeam", careTeam);
         context.put("properties", properties);
+        context.put("related", relatedRows);
         String json = JsonMapper.builder().build().writeValueAsString(context);
         if (!CdsExportNativeFieldAssessments.legal(json, 1 << 24))
             throw new CdsExportMappingReviewException(

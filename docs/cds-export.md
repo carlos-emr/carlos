@@ -69,6 +69,47 @@ through the REST API) and duplicate phone keys still hold the patient. Imported 
 same rules: these columns are never imported Demographics elements, so the retained
 reconcilers' protected elements are unchanged.
 
+The same rule covers the rest of the Demographics path. Roster states that are not CDS
+enrolment events (FS fee for service, a clinic-defined status, RO without a roster date, TE
+without a termination date, RO still holding a termination, a termination reason outside CT-010,
+NR with leftover roster values) are carried with the current row in the record's `roster`
+object; an archived snapshot of such a state stays in the approved audit arrangement with the
+archive's other superseded columns. `CdsExportEnrolmentHistory` exports the latest version of
+each episode (start date and physician); earlier versions of the same episode, and an archived
+episode the current state contradicts (left open while the patient was re-rostered, cleared or
+moved to FS, or dated after the current state), are superseded snapshots
+(`SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT`) and no termination date is invented. An enrolled
+provider number with no captured provider row exports the event without EnrolledToPhysician and
+carries the number. The history no longer throws a plain `IOException` for a roster value: only
+an enrolled provider whose public values no CDS name can hold remains, as a patient hold
+(`CdsExportMappingReviewException`), never a job failure. A second or third preferred pharmacy
+and the PreferredPharmacy values without an element (Phone 2, Notes, the service location, a
+free-text province, a postal code without a pinned jurisdiction, an over-long line or name, the
+status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in the record's
+`related` list; a removed link (status 0) and a pharmacy only it names are not in the chart and
+are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`). Contacts follow the same
+pattern: a deleted association is not exported; an inactive, "Internal" (another patient),
+provider or specialist association (types 0, 1 and 3, whose names live in tables this export
+does not read) and a professional role ReferredPhysician and FamilyPhysician do not mean
+(Specialist, Dietician) travel in `related` with their contact, as do contact columns
+Demographics/Contact has no element for (address, fax, CPSO number, specialty...), a note longer
+than 200 characters or distinct between contact and association, and an extension the phone
+element cannot hold. In the base row an untrimmed or doubled-space token is written collapsed,
+as every schema reader sees an `xs:token`, and its exact value is carried (destination
+`<element>,NewCategory/ResidualInfo`); an e-mail outside the CDS pattern, a SIN that is not nine
+digits after removing spaces and hyphens, an address line over 50 characters, an unlisted
+province (OT, US) with its postal code, a health card of an unlisted issuer (whole card), an
+unlisted spoken or official language are left out of their optional elements and carried; sex X
+(Intersex) is Gender O with the exact code carried. For imported charts the retained reconcilers
+keep the receipt truthful (`withNativeCarriers`), an imported contact the user removed or made
+inactive and an imported pharmacy preference that was removed or re-ranked stay explicit
+reviews, and the contact-mapping and original-relationship checks that used to fail the whole
+job are patient holds. Remaining holds: text no XML document can hold, required values that are
+missing (name, birth date, sex, status), duplicate or hidden extension rows, tied first pharmacy
+preferences, a dangling pharmacy or contact link, two family or two referring physicians, an
+unknown contact consent or purpose flag, and provider values (OHIP number over six characters,
+names over 50) on an enrolled physician.
+
 A patient status CARLOS defines without a CDS value is exported by meaning ("Moved",
 "Fired") as PersonStatusAsPlainText, and the CARLOS importer maps those labels back to MO and
 FI; a clinic-defined status is exported as stored. The primary physician's practitioner number

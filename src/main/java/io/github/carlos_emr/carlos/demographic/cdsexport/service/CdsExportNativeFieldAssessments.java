@@ -30,6 +30,9 @@ import java.util.Map;
 
 /** Every captured field starts unresolved; a reviewed rule must explicitly account for each populated value. */
 final class CdsExportNativeFieldAssessments {
+    /** The rule every populated column starts with until a reviewed rule decides it. */
+    private static final String UNDECIDED = "UNMAPPED_NATIVE_VALUE";
+
     private final CdsExportCapturedTextRowDto row;
     private final Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> decisions;
 
@@ -47,7 +50,7 @@ final class CdsExportNativeFieldAssessments {
                                                 ? Outcome.ABSENT
                                                 : Outcome.REQUIRES_REVIEW,
                                         "",
-                                        "UNMAPPED_NATIVE_VALUE"));
+                                        UNDECIDED));
     }
 
     String raw(String column) {
@@ -73,6 +76,59 @@ final class CdsExportNativeFieldAssessments {
 
     void review(String column, String destination, String rule) {
         set(column, Outcome.REQUIRES_REVIEW, destination, rule);
+    }
+
+    /**
+     * The populated value has no element that can hold it: it travels exactly in the native
+     * demographic NewCategory record ({@link CdsExportDemographicSupportingMapper}).
+     */
+    void carry(String column) {
+        var decision = CdsExportDemographicSupportingMapper.carried(raw(column));
+        set(column, decision.outcome(), decision.destination(), decision.rule());
+    }
+
+    /**
+     * Carries every populated column of the row that no rule has decided yet. A value an explicit
+     * rule sent to review stays a review.
+     */
+    void carryRemaining(java.util.Set<String> exclude) {
+        for (var entry : row.fields().entrySet()) {
+            if (exclude.contains(entry.getKey())) continue;
+            var decision =
+                    decisions.get(
+                            new CdsExportNativeFieldKeyDto(
+                                    row.table(), row.recordKey(), entry.getKey()));
+            if (decision != null
+                    && decision.outcome() == Outcome.REQUIRES_REVIEW
+                    && UNDECIDED.equals(decision.rule())) carry(entry.getKey());
+        }
+    }
+
+    /**
+     * An optional xs:token element: untrimmed or doubled whitespace is written collapsed, as every
+     * schema reader sees it, and the exact value is carried; a value longer than the element is
+     * carried instead. Only text no XML document can hold requires review.
+     */
+    String token(String column, String destination, int maximum) {
+        String value = raw(column);
+        if (value == null || value.isEmpty()) return null;
+        if (!legal(value, Integer.MAX_VALUE)) {
+            review(column, destination, "WIRE_TEXT_REQUIRES_REVIEW");
+            return null;
+        }
+        String collapsed = value.strip().replaceAll("[ \t\r\n]+", " ");
+        if (collapsed.isEmpty() || collapsed.codePointCount(0, collapsed.length()) > maximum) {
+            carry(column);
+            return null;
+        }
+        if (collapsed.equals(value)) set(column, Outcome.MAPPED, destination, "EXACT_NATIVE_TEXT");
+        else
+            set(
+                    column,
+                    Outcome.MAPPED,
+                    destination + "," + CdsExportDemographicSupportingMapper.DESTINATION,
+                    "XS_TOKEN_WHITESPACE_COLLAPSED_EXACT_VALUE_CARRIED");
+        return collapsed;
     }
 
     String text(String column, String destination, int maximum) {

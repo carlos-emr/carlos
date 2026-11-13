@@ -82,6 +82,9 @@ public final class CdsExportRetainedPharmacyReconciler {
         if (binding.projected()) {
             var link = rows.get("demographicPharmacy/" + binding.association().id()); var pharmacy = rows.get("pharmacyInfo/" + binding.pharmacy().id());
             if (link == null || pharmacy == null || !binding.pharmacy().id().equals(link.fields().get("pharmacyID"))) blockers.add("ORIGINAL_PREFERRED_PHARMACY_MISSING_OR_REPLACED");
+            // The imported preference was removed or re-ranked: the retained element cannot follow
+            // it yet, so it stays an explicit review (class B) instead of exporting a removed pharmacy.
+            else if (!"1".equals(link.fields().get("status")) || !"1".equals(link.fields().get("preferredOrder"))) blockers.add("ORIGINAL_PREFERRED_PHARMACY_ASSOCIATION_CHANGED");
             else {
                 var prepared = CdsExportRetainedPharmacyBinding.prepared(binding.preparation());
                 for (var group : GROUPS.entrySet()) {

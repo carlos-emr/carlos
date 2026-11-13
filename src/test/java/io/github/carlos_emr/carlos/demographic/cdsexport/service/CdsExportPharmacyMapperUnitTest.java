@@ -44,6 +44,14 @@ class CdsExportPharmacyMapperUnitTest {
     private static final String HASH = "a".repeat(64);
     private final CdsExportPharmacyMapper mapper = new CdsExportPharmacyMapper();
 
+    /** The stored value travels in the native demographic NewCategory record. */
+    private static void assertCarried(
+            CdsExportPharmacyMapper.Result result, CdsExportCapturedTextRowDto row, String column) {
+        var decision =
+                result.fields().get(new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column));
+        assertThat(CdsExportDemographicSupportingMapper.carries(decision)).isTrue();
+    }
+
     @Test
     void shouldVerifyAbsentJurisdictionRequiresReview_beforeChoosingPostalOrZipCode() throws Exception {
         for (String province : Arrays.asList(null, "")) {
@@ -55,17 +63,10 @@ class CdsExportPharmacyMapperUnitTest {
                                             changed(pharmacy(9), "province", province),
                                             "postalCode",
                                             "12345")));
-            assertThat(result.nativeRepresentable()).isFalse();
+            // Neither postal arm is guessed: the stored value travels in the native record.
+            assertThat(result.nativeRepresentable()).isTrue();
             assertThat(result.preferred().address().postalCode()).isNull();
-            assertThat(
-                            result.fields()
-                                    .get(
-                                            new CdsExportNativeFieldKeyDto(
-                                                    "pharmacyInfo",
-                                                    pharmacy(9).recordKey(),
-                                                    "postalCode"))
-                                    .rule())
-                    .isEqualTo("POSTAL_JURISDICTION_REQUIRES_REVIEW");
+            assertCarried(result, pharmacy(9), "postalCode");
         }
         assertThatThrownBy(
                         () -> new CdsExportPreferredPharmacyDto.Address(null, null, null, "12345"))
@@ -131,22 +132,27 @@ class CdsExportPharmacyMapperUnitTest {
                 map(
                         List.of(link(-1, 9)),
                         List.of(changed(pharmacy(9), column, "Extra native value")));
-        assertThat(result.nativeRepresentable()).isFalse();
+        // Phone 2, Notes and the service location have no PreferredPharmacy element.
+        assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.preferred()).isNotNull();
-        assertThatThrownBy(() -> parse(result, HASH))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_PHARMACY_REQUIRES_REVIEW");
+        assertCarried(result, pharmacy(9), column);
+        parse(result, HASH);
     }
 
     @Test
-    void shouldVerifyDeletedPharmacyAndInactiveAssociationsRemainReviewableHistory_forPharmacyMapperContract() throws Exception {
-        for (var pair :
-                List.of(
-                        List.of(changed(link(-1, 9), "status", "0"), pharmacy(9)),
-                        List.of(link(-1, 9), changed(pharmacy(9), "status", "0")))) {
-            var result = map(List.of(pair.get(0)), List.of(pair.get(1)));
-            assertThat(result.nativeRepresentable()).isFalse();
-            assertThat(result.fields()).hasSize(22);
-        }
+    void shouldExportADeletedPreferredPharmacy_andLeaveARemovedLinkOutOfTheChart() throws Exception {
+        // A removed link (status 0) is no longer in the chart and is not exported.
+        var removed = map(List.of(changed(link(-1, 9), "status", "0")), List.of(pharmacy(9)));
+        assertThat(removed.nativeRepresentable()).isTrue();
+        assertThat(removed.preferred()).isNull();
+        assertThat(removed.fields()).hasSize(22);
+        assertThat(removed.fields().values())
+                .noneMatch(field -> field.outcome().name().equals("MAPPED"));
+        // A pharmacy deleted in Manage Pharmacy but still preferred is what the chart shows.
+        var deleted = map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), "status", "0")));
+        assertThat(deleted.nativeRepresentable()).isTrue();
+        assertThat(deleted.preferred()).isNotNull();
+        assertCarried(deleted, pharmacy(9), "status");
     }
 
     @Test
@@ -166,22 +172,26 @@ class CdsExportPharmacyMapperUnitTest {
                         List.of(link(-1, 9), changed(link(-2, 10), "preferredOrder", "2")),
                         List.of(pharmacy(9), pharmacy(10)));
         assertThat(result.preferred().name()).isEqualTo("Café 😀 Pharmacy");
-        assertThat(result.nativeRepresentable()).isFalse();
+        // The second preferred pharmacy travels whole in the native record.
+        assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.fields()).hasSize(44);
+        assertCarried(result, changed(link(-2, 10), "preferredOrder", "2"), "preferredOrder");
+        assertCarried(result, pharmacy(10), "name");
     }
 
     @Test
     void shouldVerifyAbsentFirstPreferenceMissingLinkedRowsAndUnknownFlagsCannotProduceSuccessfulEmptyOutput_forPharmacyMapperContract()
             throws Exception {
         for (var row :
-                List.of(
-                        changed(link(-1, 9), "preferredOrder", "2"),
-                        changed(link(-1, 9), "status", ""),
-                        changed(link(-1, 9), "status", null))) {
+                List.of(changed(link(-1, 9), "status", ""), changed(link(-1, 9), "status", null))) {
             var result = map(List.of(row), List.of(pharmacy(9)));
             assertThat(result.nativeRepresentable()).isFalse();
             assertThat(result.preferred()).isNull();
         }
+        // A lone second preference has no first one to export; it travels in the record.
+        var second = map(List.of(changed(link(-1, 9), "preferredOrder", "2")), List.of(pharmacy(9)));
+        assertThat(second.nativeRepresentable()).isTrue();
+        assertThat(second.preferred()).isNull();
         var missing = map(List.of(link(-1, 9)), List.of());
         assertThat(missing.nativeRepresentable()).isFalse();
         assertThat(missing.preferred()).isNull();
@@ -245,7 +255,11 @@ class CdsExportPharmacyMapperUnitTest {
                     default -> "K1A  0B1";
                 };
         var result = map(List.of(link(-1, 9)), List.of(changed(pharmacy(9), column, value)));
-        assertThat(result.nativeRepresentable()).isFalse();
+        // Nothing is truncated or held: the stored value travels exactly in the native record
+        // (a name the element cannot hold takes the whole pharmacy with it).
+        assertThat(result.nativeRepresentable()).isTrue();
+        assertCarried(result, pharmacy(9), column);
+        parse(result, HASH);
     }
 
     @Test
@@ -266,21 +280,25 @@ class CdsExportPharmacyMapperUnitTest {
     @Test
     void shouldVerifyUnsupportedMultilineAddressAndNonTokenValuesRequireExplicitReconciliation_forPharmacyMapperContract()
             throws Exception {
+        // Whitespace an xs:token collapses: the collapsed value is written, the exact one carried.
         for (var pair :
                 List.of(
                         Map.entry("address", "12 Main St\nSuite 3"),
-                        Map.entry("phone1", " 613-555-0101"),
-                        Map.entry("name", "Bad\u0001value")))
-            assertThat(
-                            map(
-                                            List.of(link(-1, 9)),
-                                            List.of(
-                                                    changed(
-                                                            pharmacy(9),
-                                                            pair.getKey(),
-                                                            pair.getValue())))
-                                    .nativeRepresentable())
-                    .isFalse();
+                        Map.entry("phone1", " 613-555-0101"))) {
+            var result =
+                    map(
+                            List.of(link(-1, 9)),
+                            List.of(changed(pharmacy(9), pair.getKey(), pair.getValue())));
+            assertThat(result.nativeRepresentable()).isTrue();
+            assertCarried(result, pharmacy(9), pair.getKey());
+        }
+        // Text no XML document can hold still requires review.
+        assertThat(
+                        map(
+                                        List.of(link(-1, 9)),
+                                        List.of(changed(pharmacy(9), "name", "Bad\u0001value")))
+                                .nativeRepresentable())
+                .isFalse();
     }
 
     @Test

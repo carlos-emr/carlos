@@ -31,7 +31,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-/** Exact native rank-one pharmacy. Other preferences, history and non-schema source values remain explicit review. */
+/**
+ * Exact native rank-one pharmacy as PreferredPharmacy. A second or third preferred pharmacy, and
+ * stored values PreferredPharmacy has no element for (Phone 2, Notes, service location, free-text
+ * province, an over-long line), travel in the native demographic NewCategory record; removed
+ * links are no longer in the chart and are not exported. Only tied first preferences, a dangling
+ * link and text no XML document can hold still require review.
+ */
 public final class CdsExportPharmacyMapper {
     public record Result(
             int patient,
@@ -78,9 +84,9 @@ public final class CdsExportPharmacyMapper {
                                 .anyMatch(columns -> !columns.equals(Set.copyOf(plan.columns()))))
                     throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_MAPPING_INVALID");
             }
-            if (fields.values().stream()
-                            .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW)
-                    && (linkRows > 0) != (preferred != null))
+            // Removed links, additional preferences and a carried preferred pharmacy leave no
+            // PreferredPharmacy; one is never invented without a link.
+            if (preferred != null && linkRows == 0)
                 throw new IllegalArgumentException("CDS_EXPORT_PHARMACY_MAPPING_INVALID");
         }
 
@@ -164,6 +170,18 @@ public final class CdsExportPharmacyMapper {
             if (row.table().equals("demographicPharmacy"))
                 CdsExportContactConsent.assess(state, "PreferredPharmacy");
         }
+        // Pharmacies named only by removed links, and those an additional active link prefers.
+        var removedOnly = new HashSet<String>();
+        var additional = new HashSet<String>();
+        for (var row : links)
+            if ("0".equals(row.fields().get("status")))
+                removedOnly.add(row.fields().get("pharmacyID"));
+        for (var row : links)
+            if ("1".equals(row.fields().get("status"))) {
+                removedOnly.remove(row.fields().get("pharmacyID"));
+                if (!(preferredCount == 1 && row == candidate))
+                    additional.add(row.fields().get("pharmacyID"));
+            }
         for (var row : links) {
             var state = states.get(row);
             boolean selected = preferredCount == 1 && row == candidate;
@@ -172,7 +190,24 @@ public final class CdsExportPharmacyMapper {
                         "pharmacyID",
                         "PreferredPharmacy",
                         "LINKED_PHARMACY_MISSING_REQUIRES_REVIEW");
-            else if (selected) {
+            else if (!"0".equals(row.fields().get("status"))
+                    && !"1".equals(row.fields().get("status")))
+                state.review(
+                        "status",
+                        "PreferredPharmacy",
+                        "UNKNOWN_PHARMACY_ASSOCIATION_STATUS_REQUIRES_REVIEW");
+            else if ("0".equals(row.fields().get("status"))) {
+                // The Rx screen's "remove" keeps the link with status 0: it is no longer in the
+                // chart, like a superseded demographic snapshot, and is not exported.
+                for (String column : row.fields().keySet())
+                    if (present(row.fields().get(column)))
+                        state.operational(column, "REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART");
+            } else if (preferredCount <= 1 && !selected) {
+                // A second or third preferred pharmacy: PreferredPharmacy holds one, so the link
+                // and its pharmacy travel in the native demographic NewCategory record.
+                for (String column : List.of("pharmacyID", "preferredOrder", "status", "consentToContact"))
+                    if (present(row.fields().get(column))) state.carry(column);
+            } else if (selected) {
                 state.set(
                         "pharmacyID",
                         Outcome.MAPPED,
@@ -198,9 +233,31 @@ public final class CdsExportPharmacyMapper {
             }
         }
         CdsExportPreferredPharmacyDto preferred = null;
+        String preferredId = null;
         if (preferredCount == 1) {
-            var row = lookup.get(candidate.fields().get("pharmacyID"));
-            if (row != null) preferred = preferred(row, states.get(row));
+            preferredId = candidate.fields().get("pharmacyID");
+            var row = lookup.get(preferredId);
+            if (row != null) {
+                preferred = preferred(row, states.get(row));
+                // A preferred pharmacy whose name the element cannot hold travels whole.
+                if (preferred == null) {
+                    states.get(row).carryRemaining(Set.of("recordID", "addDate", "uid"));
+                    var link = states.get(candidate);
+                    for (String column : List.of("pharmacyID", "preferredOrder", "status", "consentToContact"))
+                        if (present(candidate.fields().get(column))) link.carry(column);
+                }
+            }
+        }
+        for (var entry : lookup.entrySet()) {
+            if (entry.getKey().equals(preferredId)) continue;
+            var state = states.get(entry.getValue());
+            if (removedOnly.contains(entry.getKey()))
+                for (var column : entry.getValue().fields().keySet()) {
+                    if (present(entry.getValue().fields().get(column)))
+                        state.operational(column, "PHARMACY_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
+                }
+            else if (additional.contains(entry.getKey()))
+                state.carryRemaining(Set.of("recordID", "addDate", "uid"));
         }
         new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
         checkpoint.run();
@@ -210,15 +267,26 @@ public final class CdsExportPharmacyMapper {
     private static CdsExportPreferredPharmacyDto preferred(
             CdsExportCapturedTextRowDto row, CdsExportNativeFieldAssessments state) {
         String root = "PreferredPharmacy";
-        if (!"1".equals(state.raw("status")))
-            state.review("status", root, "DELETED_OR_UNKNOWN_PHARMACY_REQUIRES_REVIEW");
-        else state.operational("status", "EXACT_ACTIVE_NATIVE_PHARMACY");
+        // Manage Pharmacy "delete" marks a pharmacy that patients may still prefer: the chart still
+        // shows it, so it is exported and its stored status travels in the native record.
+        if (!"1".equals(state.raw("status"))) {
+            if (present(state.raw("status"))) state.carry("status");
+        } else state.operational("status", "EXACT_ACTIVE_NATIVE_PHARMACY");
         String name = state.text("name", root + "/Name", 50);
-        if (name == null)
-            state.review(
-                    "name", root + "/Name", "REQUIRED_PHARMACY_NAME_MISSING_OR_UNREPRESENTABLE");
-        String line = token(state, "address", root + "/Address/Structured/Line1", 50);
-        String city = token(state, "city", root + "/Address/Structured/City", 80);
+        if (name == null) {
+            // A longer chain-store name: the whole pharmacy travels in the native record.
+            if (present(state.raw("name"))
+                    && CdsExportNativeFieldAssessments.legal(state.raw("name"), Integer.MAX_VALUE))
+                state.carry("name");
+            if (!present(state.raw("name")))
+                state.review(
+                        "name",
+                        root + "/Name",
+                        "REQUIRED_PHARMACY_NAME_MISSING_OR_UNREPRESENTABLE");
+            return null;
+        }
+        String line = state.token("address", root + "/Address/Structured/Line1", 50);
+        String city = state.token("city", root + "/Address/Structured/City", 80);
         String subdivision = state.raw("province");
         if (present(subdivision)) {
             if (CdsHealthCardAuthority.CANADIAN.contains(subdivision)) {
@@ -237,19 +305,15 @@ public final class CdsExportPharmacyMapper {
                         root + "/Address/Structured/CountrySubdivisionCode",
                         "EXACT_SUBDIVISION_CODE");
             else {
-                state.review(
-                        "province",
-                        root + "/Address/Structured/CountrySubdivisionCode",
-                        "SUBDIVISION_REQUIRES_REVIEW");
+                // Manage Pharmacy's Province box is free text ("Ontario", "Ont."): the optional
+                // subdivision is left out and the stored text travels in the native record.
+                state.carry("province");
                 subdivision = null;
             }
         } else subdivision = null;
-        String postal = token(state, "postalCode", root + "/Address/Structured/PostalZipCode", 10);
+        String postal = state.token("postalCode", root + "/Address/Structured/PostalZipCode", 10);
         if (postal != null && subdivision == null) {
-            state.review(
-                    "postalCode",
-                    root + "/Address/Structured/PostalZipCode",
-                    "POSTAL_JURISDICTION_REQUIRES_REVIEW");
+            state.carry("postalCode");
             postal = null;
         }
         if (postal != null) {
@@ -258,18 +322,20 @@ public final class CdsExportPharmacyMapper {
                     && subdivision != null
                     && subdivision.startsWith("CA-")
                     && postal.matches("[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]")) {
+                boolean collapsed = !postal.equals(state.raw("postalCode"));
                 postal = postal.substring(0, 3) + postal.substring(4);
                 state.set(
                         "postalCode",
                         Outcome.MAPPED,
-                        root + "/Address/Structured/PostalZipCode/PostalCode",
+                        root
+                                + "/Address/Structured/PostalZipCode/PostalCode"
+                                + (collapsed
+                                        ? "," + CdsExportDemographicSupportingMapper.DESTINATION
+                                        : ""),
                         "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
             }
             if (!postal.matches(zip ? "[0-9-]*" : "[a-zA-Z0-9-]*")) {
-                state.review(
-                        "postalCode",
-                        root + "/Address/Structured/PostalZipCode",
-                        "POSTAL_REPRESENTATION_REQUIRES_REVIEW");
+                state.carry("postalCode");
                 postal = null;
             }
         }
@@ -280,11 +346,14 @@ public final class CdsExportPharmacyMapper {
                                 line, city, subdivision, postal);
         var phone = phone(state, "phone1", root + "/PhoneNumber");
         var fax = phone(state, "fax", root + "/FaxNumber");
-        String email = token(state, "email", root + "/EmailAddress", 50);
+        String email = state.token("email", root + "/EmailAddress", 50);
         if (email != null && !CdsExportEmailLexical.matches(email)) {
-            state.review("email", root + "/EmailAddress", "WIRE_EMAIL_REQUIRES_REVIEW");
+            state.carry("email");
             email = null;
         }
+        // Phone 2, Notes and the service location have no PreferredPharmacy element.
+        for (String column : List.of("phone2", "notes", "serviceLocationIdentifier"))
+            if (present(state.raw(column))) state.carry(column);
         return name == null
                 ? null
                 : new CdsExportPreferredPharmacyDto(name, address, phone, fax, email);
@@ -292,23 +361,8 @@ public final class CdsExportPharmacyMapper {
 
     private static CdsExportDemographicMappingDto.Phone phone(
             CdsExportNativeFieldAssessments state, String column, String path) {
-        String value = token(state, column, path + "/phoneNumber", 25);
+        String value = state.token(column, path + "/phoneNumber", 25);
         return value == null ? null : new CdsExportDemographicMappingDto.Phone("W", value);
-    }
-
-    private static String token(
-            CdsExportNativeFieldAssessments state, String column, String path, int maximum) {
-        String value = state.raw(column);
-        if (!present(value)) return null;
-        if (value.startsWith(" ")
-                || value.endsWith(" ")
-                || value.contains("  ")
-                || value.codePoints()
-                        .anyMatch(code -> code == '\t' || code == '\r' || code == '\n')) {
-            state.review(column, path, "TOKEN_WHITESPACE_REQUIRES_REVIEW");
-            return null;
-        }
-        return state.text(column, path, maximum);
     }
 
     private static void requireRow(

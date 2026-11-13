@@ -292,9 +292,16 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
                         any()))
                 .thenReturn(captured);
         count("provider", 0);
-        assertThatThrownBy(this::project)
-                .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
-        verifyNoInteractions(notes);
+        // The event keeps its dates without an invented physician; the stored provider number
+        // travels in the native demographic NewCategory record.
+        var result = project();
+        assertThat(result.events()).allSatisfy(event -> assertThat(event.physician()).isNull());
+        assertThat(
+                        result.enrolmentFields().entrySet().stream()
+                                .filter(entry -> entry.getKey().table().equals("demographic"))
+                                .filter(entry -> entry.getKey().column().equals("roster_enrolled_to"))
+                                .map(java.util.Map.Entry::getValue))
+                .allMatch(CdsExportDemographicSupportingMapper::carries);
     }
 
     @Test

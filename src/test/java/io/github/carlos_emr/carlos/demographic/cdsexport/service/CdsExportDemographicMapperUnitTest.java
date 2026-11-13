@@ -58,9 +58,9 @@ class CdsExportDemographicMapperUnitTest {
             String postal = prefix.equals("mailing") ? "postal" : "residentialPostal";
             fields.put(postal, "12345");
             var result = mapper.map(row(fields));
-            assertThat(result.baseRowRepresentable()).isFalse();
-            assertThat(result.fields().get(postal).rule())
-                    .isEqualTo("POSTAL_JURISDICTION_REQUIRES_REVIEW");
+            // Neither arm is guessed: the stored postal code travels in the native record.
+            assertThat(result.baseRowRepresentable()).isTrue();
+            assertCarried(result, postal);
             assertThat(result.addresses())
                     .allSatisfy(address -> assertThat(address.postalCode()).isNull());
         }
@@ -175,7 +175,7 @@ class CdsExportDemographicMapperUnitTest {
 
     @Test
     void shouldBlockUnknownAdministrativeGender_andNeverDefaultItFromIdentityOrPronouns() {
-        for (String sex : new String[] {null, "", "T", "X", "female"}) {
+        for (String sex : new String[] {null, "", "T", "female"}) {
             var fields = baseline();
             fields.put("sex", sex);
             fields.put("gender", "Woman");
@@ -186,6 +186,12 @@ class CdsExportDemographicMapperUnitTest {
             assertThat(result.fields().get("gender").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
             assertThat(result.fields().get("pronoun").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
         }
+        // The add form's "X" (Intersex) is Administrative Gender O; the exact code is carried.
+        var fields = baseline();
+        fields.put("sex", "X");
+        var intersex = mapper.map(row(fields));
+        assertThat(intersex.administrativeGender()).isEqualTo("O");
+        assertCarried(intersex, "sex");
     }
 
     @Test
@@ -244,14 +250,22 @@ class CdsExportDemographicMapperUnitTest {
 
     @Test
     void shouldBlockTokenNormalizationAndCapacityChanges_insteadOfTrimmingOrSplittingNames() {
-        for (String first :
-                List.of(
-                        " leading",
-                        "trailing ",
-                        "two  spaces",
-                        "line\nname",
-                        "x".repeat(51),
-                        "bad\u0000name")) {
+        // Untrimmed or doubled whitespace: every schema reader collapses an xs:token, so the
+        // collapsed name is written and the exact stored value travels in the native record.
+        for (var spaced :
+                Map.of(
+                                " leading", "leading",
+                                "trailing ", "trailing",
+                                "two  spaces", "two spaces",
+                                "line\nname", "line name")
+                        .entrySet()) {
+            var fields = baseline();
+            fields.put("first_name", spaced.getKey());
+            var result = mapper.map(row(fields));
+            assertThat(result.names().first()).isEqualTo(spaced.getValue());
+            assertCarried(result, "first_name");
+        }
+        for (String first : List.of("x".repeat(51), "bad\u0000name")) {
             var fields = baseline();
             fields.put("first_name", first);
             var result = mapper.map(row(fields));
@@ -277,8 +291,8 @@ class CdsExportDemographicMapperUnitTest {
     void shouldRequireHealthCardNumberAndIssuer_andRejectZeroDatesAndUnrepresentableEmail() {
         var fields = baseline();
         fields.put("hin", "0123456789");
-        assertThat(mapper.map(row(fields)).fields().get("hc_type").outcome())
-                .isEqualTo(Outcome.REQUIRES_REVIEW);
+        // A number without an issuer is not guessed into a card: it travels in the record.
+        assertCarried(mapper.map(row(fields)), "hin");
         // Updated for D11: an issuer alone (the form default) is no card; a version or expiry
         // without the number still requires review.
         fields.put("hin", "");
@@ -291,7 +305,9 @@ class CdsExportDemographicMapperUnitTest {
         fields.put("patient_status_date", "0000-00-00");
         var result = mapper.map(row(fields));
         assertThat(result.baseRowRepresentable()).isFalse();
-        assertThat(result.fields().get("email").outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
+        // A "+" tag is outside the CDS e-mail pattern: left out and carried, never a hold.
+        assertCarried(result, "email");
+        assertThat(result.email()).isNull();
         assertThat(result.fields().get("patient_status_date").outcome())
                 .isEqualTo(Outcome.REQUIRES_REVIEW);
     }
@@ -384,10 +400,12 @@ class CdsExportDemographicMapperUnitTest {
                 .isEqualTo(Outcome.REQUIRES_REVIEW);
         fields.put("middleNames", null);
         // An unlisted name or a bare code is still not evidence of an ISO 639-2 code.
+        // It is left out and the stored name travels in the native record.
         for (String unknown : List.of("Not a language", "ARA", "xyz")) {
             fields.put("spoken_lang", unknown);
-            assertThat(mapper.map(row(fields)).fields().get("spoken_lang").outcome())
-                    .isEqualTo(Outcome.REQUIRES_REVIEW);
+            var unlisted = mapper.map(row(fields));
+            assertThat(unlisted.spokenLanguage()).isNull();
+            assertCarried(unlisted, "spoken_lang");
         }
     }
 
@@ -428,7 +446,12 @@ class CdsExportDemographicMapperUnitTest {
         var fields = baseline();
         fields.put("hin", "0123456789");
         fields.put("hc_type", "NY");
-        assertThat(mapper.map(row(fields)).baseRowRepresentable()).isFalse();
+        // An unlisted issuer: the card travels whole in the native record, never guessed.
+        var unlisted = mapper.map(row(fields));
+        assertThat(unlisted.baseRowRepresentable()).isTrue();
+        assertThat(unlisted.healthCard()).isNull();
+        assertCarried(unlisted, "hin");
+        assertCarried(unlisted, "hc_type");
     }
 
     @Test
@@ -444,7 +467,20 @@ class CdsExportDemographicMapperUnitTest {
         assertThat(document.getElementsByTagNameNS("cds_dt", "PostalCode").getLength()).isZero();
         assertThat(result.fields().get("postal").destination()).endsWith("/PostalZipCode/ZipCode");
         fields.put("postal", "ABC123");
-        assertThat(mapper.map(row(fields)).baseRowRepresentable()).isFalse();
+        var letters = mapper.map(row(fields));
+        assertThat(letters.baseRowRepresentable()).isTrue();
+        assertCarried(letters, "postal");
+    }
+
+    /** The value travels in the native demographic NewCategory record. */
+    private static void assertCarried(
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto
+                    result,
+            String column) {
+        var decision = result.fields().get(column);
+        assertThat(decision.outcome()).isEqualTo(Outcome.MAPPED);
+        assertThat(List.of(decision.destination().split(",")))
+                .contains(CdsExportDemographicSupportingMapper.DESTINATION);
     }
 
     private static Map<String, String> baseline() {

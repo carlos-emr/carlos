@@ -285,8 +285,14 @@ class CdsExportPersonalContactMapperUnitTest {
                         changed(association(-1, 9), "note", "A different note"),
                         changed(association(-1, 9), "note", "X".repeat(201)))) {
             var result = map(List.of(link), List.of(contact(9)));
-            assertThat(result.nativeRepresentable()).isFalse();
+            // Neither note is chosen, joined or truncated: both travel in the native record.
+            assertThat(result.nativeRepresentable()).isTrue();
             assertThat(result.contacts().getFirst().note()).isNull();
+            assertThat(
+                            result.fields().entrySet().stream()
+                                    .filter(entry -> entry.getKey().column().equals("note"))
+                                    .filter(entry -> entry.getValue().presence() == Presence.VALUE))
+                    .allMatch(entry -> CdsExportDemographicSupportingMapper.carries(entry.getValue()));
         }
     }
 
@@ -311,10 +317,17 @@ class CdsExportPersonalContactMapperUnitTest {
                 map(
                         List.of(association(-1, 9)),
                         List.of(changed(contact(9), column, "Additional source value")));
-        assertThat(result.nativeRepresentable()).isFalse();
+        // Demographics/Contact has no element for it: the value travels in the native record.
+        assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.fields()).hasSize(40);
-        assertThatThrownBy(() -> parse(result, HASH))
-                .hasMessage("CDS_EXPORT_DEMOGRAPHIC_RELATIONS_REQUIRES_REVIEW");
+        assertThat(
+                        CdsExportDemographicSupportingMapper.carries(
+                                result.fields()
+                                        .get(
+                                                new CdsExportNativeFieldKeyDto(
+                                                        "Contact", contact(9).recordKey(), column))))
+                .isTrue();
+        parse(result, HASH);
     }
 
     @Test
@@ -336,8 +349,19 @@ class CdsExportPersonalContactMapperUnitTest {
                             ? List.<CdsExportCapturedTextRowDto>of()
                             : List.of(contact(9));
             var result = map(List.of(link), rows);
-            assertThat(result.nativeRepresentable()).isFalse();
+            // A deleted association is not in the chart; an inactive, internal, provider or
+            // specialist association travels in the native record. Neither is a Contact element
+            // and neither holds the patient.
+            assertThat(result.nativeRepresentable()).isTrue();
             assertThat(result.contacts()).isEmpty();
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "DemographicContact", link.recordKey(), "role"))
+                                    .outcome()
+                                    .name())
+                    .isEqualTo(pair.getKey().equals("deleted") ? "OPERATIONAL" : "MAPPED");
         }
         assertThat(
                         map(
@@ -423,9 +447,9 @@ class CdsExportPersonalContactMapperUnitTest {
         var result = map(List.of(association(-1, 9)), List.of(good));
         assertThat(result.nativeRepresentable()).isTrue();
         parse(result, HASH);
+        // A note, extension or telephone the element cannot hold travels in the native record.
         for (var pair :
                 List.of(
-                        Map.entry("firstName", "😀".repeat(51)),
                         Map.entry("note", "😀".repeat(201)),
                         Map.entry("workPhoneExtension", "123456"),
                         Map.entry("residencePhone", "1".repeat(26))))
@@ -438,7 +462,14 @@ class CdsExportPersonalContactMapperUnitTest {
                                                             pair.getKey(),
                                                             pair.getValue())))
                                     .nativeRepresentable())
-                    .isFalse();
+                    .isTrue();
+        // A name longer than the CDS name part still requires review.
+        assertThat(
+                        map(
+                                        List.of(association(-1, 9)),
+                                        List.of(changed(contact(9), "firstName", "😀".repeat(51))))
+                                .nativeRepresentable())
+                .isFalse();
     }
 
     @Test
@@ -452,12 +483,13 @@ class CdsExportPersonalContactMapperUnitTest {
         assertThat(result.nativeRepresentable()).isTrue();
         assertThat(result.contacts().getFirst().phones().getFirst().number())
                 .isEqualTo("613-555-0101 ext 5");
+        // An extension left without its work number travels in the native record.
         assertThat(
                         map(
                                         List.of(association(-1, 9)),
                                         List.of(changed(contact(9), "workPhone", null)))
                                 .nativeRepresentable())
-                .isFalse();
+                .isTrue();
     }
 
     @Test

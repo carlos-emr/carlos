@@ -195,7 +195,8 @@ public final class CdsExportContactRetainedAssembler {
                                     values,
                                     checkpoint);
             if (!decision.representable())
-                throw new IOException("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
+                throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
+                        "CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
             if (!parentAddress.equals(decision.binding().parentUnitAddress())
                     || !consumedOrdinals.add(decision.binding().ordinal())) scope();
             for (var field : decision.binding().fields()) if (!claimed.add(field.id())) scope();
@@ -215,7 +216,8 @@ public final class CdsExportContactRetainedAssembler {
             else {
                 if ("2".equals(row.fields().get("type"))
                         && importedIds.contains(row.fields().get("contactId")))
-                    throw new IOException("CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW");
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
+                            "CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW");
                 newAssociations.add(row);
             }
         }
@@ -229,7 +231,8 @@ public final class CdsExportContactRetainedAssembler {
                                 maximumBytes,
                                 checkpoint);
         if (!added.nativeRepresentable())
-            throw new IOException("CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(
+                        "CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW");
         long offset = maximum;
         var addedFields =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();

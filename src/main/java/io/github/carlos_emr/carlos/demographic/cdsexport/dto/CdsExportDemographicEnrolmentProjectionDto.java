@@ -83,8 +83,11 @@ public record CdsExportDemographicEnrolmentProjectionDto(
                             field.table() + "/" + field.recordKey(),
                             ignored -> new java.util.HashSet<>())
                     .add(field.column());
+            // A roster state carried in the native demographic NewCategory record is MAPPED
+            // elsewhere; only a state mapped into Enrolment evidences an event.
             if (field.column().equals("roster_status")
-                    && entry.getValue().outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED)
+                    && entry.getValue().outcome() == CdsExportFieldAssessmentDto.Outcome.MAPPED
+                    && entry.getValue().destination().startsWith("Enrolment/"))
                 mappedStates++;
         }
         long nativeRows = 0;

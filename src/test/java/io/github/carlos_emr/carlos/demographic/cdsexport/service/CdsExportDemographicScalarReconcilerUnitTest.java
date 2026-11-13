@@ -122,15 +122,22 @@ class CdsExportDemographicScalarReconcilerUnitTest {
 
     @Test
     void shouldVerifyUnsupportedCurrentValuesCannotFallBack_toHistoricalSource() throws Exception {
+        // Values the element cannot hold (an e-mail outside the pattern, a 16-character chart
+        // number, a short SIN, an unlisted language) are carried in the native demographic
+        // record and leave the element out; they no longer hold the imported chart.
         for (var entry :
                 List.of(
-                        Map.entry("sex", ""),
                         Map.entry("email", "bad address"),
                         Map.entry("chart_no", "A".repeat(16)),
                         Map.entry("sin", "123"),
                         Map.entry("spoken_lang", "Unknown"),
-                        Map.entry("official_lang", "Unknown"),
-                        Map.entry("patient_status", ""))) {
+                        Map.entry("official_lang", "Unknown"))) {
+            setup();
+            fixture.currentField(entry.getKey(), entry.getValue());
+            var result = reconcile();
+            assertThat(result.representable()).isTrue();
+        }
+        for (var entry : List.of(Map.entry("sex", ""), Map.entry("patient_status", ""))) {
             setup();
             fixture.currentField(entry.getKey(), entry.getValue());
             var result = reconcile();

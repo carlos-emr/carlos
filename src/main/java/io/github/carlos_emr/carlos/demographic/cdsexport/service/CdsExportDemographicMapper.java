@@ -37,6 +37,7 @@ import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -56,9 +57,16 @@ public final class CdsExportDemographicMapper {
         String title = state.code("title", "Names/NamePrefix", TITLES);
         LocalDate birth = birth(state);
         String gender = state.code("sex", "Gender", Map.of("M", "M", "F", "F", "O", "O", "U", "U"));
+        // The add form offers "X" (Intersex, commn.Gender). Administrative Gender has M, F, O and
+        // U; X is sent as O (Other) and the exact native code travels in the native demographic
+        // NewCategory record.
+        if ("X".equals(state.value("sex"))) {
+            gender = "O";
+            state.alsoCarried("sex", "Gender", "INTERSEX_AS_OTHER_WITH_EXACT_CODE_CARRIED");
+        }
         if (!state.present("sex")) state.review("sex", "Gender", "REQUIRED_VALUE_MISSING");
         var health = health(state);
-        String chart = state.token("chart_no", "ChartNumber", 15, false);
+        String chart = state.optionalToken("chart_no", "ChartNumber", 15);
         var addresses = new ArrayList<Address>();
         address(state, addresses, "M", "address", "city", "province", "postal");
         address(
@@ -73,14 +81,16 @@ public final class CdsExportDemographicMapper {
         phone(state, phones, "R", "phone");
         phone(state, phones, "W", "phone2");
         String official =
-                state.code(
+                state.optionalCode(
                         "official_lang",
                         "PreferredOfficialLanguage",
                         Map.of("English", "ENG", "French", "FRE", "ENG", "ENG", "FRE", "FRE"));
         String spoken = spoken(state);
-        String email = state.token("email", "Email", 50, false);
+        String email = state.optionalToken("email", "Email", 50);
+        // The forms' e-mail box is free text (several addresses, "+" tags, apostrophes, up to 100
+        // characters); a value the CDS e-mail pattern cannot hold travels exactly in the record.
         if (email != null && !CdsExportEmailLexical.matches(email)) {
-            state.review("email", "Email", "WIRE_EMAIL_REQUIRES_REVIEW");
+            state.carry("email");
             email = null;
         }
         String status = state.value("patient_status");
@@ -112,11 +122,7 @@ public final class CdsExportDemographicMapper {
             }
         }
         LocalDate statusDate = state.date("patient_status_date", "PersonStatusDate");
-        String sin = state.token("sin", "SIN", 9, false);
-        if (sin != null && sin.codePointCount(0, sin.length()) != 9) {
-            state.review("sin", "SIN", "WIRE_LENGTH_REQUIRES_REVIEW");
-            sin = null;
-        }
+        String sin = sin(state);
         // These columns are retained in the authenticated source capture, not asserted as
         // clinical history or substituted for the actual historical audit export.
         for (String column :
@@ -184,6 +190,28 @@ public final class CdsExportDemographicMapper {
                                 : "PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW"));
     }
 
+    /**
+     * The SIN box is free text (15 characters): "123 456 789" and "123-456-789" are its ordinary
+     * forms. Nine digits after removing spaces and hyphens are the SIN; the exact typed value also
+     * travels in the native demographic record. Anything else is not a SIN the element can hold
+     * and travels only in the record.
+     */
+    private static String sin(State state) {
+        if (!state.present("sin")) return null;
+        String value = state.value("sin");
+        if (value.matches("[0-9]{9}")) {
+            state.mapped("sin", "SIN", "EXACT_NATIVE_TEXT");
+            return value;
+        }
+        String digits = value.replace(" ", "").replace("-", "");
+        if (digits.matches("[0-9]{9}")) {
+            state.alsoCarried("sin", "SIN", "SIN_SEPARATORS_REMOVED_EXACT_VALUE_CARRIED");
+            return digits;
+        }
+        state.carry("sin");
+        return null;
+    }
+
     private static LocalDate birth(State state) {
         String[] columns = {"year_of_birth", "month_of_birth", "date_of_birth"};
         try {
@@ -221,14 +249,18 @@ public final class CdsExportDemographicMapper {
                 state.operational("hc_type", "HEALTH_CARD_ISSUER_WITHOUT_A_CARD");
             return null;
         }
+        String province = CdsHealthCardAuthority.wire(state.value("hc_type"));
+        if (province == null) {
+            // The forms default the issuer to "OT" (Other) and offer "US"; ProvinceCode is
+            // required and the pinned schema's -50/-70/-90 codes carry no documented meaning, so
+            // a card of an unlisted issuer travels whole in the native demographic record.
+            for (String column : List.of("hin", "ver", "hc_renew_date", "hc_type"))
+                if (state.present(column)) state.carry(column);
+            return null;
+        }
         String number = state.token("hin", "HealthCard/Number", 20, true);
         String version = state.token("ver", "HealthCard/Version", 2, false);
-        String province = CdsHealthCardAuthority.wire(state.value("hc_type"));
-        if (province != null)
-            state.mapped("hc_type", "HealthCard/ProvinceCode", "PINNED_HEALTH_CARD_AUTHORITY");
-        else
-            state.review(
-                    "hc_type", "HealthCard/ProvinceCode", "HEALTH_CARD_ISSUER_REQUIRES_REVIEW");
+        state.mapped("hc_type", "HealthCard/ProvinceCode", "PINNED_HEALTH_CARD_AUTHORITY");
         LocalDate expiry = state.date("hc_renew_date", "HealthCard/Expirydate");
         return new HealthCard(number, version, expiry, province);
     }
@@ -252,30 +284,37 @@ public final class CdsExportDemographicMapper {
             return;
         }
         String path = "Address[" + type + "]/Structured/";
-        String street = state.token(streetColumn, path + "Line1", 50, false);
-        String city = state.token(cityColumn, path + "City", 80, false);
+        // The address column holds 60 characters and Line1 50; a longer line travels exactly in
+        // the native demographic record instead of being truncated.
+        String street = state.optionalToken(streetColumn, path + "Line1", 50);
+        String city = state.optionalToken(cityColumn, path + "City", 80);
         String subdivision = subdivision(state, provinceColumn, path + "CountrySubdivisionCode");
         boolean zip = subdivision != null && subdivision.startsWith("US-");
         String postalPath = path + "PostalZipCode/" + (zip ? "ZipCode" : "PostalCode");
-        String postal = state.token(postalColumn, postalPath, 10, false);
+        String postal = state.optionalToken(postalColumn, postalPath, 10);
+        // Without a pinned jurisdiction PostalCode and ZipCode cannot be told apart.
         if (postal != null && subdivision == null) {
-            state.review(
-                    postalColumn, path + "PostalZipCode", "POSTAL_JURISDICTION_REQUIRES_REVIEW");
+            state.carry(postalColumn);
             postal = null;
         }
         if (postal != null) {
             if (subdivision != null
                     && subdivision.startsWith("CA-")
                     && postal.matches("[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]")) {
+                boolean collapsed = !postal.equals(state.value(postalColumn));
                 postal = postal.substring(0, 3) + postal.substring(4);
-                state.mapped(postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
+                if (collapsed)
+                    state.alsoCarried(
+                            postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
+                else state.mapped(postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
             }
             if (!postal.matches(zip ? "[0-9-]*" : "[a-zA-Z0-9-]*")) {
-                state.review(postalColumn, postalPath, "POSTAL_REPRESENTATION_REQUIRES_REVIEW");
+                state.carry(postalColumn);
                 postal = null;
             }
         }
-        output.add(new Address(type, street, city, subdivision, postal));
+        if (street != null || city != null || subdivision != null || postal != null)
+            output.add(new Address(type, street, city, subdivision, postal));
     }
 
     private static String subdivision(State state, String column, String path) {
@@ -290,7 +329,10 @@ public final class CdsExportDemographicMapper {
             state.mapped(column, path, "EXACT_SUBDIVISION_CODE");
             return value;
         }
-        state.review(column, path, "SUBDIVISION_REQUIRES_REVIEW");
+        // "OT" (Other, the forms' default without a clinic province), "US" and any code outside
+        // the pinned list: CountrySubdivisionCode is optional, so the value travels exactly in
+        // the native demographic record.
+        state.carry(column);
         return null;
     }
 
@@ -346,7 +388,7 @@ public final class CdsExportDemographicMapper {
                 io.github.carlos_emr.carlos.demographic.pageUtil.SpokenLangProperties.getInstance()
                         .getCodeByLang(value);
         if (code == null || !code.matches("[A-Z]{3}")) {
-            state.review("spoken_lang", "PreferredSpokenLanguage", "CODE_REQUIRES_REVIEW");
+            state.carry("spoken_lang");
             return null;
         }
         state.mapped(
@@ -425,6 +467,52 @@ public final class CdsExportDemographicMapper {
             set(column, Outcome.OPERATIONAL, "", rule);
         }
 
+        /** The value has no element that can hold it: it travels in the native record. */
+        private void carry(String column) {
+            var decision = CdsExportDemographicSupportingMapper.carried(value(column));
+            assessments.put(
+                    column,
+                    new Assessment(
+                            presence(value(column)),
+                            Outcome.valueOf(decision.outcome().name()),
+                            decision.destination(),
+                            decision.rule()));
+        }
+
+        /**
+         * The element holds a normalized form of the value; the exact stored value also travels
+         * in the native demographic record.
+         */
+        private void alsoCarried(String column, String path, String rule) {
+            set(
+                    column,
+                    Outcome.MAPPED,
+                    path + "," + CdsExportDemographicSupportingMapper.DESTINATION,
+                    rule);
+        }
+
+        /** An optional token: a value the element cannot hold is carried, never a hold. */
+        private String optionalToken(String column, String path, int maximum) {
+            String result = token(column, path, maximum, false);
+            if (result == null
+                    && present(column)
+                    && assessments.get(column).outcome() == Outcome.REQUIRES_REVIEW
+                    && legalText(value(column))) {
+                carry(column);
+                return null;
+            }
+            return result;
+        }
+
+        /** An optional code element: an unlisted value is carried, never a hold. */
+        private String optionalCode(String column, String path, Map<String, String> mapping) {
+            if (!present(column)) return null;
+            String result = mapping.get(value(column));
+            if (result == null) carry(column);
+            else mapped(column, path, "REVIEWED_NATIVE_CODE");
+            return result;
+        }
+
         private String token(String column, String path, int maximum, boolean required) {
             if (!present(column)) {
                 if (required) review(column, path, "REQUIRED_VALUE_MISSING");
@@ -437,8 +525,21 @@ public final class CdsExportDemographicMapper {
                     || value.indexOf('\t') >= 0
                     || value.indexOf('\r') >= 0
                     || value.indexOf('\n') >= 0) {
-                review(column, path, "TOKEN_WHITESPACE_REQUIRES_REVIEW");
-                return null;
+                // Untrimmed copy-pasted text: the element is xs:token, so every schema reader sees
+                // the collapsed value anyway. The collapsed value is written and the exact stored
+                // value travels in the native demographic record.
+                String collapsed = value.strip().replaceAll("[ \t\r\n]+", " ");
+                if (collapsed.isEmpty() || !legalText(value)) {
+                    review(column, path, "TOKEN_WHITESPACE_REQUIRES_REVIEW");
+                    return null;
+                }
+                if (collapsed.codePointCount(0, collapsed.length()) > maximum
+                        || !legalText(collapsed)) {
+                    review(column, path, "WIRE_LENGTH_REQUIRES_REVIEW");
+                    return null;
+                }
+                alsoCarried(column, path, "XS_TOKEN_WHITESPACE_COLLAPSED_EXACT_VALUE_CARRIED");
+                return collapsed;
             }
             return text(column, path, maximum);
         }
@@ -462,6 +563,16 @@ public final class CdsExportDemographicMapper {
             }
             mapped(column, path, "EXACT_NATIVE_TEXT");
             return value;
+        }
+
+        private static boolean legalText(String value) {
+            return value.codePoints()
+                    .noneMatch(
+                            code ->
+                                    code < 0x20 && code != '\t' && code != '\n' && code != '\r'
+                                            || code >= 0xd800 && code <= 0xdfff
+                                            || code == 0xfffe
+                                            || code == 0xffff);
         }
 
         private String code(String column, String path, Map<String, String> mapping) {

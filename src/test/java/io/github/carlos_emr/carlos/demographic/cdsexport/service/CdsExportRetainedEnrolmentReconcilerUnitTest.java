@@ -492,11 +492,14 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireTheCapturedProvider_forANewNativePhysicianReference() throws Exception {
+    void shouldNeverInventAPhysician_forANewNativeReferenceWithoutACapturedProvider() throws Exception {
         source.keySet().removeIf(name -> name.startsWith("Enrolment["));
         fixture.preparedRoster(null, 0);
         current("RO", "2024-01-02", null, null, "12");
-        assertThat(reconcile().representable()).isFalse();
+        var result = reconcile();
+        // The new episode is exported without EnrolledToPhysician; the number is carried.
+        assertThat(result.representable()).isTrue();
+        assertThat(text(render(result), "OHIPPhysicianId")).isEmpty();
     }
 
     @Test

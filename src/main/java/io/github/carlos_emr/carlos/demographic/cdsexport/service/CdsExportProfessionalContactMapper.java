@@ -226,19 +226,26 @@ public final class CdsExportProfessionalContactMapper {
                 CdsExportContactConsent.assess(state, "ReferredPhysician");
         }
         var grouped = new EnumMap<Role, List<CdsExportCapturedTextRowDto>>(Role.class);
+        var identity =
+                Set.of(
+                        "id",
+                        "demographicNo",
+                        "created",
+                        "creator",
+                        "updateDate",
+                        "facilityId",
+                        "programNo");
+        var carriedContacts = new HashSet<String>();
+        var removedContacts = new HashSet<String>();
         for (var row : associations) {
             checkpoint.run();
             var state = states.get(row);
-            if (!"2".equals(state.raw("type")) || !"professional".equals(state.raw("category"))) {
-                state.review(
-                        "type", "ProfessionalPhysician", "OTHER_RELATIONSHIP_PROJECTION_REQUIRED");
-                continue;
-            }
-            if (!"0".equals(state.raw("deleted")) || !"1".equals(state.raw("active"))) {
-                state.review(
-                        "active",
-                        "ProfessionalPhysician",
-                        "HISTORICAL_PROFESSIONAL_RELATIONSHIP_REQUIRES_RECONCILIATION");
+            // A health-care-team member the user deleted is no longer in the chart.
+            if ("1".equals(state.raw("deleted"))) {
+                for (String column : row.fields().keySet())
+                    if (present(row.fields().get(column)))
+                        state.operational(column, "REMOVED_CONTACT_ASSOCIATION_NOT_IN_CURRENT_CHART");
+                if ("2".equals(state.raw("type"))) removedContacts.add(state.raw("contactId"));
                 continue;
             }
             Role role =
@@ -246,11 +253,16 @@ public final class CdsExportProfessionalContactMapper {
                             .filter(candidate -> candidate.label.equals(state.raw("role")))
                             .findFirst()
                             .orElse(null);
-            if (role == null) {
-                state.review(
-                        "role",
-                        "ProfessionalPhysician",
-                        "UNSUPPORTED_PROFESSIONAL_ROLE_REQUIRES_REVIEW");
+            // A provider or specialist from another table (type 0, 1, 3), an inactive member,
+            // and roles ReferredPhysician/FamilyPhysician do not mean (Specialist, Dietician...):
+            // the stored association and its contact travel in the native demographic record.
+            if (!"2".equals(state.raw("type"))
+                    || !"professional".equals(state.raw("category"))
+                    || !"0".equals(state.raw("deleted"))
+                    || !"1".equals(state.raw("active"))
+                    || role == null) {
+                state.carryRemaining(identity);
+                if ("2".equals(state.raw("type"))) carriedContacts.add(state.raw("contactId"));
                 continue;
             }
             for (String column : List.of("type", "category", "deleted", "active"))
@@ -332,6 +344,21 @@ public final class CdsExportProfessionalContactMapper {
                             row.recordKey(),
                             new CdsExportPublicProviderDto(first, last, null)));
         }
+        for (var row : contacts) {
+            var state = states.get(row);
+            String id = row.fields().get("id");
+            boolean used =
+                    physicians.stream()
+                            .anyMatch(physician -> physician.contactRecordKey().equals(row.recordKey()));
+            if (used || carriedContacts.contains(id))
+                // Address, phones and the other contact columns ReferredPhysician and
+                // FamilyPhysician (a name only) cannot hold.
+                state.carryRemaining(Set.of("id", "updateDate"));
+            else if (removedContacts.contains(id))
+                for (String column : row.fields().keySet())
+                    if (present(row.fields().get(column)))
+                        state.operational(column, "CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
+        }
         new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
         checkpoint.run();
         return new Result(patient, associations.size(), contacts.size(), physicians, fields, uses);
@@ -353,6 +380,10 @@ public final class CdsExportProfessionalContactMapper {
         } catch (NumberFormatException | NullPointerException invalid) {
             scope();
         }
+    }
+
+    private static boolean present(String value) {
+        return value != null && !value.isEmpty();
     }
 
     private static void scope() throws IOException {

@@ -145,12 +145,17 @@ class CdsExportDemographicAddressReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAnIncompatiblePostalCodeOrMissingJurisdictionRequiresReview_forDemographicAddressReconcilerContract() throws Exception {
+    void shouldVerifyAnIncompatiblePostalCodeOrMissingJurisdictionIsCarried_forDemographicAddressReconcilerContract() throws Exception {
+        // Neither postal arm is guessed: the stored postal code travels in the native record and
+        // the address is written without it.
         fixture.currentField("province", "US-NY");
-        assertThat(reconcile().representable()).isFalse();
+        var foreign = reconcile();
+        assertThat(foreign.representable()).isTrue();
+        assertThat(text(render(foreign), "PostalCode")).isEmpty();
+        assertThat(text(render(foreign), "ZipCode")).isEmpty();
         setup();
         fixture.currentField("province", null);
-        assertThat(reconcile().representable()).isFalse();
+        assertThat(reconcile().representable()).isTrue();
     }
 
     @Test

@@ -67,10 +67,10 @@ public final class CdsExportRetainedProfessionalContactBinding {
             checkpoint.run(); if (CdsExportCapturedTextWitness.matches(row, "role", role.nativeLabel())&&CdsExportCapturedTextWitness.matches(row, "category", "professional"))candidates.add(row);
         }
         if (candidates.isEmpty())return result(index, address, role, ids, preparation, null, null, values, checkpoint);
-        if (candidates.size()!=1||preparation==null||ids.isEmpty())throw new IOException("CDS_EXPORT_PROFESSIONAL_ORIGINAL_RELATIONSHIP_REQUIRES_REVIEW");
+        if (candidates.size()!=1||preparation==null||ids.isEmpty())throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_PROFESSIONAL_ORIGINAL_RELATIONSHIP_REQUIRES_REVIEW");
         var association=candidates.getFirst();
         if (!CdsExportCapturedTextWitness.matches(association, "demographicNo", Integer.toString(patient))||!CdsExportCapturedTextWitness.matches(association, "type", "2")
-                ||!CdsExportCapturedTextWitness.matches(association, "active", "1")||!CdsExportCapturedTextWitness.matches(association, "deleted", "0")||!CdsExportCapturedTextWitness.matches(association, "mrp", "0"))throw new IOException("CDS_EXPORT_PROFESSIONAL_ORIGINAL_RELATIONSHIP_REQUIRES_REVIEW");
+                ||!CdsExportCapturedTextWitness.matches(association, "active", "1")||!CdsExportCapturedTextWitness.matches(association, "deleted", "0")||!CdsExportCapturedTextWitness.matches(association, "mrp", "0"))throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_PROFESSIONAL_ORIGINAL_RELATIONSHIP_REQUIRES_REVIEW");
         var contacts=new ArrayList<CdsNativeRowState>(); for (var row:baseline.rows())if (row.table().equals("Contact")){checkpoint.run(); if (CdsExportCapturedTextWitness.matches(association, "contactId", row.id()))contacts.add(row); }
         if (contacts.size()!=1)throw new IOException("CDS_EXPORT_PROFESSIONAL_ORIGINAL_CONTACT_REQUIRED"); var contact=contacts.getFirst();
         if (!CdsExportCapturedTextWitness.matches(contact, "firstName", preparation.firstName())||!CdsExportCapturedTextWitness.matches(contact, "lastName", preparation.lastName())

@@ -194,17 +194,22 @@ class CdsExportDemographicSupportingMapperUnitTest {
         var custom = rows.get("demographiccust");
         var providers = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         var references =
-                CdsExportDemographicSupportingMapper.careTeamReferences(
+                CdsExportDemographicSupportingMapper.references(
+                        rows.get("demographic").getFirst(),
                         custom.isEmpty() ? null : custom.getFirst());
         for (var provider : rows.get("provider"))
             if (references.contains(provider.fields().get("provider_no")))
                 providers.put(provider.fields().get("provider_no"), provider);
+        var related = new LinkedHashMap<String, List<CdsExportCapturedTextRowDto>>();
+        for (String table : CdsExportDemographicSupportingMapper.Rows.RELATED)
+            related.put(table, rows.get(table));
         return new CdsExportDemographicSupportingMapper.Rows(
                 27,
                 rows.get("demographic").getFirst(),
                 custom.isEmpty() ? null : custom.getFirst(),
                 rows.get("demographicExt"),
-                providers);
+                providers,
+                related);
     }
 
     private static CdsExportNativeFieldKeyDto key(String table, String recordKey, String column) {
@@ -250,8 +255,8 @@ class CdsExportDemographicSupportingMapperUnitTest {
         result.fields()
                 .forEach(
                         (field, decision) -> {
-                            if (CdsExportDemographicSupportingMapper.DESTINATION.equals(
-                                    decision.destination())) sent.add(field);
+                            if (CdsExportDemographicSupportingMapper.carries(decision))
+                                sent.add(field);
                         });
         assertThat(record.fields().keySet()).isEqualTo(sent);
     }
@@ -265,7 +270,9 @@ class CdsExportDemographicSupportingMapperUnitTest {
         assertThat(decoded.get("version").asInt()).isEqualTo(1);
         var names = new ArrayList<String>();
         decoded.fieldNames().forEachRemaining(names::add);
-        assertThat(names).containsExactly("version", "demographic", "careTeam", "properties");
+        assertThat(names)
+                .containsExactly(
+                        "version", "demographic", "roster", "careTeam", "properties", "related");
         var demographic = new LinkedHashMap<String, String>();
         decoded.get("demographic")
                 .fields()
@@ -472,6 +479,128 @@ class CdsExportDemographicSupportingMapperUnitTest {
         assertThat(demographics)
                 .containsEntry("PhoneNumber[1]/extension[1]", "1234")
                 .containsEntry("NoteAboutPatient[1]", "Native note");
+    }
+
+    @Test
+    void shouldNeverHoldAChart_withOrdinaryRosterWireTextPharmacyAndContactValues()
+            throws Exception {
+        // Values the demographic, pharmacy and contact screens accept that no CDS element can
+        // hold as typed: fee-for-service roster, intersex, "Other" official language, an "OT"
+        // province, an untrimmed address, a "+" e-mail, a SIN with spaces, a second pharmacy with
+        // Phone 2, and an inactive contact with an address.
+        set("roster_status", "FS");
+        set("sex", "X");
+        set("official_lang", "Other");
+        set("province", "OT");
+        set("address", "12  Main St ");
+        set("postal", "K1A 0B1");
+        set("email", "patient+clinic@example.org");
+        set("sin", "046 454 286");
+        rows.get("demographicPharmacy").add(CdsExportPharmacyMapperUnitTest.link(-1, 9));
+        rows.get("demographicPharmacy")
+                .add(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPharmacyMapperUnitTest.link(-2, 10), "preferredOrder", "2"));
+        rows.get("pharmacyInfo").add(CdsExportPharmacyMapperUnitTest.pharmacy(9));
+        rows.get("pharmacyInfo")
+                .add(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPharmacyMapperUnitTest.pharmacy(10), "phone2", "613-555-0109"));
+        rows.get("DemographicContact")
+                .add(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPersonalContactMapperUnitTest.association(-1, 9), "active", "0"));
+        rows.get("Contact")
+                .add(
+                        CdsExportPersonalContactMapperUnitTest.changed(
+                                CdsExportPersonalContactMapperUnitTest.contact(9), "address", "1 Side Rd"));
+        var result = assemble(ALL);
+        assertThat(result.fields().values())
+                .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        assertThat(result.demographic().demographic().administrativeGender()).isEqualTo("O");
+        assertThat(result.demographic().demographic().sin()).isEqualTo("046454286");
+        assertThat(result.demographic().demographic().email()).isNull();
+        assertThat(result.pharmacy().mapping().preferred()).isNotNull();
+        var record = CdsExportDemographicSupportingMapper.map(supportingRows(), () -> {});
+        var sent = new HashSet<CdsExportNativeFieldKeyDto>();
+        result.fields()
+                .forEach(
+                        (field, decision) -> {
+                            if (CdsExportDemographicSupportingMapper.carries(decision))
+                                sent.add(field);
+                        });
+        assertThat(record.fields().keySet()).isEqualTo(sent);
+        var json = JsonMapper.builder().build().readTree(record.json());
+        for (var carried :
+                Map.of(
+                                "sex", "X",
+                                "official_lang", "Other",
+                                "province", "OT",
+                                "address", "12  Main St ",
+                                "email", "patient+clinic@example.org",
+                                "sin", "046 454 286")
+                        .entrySet())
+            assertThat(json.get("demographic").get(carried.getKey()).textValue())
+                    .isEqualTo(carried.getValue());
+        assertThat(json.get("roster").get("roster_status").textValue()).isEqualTo("FS");
+        var related = new HashSet<String>();
+        json.get("related")
+                .forEach(
+                        row ->
+                                row.get("fields")
+                                        .fieldNames()
+                                        .forEachRemaining(
+                                                column -> related.add(row.get("table").textValue() + "." + column)));
+        assertThat(related)
+                .contains(
+                        "demographicPharmacy.preferredOrder",
+                        "pharmacyInfo.name",
+                        "pharmacyInfo.phone2",
+                        "DemographicContact.active",
+                        "Contact.address");
+        // Schema-valid as written.
+        var wire = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        wire,
+                        HASH,
+                        HASH,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY),
+                        List.of(
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.DEMOGRAPHICS, HASH),
+                                                xml ->
+                                                        new CdsExportDemographicXmlWriter()
+                                                                .writeWithRelated(
+                                                                        result.demographic(),
+                                                                        result.pharmacy(),
+                                                                        result.contacts(),
+                                                                        result.professional(),
+                                                                        "C27",
+                                                                        xml)),
+                                        new CdsExportXmlComposer.Section(
+                                                new CdsExportIdentityDto(
+                                                        HASH, CdsCategory.NEW_CATEGORY, HASH),
+                                                xml ->
+                                                        CdsExportDemographicSupportingMapper.write(
+                                                                record.json(), xml)))
+                                .iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(wire.toByteArray()),
+                        "C27",
+                        Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
     }
 
     @Test

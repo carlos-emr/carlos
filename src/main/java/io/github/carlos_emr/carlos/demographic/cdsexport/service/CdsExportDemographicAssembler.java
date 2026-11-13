@@ -170,11 +170,70 @@ public final class CdsExportDemographicAssembler {
                                 rows.custom(), rows.lookups().providers(), newCategory));
         var accounted =
                 withSelection(
-                        accountAlertCarrier(careCarriers, rows.custom(), selected, checkpoint),
+                        withNativeCarriers(
+                                accountAlertCarrier(
+                                        careCarriers, rows.custom(), selected, checkpoint),
+                                patient,
+                                rows.current()),
                         newCategory);
         values.requireActive();
         checkpoint.run();
         return new CdsExportDemographicCareAssembler.Result(accounted, care.professionalNameUses());
+    }
+
+    /**
+     * A current base-row value whose exact form the native demographic record carries (an
+     * e-mail outside the CDS pattern, a SIN typed with separators, untrimmed text...) keeps that
+     * destination after a retained reconciler decided its element, so the receipt states where
+     * the exact value went. The record is built from the same native decision.
+     */
+    static CdsExportDemographicRetainedCoreReconciler.Result withNativeCarriers(
+            CdsExportDemographicRetainedCoreReconciler.Result prior,
+            int patient,
+            CdsExportCapturedTextRowDto current) {
+        var raw = new LinkedHashMap<>(current.fields());
+        raw.remove("demographic_no");
+        var nativeBase =
+                new CdsExportDemographicMapper()
+                        .map(
+                                new io.github.carlos_emr.carlos.commn.dto
+                                        .CdsExportDemographicRowDto(patient, raw));
+        var fields = new LinkedHashMap<>(prior.fields());
+        for (var entry : nativeBase.fields().entrySet()) {
+            var key =
+                    new CdsExportNativeFieldKeyDto(
+                            current.table(), current.recordKey(), entry.getKey());
+            var decision = fields.get(key);
+            var nativeDecision = entry.getValue();
+            if (decision == null
+                    || decision.outcome() != CdsExportFieldAssessmentDto.Outcome.MAPPED
+                    || CdsExportDemographicSupportingMapper.carries(decision)
+                    || !java.util.Arrays.asList(nativeDecision.destination().split(",", -1))
+                            .contains(CdsExportDemographicSupportingMapper.DESTINATION)
+                    || nativeDecision.outcome() != CdsExportDemographicMappingDto.Outcome.MAPPED)
+                continue;
+            fields.put(
+                    key,
+                    new CdsExportFieldAssessmentDto(
+                            decision.presence(),
+                            decision.outcome(),
+                            decision.destination().isEmpty()
+                                    ? CdsExportDemographicSupportingMapper.DESTINATION
+                                    : decision.destination()
+                                            + ","
+                                            + CdsExportDemographicSupportingMapper.DESTINATION,
+                            decision.rule()));
+        }
+        return new CdsExportDemographicRetainedCoreReconciler.Result(
+                prior.sourceManifestSha256(),
+                prior.unitAddress(),
+                prior.decidedSourceFields(),
+                prior.deferredSourceFields(),
+                fields,
+                prior.deferredNativeFields(),
+                prior.blockers(),
+                prior.proposedChanges(),
+                prior.providerUses());
     }
 
     /**

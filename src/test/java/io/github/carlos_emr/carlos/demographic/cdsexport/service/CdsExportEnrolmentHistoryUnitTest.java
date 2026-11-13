@@ -76,11 +76,13 @@ class CdsExportEnrolmentHistoryUnitTest {
             assertThat(result.fields().get(key("roster_status")).presence().name())
                     .isEqualTo(status == null ? "SQL_NULL" : status.isEmpty() ? "EMPTY" : "VALUE");
         }
-        assertThat(
-                        new CdsExportEnrolmentMapper()
-                                .map(27, current("NR", "2020-01-01", null, null, null), null)
-                                .representable())
-                .isFalse();
+        // An NR flag with a leftover roster date: the flag is operational, the date carried.
+        var leftover =
+                new CdsExportEnrolmentMapper()
+                        .map(27, current("NR", "2020-01-01", null, null, null), null);
+        assertCarried(leftover, "roster_date");
+        assertThat(leftover.fields().get(key("roster_status")).outcome().name())
+                .isEqualTo("OPERATIONAL");
     }
 
     @Test
@@ -98,26 +100,37 @@ class CdsExportEnrolmentHistoryUnitTest {
             var values = new TreeMap<>(row.fields());
             values.put("date_joined", "2024-02-03");
             values.put("lastUpdateDate", "2024-02-03 13:00:00");
-            assertThat(
-                            new CdsExportEnrolmentMapper()
-                                    .map(
-                                            27,
-                                            new CdsExportCapturedTextRowDto(
-                                                    row.table(), row.recordKey(), values),
-                                            null)
-                                    .representable())
-                    .isFalse();
+            // RO without a usable roster date is not an enrolment event and never borrows
+            // date_joined or the update time; the state travels as stored.
+            assertCarried(
+                    new CdsExportEnrolmentMapper()
+                            .map(
+                                    27,
+                                    new CdsExportCapturedTextRowDto(
+                                            row.table(), row.recordKey(), values),
+                                    null),
+                    "roster_status");
         }
     }
 
     @Test
-    void shouldVerifyRefusesUnknownAndWhitespaceNormalizedRosterStates_forEnrolmentHistoryContract() throws Exception {
-        for (String status : List.of("0", "1", "ro", "RO ", "TE\n", "UNKNOWN", "NU"))
-            assertThat(
-                            new CdsExportEnrolmentMapper()
-                                    .map(27, current(status, "2020-01-01", null, null, null), null)
-                                    .representable())
-                    .isFalse();
+    void shouldCarryFeeForServiceClinicAndWhitespaceRosterStates_forEnrolmentHistoryContract() throws Exception {
+        // FS is offered on both demographic forms; clinic-defined statuses are added there too.
+        for (String status : List.of("FS", "0", "1", "ro", "RO ", "TE\n", "UNKNOWN", "NU")) {
+            var result =
+                    new CdsExportEnrolmentMapper()
+                            .map(27, current(status, "2020-01-01", null, null, null), null);
+            assertCarried(result, "roster_status");
+            assertCarried(result, "roster_date");
+        }
+        // A superseded archive snapshot's state stays in the approved audit arrangement.
+        var archived =
+                new CdsExportEnrolmentMapper()
+                        .map(27, archive(1, "FS", "2020-01-01", null, null, null), null);
+        assertThat(archived.representable()).isTrue();
+        assertThat(archived.event()).isNull();
+        assertThat(archived.fields().values())
+                .allMatch(field -> !field.outcome().name().equals("MAPPED"));
     }
 
     @Test
@@ -129,7 +142,7 @@ class CdsExportEnrolmentHistoryUnitTest {
                         current("RO", "2020-01-01", "2021-01-01", null, null),
                         current("RO", "2020-01-01", null, "12", null),
                         current("TE", "2020-01-01", "0000-00-00", null, null)))
-            assertThat(new CdsExportEnrolmentMapper().map(27, row, null).representable()).isFalse();
+            assertCarried(new CdsExportEnrolmentMapper().map(27, row, null), "roster_status");
         assertThat(
                         new CdsExportEnrolmentMapper()
                                 .map(
@@ -152,14 +165,10 @@ class CdsExportEnrolmentHistoryUnitTest {
                                     .representable())
                     .isTrue();
         for (String reason : List.of("99", "012", " 12", "12 ", "A", "é"))
-            assertThat(
-                            new CdsExportEnrolmentMapper()
-                                    .map(
-                                            27,
-                                            current("TE", "2020-01-01", "2020-01-02", reason, null),
-                                            null)
-                                    .representable())
-                    .isFalse();
+            assertCarried(
+                    new CdsExportEnrolmentMapper()
+                            .map(27, current("TE", "2020-01-01", "2020-01-02", reason, null), null),
+                    "roster_termination_reason");
         var factory = DocumentBuilderFactory.newDefaultNSInstance();
         factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
@@ -190,9 +199,15 @@ class CdsExportEnrolmentHistoryUnitTest {
     void shouldVerifyMissingOrDifferentExactProviderReferencesNeverFallBack_toThePrimaryPhysician()
             throws Exception {
         var row = current("RO", "2020-01-01", null, null, "0é27");
-        assertThat(new CdsExportEnrolmentMapper().map(27, row, null).representable()).isFalse();
-        assertThat(new CdsExportEnrolmentMapper().map(27, row, provider("0e27")).representable())
-                .isFalse();
+        // A number with no captured provider row: the event has no invented physician and the
+        // stored number travels as stored.
+        var dangling = new CdsExportEnrolmentMapper().map(27, row, null);
+        assertThat(dangling.representable()).isTrue();
+        assertThat(dangling.event().physician()).isNull();
+        assertThat(dangling.fields().get(key("roster_enrolled_to")).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThatThrownBy(() -> new CdsExportEnrolmentMapper().map(27, row, provider("0e27")))
+                .hasMessage("CDS_EXPORT_ENROLMENT_SOURCE_SCOPE_INVALID");
         assertThatThrownBy(
                         () ->
                                 new CdsExportEnrolmentMapper()
@@ -279,7 +294,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     @Test
-    void shouldVerifyConflictingVersionsOfOneTerminationAreReviewCasesRatherThanExtraClinicalEvents_forEnrolmentHistoryContract()
+    void shouldExportTheLatestVersionOfACorrectedTermination_ratherThanExtraClinicalEvents()
             throws Exception {
         for (String changed : List.of("reason", "end")) {
             var history = history();
@@ -292,30 +307,53 @@ class CdsExportEnrolmentHistoryUnitTest {
                             changed.equals("end") ? "2021-02-01" : "2021-01-01",
                             changed.equals("reason") ? "14" : "12",
                             "A");
-            assertThatThrownBy(() -> history.accept(next, provider("A")))
-                    .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
-            assertThatThrownBy(() -> history.finish(1))
-                    .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_CLOSED");
+            history.accept(next, provider("A"));
+            history.accept(current(null, null, null, null, null), null);
+            var result = history.finish(2);
+            assertThat(result.events()).hasSize(1);
+            assertThat(result.events().getFirst().end())
+                    .isEqualTo(LocalDate.parse(changed.equals("end") ? "2021-02-01" : "2021-01-01"));
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "demographicArchive",
+                                                    CdsExportPatientTableSourceReader.key(1),
+                                                    "roster_termination_date"))
+                                    .rule())
+                    .isEqualTo("SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT");
         }
     }
 
     @Test
-    void shouldVerifyAReopenedOldEpisodeRequiresAnExplicitCorrectionDecision_forEnrolmentHistoryContract() throws Exception {
+    void shouldExportAReinstatedEpisodeAsOpen_withItsWithdrawnTerminationSuperseded() throws Exception {
         var history = history();
         history.accept(archive(1, "TE", "2020-01-01", "2021-01-01", "12", null), null);
-        assertThatThrownBy(
-                        () -> history.accept(current("RO", "2020-01-01", null, null, null), null))
-                .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
+        history.accept(current("RO", "2020-01-01", null, null, null), null);
+        var events = history.finish(1).events();
+        assertThat(events).hasSize(1);
+        assertThat(events.getFirst().status()).isEqualTo("1");
     }
 
     @Test
     void shouldVerifyAClearedCurrentRosterCannotSilentlyReplayAnOldActiveState_forEnrolmentHistoryContract() throws Exception {
-        for (String state : Arrays.asList(null, "", "NR")) {
+        // The old enrolment ended without a recorded termination: it is not exported as still
+        // open (no end date is invented) and stays in the approved audit arrangement.
+        for (String state : Arrays.asList(null, "", "NR", "FS")) {
             var history = history();
             history.accept(archive(1, "RO", "2020-01-01", null, null, null), null);
             history.accept(current(state, null, null, null, null), null);
-            assertThatThrownBy(() -> history.finish(1))
-                    .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
+            var result = history.finish(1);
+            assertThat(result.events()).isEmpty();
+            assertThat(
+                            result.fields()
+                                    .get(
+                                            new CdsExportNativeFieldKeyDto(
+                                                    "demographicArchive",
+                                                    CdsExportPatientTableSourceReader.key(1),
+                                                    "roster_status"))
+                                    .rule())
+                    .isEqualTo("SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT");
         }
         var ended = history();
         ended.accept(archive(1, "RO", "2020-01-01", null, null, null), null);
@@ -329,12 +367,21 @@ class CdsExportEnrolmentHistoryUnitTest {
         var history = history();
         history.accept(archive(1, "TE", "2020-01-01", "2025-01-01", null, "A"), provider("A"));
         history.accept(current("RO", "2024-01-01", null, null, "B"), provider("B"));
-        assertThatThrownBy(() -> history.finish(1))
-                .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
+        var result = history.finish(1);
+        assertThat(result.events()).hasSize(1);
+        assertThat(result.events().getFirst().start()).isEqualTo(LocalDate.parse("2024-01-01"));
+        // The physician named only by the superseded snapshot is audited with it.
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "provider", provider("A").recordKey(), "last_name"))
+                                .rule())
+                .isEqualTo("SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT");
     }
 
     @Test
-    void shouldVerifyAnUnclosedEpisodeCannotBeSilentlyTurnedIntoMultipleEnrolments_byAnEditedDateOrPhysician()
+    void shouldExportOnlyTheCurrentEpisode_afterReRosteringWithoutATermination()
             throws Exception {
         for (String change : List.of("date", "physician")) {
             var history = history();
@@ -346,20 +393,30 @@ class CdsExportEnrolmentHistoryUnitTest {
                             null,
                             null,
                             change.equals("physician") ? "B" : "A");
-            assertThatThrownBy(
-                            () ->
-                                    history.accept(
-                                            row, provider(row.fields().get("roster_enrolled_to"))))
-                    .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_AMBIGUOUS_VERSION");
-            assertThatThrownBy(() -> history.finish(1))
-                    .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_CLOSED");
+            history.accept(row, provider(row.fields().get("roster_enrolled_to")));
+            var events = history.finish(1).events();
+            assertThat(events).hasSize(1);
+            assertThat(events.getFirst().start())
+                    .isEqualTo(LocalDate.parse(change.equals("date") ? "2022-01-01" : "2020-01-01"));
         }
     }
 
     @Test
     void shouldVerifyACaughtBadRowPermanentlyInvalidatesTheHistory_forEnrolmentHistoryContract() throws Exception {
         var history = history();
-        assertThatThrownBy(() -> history.accept(archive(1, "RO", null, null, null, null), null))
+        // A provider value no CDS name can hold is the remaining hold: one patient, never the job.
+        var fields = new TreeMap<>(provider("A").fields());
+        fields.put("ohip_no", "1234567");
+        var unrepresentable =
+                new CdsExportCapturedTextRowDto("provider", provider("A").recordKey(), fields);
+        assertThatThrownBy(
+                        () ->
+                                history.accept(
+                                        archive(1, "RO", "2020-01-01", null, null, "A"),
+                                        unrepresentable))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_REQUIRES_REVIEW");
         assertThatThrownBy(() -> history.accept(current(null, null, null, null, null), null))
                 .hasMessage("CDS_EXPORT_ENROLMENT_HISTORY_CLOSED");
@@ -558,6 +615,14 @@ class CdsExportEnrolmentHistoryUnitTest {
                                         projected.events(),
                                         fields))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ENROLMENT_PROJECTION_INVALID");
+    }
+
+    /** A roster state with no CDS enrolment event: no event, no hold, the value carried. */
+    private static void assertCarried(CdsExportEnrolmentMapper.Result result, String column) {
+        assertThat(result.representable()).isTrue();
+        assertThat(result.event()).isNull();
+        assertThat(result.fields().get(key(column)).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
     }
 
     static CdsExportEnrolmentHistory history() {
