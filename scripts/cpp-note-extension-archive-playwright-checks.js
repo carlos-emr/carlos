@@ -766,8 +766,7 @@ async function main() {
         const before = readCppWriteSnapshot(sql, fixture.demographicNo);
         const badBefore = recorder.badResponses.length;
         const consoleBefore = recorder.consoleIssues.length;
-        // The CPP dialog's own save error, with the status (updateCPPNote, since #6103): it tells the clinician
-        // to keep the CPP editor open and retry, where the page's general note save error did not.
+        // A refused CPP save reports through the CPP editor's own message (newCaseManagementView.js.jsp).
         const expectedAlert = await chartPage.evaluate(() => cppSaveError + ' 500');
         const failedAction = await chartPage.locator('#frmIssueNotes').evaluate(form => form.action);
         let failed;
@@ -859,7 +858,8 @@ async function main() {
     const archiveError = await boxErrorText(chartPage);
     assert(archiveError === '',
       `the Medical History box repainted as "Error: ${archiveError}" after the archive`);
-    await box.locator('.topBox-notes .cpp-empty-state').waitFor({state: 'visible', timeout});
+    // An emptied section repaints blank (no placeholder row), so wait for the archived row to leave.
+    await box.locator('.topBox-notes li').filter({hasText: stamp}).first().waitFor({state: 'detached', timeout});
     assert(!(await box.textContent()).includes(stamp), 'the archived CPP item remains in the active listing');
 
     const archivedRows = extensionRows(sql, stamp);
