@@ -202,6 +202,17 @@ class CdsExportSupportingFilesValidatorUnitTest {
     }
 
     @Test
+    void shouldRefuseAReadmeThatDropsTheAdministrativeFieldsNotice_fromItsFixedText() {
+        readMe =
+                replace(
+                        readMe,
+                        "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of"
+                                + " CDS 5.2 Demographics and are not exported.\n",
+                        "");
+        assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
+    }
+
+    @Test
     void shouldRefuseAlteredAuditText_inTheFinishedReadme() {
         readMe = replace(readMe, "Synthetic approved audit arrangement", "Different terms");
         assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");

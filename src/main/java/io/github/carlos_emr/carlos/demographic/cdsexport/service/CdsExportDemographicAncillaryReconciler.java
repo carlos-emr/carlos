@@ -45,7 +45,6 @@ public final class CdsExportDemographicAncillaryReconciler {
     private static final Set<String> OPERATIONAL =
             Set.of(
                     "demographic_no",
-                    "date_joined",
                     "lastUpdateDate",
                     "lastUpdateUser",
                     "cds_identity_hin",
@@ -58,7 +57,6 @@ public final class CdsExportDemographicAncillaryReconciler {
                     "citizenship",
                     "consentToUseEmailForCare",
                     "country_of_origin",
-                    "eff_date",
                     "end_date",
                     "family_doctor",
                     "gender",
@@ -71,6 +69,14 @@ public final class CdsExportDemographicAncillaryReconciler {
                     "pronoun",
                     "pronounId",
                     "sourceOfIncome");
+    /**
+     * Practice-administrative dates a user may enter that CDS 5.2 Demographics has no element for:
+     * "Date Joined" the practice (add-form-clinical.jsp:325-337, DemographicUpdate2Action) and the
+     * health card "EFF Date" (add-form-personal.jsp:842-855; HealthCard carries only number,
+     * version, expiry and province). They are not clinical facts, so they never hold a chart; the
+     * package ReadMe states that they are not exported (CdsExportSupportingFilesComposer).
+     */
+    private static final Set<String> ADMINISTRATIVE = Set.of("date_joined", "eff_date");
     private static final Map<String, String> UI_PLACEHOLDERS =
             Map.of("newsletter", "Unknown", "country_of_origin", "-1");
 
@@ -163,11 +169,23 @@ public final class CdsExportDemographicAncillaryReconciler {
         for (var entry : current.fields().entrySet()) {
             checkpoint.run();
             String column = entry.getKey(), value = entry.getValue();
-            if (!OPERATIONAL.contains(column) && !ANCILLARY.contains(column)) continue;
+            if (!OPERATIONAL.contains(column)
+                    && !ANCILLARY.contains(column)
+                    && !ADMINISTRATIVE.contains(column)) continue;
             Presence presence =
                     value == null
                             ? Presence.SQL_NULL
                             : value.isEmpty() ? Presence.EMPTY : Presence.VALUE;
+            if (ADMINISTRATIVE.contains(column)) {
+                fields.put(
+                        new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column),
+                        presence == Presence.VALUE
+                                ? new CdsExportFieldAssessmentDto(
+                                        presence, Outcome.OPERATIONAL, "", "ADMINISTRATIVE_NOT_EXPORTED")
+                                : new CdsExportFieldAssessmentDto(
+                                        presence, Outcome.ABSENT, "", "ABSENT_ADMINISTRATIVE_VALUE"));
+                continue;
+            }
             Outcome outcome =
                     OPERATIONAL.contains(column)
                             ? Outcome.OPERATIONAL

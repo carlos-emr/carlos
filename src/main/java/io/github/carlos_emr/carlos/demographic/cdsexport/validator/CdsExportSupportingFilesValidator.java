@@ -140,6 +140,8 @@ public final class CdsExportSupportingFilesValidator {
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.");
         text.exact(
                 "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.");
+        text.exact(
+                "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.");
         String header =
                 "PatientID,"
                         + Arrays.stream(CdsCategory.values())

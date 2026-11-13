@@ -112,6 +112,10 @@ public final class CdsExportSupportingFilesComposer {
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");
         readMe.write(
                 "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.\n");
+        // CDS 5.2 Demographics has no element for these practice-administrative dates, so the
+        // demographic mapper decides them ADMINISTRATIVE_NOT_EXPORTED; the receiver is told here.
+        readMe.write(
+                "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.\n");
 
         eventLog.write("PatientID");
         for (CdsCategory category : CdsCategory.values()) eventLog.write("," + category.wireName());

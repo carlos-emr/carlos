@@ -74,7 +74,7 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
     }
     @Test void shouldBlockEveryPopulatedAncillaryValue_includingWhitespaceAndFalseLookingCodes() throws Exception {
         for (String column : List.of("alias", "anonymous", "children", "citizenship", "consentToUseEmailForCare", "country_of_origin",
-                "eff_date", "end_date", "family_doctor", "gender", "genderId", "myOscarUserName", "newsletter", "pcn_indicator",
+                "end_date", "family_doctor", "gender", "genderId", "myOscarUserName", "newsletter", "pcn_indicator",
                 "pref_name", "previousAddress", "pronoun", "pronounId", "sourceOfIncome")) {
             for (String value : List.of("0", "false", " ", "Clinical 😀 & value")) {
                 var result = reconcile(row(column, value));
@@ -98,8 +98,22 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
             assertThat(result.fields().get(key(chosen.getKey())).outcome()).isEqualTo(Outcome.REQUIRES_REVIEW);
         }
     }
+    @Test void shouldDecidePracticeAdministrativeDates_asNotExportedWithoutHoldingTheChart() throws Exception {
+        // D3 (maintainer ruling): "Date Joined" (add-form-clinical.jsp) and the health card "EFF Date" are user-entered
+        // practice-administrative dates with no CDS 5.2 Demographics element. They used to be silently dropped
+        // (date_joined, as operational identity) or to hold the chart (eff_date); both are now an explicit
+        // ADMINISTRATIVE_NOT_EXPORTED decision that the package ReadMe announces.
+        for (String column : List.of("date_joined", "eff_date")) {
+            var result = reconcile(row(column, "2009-04-01"));
+            assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
+            assertThat(result.fields().get(key(column)).rule()).isEqualTo("ADMINISTRATIVE_NOT_EXPORTED");
+            assertThat(result.coreRepresentable()).isTrue();
+            assertThat(reconcile(row(column, null)).fields().get(key(column)).outcome()).isEqualTo(Outcome.ABSENT);
+        }
+    }
     @Test void shouldAccountForCapturedOperationalIdentity_withoutInventingClinicalHistory() throws Exception {
-        for (String column : List.of("date_joined", "lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer")) {
+        // Updated for D3: date_joined is no longer operational identity; it has its own administrative rule above.
+        for (String column : List.of("lastUpdateDate", "lastUpdateUser", "cds_identity_hin", "cds_identity_issuer")) {
             var result = reconcile(row(column, "fixture"));
             assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
             assertThat(result.fields().get(key(column)).destination()).isEmpty();

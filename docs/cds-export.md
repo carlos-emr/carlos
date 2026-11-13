@@ -1684,6 +1684,15 @@ the imported-chart path; `rxInteractionWarningLevel` `0` ("Not specified"); and 
 home still requires review: another newsletter choice or country, a populated unsupported
 extension, a warning level, or consent `0`, which is an instruction not to contact that person.
 
+Two user-entered demographic dates are practice-administrative and have no CDS 5.2
+Demographics element: "Date Joined" (`date_joined`) and the health card "EFF Date"
+(`eff_date`; `HealthCard` carries only number, version, expiry and issuer). They are decided
+`OPERATIONAL` under `ADMINISTRATIVE_NOT_EXPORTED` and never hold a chart. Previously the first
+was silently dropped as operational identity and the second required review. Every package
+ReadMe carries the fixed line `Practice-administrative demographic fields "date joined" and
+"effective date" are not part of CDS 5.2 Demographics and are not exported.`, which the
+supporting-file validator requires.
+
 The demographic occurrence decides exactly the public provider rows that its own columns
 name byte-for-byte (the current and every archived `provider_no` and `roster_enrolled_to`),
 whichever categories are selected. A provider captured only for another selected category

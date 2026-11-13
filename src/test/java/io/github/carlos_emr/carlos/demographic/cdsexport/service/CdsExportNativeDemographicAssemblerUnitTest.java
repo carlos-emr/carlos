@@ -793,6 +793,9 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         values.put("pref_name", "");
         values.put("gender", "");
         values.put("pronoun", "");
+        // User-entered practice-administrative dates (D3): decided as not exported, never a hold.
+        values.put("date_joined", "2009-04-01");
+        values.put("eff_date", "2024-01-15");
         rows.get("demographic")
                 .set(0, new CdsExportCapturedTextRowDto(current.table(), current.recordKey(), values));
         long id = 0;
@@ -839,8 +842,16 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                         field ->
                                 field.outcome()
                                         == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographic", "0000000027", "date_joined"))
+                                .rule())
+                .isEqualTo("ADMINISTRATIVE_NOT_EXPORTED");
         String xml = validatedXml(result);
         assertThat(xml)
+                .doesNotContain("2009-04-01", "2024-01-15")
                 .contains("<cdsd:PurposeAsPlainText>Parent</cdsd:PurposeAsPlainText>", "<PreferredPharmacy>")
                 .doesNotContain(">Unknown<", ">-1<");
     }
