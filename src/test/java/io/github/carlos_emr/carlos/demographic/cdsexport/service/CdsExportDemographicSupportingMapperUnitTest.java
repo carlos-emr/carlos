@@ -277,7 +277,15 @@ class CdsExportDemographicSupportingMapperUnitTest {
         decoded.get("demographic")
                 .fields()
                 .forEachRemaining(entry -> demographic.put(entry.getKey(), entry.getValue().textValue()));
-        assertThat(demographic).containsExactlyEntriesOf(ANCILLARY);
+        // The practice-administrative dates travel here too (they used to be not exported).
+        var expectedDemographic = new LinkedHashMap<String, String>();
+        var base = rows.get("demographic").getFirst().fields();
+        for (String column : CdsExportDemographicRowDto.COLUMNS)
+            if (ANCILLARY.containsKey(column) || Set.of("date_joined", "eff_date").contains(column))
+                expectedDemographic.put(column, base.get(column));
+        assertThat(demographic).containsExactlyEntriesOf(expectedDemographic);
+        assertThat(demographic).containsEntry("date_joined", "2009-04-01");
+        assertThat(demographic).containsEntry("eff_date", "2024-01-15");
         var team = decoded.get("careTeam");
         assertThat(team).hasSize(3);
         assertThat(team.get(0).get("role").textValue()).isEqualTo("Nurse");
@@ -357,6 +365,9 @@ class CdsExportDemographicSupportingMapperUnitTest {
     @Test
     void shouldWriteNoRecord_forAPatientWithOnlyFormDefaults() throws Exception {
         for (String column : ANCILLARY.keySet()) set(column, null);
+        // A practice-administrative date the user entered is carried, so none is set here.
+        set("date_joined", null);
+        set("eff_date", null);
         set("newsletter", "Unknown");
         set("country_of_origin", "-1");
         rows.get("demographicExt").clear();

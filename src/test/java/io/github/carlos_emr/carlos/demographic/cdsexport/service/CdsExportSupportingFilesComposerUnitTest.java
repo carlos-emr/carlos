@@ -74,9 +74,11 @@ class CdsExportSupportingFilesComposerUnitTest {
                 "ExportRoot/Alice_Test_123456/First_Test_C27_04031971.xml",
                 "Audit information access after migration: \"Fixture retained audit access arrangement\"",
                 "Prevention screenings (exported only as PastHealth): \"INCLUDED\"",
-                // D3: the receiver is told which practice-administrative demographic fields are not exported.
-                "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of"
-                        + " CDS 5.2 Demographics and are not exported.");
+                // D3, updated: the receiver is told where the practice-administrative demographic
+                // fields travel (they used to be announced as not exported).
+                "Practice-administrative demographic fields \"date joined\" and \"effective date\" have no"
+                        + " CDS 5.2 Demographics element and travel in the NewCategory record"
+                        + " CARLOS.NativeDemographic.v1");
         String[] lines = events.toString(StandardCharsets.UTF_8).split("\n");
         assertThat(lines).hasSize(2);
         String[] columns = lines[0].split(","), values = lines[1].split(",");

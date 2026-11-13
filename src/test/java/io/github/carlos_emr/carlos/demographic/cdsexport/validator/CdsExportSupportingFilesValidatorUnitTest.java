@@ -390,8 +390,9 @@ class CdsExportSupportingFilesValidatorUnitTest {
         readMe =
                 replace(
                         readMe,
-                        "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of"
-                                + " CDS 5.2 Demographics and are not exported.\n",
+                        io.github.carlos_emr.carlos.demographic.cdsexport.service
+                                        .CdsExportSupportingFilesComposer.ADMINISTRATIVE_DATES_NOTICE
+                                + "\n",
                         "");
         assertThatThrownBy(this::validate).hasMessage("CDS_EXPORT_SUPPORTING_FILES_INVALID");
     }

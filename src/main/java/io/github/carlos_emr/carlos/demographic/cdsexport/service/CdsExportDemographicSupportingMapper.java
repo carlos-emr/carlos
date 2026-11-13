@@ -41,8 +41,10 @@ import java.util.Objects;
  * The one carrier for demographic values that CDS 5.2 Demographics has no element for.
  *
  * <p>The demographic add and edit screens write values that the Demographics section cannot hold:
- * preferred name, alias, pronoun and gender identity, the referral-doctor wrapper, the nurse,
- * resident and midwife selects ({@code demographiccust.cust1}, {@code cust2}, {@code cust4}),
+ * preferred name, alias, pronoun and gender identity, the practice-administrative "Date Joined"
+ * ({@code date_joined}) and health card "EFF Date" ({@code eff_date}), the referral-doctor
+ * wrapper, the nurse, resident and midwife selects ({@code demographiccust.cust1},
+ * {@code cust2}, {@code cust4}),
  * a current roster state that is not a CDS enrolment event (fee for service, a clinic-defined
  * status, RO without a roster date), and extension properties such as ethnicity, consents or
  * paper-chart status. Demographics has no
@@ -94,6 +96,8 @@ public final class CdsExportDemographicSupportingMapper {
                     "citizenship",
                     "consentToUseEmailForCare",
                     "country_of_origin",
+                    "date_joined",
+                    "eff_date",
                     "end_date",
                     "family_doctor",
                     "gender",

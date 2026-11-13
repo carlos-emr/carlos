@@ -923,7 +923,10 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                         new CdsExportNativeFieldKeyDto(
                                                 "demographic", "0000000027", "date_joined"))
                                 .rule())
-                .isEqualTo("ADMINISTRATIVE_NOT_EXPORTED");
+                .isEqualTo("NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED");
+        // Updated: "Date Joined" and "EFF Date" used to be ADMINISTRATIVE_NOT_EXPORTED; they now
+        // travel in the native demographic record (here NewCategory is not selected), never in
+        // a Demographics element.
         String xml = validatedXml(result);
         assertThat(xml)
                 .doesNotContain("2009-04-01", "2024-01-15")

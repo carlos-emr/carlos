@@ -54,6 +54,13 @@ public final class CdsExportSupportingFilesComposer {
                     + " CARLOS.NativeDemographic.v1; when NewCategory is not selected they are not"
                     + " exported.";
 
+    /** Where the practice-administrative demographic dates travel. */
+    public static final String ADMINISTRATIVE_DATES_NOTICE =
+            "Practice-administrative demographic fields \"date joined\" and \"effective date\""
+                    + " have no CDS 5.2 Demographics element and travel in the NewCategory record"
+                    + " CARLOS.NativeDemographic.v1; when NewCategory is not selected they are not"
+                    + " exported.";
+
     /** How the receiver reads the per-patient data-summary counts. */
     public static final String DATA_SUMMARY_NOTICE =
             "Patient data summary records count CARLOS records that CDS 5.2 cannot represent"
@@ -149,10 +156,9 @@ public final class CdsExportSupportingFilesComposer {
                 "NOT_SELECTED in ExportEventLog is outside the requested scope; zero is a known selected-category count.\n");
         readMe.write(
                 "ReportsText and ReportsBinary count representations; Reports counts source report occurrences.\n");
-        // CDS 5.2 Demographics has no element for these practice-administrative dates, so the
-        // demographic mapper decides them ADMINISTRATIVE_NOT_EXPORTED; the receiver is told here.
-        readMe.write(
-                "Practice-administrative demographic fields \"date joined\" and \"effective date\" are not part of CDS 5.2 Demographics and are not exported.\n");
+        // CDS 5.2 Demographics has no element for these practice-administrative dates; they are
+        // carried in the native demographic record and the receiver is told where.
+        readMe.write(ADMINISTRATIVE_DATES_NOTICE + "\n");
         readMe.write(DEMOGRAPHIC_RECORD_NOTICE + "\n");
         readMe.write(DATA_SUMMARY_NOTICE + "\n");
         readMe.write(LISTED_NOTICE + "\n");

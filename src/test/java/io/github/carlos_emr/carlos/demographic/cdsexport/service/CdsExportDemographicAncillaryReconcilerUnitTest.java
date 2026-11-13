@@ -107,15 +107,14 @@ class CdsExportDemographicAncillaryReconcilerUnitTest {
             assertThat(result.fields().get(key(chosen.getKey())).destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
         }
     }
-    @Test void shouldDecidePracticeAdministrativeDates_asNotExportedWithoutHoldingTheChart() throws Exception {
-        // D3 (maintainer ruling): "Date Joined" (add-form-clinical.jsp) and the health card "EFF Date" are user-entered
-        // practice-administrative dates with no CDS 5.2 Demographics element. They used to be silently dropped
-        // (date_joined, as operational identity) or to hold the chart (eff_date); both are now an explicit
-        // ADMINISTRATIVE_NOT_EXPORTED decision that the package ReadMe announces.
+    @Test void shouldCarryPracticeAdministrativeDates_inTheNativeDemographicRecord() throws Exception {
+        // D3: "Date Joined" (add-form-clinical.jsp) and the health card "EFF Date" are user-entered
+        // practice-administrative dates with no CDS 5.2 Demographics element. Updated: they used to be decided
+        // ADMINISTRATIVE_NOT_EXPORTED; they now travel in the native demographic NewCategory record.
         for (String column : List.of("date_joined", "eff_date")) {
             var result = reconcile(row(column, "2009-04-01"));
-            assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.OPERATIONAL);
-            assertThat(result.fields().get(key(column)).rule()).isEqualTo("ADMINISTRATIVE_NOT_EXPORTED");
+            assertThat(result.fields().get(key(column)).outcome()).isEqualTo(Outcome.MAPPED);
+            assertThat(result.fields().get(key(column)).destination()).isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
             assertThat(result.coreRepresentable()).isTrue();
             assertThat(reconcile(row(column, null)).fields().get(key(column)).outcome()).isEqualTo(Outcome.ABSENT);
         }
