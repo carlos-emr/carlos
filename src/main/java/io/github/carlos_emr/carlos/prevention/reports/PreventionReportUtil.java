@@ -45,17 +45,24 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 public final class PreventionReportUtil {
     private static Logger logger = MiscUtils.getLogger();
 
-    public static DemographicManager demographicManager = SpringUtils.getBean(DemographicManager.class);
-    public static DemographicArchiveDao demographicArchiveDao = (DemographicArchiveDao) SpringUtils.getBean(DemographicArchiveDao.class);
+    // Looked up on each use rather than kept in static fields: a bean cached when the class first
+    // loads would outlive a refreshed Spring context, or a unit test's mocks, for the rest of the JVM.
+    private static DemographicManager demographicManager() {
+        return SpringUtils.getBean(DemographicManager.class);
+    }
+
+    private static DemographicArchiveDao demographicArchiveDao() {
+        return SpringUtils.getBean(DemographicArchiveDao.class);
+    }
 
     public static boolean wasRostered(LoggedInInfo loggedInInfo, Integer demographicId, Date onThisDate) {
         logger.debug("Checking rosterd:" + demographicId);
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()))
             return (true);
 
-        List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNo(demographicId);
+        List<DemographicArchive> archives = demographicArchiveDao().findByDemographicNo(demographicId);
         for (DemographicArchive archive : archives) {
             if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()))
                 return (true);
@@ -72,14 +79,17 @@ public final class PreventionReportUtil {
         }
 
 
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()) && providerNo.equals(demographic.getRosterEnrolledTo()))
             return (true);
 
-        List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNo(demographicId);
+        // An archive row is a snapshot of the record, so its roster period and the provider the
+        // patient was enrolled to in that period come from the same row. Comparing with today's
+        // record dropped patients who have since moved and counted ones who were elsewhere (#5877).
+        List<DemographicArchive> archives = demographicArchiveDao().findByDemographicNo(demographicId);
         for (DemographicArchive archive : archives) {
-            if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()) && providerNo.equals(demographic.getRosterEnrolledTo()))
+            if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()) && providerNo.equals(archive.getRosterEnrolledTo()))
                 return (true);
         }
 
@@ -93,14 +103,15 @@ public final class PreventionReportUtil {
         }
 
 
-        Demographic demographic = demographicManager.getDemographic(loggedInInfo, demographicId);
+        Demographic demographic = demographicManager().getDemographic(loggedInInfo, demographicId);
 
         if (rosteredDuringThisTimeDemographic(onThisDate, demographic.getRosterDate(), demographic.getRosterTerminationDate()) && providerNo.equals(demographic.getProviderNo()))
             return (true);
 
-        List<DemographicArchive> archives = demographicArchiveDao.findByDemographicNo(demographicId);
+        // As above: the archived period's provider, not today's (#5877).
+        List<DemographicArchive> archives = demographicArchiveDao().findByDemographicNo(demographicId);
         for (DemographicArchive archive : archives) {
-            if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()) && providerNo.equals(demographic.getProviderNo()))
+            if (rosteredDuringThisTimeDemographicArchive(onThisDate, archive.getRosterDate(), archive.getRosterTerminationDate()) && providerNo.equals(archive.getProviderNo()))
                 return (true);
         }
 
