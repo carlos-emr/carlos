@@ -376,23 +376,31 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReview_forConflictingVersionsOfAHistoricalTermination() throws Exception {
+    void shouldAppendTheLatestNativeTermination_besideTheImportedOneOfTheSameEpisode()
+            throws Exception {
+        // Updated: a native termination of an imported episode that differs from the imported
+        // one used to hold the chart. The imported history exports as imported and the latest
+        // native version of the episode is appended, as on a never-imported chart.
         archive(1, "TE", "2018-01-02", "2018-12-01", null, null);
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThat(result.blockers()).contains("CONFLICTING_ENROLMENT_TERMINATION_REQUIRES_REVIEW");
-        assertThat(result.proposedChanges()).isEmpty();
-        assertThatThrownBy(result::changes)
-                .hasMessage("CDS_EXPORT_ENROLMENT_RECONCILIATION_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isEqualTo(1);
+        assertThat(text(render(result), "EnrollmentTerminationDate"))
+                .containsExactly("2019-01-02", "2018-12-01");
     }
 
     @Test
-    void shouldRefuseToInventATermination_fromAnNrFlagAfterAnActiveSourceEvent() throws Exception {
+    void shouldKeepTheImportedHistoryWithoutInventingATermination_whenTheCurrentFlagIsNr()
+            throws Exception {
+        // Updated: clearing the roster of an imported enrolled patient used to hold the chart.
+        // The imported history exports as imported; no termination is invented.
         current("NR", null, null, null, null);
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
+        assertThat(result.representable()).isTrue();
         assertThat(result.additionalHistories()).isZero();
-        assertThat(result.blockers()).contains("CLEARED_CURRENT_ENROLMENT_REQUIRES_REVIEW");
+        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0", "1");
+        assertThat(text(render(result), "EnrollmentTerminationDate"))
+                .containsExactly("2019-01-02");
     }
 
     @Test
@@ -408,32 +416,122 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
     }
 
     @Test
-    void shouldBlockAllSourceChanges_whenCurrentNrConflictsWithRetainedNativeDates()
+    void shouldShiftTheImportedHistoryAndCarryTheLeftoverDate_whenTheCurrentFlagBecomesNr()
             throws Exception {
+        // Updated: NR with a leftover roster date used to hold the chart. NR with leftover
+        // values is not an enrolment event: the date travels in the native demographic record
+        // and the imported history is still shifted once and exported.
         shift = 365;
         prepared("RO", "2021-01-01", null, 2);
         fixture.currentField("roster_status", "NR");
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThat(result.proposedChanges()).isEmpty();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isZero();
+        assertThat(result.fields().get(CdsExportEnrolmentHistoryUnitTest.key("roster_date")).destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(text(render(result), "EnrollmentDate"))
+                .containsExactly("2019-01-02", "2021-01-01");
     }
 
     @Test
-    void shouldRequireReview_forAnEditedStartWithoutAnExplicitCloseOfThePriorEpisode()
-            throws Exception {
+    void shouldAppendAReRosteredEpisode_withoutInventingACloseOfTheImportedOne() throws Exception {
+        // Updated: re-rostering an imported patient without a termination used to hold the
+        // chart. The current episode is appended after the imported history, which exports as
+        // imported; no termination is invented.
         current("RO", "2022-01-02", null, null, null);
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThat(result.blockers()).contains("OVERLAPPING_OR_UNCLOSED_ENROLMENT_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isEqualTo(1);
+        assertThat(text(render(result), "EnrollmentDate"))
+                .containsExactly("2018-01-02", "2020-01-02", "2022-01-02");
+        assertThat(text(render(result), "EnrollmentTerminationDate"))
+                .containsExactly("2019-01-02");
     }
 
     @Test
-    void shouldRefuseAStaleCurrentEvent_whenAnArchiveHasANewerEffectiveDate() throws Exception {
+    void shouldAuditANewerArchivedEpisode_whenTheCurrentStateReturnedToTheImportedOne()
+            throws Exception {
+        // Updated: an archived episode newer than the current state used to hold the chart. It
+        // was superseded without a termination: it stays in the approved audit arrangement.
         archive(1, "RO", "2026-01-02", null, null, null);
         var result = reconcile();
-        assertThat(result.representable()).isFalse();
-        assertThat(result.blockers())
-                .contains("STALE_OR_AMBIGUOUS_CURRENT_ENROLMENT_REQUIRES_REVIEW");
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isZero();
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "demographicArchive",
+                                                archives.getFirst().recordKey(),
+                                                "roster_date"))
+                                .rule())
+                .isEqualTo("SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT");
+        assertThat(text(render(result), "EnrolmentHistory")).hasSize(2);
+    }
+
+    @Test
+    void shouldCarryAFeeForServiceState_whenAnImportedEnrolledPatientIsMovedToFs()
+            throws Exception {
+        // FS is not an enrolment event: the current roster values and the enrolled provider's
+        // public row travel in the native demographic record; the imported history exports as
+        // imported and nothing is held.
+        current("FS", "2020-01-02", null, null, "12");
+        providers.put("12", CdsExportEnrolmentHistoryUnitTest.provider("12"));
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isZero();
+        assertThat(
+                        result.fields()
+                                .get(CdsExportEnrolmentHistoryUnitTest.key("roster_status"))
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "provider",
+                                                CdsExportPublicProviderSourceReader.key("12"),
+                                                "last_name"))
+                                .destination())
+                .isEqualTo(CdsExportDemographicSupportingMapper.DESTINATION);
+        assertThat(text(render(result), "EnrollmentStatus")).containsExactly("0", "1");
+    }
+
+    @Test
+    void shouldAppendTheNewEpisode_whenTheEnrolledPhysicianOfAnImportedChartChanges()
+            throws Exception {
+        // The patient is re-rostered to another physician (an archive snapshot names the
+        // former one, whose open episode is superseded). The new episode exports with its
+        // physician; the provider rows are decided by their uses.
+        archive(1, "RO", "2023-05-06", null, null, "12");
+        current("RO", "2024-01-02", null, null, "34");
+        providers.put("12", CdsExportEnrolmentHistoryUnitTest.provider("12"));
+        providers.put("34", CdsExportEnrolmentHistoryUnitTest.provider("34"));
+        var result = reconcile();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.additionalHistories()).isEqualTo(1);
+        var xml = render(result);
+        assertThat(text(xml, "EnrollmentDate"))
+                .containsExactly("2018-01-02", "2020-01-02", "2024-01-02");
+        assertThat(text(xml, "OHIPPhysicianId")).containsExactly("123456");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "provider",
+                                                CdsExportPublicProviderSourceReader.key("12"),
+                                                "last_name"))
+                                .rule())
+                .isEqualTo("SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT");
+        assertThat(
+                        result.fields()
+                                .get(
+                                        new CdsExportNativeFieldKeyDto(
+                                                "provider",
+                                                CdsExportPublicProviderSourceReader.key("34"),
+                                                "last_name"))
+                                .outcome())
+                .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
     }
 
     @Test

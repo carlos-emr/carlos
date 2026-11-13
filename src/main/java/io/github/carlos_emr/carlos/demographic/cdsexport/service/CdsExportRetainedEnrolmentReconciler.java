@@ -34,8 +34,14 @@ import java.util.*;
 
 /**
  * Retains all original history, folds proven native snapshots and appends distinct native
- * events. An NR flag supplies no invented termination. Conflicting corrections, unresolved
- * overlaps and stale current state require review; no proposed change can escape a blocker.
+ * events. The source enrolment history exports as imported; native events recorded after it
+ * follow the never-imported chart's rules ({@link CdsExportEnrolmentHistory}): only RO and TE
+ * are enrolment events, other roster states are carried in the native demographic record, and
+ * an episode the current state contradicts (re-rostering without a termination, a cleared or FS
+ * current state, a conflicting termination, an event after the current state) is a superseded
+ * snapshot in the approved audit arrangement rather than a hold. No termination is invented.
+ * Only an unproven import projection, an invalid retained source history and an enrolled
+ * provider whose public values no CDS name can hold still require review.
  */
 public final class CdsExportRetainedEnrolmentReconciler {
     private record Fact(
@@ -46,6 +52,20 @@ public final class CdsExportRetainedEnrolmentReconciler {
     }
 
     private record Episode(LocalDate start, String physician) {}
+
+    /**
+     * One archive or current row: its fact, its native mapping (null when the row is the
+     * import's own verified projection) and its enrolled provider's captured public row.
+     */
+    private record Entry(
+            CdsExportCapturedTextRowDto row,
+            Fact fact,
+            CdsExportEnrolmentMapper.Result mapped,
+            CdsExportCapturedTextRowDto provider) {}
+
+    private static final String SUPERSEDED = "SUPERSEDED_ROSTER_SNAPSHOT_IN_APPROVED_AUDIT";
+    private static final String SUPERSEDED_PROVIDER =
+            "SUPERSEDED_ROSTER_PROVIDER_IN_APPROVED_AUDIT";
 
     public record Result(
             String sourceManifestSha256,
@@ -195,10 +215,10 @@ public final class CdsExportRetainedEnrolmentReconciler {
         for (var witness : archiveWitnesses)
             if (!"demographicArchive".equals(witness.table())
                     || witnesses.putIfAbsent(witness.recordKey(), witness) != null) scope();
-        var appended = new LinkedHashMap<Fact, CdsExportEnrolmentEventDto>();
+        var sourceFacts = Set.copyOf(facts);
+        var entries = new ArrayList<Entry>();
         String previous = null;
         Fact currentFact = null;
-        boolean currentAbsent = false;
         var nativeRows = new ArrayList<CdsExportCapturedTextRowDto>(archives);
         nativeRows.add(current);
         for (var row : nativeRows) {
@@ -219,6 +239,8 @@ public final class CdsExportRetainedEnrolmentReconciler {
             if (used > maximumBytes)
                 throw new IOException("CDS_EXPORT_ENROLMENT_RECONCILIATION_RESOURCE_LIMIT");
             Fact fact = null;
+            CdsExportEnrolmentMapper.Result mapped = null;
+            CdsExportCapturedTextRowDto provider = null;
             if (projection.preparedProjectionProven() && sameProjection(row, roster)) {
                 if (selected != null)
                     fact =
@@ -236,13 +258,13 @@ public final class CdsExportRetainedEnrolmentReconciler {
                             present(row.fields().get(column)) ? Outcome.MAPPED : Outcome.ABSENT,
                             "VERIFIED_RETAINED_ENROLMENT_PROJECTION");
             } else {
-                var mapped =
-                        new CdsExportEnrolmentMapper()
-                                .map(
-                                        patient,
-                                        row,
-                                        lookups.find(row.fields().get("roster_enrolled_to")));
-                merge(decisions, mapped.fields());
+                provider = lookups.find(row.fields().get("roster_enrolled_to"));
+                mapped = new CdsExportEnrolmentMapper().map(patient, row, provider);
+                var rowFields = new LinkedHashMap<>(mapped.fields());
+                rowFields.keySet().removeIf(key -> key.table().equals("provider"));
+                merge(decisions, rowFields);
+                // Only an enrolled provider whose public values no CDS name can hold remains;
+                // every roster state is an event or carried, as on a never-imported chart.
                 if (!mapped.representable())
                     blockers.add("NATIVE_ENROLMENT_STATE_OR_PROVIDER_REQUIRES_REVIEW");
                 else if (mapped.event() != null) {
@@ -254,14 +276,10 @@ public final class CdsExportRetainedEnrolmentReconciler {
                                     event.end(),
                                     event.terminationReason(),
                                     nativeIdentity(mapped.nativeProvider()));
-                    if (!facts.contains(fact)) appended.putIfAbsent(fact, event);
                 }
             }
-            if (fact != null) facts.add(fact);
-            if (isCurrent) {
-                currentFact = fact;
-                currentAbsent = fact == null;
-            }
+            entries.add(new Entry(row, fact, mapped, provider));
+            if (isCurrent) currentFact = fact;
             if (!isCurrent)
                 for (String column : row.fields().keySet()) {
                     var key = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column);
@@ -269,14 +287,58 @@ public final class CdsExportRetainedEnrolmentReconciler {
                 }
         }
         if (!witnesses.isEmpty()) scope();
-        if (blockers.isEmpty())
-            validate(
-                    facts,
-                    currentFact,
-                    currentAbsent,
-                    current.fields().get("roster_status"),
-                    blockers,
-                    checkpoint);
+        // The source enrolment history always exports as imported. Native events recorded after
+        // it follow the never-imported chart's rule (CdsExportEnrolmentHistory): the latest
+        // version of an episode is its truth, and an episode left open while the current state
+        // is another one (re-rostered without a termination, cleared, moved to FS...) or one
+        // dated after the current state was superseded without a recorded termination. No end
+        // date is invented; superseded snapshots stay in the approved audit arrangement.
+        var kept = keptNativeFacts(entries, sourceFacts, currentFact, checkpoint);
+        var appended = new LinkedHashMap<Fact, CdsExportEnrolmentEventDto>();
+        for (var entry : entries)
+            if (entry.mapped() != null
+                    && entry.fact() != null
+                    && kept.contains(entry.fact())
+                    && !sourceFacts.contains(entry.fact()))
+                appended.putIfAbsent(entry.fact(), entry.mapped().event());
+        for (var entry : entries) {
+            if (entry.mapped() == null
+                    || entry.fact() == null
+                    || kept.contains(entry.fact())
+                    || entry.row() == current) continue;
+            for (String column : CdsExportEnrolmentMapper.COLUMNS.keySet()) {
+                var key =
+                        new CdsExportNativeFieldKeyDto(
+                                entry.row().table(), entry.row().recordKey(), column);
+                if (decisions.get(key).outcome() != Outcome.ABSENT)
+                    decisions.put(
+                            key,
+                            CdsExportEnrolmentMapper.superseded(
+                                    entry.row().fields().get(column), SUPERSEDED));
+            }
+        }
+        // A provider row's decision follows its uses: an exported event's physician, a carried
+        // current state, or only superseded snapshots.
+        for (int pass = 0; pass < 3; pass++)
+            for (var entry : entries) {
+                var provider = entry.provider();
+                if (provider == null || entry.mapped() == null) continue;
+                boolean event = entry.fact() != null && kept.contains(entry.fact());
+                boolean carried = entry.fact() == null && entry.row() == current;
+                if (pass == 0 && !event || pass == 1 && !carried) continue;
+                for (var value : provider.fields().entrySet()) {
+                    var key =
+                            new CdsExportNativeFieldKeyDto(
+                                    provider.table(), provider.recordKey(), value.getKey());
+                    var decision =
+                            pass == 2
+                                    ? CdsExportEnrolmentMapper.superseded(
+                                            value.getValue(), SUPERSEDED_PROVIDER)
+                                    : entry.mapped().fields().get(key);
+                    if (decision == null) scope();
+                    decisions.putIfAbsent(key, decision);
+                }
+            }
         if (!projection.preparedProjectionProven())
             for (String column : CdsExportEnrolmentMapper.COLUMNS.keySet())
                 set(
@@ -353,47 +415,53 @@ public final class CdsExportRetainedEnrolmentReconciler {
         return true;
     }
 
-    private static void validate(
-            Set<Fact> facts,
-            Fact current,
-            boolean currentAbsent,
-            String currentState,
-            Set<String> blockers,
-            Runnable checkpoint) {
-        var ended = new HashMap<Episode, Fact>();
-        var episodes = new HashSet<Episode>();
-        for (var fact : facts) {
+    /**
+     * The native facts that export: per episode (start date and physician), the latest native
+     * version decides. An open episode keeps its start events only while it is the current
+     * episode or the source history records its termination; a terminated episode keeps its
+     * start events and its latest termination. A kept fact of another episode dated after the
+     * current state (or on the same day, differently) was superseded.
+     */
+    private static Set<Fact> keptNativeFacts(
+            List<Entry> entries, Set<Fact> sourceFacts, Fact current, Runnable checkpoint) {
+        var episodes = new LinkedHashMap<Episode, List<Fact>>();
+        for (var entry : entries)
+            if (entry.mapped() != null && entry.fact() != null)
+                episodes.computeIfAbsent(
+                                new Episode(entry.fact().start(), entry.fact().physician()),
+                                ignored -> new ArrayList<>())
+                        .add(entry.fact());
+        var currentEpisode =
+                current == null ? null : new Episode(current.start(), current.physician());
+        var kept = new HashSet<Fact>();
+        for (var episode : episodes.entrySet()) {
             checkpoint.run();
-            var episode = new Episode(fact.start(), fact.physician());
-            episodes.add(episode);
-            if ("0".equals(fact.status())) {
-                var previous = ended.putIfAbsent(episode, fact);
-                if (previous != null && !previous.equals(fact))
-                    blockers.add("CONFLICTING_ENROLMENT_TERMINATION_REQUIRES_REVIEW");
+            var versions = episode.getValue();
+            var latest = versions.getLast();
+            boolean isCurrent = episode.getKey().equals(currentEpisode);
+            boolean sourceTerminated =
+                    sourceFacts.stream()
+                            .anyMatch(
+                                    fact ->
+                                            "0".equals(fact.status())
+                                                    && new Episode(fact.start(), fact.physician())
+                                                            .equals(episode.getKey()));
+            boolean open = "1".equals(latest.status());
+            for (var fact : versions) {
+                boolean keep =
+                        open
+                                ? "1".equals(fact.status()) && (isCurrent || sourceTerminated)
+                                : "1".equals(fact.status()) || fact.equals(latest);
+                if (keep
+                        && !isCurrent
+                        && current != null
+                        && (fact.effective().isAfter(current.effective())
+                                || fact.effective().equals(current.effective())
+                                        && !fact.equals(current))) keep = false;
+                if (keep) kept.add(fact);
             }
         }
-        var ordered =
-                episodes.stream()
-                        .sorted(
-                                Comparator.comparing(Episode::start)
-                                        .thenComparing(Episode::physician))
-                        .toList();
-        for (int n = 1; n < ordered.size(); n++) {
-            checkpoint.run();
-            var previous = ordered.get(n - 1);
-            var next = ordered.get(n);
-            var termination = ended.get(previous);
-            if (termination == null || !next.start().isAfter(termination.end()))
-                blockers.add("OVERLAPPING_OR_UNCLOSED_ENROLMENT_REQUIRES_REVIEW");
-        }
-        if (currentAbsent && !facts.isEmpty()) {
-            if (!"NR".equals(currentState) || !ended.keySet().containsAll(episodes))
-                blockers.add("CLEARED_CURRENT_ENROLMENT_REQUIRES_REVIEW");
-        } else if (current != null)
-            for (var fact : facts)
-                if (fact.effective().isAfter(current.effective())
-                        || fact.effective().equals(current.effective()) && !fact.equals(current))
-                    blockers.add("STALE_OR_AMBIGUOUS_CURRENT_ENROLMENT_REQUIRES_REVIEW");
+        return kept;
     }
 
     private static String sourceIdentity(
