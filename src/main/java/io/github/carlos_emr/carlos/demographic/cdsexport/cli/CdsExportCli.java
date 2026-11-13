@@ -151,6 +151,9 @@ public final class CdsExportCli {
             RuntimeFactory factory) {
         CdsExportCliRuntime runtime = null;
         int outcome = 2;
+        // A durable job can exist once a submission was attempted or an existing job is addressed.
+        boolean durable = !arguments.operation().equals("export");
+        var retired = new java.util.concurrent.CountDownLatch(1);
         try {
             line(out, Map.of("event", "INITIALIZING", "operation", arguments.operation()));
             runtime = factory.open(configuration, arguments, delegation);
@@ -161,6 +164,7 @@ public final class CdsExportCli {
                                 ? delegation.nonce()
                                 : arguments.submissionKey();
                 line(out, Map.of("event", "SUBMISSION", "submissionKey", key));
+                durable = true;
                 run = runtime.accept();
                 line(out, Map.of("event", "ACCEPTED", "runId", run));
             }
@@ -173,7 +177,7 @@ public final class CdsExportCli {
             boolean work =
                     arguments.operation().equals("export")
                             || arguments.operation().equals("resume");
-            if (work && !arguments.detach()) state = foreground(runtime, run, out, err);
+            if (work && !arguments.detach()) state = foreground(runtime, run, out, err, retired);
             else state = runtime.status(run);
             line(out, summary(state, "RESULT"));
             if (out.checkError() || err.checkError()) {
@@ -216,16 +220,29 @@ public final class CdsExportCli {
             err.println("CDS_EXPORT_REVIEW: " + review.reason().code());
             outcome = 4;
         } catch (CdsExportControlOutcomeUnknownException unknown) {
+            // The documented exit table gives 2 to an unconfirmed result; 4 means the job itself
+            // reached review or failure, which is not known here (review W3).
             err.println("CDS_EXPORT_UNCERTAIN: reconcile the original durable job before retrying");
-            outcome = 4;
+            outcome = 2;
         } catch (Exception failed) {
             if (Thread.currentThread().isInterrupted()) {
                 err.println(
                         "CDS_EXPORT_INTERRUPTED: waiting stopped; durable cancellation was not requested");
                 outcome = 130;
             } else {
-                err.println(
-                        "CDS_EXPORT_RUNTIME: operation did not establish a clean completion; reconcile the original durable job");
+                // Name the safe code the failure carries, and do not send an operator to reconcile
+                // a job this command never submitted (review W1).
+                String code = safeCode(failed);
+                if (runtime == null || !durable)
+                    err.println(
+                            "CDS_EXPORT_NOT_STARTED: "
+                                    + (code == null ? "the export could not start" : code)
+                                    + "; this command did not submit or change an export job");
+                else
+                    err.println(
+                            "CDS_EXPORT_RUNTIME: "
+                                    + (code == null ? "" : code + ": ")
+                                    + "operation did not establish a clean completion; reconcile the original durable job");
                 err.println(
                         "CDS_TECHNICAL: "
                                 + new String(
@@ -234,16 +251,30 @@ public final class CdsExportCli {
                 outcome = 2;
             }
         } finally {
-            if (runtime != null)
-                try {
-                    runtime.close();
-                } catch (RuntimeException failed) {
-                    err.println(
-                            "CDS_EXPORT_CLEANUP: process resources did not retire cleanly; durable state remains authoritative");
-                    if (outcome == 0) outcome = 2;
-                }
+            try {
+                if (runtime != null)
+                    try {
+                        runtime.close();
+                    } catch (RuntimeException failed) {
+                        err.println(
+                                "CDS_EXPORT_CLEANUP: process resources did not retire cleanly; durable state remains authoritative");
+                        if (outcome == 0) outcome = 2;
+                    }
+            } finally {
+                retired.countDown();
+            }
         }
         return outcome;
+    }
+
+    /** The first fixed CARLOS safe code in the failure chain, never free text or a path. */
+    static String safeCode(Throwable failure) {
+        int depth = 0;
+        for (Throwable cursor = failure; cursor != null && depth < 16; cursor = cursor.getCause(), depth++) {
+            String message = cursor.getMessage();
+            if (message != null && message.matches("CDS_[A-Z0-9_]{1,90}")) return message;
+        }
+        return null;
     }
 
     /** Progress must retire before its owning Spring runtime closes, including interrupted waits. */
@@ -293,7 +324,11 @@ public final class CdsExportCli {
     }
 
     private static CdsExportJobDto foreground(
-            CdsExportCliRuntime runtime, String run, PrintStream out, PrintStream err)
+            CdsExportCliRuntime runtime,
+            String run,
+            PrintStream out,
+            PrintStream err,
+            java.util.concurrent.CountDownLatch retired)
             throws Exception {
         Thread owner = Thread.currentThread();
         Thread hook =
@@ -301,6 +336,14 @@ public final class CdsExportCli {
                         () -> {
                             runtime.interruptWait();
                             owner.interrupt();
+                            // The JVM halts when the hooks finish. Wait (bounded) until the owner
+                            // has released its lease and closed the runtime, so a stopped
+                            // foreground export can be resumed at once (review W4).
+                            try {
+                                retired.await(30, TimeUnit.SECONDS);
+                            } catch (InterruptedException halted) {
+                                Thread.currentThread().interrupt();
+                            }
                         },
                         "cds-export-wait-stop");
         Runtime.getRuntime().addShutdownHook(hook);

@@ -260,6 +260,44 @@ class CdsExportCliUnitTest {
     }
 
     @Test
+    void shouldNameTheSafeCode_andNeverSendToReconcileAJobThatWasNotSubmitted() throws Exception {
+        int status =
+                CdsExportCli.runAuthorized(
+                        configuration,
+                        CdsExportCliArguments.parse(fresh()),
+                        delegation,
+                        out,
+                        err,
+                        (selected, args, proof) -> {
+                            throw new IllegalStateException("CDS_EXPORT_CLINICAL_ZONE_REQUIRED");
+                        });
+        assertThat(status).isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_NOT_STARTED: CDS_EXPORT_CLINICAL_ZONE_REQUIRED; this command did not"
+                                + " submit or change an export job")
+                .doesNotContain("reconcile the original durable job");
+        error.reset();
+        doThrow(new IllegalStateException("CDS_EXPORT_WORKER_BUSY")).when(runtime).resume(RUN);
+        assertThat(run(new String[] {"--operation", "resume", "--provider", "100", "--run", RUN}))
+                .isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains("CDS_EXPORT_RUNTIME: CDS_EXPORT_WORKER_BUSY: operation did not establish");
+    }
+
+    @Test
+    void shouldExitTwo_whenAControlOutcomeIsUnconfirmed() throws Exception {
+        doThrow(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportControlOutcomeUnknownException())
+                .when(runtime)
+                .cancel(RUN);
+        assertThat(run(new String[] {"--operation", "cancel", "--provider", "100", "--run", RUN}))
+                .isEqualTo(2);
+        assertThat(error.toString(StandardCharsets.UTF_8)).contains("CDS_EXPORT_UNCERTAIN");
+    }
+
+    @Test
     void shouldTreatAStatusExitAsObservation_only() throws Exception {
         assertThat(run(new String[] {"--operation", "status", "--provider", "100", "--run", RUN}))
                 .isZero();
