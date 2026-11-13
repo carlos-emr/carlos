@@ -250,7 +250,12 @@ public final class CdsExportAllergyFieldReconciler {
                         // "Severe" (restored from that residual) keeps its carrier.
                         choosePrepared.contains(Group.SEVERITY)
                                 ? old.nativeSeverity()
-                                : values.nativeSeverity());
+                                : values.nativeSeverity(),
+                        // An unchanged reaction keeps its carrier; a changed long one is held
+                        // above (the imported Notes would not say it).
+                        choosePrepared.contains(Group.REACTION)
+                                ? old.longReaction()
+                                : values.longReaction());
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);

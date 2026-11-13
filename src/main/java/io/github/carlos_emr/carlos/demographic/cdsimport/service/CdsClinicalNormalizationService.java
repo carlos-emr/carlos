@@ -246,13 +246,23 @@ public class CdsClinicalNormalizationService {
         // for it; a record asserting both is contradictory, never resolved by precedence.
         if (nativeState.nativeSeverity() != null && severity != null)
             throw new CdsClinicalException("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW", "Severity");
+        // A reaction longer than the standard element travels only in CARLOS.Allergy.Reaction.v1
+        // (its Notes repeat it for other receivers); the carrier restores it exactly, and a record
+        // asserting both a standard Reaction and the carrier is contradictory.
+        String reaction = text(record, "Reaction", 120);
+        if (nativeState.reaction() != null) {
+            if (reaction != null)
+                throw new CdsClinicalException(
+                        "CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW", "Reaction");
+            reaction = nativeState.reaction();
+        }
         return new CdsAllergyDto(
                 description,
                 property,
                 code,
                 codeSystem,
                 reactionType,
-                text(record, "Reaction", 120),
+                reaction,
                 severity,
                 text(record, "LifeStage", 1),
                 text(record, "Notes", 32768),

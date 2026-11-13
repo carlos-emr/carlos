@@ -38,7 +38,11 @@ public final class CdsExportAllergyRetainedAssembler {
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
                     CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
                     CdsNativeExtensionContract.ALLERGY_ATC,
-                    CdsNativeExtensionContract.ALLERGY_SEVERITY);
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                    CdsNativeExtensionContract.ALLERGY_REACTION);
+
+    /** Encoded reaction carrier bound: six characters per encoded character of text32K. */
+    private static final int REACTION_CARRIER_MAXIMUM = 6 * 32768 + 2;
 
     public CdsExportRetainedSectionWriter.Prepared prepare(
             int patient,
@@ -107,7 +111,7 @@ public final class CdsExportAllergyRetainedAssembler {
             var match = MARKER.matcher(entry.getKey());
             if (!match.matches()) continue;
             maximum = Math.max(maximum, Long.parseLong(match.group(1)));
-            String name = token(values, entry.getValue(), checkpoint);
+            String name = token(values, entry.getValue(), checkpoint, 128);
             if (name == null || !KNOWN.contains(name)) continue;
             String path = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
             if (existing.putIfAbsent(name, path) != null)
@@ -116,9 +120,16 @@ public final class CdsExportAllergyRetainedAssembler {
             var content = relative.get(path + "/Content[1]");
             if (type == null
                     || content == null
-                    || !markerType(name).equals(token(values, type, checkpoint)))
+                    || !markerType(name).equals(token(values, type, checkpoint, 128)))
                 review("CDS_EXPORT_ALLERGY_EXTENSION_TYPE_REQUIRES_REVIEW");
-            String prior = token(values, content, checkpoint);
+            String prior =
+                    token(
+                            values,
+                            content,
+                            checkpoint,
+                            name.equals(CdsNativeExtensionContract.ALLERGY_REACTION)
+                                    ? REACTION_CARRIER_MAXIMUM
+                                    : 128);
             if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED)) {
                 prior =
                         switch (prior == null ? "" : prior) {
@@ -254,6 +265,10 @@ public final class CdsExportAllergyRetainedAssembler {
         if (name.equals(CdsNativeExtensionContract.ALLERGY_ARCHIVED))
             return Boolean.toString(value.archived());
         if (name.equals(CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET)) return value.ageOfOnset();
+        if (name.equals(CdsNativeExtensionContract.ALLERGY_REACTION))
+            return value.longReaction() == null
+                    ? null
+                    : CdsNativeExtensionContract.encodeNarrative(value.longReaction());
         if (name.equals(CdsNativeExtensionContract.ALLERGY_ATC))
             return "ATC".equals(value.codeType()) && !standardAtc ? value.codeValue() : null;
         // A native "Severe" has no CDS Severity value; it travels only in its CARLOS carrier,
@@ -290,7 +305,8 @@ public final class CdsExportAllergyRetainedAssembler {
     private static String token(
             CdsExportRetainedSectionWriter.Values values,
             CdsExportRetainedFieldDto field,
-            Runnable checkpoint)
+            Runnable checkpoint,
+            int maximum)
             throws IOException {
         var result = new StringBuilder();
         boolean pending = false, overflow = false;
@@ -315,7 +331,7 @@ public final class CdsExportAllergyRetainedAssembler {
                         pending = false;
                     }
                     result.append(character);
-                    if (result.length() > 128) overflow = true;
+                    if (result.length() > maximum) overflow = true;
                 }
             }
         } finally {

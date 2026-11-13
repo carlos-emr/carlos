@@ -43,6 +43,15 @@ public final class CdsNativeExtensionContract {
      */
     public static final String ALLERGY_SEVERITY = "CARLOS.Allergy.Severity.v1";
 
+    /**
+     * The complete native reaction of an allergy longer than the standard Reaction element (120
+     * characters), as {@link #encodeNarrative}. The exporter then writes no Reaction and the same
+     * text, labelled, in the standard Notes for other receivers; a CARLOS importer restores this
+     * carrier as the native reaction. A record with both a standard Reaction and this carrier is
+     * contradictory and is refused.
+     */
+    public static final String ALLERGY_REACTION = "CARLOS.Allergy.Reaction.v1";
+
     /** Native severity codes carried only by {@link #ALLERGY_SEVERITY}. */
     public static final java.util.Map<String, String> ALLERGY_SEVERITY_VALUES =
             java.util.Map.of("3", "Severe");

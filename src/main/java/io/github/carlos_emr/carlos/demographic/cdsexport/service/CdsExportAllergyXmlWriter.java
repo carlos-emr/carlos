@@ -83,6 +83,12 @@ public final class CdsExportAllergyXmlWriter {
                     CdsNativeExtensionContract.STRING_TYPE,
                     CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES.get(
                             allergy.nativeSeverity()));
+        if (allergy.longReaction() != null)
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_REACTION,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    CdsNativeExtensionContract.encodeNarrative(allergy.longReaction()));
         xml.end();
         optional(xml, "OffendingAgentDescription", allergy.description());
         optional(xml, "PropertyOfOffendingAgent", allergy.property());
@@ -128,6 +134,9 @@ public final class CdsExportAllergyXmlWriter {
         for (int i = 0; i < values.length; i++)
             if (values[i] != null && !CdsExportNativeFieldAssessments.legal(values[i], limits[i]))
                 throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+        if (allergy.longReaction() != null
+                && !CdsExportNativeFieldAssessments.legal(allergy.longReaction(), 32768))
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
         String code = allergy.codeValue();
         if (code != null
                 && (code.isEmpty()

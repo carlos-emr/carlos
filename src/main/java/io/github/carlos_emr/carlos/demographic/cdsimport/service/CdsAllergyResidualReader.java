@@ -47,7 +47,14 @@ final class CdsAllergyResidualReader {
                     CdsNativeExtensionContract.ALLERGY_AGE_OF_ONSET,
                     CdsNativeExtensionContract.ALLERGY_ONSET_OF_REACTION,
                     CdsNativeExtensionContract.ALLERGY_ATC,
-                    CdsNativeExtensionContract.ALLERGY_SEVERITY);
+                    CdsNativeExtensionContract.ALLERGY_SEVERITY,
+                    CdsNativeExtensionContract.ALLERGY_REACTION);
+
+    /**
+     * The encoded reaction carrier's bound: each character of a text32K reaction is at most six
+     * encoded characters, plus the two quotes.
+     */
+    private static final int REACTION_CARRIER_MAXIMUM = 6 * 32768 + 2;
     private static final int MAXIMUM_NAME =
             KNOWN.stream().mapToInt(String::length).max().orElseThrow();
     private final CdsFieldParser fields;
@@ -56,12 +63,17 @@ final class CdsAllergyResidualReader {
         this.fields = Objects.requireNonNull(fields);
     }
 
+    /**
+     * @param reaction the complete native reaction from {@code CARLOS.Allergy.Reaction.v1}
+     *     (decoded), or null when the record carries none
+     */
     record NativeState(
             boolean archived,
             String ageOfOnset,
             String onsetOfReaction,
             String atc,
-            String nativeSeverity) {}
+            String nativeSeverity,
+            String reaction) {}
 
     NativeState read(CdsRecordDto record) throws IOException {
         if (!record.section().equals("AllergiesAndAdverseReactions"))
@@ -83,7 +95,8 @@ final class CdsAllergyResidualReader {
                     state.ageOfOnset,
                     state.onsetOfReaction,
                     state.atc,
-                    state.nativeSeverity);
+                    state.nativeSeverity,
+                    state.reaction);
         } catch (UncheckedIOException invalid) {
             throw invalid.getCause();
         }
@@ -98,6 +111,7 @@ final class CdsAllergyResidualReader {
         private String onsetOfReaction;
         private String atc;
         private String nativeSeverity;
+        private String reaction;
         private final Set<String> seen = new java.util.HashSet<>();
 
         private State(CdsRecordDto record) {
@@ -142,6 +156,18 @@ final class CdsAllergyResidualReader {
                             : CdsNativeExtensionContract.STRING_TYPE;
             if (!type.equals(token(values.get("DataType"), 7, archive)))
                 throw invalidValue(archive);
+            if (CdsNativeExtensionContract.ALLERGY_REACTION.equals(text)) {
+                // Exact text, JSON-encoded so token normalization of Content cannot alter it.
+                String encoded = token(values.get("Content"), REACTION_CARRIER_MAXIMUM, false);
+                try {
+                    reaction = CdsNativeExtensionContract.decodeNarrative(encoded);
+                } catch (IllegalArgumentException malformed) {
+                    throw invalidValue(false);
+                }
+                if (reaction.isEmpty()) throw invalidValue(false);
+                values.clear();
+                return;
+            }
             String value = token(values.get("Content"), 9, archive);
             if (archive) {
                 archived =

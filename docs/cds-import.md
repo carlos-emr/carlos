@@ -68,6 +68,7 @@ are added only after seal verification).
 | `CARLOS.Allergy.OnsetOfReaction.v1` | string | Allergies | Unknown, Immediate, Gradual or Slow, as the native onset code. |
 | `CARLOS.Allergy.Atc.v1` | string | Allergies | Native ATC class (`TYPECODE` 8); refused together with a standard `Code`. |
 | `CARLOS.Allergy.Severity.v1` | string | Allergies | `Severe` restores native severity 3; refused together with a standard `Severity`. |
+| `CARLOS.Allergy.Reaction.v1` | string (encoded) | Allergies | Exact native reaction longer than the standard `Reaction` (120 characters), JSON-encoded so token normalization cannot alter it; restored as the native reaction. Refused together with a standard `Reaction`, or when malformed or empty. The record's `Notes` repeat the text for other receivers and stay in the retained source. |
 | `CARLOS.Medication.Archived.v1` | boolean | Medications | Imported archived with warning `CDS_MEDICATION_VENDOR_ARCHIVE_CONTEXT`; clinical status/currentness stay independent. |
 | `CARLOS.History.Archived.v1` | boolean | CPP histories | Imported archived with warning `CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION`. |
 | `CARLOS.History.Narrative.v1` | string (encoded) | CPP histories | Exact native narrative when no standard description exists (PersonalHistory always; long items of the other sections). |

@@ -28,6 +28,8 @@ import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
@@ -342,7 +344,8 @@ class CdsExportAllergyMapperUnitTest {
                                             + "\n\nReaction:\n"
                                             + reaction
                                     : "Reaction:\n" + reaction);
-            assertThat(mapped.fields().get(key("reaction")).destination()).isEqualTo("Notes");
+            assertThat(mapped.fields().get(key("reaction")).destination())
+                    .isEqualTo("Notes;ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_REACTION);
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
                             List.of(allergy(fields)), mapped.fields(), 1000, () -> {});
@@ -356,6 +359,138 @@ class CdsExportAllergyMapperUnitTest {
                             java.nio.charset.StandardCharsets.UTF_8);
             assertThat(xml).doesNotContain("Reaction>").contains("x".repeat(140));
         }
+    }
+
+    @Test
+    void shouldRoundTripALongReactionExactly_throughTheCarrierAndTheCarlosImporter()
+            throws Exception {
+        // A22 follow-up: CARLOS.Allergy.Reaction.v1 carries the exact text, the Notes repeat it
+        // for other receivers, and the CARLOS importer restores it as the native reaction.
+        String reaction = "Hives  and wheeze within minutes;\r\n\t" + "x".repeat(140) + " ";
+        var fields = baseline();
+        fields.put("reaction", reaction);
+        fields.put("archived", "0");
+        var mapped = mapper.map(27, allergy(fields), List.of());
+        assertThat(mapped.value().longReaction()).isEqualTo(reaction);
+        var received = receive(mapped.value());
+        assertThat(received.reaction()).isEqualTo(reaction);
+        assertThat(received.notes()).isEqualTo("Reaction:\n" + reaction);
+        // Re-exporting the imported allergy writes the same carrier again, not a Reaction.
+        var again = new CdsExportPreparedAllergyMapper().map(received);
+        assertThat(again.reaction()).isNull();
+        assertThat(again.longReaction()).isEqualTo(reaction);
+        CdsExportAllergyXmlWriter.validate(again);
+        // A record asserting both a standard Reaction and the carrier is refused.
+        var carrierOnly =
+                new CdsExportAllergyDto(
+                        "FAKE-CDS agent",
+                        "UK",
+                        null,
+                        null,
+                        null,
+                        new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null),
+                        null,
+                        null,
+                        null,
+                        new CdsExportDateDto(CdsExportDateDto.Precision.ABSENT, null),
+                        null,
+                        false,
+                        null,
+                        null,
+                        null,
+                        reaction);
+        assertThat(receive(carrierOnly).reaction()).isEqualTo(reaction);
+        // The carrier and a standard Reaction together are never written.
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportAllergyDto(
+                                        "FAKE-CDS agent",
+                                        "UK",
+                                        null,
+                                        null,
+                                        null,
+                                        new CdsExportDateDto(
+                                                CdsExportDateDto.Precision.ABSENT, null),
+                                        null,
+                                        null,
+                                        "Short",
+                                        new CdsExportDateDto(
+                                                CdsExportDateDto.Precision.ABSENT, null),
+                                        null,
+                                        false,
+                                        null,
+                                        null,
+                                        null,
+                                        reaction))
+                .hasMessage("CDS_EXPORT_ALLERGY_REACTION_INVALID");
+    }
+
+    /** Exports one allergy through the schema and reads it back with the CARLOS importer. */
+    private io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto receive(
+            CdsExportAllergyDto value) throws Exception {
+        var patient = new LinkedHashMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(column -> patient.put(column, null));
+        patient.putAll(
+                Map.of(
+                        "first_name", "Synthetic",
+                        "last_name", "Fixture",
+                        "year_of_birth", "1980",
+                        "month_of_birth", "01",
+                        "date_of_birth", "01",
+                        "patient_status", "AC",
+                        "sex", "U"));
+        var demographics =
+                new CdsExportDemographicMapper().map(new CdsExportDemographicRowDto(27, patient));
+        var sections =
+                List.of(
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        "a".repeat(64), CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                                writer ->
+                                        new CdsExportDemographicXmlWriter()
+                                                .write(demographics, writer)),
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        "a".repeat(64),
+                                        CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS,
+                                        "c".repeat(64)),
+                                writer -> new CdsExportAllergyXmlWriter().write(value, writer)));
+        var output = new ByteArrayOutputStream();
+        var selected =
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS);
+        new CdsExportXmlComposer()
+                .compose(
+                        output,
+                        "d".repeat(64),
+                        "a".repeat(64),
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        sections.iterator(),
+                        ignored -> {},
+                        1L << 20,
+                        () -> {});
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(output.toByteArray()),
+                        "27",
+                        selected,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+        var folder = Files.createTempDirectory(directory, "receive-");
+        var file = Files.write(folder.resolve("patient.xml"), output.toByteArray());
+        var records = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        file,
+                        folder.resolve("parsed"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        return new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(records.get(1));
     }
 
     @Test

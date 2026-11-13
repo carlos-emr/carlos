@@ -145,6 +145,52 @@ class CdsAllergyArchiveStateUnitTest {
     }
 
     @Test
+    void shouldRestoreTheExactLongReaction_fromTheCarlosReactionCarrier() throws Exception {
+        // A reaction longer than Reaction (120) travels only in CARLOS.Allergy.Reaction.v1. Inner
+        // runs of spaces and line breaks survive; Allergy.setReaction trims the edges, as it does
+        // for every reaction CARLOS saves, so a native reaction never has edge whitespace.
+        String reaction = "Hives  and wheeze;\r\n\t" + "x".repeat(140) + " end";
+        var dto =
+                normalization.allergy(
+                        parsed(
+                                combined(
+                                        element(
+                                                CdsNativeExtensionContract.ALLERGY_REACTION,
+                                                "string",
+                                                CdsNativeExtensionContract.encodeNarrative(
+                                                        reaction)))));
+        assertThat(dto.reaction()).isEqualTo(reaction);
+        var row =
+                new CdsAllergyPersister(
+                                mock(AllergyDao.class), mock(PartialDateDao.class), normalization)
+                        .candidate(27, dto);
+        assertThat(row.getReaction()).isEqualTo(reaction);
+    }
+
+    @Test
+    void shouldRefuseAMalformedDuplicateOrContradictedReactionCarrier_insteadOfGuessing()
+            throws Exception {
+        String carrier =
+                element(
+                        CdsNativeExtensionContract.ALLERGY_REACTION,
+                        "string",
+                        CdsNativeExtensionContract.encodeNarrative("x".repeat(130)));
+        for (String marker :
+                List.of(
+                        element(CdsNativeExtensionContract.ALLERGY_REACTION, "string", "raw text"),
+                        element(CdsNativeExtensionContract.ALLERGY_REACTION, "string", "\"\""),
+                        element(CdsNativeExtensionContract.ALLERGY_REACTION, "boolean", "\"x\""),
+                        carrier + carrier)) {
+            var record = parsed(combined(marker));
+            assertThatThrownBy(() -> normalization.allergy(record))
+                    .hasMessageContaining("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW");
+        }
+        var contradicted = parsed(combined(carrier), "<Reaction>Short</Reaction>");
+        assertThatThrownBy(() -> normalization.allergy(contradicted))
+                .hasMessageContaining("CDS_ALLERGY_NATIVE_FIELD_REQUIRES_REVIEW");
+    }
+
+    @Test
     void shouldLeaveUnmarkedAndUnrelatedResidualRecords_onTheirExistingImportPath()
             throws Exception {
         assertThat(normalization.allergy(parsed("")).archived()).isFalse();

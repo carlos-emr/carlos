@@ -75,8 +75,9 @@ public final class CdsExportAllergyMapper {
     /**
      * Leads a reaction longer than the standard Reaction element (120 characters) in Notes. The
      * Add Allergy page's Reaction box has no maximum length and the column is MEDIUMTEXT, so a long
-     * reaction is ordinary chart content: it is written in full in Notes (text32K) instead of
-     * being truncated or holding the patient.
+     * reaction is ordinary chart content: it is written in full in Notes (text32K) for every
+     * receiver and exactly in {@code CARLOS.Allergy.Reaction.v1}, which a CARLOS importer restores
+     * as the native reaction, instead of being truncated or holding the patient.
      */
     static final String LONG_REACTION_LABEL = "Reaction:\n";
 
@@ -131,7 +132,11 @@ public final class CdsExportAllergyMapper {
                 && rawReaction.codePointCount(0, rawReaction.length()) > 120
                 && CdsExportNativeFieldAssessments.legal(rawReaction, 32000)) {
             longReaction = rawReaction;
-            source.set("reaction", Outcome.MAPPED, "Notes", "COMPLETE_LONG_REACTION_IN_NOTES");
+            source.set(
+                    "reaction",
+                    Outcome.MAPPED,
+                    "Notes;ResidualInfo/" + CdsNativeExtensionContract.ALLERGY_REACTION,
+                    "COMPLETE_LONG_REACTION_IN_NOTES");
         } else reaction = source.text("reaction", "Reaction", 120);
         String property;
         String nonDrug = source.raw("nonDrug");
@@ -296,7 +301,8 @@ public final class CdsExportAllergyMapper {
                         Boolean.parseBoolean(archived),
                         age,
                         onset,
-                        nativeSeverity);
+                        nativeSeverity,
+                        longReaction);
         return new Candidate(output, decisions);
     }
 

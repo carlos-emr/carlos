@@ -42,7 +42,44 @@ public record CdsExportAllergyDto(
         boolean archived,
         String ageOfOnset,
         String onsetOfReaction,
-        String nativeSeverity) {
+        String nativeSeverity,
+        String longReaction) {
+    /** An allergy whose reaction fits the standard Reaction element. */
+    public CdsExportAllergyDto(
+            String description,
+            String property,
+            String codeType,
+            String codeValue,
+            String reactionType,
+            CdsExportDateDto start,
+            String lifeStage,
+            String severity,
+            String reaction,
+            CdsExportDateDto recorded,
+            String notes,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            String nativeSeverity) {
+        this(
+                description,
+                property,
+                codeType,
+                codeValue,
+                reactionType,
+                start,
+                lifeStage,
+                severity,
+                reaction,
+                recorded,
+                notes,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                nativeSeverity,
+                null);
+    }
+
     public CdsExportAllergyDto(
             String description,
             String property,
@@ -110,6 +147,9 @@ public record CdsExportAllergyDto(
     public CdsExportAllergyDto {
         Objects.requireNonNull(start);
         Objects.requireNonNull(recorded);
+        // A reaction too long for Reaction travels only in its carrier (and, as text, in Notes).
+        if (longReaction != null && (reaction != null || longReaction.isEmpty()))
+            throw new IllegalArgumentException("CDS_EXPORT_ALLERGY_REACTION_INVALID");
         if ((codeType == null) != (codeValue == null)
                 || codeType != null && (codeType.isEmpty() || codeValue.isEmpty())) {
             throw new IllegalArgumentException("CDS_EXPORT_ALLERGY_CODE_INCOMPLETE");

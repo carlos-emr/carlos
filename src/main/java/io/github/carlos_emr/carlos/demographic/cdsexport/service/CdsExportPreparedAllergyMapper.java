@@ -39,7 +39,7 @@ public final class CdsExportPreparedAllergyMapper {
                 dates.map(source.start(), false),
                 source.lifeStage(),
                 source.severity(),
-                source.reaction(),
+                longReaction(source) ? null : source.reaction(),
                 dates.map(source.recorded(), true),
                 source.notes(),
                 // The native state this import wrote: a source archive marker is restored only
@@ -47,6 +47,14 @@ public final class CdsExportPreparedAllergyMapper {
                 source.nativeArchived(),
                 source.ageOfOnset(),
                 source.onsetOfReaction(),
-                source.nativeSeverity());
+                source.nativeSeverity(),
+                // A reaction restored from CARLOS.Allergy.Reaction.v1 is longer than Reaction;
+                // the source carried it in that carrier, not in the standard element.
+                longReaction(source) ? source.reaction() : null);
+    }
+
+    private static boolean longReaction(CdsAllergyDto source) {
+        return source.reaction() != null
+                && source.reaction().codePointCount(0, source.reaction().length()) > 120;
     }
 }
