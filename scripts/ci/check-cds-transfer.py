@@ -2,10 +2,21 @@
 # Copyright (c) 2026 CARLOS Contributors. SPDX-License-Identifier: GPL-2.0-or-later
 """Run the complete reviewed CDS import/export suite against owned disposable test databases."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
 import subprocess
+import tempfile
+
+
+def native_tier():
+    """The native tier's report checker: one source of truth for complete evidence."""
+    path = Path(__file__).parent / "run-cds-native-tier.py"
+    spec = importlib.util.spec_from_file_location("run_cds_native_tier", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def main():
@@ -36,8 +47,30 @@ def main():
         if not path.is_file():
             parser.error(variable + " must identify a regular configuration file")
         command.append("-D" + property_name + "=" + str(path))
-    command.extend(["package", "-Dtest.forkCount=1", "-Dtest=" + ",".join(selectors)])
-    return subprocess.run(command, cwd=repo).returncode
+    # The native-file suites exercise real trusted ancestry under an owned document root.
+    document_root = os.environ.get("CDS_EXPORT_TEST_DOCUMENT_ROOT")
+    if not document_root:
+        parser.error("CDS_EXPORT_TEST_DOCUMENT_ROOT must identify an owned empty directory")
+    root = Path(document_root).resolve(strict=True)
+    if not root.is_dir() or any(root.iterdir()):
+        parser.error("CDS_EXPORT_TEST_DOCUMENT_ROOT must identify an owned empty directory")
+    reports = repo / "target" / "surefire-reports"
+    # Clear inherited tag filters: a groups/excludedGroups default must not quietly drop a
+    # MariaDB-gated suite from the evidence.
+    command.extend(["package", "-Dtest.forkCount=1", "-Dgroups=", "-DexcludedGroups=",
+                    "-Dcds.export.test.documentRoot=" + str(root),
+                    "-Dtest.reportsDirectory=" + str(reports),
+                    "-Dtest=" + ",".join(selectors)])
+    tested = subprocess.run(command, cwd=repo)
+    # Maven's exit code alone accepts skipped suites; a skipped, missing, rerun or empty suite
+    # is not full integration evidence, so every required report is checked.
+    with tempfile.TemporaryDirectory() as stripped:
+        total, incomplete = native_tier().collect_reports(selectors, reports, Path(stripped))
+    if tested.returncode or incomplete:
+        print("CDS transfer inventory incomplete: " + ", ".join(incomplete or ["maven failed"]))
+        return 1
+    print(f"CDS transfer inventory complete: {len(selectors)} suites, {total} tests, no skips.")
+    return 0
 
 
 if __name__ == "__main__":
