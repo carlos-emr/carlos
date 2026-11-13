@@ -43,11 +43,11 @@
     "GroupNoteLink": "REQUIRE_EMPTY",
     "HL7HandlerMSHMapping": "REFERENCE",
     "HRMCategory": "REFERENCE",
-    "HRMDocument": "REQUIRE_EMPTY",
-    "HRMDocumentComment": "REQUIRE_EMPTY",
-    "HRMDocumentSubClass": "REQUIRE_EMPTY",
+    "HRMDocument": "MAPPED_SOURCE",
+    "HRMDocumentComment": "MAPPED_SOURCE",
+    "HRMDocumentSubClass": "MAPPED_SOURCE",
     "HRMDocumentToDemographic": "MAPPED_SOURCE",
-    "HRMDocumentToProvider": "REQUIRE_EMPTY",
+    "HRMDocumentToProvider": "MAPPED_SOURCE",
     "HRMProviderConfidentialityStatement": "OPERATIONAL",
     "HRMSubClass": "REFERENCE",
     "HnrDataValidation": "OPERATIONAL",
@@ -687,7 +687,12 @@
       "workflow",
       "providerLabRouting_documents",
       "document_review",
-      "DocumentExtraReviewer"
+      "DocumentExtraReviewer",
+      "HRMDocument",
+      "HRMDocumentComment",
+      "HRMDocumentSubClass",
+      "HRMDocumentToProvider",
+      "hrm_report_files"
     ],
     "CareElements": [
       "measurements",
@@ -1425,12 +1430,13 @@
     "icd9": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
     "icd10": "Public code table. Only the rows matching a code of a selected patient's current Disease Registry entries or episodes are read, through the fixed CdsExportDiagnosisCodeReadSupport allowlist, into the logical diagnosis_code_reference capture (ProblemList scope); the description becomes the ProblemList standard code description. The table itself stays reference data.",
     "Episode": "Coded episodes, pregnancies included, are exported as ProblemList (ProblemList scope; read plan EPISODES): Current as Active, Complete as Resolved, start and end dates as OnsetDate and ResolutionDate, the description and notes in standard elements. Episodes saved as Deleted are accounted, not exported; any other status holds the patient for review.",
-    "HRMDocumentComment": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "HRMDocumentComment": "Comments on a selected patient's HRM reports travel whole in that report's Notes (source context), with the authors' public names; a deleted comment (deleted 1) is not shown in the chart and is accounted, not exported. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A report whose only links name charts that do not exist, or a row of a missing report, holds every patient.",
     "providerLabRouting": "Inbox routing of lab and document reports. A route of one of a selected patient's HL7 labs (patientLabRouting of the same lab number and type) is captured in the LaboratoryResults scope; a DOC route of one of the patient's documents (its ctl_document chart link) is captured in the Reports scope as providerLabRouting_documents. An acknowledgement (status A) by a real provider is exported as ResultReviewer or ReportReviewed; a comment travels whole in the native laboratory residual record or the report Notes; new, filed, removed and unclaimed routes are operational inbox workflow. A route linked to no patient (an unmatched lab, an unfiled incoming document) is in no chart: it is counted per job, never read. A route whose link is broken holds every patient.",
-    "HRMDocumentToProvider": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
-    "HRMDocumentSubClass": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
-    "HRMDocument": "Must be empty for a selected patient: rows reached through an HRMDocumentToDemographic link to the patient hold that patient until HRM reports are mapped. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A link to a chart that does not exist, or a missing parent report, holds every patient.",
+    "HRMDocumentToProvider": "Provider routes of a selected patient's HRM reports: a sign-off (signedOff 1) by a provider the public lookup names, with a sign-off time, is a ReportReviewed (date on the wire) and every sign-off travels whole in the report's Notes with its exact time; an unsigned route (0 or NULL) is inbox workflow; any other signedOff value holds the patient. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A report whose only links name charts that do not exist, or a row of a missing report, holds every patient.",
+    "HRMDocumentSubClass": "The accompanying subclasses CARLOS keeps for a selected patient's HRM reports travel whole in the report's Notes; the active one is the SubClass when the message states none, and they are the OBRContent of a report whose message file cannot be read. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A report whose only links name charts that do not exist, or a row of a missing report, holds every patient.",
+    "HRMDocument": "Every Hospital Report Manager report linked to a selected patient (an HRMDocumentToDemographic row of the patient, as the inbox scope links it) is exported as one CDS 5.2 Reports entry in the Reports scope (read plan HRM_REPORTS): the stored message file (hrm_report_files) is read as the report viewer reads it and gives Media, Format, the content (TextContent, or the decoded binary attached at FilePath), Class, SubClass, EventDateTime, ReceivedDateTime, SourceAuthorPhysician, SendingFacilityId, SendingFacilityReport, OBRContent, HRMResultStatus, MessageUniqueID and RecipientName; sourceFacility is SourceFacility; the rest of the row is the report's source context in Notes, except the duplicate-detection digests and the storage location (operational). A report whose file cannot be read (none recorded, missing, an unsupported name) is exported from these recorded details; a stored file that is not a readable HRM message is attached as stored. A message with more than one report holds the patient. An HRM report with no patient link at all is an unmatched inbox item in no chart: it holds no patient and is counted per job, never read. A report whose only links name charts that do not exist, or a row of a missing report, holds every patient.",
     "DocumentExtraReviewer": "Reviews of a selected patient's documents (their ctl_document chart link) are captured in the Reports scope and exported as ReportReviewed beside the document's first reviewer (document.reviewer), with the exact review time in the report Notes; reviews of a removed document are accounted as not shown in the chart. Reviews of an incoming document not yet filed are in no chart: counted per job, never read. A review whose document or chart link is broken holds every patient.",
-    "document_review": "Reviews of a selected patient's documents (their ctl_document chart link) are captured in the Reports scope and exported as ReportReviewed beside the document's first reviewer (document.reviewer), with the exact review time in the report Notes; reviews of a removed document are accounted as not shown in the chart. Reviews of an incoming document not yet filed are in no chart: counted per job, never read. A review whose document or chart link is broken holds every patient."
+    "document_review": "Reviews of a selected patient's documents (their ctl_document chart link) are captured in the Reports scope and exported as ReportReviewed beside the document's first reviewer (document.reviewer), with the exact review time in the report Notes; reviews of a removed document are accounted as not shown in the chart. Reviews of an incoming document not yet filed are in no chart: counted per job, never read. A review whose document or chart link is broken holds every patient.",
+    "HRMDocumentToDemographic": "A selected patient's HRM report links (by the indexed numeric patient key) are captured in the Reports scope: each link's report is exported (see HRMDocument) and the link travels in its Notes; a link to a report that no longer exists shows nothing in the chart and is accounted as such. A link naming a chart that does not exist belongs to no chart. A link whose patient or report number is not spelled as its canonical decimal number holds the patient."
   }
 }

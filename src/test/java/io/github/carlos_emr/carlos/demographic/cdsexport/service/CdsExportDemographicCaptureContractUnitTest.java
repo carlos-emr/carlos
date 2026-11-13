@@ -159,6 +159,18 @@ class CdsExportDemographicCaptureContractUnitTest {
                 assertThat(documents.columns()).containsAll(plan.columns());
                 continue;
             }
+            if (plan
+                    == io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport.Plan
+                            .HRM_REPORT_FILES) {
+                // The stored-message pointer CdsExportHospitalReportFileSourceReader pages: a
+                // projection of the verified HRM_REPORTS table, never a captured table itself.
+                var reports =
+                        io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport
+                                .Plan.HRM_REPORTS;
+                assertThat(plan.table()).isEqualTo(reports.table());
+                assertThat(reports.columns()).containsAll(plan.columns());
+                continue;
+            }
             var columns =
                     new java.util.ArrayList<
                             io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column>();

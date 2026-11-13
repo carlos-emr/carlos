@@ -37,6 +37,11 @@ public final class CdsExportSourceSchemaValidator {
                     "clinical_source_catalogue",
                     CdsExportListedSourceReader.TABLE,
                     "HRMDocumentToDemographic",
+                    "HRMDocument",
+                    "HRMDocumentComment",
+                    "HRMDocumentSubClass",
+                    "HRMDocumentToProvider",
+                    CdsExportHospitalReportSources.FILES,
                     "native_document_files",
                     "document",
                     "ctl_document",
@@ -142,6 +147,8 @@ public final class CdsExportSourceSchemaValidator {
                 || !(scope.equals("clinical_source_catalogue")
                                 ? "TRUSTED_SOURCE_CATALOGUE"
                                 : scope.equals("native_document_files")
+                                                || scope.equals(
+                                                        CdsExportHospitalReportSources.FILES)
                                         ? "TRUSTED_NATIVE_DOCUMENT_STORAGE"
                                         : scope.equals(CdsExportListedSourceReader.TABLE)
                                         ? "TRUSTED_LISTED_SOURCE_COUNTS"

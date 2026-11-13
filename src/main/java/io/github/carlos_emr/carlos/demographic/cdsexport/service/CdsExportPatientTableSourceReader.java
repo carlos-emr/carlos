@@ -71,28 +71,66 @@ abstract class CdsExportPatientTableSourceReader implements CdsExportNativeSourc
             io.github.carlos_emr.carlos.commn.dao.CdsExportReviewerReadDao source,
             CdsExportPatientTableReadSupport.Plan plan) {
         java.util.Objects.requireNonNull(source);
+        return planned(source::schema, source::count, source::page, source::chunk, plan);
+    }
+
+    /** The hospital report DAO's projections for one fixed plan, as a patient table source. */
+    static CdsExportPatientTableReadDao hospitalReports(
+            io.github.carlos_emr.carlos.commn.dao.CdsExportHospitalReportReadDao source,
+            CdsExportPatientTableReadSupport.Plan plan) {
+        java.util.Objects.requireNonNull(source);
+        return planned(source::schema, source::count, source::page, source::chunk, plan);
+    }
+
+    /** One plan-keyed read operation of a DAO that owns several fixed plans. */
+    @FunctionalInterface
+    private interface PlanPage {
+        java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto> page(
+                CdsExportPatientTableReadSupport.Plan plan, int patient, Long after, int limit);
+    }
+
+    /** The value-chunk read of a DAO that owns several fixed plans. */
+    @FunctionalInterface
+    private interface PlanChunk {
+        byte[] chunk(
+                CdsExportPatientTableReadSupport.Plan plan,
+                int patient,
+                long row,
+                String column,
+                long offset,
+                int length);
+    }
+
+    private static CdsExportPatientTableReadDao planned(
+            java.util.function.Function<CdsExportPatientTableReadSupport.Plan, CdsExportTableSchemaDto>
+                    schema,
+            java.util.function.ToLongBiFunction<CdsExportPatientTableReadSupport.Plan, Integer>
+                    count,
+            PlanPage page,
+            PlanChunk chunk,
+            CdsExportPatientTableReadSupport.Plan plan) {
         java.util.Objects.requireNonNull(plan);
         return new CdsExportPatientTableReadDao() {
             @Override
             public CdsExportTableSchemaDto readCdsExportSourceSchema() {
-                return source.schema(plan);
+                return schema.apply(plan);
             }
 
             @Override
             public long countCdsExportRows(int patient) {
-                return source.count(plan, patient);
+                return count.applyAsLong(plan, patient);
             }
 
             @Override
             public java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportRawRowDto>
                     findCdsExportRowsAfter(int patient, Long afterId, int limit) {
-                return source.page(plan, patient, afterId, limit);
+                return page.page(plan, patient, afterId, limit);
             }
 
             @Override
             public byte[] readCdsExportValueChunk(
                     int patient, long rowId, String column, long offset, int length) {
-                return source.chunk(plan, patient, rowId, column, offset, length);
+                return chunk.chunk(plan, patient, rowId, column, offset, length);
             }
         };
     }

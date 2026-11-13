@@ -21,50 +21,30 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
-import io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportHospitalReportReadDao;
+import io.github.carlos_emr.carlos.commn.dao.CdsExportPatientTableReadSupport;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
-import io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao;
-import java.util.Objects;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
-/** A report-selected chart cannot silently omit hospital reports, including dangling legacy links. */
+/**
+ * The patient's Hospital Report Manager report links ({@code HRMDocumentToDemographic}), read by
+ * the indexed numeric patient key, so a dangling link (its report no longer exists) and a legacy
+ * patient spelling are captured instead of hidden by an inner join. The HRM report mapper
+ * accounts for every link: it exports the report a link names, accounts a dangling link as
+ * showing nothing in the chart, and holds the patient for a link it cannot attribute exactly.
+ */
 @Service
-public class CdsExportHospitalReportScopeSourceReader implements CdsExportNativeSourceReader {
-    private final HRMDocumentToDemographicDao source;
-
-    public CdsExportHospitalReportScopeSourceReader(HRMDocumentToDemographicDao source) {
-        this.source = Objects.requireNonNull(source);
+public class CdsExportHospitalReportScopeSourceReader extends CdsExportPatientTableSourceReader {
+    public CdsExportHospitalReportScopeSourceReader(CdsExportHospitalReportReadDao source) {
+        super(
+                hospitalReports(source, CdsExportPatientTableReadSupport.Plan.HRM_REPORT_LINKS),
+                CdsExportPatientTableReadSupport.Plan.HRM_REPORT_LINKS,
+                Set.of(CdsCategory.REPORTS));
     }
 
     @Override
-    public String table() {
-        return "HRMDocumentToDemographic";
-    }
-
-    @Override
-    public Set<String> columns() {
-        return Set.of("cds_patient_key", "demographicNo", "hrmDocumentId", "id", "timeAssigned");
-    }
-
-    @Override
-    public Set<CdsCategory> categories() {
-        return Set.of(CdsCategory.REPORTS);
-    }
-
-    @Override
-    public CdsExportTableSchemaDto schema() {
-        return source.readCdsExportSourceSchema();
-    }
-
-    @Override
-    public long count(int patient) {
-        source.requireCdsExportAbsent(patient);
-        return 0;
-    }
-
-    @Override
-    public void capture(int patient, CdsExportNativeCaptureComposer.Writer output) {
-        source.requireCdsExportAbsent(patient);
+    public Set<String> requiredTables() {
+        return CdsExportHospitalReportSources.REQUIRED;
     }
 }

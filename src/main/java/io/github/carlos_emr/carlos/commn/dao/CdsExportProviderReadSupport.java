@@ -194,6 +194,23 @@ public final class CdsExportProviderReadSupport {
                             + " w.provider_no=d.provider_no and w.lab_no"
                             + documents
                             + ")");
+            // Every provider an HRM report of the patient was routed to or signed off by, and
+            // every author of a comment on one (Plan.HRM_REPORT_ROUTES, HRM_REPORT_COMMENTS).
+            String hospitalReports =
+                    " in (select h.id from HRMDocument h join HRMDocumentToDemographic l on"
+                            + " h.id=CAST(l.hrmDocumentId AS DECIMAL(65,0)) where"
+                            + " l.cds_patient_key=:patient)";
+            selected.add(
+                    "exists (select 1 from HRMDocumentToProvider r where"
+                            + " r.providerNo=d.provider_no and CAST(r.hrmDocumentId AS"
+                            + " DECIMAL(65,0))"
+                            + hospitalReports
+                            + ")");
+            selected.add(
+                    "exists (select 1 from HRMDocumentComment r where"
+                            + " r.providerNo=d.provider_no and r.hrmDocumentId"
+                            + hospitalReports
+                            + ")");
         }
         // Every provider an HL7 report of the patient was routed to, whatever the route's status
         // (Plan.LABORATORY_REVIEWERS); the laboratory mapper exports only acknowledgements.

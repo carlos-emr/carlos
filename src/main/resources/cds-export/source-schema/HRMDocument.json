@@ -1,0 +1,209 @@
+{
+  "table": "HRMDocument",
+  "engine": "InnoDB",
+  "columns": [
+    {
+      "name": "className",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "description",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "dob",
+      "type": "varchar(10)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "formattedName",
+      "type": "varchar(100)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "gender",
+      "type": "varchar(1)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "hcn",
+      "type": "varchar(20)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "hrmCategoryId",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "id",
+      "type": "int(11)",
+      "nullable": "NO",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "numDuplicatesReceived",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "parentReport",
+      "type": "int(11)",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "recipientId",
+      "type": "varchar(15)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "recipientName",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "recipientProviderNo",
+      "type": "varchar(25)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportDate",
+      "type": "datetime",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "reportFile",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportHash",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportLessDemographicInfoHash",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportLessTransactionInfoHash",
+      "type": "varchar(64)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportStatus",
+      "type": "varchar(10)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "reportType",
+      "type": "varchar(50)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "sourceFacility",
+      "type": "varchar(120)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "sourceFacilityReportNo",
+      "type": "varchar(100)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "subClassName",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    },
+    {
+      "name": "timeReceived",
+      "type": "datetime",
+      "nullable": "YES",
+      "charset": null,
+      "collation": null,
+      "expression": null
+    },
+    {
+      "name": "unmatchedProviders",
+      "type": "varchar(255)",
+      "nullable": "YES",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_general_ci",
+      "expression": null
+    }
+  ],
+  "primaryKeyColumns": [
+    "id"
+  ]
+}

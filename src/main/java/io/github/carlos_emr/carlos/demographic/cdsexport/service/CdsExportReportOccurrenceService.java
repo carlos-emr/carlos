@@ -64,15 +64,30 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
     private final CdsExportStagingFactory stores;
     private final CdsExportCapturedTextRowsReader rows;
     private final CdsExportDataSummaryOccurrenceService dataSummaries;
+    private final CdsExportHospitalReportOccurrenceService hospitalReports;
 
-    /** Without data summaries: a capture that holds data-summary tables is refused. */
+    /**
+     * Without data summaries or HRM reports: a capture that holds data-summary or HRM tables is
+     * refused.
+     */
     public CdsExportReportOccurrenceService(
             CdsExportRetainedValuesService values,
             CdsExportRetainedReceiptVerificationService verification,
             CdsExportNativeRowReceiptReader witnesses,
             CdsExportNativeCaptureService captures,
             CdsExportStagingFactory stores) {
-        this(values, verification, witnesses, captures, stores, null);
+        this(values, verification, witnesses, captures, stores, null, null);
+    }
+
+    /** Without HRM reports: a capture that holds the HRM tables is refused. */
+    public CdsExportReportOccurrenceService(
+            CdsExportRetainedValuesService values,
+            CdsExportRetainedReceiptVerificationService verification,
+            CdsExportNativeRowReceiptReader witnesses,
+            CdsExportNativeCaptureService captures,
+            CdsExportStagingFactory stores,
+            CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this(values, verification, witnesses, captures, stores, dataSummaries, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -82,8 +97,10 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             CdsExportNativeRowReceiptReader witnesses,
             CdsExportNativeCaptureService captures,
             CdsExportStagingFactory stores,
-            CdsExportDataSummaryOccurrenceService dataSummaries) {
+            CdsExportDataSummaryOccurrenceService dataSummaries,
+            CdsExportHospitalReportOccurrenceService hospitalReports) {
         this.dataSummaries = dataSummaries;
+        this.hospitalReports = hospitalReports;
         this.values = Objects.requireNonNull(values);
         this.verification = Objects.requireNonNull(verification);
         this.witnesses = Objects.requireNonNull(witnesses);
@@ -111,9 +128,11 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
             CdsExportClinicalOccurrenceService.Receipts output)
             throws IOException {
         var result = new CdsExportClinicalOccurrenceService.Result[1];
-        long[] summaries = {0};
-        if (CdsExportDataSummaryOccurrenceService.captured(requiredTables) && dataSummaries == null)
-            invalid();
+        // HRM reports and data-summary records, each a native-only occurrence.
+        long[] appended = {0};
+        if (CdsExportDataSummaryOccurrenceService.captured(requiredTables) && dataSummaries == null
+                || CdsExportHospitalReportOccurrenceService.captured(requiredTables)
+                        && hospitalReports == null) invalid();
         xml.source(
                 emitter -> {
                     result[0] =
@@ -128,10 +147,24 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                                     control,
                                     emitter,
                                     output);
+                    // HRM reports: after the native and imported documents, in the same Reports
+                    // source scope.
+                    if (hospitalReports != null)
+                        appended[0] =
+                                hospitalReports.append(
+                                        lease,
+                                        patient,
+                                        patientKey,
+                                        requiredTables,
+                                        source,
+                                        bounds,
+                                        control,
+                                        emitter,
+                                        output);
                     // Data-summary records (registration point): after the native and imported
-                    // documents, in the same Reports source scope.
+                    // documents and the HRM reports, in the same Reports source scope.
                     if (dataSummaries != null)
-                        summaries[0] =
+                        appended[0] +=
                                 dataSummaries.append(
                                         lease,
                                         patient,
@@ -147,9 +180,9 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
         return new CdsExportClinicalOccurrenceService.Result(
                 documents.sourceManifestSha256(),
                 documents.category(),
-                Math.addExact(documents.nativeRows(), summaries[0]),
+                Math.addExact(documents.nativeRows(), appended[0]),
                 documents.importedRows(),
-                Math.addExact(documents.nativeOnlyRows(), summaries[0]),
+                Math.addExact(documents.nativeOnlyRows(), appended[0]),
                 documents.retainedSourceFields());
     }
 
@@ -262,7 +295,7 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         lease.document().storage(),
                         control::checkpoint);
         var attachments = new ArrayList<CdsExportStagedFileDto>();
-        var captured = new CapturedValues(store, source.capture().values());
+        var captured = new CdsExportCapturedValues(store, source.capture().values());
         boolean complete = false;
         Throwable primary = null;
         long[] totals = {0, 0, 0};
@@ -832,51 +865,6 @@ public class CdsExportReportOccurrenceService implements CdsExportCategoryOccurr
                         else throw cleanup;
                     }
             }
-        }
-    }
-
-    /**
-     * The patient's captured values member, authenticated once for all of its attachments
-     * (review R2). Reopening the member for each attachment decrypted it from byte 0 to the
-     * attachment's offset and then drained it to its end, so N attachments cost N complete
-     * passes over everything captured for the patient. Opening this scope verifies every chunk
-     * of the member once and pins its descriptor; each attachment then decrypts only the
-     * chunks of its own range, each under its own authentication tag and chunk index, and its
-     * SHA-256 is checked by both the range and the enclosing stream. Closing verifies the
-     * whole member again, terminator and length included, before the attachments are accepted.
-     */
-    private static final class CapturedValues {
-        private final CdsExportStagingService store;
-        private final CdsExportStagedFileDto member;
-        private CdsExportStagingService.VerifiedRanges ranges;
-        private boolean closed;
-
-        CapturedValues(CdsExportStagingService store, CdsExportStagedFileDto member) {
-            this.store = Objects.requireNonNull(store);
-            this.member = Objects.requireNonNull(member);
-        }
-
-        InputStream open(
-                CdsExportCapturedFieldDto field,
-                CdsExportAuthenticatedRangeInputStream.Checkpoint checkpoint,
-                Runnable authorize)
-                throws IOException {
-            if (closed || field.kind() != CdsExportCapturedFieldDto.Kind.BINARY) invalid();
-            if (ranges == null) ranges = store.verifiedRanges(member);
-            return new CdsExportAuthenticatedRangeInputStream(
-                    ranges.open(field.offset(), field.bytes(), field.sha256()),
-                    0,
-                    field.bytes(),
-                    field.sha256(),
-                    checkpoint,
-                    authorize);
-        }
-
-        void close() throws IOException {
-            closed = true;
-            var open = ranges;
-            ranges = null;
-            if (open != null) open.close();
         }
     }
 

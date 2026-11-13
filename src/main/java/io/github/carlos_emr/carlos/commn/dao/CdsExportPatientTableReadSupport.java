@@ -51,6 +51,78 @@ public final class CdsExportPatientTableReadSupport {
                 "id",
                 "demographicNo",
                 List.of("cds_patient_key", "demographicNo", "hrmDocumentId", "id", "timeAssigned")),
+        /**
+         * Hospital Report Manager reports linked to the patient: every report an
+         * {@code HRMDocumentToDemographic} row of the patient names, exactly as the inbox scope
+         * calls such a report linked ({@code CdsExportIndirectPatientScopeReadSupport.owned}).
+         * A report linked to two charts belongs to both.
+         */
+        HRM_REPORTS(
+                "HRMDocument",
+                "id",
+                null,
+                List.of(
+                        "className",
+                        "description",
+                        "dob",
+                        "formattedName",
+                        "gender",
+                        "hcn",
+                        "hrmCategoryId",
+                        "id",
+                        "numDuplicatesReceived",
+                        "parentReport",
+                        "recipientId",
+                        "recipientName",
+                        "recipientProviderNo",
+                        "reportDate",
+                        "reportFile",
+                        "reportHash",
+                        "reportLessDemographicInfoHash",
+                        "reportLessTransactionInfoHash",
+                        "reportStatus",
+                        "reportType",
+                        "sourceFacility",
+                        "sourceFacilityReportNo",
+                        "subClassName",
+                        "timeReceived",
+                        "unmatchedProviders")),
+        /** The stored message file of each of those reports, which the file capture opens. */
+        HRM_REPORT_FILES("HRMDocument", "id", null, List.of("id", "reportFile")),
+        /** Comments written on the patient's HRM reports, deleted ones included. */
+        HRM_REPORT_COMMENTS(
+                "HRMDocumentComment",
+                "id",
+                null,
+                List.of("comment", "commentTime", "deleted", "hrmDocumentId", "id", "providerNo")),
+        /** The accompanying subclasses CARLOS copied from each report's OBR content. */
+        HRM_REPORT_SUBCLASSES(
+                "HRMDocumentSubClass",
+                "id",
+                null,
+                List.of(
+                        "hrmDocumentId",
+                        "id",
+                        "isActive",
+                        "sendingFacilityId",
+                        "subClass",
+                        "subClassDateTime",
+                        "subClassDescription",
+                        "subClassMnemonic")),
+        /** The providers each report was routed to, with their sign-offs. */
+        HRM_REPORT_ROUTES(
+                "HRMDocumentToProvider",
+                "id",
+                null,
+                List.of(
+                        "filed",
+                        "hrmDocumentId",
+                        "id",
+                        "mrpDemographicNo",
+                        "providerNo",
+                        "signedOff",
+                        "signedOffTimestamp",
+                        "viewed")),
         DOCUMENTS(
                 "document",
                 "document_no",
@@ -1090,8 +1162,29 @@ public final class CdsExportPatientTableReadSupport {
                 "(select count(*) from `measurementsExt` l where l.`measurement_id`=%s and"
                         + " l.`keyval`='lab_no' and CAST(l.`keyval` AS BINARY)='lab_no')=0";
 
-        private String patientPredicate() {
+        /**
+         * The patient's HRM reports, as the inbox scope links them: the report id equals the
+         * numeric value of a link's VARCHAR {@code hrmDocumentId} (the same CAST the scope
+         * uses) and the link's indexed numeric patient key is the patient. The report must
+         * exist, so a child of a missing report is never read.
+         */
+        private static final String HRM_PATIENT_REPORTS =
+                "select h.`id` from `HRMDocument` h join `HRMDocumentToDemographic` l on"
+                        + " h.`id`=CAST(l.`hrmDocumentId` AS DECIMAL(65,0)) where"
+                        + " l.`cds_patient_key`=:patient";
+
+        String patientPredicate() {
             if (this == HRM_REPORT_LINKS) return "d.`cds_patient_key`=:patient";
+            // The patient key index drives the semi-join; a report linked twice is read once.
+            if (this == HRM_REPORTS || this == HRM_REPORT_FILES)
+                return "d.`id` in (select CAST(l.`hrmDocumentId` AS DECIMAL(65,0)) from"
+                        + " `HRMDocumentToDemographic` l where l.`cds_patient_key`=:patient)";
+            if (this == HRM_REPORT_COMMENTS || this == HRM_REPORT_SUBCLASSES)
+                return "d.`hrmDocumentId` in (" + HRM_PATIENT_REPORTS + ")";
+            // HRMDocumentToProvider.hrmDocumentId is VARCHAR, compared numerically as the
+            // inbox scope compares it.
+            if (this == HRM_REPORT_ROUTES)
+                return "CAST(d.`hrmDocumentId` AS DECIMAL(65,0)) in (" + HRM_PATIENT_REPORTS + ")";
             if (this == DOCUMENT_LINKS)
                 return "d.`module`='demographic' and d.`module_id`=:patient";
             if (this == DOCUMENTS)

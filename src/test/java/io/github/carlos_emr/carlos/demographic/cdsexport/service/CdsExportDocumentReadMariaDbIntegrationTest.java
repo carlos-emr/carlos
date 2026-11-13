@@ -60,8 +60,6 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
     private DocumentDao documents;
     private CtlDocumentDao links;
     private CdsExportSourceCatalogueDao catalogue;
-    private io.github.carlos_emr.carlos.hospitalReportManager.dao.HRMDocumentToDemographicDao
-            hospitalReports;
     private final int patient =
             560_000_000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(9_000_000);
     private final String marker = "OwnedReport" + patient;
@@ -122,13 +120,6 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                 org.springframework.cache.support.NoOpCacheManager::new);
         context.register(
                 CdsExportSourceCatalogueDao.class,
-                io.github
-                        .carlos_emr
-                        .carlos
-                        .hospitalReportManager
-                        .dao
-                        .HRMDocumentToDemographicDao
-                        .class,
                 DocumentDaoImpl.class,
                 CtlDocumentDaoImpl.class,
                 CdsExportDataSummaryReadDao.class,
@@ -142,15 +133,6 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                 io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineTestKeys.keys()));
         context.refresh();
         catalogue = context.getBean(CdsExportSourceCatalogueDao.class);
-        hospitalReports =
-                context.getBean(
-                        io.github
-                                .carlos_emr
-                                .carlos
-                                .hospitalReportManager
-                                .dao
-                                .HRMDocumentToDemographicDao
-                                .class);
         documents = context.getBean(DocumentDao.class);
         links = context.getBean(CtlDocumentDao.class);
         read = new TransactionTemplate(context.getBean(PlatformTransactionManager.class));
@@ -713,163 +695,6 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                     patient,
                     marker);
         }
-    }
-
-    private void hospitalReportLink(String owner) {
-        sql.update(
-                "insert into HRMDocumentToDemographic(id,demographicNo,hrmDocumentId,timeAssigned)"
-                        + " values(?,?,?,CURRENT_TIMESTAMP)",
-                patient,
-                owner,
-                Integer.toString(patient + 500));
-    }
-
-    @Test
-    void shouldVerifyThePhysicalHospitalReportLinkContract_andRecordExactAbsence() {
-        read.executeWithoutResult(
-                status -> {
-                    var reader = new CdsExportHospitalReportScopeSourceReader(hospitalReports);
-                    assertThatCode(
-                                    () ->
-                                            new CdsExportSourceSchemaValidator()
-                                                    .verify(reader.schema(), reader.columns()))
-                            .doesNotThrowAnyException();
-                    assertThat(reader.count(patient)).isZero();
-                    reader.capture(patient, null);
-                });
-        assertThatThrownBy(() -> hospitalReports.requireCdsExportAbsent(patient))
-                .isInstanceOf(
-                        org.springframework.transaction.IllegalTransactionStateException.class);
-    }
-
-    @Test
-    void shouldRefuseDanglingHospitalReports_beforeTheyCanAppearAsAnEmptyDocumentDomain() {
-        hospitalReportLink(Integer.toString(patient));
-        var reader = new CdsExportHospitalReportScopeSourceReader(hospitalReports);
-        assertThatThrownBy(() -> read.execute(status -> reader.count(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        assertThatThrownBy(() -> read.executeWithoutResult(status -> reader.capture(patient, null)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-    }
-
-    @Test
-    void
-            shouldConservativelyRefuseLegacyNumericPatientAliases_withoutLoadingHospitalReportContent() {
-        hospitalReportLink("0" + patient);
-        for (String alias :
-                List.of(
-                        "0" + patient,
-                        "+" + patient,
-                        patient + "suffix",
-                        " " + patient,
-                        "\t" + patient,
-                        "\r\n+0" + patient + "x",
-                        patient + ".9",
-                        patient + "e2")) {
-            sql.update(
-                    "update HRMDocumentToDemographic set demographicNo=? where id=? and"
-                            + " hrmDocumentId=?",
-                    alias,
-                    patient,
-                    Integer.toString(patient + 500));
-            assertThatThrownBy(
-                            () ->
-                                    read.executeWithoutResult(
-                                            status ->
-                                                    hospitalReports.requireCdsExportAbsent(
-                                                            patient)))
-                    .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-        }
-    }
-
-    @Test
-    void shouldPreserveLegacyHrmPositionalInsertsAndSelectStar_withTheIndexedDerivedKey() {
-        sql.update(
-                "INSERT INTO HRMDocumentToDemographic VALUES(?,?,?,CURRENT_TIMESTAMP)",
-                patient,
-                "0" + patient + "suffix",
-                Integer.toString(patient + 500));
-        var original =
-                sql.queryForMap("SELECT * FROM HRMDocumentToDemographic WHERE id=?", patient);
-        assertThat(original.keySet())
-                .containsExactlyInAnyOrder("id", "demographicNo", "hrmDocumentId", "timeAssigned");
-        assertThat(original.get("demographicNo")).isEqualTo("0" + patient + "suffix");
-        assertThat(
-                        sql.queryForObject(
-                                "SELECT cds_patient_key FROM HRMDocumentToDemographic WHERE id=?",
-                                java.math.BigDecimal.class,
-                                patient))
-                .isEqualByComparingTo(java.math.BigDecimal.valueOf(patient));
-        assertThatThrownBy(
-                        () ->
-                                read.executeWithoutResult(
-                                        status -> hospitalReports.requireCdsExportAbsent(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
-    }
-
-    @Test
-    void shouldUseTheNumericPatientIndex_forLargeUnrelatedHospitalReportLinkSets() {
-        String owner = "perf" + patient;
-        try {
-            var batch = new java.util.ArrayList<Object[]>();
-            for (int n = 0; n < 20_000; n++)
-                batch.add(
-                        new Object[] {patient + n, owner, Integer.toString(patient + 50_000 + n)});
-            sql.batchUpdate(
-                    "INSERT INTO"
-                        + " HRMDocumentToDemographic(id,hrmDocumentId,demographicNo,timeAssigned)"
-                        + " VALUES(?,?,?,CURRENT_TIMESTAMP)",
-                    batch);
-            var plan =
-                    sql.queryForMap(
-                            "EXPLAIN SELECT 1,1 FROM HRMDocumentToDemographic d WHERE"
-                                    + " d.cds_patient_key=? LIMIT 1",
-                            patient);
-            assertThat(plan.get("key")).isEqualTo("idx_cds_hrm_patient_key");
-            assertThat(plan.get("type")).isEqualTo("ref");
-            assertThat(Long.parseLong(plan.get("rows").toString())).isLessThanOrEqualTo(2);
-            for (int n = 0; n < 25; n++) {
-                int selected = patient + n;
-                read.executeWithoutResult(
-                        status -> hospitalReports.requireCdsExportAbsent(selected));
-            }
-        } finally {
-            sql.update(
-                    "DELETE FROM HRMDocumentToDemographic WHERE id>=? AND id<? AND hrmDocumentId=?",
-                    patient,
-                    patient + 20_000,
-                    owner);
-        }
-    }
-
-    @Test
-    void shouldKeepOtherPatientsHospitalReportsOutsideTheSelectedChart_forDocumentReadContract() {
-        hospitalReportLink(Integer.toString(patient + 1));
-        assertThatCode(
-                        () ->
-                                read.executeWithoutResult(
-                                        status -> hospitalReports.requireCdsExportAbsent(patient)))
-                .doesNotThrowAnyException();
-    }
-
-    @Test
-    void shouldRepeatHospitalReportAbsenceInsideTheSamePatientSnapshot_forDocumentReadContract() {
-        read.executeWithoutResult(
-                status -> {
-                    hospitalReports.requireCdsExportAbsent(patient);
-                    try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
-                        writer.submit(() -> hospitalReportLink(Integer.toString(patient)))
-                                .get(10, java.util.concurrent.TimeUnit.SECONDS);
-                    } catch (Exception failure) {
-                        throw new IllegalStateException(failure);
-                    }
-                    hospitalReports.requireCdsExportAbsent(patient);
-                });
-        assertThatThrownBy(
-                        () ->
-                                read.executeWithoutResult(
-                                        status -> hospitalReports.requireCdsExportAbsent(patient)))
-                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
     }
 
     @Test

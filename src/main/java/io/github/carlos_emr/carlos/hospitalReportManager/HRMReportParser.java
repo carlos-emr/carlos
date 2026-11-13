@@ -85,6 +85,84 @@ public class HRMReportParser {
     private HRMReportParser() {
     }
 
+    /**
+     * Reads one stored HRM message exactly as the report viewer does: validated against the
+     * OntarioMD HRM 1.1.2 schema and unmarshalled through the secure, entity-free JAXB source.
+     * A message that does not validate is refused; the viewer then shows nothing for it. The
+     * CDS export reads the patient's captured HRM files through this same method, so it exports
+     * a report exactly when the chart can show it.
+     *
+     * @param input the stored message bytes; not closed here
+     * @return the message root
+     * @throws IOException when the schema cannot be read
+     * @throws SAXException when the message is not well-formed or does not validate
+     * @throws ParserConfigurationException when the secure parser cannot be configured
+     * @throws JAXBException when the message cannot be unmarshalled
+     */
+    public static OmdCds unmarshal(java.io.InputStream input)
+            throws IOException, SAXException, ParserConfigurationException, JAXBException {
+        Unmarshaller u = Model.context().createUnmarshaller();
+        u.setSchema(Model.schema());
+        SAXSource secureSource = XmlUtils.createSecureJaxbSource(input);
+        return (OmdCds) u.unmarshal(secureSource);
+    }
+
+    /**
+     * Builds the HRM schema and JAXB context, so that a caller can tell a message that does not
+     * validate from an installation that cannot read any message.
+     *
+     * @throws IOException when the bundled schema or the JAXB context cannot be built
+     */
+    public static void requireMessageModel() throws IOException {
+        try {
+            Model.context();
+            Model.schema();
+        } catch (JAXBException | SAXException e) {
+            throw new IOException("HRM message model unavailable", e);
+        }
+    }
+
+    /**
+     * The compiled HRM schema and JAXB context, built once on first use: both are thread-safe
+     * and costly to build, while an Unmarshaller is not thread-safe and is created per message.
+     * A failure to build either is reported to the caller and retried on the next message.
+     */
+    private static final class Model {
+        private static volatile JAXBContext context;
+        private static volatile Schema schema;
+
+        static JAXBContext context() throws JAXBException {
+            JAXBContext current = context;
+            if (current != null) return current;
+            synchronized (Model.class) {
+                if (context == null) context = JAXBContext.newInstance(OmdCds.class);
+                return context;
+            }
+        }
+
+        static Schema schema() throws IOException, SAXException {
+            Schema current = schema;
+            if (current != null) return current;
+            synchronized (Model.class) {
+                if (schema == null) {
+                    SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
+                        XMLConstants.W3C_XML_SCHEMA_NS_URI);
+                    factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
+                        HRMReportParser.class,
+                        "/xsd/hrm/1.1.2/",
+                        HRM_SCHEMA_IMPORTS));
+                    ClassPathResource schemaResource = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
+                    try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
+                        Source schemaSource = new StreamSource(schemaInputStream);
+                        schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
+                        schema = factory.newSchema(schemaSource);
+                    }
+                }
+                return schema;
+            }
+        }
+    }
+
     public static HRMReport parseReport(LoggedInInfo loggedInInfo, Integer hrmDocumentId) {
         HRMDocumentDao hrmDocumentDao = SpringUtils.getBean(HRMDocumentDao.class);
         HRMDocument hrmDocument = hrmDocumentDao.find(hrmDocumentId);
@@ -145,28 +223,8 @@ public class HRMReportParser {
                     );
                 }
 
-                // Load and compile the XSD schema
-                SchemaFactory factory = XmlUtils.createSecureSchemaFactory(
-                    XMLConstants.W3C_XML_SCHEMA_NS_URI);
-                factory.setResourceResolver(XmlUtils.createClasspathSchemaResolver(
-                    HRMReportParser.class,
-                    "/xsd/hrm/1.1.2/",
-                    HRM_SCHEMA_IMPORTS));
-                ClassPathResource schemaResource = new ClassPathResource("/xsd/hrm/1.1.2/ontariomd_hrm.xsd");
-                Schema schema;
-                try (java.io.InputStream schemaInputStream = schemaResource.getInputStream()) {
-                    Source schemaSource = new StreamSource(schemaInputStream);
-                    schemaSource.setSystemId(schemaResource.getURL().toExternalForm());
-                    schema = factory.newSchema(schemaSource);
-                }
-
-                // Unmarshal into JAXB model
-                JAXBContext jc = JAXBContext.newInstance(OmdCds.class);
-                Unmarshaller u = jc.createUnmarshaller();
-                u.setSchema(schema);
                 try (FileInputStream fileInputStream = new FileInputStream(tmpXMLholder)) {
-                    SAXSource secureSource = XmlUtils.createSecureJaxbSource(fileInputStream);
-                    root = (OmdCds) u.unmarshal(secureSource);
+                    root = unmarshal(fileInputStream);
                 }
 
                 tmpXMLholder = null;

@@ -61,8 +61,12 @@ public class CdsExportPatientInventoryService {
     private final CdsExportLaboratoryOccurrenceService laboratories;
     private final CdsExportPrescriptionOccurrenceService prescriptions;
     private final CdsExportDataSummaryOccurrenceService dataSummaries;
+    private final CdsExportHospitalReportOccurrenceService hospitalReports;
 
-    /** Without data summaries: a capture that holds data-summary tables is refused. */
+    /**
+     * Without data summaries or HRM reports: a capture that holds data-summary or HRM tables is
+     * refused.
+     */
     public CdsExportPatientInventoryService(
             CdsExportRetainedIndexService indices,
             CdsExportNativeRowReceiptReader rows,
@@ -70,7 +74,19 @@ public class CdsExportPatientInventoryService {
             CdsExportCareOccurrenceService care,
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions) {
-        this(indices, rows, histories, care, laboratories, prescriptions, null);
+        this(indices, rows, histories, care, laboratories, prescriptions, null, null);
+    }
+
+    /** Without HRM reports: a capture that holds the HRM tables is refused. */
+    public CdsExportPatientInventoryService(
+            CdsExportRetainedIndexService indices,
+            CdsExportNativeRowReceiptReader rows,
+            CdsExportHistoryInventoryService histories,
+            CdsExportCareOccurrenceService care,
+            CdsExportLaboratoryOccurrenceService laboratories,
+            CdsExportPrescriptionOccurrenceService prescriptions,
+            CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this(indices, rows, histories, care, laboratories, prescriptions, dataSummaries, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -81,8 +97,10 @@ public class CdsExportPatientInventoryService {
             CdsExportCareOccurrenceService care,
             CdsExportLaboratoryOccurrenceService laboratories,
             CdsExportPrescriptionOccurrenceService prescriptions,
-            CdsExportDataSummaryOccurrenceService dataSummaries) {
+            CdsExportDataSummaryOccurrenceService dataSummaries,
+            CdsExportHospitalReportOccurrenceService hospitalReports) {
         this.dataSummaries = dataSummaries;
+        this.hospitalReports = hospitalReports;
         this.indices = Objects.requireNonNull(indices);
         this.rows = Objects.requireNonNull(rows);
         this.histories = Objects.requireNonNull(histories);
@@ -294,6 +312,16 @@ public class CdsExportPatientInventoryService {
                             "prescription",
                             prescription.prescription().fields().get("script_no")),
                     budget);
+        }
+        // HRM reports: one Reports occurrence per report linked to the patient.
+        if (CdsExportHospitalReportOccurrenceService.captured(tables)) {
+            if (hospitalReports == null
+                    || !lease.document().command().categories().contains(CdsCategory.REPORTS))
+                invalid();
+            for (var identity :
+                    hospitalReports.identities(
+                            lease, patient, patientKey, tables, source, bounds, control))
+                add(expected, identity, budget);
         }
         // Data-summary records (registration point): one Reports occurrence per planned record.
         if (CdsExportDataSummaryOccurrenceService.captured(tables)) {
