@@ -309,9 +309,13 @@
 		<property name="secobjprivilegeDao" ref="secobjprivilegeDao" />
 	</bean>
 
-	<bean id="drilldownQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.DrilldownQueryHandler" autowire="byName" />
-	<bean id="indicatorQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.IndicatorQueryHandler" autowire="byName" />
-	<bean id="exportQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.ExportQueryHandler" autowire="byName" />
+	<!-- Dashboard query handlers keep one request's parameters, query and rows in fields, so each
+	     lookup must get its own instance (#3947): as singletons, two users running an indicator,
+	     drilldown or export at once could see each other's patient rows. Callers fetch them with
+	     SpringUtils.getBean at the start of each request; never inject them into a singleton. -->
+	<bean id="drilldownQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.DrilldownQueryHandler" autowire="byName" scope="prototype" />
+	<bean id="indicatorQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.IndicatorQueryHandler" autowire="byName" scope="prototype" />
+	<bean id="exportQueryHandler" class="io.github.carlos_emr.carlos.dashboard.handler.ExportQueryHandler" autowire="byName" scope="prototype" />
 		
 	<bean id="extPrintMeasurements" class="io.github.carlos_emr.carlos.casemgmt.service.MeasurementPrint" autowire="byName"/>
 
