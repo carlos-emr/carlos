@@ -72,6 +72,7 @@ import io.github.carlos_emr.carlos.utility.SpringUtils;
 import io.github.carlos_emr.CarlosProperties;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.Factory;
 import io.github.carlos_emr.carlos.lab.ca.all.parsers.MessageHandler;
+import io.github.carlos_emr.carlos.lab.ca.all.parsers.ObxResultStatus;
 import io.github.carlos_emr.carlos.lab.ca.on.LabResultData;
 import io.github.carlos_emr.carlos.util.ConversionUtils;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -254,6 +255,12 @@ public class Hl7textResultsData {
 
 
                 String value = projectableValue(result, lab_no, i, j);
+                // A final or corrected result the filter does not match is filed whole, as text (#6122).
+                boolean textResult = false;
+                if (value == null) {
+                    value = textResultValue(result, olis_status, "lab " + LogSafe.sanitize(lab_no) + ", OBX " + i + "-" + j);
+                    textResult = value != null;
+                }
                 if (value != null) {
                     Measurement m = new Measurement();
                     m.setType(measType);
@@ -391,6 +398,14 @@ public class Hl7textResultsData {
                     me.setVal(i + "-" + j);
                     measurementsExts.add(me);
 
+                    if (textResult) {
+                        me = new MeasurementsExt();
+                        me.setMeasurementId(mId);
+                        me.setKeyVal(MeasurementsExt.VALUE_TYPE_KEY);
+                        me.setVal(MeasurementsExt.TEXT_VALUE_TYPE);
+                        measurementsExts.add(me);
+                    }
+
                 }
             }
         }
@@ -441,6 +456,35 @@ public class Hl7textResultsData {
             return null;
         }
         return value;
+    }
+
+    /**
+     * The value a final or corrected result is filed as when {@code HL7_LAB_MEASUREMENT_FILTER} does
+     * not match it (#6122): the lab's own words, whole, each line-break marker ({@code <br />}, in any
+     * case) read as one space.
+     * Such a result ({@code Pending}, {@code Not detected}, {@code Resistant}) was left unfiled
+     * before, so the cumulative grid and the value history showed nothing for it. Final means what
+     * {@link ObxResultStatus#isFinal} says, in the handler's own words ({@code F}, {@code Final},
+     * {@code Corrected}, ...). A result with any other status (preliminary included) stays unfiled,
+     * as does an empty one and one longer than a measurement holds; the full result always stays
+     * in the report.
+     *
+     * @param result the OBX result as the handler reads it
+     * @param status the OBX result status as the handler reports it
+     * @param context where the result is, for the log; never the result itself. May be {@code null}
+     * @return the text to file, marked {@link MeasurementsExt#TEXT_VALUE_TYPE}, or {@code null}
+     */
+    static String textResultValue(String result, String status, String context) {
+        if (result == null || !ObxResultStatus.isFinal(status)) return null;
+        // Handlers mark line breaks as <br />; a lab may send its own in capitals.
+        String text = result.replaceAll("(?i)\\s*\\<br\\s?/?\\>\\s*", " ").trim();
+        if (text.isEmpty() || "DNR".equals(text)) return null;
+        int characters = text.codePointCount(0, text.length());
+        if (characters > Measurement.DATA_FIELD_MAX_LENGTH) {
+            if (context != null) logger.warn("A final text result of {} characters is longer than a measurement holds; original remains in the source report ({})", characters, context);
+            return null;
+        }
+        return text;
     }
 
     /** Map a lowercase-shadow boundary without cutting a source character in half. */

@@ -217,14 +217,33 @@ public interface MeasurementDao extends AbstractDao<Measurement> {
      * 
      * @param demoNo Integer the patient's demographic ID
      * @param loincCode String the LOINC code to search for
-     * @return measurement data arrays matching the LOINC code
+     * @return measurement data arrays matching the LOINC code: {@code [dataField, dateObserved, lab_no,
+     *         abnormal, value_type]}, the last {@link io.github.carlos_emr.carlos.commn.model.MeasurementsExt#TEXT_VALUE_TYPE}
+     *         for a result filed as text (#6122), otherwise {@code null}
      */
     public List<Object[]> findMeasurementsByDemographicIdAndLocationCode(Integer demoNo, String loincCode);
 
+    /**
+     * As {@link #findMeasurementsByDemographicIdAndLocationCode}, with the result's identifier as a fifth
+     * column. Each row is {@code [dataField, dateObserved, lab_no, abnormal, identifier, value_type]}; the last is {@link io.github.carlos_emr.carlos.commn.model.MeasurementsExt#TEXT_VALUE_TYPE}
+     * for a result filed as text (#6122), otherwise {@code null}.
+     */
     public List<Object[]> findMeasurementsWithIdentifiersByDemographicIdAndLocationCode(Integer demoNo,
                                                                                         String loincCode);
 
     public List<Object> findLabNumbers(Integer demoNo, String identCode);
+
+    /**
+     * Where each of the patient's results for {@code identCode} that was filed as text (#6122) sits in its
+     * report, so a history read from the reports labels that one result and not another with the same code
+     * in the same report.
+     *
+     * @param demoNo the patient's demographic number
+     * @param identCode the result's OBX identifier
+     * @return one {@code [lab_no, other_id]} row per such result, both as stored; {@code other_id} is the
+     *         result's {@code OBR-OBX} position ({@code "0-1"}). Empty when none
+     */
+    public List<Object[]> findTextResultPositions(Integer demoNo, String identCode);
 
     public List<Object> findLabNumbersOrderByObserved(Integer demoNo, String identCode);
 

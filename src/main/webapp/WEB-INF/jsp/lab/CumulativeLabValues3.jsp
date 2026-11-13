@@ -186,8 +186,10 @@
             String latestVal  = "";
             String latestDate = "";
             String latestAbn  = "N";
+            boolean latestText = false;
             if (idMap != null && !idMap.isEmpty()) {
                 Hashtable ht = idMap.get(idMap.keySet().iterator().next());
+                latestText = CommonLabTestValues.isTextResult(ht);
                 latestVal  = StringUtils.noNull((String) ht.get("result"));
                 latestDate = StringUtils.noNull((String) ht.get("date"));
                 latestAbn  = StringUtils.noNull((String) ht.get("abn"));
@@ -198,6 +200,8 @@
             row.put("latestVal",  StringUtils.maxLenString(latestVal, 9, 8, "..."));
             row.put("latestDate", latestDate);
             row.put("latestAbn",  latestAbn);
+            // A final word result filed as text (#6122) is labelled, so it is not read as a number.
+            row.put("latestText", latestText);
 
             // One cell map per dated column, in sorted date order
             List<Map<String, String>> cells = new ArrayList<>();
@@ -205,16 +209,19 @@
                 String labNo   = dateEntry.get("id");
                 String cellVal = "";
                 String cellAbn = "N";
+                boolean cellText = false;
                 if (idMap != null) {
                     Hashtable ht = idMap.get(labNo);
                     if (ht != null) {
                         cellVal = StringUtils.noNull((String) ht.get("result"));
                         cellAbn = StringUtils.noNull((String) ht.get("abn"));
+                        cellText = CommonLabTestValues.isTextResult(ht);
                     }
                 }
                 Map<String, String> cell = new HashMap<>();
                 cell.put("val", StringUtils.maxLenString(cellVal, 9, 8, "..."));
                 cell.put("abn", cellAbn);
+                cell.put("text", String.valueOf(cellText));
                 cells.add(cell);
             }
             row.put("cells", cells);
@@ -314,10 +321,10 @@
                     <c:otherwise>
                         <tr>
                             <td>${carlos:forHtml(row['testName'])}</td>
-                            <td class="abn-${carlos:forHtmlAttribute(row['latestAbn'])}">${carlos:forHtml(row['latestVal'])}</td>
+                            <td class="abn-${carlos:forHtmlAttribute(row['latestAbn'])}">${carlos:forHtml(row['latestVal'])}<c:if test="${row['latestText']}"> <span class="badge text-bg-light border" data-carlos-lab-text-result="true"><fmt:message key="lab.measurement.textResult"/></span></c:if></td>
                             <td>${carlos:forHtml(row['latestDate'])}</td>
                             <c:forEach items="${row['cells']}" var="cell">
-                                <td class="abn-${carlos:forHtmlAttribute(cell['abn'])}">${carlos:forHtml(cell['val'])}</td>
+                                <td class="abn-${carlos:forHtmlAttribute(cell['abn'])}">${carlos:forHtml(cell['val'])}<c:if test="${cell['text'] eq 'true'}"> <span class="badge text-bg-light border" data-carlos-lab-text-result="true"><fmt:message key="lab.measurement.textResult"/></span></c:if></td>
                             </c:forEach>
                         </tr>
                     </c:otherwise>
