@@ -577,6 +577,54 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
             assertThat(handed).hasSize(1);
         }
 
+        @ParameterizedTest(name = "{0} minutes after quiet hours")
+        @ValueSource(ints = {1, 5, 6})
+        void shouldYieldOnlyWhenTheRetryWindowLastsLongerThanTheJobPeriod(int minutes) {
+            LocalDateTime evening = NOW.withHour(20).withMinute(50);
+            LocalDateTime morning = NOW.plusDays(1).withHour(10).withMinute(minutes);
+            ReminderWindow quiet = new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2),
+                    java.time.LocalTime.of(21, 0), java.time.LocalTime.of(8, 0));
+            AppointmentReminderChannel channel = new AppointmentReminderChannel() {
+                @Override
+                public ReminderChannel channel() {
+                    return ReminderChannel.EMAIL;
+                }
+
+                @Override
+                public ReminderOutcome send(ClaimedReminder claimed) {
+                    handed.add(claimed);
+                    return new ReminderOutcome(AppointmentReminderStatus.SENT, 900);
+                }
+
+                @Override
+                public Optional<ReminderWindow> window() {
+                    return Optional.of(quiet);
+                }
+            };
+            AppointmentReminderService atEvening = new AppointmentReminderService(reminders, appointments,
+                    () -> List.of(channel), TransactionOperations.withoutTransaction(),
+                    new ReminderWindow(Duration.ofHours(24), Duration.ofHours(2)),
+                    Clock.fixed(evening.atZone(ZONE).toInstant(), ZONE));
+            Appointment appointment = appointment(morning, PATIENT, "t");
+            AppointmentReminder reminder = requested();
+            stored(reminder, appointment, appointment);
+            Appointment other = appointment(morning, PATIENT, "t");
+            other.setId(APPOINTMENT + 1);
+            AppointmentReminder failed = AppointmentReminder.requested(APPOINTMENT + 1, ReminderChannel.EMAIL, "999998",
+                    at(NOW.minusDays(1)));
+            ReflectionTestUtils.setField(failed, "id", 3L);
+            failed.startSending(at(morning), at(evening.minusMinutes(5)));
+            failed.finish(AppointmentReminderStatus.FAILED, null, at(evening.minusMinutes(5)));
+            when(reminders.findSameVisit(eq(ReminderChannel.EMAIL), eq(PATIENT), eq(morning), eq(7L), any()))
+                    .thenReturn(List.of(new ReminderCandidate(failed, other)));
+
+            atEvening.processDue(10);
+
+            assertThat(handed).hasSize(minutes > 5 ? 0 : 1);
+            assertThat(reminder.getLastStatus()).isEqualTo(minutes > 5
+                    ? AppointmentReminderStatus.DUPLICATE : AppointmentReminderStatus.SENT);
+        }
+
         @Test
         void shouldSend_whenALaterBookingYieldedToThisOne() {
             Appointment appointment = appointment(start, PATIENT, "t");
@@ -1292,6 +1340,16 @@ class AppointmentReminderServiceUnitTest extends CarlosUnitTestBase {
 
         private AppointmentReminder textRequested() {
             return AppointmentReminder.requested(APPOINTMENT, ReminderChannel.SMS, "999998", at(NOW.minusDays(3)));
+        }
+
+        @Test
+        void shouldSayTheTextIsBeingHandedOver_whileTheAttemptIsInProgress() {
+            LocalDateTime start = NOW.plusHours(20);
+            AppointmentReminder reminder = textRequested();
+            reminder.startSending(at(start), at(NOW.minusMinutes(1)));
+
+            assertThat(line(NOW, 24, start, reminder))
+                    .contains(new ReminderStatusLine(KEYS + "sending", ""));
         }
 
         @Test

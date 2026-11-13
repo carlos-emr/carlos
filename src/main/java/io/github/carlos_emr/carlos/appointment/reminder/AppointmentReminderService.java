@@ -555,8 +555,13 @@ public class AppointmentReminderService {
         LocalDateTime lastAttempt = toLocal(reminder.getLastAttemptAt());
         LocalDateTime retryAt = lastAttempt == null || lastAttempt.plus(RETRY_AFTER).isBefore(now)
                 ? now : lastAttempt.plus(RETRY_AFTER);
-        // The channel's own window, quiet hours included (#884): a retry they push past the cutoff never runs.
-        return windowFor(reminder.getChannel()).nextSendTime(start, retryAt).isPresent();
+        // A sibling must not yield to a retry whose allowed window is shorter than the polling period.
+        // Use the channel's own window, quiet hours and handover margin included (#884).
+        ReminderWindow channelWindow = windowFor(reminder.getChannel());
+        return channelWindow.nextSendTime(start, retryAt)
+                .filter(next -> channelWindow.isDue(start,
+                        next.plusSeconds(AppointmentReminderScheduler.INTERVAL_SECONDS), null))
+                .isPresent();
     }
 
     /**
