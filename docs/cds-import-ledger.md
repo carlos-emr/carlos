@@ -259,18 +259,21 @@ release-retry request is durable even if its queued worker is lost or the proces
 ### Abandoned runs
 
 `ABANDONED` is the final state of a stopped written run (`INCOMPLETE` or
-`RECONCILIATION_REQUIRED`) that its own operator cancelled and then abandoned through the one-shot
-CLI, and of each of its held, partial or uncertain charts. It is the only transition that
+`RECONCILIATION_REQUIRED`) that was cancelled and then abandoned through the one-shot CLI by a
+root-delegated operator acting for its provider (its own operator, or another whose delegation
+covers the run's provider, facility and program, as for a run started in the browser), and of
+each of its held, partial or uncertain charts. It is the only transition that
 releases a hold without completing its patient. The abandon takes the coordinator lock and a new
 verified maintenance owner, claims a new owner epoch and the global admission row
 (`ABANDON_OWNER_ACQUIRED`), re-verifies each held chart's committed units against their
-checkpoints and sealed receipts, and stores the operator's stated reason in a protected record
+checkpoints and sealed receipts (each receipt in its own read transaction, so an unreadable one
+is recorded `UNVERIFIABLE` instead of rolling the check back), and stores the operator's stated reason in a protected record
 before anything changes. One transaction then sets each held chart `ABANDONED` with
 `held=false` (a `PATIENT_ABANDONED` diagnostic carrying the receipt result, a `PATIENT_ABANDONED`
 event and a chart-audit `log` row admitted under the claimed epoch), sets the run `ABANDONED`
 with its maintenance release pending, records `RUN_ABANDONED` as a diagnostic (pointing to the
-protected record) and as an actor event (the reason's SHA-256 and the release counts, never the
-reason), and gives back the global admission row. Units, checkpoints, lineage, source fields,
+protected record) and as an actor event (a salted SHA-256 of the reason, whose salt only the
+protected record keeps, and the release counts, never the reason), and gives back the global admission row. Units, checkpoints, lineage, source fields,
 file references and native rows are never changed, so the lineage still names the chart and its
 checkpoints are not reusable as a completed patient's. Maintenance is released through
 the ordinary owner read-back proof, recorded as `RELEASED`, `RELEASE_DEFERRED` (another run's

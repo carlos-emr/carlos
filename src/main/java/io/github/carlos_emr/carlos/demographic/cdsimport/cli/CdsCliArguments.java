@@ -67,13 +67,15 @@ public record CdsCliArguments(String operation, String provider, String runId, M
             if (!values.keySet().equals(Set.of("--operation", "--provider", "--run", "--confirm", "--reason"))
                     || !values.get("--run").equals(values.get("--confirm"))
                     || values.get("--reason").isBlank()
-                    || values.get("--reason").length() > MAXIMUM_REASON) throw invalid();
-            token(values.get("--run"), 128);
+                    || values.get("--reason").codePointCount(0, values.get("--reason").length())
+                            > MAXIMUM_REASON) throw invalid();
+            runId(values.get("--run"));
         } else {
             boolean submission = "status".equals(operation) && values.containsKey("--submission-key");
             String handle = submission ? "--submission-key" : "--run";
             if (!values.keySet().equals(Set.of("--operation", "--provider", handle))) throw invalid();
-            token(values.get(handle), 128);
+            if (submission) token(values.get(handle), 128);
+            else runId(values.get(handle));
         }
         return new CdsCliArguments(operation, provider, values.get("--run"), values);
     }
@@ -108,6 +110,14 @@ public record CdsCliArguments(String operation, String provider, String runId, M
             if (selected < 1) throw invalid();
             return selected;
         } catch (NumberFormatException failure) { throw invalid(); }
+    }
+
+    /** Import runs are named by random UUIDs; any other run ID is refused before the engine starts. */
+    private static final java.util.regex.Pattern RUN_ID =
+            java.util.regex.Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
+
+    private static void runId(String value) {
+        if (value == null || !RUN_ID.matcher(value).matches()) throw invalid();
     }
 
     private static void token(String value, int maximum) {

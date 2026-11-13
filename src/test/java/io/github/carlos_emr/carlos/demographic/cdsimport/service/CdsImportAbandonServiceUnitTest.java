@@ -104,6 +104,16 @@ class CdsImportAbandonServiceUnitTest {
                 .isEqualTo("defect stops every resume");
         assertThat(CdsImportAbandonService.sha256("abc"))
                 .isEqualTo("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+        // Characters are counted as a person (and carlos-ctl) counts them, in code points.
+        String wide = "\uD83D\uDE00".repeat(600);
+        assertThat(CdsImportAbandonService.reason(wide)).isEqualTo(wide);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+                        () -> CdsImportAbandonService.reason("\uD83D\uDE00".repeat(1001)))
+                .isInstanceOf(CdsImportException.class);
+        // The published digest is salted, never the bare digest of the reason.
+        assertThat(CdsImportAbandonService.reasonDigest("00", "defect"))
+                .isNotEqualTo(CdsImportAbandonService.sha256("defect"))
+                .isEqualTo(CdsImportAbandonService.sha256("00\ndefect"));
     }
 
     @Test

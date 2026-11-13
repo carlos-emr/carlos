@@ -81,6 +81,19 @@ public class CdsImportObservationService {
         });
     }
 
+    /**
+     * The summary shown after a root-delegated abandon of a run another operator may have
+     * started; the caller has authorized the actor for the run's scope
+     * ({@link CdsImportService#authorizeAbandon}).
+     */
+    Map<String, Object> abandonSummary(String run) {
+        CdsImportLedgerService.requireNoTransaction();
+        return transaction.execute(status -> {
+            ledger.jobBindingInReadTransaction(run);
+            return projection(run);
+        });
+    }
+
     Map<String, Object> summary(CdsImportActorDto actor, CdsImportJobService.ReadContext context) {
         CdsImportLedgerService.requireNoTransaction();
         Objects.requireNonNull(context);

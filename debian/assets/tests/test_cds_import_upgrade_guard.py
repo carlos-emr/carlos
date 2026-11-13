@@ -121,6 +121,10 @@ class TestUpgradeGuardVerdicts(unittest.TestCase):
         self.assertIn("carlos-ctl cds-import --provider <id> --abandon --run <run-id>"
                       " --confirm <run-id> --reason", result.stderr)
         self.assertIn("after cancelling it", result.stderr)
+        # Every named command runs as written: the provider is required by every verb.
+        self.assertIn("carlos-ctl cds-import --provider <id> --status <run-id>", result.stderr)
+        # An installed engine without the abandon is named, with the way forward.
+        self.assertIn("offers no abandon (CDS_HANDSHAKE)", result.stderr)
 
     def test_upgrade_proceeds_after_an_abandon_released_the_holds_and_the_window(self):
         # An abandon leaves held=FALSE for its charts and maintenance inactive; the run itself

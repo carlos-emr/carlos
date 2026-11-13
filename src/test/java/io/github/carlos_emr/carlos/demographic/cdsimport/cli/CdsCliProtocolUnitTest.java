@@ -588,10 +588,33 @@ class CdsCliProtocolUnitTest {
                     {
                         "--operation", "resume", "--provider", "999998", "--run", NONCE,
                         "--reason", "stated"
+                    },
+                    // A run is named by its random UUID, never by another token.
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", "run-1",
+                        "--confirm", "run-1", "--reason", "stated"
+                    },
+                    {"--operation", "status", "--provider", "999998", "--run", NONCE + "0"},
+                    {"--operation", "cancel", "--provider", "999998", "--run", NONCE.toUpperCase()},
+                    // 1001 characters are refused however they are encoded.
+                    {
+                        "--operation", "abandon", "--provider", "999998", "--run", NONCE,
+                        "--confirm", NONCE, "--reason", "\uD83D\uDE00".repeat(1001)
                     }
                 })
             assertThatThrownBy(() -> CdsCliArguments.parse(refused))
                     .isInstanceOf(IllegalArgumentException.class);
+        // A reason is counted in characters (code points), as carlos-ctl counts it: 600
+        // characters that need two UTF-16 units each are within the limit on both sides.
+        assertThat(
+                        CdsCliArguments.parse(
+                                        new String[] {
+                                            "--operation", "abandon", "--provider", "999998",
+                                            "--run", NONCE, "--confirm", NONCE, "--reason",
+                                            "\uD83D\uDE00".repeat(600)
+                                        })
+                                .reason())
+                .hasSize(1200);
     }
 
     @Test

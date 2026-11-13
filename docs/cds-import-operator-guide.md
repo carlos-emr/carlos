@@ -60,7 +60,7 @@ CLI exit `1` (`CDS_ARGUMENTS`) means invalid or conflicting arguments, before ru
 
 An abandon always exits `4` ([below](#abandoning-an-import-that-cannot-complete)). For the CLI, import/resume exit `0` requires a clean completed import or valid dry run, delivered reports, complete cleanup and verified maintenance release. Exit `4` can mean an accepted but pending recovery request, a refusal, partial work or an uncertain outcome; inspect its run ID, `resumeRequested`, stable `safeCode`, uncertainty flag and protected receipts. Exit `0` from **status** or **report** means that query succeeded; the returned clinical and operational fields still determine whether the import completed. A `COMPLETE` state alone is insufficient. There is no force flag for bypassing these checks.
 
-**Cancel** is durable and cooperative at bounded work boundaries. It preserves committed units and their evidence. Closing the browser or losing the foreground command does not undo committed data. A failed/partial patient remains held until supported recovery proves its complete workset, or until its run's operator abandons a stopped import that cannot complete ([below](#abandoning-an-import-that-cannot-complete)); never clear holds or the maintenance window by editing the database.
+**Cancel** is durable and cooperative at bounded work boundaries. It preserves committed units and their evidence. Closing the browser or losing the foreground command does not undo committed data. A failed/partial patient remains held until supported recovery proves its complete workset, or until a root-delegated operator for its provider abandons a stopped import that cannot complete ([below](#abandoning-an-import-that-cannot-complete)); never clear holds or the maintenance window by editing the database.
 
 Corrections require the exact indexed field, original source identity, proposed logical value, clinical reason and current review version. Original XML/spools remain unchanged. A multi-error draft remains inactive until the combined corrected XML validates against the whole pinned schema and native preflight. Acknowledging a warning cannot remove a blocker. A decline remains a visible incomplete/refused disposition.
 
@@ -98,12 +98,15 @@ every resume or because an upgrade changed the ruleset it is bound to, its opera
 with an audited **abandon**. This is the only supported way to release such holds: never set
 `held` or `maintenance_active` by hand.
 
-An abandon is a one-shot CLI control for the run's own root-delegated operator and provider; the
-web page has no abandon button. It refuses (exit `4`, `CDS_REASON: safeCode=...`) and changes
+An abandon is a one-shot CLI control for a root-delegated operator acting for the run's provider:
+the run's own operator, or another operator whose delegation (`cds.import.operator.*`) covers the
+run's provider, facility and program. The web page has no abandon button, so an import started
+in the browser is abandoned this way; the run keeps its original operator, and the abandon's
+events and protected record name the operator who abandoned it. It refuses (exit `4`, `CDS_REASON: safeCode=...`) and changes
 nothing unless the run is stopped after writing (`INCOMPLETE` or `RECONCILIATION_REQUIRED`),
 already cancelled (`ABANDON_CANCEL_REQUIRED` otherwise), and has no pending resume
-(`ABANDON_RESUME_PENDING`) or review (`ABANDON_REVIEW_PENDING`). Another operator or provider is
-refused with `CDS_AUTHORIZATION` (exit `3`). Like a resume, it needs import admission enabled and
+(`ABANDON_RESUME_PENDING`) or review (`ABANDON_REVIEW_PENDING`). An operator without such a
+delegation, or another provider, is refused with `CDS_AUTHORIZATION` (exit `3`). Like a resume, it needs import admission enabled and
 the maintenance window configured (`cds.import.enabled`, `cds.import.maintenanceGuardEnabled` and
 `cds.import.maintenanceMode` all `true`), and it takes the coordinator lock and a new maintenance
 owner, so no worker can still be running the import (`IMPORT_COORDINATOR_BUSY` or
@@ -118,10 +121,10 @@ The procedure:
 3. Open the import window if it is closed (the three properties above, then restart the service).
 4. Abandon it, typing the run ID twice and stating the reason:
    `sudo carlos-ctl cds-import --provider <id> --abandon --run <run-id> --confirm <run-id>
-   --reason "<reason>"`. The reason (at most 1000 characters on one line) is kept only in the
-   run's protected record, never printed or logged. Name the defect or the decision, never a
-   patient: like any command-line argument it is briefly visible to other administrators on the
-   host while the command runs.
+   --reason "<reason>"`. The reason (at most 1000 characters on one line) is stored only in the
+   run's protected record; the engine never prints or logs it. It is a command-line argument,
+   though: other administrators can see it while the command runs, and the shell history and
+   `sudo`'s command log keep it afterwards. Name the defect or the decision, never a patient.
 5. Read the `RESULT` line: `state` is `ABANDONED`, the `outcomes` count the released charts as
    `ABANDONED`, and `maintenanceReleaseState` is `RELEASED`, or `RELEASE_DEFERRED` while another
    run still holds a chart (that run's own completion or abandon then reopens the clinic, and a
@@ -132,22 +135,30 @@ The procedure:
 
 What an abandon does: no clinical row, unit, checkpoint, lineage, source field or file is
 deleted or changed. Each held chart's committed rows are re-verified against their sealed
-receipts and the result recorded (`VERIFIED`, `CHANGED`, `UNVERIFIABLE` or `NOT_WRITTEN`); a
-changed chart is still released, with an `ERROR` diagnostic. In one transaction each held chart
+receipts and the result recorded: `VERIFIED`; `CHANGED` when a row differs from its receipt or
+its witness no longer verifies; `UNVERIFIABLE` when a unit's checkpoint disagrees with it or a
+receipt cannot be read at all (for example because the witness key file is gone, which is itself
+a reason a run cannot resume); or `NOT_WRITTEN`. Each receipt is checked on its own, so one that
+cannot be read never stops the abandon. A changed chart is still released, with an `ERROR`
+diagnostic. In one transaction each held chart
 becomes `ABANDONED` without its hold, with a `PATIENT_ABANDONED` diagnostic and event and a chart
 audit row (`import abandoned`), and the run becomes `ABANDONED` with a `RUN_ABANDONED` event that
-names the operator and the reason's SHA-256 digest and a `RUN_ABANDONED` diagnostic that points
-to the protected record. Maintenance is then released through the ordinary release proof, and
+names the operator and a salted SHA-256 digest of the reason (the salt is kept with the reason in
+the protected record, so a short reason cannot be recovered by guessing) and a `RUN_ABANDONED`
+diagnostic that points to the protected record. Maintenance is then released through the ordinary release proof, and
 the reports are regenerated: `completion.json` gains an `abandonment` section (when and by whom,
 the reason's digest, the release counts and the protected record's location), and
 `ImportErrorLog` lists each released chart as `PATIENT_ABANDONED`.
 
 Afterwards the run is final: a second abandon is refused with `IMPORT_ABANDONED`, and so is a
 resume, except one that only retries a deferred or failed maintenance release. The released
-charts are not completed imports. The exporter refuses each of them with
-`CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW` until it is reconciled. The run's lineage, units and checkpoints are kept, so each released chart
-stays bound to its source patient: a later import of that patient meets the earlier attempt and
-its chart instead of starting a new one.
+charts are not completed imports. The CDS exporter refuses each of them with
+`CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`: an abandoned partial import has no verifiable
+complete source, and CARLOS does not yet record a clinical reconciliation that could release a
+chart (#6208). The run's lineage, units and checkpoints are kept, so each
+released chart stays bound to its source patient: a later import of that patient meets the
+earlier attempt and is refused (`PRIOR_IMPORT_MUST_RESUME`) rather than completing or replacing
+an abandoned partial import. Reconcile such a chart by hand in CARLOS.
 
 If an implementation update prevents an old zero-write attempt from resuming, cancel that attempt through the supported control and retain its run ID and evidence. Explicitly upload the original immutable package again under the same source namespace to create a new upload and acceptance on the current implementation, then review its **Approve unwritten revision** conflict. An upload already bound to an actual run does not become a new execution identity. Historical verification preserves the old acceptance, ruleset and cancellation, and checks its retained snapshot and, for web sources, the complete original chunk receipts. The source receipt digest and snapshot digest remain separate evidence. Cancellation alone does not prove that maintenance reopened: keep the retained window closed until a subsequent successful owner proves completion, zero holds and a verified maintenance release.
 

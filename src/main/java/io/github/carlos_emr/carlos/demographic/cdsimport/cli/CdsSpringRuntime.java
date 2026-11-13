@@ -50,6 +50,8 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
     private final String resolvedRunId;
     private final CdsDelegationVerifier.Delegation delegation;
     private final java.util.TimeZone previousTimeZone;
+    /** An abandon is authorized for the run's scope, also for a run started in the browser. */
+    private final boolean abandonOperation;
 
     public CdsSpringRuntime(
             CdsCliConfiguration configuration,
@@ -57,6 +59,7 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
             CdsDelegationVerifier.Delegation delegation)
             throws Exception {
         this.delegation = delegation;
+        abandonOperation = "abandon".equals(arguments.operation());
         previousTimeZone = java.util.TimeZone.getDefault();
         CdsCliLogging.configure();
         // Legacy native helpers still obtain properties and focused DAOs through
@@ -147,7 +150,9 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
 
     @Override
     public void observe(String runId, String operation) throws Exception {
-        service.observe(actor, runId, operation, delegation.operatorUid(), delegation.nonce());
+        if (abandonOperation && "abandon".equals(operation))
+            service.observeAbandon(actor, runId, delegation.operatorUid(), delegation.nonce());
+        else service.observe(actor, runId, operation, delegation.operatorUid(), delegation.nonce());
     }
 
     @Override
@@ -163,9 +168,10 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
 
     @Override
     public void abandon(String runId, String confirmation, String reason) throws Exception {
-        // The shared facade authorizes this actor for the run first; the abandon service then
-        // checks the run's own operator and provider again under its lock.
-        service.status(actor, runId);
+        // The facade authorizes this root-delegated actor for the run's scope first (also for a
+        // run started in the browser); the abandon service checks the provider again under its
+        // lock.
+        service.authorizeAbandon(actor, runId);
         context.getBean(
                         io.github.carlos_emr.carlos.demographic.cdsimport.service
                                 .CdsImportAbandonService.class)
@@ -174,23 +180,14 @@ public final class CdsSpringRuntime implements CdsCliRuntime {
 
     @Override
     public Map<String, Object> summary(String runId) throws Exception {
-        return service.summary(actor, runId);
+        return abandonOperation ? service.abandonSummary(actor, runId) : service.summary(actor, runId);
     }
 
     @Override
     public Map<String, Object> failureEvidence(String runId) throws Exception {
-        io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportDiagnosticDto latest = null;
-        long after = 0;
-        // Bounded: a run's diagnostics are read in pages until the end or 100 pages.
-        for (int page = 0; page < 100; page++) {
-            var rows = service.diagnostics(actor, runId, after, 200);
-            if (rows.isEmpty()) break;
-            for (var row : rows) {
-                if (stopping(row)) latest = row;
-                after = row.id();
-            }
-        }
-        if (latest == null) return null;
+        // Newest first, so a run with any number of diagnostics names its latest stopping cause.
+        var latest = service.latestStoppingDiagnostic(actor, runId);
+        if (latest == null || !stopping(latest)) return null;
         Map<String, Object> technical = new LinkedHashMap<>();
         technical.put("code", latest.code());
         technical.put("stage", latest.stage());

@@ -551,7 +551,9 @@ still stops it, and a job in which every patient was held produces no package.
 
 A chart released by an abandoned CDS import keeps only the part of its source committed before
 that import stopped. The exporter refuses it with `CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`
-until it has been reconciled; it is never exported as a completed import.
+and never exports it as a completed import. CARLOS does not yet record a clinical reconciliation
+that could release such a chart for export (#6208), so the refusal persists;
+transfer that chart by other means.
 
 A provider record's format never holds a patient. A billing number (`ohip_no`) that is not
 exactly six digits (a BC MSP number, a placeholder, a longer number or one with spaces) is

@@ -554,7 +554,7 @@ public class CdsExportRetainedIndexService {
     /**
      * Refuses a chart whose import is held, or ended without a published or unwritten outcome.
      * A chart released by an abandoned import keeps only part of its source and is refused by
-     * name until it is reconciled; the exporter never treats it as a completed import.
+     * name; the exporter never treats it as a completed import.
      */
     public static void requireExportableImportPatient(String held, String state)
             throws IOException {

@@ -57,6 +57,29 @@ public class CdsImportDiagnosticDao extends AbstractDaoImpl<CdsImportDiagnostic>
                 .getResultList();
     }
 
+    /**
+     * The run's most recent unresolved diagnostic that carries protected evidence of what
+     * stopped it: a blocking ERROR of the execution or preflight stage, or the evidence a run that
+     * stopped before its seal records. Read newest first, so a run with any number of diagnostics
+     * names its latest cause. Null when there is none.
+     */
+    public CdsImportDiagnostic latestStopping(String runId) {
+        var rows =
+                entityManager
+                        .createQuery(
+                                "select d from CdsImportDiagnostic d where d.runId=:run and d.resolved=false"
+                                        + " and d.protectedDetailLocation is not null"
+                                        + " and ((d.code='IMPORT_FAILURE_EVIDENCE' and d.stage='OBSERVABILITY')"
+                                        + " or (d.blocking=true and d.severity='ERROR'"
+                                        + " and d.stage in ('EXECUTION','PREFLIGHT')))"
+                                        + " order by d.id desc",
+                                CdsImportDiagnostic.class)
+                        .setParameter("run", runId)
+                        .setMaxResults(1)
+                        .getResultList();
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
     public long unresolved(String runId, String patientKey) {
         var query =
                 patientKey == null

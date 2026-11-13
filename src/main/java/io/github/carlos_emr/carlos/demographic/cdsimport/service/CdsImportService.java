@@ -250,6 +250,13 @@ public class CdsImportService {
         return ledger.diagnostics(run, after, limit);
     }
 
+    /** The run's latest unresolved stopping diagnostic with protected evidence, or null. */
+    public CdsImportDiagnosticDto latestStoppingDiagnostic(CdsImportActorDto actor, String run)
+            throws IOException {
+        requireActor(actor, run);
+        return ledger.latestStoppingDiagnostic(run);
+    }
+
     public List<CdsImportDiagnosticDto> diagnostics(
             CdsImportActorDto actor, String run, long after, int limit) throws IOException {
         requireActor(actor, run);
@@ -354,6 +361,42 @@ public class CdsImportService {
         if (diagnostic.protectedDetailLocation() == null)
             throw new CdsImportException("IMPORT_FAILURE_EVIDENCE_UNAVAILABLE");
         return failureEvidence.read(run, diagnostic.protectedDetailLocation());
+    }
+
+    /**
+     * Authorizes a command-line abandon of {@code run}. The run's own operator may abandon it,
+     * as may another root-delegated operator whose delegation covers the run's provider,
+     * facility and program: a run started in the browser has no abandon there, and could
+     * otherwise never be closed. The live delegation and the provider's current rights are
+     * checked; the run's original operator stays on its record.
+     *
+     * @throws SecurityException when the actor is not root-delegated for this run's scope
+     */
+    public void authorizeAbandon(CdsImportActorDto actor, String run) throws IOException {
+        if (actor == null || actor.securityNo() != null)
+            throw new SecurityException("IMPORT_ACCESS_DENIED");
+        var context = jobs.loadContext(jobs.binding(run));
+        var started = context.document().actor();
+        if (!java.util.Objects.equals(started.providerNo(), actor.providerNo())
+                || !java.util.Objects.equals(started.facilityId(), actor.facilityId())
+                || !java.util.Objects.equals(started.programId(), actor.programId()))
+            throw new SecurityException("IMPORT_ACCESS_DENIED");
+        access.context(actor, context.document().command(), null);
+    }
+
+    /** {@link #observe} for the abandon operation, authorized by {@link #authorizeAbandon}. */
+    public void observeAbandon(
+            CdsImportActorDto actor, String run, long osUid, String verifiedNonce)
+            throws IOException {
+        authorizeAbandon(actor, run);
+        ledger.observeAbandon(run, actor.operator(), actor.providerNo(), osUid, verifiedNonce);
+    }
+
+    /** The run summary after an abandon, authorized by {@link #authorizeAbandon}. */
+    public Map<String, Object> abandonSummary(CdsImportActorDto actor, String run)
+            throws IOException {
+        authorizeAbandon(actor, run);
+        return operatorSummary(run, observations.abandonSummary(run));
     }
 
     public void observe(

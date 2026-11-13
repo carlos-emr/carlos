@@ -42,8 +42,9 @@ import org.springframework.stereotype.Service;
 /**
  * The supported way out of an import that stopped after writing charts and cannot complete,
  * for example because a defect stops it on every resume or because an upgrade changed the
- * ruleset it is bound to. Run only by the run's own root-delegated operator through the
- * one-shot CLI ({@code carlos-ctl cds-import --abandon}).
+ * ruleset it is bound to. Run through the one-shot CLI ({@code carlos-ctl cds-import --abandon})
+ * by a root-delegated operator acting for the run's provider: its own operator, or another whose
+ * delegation covers the run's provider, facility and program (the browser has no abandon).
  *
  * <p>An abandon never deletes or changes a clinical row, unit, checkpoint, lineage, source field
  * or file. Under the same physical ownership a resume requires (the coordinator lock and a new,
@@ -54,7 +55,7 @@ import org.springframework.stereotype.Service;
  * protected record. Maintenance is then released through the ordinary release proof
  * ({@code RELEASE_DEFERRED} while another run still holds a chart), and the reports are
  * regenerated. The run never reports a clean completion, a resume or second abandon is refused,
- * and the exporter keeps refusing the released charts until they are reconciled.
+ * and the exporter keeps refusing the released charts.
  */
 @Service
 public class CdsImportAbandonService {
@@ -97,13 +98,13 @@ public class CdsImportAbandonService {
      * Abandons a stopped, cancelled written run.
      *
      * @param runId the run to abandon
-     * @param actor the run's own delegated operator and provider
+     * @param actor a root-delegated operator acting for the run's provider
      * @param confirmation the run ID typed a second time; it must match
      * @param reason the operator's stated reason, kept only in the protected record
      * @return the run's status after the abandon
      * @throws CdsImportException with a stable code when the run cannot be abandoned; nothing
      *     is changed then
-     * @throws SecurityException when the actor is not the run's operator and provider
+     * @throws SecurityException when the actor does not act for the run's provider
      */
     public CdsImportJobDto abandon(
             String runId, CdsImportActorDto actor, String confirmation, String reason) {
@@ -122,11 +123,18 @@ public class CdsImportAbandonService {
                 long epoch = ledger.claimAbandon(runId, actor, coordinator, owner);
                 Map<String, String> verification = new LinkedHashMap<>();
                 String record;
+                // The published digest is salted: a short reason that names a patient cannot be
+                // recovered by guessing. The salt is kept beside the reason, in the protected
+                // record only.
+                String salt = CdsPaths.hex(salt());
+                String digest = reasonDigest(salt, stated);
                 try {
                     verify(runId, epoch, coordinator, owner, verification);
                     record =
                             evidence.writeAbandonment(
-                                    runId, epoch, record(runId, actor, stated, verification));
+                                    runId,
+                                    epoch,
+                                    record(runId, actor, stated, salt, digest, verification));
                     if (record == null)
                         throw new CdsImportException("ABANDON_EVIDENCE_UNAVAILABLE");
                     coordinator.check();
@@ -135,7 +143,7 @@ public class CdsImportAbandonService {
                             epoch,
                             actor,
                             verification,
-                            sha256(stated),
+                            digest,
                             record,
                             (demographicNo, checked) ->
                                     chartAudit(runId, actor, demographicNo, checked));
@@ -228,14 +236,18 @@ public class CdsImportAbandonService {
                         + " receipts="
                         + verification
                         + "; import hold released incomplete; outcomes=cds_import_event");
+        // OscarLog's identity key makes persist insert at once, while the chart-audit context
+        // is bound. A flush here would dirty-check the whole growing release transaction once
+        // per chart.
         entityManager.persist(entry);
-        entityManager.flush();
     }
 
     private static Map<String, Object> record(
             String runId,
             CdsImportActorDto actor,
             String reason,
+            String salt,
+            String digest,
             Map<String, String> verification) {
         Map<String, Object> value = new LinkedHashMap<>();
         value.put("runId", runId);
@@ -245,7 +257,8 @@ public class CdsImportAbandonService {
         value.put("operatorProviderNo", actor.operatorProviderNo());
         value.put("securityNo", actor.securityNo());
         value.put("reason", reason);
-        value.put("reasonSha256", sha256(reason));
+        value.put("reasonSalt", salt);
+        value.put("reasonSha256", digest);
         List<Map<String, String>> charts = new ArrayList<>();
         verification.forEach(
                 (patientKey, checked) ->
@@ -261,7 +274,8 @@ public class CdsImportAbandonService {
     static String reason(String value) {
         if (value == null
                 || value.isBlank()
-                || value.length() > MAXIMUM_REASON
+                // Characters as a person counts them (code points), as carlos-ctl counts them.
+                || value.codePointCount(0, value.length()) > MAXIMUM_REASON
                 || value.chars()
                         .anyMatch(
                                 c ->
@@ -276,6 +290,19 @@ public class CdsImportAbandonService {
 
     static String sha256(String value) {
         return CdsPaths.hex(CdsPaths.sha256().digest(value.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** The published digest of a reason: SHA-256 over the salt, a newline and the reason. */
+    static String reasonDigest(String salt, String reason) {
+        return sha256(salt + "\n" + reason);
+    }
+
+    private static final java.security.SecureRandom RANDOM = new java.security.SecureRandom();
+
+    private static byte[] salt() {
+        byte[] value = new byte[32];
+        RANDOM.nextBytes(value);
+        return value;
     }
 
     private void reportFailure(String runId, long epoch, Exception failure) {

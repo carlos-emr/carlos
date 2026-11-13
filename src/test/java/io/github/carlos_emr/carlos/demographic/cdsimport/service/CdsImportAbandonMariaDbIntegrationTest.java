@@ -376,8 +376,17 @@ class CdsImportAbandonMariaDbIntegrationTest {
                 .containsEntry("releasedCharts", 1L)
                 .containsEntry("verified", 1L)
                 .containsEntry("operator", OPERATOR.operator())
-                .containsEntry("reasonSha256", CdsImportAbandonService.sha256(
-                        "defect stops every resume"));
+                .doesNotContainEntry(
+                        "reasonSha256", CdsImportAbandonService.sha256("defect stops every resume"));
+        // The published digest is salted; only the protected record holds the salt.
+        assertThat(RECORDS)
+                .anySatisfy(
+                        record ->
+                                assertThat(facts.get("reasonSha256"))
+                                        .isEqualTo(
+                                                CdsImportAbandonService.reasonDigest(
+                                                        (String) record.get("reasonSalt"),
+                                                        "defect stops every resume")));
         assertThat((String) facts.get("protectedRecord")).contains("abandonment-");
         verify(results).generate(eq(census.run()), anyLong(), any());
 
@@ -452,6 +461,74 @@ class CdsImportAbandonMariaDbIntegrationTest {
                         .state())
                 .isEqualTo("ABANDONED");
         assertThat(maintenance.isClinicalAccessBlocked()).isFalse();
+    }
+
+    @Test
+    void shouldRecordAnUnreadableReceiptAsUnverifiable_insteadOfAbortingTheAbandon()
+            throws Exception {
+        Chart chart = chart("FAKE-ABANDON-KEYLESS");
+        Seeded census = census(chart, OPERATOR.operator());
+        // The unit's witness names a key this installation no longer has: the receipt check
+        // throws inside its own transaction, as a run that cannot resume for that very reason.
+        execute(
+                "UPDATE cds_import_unit SET native_baseline=REPLACE(native_baseline,"
+                        + " '\"keyId\":\"" + CdsNativeBaselineTestKeys.ACTIVE + "\"',"
+                        + " '\"keyId\":\"test-missing\"') WHERE unit_key=?",
+                census.unit());
+        assertThat(scalar("SELECT native_baseline FROM cds_import_unit WHERE unit_key=?",
+                        census.unit()))
+                .contains("test-missing");
+        activateStaleMaintenance();
+
+        var status =
+                abandon.abandon(census.run(), OPERATOR, census.run(), "witness key retired");
+
+        assertThat(status.state()).isEqualTo("ABANDONED");
+        assertThat(maintenance.isClinicalAccessBlocked()).isFalse();
+        assertThat(
+                        scalar(
+                                "SELECT safe_summary FROM cds_import_diagnostic WHERE run_id=?"
+                                        + " AND code='PATIENT_ABANDONED'",
+                                census.run()))
+                .endsWith("receipts: UNVERIFIABLE");
+        assertThat(ledger.abandonment(census.run())).containsEntry("unverifiable", 1L);
+    }
+
+    @Test
+    void shouldLetARootDelegatedOperatorAbandonABrowserStartedRun_forItsProviderOnly()
+            throws Exception {
+        Chart chart = chart("FAKE-ABANDON-BROWSER");
+        // Started in the browser: the web operator, with its security record.
+        Seeded census = census(chart, "web-7");
+        activateStaleMaintenance();
+        var delegated =
+                new CdsImportActorDto("unix:synthetic-operator", "999998", null, null, null, null);
+        var otherProvider =
+                new CdsImportActorDto("unix:synthetic-operator", "999997", null, null, null, null);
+        assertThatThrownBy(
+                        () ->
+                                abandon.abandon(
+                                        census.run(), otherProvider, census.run(), "not mine"))
+                .isInstanceOf(SecurityException.class);
+        // Another web account is not a root-delegated operator and cannot abandon it either.
+        var otherAccount = new CdsImportActorDto("web-8", "999998", "999998", 8, null, null);
+        assertThatThrownBy(
+                        () ->
+                                abandon.abandon(
+                                        census.run(), otherAccount, census.run(), "not mine"))
+                .isInstanceOf(SecurityException.class);
+        assertThat(ledger.status(census.run()).state()).isEqualTo("INCOMPLETE");
+
+        var status =
+                abandon.abandon(census.run(), delegated, census.run(), "browser import stuck");
+
+        assertThat(status.state()).isEqualTo("ABANDONED");
+        assertThat(maintenance.isClinicalAccessBlocked()).isFalse();
+        // The run keeps the operator that started it; the abandon names who closed it.
+        assertThat(scalar("SELECT operator FROM cds_import_run WHERE id=?", census.run()))
+                .isEqualTo("web-7");
+        assertThat(ledger.abandonment(census.run()))
+                .containsEntry("operator", delegated.operator());
     }
 
     @Test

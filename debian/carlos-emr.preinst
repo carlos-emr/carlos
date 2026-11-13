@@ -9,10 +9,12 @@
 # Meanwhile CdsImportMaintenanceFilter keeps every clinical read and write closed until a
 # successful run of that same import releases maintenance with zero holds. An upgrade in the
 # middle of an import could therefore leave the EMR closed until a manual clinical reconciliation
-# (docs/cds-import-operator-guide.md). Finishing the import first, or, for a stopped import that
-# cannot finish, abandoning it with `carlos-ctl cds-import --abandon`, is always possible: an
-# abandon releases the holds and the maintenance window, so the check then lets the upgrade
-# proceed.
+# (docs/cds-import-operator-guide.md). Finish the import first. A stopped import that cannot
+# finish is closed with `carlos-ctl cds-import --abandon`, which releases the holds and the
+# maintenance window, so the check then lets the upgrade proceed. That needs an installed
+# version whose import engine offers the abandon (carlos-ctl answers CDS_HANDSHAKE otherwise):
+# from an older version, upgrade with the override below and abandon with the new one, which
+# can close an import whose ruleset an upgrade changed.
 #
 # The check runs before the debhelper snippet below stops the service, so a refusal leaves the
 # running EMR exactly as it was: dpkg keeps the installed version, and that version's postinst
@@ -98,10 +100,12 @@ cds_import_upgrade_guard() {
     fi
     echo "carlos-emr: The upgraded build cannot resume an import started by this one, and the EMR" >&2
     echo "carlos-emr: stays closed for clinical use until the import releases it. Finish it first:" >&2
-    echo "carlos-emr:   sudo carlos-ctl cds-import --status <run-id>    (then resume until COMPLETE)" >&2
-    echo "carlos-emr: A stopped import that cannot complete is closed instead with its run's audited" >&2
-    echo "carlos-emr: abandon, after cancelling it (docs/cds-import-operator-guide.md):" >&2
+    echo "carlos-emr:   sudo carlos-ctl cds-import --provider <id> --status <run-id>    (then resume until COMPLETE)" >&2
+    echo "carlos-emr: A stopped import that cannot complete is closed instead with an audited abandon," >&2
+    echo "carlos-emr: after cancelling it (docs/cds-import-operator-guide.md):" >&2
     echo "carlos-emr:   sudo carlos-ctl cds-import --provider <id> --abandon --run <run-id> --confirm <run-id> --reason \"<reason>\"" >&2
+    echo "carlos-emr: If the installed version offers no abandon (CDS_HANDSHAKE), upgrade anyway as below," >&2
+    echo "carlos-emr: then cancel and abandon the import with the new version." >&2
     echo "carlos-emr: To upgrade anyway (for example to install a fix for the import itself):" >&2
     echo "carlos-emr:   sudo env CARLOS_ALLOW_UPGRADE_DURING_CDS_IMPORT=1 apt install --no-remove <release files>" >&2
     return 1

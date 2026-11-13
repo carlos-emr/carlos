@@ -307,7 +307,7 @@ class CdsExportConsultationLetterComposerUnitTest {
      * Print does, through DigitalSignatureManagerImpl's metadata and decryption.
      */
     private CdsExportConsultationLetterComposer chartPath(byte[] stored, DigitalSignatureDao dao) {
-        when(dao.findMetadataById(44)).thenReturn(owner(27, ModuleType.CONSULTATION));
+        when(dao.findReadableMetadataById(44)).thenReturn(owner(27, ModuleType.CONSULTATION));
         var row = owner(27, ModuleType.CONSULTATION);
         row.setSignatureImage(stored);
         when(dao.findDetached(44)).thenReturn(row);

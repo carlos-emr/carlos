@@ -40,7 +40,7 @@ An unknown field, missing report or failed status request remains unknown. A sta
 | Lost commit acknowledgment | Reconcile durable checkpoint, row receipt and file references before continuing | Original run/unit keys, uncertainty code and protected evidence |
 | Process, JVM or application stopped | Restore a compatible runtime/configuration and resume the same run | Accepted source, seals, checkpoints, original artifact and owner history |
 | Source/native hash or target drift | Stop for explicit reconciliation; preserve subsequent clinical edits | Original and current digests, target IDs and conflict diagnostics |
-| Written import that cannot complete (the same defect stops every resume, or an upgrade changed its ruleset) | Cancel it, then close it with its operator's audited abandon (`carlos-ctl cds-import --abandon`); reconcile each released chart clinically | Run ID, prior reports, the stated reason and the regenerated reports' abandonment section |
+| Written import that cannot complete (the same defect stops every resume, or an upgrade changed its ruleset) | Cancel it, then close it with an audited abandon (`carlos-ctl cds-import --abandon`) by a root-delegated operator for its provider, also for a run started in the browser; reconcile each released chart clinically | Run ID, prior reports, the stated reason and the regenerated reports' abandonment section |
 | Blocking clinical meaning/constraint finding | Use versioned correction/decline review with a clinical reason | Original indexed field, original value, proposed correction and review version |
 | Inactive correction draft | Complete the required corrections and whole-source revalidation | Draft lineage, diagnostics, reason and validation results |
 | Source or rules changed after a proven zero-write failure | Use the documented new-submission and explicit unwritten-revision approval flow | Both accepted histories and the server's eligibility proof |
@@ -87,7 +87,7 @@ A table-full diagnostic (`HY000` / vendor `1114`) can indicate exhausted databas
 
 ## Reopening ordinary clinical access
 
-Clinical maintenance and chart holds protect different boundaries. Only the documented release proof can reopen ordinary clinical work. A hold is released only by its patient's verified completion or by its run operator's audited abandon of a stopped import that cannot complete; editing the ledger is never a supported release. A later report failure does not roll back a completed chart, and a successful report does not release an unresolved hold.
+Clinical maintenance and chart holds protect different boundaries. Only the documented release proof can reopen ordinary clinical work. A hold is released only by its patient's verified completion or by an audited abandon of a stopped import that cannot complete; editing the ledger is never a supported release. A later report failure does not roll back a completed chart, and a successful report does not release an unresolved hold.
 
 After database maintenance release, each web node must finish its deferred clinical startup. Pending startup returns HTTP `503` with the documented retry guidance. Diagnose startup separately from import outcome and preserve the import ledger/source. Use the normal deployment recovery procedure for the affected node.
 

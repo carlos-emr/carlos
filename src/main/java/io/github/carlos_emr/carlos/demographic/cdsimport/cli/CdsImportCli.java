@@ -76,6 +76,8 @@ public final class CdsImportCli {
                     "CDS_XML_READ_FAILED",
                     "CDS_CORRECTION_STAGE_INVALID",
                     "IMPORT_ABANDONED",
+                    // A mistyped run ID, named rather than hidden as DETAILS_PROTECTED.
+                    "RUN_NOT_FOUND",
                     "ABANDON_RUN_NOT_STOPPED",
                     "ABANDON_CANCEL_REQUIRED",
                     "ABANDON_RESUME_PENDING",

@@ -1454,13 +1454,33 @@ public class CdsImportLedgerService {
             String operation,
             long osUid,
             String verifiedNonce) {
+        observe(runId, operator, providerNo, operation, osUid, verifiedNonce, true);
+    }
+
+    /**
+     * {@link #observe} of an abandon by a root-delegated operator acting for the run's provider,
+     * who need not be the operator that started it; the facade has checked the delegation.
+     */
+    public void observeAbandon(
+            String runId, String operator, String providerNo, long osUid, String verifiedNonce) {
+        observe(runId, operator, providerNo, "abandon", osUid, verifiedNonce, false);
+    }
+
+    private void observe(
+            String runId,
+            String operator,
+            String providerNo,
+            String operation,
+            long osUid,
+            String verifiedNonce,
+            boolean sameOperator) {
         if (!Set.of("import", "resume", "cancel", "status", "report", "abandon").contains(operation)
                 || osUid < 0) throw new IllegalArgumentException("Invalid CLI observation");
         CdsImportKeys.token(verifiedNonce, "verified delegation nonce", 128);
         write(
                 () -> {
                     CdsImportRun run = requiredRun(runId, true);
-                    if (!Objects.equals(run.getOperator(), operator)
+                    if (sameOperator && !Objects.equals(run.getOperator(), operator)
                             || !Objects.equals(run.getProviderNo(), providerNo))
                         throw new SecurityException("IMPORT_ACCESS_DENIED");
                     CdsImportEvent item = new CdsImportEvent();
@@ -2071,6 +2091,28 @@ public class CdsImportLedgerService {
                     CdsImportDiagnostic d = diagnostics.get(id);
                     if (d == null || !runId.equals(d.getRunId()))
                         throw new CdsImportException("DIAGNOSTIC_NOT_FOUND");
+                    return new CdsImportDiagnosticDto(
+                            d.getId(),
+                            d.getPatientKey(),
+                            d.getUnitKey(),
+                            d.getSeverity(),
+                            d.getCode(),
+                            d.getStage(),
+                            d.getSourcePath(),
+                            d.getSafeSummary(),
+                            d.getProtectedDetailLocation(),
+                            d.isBlocking(),
+                            d.isResolved(),
+                            d.getCreatedAt());
+                });
+    }
+
+    /** The run's latest unresolved stopping diagnostic with protected evidence, or null. */
+    public CdsImportDiagnosticDto latestStoppingDiagnostic(String runId) {
+        return write(
+                () -> {
+                    CdsImportDiagnostic d = diagnostics.latestStopping(runId);
+                    if (d == null) return null;
                     return new CdsImportDiagnosticDto(
                             d.getId(),
                             d.getPatientKey(),
@@ -2791,10 +2833,14 @@ public class CdsImportLedgerService {
     private void requireAbandonable(
             CdsImportRun run,
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportActorDto actor) {
-        // Only the run's own delegated operator and provider may abandon it.
+        // The run's own operator, or a root-delegated operator (no security record) acting for
+        // the run's provider: the browser offers no abandon, so a browser-started run is
+        // abandoned from the command line. The facade has checked that the operator's
+        // delegation covers the run's provider, facility and program.
         if (actor == null
+                || !Objects.equals(run.getProviderNo(), actor.providerNo())
                 || !Objects.equals(run.getOperator(), actor.operator())
-                || !Objects.equals(run.getProviderNo(), actor.providerNo()))
+                        && actor.securityNo() != null)
             throw new SecurityException("IMPORT_ACCESS_DENIED");
         String refusal =
                 abandonRefusal(
@@ -2859,8 +2905,15 @@ public class CdsImportLedgerService {
     /**
      * Re-verifies one patient's committed native rows against their sealed receipts, as patient
      * finalization does, and names the result instead of stopping: VERIFIED, CHANGED (a row
-     * differs from its receipt), UNVERIFIABLE (the receipt or its witness cannot be read) or
-     * NOT_WRITTEN. An abandon records the result; it never changes a row.
+     * differs from its receipt, or its witness no longer verifies), UNVERIFIABLE (the unit's
+     * checkpoint disagrees with it, or the receipt or its witness cannot be read, for example
+     * because the witness key is gone) or NOT_WRITTEN. An abandon records the result; it never
+     * changes a row.
+     *
+     * <p>Each page of units is read under the owned lock, and each receipt is then checked in a
+     * transaction of its own: the verifier joins its caller's transaction, so a failure inside
+     * it would otherwise mark the whole page for rollback and abort the abandon of exactly the
+     * runs that cannot resume.</p>
      */
     String abandonVerification(
             String runId, long epoch, String patientKey, CdsImportUnitService.Verifier verifier) {
@@ -2869,48 +2922,76 @@ public class CdsImportLedgerService {
         String after = "";
         while (true) {
             String cursor = after;
-            String[] pageOutcome = {outcome};
-            List<String> keys =
+            List<AbandonReceipt> page =
                     write(
                             () -> {
                                 lockOwned(runId, epoch);
-                                List<CdsImportUnit> page = units.page(runId, patientKey, cursor, 50);
-                                List<String> seen = new ArrayList<>();
-                                for (CdsImportUnit unit : page) {
-                                    seen.add(unit.getUnitKey());
-                                    if (!Set.of("COMMITTED", "ALREADY_COMPLETE")
-                                            .contains(unit.getState())) continue;
-                                    pageOutcome[0] =
-                                            worse(pageOutcome[0], verifyUnit(unit, verifier));
-                                }
+                                List<AbandonReceipt> rows = new ArrayList<>();
+                                for (CdsImportUnit unit :
+                                        units.page(runId, patientKey, cursor, 50))
+                                    rows.add(abandonReceipt(unit));
                                 units.flushAndClear();
-                                return seen;
+                                return rows;
                             });
-            outcome = pageOutcome[0];
-            if (keys.isEmpty()) break;
-            after = keys.get(keys.size() - 1);
+            if (page.isEmpty()) break;
+            for (AbandonReceipt row : page) {
+                if (!row.committed()) continue;
+                outcome =
+                        worse(
+                                outcome,
+                                row.receipt() == null
+                                        ? "UNVERIFIABLE"
+                                        : verifyReceipt(row.receipt(), verifier));
+            }
+            after = page.get(page.size() - 1).unitKey();
         }
         return outcome;
     }
 
-    private String verifyUnit(CdsImportUnit unit, CdsImportUnitService.Verifier verifier) {
+    /** One unit's committed receipt, read under the owned lock; null when its checkpoint disagrees. */
+    private record AbandonReceipt(
+            String unitKey,
+            boolean committed,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto receipt) {}
+
+    private AbandonReceipt abandonReceipt(CdsImportUnit unit) {
+        boolean committed = Set.of("COMMITTED", "ALREADY_COMPLETE").contains(unit.getState());
+        if (!committed) return new AbandonReceipt(unit.getUnitKey(), false, null);
         CdsImportCheckpoint checkpoint = checkpoints.get(unit.getUnitKey());
         if (checkpoint == null
                 || !checkpoint.getSourceDigest().equals(unit.getSourceDigest())
                 || !Objects.equals(checkpoint.getTargetDigest(), unit.getTargetDigest())
                 || !Objects.equals(checkpoint.getTargetReferences(), unit.getTargetReferences()))
-            return "UNVERIFIABLE";
+            return new AbandonReceipt(unit.getUnitKey(), true, null);
+        return new AbandonReceipt(
+                unit.getUnitKey(),
+                true,
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto(
+                        unit.getTargetReferences(),
+                        unit.getTargetDigest(),
+                        true,
+                        unit.getNativeBaseline()));
+    }
+
+    private String verifyReceipt(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReceiptDto receipt,
+            CdsImportUnitService.Verifier verifier) {
         try {
-            return verifier.verify(
-                            new io.github.carlos_emr.carlos.demographic.cdsimport.dto
-                                    .CdsImportReceiptDto(
-                                    unit.getTargetReferences(),
-                                    unit.getTargetDigest(),
-                                    true,
-                                    unit.getNativeBaseline()))
-                    ? "VERIFIED"
-                    : "CHANGED";
-        } catch (Exception unreadable) {
+            Boolean verified =
+                    write(
+                            () -> {
+                                try {
+                                    return verifier.verify(receipt);
+                                } catch (RuntimeException unchecked) {
+                                    throw unchecked;
+                                } catch (Exception unreadable) {
+                                    throw new IllegalStateException(
+                                            "ABANDON_RECEIPT_UNREADABLE", unreadable);
+                                }
+                            });
+            return Boolean.TRUE.equals(verified) ? "VERIFIED" : "CHANGED";
+        } catch (RuntimeException unreadable) {
+            // Rolled back on its own; the abandon records the chart as unverifiable.
             return "UNVERIFIABLE";
         }
     }
