@@ -67,7 +67,14 @@ class FormsTimedAutosave {
         httpRequest.addEventListener('error', onSendRequestErrorEvent);
 
         httpRequest.open('POST', this.saveEndpointUrl);
-        httpRequest.send(formData);
+        if ([...formData.values()].some(value => typeof value !== 'string')) {
+            httpRequest.send(formData);
+        } else {
+            // Rourke has hundreds of text/check fields. Use the same encoding as
+            // manual Save so these fields do not exceed the multipart part limit.
+            httpRequest.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8');
+            httpRequest.send(new URLSearchParams(formData).toString());
+        }
     }
 
     formChangedEvent(event) {

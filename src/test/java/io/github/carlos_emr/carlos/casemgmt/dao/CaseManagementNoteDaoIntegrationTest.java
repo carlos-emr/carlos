@@ -61,6 +61,41 @@ import static org.assertj.core.api.Assertions.*;
 @Tag("casemgmt")
 public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoBaseIntegrationTest {
 
+    @Test
+    @DisplayName("should load legacy notes with a NULL appointment number and preserve the primitive API")
+    void shouldLoadNote_whenAppointmentNumberIsNull() {
+        CaseManagementNote note = createNote("3946", "FAKE export note without an appointment");
+        entityManager.flush();
+        entityManager.createNativeQuery("UPDATE casemgmt_note SET appointmentNo=NULL WHERE note_id=?1")
+                .setParameter(1, note.getId()).executeUpdate();
+        entityManager.clear();
+
+        CaseManagementNote loaded = caseManagementNoteDAO.getNote(note.getId());
+        assertThat(loaded.getAppointmentNo()).isZero();
+        assertThat(loaded.getNote()).isEqualTo("FAKE export note without an appointment");
+        loaded.setAppointmentNo(12345);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(caseManagementNoteDAO.getNote(note.getId()).getAppointmentNo()).isEqualTo(12345);
+    }
+
+    @Test
+    @DisplayName("should include the entire final print day and exclude the following midnight")
+    void shouldSelectWholePrintDay_withExclusiveEndBoundary() {
+        java.time.Instant midnight = java.time.Instant.parse("2026-10-03T00:00:00Z");
+        CaseManagementNote first = createNote("4171", "FAKE midnight note", Date.from(midnight));
+        CaseManagementNote late = createNote("4171", "FAKE late note", Date.from(midnight.plusSeconds(86399)));
+        createNote("4171", "FAKE previous day", Date.from(midnight.minusSeconds(1)));
+        createNote("4171", "FAKE next day", Date.from(midnight.plusSeconds(86400)));
+        createNote("4172", "FAKE different patient", Date.from(midnight.plusSeconds(3600)));
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(caseManagementNoteDAO.getNotesByDemographicDateRange("4171",
+                Date.from(midnight), Date.from(midnight.plusSeconds(86400))))
+                .extracting(CaseManagementNote::getId).containsExactly(first.getId(), late.getId());
+    }
+
     /** Tests for CRUD operations on CaseManagementNote entities. */
     @Nested
     @DisplayName("CRUD operations")
@@ -669,6 +704,25 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
                 .hasSize(3)
                 .extracting(CaseManagementNote::getUuid)
                 .allMatch(u -> u.equals(sharedUuid));
+        }
+
+        @Test
+        void shouldOrderHistoryById_whenUpdatesShareOneSecond() {
+            String uuid = UUID.randomUUID().toString();
+            Date timestamp = Date.from(java.time.Instant.parse("2026-10-05T12:00:00Z"));
+            CaseManagementNote first = createNote("4001", "First same-second revision", timestamp);
+            CaseManagementNote second = createNote("4001", "Newest same-second revision", timestamp);
+            CaseManagementNote earlier = createNote("4001", "Earlier timestamp but larger ID",
+                    new Date(timestamp.getTime() - 1000));
+            for (CaseManagementNote note : List.of(first, second, earlier)) {
+                note.setUuid(uuid);
+                caseManagementNoteDAO.saveNote(note);
+            }
+            hibernateTemplate.flush();
+            entityManager.clear();
+            assertThat(caseManagementNoteDAO.getHistory(first))
+                    .extracting(CaseManagementNote::getId)
+                    .containsExactly(earlier.getId(), first.getId(), second.getId());
         }
 
         @Test
@@ -1360,6 +1414,23 @@ public class CaseManagementNoteDaoIntegrationTest extends CaseManagementNoteDaoB
     @Nested
     @DisplayName("getNoteCountForProviderForDateRange - native SQL count")
     class GetNoteCountForProviderForDateRange {
+
+        @Test
+        @Tag("query")
+        @DisplayName("should include late end-date notes and exclude next-day notes in usage reports")
+        void shouldIncludeEntireEndDate_whenUsageReportSuppliesInclusiveBoundary() {
+            Date start = createDate(2026, 5, 1);
+            Date selectedEnd = createDate(2026, 5, 31);
+            Date inclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.inclusiveEnd(selectedEnd);
+            Date exclusiveEnd = io.github.carlos_emr.carlos.report.UsageReportSupport.exclusiveEnd(selectedEnd);
+            createNote("30001", "Last second on selected date", new Date(exclusiveEnd.getTime() - 1000));
+            createNote("30002", "First millisecond on following date", exclusiveEnd);
+            hibernateTemplate.flush();
+
+            assertThat(caseManagementNoteDAO.getNoteCountForProviderForDateRange("999998", start, inclusiveEnd))
+                    .isEqualTo(1);
+        }
+
 
         @Test
         @Tag("query")

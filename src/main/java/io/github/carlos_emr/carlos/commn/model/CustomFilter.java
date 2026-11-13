@@ -136,6 +136,20 @@ public class CustomFilter extends AbstractModel<Integer> {
     private String searchTerm;
 
     @Transient
+    private transient Set<Integer> excludedDemographicNos = Set.of();
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public Set<Integer> getExcludedDemographicNos() {
+        return excludedDemographicNos == null ? Set.of() : excludedDemographicNos;
+    }
+
+    public void setExcludedDemographicNos(Set<Integer> patientIds) {
+        Set<Integer> copy = Set.copyOf(patientIds);
+        if (copy.stream().anyMatch(id -> id <= 0)) throw new IllegalArgumentException("Positive patient exclusions required");
+        this.excludedDemographicNos = copy;
+    }
+
+    @Transient
     private String demographic_webName;
 
     public static List<OptionsBean> statusList;

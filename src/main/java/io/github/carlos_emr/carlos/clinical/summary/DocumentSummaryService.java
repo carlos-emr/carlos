@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.text.Normalizer;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
@@ -39,6 +40,30 @@ public final class DocumentSummaryService {
     public static final String ENABLED_PROPERTY = "clinical.ai_document_summary.enabled";
     private static final Semaphore CAPACITY = new Semaphore(1);
     private static final Pattern WORD = Pattern.compile("[\\p{L}\\p{N}]+");
+    /**
+     * Words that assert an action status. A point may use one only when one of its own excerpts uses a
+     * word of the same family; the overview only when the document does. Families rather than stems:
+     * "prescrit" supports "prescrite", "prescription" supports "prescribed". A fixed list in English and
+     * French: the rule is a provenance check on wording the model added, not a clinical judgement.
+     * Deliberately absent: "instruction" (an overview rightly calls an imperative line an instruction),
+     * French "prévu" (planned, the dated-plan paraphrase, not a booking), and the everyday families
+     * given/donné and taken/pris ("étant donné", "given the history", "prise de sang", "prise en charge",
+     * "taking into account", "take care"), which say nothing about a medication's status.
+     */
+    static final List<Set<String>> STATUS_FAMILIES = List.of(
+            Set.of("prescribed", "prescribe", "prescribes", "prescribing", "prescription",
+                    "prescrit", "prescrite", "prescrits", "prescrites", "prescrire"),
+            Set.of("administered", "administer", "administers", "administering", "administration",
+                    "administré", "administrée", "administrés", "administrées", "administrer"),
+            Set.of("started", "start", "starts", "starting", "commenced", "initiated",
+                    "commencé", "commencée", "commencés", "commencées", "commencer", "débuté", "débutée", "instauré", "instaurée"),
+            Set.of("scheduled", "schedule", "schedules", "scheduling",
+                    "programmé", "programmée", "programmés", "programmées",
+                    "planifié", "planifiée", "planifiés", "planifiées"),
+            Set.of("booked", "book", "books", "booking",
+                    "réservé", "réservée", "réservés", "réservées"),
+            Set.of("arranged", "arrange", "arranges", "arranging",
+                    "organisé", "organisée", "organisés", "organisées", "convenu", "convenue", "convenus", "convenues"));
     private final ClinicalSummaryAgent agent;
 
     public DocumentSummaryService() { this(ClinicalSummaryAgents.configuredDocument()); }
@@ -116,8 +141,30 @@ public final class DocumentSummaryService {
             if (!sharesWord(statement, excerpts.toString())) {
                 throw new IllegalArgumentException("Summary point lacks lexical support");
             }
+            String status = statusWordWithoutSupport(statement, excerpts.toString());
+            if (status != null) throw new IllegalArgumentException("Summary point adds a status its evidence does not state: " + status);
         }
         if (!sharesWord(overview, source)) throw new IllegalArgumentException("Overview lacks lexical support");
+        String status = statusWordWithoutSupport(overview, source);
+        if (status != null) throw new IllegalArgumentException("Overview adds a status the document does not state: " + status);
+    }
+
+    /** The first status word in {@code statement} whose family is absent from {@code reference}, else null. */
+    static String statusWordWithoutSupport(String statement, String reference) {
+        Set<String> stated = allWords(statement);
+        Set<String> supporting = allWords(reference);
+        for (Set<String> family : STATUS_FAMILIES) {
+            if (supporting.stream().anyMatch(family::contains)) continue;
+            for (String word : stated) if (family.contains(word)) return word;
+        }
+        return null;
+    }
+
+    private static Set<String> allWords(String value) {
+        var result = new HashSet<String>();
+        var matcher = WORD.matcher(Normalizer.normalize(value, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT));
+        while (matcher.find()) result.add(matcher.group());
+        return result;
     }
 
     private static String text(JsonNode object, String field, int max) {

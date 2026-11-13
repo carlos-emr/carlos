@@ -38,6 +38,7 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
 
 /*
  * Two tiers, because the two decisions they gate carry different risk.
@@ -105,7 +106,11 @@ function validateBaseUrl(rawBaseUrl) {
   // the bind-any address and the Docker host alias. Derived from LOCAL_HTTP_HOSTS
   // rather than restated, so a host added there cannot end up refused here.
   const localHosts = new Set([...LOCAL_HTTP_HOSTS, '0.0.0.0', 'host.docker.internal']);
-  const privateIpv4 = /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[0-1])\.)/.test(host);
+  const octets = host.split('.');
+  const isIpv4 = octets.length === 4 && octets.every(part => /^\d{1,3}$/.test(part) && Number(part) <= 255);
+  const privateIpv4 = isIpv4 && (Number(octets[0]) === 10
+    || (Number(octets[0]) === 192 && Number(octets[1]) === 168)
+    || (Number(octets[0]) === 172 && Number(octets[1]) >= 16 && Number(octets[1]) <= 31));
   if (!localHosts.has(host) && !privateIpv4 && process.env.ALLOW_NON_LOCAL_BASE_URL !== 'true') {
     throw new Error(`Refusing non-local BASE_URL host ${host}; set ALLOW_NON_LOCAL_BASE_URL=true for an intentional test target`);
   }
@@ -595,7 +600,7 @@ async function checkResizeIframeCallers(page) {
   const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({
-      ignoreHTTPSErrors: isLoopbackHost(baseUrl.hostname),
+      ignoreHTTPSErrors: shouldIgnoreHttpsErrors(baseUrl),
       viewport: { width: 1440, height: 900 },
     });
     const page = await login(context);

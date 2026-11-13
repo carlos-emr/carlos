@@ -32,6 +32,8 @@
       wlListId        - list_id for WL form fields
       wlNote          - waiting_list_note for WL form fields
       wlReferralDate  - waiting_list_referral_date for WL form fields
+      consentNotSaved - comma-separated ids of the consent types whose consent change the save
+                        refused; posted on so the chart page can tell the user
 
     @since 2026-04-04
 --%>
@@ -100,6 +102,7 @@
         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= wlDemoNo %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="waitingListNote" value="<carlos:encode value='<%= wlNote %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="onListSince" value="<carlos:encode value='<%= wlReferralDate %>' context="htmlAttribute"/>"/>
+        <input type="hidden" name="consentNotSaved" value="${carlos:forHtmlAttribute(requestScope.consentNotSaved)}"/>
         <input type="hidden" name="displaymode" value="edit"/>
         <input type="hidden" name="dboperation" value="search_detail"/>
 
@@ -108,8 +111,7 @@
             var add2List = confirm("The patient already has an appointment, do you still want to add him/her to the waiting list?");
             if (add2List) {
                 <c:set var="__enc_1"><carlos:encode value='<%= wlDemoNo %>' context="uriComponent"/></c:set>
-                document.add2WLFrm.action = "<%= request.getContextPath() %>/wa                
-itinglist/Add2WaitingList";
+                document.add2WLFrm.action = "<%= request.getContextPath() %>/waitinglist/Add2WaitingList";
             } else {
                 document.add2WLFrm.action = "DemographicEdit?demographic_no=<carlos:encode value='${__enc_1}' context="javaScript"/>";
             }

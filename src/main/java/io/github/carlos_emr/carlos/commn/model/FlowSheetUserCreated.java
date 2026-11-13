@@ -33,6 +33,7 @@ package io.github.carlos_emr.carlos.commn.model;
 import java.io.Serializable;
 
 import java.util.Date;
+import java.util.List;
 
 
 import jakarta.persistence.Entity;
@@ -46,8 +47,25 @@ import jakarta.persistence.GenerationType;
 public class FlowSheetUserCreated extends AbstractModel<Integer> implements Serializable {
 
     public static final String SCOPE_CLINIC = "clinic";
-    public static final String SCOPE_PROVIDER = "providers";
+    /** Provider scope, as stored before a namespace rename and as the Flowsheet Manager and Add pages send it. */
+    public static final String SCOPE_PROVIDER = "provider";
+    /** Provider scope as it was stored between that rename and its undo; such rows are still read. */
+    public static final String SCOPE_PROVIDER_RENAMED = "providers";
     public static final String SCOPE_PATIENT = "patient";
+
+    /** Both stored spellings of the provider scope, for lookups. */
+    public static final List<String> PROVIDER_SCOPES = List.of(SCOPE_PROVIDER, SCOPE_PROVIDER_RENAMED);
+
+    /**
+     * Whether {@code scope} is the provider scope, in either stored spelling.
+     *
+     * @param scope a stored or requested scope value; may be null
+     * @return true for {@link #SCOPE_PROVIDER} or {@link #SCOPE_PROVIDER_RENAMED}
+     */
+    public static boolean isProviderScope(String scope) {
+        // List.of(...).contains(null) throws, and a request may carry no scope.
+        return scope != null && PROVIDER_SCOPES.contains(scope);
+    }
 
     /*
         create table FlowSheetUserCreated(

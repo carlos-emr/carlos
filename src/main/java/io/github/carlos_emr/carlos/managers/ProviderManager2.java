@@ -723,6 +723,8 @@ public class ProviderManager2 {
 
     }
 
+    /** @deprecated Legacy property API; the clinic-wide switch is managed by ProviderLinkingRulesService. */
+    @Deprecated
     public boolean updateAutoLinkToMrpProperty(LoggedInInfo loggedInInfo, String value) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.WRITE, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.WRITE, null)) {
@@ -740,6 +742,8 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
+    /** @deprecated Legacy property API, retained for callers of the previous release. */
+    @Deprecated
 	public boolean viewAutoLinkToMrpPropertyStatus(LoggedInInfo loggedInInfo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin.lab", SecurityInfoManager.READ, null) &&
             !securityInfoManager.hasPrivilege(loggedInInfo, "_admin.hrm", SecurityInfoManager.READ, null)) {
@@ -749,7 +753,7 @@ public class ProviderManager2 {
 		return propertyDao.isActiveBooleanProperty(Property.PROPERTY_KEY.auto_link_to_mrp);
 	}
 
-	// If no property is found, it returns true by default.
+	// Filing for others is offered only after an explicit opt-in.
 	public boolean isHl7OfferFileForOthers(LoggedInInfo loggedInInfo, String providerNo) {
 		if (!securityInfoManager.hasPrivilege(loggedInInfo, "_lab", SecurityInfoManager.READ, null)) {
 			throw new RuntimeException("missing required security object _lab");
@@ -759,7 +763,7 @@ public class ProviderManager2 {
 				.stream()
 				.findFirst()
 				.map(p -> "true".equals(p.getValue()))
-				.orElse(true); // default to true
+				.orElse(false); // default off
 	}
 
 	public boolean isHl7AllowOthersFileForYou(LoggedInInfo loggedInInfo, String providerNo) {

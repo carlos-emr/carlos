@@ -53,6 +53,16 @@ import org.apache.struts2.ActionSupport;
 import org.apache.struts2.ServletActionContext;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
 
+/**
+ * Slot-lock and viewer-count endpoint ({@code /PageMonitoringService}) used by
+ * {@code addappointment.jsp} when {@code appointment_locking_timeout} is above 0.
+ *
+ * <p>Every user who can open Add Appointment calls this on each lock refresh, so it is gated by the
+ * same {@code _appointment w} right as that page ({@code ViewAppointmentWrite2Action}) and not by
+ * {@code _admin}, which only the administrator role holds (issue #4917). Requiring {@code _admin}
+ * made every refresh from a booker fail with a 403, which left the viewer notice at "N/A", let a
+ * second booker take the same slot, and left the patient Search button disabled after a time change.
+ */
 public class PageMonitoring2Action extends ActionSupport {
     private SecurityInfoManager securityInfoManager = SpringUtils.getBean(SecurityInfoManager.class);
 
@@ -65,10 +75,35 @@ public class PageMonitoring2Action extends ActionSupport {
     
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
+    // Struts creates an action per request, so an instance monitor cannot protect the read-then-write
+    // lock acquisition from a second request in this application JVM.
+    private static final Object PAGE_MONITOR_LOCK = new Object();
+
+    /** The only per-viewer fields the Add Appointment lock notice uses. */
+    private record MonitorView(boolean locked, boolean self, String providerName) {
+    }
+
+    /**
+     * Dispatches a slot-lock request: {@code method=update} refreshes or takes the lock and replies with
+     * the overlapping viewers as JSON; anything else releases the caller's monitor for the page.
+     *
+     * @return {@code NONE} after refusing any method other than POST, otherwise the result of the dispatched operation
+     * @throws SecurityException when there is no session or the caller lacks {@code _appointment} w
+     */
     public String execute() throws Exception{
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
-        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_admin", "r", null)) {
-            throw new SecurityException("missing required sec object (_admin)");
+        // Same right as the Add Appointment page that drives this endpoint; see the class Javadoc.
+        if (loggedInInfo == null || !securityInfoManager.hasPrivilege(loggedInInfo, "_appointment", "w", null)) {
+            throw new SecurityException("missing required sec object (_appointment)");
+        }
+
+        // Both actions mutate PageMonitor rows (update persists, the default path deletes the caller's),
+        // and addappointment.jsp only ever POSTs. Refuse every other method before any side effect.
+        // HTTP method names are case-sensitive, so an exact match is the correct comparison.
+        if (!"POST".equals(request.getMethod())) {
+            response.setHeader("Allow", "POST");
+            response.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED);
+            return NONE;
         }
 
         if ("update".equals(request.getParameter("method"))) {
@@ -100,7 +135,7 @@ public class PageMonitoring2Action extends ActionSupport {
 
         List<PageMonitor> otherMonitors = new ArrayList<PageMonitor>();
 
-        synchronized (this) {
+        synchronized (PAGE_MONITOR_LOCK) {
             //get rid of stale ones
             if (cleanupPriorPageAccess) {
                 //they've already opened another appointment window, meaning they already destroyed the last one
@@ -183,11 +218,19 @@ public class PageMonitoring2Action extends ActionSupport {
 
         } //end of synchronized block
 
-        ArrayNode jsonArray = objectMapper.valueToTree(otherMonitors);
+        // Every booker now reaches this endpoint, so reply with only what addappointment.jsp renders.
+        // Serializing PageMonitor itself would hand each caller the other viewers' HTTP session ids
+        // (a bearer credential), remote addresses and provider numbers.
+        List<MonitorView> views = new ArrayList<MonitorView>();
+        for (PageMonitor pm : otherMonitors) {
+            views.add(new MonitorView(pm.isLocked(), pm.isSelf(), pm.getProviderName()));
+        }
+        ArrayNode jsonArray = objectMapper.valueToTree(views);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().print(jsonArray);
-        return null;
+        // The JSON is the whole answer: NONE stops Struts from forwarding to a result after it.
+        return NONE;
     }
 
     public String cancel() {
@@ -200,7 +243,8 @@ public class PageMonitoring2Action extends ActionSupport {
         //User hit cancel, so they actively want to release their (potential) lock on the page
         pageMonitorDao.cancelPageIdForProvider(pageName, pageId, providerNo);
 
-        return null;
+        // The page ignores the answer to its cancel request: NONE ends it with no result.
+        return NONE;
     }
 
     private List<PageMonitor> findByPageName(List<PageMonitor> existingParsed, String pageId, Locale locale) throws ParseException {

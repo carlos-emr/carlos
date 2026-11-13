@@ -50,6 +50,7 @@ public final class ViewAdministrationIndex2Action extends ActionSupport {
             "_admin.resource",
             "_admin.reporting",
             "_admin.misc",
+            "_admin.flowsheet",
     };
 
     private final SecurityInfoManager securityInfoManager =

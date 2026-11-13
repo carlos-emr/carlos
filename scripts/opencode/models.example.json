@@ -1,0 +1,6 @@
+{
+  "deepseek41flash": { "provider": 1, "adapter": "openrouter", "model": "deepseek/deepseek-v4.1-flash" },
+  "kimi": { "provider": 1, "adapter": "openrouter", "model": "~moonshotai/kimi-latest" },
+  "glm53": { "provider": 1, "adapter": "openrouter", "model": "z-ai/glm-5.3" },
+  "sonnet": { "provider": 1, "adapter": "openrouter", "model": "anthropic/claude-sonnet-5.5" }
+}

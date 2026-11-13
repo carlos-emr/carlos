@@ -34,6 +34,8 @@ import java.io.Serializable;
 import java.util.Comparator;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -101,12 +103,19 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
     @Column(name = "providerNo")
     private String providerNo;
 
+    /**
+     * The longest value {@code measurements.dataField} holds ({@code varchar(255)}). The packaged install runs MariaDB
+     * with {@code sql_mode=""} and sets {@code jdbcCompliantTruncation=false} in its JDBC URL, so a longer value is cut
+     * to fit without an error; writers that must not file a cut value check this first.
+     */
+    public static final int DATA_FIELD_MAX_LENGTH = 255;
+
     /** 
      * The actual measurement value or data.
      * Format depends on measurement type - may be numeric ("120/80"), 
      * textual ("Normal"), or structured data.
      */
-    @Column(name = "dataField", nullable = false, length = 255)
+    @Column(name = "dataField", nullable = false, length = DATA_FIELD_MAX_LENGTH)
     private String dataField = "";
 
     /** 
@@ -129,6 +138,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "dateObserved")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date dateObserved;
 
     /** 
@@ -144,6 +154,7 @@ public class Measurement extends AbstractModel<Integer> implements Serializable 
      */
     @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "dateEntered")
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date createDate = new Date();
 
     /**

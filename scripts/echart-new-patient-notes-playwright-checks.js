@@ -53,6 +53,9 @@
  */
 
 const { chromium } = require('playwright');
+const { shouldIgnoreHttpsErrors } = require('./lib/playwright-harness');
+const { newOwnedMarker } = require('./lib/owned-patient');
+const { createOwnedFixtureCleanup } = require('./lib/echart-new-patient-cleanup');
 const { execFileSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
@@ -63,7 +66,9 @@ const {
   buildFailureDetails,
   createRecorder,
   getLaunchOptions,
+  installCleanupSignalHandlers,
   login,
+  NO_PLAYWRIGHT_SIGNAL_HANDLING,
   screenshot,
   validateBaseUrl,
   wirePage,
@@ -86,7 +91,7 @@ const mysqlDatabase = process.env.MYSQL_DATABASE || 'carlos';
 // stray record can never be mistaken for a real patient. Kept short: the
 // column is varchar(30), and a name that gets truncated on save no longer
 // matches the lookup that finds (and later deletes) the fixture.
-const fixtureLastName = `PLAYWRIGHT-EC-${Date.now()}`;
+const fixtureLastName = newOwnedMarker();
 const fixtureFirstName = 'Notes';
 const appointmentReason = 'Notes pagination check';
 
@@ -171,7 +176,7 @@ async function createDemographic(context, schedulePage, recorder) {
     searchPage.locator("input[type='submit']").first().click(),
   ]);
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
-  await searchPage.locator("a[href*='ViewDemographicAddARecordHtm']").first().click();
+  await searchPage.locator("form[action$='/demographic/ViewDemographicAddARecordHtm'] button[type='submit']").first().click();
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(searchPage, 'add-demographic form');
 
@@ -202,7 +207,7 @@ async function createDemographic(context, schedulePage, recorder) {
   await searchPage.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
   await assertNotErrorPage(searchPage, 'new master record');
   const masterBody = await searchPage.locator('body').innerText();
-  assert(masterBody.includes(fixtureLastName),
+  assert(masterBody.includes(fixtureLastName) || masterBody.includes(fixtureLastName.toUpperCase()),
     `master record does not show the new patient: ${masterBody.replace(/\s+/g, ' ').slice(0, 300)}`);
 
   const created = sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
@@ -330,19 +335,45 @@ async function assertNotesPaginationSettles(echart) {
   }
 }
 
+// Idempotent, and also run from SIGINT/SIGTERM (issue #3600): a finally does not
+// run when the process is killed, which would leave the fixture patient behind.
+let createdDemographicNo = null;
+let browser = null;
+const cleanupFixture = createOwnedFixtureCleanup({
+  sql,
+  marker: fixtureLastName,
+  isSqlReady: () => Boolean(mysqlDefaults),
+  getPatientId: () => createdDemographicNo
+    || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`),
+  closeBrowser: async () => {
+    if (browser) {
+      await browser.close();
+      browser = null;
+    }
+  },
+});
+
+// The password file is removed even when row cleanup throws (e.g. MySQL unreachable).
+const signalHandlers = installCleanupSignalHandlers(async () => {
+  try {
+    await cleanupFixture();
+  } finally {
+    cleanupMysqlDefaults();
+  }
+});
+
 (async () => {
   const recorder = createRecorder();
   // Before the browser starts: a filesystem failure here would otherwise leave a
   // launched Chromium with no finally to close it.
   initMysqlDefaults();
-  const browser = await chromium.launch(getLaunchOptions(config.chromePath));
-  let demographicNo = null;
   try {
-    const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1440, height: 1100 } });
+    browser = await chromium.launch({ ...getLaunchOptions(config.chromePath), ...NO_PLAYWRIGHT_SIGNAL_HANDLING });
+    const context = await browser.newContext({ ignoreHTTPSErrors: shouldIgnoreHttpsErrors(), viewport: { width: 1440, height: 1100 } });
     const schedulePage = await login(context, config, recorder);
 
-    demographicNo = await createDemographic(context, schedulePage, recorder);
-    const appointmentNo = await bookAppointment(context, schedulePage, recorder, demographicNo);
+    createdDemographicNo = await createDemographic(context, schedulePage, recorder);
+    const appointmentNo = await bookAppointment(context, schedulePage, recorder, createdDemographicNo);
     const echart = await openEchartFromAppointment(context, schedulePage, recorder, appointmentNo);
 
     // A chart with no notes still renders the new-note editor. Asserting this
@@ -394,7 +425,7 @@ async function assertNotesPaginationSettles(echart) {
     assert(fatalConsole.length === 0, `fatal console errors in the eChart: ${JSON.stringify(fatalConsole)}`);
 
     await context.close();
-    console.log(`PASS new patient ${demographicNo}, appointment ${appointmentNo}: eChart rendered its note `
+    console.log(`PASS new patient ${createdDemographicNo}, appointment ${appointmentNo}: eChart rendered its note `
       + `editor, pagination settled after ${notesRequests.length} fetch(es), throbber cleared`);
   } catch (error) {
     console.error('FAIL eChart new-patient notes Playwright check');
@@ -402,20 +433,8 @@ async function assertNotesPaginationSettles(echart) {
     console.error(JSON.stringify({ notesRequests, ...buildFailureDetails(recorder) }, null, 2));
     process.exitCode = 1;
   } finally {
-    // Remove the fixture patient and everything the flow hung off it. Looked up
-    // by the unique per-run last name — never a bare number — so a bug can never
-    // delete a pre-existing record, and a run that failed before capturing the
-    // id still cleans up after itself.
     try {
-      const leftover = demographicNo
-        || sql(`SELECT demographic_no FROM demographic WHERE last_name='${fixtureLastName}' AND first_name='${fixtureFirstName}'`);
-      if (/^\d+$/.test(leftover)) {
-        sql(`DELETE FROM appointment WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM casemgmt_note_lock WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM admission WHERE client_id=${leftover}`);
-        sql(`DELETE FROM demographicArchive WHERE demographic_no=${leftover}`);
-        sql(`DELETE FROM demographic WHERE demographic_no=${leftover} AND last_name='${fixtureLastName}'`);
-      }
+      await cleanupFixture();
     } catch (cleanupError) {
       // A synthetic patient left in a clinical database is a failed run, not a warning:
       // the next operator has no way to tell it apart from a real record at a glance.
@@ -423,6 +442,7 @@ async function assertNotesPaginationSettles(echart) {
       process.exitCode = 1;
     }
     cleanupMysqlDefaults();
-    await browser.close();
+    // Last, so a signal arriving during any step above still reaches the handler.
+    signalHandlers.dispose();
   }
 })();

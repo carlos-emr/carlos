@@ -133,13 +133,28 @@ public final class DroolsHelper {
      * @return KieBase compiled rule base ready for creating KieSessions
      * @throws DroolsCompilationException if the URL cannot be read or rule compilation fails
      */
+    public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
+        return createKieBaseFromDrl(readDrl(url));
+    }
+
+    /**
+     * Reads DRL text from a local classpath or filesystem URL without compiling it.
+     *
+     * <p>Applies the same local-URL validation as {@link #loadFromUrl(URL)}. Callers that cache
+     * compiled rules by content (for example {@code MeasurementFlowSheet}) read the text first so
+     * a cache hit skips compilation entirely.</p>
+     *
+     * @param url URL pointing to a DRL rule file (classpath or filesystem)
+     * @return String the DRL text, decoded as UTF-8
+     * @throws DroolsCompilationException if the URL is not a local file or jar resource, or
+     *                                    cannot be read
+     */
     // FindSecBugs URLCONNECTION_SSRF_FD: validateLocalDrlUrl rejects network-backed URL schemes before openStream.
     @SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "validateLocalDrlUrl only allows file: and jar:file: DRL resources before opening the stream")
-    public static KieBase loadFromUrl(URL url) throws DroolsCompilationException {
+    public static String readDrl(URL url) throws DroolsCompilationException {
         validateLocalDrlUrl(url);
         try (InputStream is = url.openStream()) {
-            String drl = IOUtils.toString(is, StandardCharsets.UTF_8);
-            return createKieBaseFromDrl(drl);
+            return IOUtils.toString(is, StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new DroolsCompilationException("Failed to read DRL from URL", e);
         }

@@ -106,9 +106,11 @@
                         unresolvedKeys.add(key);
                         output = "";
                     } else {
-                        for (int i = 0; i < names.size(); i++) {
-                            output = DatabaseAP.parserReplace(names.get(i), SafeEncode.forHtml(values.get(i)), output);
+                        ArrayList<String> encodedValues = new ArrayList<String>(values.size());
+                        for (String value : values) {
+                            encodedValues.add(SafeEncode.forHtml(value));
                         }
+                        output = DatabaseAP.renderOutput(output, names, encodedValues);
                     }
                 }
 %><input type="hidden" name="<carlos:encode value='<%= key %>' context="htmlAttribute"/>" value="<carlos:encode value='<%= output %>' context="htmlAttribute"/>"/><%

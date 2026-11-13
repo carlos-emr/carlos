@@ -67,8 +67,8 @@ public class PatientEndYearStatement2Action extends ActionSupport {
         }
 
         PatientEndYearStatements.echoNames(request);
-        // Clear any stale summary so the JSP renders the empty form.
-        request.getSession().setAttribute("summary", null); // nosemgrep: tainted-session-from-http-request -- clearing session attribute with null
+        // The page shows only a statement its own request computed (requestScope.summary), so
+        // there is no session copy to clear any more (issue #4673).
         return SUCCESS;
     }
 }

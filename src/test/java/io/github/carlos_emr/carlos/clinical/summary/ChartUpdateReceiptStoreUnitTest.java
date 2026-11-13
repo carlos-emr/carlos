@@ -27,7 +27,12 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.Query;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -44,6 +49,18 @@ class ChartUpdateReceiptStoreUnitTest {
         when(em.createNativeQuery(anyString(), eq(String.class))).thenReturn(query);
         when(query.setParameter(anyString(), any())).thenReturn(query);
         when(query.getResultList()).thenReturn(result);
+        return query;
+    }
+
+    private Query stubTableEngines(Map<String, List<String>> engines) {
+        Query query = mock(Query.class);
+        AtomicReference<String> table = new AtomicReference<>();
+        when(em.createNativeQuery(anyString(), eq(String.class))).thenReturn(query);
+        when(query.setParameter(eq("tableName"), any())).thenAnswer(invocation -> {
+            table.set(invocation.getArgument(1));
+            return query;
+        });
+        when(query.getResultList()).thenAnswer(invocation -> engines.getOrDefault(table.get(), List.of()));
         return query;
     }
 
@@ -65,12 +82,45 @@ class ChartUpdateReceiptStoreUnitTest {
         assertThat(checkedTables(true, true)).containsExactlyElementsOf(legacy);
         for (boolean legacyChart : new boolean[]{false, true}) {
             assertThat(checkedTables(false, legacyChart))
-                    .containsExactly("clinical_chart_update_receipt", "demographic", "tickler", "tickler_link");
+                    .containsExactly("clinical_chart_update_receipt", "demographic", "tickler", "ticklerdocs");
         }
         stubEngines(List.of("MyISAM"));
         assertThatThrownBy(() -> store.requireTransactionalTables(false, false)).hasMessageContaining("transactional");
         stubEngines(List.of());
         assertThatThrownBy(() -> store.requireTransactionalTables(false, false)).hasMessageContaining("transactional");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void shouldAllowTicklerWrites_whenOnlyTheUsedTablesAreTransactional(boolean legacyChart) {
+        Query query = stubTableEngines(Map.of(
+                "clinical_chart_update_receipt", List.of("InnoDB"),
+                "demographic", List.of("InnoDB"),
+                "tickler", List.of("InnoDB"),
+                "ticklerdocs", List.of("InnoDB")));
+
+        assertThatCode(() -> store.requireTransactionalTables(false, legacyChart)).doesNotThrowAnyException();
+
+        verify(query).setParameter("tableName", "ticklerdocs");
+        verify(query, never()).setParameter("tableName", "tickler_link");
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, MyISAM", "true, MyISAM", "false, MEMORY", "true, MEMORY", "false, missing", "true, missing"})
+    void shouldRefuseTicklerWrites_whenTheAttachmentTableCannotRollBack(boolean legacyChart, String engine) {
+        // Every other dependency, including the obsolete link table, is InnoDB.
+        // Only the actual attachment target is missing or nontransactional.
+        Query query = stubTableEngines(Map.of(
+                "clinical_chart_update_receipt", List.of("InnoDB"),
+                "demographic", List.of("InnoDB"),
+                "tickler", List.of("InnoDB"),
+                "tickler_link", List.of("InnoDB"),
+                "ticklerdocs", "missing".equals(engine) ? List.of() : List.of(engine)));
+
+        assertThatThrownBy(() -> store.requireTransactionalTables(false, legacyChart))
+                .isInstanceOf(IllegalStateException.class).hasMessageContaining("transactional");
+
+        verify(query).setParameter("tableName", "ticklerdocs");
     }
 
     @Test void shouldRequireCurrentPatientAndSessionLock_whenSavingHistory() {

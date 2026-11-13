@@ -30,6 +30,8 @@
 
 package io.github.carlos_emr.carlos.prescript.pageUtil;
 
+import io.github.carlos_emr.carlos.prescript.gate.RxRequestedPatientAccess;
+
 import io.github.carlos_emr.carlos.commn.dao.UserPropertyDAO;
 import io.github.carlos_emr.carlos.commn.model.UserProperty;
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
@@ -65,11 +67,20 @@ public final class RxChoosePatient2Action extends ActionSupport {
         MiscUtils.getLogger().debug(s + "=" + s2);
     }
 
+    /**
+     * Opens Rx for the patient the request names: makes that patient's session bean the active one
+     * (creating it if needed) and keeps its unsaved drafts. Needs global {@code _demographic} read and
+     * {@code _rx} read, patient-level access to the named patient, and a well-formed {@code demographicNo}.
+     *
+     * @return the staging result, or {@code NONE} after a 400 for a missing, malformed or conflicting
+     *         patient
+     * @throws SecurityException when the caller may not open the patient's Rx
+     */
     public String execute() throws IOException, ServletException {
         LoggedInInfo loggedInInfo = LoggedInInfo.getLoggedInInfoFromSession(request);
 
         if (!securityInfoManager.hasPrivilege(loggedInInfo, "_demographic", "r", null)) {
-            throw new RuntimeException("missing required sec object (_demographic)");
+            throw new SecurityException("missing required sec object (_demographic)");
         }
 
         // p("locale", locale.toString());
@@ -86,13 +97,29 @@ public final class RxChoosePatient2Action extends ActionSupport {
         // p("user_no", user_no);
         // p("frm", frm.toString());
         // Setup bean
-        RxSessionBean bean = new RxSessionBean();
-
-        bean.setProviderNo(user_no);
-        bean.setDemographicNo(Integer.parseInt(this.getDemographicNo()));
-
-        // nosemgrep: tainted-session-from-http-request -- bean is built from session-sourced providerNo and validated demographicNo (parseInt)
-        request.getSession().setAttribute("RxSessionBean", bean);
+        // The patient comes from the request through the resolver, which accepts the same
+        // demographicNo repeated (URL and form body) and refuses a malformed or conflicting one.
+        // Struts no longer binds it: a repeated value used to become "1, 1" here (#3908).
+        int demographicNoInt = RxSessionBeanResolver.requestedDemographicNo(request);
+        if (demographicNoInt <= 0) {
+            // Missing, malformed, non-positive or conflicting (demographicNo and demographic_no
+            // naming different patients): a bad request, answered here rather than through the
+            // unmapped "error.html" result.
+            MiscUtils.getLogger().warn("Rejected Rx open: missing or malformed demographicNo");
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST);
+            return NONE;
+        }
+        // Opening Rx renders the patient's medications, allergies and pharmacies: the caller needs
+        // _rx read, globally and for this patient with access to the record (#3908). _demographic
+        // read above only admits the patient search.
+        if (!securityInfoManager.hasPrivilege(loggedInInfo, "_rx", "r", null)) {
+            throw new SecurityException("missing required sec object (_rx)");
+        }
+        RxRequestedPatientAccess.requirePatient(securityInfoManager, loggedInInfo, demographicNoInt, "_rx", "r");
+        this.demographicNo = String.valueOf(demographicNoInt);
+        // Per-patient state (#3875): reuse this patient's bean so reopening Rx keeps staged drafts,
+        // and never replace another patient's bean that a second window is still using.
+        RxSessionBean bean = RxSessionBeanResolver.activate(request, demographicNoInt, user_no);
 
         RxPatientData rx = null;
         RxPatientData.Patient patient = null;
@@ -133,8 +160,8 @@ public final class RxChoosePatient2Action extends ActionSupport {
 
             }
 
-            // nosemgrep: tainted-session-from-http-request -- patient is DAO-sourced from RxPatientData.getPatient(), not raw user input
-            request.getSession().setAttribute("Patient", patient);
+            // The patient record is no longer parked in the session (it followed the last chart
+            // opened); Rx pages load it per request through RxSessionBeanResolver.resolvePatient.
         }
 
         return redirect;
@@ -157,7 +184,11 @@ public final class RxChoosePatient2Action extends ActionSupport {
         return (this.demographicNo);
     }
 
-    @StrutsParameter
+    /**
+     * Not a Struts parameter: the patient is read from the request by
+     * {@link RxSessionBeanResolver#requestedDemographicNo}. Binding it turned a repeated
+     * demographicNo into one comma-joined string and the Rx page failed to open (#3908).
+     */
     public void setDemographicNo(String demographicNo) {
         this.demographicNo = demographicNo;
     }

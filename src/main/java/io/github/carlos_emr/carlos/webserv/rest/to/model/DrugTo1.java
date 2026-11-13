@@ -35,6 +35,8 @@ import jakarta.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+
 @XmlAccessorType(XmlAccessType.FIELD)
 @XmlRootElement(name = "drug")
 public class DrugTo1 implements Serializable {
@@ -94,6 +96,7 @@ public class DrugTo1 implements Serializable {
 
     private String archivedReason;
 
+    @JsonFormat(shape = JsonFormat.Shape.NUMBER)
     private Date archivedDate;
 
     private Float strength;

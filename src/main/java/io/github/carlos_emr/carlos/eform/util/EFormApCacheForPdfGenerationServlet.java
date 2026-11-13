@@ -278,10 +278,7 @@ public final class EFormApCacheForPdfGenerationServlet extends HttpServlet {
             throw new ApLookupException("AP output declares " + names.size()
                     + " names but the query returned " + values.size() + " values");
         }
-        for (int i = 0; i < names.size(); i++) {
-            output = DatabaseAP.parserReplace(names.get(i), values.get(i), output);
-        }
-        return output;
+        return DatabaseAP.renderOutput(output, names, values);
     }
 
     /**

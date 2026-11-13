@@ -23,6 +23,13 @@ package io.github.carlos_emr.carlos.billing.CA.BC.dao;
 
 import io.github.carlos_emr.carlos.test.base.CarlosTestBase;
 import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Msh;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obr;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Obx;
+import io.github.carlos_emr.carlos.billing.CA.BC.model.Hl7Pid;
+import io.github.carlos_emr.carlos.billing.CA.BC.util.PathNetLabResults;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import java.util.List;
 import io.github.carlos_emr.carlos.commn.dao.utils.EntityDataGenerator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -47,6 +54,12 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private Hl7MshDao hl7MshDao;
+
+    @Autowired
+    private Hl7ObrDao hl7ObrDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager em;
 
     @Nested
     @DisplayName("CRUD operations")
@@ -105,6 +118,99 @@ public class Hl7MshDaoIntegrationTest extends CarlosTestBase {
 
             Hl7Msh found = hl7MshDao.find(entity.getId());
             assertThat(found.getSendingApp()).isEqualTo("UpdatedApp");
+        }
+    }
+
+    /**
+     * Pins finding 165 (#4552): a PathNet report mixing final and pending OBR results must not be
+     * reported as final, which the alphabetical {@code MIN(resultStatus)} did for F with I or P.
+     * The aggregate is shared by the {@link Hl7MshDao} patient and provider lists
+     * ({@link PathNetLabResults#REPORT_STATUS_HQL}); it is exercised here through
+     * {@link Hl7ObrDao#findMinResultStatusByMessageId}, because the Msh list queries select a
+     * non-aggregated entity under {@code GROUP BY} that strict H2 rejects (MariaDB accepts it).
+     * The list rendering is covered by the {@code pathnet-status} Playwright check.
+     */
+    @Nested
+    @DisplayName("PathNet report status")
+    class PathnetReportStatus {
+
+        private int persistReport(int messageId, String... obrStatuses) throws Exception {
+            Hl7Pid pid = new Hl7Pid();
+            EntityDataGenerator.generateTestDataForModelClass(pid);
+            pid.setMessageId(messageId);
+            em.persist(pid);
+
+            for (String status : obrStatuses) {
+                Hl7Obr obr = new Hl7Obr();
+                EntityDataGenerator.generateTestDataForModelClass(obr);
+                obr.setPidId(pid.getId());
+                obr.setResultStatus(status);
+                em.persist(obr);
+
+                Hl7Obx obx = new Hl7Obx();
+                EntityDataGenerator.generateTestDataForModelClass(obx);
+                obx.setObrId(obr.getId());
+                em.persist(obx);
+            }
+            em.flush();
+            return messageId;
+        }
+
+        private String reportStatus(int messageId) {
+            // The DAO declares List<Object[]> but the single-column select yields scalars; read
+            // them as Object so no Object[] cast is inserted.
+            List<?> rows = hl7ObrDao.findMinResultStatusByMessageId(messageId);
+            assertThat(rows).hasSize(1);
+            return (String) rows.get(0);
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report Final when every result is final")
+        void shouldReportFinal_whenAllResultsFinal() throws Exception {
+            assertThat(reportStatus(persistReport(900001, "F", "F"))).isEqualTo("F");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a final result is mixed with a preliminary one")
+        void shouldReportPreliminary_whenFinalMixedWithPreliminary() throws Exception {
+            assertThat(reportStatus(persistReport(900002, "F", "P"))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a final result is mixed with an in-process one")
+        void shouldReportPreliminary_whenFinalMixedWithInProcess() throws Exception {
+            assertThat(reportStatus(persistReport(900003, "F", "I"))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should keep corrected when a corrected result is mixed with a final one")
+        void shouldKeepCorrected_whenCorrectedMixedWithFinal() throws Exception {
+            assertThat(reportStatus(persistReport(900006, "C", "F"))).isEqualTo("C");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a corrected result is mixed with a preliminary one")
+        void shouldReportPreliminary_whenCorrectedMixedWithPreliminary() throws Exception {
+            assertThat(reportStatus(persistReport(900007, "C", "P"))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should report preliminary when a final result is mixed with one that has no status")
+        void shouldReportPreliminary_whenFinalMixedWithUnreportedStatus() throws Exception {
+            assertThat(reportStatus(persistReport(900005, "F", null))).isEqualTo("P");
+        }
+
+        @Test
+        @Tag("read")
+        @DisplayName("should keep the status when every result is preliminary")
+        void shouldKeepStatus_whenAllResultsPreliminary() throws Exception {
+            assertThat(reportStatus(persistReport(900004, "P"))).isEqualTo("P");
         }
     }
 }

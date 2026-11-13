@@ -19,6 +19,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.struts2.ActionContext;
+import org.apache.struts2.ServletActionContext;
 
 /**
  * Shared explicit gate for moved eForm page entrypoints.
@@ -26,9 +27,17 @@ import org.apache.struts2.ActionContext;
  * @since 2026-04-15
  */
 public class ViewEFormPage2Action extends BaseEFormView2Action {
+    private static final String FIELDNOTE_SELECTION = "eform/fieldNoteReport/fieldnoteselect";
 
     @Override
     protected boolean isMethodAllowed(HttpServletRequest request) {
+        ActionContext actionContext = ActionContext.getContext();
+        if (actionContext != null && FIELDNOTE_SELECTION.equals(actionContext.getActionName())) {
+            if (hasFieldNoteMutation(request)) {
+                return "POST".equals(request.getMethod());
+            }
+            return super.isMethodAllowed(request) || "POST".equals(request.getMethod());
+        }
         if (super.isMethodAllowed(request)) {
             return true;
         }
@@ -49,10 +58,19 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
     @Override
     protected String allowedMethods() {
         ActionContext ctx = ActionContext.getContext();
-        if (ctx != null && "eform/efmformmanageredit".equals(ctx.getActionName())) {
+        if (ctx != null && FIELDNOTE_SELECTION.equals(ctx.getActionName())
+                && hasFieldNoteMutation(ServletActionContext.getRequest())) {
+            return "POST";
+        }
+        if (ctx != null && ("eform/efmformmanageredit".equals(ctx.getActionName())
+                || FIELDNOTE_SELECTION.equals(ctx.getActionName()))) {
             return "GET, HEAD, POST";
         }
         return super.allowedMethods();
+    }
+
+    private static boolean hasFieldNoteMutation(HttpServletRequest request) {
+        return request.getParameter("selected_eform") != null || request.getParameter("unselect_eform") != null;
     }
 
     @Override
@@ -72,6 +90,10 @@ public class ViewEFormPage2Action extends BaseEFormView2Action {
         }
 
         requirePrivilege(request, route.privilege());
+        if (route.privilege() == EFormViewRoutes.Privilege.FIELDNOTE_READ) {
+            request.setAttribute("canManageFieldNotes", securityInfoManager.hasPrivilege(
+                    loggedInInfo(request), "_admin.fieldnote", "w", null));
+        }
         return forwardToInternalView(request, response, route.internalView());
     }
 }

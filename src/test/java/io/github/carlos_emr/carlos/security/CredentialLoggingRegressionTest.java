@@ -25,11 +25,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+@Tag("unit")
 @DisplayName("Credential logging regression tests")
 class CredentialLoggingRegressionTest {
 
@@ -84,12 +86,12 @@ class CredentialLoggingRegressionTest {
     }
 
     @Test
-    @DisplayName("CML upload should log key presence only")
-    void shouldLogKeyPresenceOnly_forCmlUpload() throws IOException {
+    @DisplayName("CML upload should not log the key or data derived from it")
+    void shouldNotLogKeyOrDerivedData_forCmlUpload() throws IOException {
         String labUploadAction = readSource("lab/ca/on/CML/Upload/LabUpload2Action.java");
 
         assertThat(labUploadAction)
-                .contains("_logger.debug(\"upload key present: {}\", key != null)")
+                .contains("_logger.debug(\"Checking whether the CML upload key was supplied\")")
                 .doesNotContain("MiscUtils.getLogger().debug(\"key=\" + key)");
     }
 

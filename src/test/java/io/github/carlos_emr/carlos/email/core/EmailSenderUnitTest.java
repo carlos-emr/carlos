@@ -41,6 +41,10 @@ import io.github.carlos_emr.carlos.managers.NioFileManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.EmailSendingException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import jakarta.mail.Multipart;
+import jakarta.mail.Part;
+import jakarta.mail.Session;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
@@ -50,6 +54,7 @@ import org.mockito.MockedConstruction;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import java.util.ArrayList;
+import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -57,6 +62,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowable;
@@ -163,6 +169,103 @@ class EmailSenderUnitTest extends CarlosUnitTestBase {
         } finally {
             emailSender.discardPrepared();
         }
+    }
+
+    @Test
+    @DisplayName("should archive the SMTP message with the footer one blank line below the body")
+    void shouldArchiveFooterBelowBody_inSmtpMessage() throws Exception {
+        EmailConfig emailConfig = smtpEmailConfig();
+        EmailData emailData = emailData(List.of());
+        emailData.setFooter("Riverside Clinic<br>Not monitored for urgent issues.");
+        EmailLog emailLog = new EmailLog(emailConfig, "provider@example.test", emailData.getRecipients(),
+                emailData.getSubject(), emailData.getBody(), EmailLog.EmailStatus.PENDING);
+        injectDependency(emailLog, "id", 47);
+        EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+
+        try {
+            OutboundEmailArchiveDto archiveRequest = emailSender.prepareOutboundArchive(emailLog);
+
+            MimeMessage archived = new MimeMessage(Session.getInstance(new Properties()),
+                    new ByteArrayInputStream(archiveRequest.getArtifactBytes()));
+            assertThat(plainTextOf(archived).replace("\r\n", "\n"))
+                    .isEqualTo("Body text\n\nRiverside Clinic\nNot monitored for urgent issues.");
+            // The log keeps the body alone; the chart note is built from it.
+            assertThat(emailLog.getBody()).isEqualTo("Body text");
+        } finally {
+            emailSender.discardPrepared();
+        }
+    }
+
+    @Test
+    @DisplayName("should hand body and footer to the SMTP and SendGrid transports")
+    void shouldPassBodyAndFooter_toEveryTransport() throws Exception {
+        EmailData emailData = emailData(List.of());
+        emailData.setFooter("  Riverside Clinic  ");
+        EmailConfig sendGrid = new EmailConfig(EmailConfig.EmailType.API, EmailConfig.EmailProvider.SENDGRID,
+                "provider@example.test");
+        List<Object> transmittedBodies = new ArrayList<>();
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(SMTPEmailSender.class,
+                     (sender, context) -> {
+                         transmittedBodies.add(context.arguments().get(4));
+                         stubArchiveTransport(sender);
+                     });
+             MockedConstruction<APISendGridEmailSender> sendGridSenders = mockConstruction(
+                     APISendGridEmailSender.class, (sender, context) -> {
+                         transmittedBodies.add(context.arguments().get(4));
+                         stubArchiveTransport(sender);
+                     })) {
+            for (EmailConfig emailConfig : List.of(smtpEmailConfig(), sendGrid)) {
+                EmailSender emailSender = new EmailSender(loggedInInfo, emailConfig, emailData);
+                try {
+                    emailSender.prepareOutboundArchive(new EmailLog());
+                } finally {
+                    emailSender.discardPrepared();
+                }
+            }
+        }
+
+        assertThat(transmittedBodies).containsExactly(
+                "Body text\n\nRiverside Clinic", "Body text\n\nRiverside Clinic");
+    }
+
+    @Test
+    @DisplayName("should hand the transport the body alone when the footer is only whitespace")
+    void shouldPassBodyUnchanged_whenFooterBlank() throws Exception {
+        EmailData emailData = emailData(List.of());
+        emailData.setFooter(" \n ");
+        List<Object> transmittedBodies = new ArrayList<>();
+
+        try (MockedConstruction<SMTPEmailSender> smtpSenders = mockConstruction(SMTPEmailSender.class,
+                (sender, context) -> {
+                    transmittedBodies.add(context.arguments().get(4));
+                    stubArchiveTransport(sender);
+                })) {
+            EmailSender emailSender = new EmailSender(loggedInInfo, smtpEmailConfig(), emailData);
+            try {
+                emailSender.prepareOutboundArchive(new EmailLog());
+            } finally {
+                emailSender.discardPrepared();
+            }
+        }
+
+        assertThat(transmittedBodies).containsExactly("Body text");
+    }
+
+    private static String plainTextOf(Part part) throws Exception {
+        Object content = part.getContent();
+        if (content instanceof String text && part.isMimeType("text/plain")) {
+            return text;
+        }
+        if (content instanceof Multipart multipart) {
+            for (int i = 0; i < multipart.getCount(); i++) {
+                String text = plainTextOf(multipart.getBodyPart(i));
+                if (text != null) {
+                    return text;
+                }
+            }
+        }
+        return null;
     }
 
     @Test

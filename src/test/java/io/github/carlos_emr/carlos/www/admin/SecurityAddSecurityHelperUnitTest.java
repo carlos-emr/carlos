@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2026 CARLOS Contributors. All Rights Reserved.
+ * Copyright (c) 2026 CARLOS EMR Contributors. All Rights Reserved.
  *
  * This software is published under the GPL GNU General Public License.
  * This program is free software; you can redistribute it and/or
@@ -21,176 +21,183 @@
  */
 package io.github.carlos_emr.carlos.www.admin;
 
+import io.github.carlos_emr.CarlosProperties;
+import io.github.carlos_emr.carlos.admin.service.ProviderLoginCreationService;
 import io.github.carlos_emr.carlos.commn.dao.SecurityDao;
 import io.github.carlos_emr.carlos.commn.model.Security;
 import io.github.carlos_emr.carlos.managers.SecurityManager;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
-
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.jsp.PageContext;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-
-import java.util.Collections;
-
+import org.springframework.mock.web.MockHttpServletRequest;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
+/**
+ * Verifies the authoritative login-creation boundary, including direct POSTs.
+ *
+ * <p>Issue #2689: every created login carries the role the administrator chose, and a missing,
+ * unknown or withheld role refuses the whole creation.</p>
+ */
 @Tag("unit")
-@Tag("security")
-@DisplayName("SecurityAddSecurityHelper")
+@Isolated("Temporarily configures the clinic password policy")
 class SecurityAddSecurityHelperUnitTest extends CarlosUnitTestBase {
-
-    private static final String RAW_PASSWORD = "S3curePassword!";
-    private static final String RAW_PIN = "1234";
-    private static final String HASHED_PASSWORD = "{bcrypt}password";
-    private static final String HASHED_PIN = "{bcrypt}pin";
-
-    private AutoCloseable mockitoCloseable;
-    private SecurityAddSecurityHelper helper;
-
-    @Mock private SecurityDao securityDao;
-    @Mock private SecurityManager securityManager;
-    @Mock private PageContext pageContext;
-    @Mock private ServletRequest request;
-    @Mock private HttpSession session;
+    private final SecurityDao records = mock(SecurityDao.class);
+    private final SecurityManager passwords = mock(SecurityManager.class);
+    private final ProviderLoginCreationService loginCreation = mock(ProviderLoginCreationService.class);
+    private final PageContext page = mock(PageContext.class);
+    private final MockHttpServletRequest request = new MockHttpServletRequest();
+    private final Map<String, String> original = new HashMap<>();
 
     @BeforeEach
-    void setUp() {
-        mockitoCloseable = MockitoAnnotations.openMocks(this);
-        registerMock(SecurityDao.class, securityDao);
-        registerMock(SecurityManager.class, securityManager);
-        helper = new SecurityAddSecurityHelper();
+    void configure() {
+        registerMock(SecurityDao.class, records);
+        registerMock(SecurityManager.class, passwords);
+        registerMock(ProviderLoginCreationService.class, loginCreation);
+        lenient().when(loginCreation.assignableRoleNames(any())).thenReturn(List.of("doctor", "receptionist"));
+        lenient().when(loginCreation.isEligibleProvider(any(), eq("999998"))).thenReturn(true);
+        when(page.getRequest()).thenReturn(request);
+        lenient().when(page.getSession()).thenReturn(request.getSession());
+        lenient().when(passwords.encodePassword(anyString())).thenReturn("encoded-test-password");
+        request.setParameter("user_name", "fixture4167");
+        request.setParameter("provider_no", "999998");
+        request.setParameter("date_ExpireDate", "2100-01-01");
+        request.setParameter("password", "Valid1!Password");
+        request.setParameter("conPassword", "Valid1!Password");
+        request.setParameter("role_name", "doctor");
+        policy("IGNORE_PASSWORD_REQUIREMENTS", "false");
+        policy("password_min_length", "8");
+        policy("password_min_groups", "3");
+        policy("password_group_lower_chars", "abcdefghijklmnopqrstuvwxyz");
+        policy("password_group_upper_chars", "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        policy("password_group_digits", "0123456789");
+        policy("password_group_special", "!");
     }
 
-    @org.junit.jupiter.api.AfterEach
-    void tearDown() throws Exception {
-        if (mockitoCloseable != null) {
-            mockitoCloseable.close();
-        }
+    private void policy(String name, String value) {
+        CarlosProperties properties = CarlosProperties.getInstance();
+        if (!original.containsKey(name)) original.put(name, properties.getProperty(name));
+        properties.setProperty(name, value);
     }
 
-    @Test
-    @DisplayName("should persist hashed PIN and default invalid lock settings when adding provider")
-    void shouldPersistHashedPinAndDefaultInvalidLockSettings_whenAddingProvider() {
-        when(pageContext.getRequest()).thenReturn(request);
-        when(pageContext.getSession()).thenReturn(session);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
-        when(request.getParameter("password")).thenReturn(RAW_PASSWORD);
-        when(request.getParameter("pin")).thenReturn(RAW_PIN);
-        when(request.getParameter("provider_no")).thenReturn("999998");
-        when(request.getParameter("user_name")).thenReturn("carlosdoc");
-        when(request.getParameter("b_ExpireSet")).thenReturn("invalid");
-        when(request.getParameter("b_LocalLockSet")).thenReturn("1");
-        when(request.getParameter("b_RemoteLockSet")).thenReturn(null);
-        when(request.getParameter("forcePasswordReset")).thenReturn("1");
-        when(request.getParameter("enableMfa")).thenReturn(null);
-        when(securityManager.encodePassword(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
-        when(securityManager.encodePin(RAW_PIN)).thenReturn(HASHED_PIN);
-        when(securityDao.findByProviderNo("999998")).thenReturn(Collections.emptyList());
-        when(securityDao.findByUserName("carlosdoc")).thenReturn(Collections.emptyList());
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
-
-        helper.addProvider(pageContext);
-
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
-        assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
-        assertThat(persisted.getPin()).isEqualTo(HASHED_PIN);
-        assertThat(persisted.getBExpireset()).isZero();
-        assertThat(persisted.getBLocallockset()).isOne();
-        assertThat(persisted.getBRemotelockset()).isZero();
-        assertThat(persisted.getPasswordUpdateDate()).isNotNull();
-        assertThat(persisted.getPinUpdateDate()).isNotNull();
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+    @AfterEach
+    void restorePolicy() {
+        original.forEach((name, value) -> {
+            if (value == null) CarlosProperties.getInstance().remove(name);
+            else CarlosProperties.getInstance().setProperty(name, value);
+        });
     }
 
-    /** Everything a valid add-provider POST needs except the PIN field. */
-    private void stubAddProviderRequestWithoutPin() {
-        when(pageContext.getRequest()).thenReturn(request);
-        when(pageContext.getSession()).thenReturn(session);
-        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
-        when(request.getParameter("password")).thenReturn(RAW_PASSWORD);
-        when(request.getParameter("provider_no")).thenReturn("999998");
-        when(request.getParameter("user_name")).thenReturn("carlosdoc");
-        when(request.getParameter("b_ExpireSet")).thenReturn("0");
-        when(request.getParameter("b_LocalLockSet")).thenReturn("0");
-        when(request.getParameter("b_RemoteLockSet")).thenReturn("0");
-        when(request.getParameter("forcePasswordReset")).thenReturn(null);
-        when(securityManager.encodePassword(RAW_PASSWORD)).thenReturn(HASHED_PASSWORD);
-        when(securityDao.findByProviderNo("999998")).thenReturn(Collections.emptyList());
-        when(securityDao.findByUserName("carlosdoc")).thenReturn(Collections.emptyList());
+    private String reject() {
+        new SecurityAddSecurityHelper().addProvider(page);
+        verify(records, never()).persist(any(Security.class));
+        verify(loginCreation, never()).createLoginWithRole(any(), any(), any());
+        verify(passwords, never()).encodePassword(any());
+        ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
+        verify(page).setAttribute(eq("message"), message.capture());
+        assertThat(message.getValue()).isNotBlank().isNotEqualTo("admin.securityaddsecurity.msgAdditionSuccess");
+        verify(page, never()).setAttribute(eq(SecurityAddSecurityHelper.ASSIGNED_ROLE_ATTRIBUTE), any());
+        logActionMock.verifyNoInteractions();
+        return message.getValue();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"ab1", "alllowercase", "OnlyLetters"})
+    void shouldRejectWithoutWrites_whenPasswordViolatesPolicy(String password) {
+        if (password == null) request.removeParameter("password");
+        else request.setParameter("password", password);
+        request.setParameter("conPassword", password == null ? "" : password);
+        reject();
     }
 
     @Test
-    @DisplayName("should persist provider without PIN when the PIN field is absent")
-    void shouldPersistProviderWithoutPin_whenPinFieldIsAbsent() {
-        // The add form omits the PIN controls entirely when legacy PINs are globally disabled, so
-        // the parameter is null. Hashing it anyway stamps a pinUpdateDate on an account that has
-        // no PIN; the empty-string case below is worse still, because the encoder happily returns
-        // a valid bcrypt hash of "" and the row then looks PIN-protected.
-        stubAddProviderRequestWithoutPin();
-        when(request.getParameter("pin")).thenReturn(null);
-        when(request.getParameter("enableMfa")).thenReturn(null);
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
-
-        helper.addProvider(pageContext);
-
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
-        assertThat(persisted.getPin()).isNull();
-        assertThat(persisted.getPinUpdateDate()).isNull();
-        assertThat(persisted.getPassword()).isEqualTo(HASHED_PASSWORD);
-        verify(securityManager, never()).encodePin(any());
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+    void shouldRejectWithoutWrites_whenConfirmationDiffers() {
+        request.setParameter("conPassword", "Different1!Password");
+        reject();
     }
 
     @Test
-    @DisplayName("should persist provider without PIN when MFA disables the PIN controls")
-    void shouldPersistProviderWithoutPin_whenMfaDisablesThePinControls() {
-        // Selecting MFA disables the PIN inputs, so the value arrives empty rather than absent.
-        stubAddProviderRequestWithoutPin();
-        when(request.getParameter("pin")).thenReturn("");
-        when(request.getParameter("enableMfa")).thenReturn("1");
-        ArgumentCaptor<Security> securityCaptor = ArgumentCaptor.forClass(Security.class);
-
-        helper.addProvider(pageContext);
-
-        verify(securityDao).persist(securityCaptor.capture());
-        Security persisted = securityCaptor.getValue();
-        assertThat(persisted.getPin()).isNull();
-        assertThat(persisted.getPinUpdateDate()).isNull();
-        assertThat(persisted.isUsingMfa()).isTrue();
-        verify(securityManager, never()).encodePin(any());
-        verify(pageContext).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+    void shouldRequireConfirmation_whenComplexityIsDisabled() {
+        policy("IGNORE_PASSWORD_REQUIREMENTS", "true");
+        request.setParameter("password", "weak");
+        request.setParameter("conPassword", "different");
+        reject();
     }
 
     @Test
-    @DisplayName("should parse lock setting when value is valid")
-    void shouldParseLockSetting_whenValueIsValid() {
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("0")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("1")).isOne();
+    void shouldUseClinicPolicy_whenConfiguredMinimumIsHigher() {
+        policy("password_min_length", "30");
+        reject();
     }
 
     @Test
-    @DisplayName("should default lock setting when value is missing or invalid")
-    void shouldDefaultLockSetting_whenValueIsMissingOrInvalid() {
-        assertThat(SecurityAddSecurityHelper.parseLockSetting(null)).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("invalid")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("-1")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("2")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("1.5")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting(" 1 ")).isZero();
-        assertThat(SecurityAddSecurityHelper.parseLockSetting("2147483648")).isZero();
+    void shouldCreateEncodedLoginWithChosenRole_whenPasswordAndConfirmationAreValid() {
+        new SecurityAddSecurityHelper().addProvider(page);
+        ArgumentCaptor<Security> row = ArgumentCaptor.forClass(Security.class);
+        verify(loginCreation).createLoginWithRole(any(), row.capture(), eq("doctor"));
+        verify(passwords).encodePassword("Valid1!Password");
+        assertThat(row.getValue().getPassword()).isEqualTo("encoded-test-password");
+        assertThat(row.getValue().getUserName()).isEqualTo("fixture4167");
+        assertThat(row.getValue().getProviderNo()).isEqualTo("999998");
+        verify(page).setAttribute("message", "admin.securityaddsecurity.msgAdditionSuccess");
+        verify(page).setAttribute(SecurityAddSecurityHelper.ASSIGNED_ROLE_ATTRIBUTE, "doctor");
+    }
+
+    @Test
+    void shouldLeaveAuditToTheTransactionalService_whenLoginIsCreated() {
+        // The service writes both audit entries strictly, inside the creating transaction; the
+        // helper must not add best-effort asynchronous copies.
+        new SecurityAddSecurityHelper().addProvider(page);
+        verify(loginCreation).createLoginWithRole(any(), any(Security.class), eq("doctor"));
+        logActionMock.verifyNoInteractions();
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"ghost", "siteroot", " doctor"})
+    void shouldRejectWithoutWrites_whenRoleIsMissingOrNotAssignable(String roleName) {
+        if (roleName == null) request.removeParameter("role_name");
+        else request.setParameter("role_name", roleName);
+        assertThat(reject()).isEqualTo("admin.securityaddsecurity.msgRoleInvalid");
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"700009", "-1"})
+    void shouldRejectWithoutWrites_whenProviderIsNotOneTheFormOffers(String providerNo) {
+        if (providerNo == null) request.removeParameter("provider_no");
+        else request.setParameter("provider_no", providerNo);
+        assertThat(reject()).isEqualTo("admin.securityaddsecurity.msgAdditionFailure");
+    }
+
+    @Test
+    void shouldKeepEarlierRefusal_whenRoleIsAlsoMissing() {
+        // Credential refusals keep their own message; the role is checked last.
+        request.removeParameter("role_name");
+        request.setParameter("conPassword", "Different1!Password");
+        assertThat(reject()).isEqualTo("admin.securityrecord.msgPasswordNotConfirmed");
+    }
+
+    @Test
+    void shouldReportRoleInvalidWithoutAudit_whenRoleIsRemovedBeforeTheWrite() {
+        doThrow(new ProviderLoginCreationService.UnknownRoleException())
+                .when(loginCreation).createLoginWithRole(any(), any(), any());
+        new SecurityAddSecurityHelper().addProvider(page);
+        verify(page).setAttribute("message", "admin.securityaddsecurity.msgRoleInvalid");
+        verify(page, never()).setAttribute(eq(SecurityAddSecurityHelper.ASSIGNED_ROLE_ATTRIBUTE), any());
+        logActionMock.verifyNoInteractions();
     }
 }

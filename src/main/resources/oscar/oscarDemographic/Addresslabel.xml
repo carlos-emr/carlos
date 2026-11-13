@@ -16,13 +16,13 @@
 	<field name="province" class="java.lang.String" />
 	<field name="postal" class="java.lang.String" />
 	<title height="60">
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="10" width="330" height="14" fontSize="10.0" bold="true">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="10" width="330" height="14" fontSize="10.0" bold="true">
 			<expression><![CDATA[$F{first_name} + " " + $F{last_name}]]></expression>
 		</element>
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="25" width="330" height="14" fontSize="10.0">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="25" width="330" height="14" fontSize="10.0">
 			<expression><![CDATA[$F{address}]]></expression>
 		</element>
-		<element kind="textField" positionType="Float" mode="Opaque" x="0" y="38" width="330" height="14" fontSize="10.0">
+		<element fontName="DejaVu Sans" kind="textField" positionType="Float" mode="Opaque" x="0" y="38" width="330" height="14" fontSize="10.0">
 			<expression><![CDATA[$F{city} + "," + $F{province} + " " + $F{postal}]]></expression>
 		</element>
 	</title>

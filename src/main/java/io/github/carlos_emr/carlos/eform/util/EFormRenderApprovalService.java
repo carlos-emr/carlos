@@ -135,7 +135,7 @@ public class EFormRenderApprovalService {
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"),
                 Objects.requireNonNull(operation, "operation must not be null"),
                 Map.copyOf(issueDigests), 0,
-                clock.instant().plus(TTL), null));
+                clock.instant().plus(TTL), null, null));
         logger.info(
                 "Incomplete eForm render approval requested: fdid={} provider={} operation={} issues={} approvedForms={}",
                 requestFdid, providerNo, operation, report.issueCount(), issueDigests.size());
@@ -178,7 +178,7 @@ public class EFormRenderApprovalService {
         String token = generateToken();
         stagedFaxApprovals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
                 Objects.requireNonNull(demographicNo, "demographicNo must not be null"), Operation.FAX,
-                Map.copyOf(digests), advisoryIssueCount, clock.instant().plus(STAGED_FAX_TTL),
+                Map.copyOf(digests), advisoryIssueCount, clock.instant().plus(STAGED_FAX_TTL), null,
                 new StagedFaxPreview(path)));
         logger.info("Incomplete eForm fax preview staged: fdid={} provider={} approvedForms={}",
                 fdid, providerNo, digests.size());
@@ -277,9 +277,11 @@ public class EFormRenderApprovalService {
         }
         String providerNo = requireProvider(loggedInInfo);
         PendingApproval pending = approvals.asMap().remove(token);
+        Instant now = clock.instant();
         if (pending == null
                 || pending.stagedPreview() != null
-                || clock.instant().isAfter(pending.expiresAt())
+                || !now.isBefore(pending.capacityReceiptExpiresAt() == null
+                        ? pending.expiresAt() : pending.capacityReceiptExpiresAt())
                 || !pending.sessionId().equals(session.getId())
                 || !pending.providerNo().equals(providerNo)
                 || pending.fdid() != fdid
@@ -293,8 +295,67 @@ public class EFormRenderApprovalService {
         logger.info(
                 "Incomplete eForm render approved: fdid={} provider={} operation={}",
                 fdid, pending.providerNo(), operation);
+        // A scoped, unspent capacity receipt may survive the original consent during browser
+        // backoff. It resumes without ANY omission approval; a genuinely incomplete render must
+        // prompt again. Ordinary consent tickets have no separate lifetime and still expire.
+        boolean consentCurrent = now.isBefore(pending.expiresAt());
         return new EFormRenderApproval(pending.providerNo(), pending.demographicNo(),
-                pending.operation(), pending.issueDigests(), pending.expiresAt());
+                pending.operation(), consentCurrent ? pending.issueDigests() : Map.of(),
+                consentCurrent ? pending.expiresAt() : pending.capacityReceiptExpiresAt(),
+                pending.sessionId(), pending.fdid());
+    }
+
+    /**
+     * Rotates a consumed approval after a render was refused before capacity admission.
+     *
+     * <p>Only a caller handling the renderer's explicit retryable failure may use this method.
+     * It never broadens consent, renews its lifetime, or restores the spent token. The consumed
+     * capability carries its original session and request-form bindings, and can mint exactly one
+     * replacement. The receipt has its own bounded lifetime from issuance, so expiry during
+     * browser backoff resumes without omission approval instead of failing a capacity wait.
+     * Expired consent must be obtained again by presenting the current omissions.</p>
+     *
+     * @return a fresh one-use token, or null when no valid retry capability remains
+     */
+    public String reissueAfterCapacity(HttpServletRequest request, LoggedInInfo loggedInInfo,
+            int fdid, String demographicNo, Operation operation, EFormRenderApproval approval) {
+        if (approval == null) {
+            return null;
+        }
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return null;
+        }
+        String providerNo = requireProvider(loggedInInfo);
+        if (!approval.claimCapacityRetry(session.getId(), providerNo, fdid, demographicNo,
+                operation, clock.instant())) {
+            return null;
+        }
+        String token = generateToken();
+        approvals.put(token, new PendingApproval(session.getId(), providerNo, fdid,
+                demographicNo, operation, approval.issueDigests(), 0, approval.expiresAt(),
+                clock.instant().plus(TTL), null));
+        return token;
+    }
+
+    /**
+     * One-use permission to continue an already-saved form after explicit pre-render capacity
+     * refusal. An empty digest map approves no omissions: incomplete content still requires
+     * the normal informed-approval page. This never authorizes replaying the clinical save.
+     */
+    public String issueCapacityContinuation(HttpServletRequest request, LoggedInInfo loggedInInfo,
+            int fdid, String demographicNo, Operation operation) {
+        if (fdid <= 0 || demographicNo == null || !demographicNo.matches("[1-9][0-9]*")) {
+            throw new IllegalArgumentException("A saved form and patient are required for continuation");
+        }
+        HttpSession session = Objects.requireNonNull(request.getSession(false), "An authenticated session is required");
+        String providerNo = requireProvider(loggedInInfo);
+        String token = generateToken();
+        Instant expires = clock.instant().plus(TTL);
+        approvals.put(token, new PendingApproval(session.getId(), providerNo, fdid, demographicNo,
+                Objects.requireNonNull(operation, "operation must not be null"), Map.of(), 0,
+                expires, expires, null));
+        return token;
     }
 
     /**
@@ -425,6 +486,7 @@ public class EFormRenderApprovalService {
             Map<Integer, String> issueDigests,
             int advisoryIssueCount,
             Instant expiresAt,
+            Instant capacityReceiptExpiresAt,
             StagedFaxPreview stagedPreview) {
     }
 }

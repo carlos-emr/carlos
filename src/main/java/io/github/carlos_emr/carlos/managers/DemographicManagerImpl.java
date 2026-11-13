@@ -50,11 +50,11 @@ import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchReques
 import io.github.carlos_emr.carlos.webserv.rest.to.model.DemographicSearchResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import io.github.carlos_emr.carlos.log.LogAction;
 import io.github.carlos_emr.carlos.util.StringUtils;
 
 import java.util.*;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
@@ -375,6 +375,8 @@ public class DemographicManagerImpl implements DemographicManager {
     private static final Pattern SAFE_NAME_RANGE_REGEX = Pattern.compile("^\\^\\[[A-Za-z]-[A-Za-z]\\]$");
 
     @Override
+    // FindSecBugs IMPROPER_UNICODE: report-name ordering is not an authorization identity. See docs/static-analysis-workflows.md
+    @SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "Locale.ROOT case mapping for an ASCII A-Z report range; not a security or authorization decision")
     public List<Demographic> getDemographicsNameRangeByProvider(LoggedInInfo loggedInInfo, Provider provider,
                                                                 String regex) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.READ);
@@ -390,8 +392,7 @@ public class DemographicManagerImpl implements DemographicManager {
             return new ArrayList<>();
         }
 
-        // Validate that the character range is not reversed (e.g. "^[Z-A]" would pass the
-        // allowlist but throw PatternSyntaxException in Pattern.compile).
+        // Validate that the character range is not reversed (e.g. "^[Z-A]").
         char rangeStart = Character.toUpperCase(regex.charAt(2));
         char rangeEnd = Character.toUpperCase(regex.charAt(4));
         if (rangeStart > rangeEnd) {
@@ -408,12 +409,13 @@ public class DemographicManagerImpl implements DemographicManager {
          */
         List<Demographic> demographicFilterList = new ArrayList<>();
         if (demographicList != null && !demographicList.isEmpty()) {
-            Pattern pattern = Pattern.compile(regex);
-            Matcher matcher;
             for (Demographic demographic : demographicList) {
-                if (demographic.getLastName() != null) {
-                    matcher = pattern.matcher(demographic.getLastName().toUpperCase());
-                    if (matcher.find()) {
+                String lastName = demographic.getLastName();
+                if (lastName != null && !lastName.isEmpty()) {
+                    // The only accepted expression is an anchored one-letter range.
+                    // Compare its bounds directly rather than compiling client-derived regex.
+                    char first = lastName.toUpperCase(java.util.Locale.ROOT).charAt(0);
+                    if (first >= rangeStart && first <= rangeEnd) {
                         demographicFilterList.add(demographic);
                     }
                 }
@@ -428,7 +430,20 @@ public class DemographicManagerImpl implements DemographicManager {
         return demographicDao.getDemographicByProvider(provider.getProviderNo(), true);
     }
 
+    /**
+     * Creates the patient, its program admission and its extensions in one transaction: if any
+     * write fails (for example an extension that collides on the per-patient key), nothing is kept.
+     * Each extension is linked to the new patient's demographic number, replacing any number the
+     * caller supplied, and any extension {@code id} the caller supplied is discarded, so a create
+     * request can neither orphan an extension nor re-point an existing extension row.
+     *
+     * @param loggedInInfo {@link LoggedInInfo} the acting provider; must hold write access to the demographic security object
+     * @param demographic {@link Demographic} the new patient, with optional extras; its demographic number is assigned on save
+     * @param admissionProgramId {@link Integer} the program the patient is admitted to
+     * @throws IllegalArgumentException if the birth date on the demographic cannot be parsed
+     */
     @Override
+    @Transactional
     public void createDemographic(LoggedInInfo loggedInInfo, Demographic demographic, Integer admissionProgramId) {
         checkPrivilege(loggedInInfo, SecurityInfoManager.WRITE);
         try {
@@ -455,6 +470,9 @@ public class DemographicManagerImpl implements DemographicManager {
 
         if (demographic.getExtras() != null) {
             for (DemographicExt ext : demographic.getExtras()) {
+                // Create-only: a client-supplied id would make saveEntity merge (update) an existing row.
+                ext.setId(null);
+                ext.setDemographicNo(demographic.getDemographicNo());
                 createExtension(loggedInInfo, ext);
             }
         }
@@ -649,6 +667,17 @@ public class DemographicManagerImpl implements DemographicManager {
 
     @Override
     public void mergeDemographics(LoggedInInfo loggedInInfo, Integer parentId, List<Integer> children) {
+        // Reject before the first write: merging a record into itself, or involving a record that is already
+        // merged into another, can close a loop in demographic_merged that getHead cannot resolve.
+        if (parentId == null || !demographicMergedDao.findCurrentByDemographicNo(parentId).isEmpty()) {
+            throw new IllegalArgumentException("Merge target must be an existing head record");
+        }
+        for (Integer child : children) {
+            if (child == null || child.equals(parentId)
+                    || !demographicMergedDao.findCurrentByDemographicNo(child).isEmpty()) {
+                throw new IllegalArgumentException("Merge source must be a head record other than the target");
+            }
+        }
         for (Integer child : children) {
             DemographicMerged dm = new DemographicMerged();
             dm.setDemographicNo(child);

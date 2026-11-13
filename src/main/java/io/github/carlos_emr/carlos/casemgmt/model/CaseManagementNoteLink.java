@@ -28,11 +28,14 @@
 
 package io.github.carlos_emr.carlos.casemgmt.model;
 
+import java.io.Serializable;
 
 @jakarta.persistence.Entity
 @jakarta.persistence.Table(name = "casemgmt_note_link")
 @jakarta.persistence.Access(jakarta.persistence.AccessType.PROPERTY)
-public class CaseManagementNoteLink {
+public class CaseManagementNoteLink implements Serializable {
+    private static final long serialVersionUID = 1L;
+
 
     // Table Name constants
     public static final Integer CASEMGMTNOTE = 1;

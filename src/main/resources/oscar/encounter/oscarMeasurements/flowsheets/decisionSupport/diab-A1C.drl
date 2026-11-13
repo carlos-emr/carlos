@@ -36,11 +36,10 @@
 //   months. Diabetes Canada target: <=7.0% for most adults with diabetes.
 //   Values >7.0% indicate suboptimal glycemic control.
 //
-//   Two rule formats handle different A1C value conventions:
-//     - Rule "A1C":  Percentage format (>=7.0, e.g., 7.5 = 7.5%)
-//     - Rule "A1C2": Fraction/decimal format (0.07-2.0, e.g., 0.075 = 7.5%)
 //   Some labs report A1C as a fraction (0.075) rather than percentage (7.5).
-//   Both are flagged as "HIGH" when above target.
+//   MeasurementDSHelper.getDataAsDouble() scales an A1C below 1 by 100 (issue
+//   #4614), so the single percentage rule below flags both forms. There is no
+//   separate fraction rule: it would see the already-scaled value.
 //
 // Referenced By:
 //   - XML configs: diabetesFlowsheet.xml, omdDiabetesFlowsheet.xml
@@ -61,30 +60,14 @@ package DiabetesA1C;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.util.MeasurementDSHelper;
 
 // ---------------------------------------------------------------------------
-// Above-target A1C - percentage format (A1C >= 7.0%)
-// Values >=7.0% indicate suboptimal glycemic control per Diabetes Canada.
+// Above-target A1C (A1C > 7.0%)
+// Values above the 7.0% target indicate suboptimal glycemic control per
+// Diabetes Canada; exactly 7.0% is at target (flowsheet guideline "<= 7.0%").
 // ---------------------------------------------------------------------------
 rule "A1C"
     when
         m : MeasurementDSHelper()
-        eval( m.getDataAsDouble() >= 7 )
-        eval( !m.hasProblem() )
-    then
-        m.log("A1C RULES IS GETTING RUN");
-        m.setIndicationColor("HIGH");
-end
-
-// ---------------------------------------------------------------------------
-// Above-target A1C - fraction/decimal format (0.07 <= A1C <= 2.0)
-// Some labs report A1C as a decimal fraction (e.g., 0.075 = 7.5%).
-// The upper bound of 2.0 prevents percentage-format values (e.g., 7.5)
-// from matching this rule.
-// ---------------------------------------------------------------------------
-rule "A1C2"
-    when
-        m : MeasurementDSHelper()
-        eval( m.getDataAsDouble() <= 2 )
-        eval( m.getDataAsDouble() >= 0.07 )
+        eval( m.getDataAsDouble() > 7 )
         eval( !m.hasProblem() )
     then
         m.log("A1C RULES IS GETTING RUN");

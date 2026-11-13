@@ -29,12 +29,16 @@ import java.io.InputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileAttribute;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,17 +86,20 @@ import io.github.carlos_emr.carlos.utility.PathValidationUtils;
  *       unsupported and are reverted.</li>
  *   <li><b>Seeded</b> (everything else — {@code blank.rtl}, {@code editor_help.html}, the generated
  *       lab decision-support stubs): deployed once if absent, then never touched, because a clinic
- *       is expected to customize them.</li>
+ *       is expected to customize them. The one exception is a copy that is byte-for-byte a retired,
+ *       defective version CARLOS itself generated ({@code RETIRED_SEEDED_ASSET_SHA256}); nobody
+ *       customized it, so it is upgraded like a managed asset.</li>
  * </ul>
  * <p>An unchanged managed asset is compared and left in place: it is never rewritten and nothing is
  * logged above DEBUG. The comparison does stage a temp file in the target directory on every
  * startup, so that directory must stay writable. Earlier versions skipped <em>every</em> existing
  * file, which meant a corrected asset could never reach an install that already had one.</p>
  *
- * <h3>Intentional Exclusion</h3>
- * <p>The {@code stamps.js} file is intentionally NOT auto-deployed because it
- * contains clinic-specific doctor signature image mappings that administrators
- * create themselves through the eForm admin UI.</p>
+ * <h3>stamps.js</h3>
+ * <p>{@code stamps.js} holds clinic-specific doctor signature image mappings that administrators
+ * write themselves and upload through the eForm admin UI. The shipped file is only an empty,
+ * seeded placeholder, so the Rich Text Letter's {@code <script>} for it stops loading a 404 on
+ * installs that have none; an uploaded copy replaces it and is never touched again.</p>
  *
  * <h3>JSoup Interaction Warning</h3>
  * <p>If the eForm images directory does not exist or the assets are not deployed,
@@ -116,7 +123,8 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     /** Compatibility shim ($.browser, .andSelf, .size, .live/.die, .bind/.unbind) appended to the
      *  jQuery bundle deployed under legacy 1.x/3.1 filenames so pre-3.x forms keep working. */
     private static final String JQUERY_COMPAT_RESOURCE_PATH = "/library/jquery/jquery-compat.js";
-    private static final byte[] BLANK_SIGNATURE_PNG = new byte[] {
+    // Image pixels, not a signing key: avoid the FindSecBugs constant-key heuristic on field names containing "sign".
+    private static final byte[] BLANK_PNG = new byte[] {
         (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
         0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
         0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
@@ -131,11 +139,23 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
     /**
      * Assets to deploy. These filenames must match exactly what the RTL eForm's
      * form_html references via {@code displayImage?imagefile=<filename>}.
+     *
+     * <p>The {@code .rtl} entries are the Rich Text Letter's starter templates. They reach the
+     * clinician through {@code efmformrtl_templates}, which lists every {@code *.rtl} file in the
+     * eForm images directory, so a template that is not deployed simply does not exist as far as
+     * the editor's template dropdown is concerned — which is why they ship here rather than being
+     * left for an administrator to upload. All of them are <em>seeded</em>, not managed (see
+     * {@link #MANAGED_ASSETS}): a clinic is expected to edit a letter template, and an edit must
+     * survive the next redeploy.</p>
      */
     private static final String[] ASSETS = {
         "editControl2.js",
         "blank.rtl",
-        "editor_help.html"
+        "clinic_letter.rtl",
+        "consultation_letter.rtl",
+        "patient_letter.rtl",
+        "editor_help.html",
+        "stamps.js"
     };
 
     private static final String[] LEGACY_SIGNATURE_ASSETS = {
@@ -153,7 +173,9 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      * touched again, because a clinic is expected to customize it. That covers {@code blank.rtl}
      * (the default letter template), {@code editor_help.html}, and the generated lab
      * decision-support stubs, whose entire purpose is to be replaced by a clinic's real script.
-     * {@code stamps.js} is not deployed at all and is unaffected.</p>
+     * {@code stamps.js} is seeded the same way: the shipped file is an empty placeholder (the Rich
+     * Text Letter loads it on every open, and a missing one was a 404 refused as script), and a
+     * clinic that lists its own signature images in it keeps that copy.</p>
      *
      * <p>Why this split rather than a blanket never-clobber rule: the deployer previously skipped
      * every existing file, so a corrected {@code editControl2.js} could never reach an install that
@@ -182,6 +204,28 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         "CreativeCommonsIcon.png"
     };
     private static final Map<String, String> SAMPLE_LAB_COMPATIBILITY_SCRIPTS = buildSampleLabCompatibilityScripts();
+
+    /**
+     * SHA-256 of seeded-asset bytes that an earlier CARLOS release generated itself and that are
+     * known to be defective. A seeded asset is normally never touched once it exists, so without
+     * this a fix to a generated stub could reach only fresh installs. A copy whose bytes are exactly
+     * a retired CARLOS version is not a clinic customization, so it is upgraded like a managed asset;
+     * any other content — the clinic's real lab script, or an edited stub — is left in place.
+     *
+     * <p>The lab decision-support stubs shipped from 2026-07-28 reported their degradation with a
+     * {@code navigator.sendBeacon()} that carried no CSRF token, so CSRFGuard refused every report
+     * with 403 and the form was never flagged unstable. One version was ever shipped (identical in
+     * all three files); {@code EFormAssetDeployerUnitTest} pins this digest against those bytes.</p>
+     */
+    private static final String RETIRED_LAB_STUB_SENDBEACON_SHA256 =
+            "8c356fea404e2d0312fb2ea0c63cf5b11f8bb6c1c1040ae87c2d4d437553359d";
+    private static final Map<String, Set<String>> RETIRED_SEEDED_ASSET_SHA256 = Map.of(
+        "LocationsLab_Nov2020.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256),
+        "LabDecisionSupport3_2024.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256),
+        "LabEngine_2023.js", Set.of(RETIRED_LAB_STUB_SENDBEACON_SHA256)
+    );
+    /** Retired copies are small generated scripts; never hash a large clinic-provided file. */
+    private static final long RETIRED_SEEDED_ASSET_MAX_BYTES = 64 * 1024;
 
     /** Injected by Spring via {@link ServletContextAware} before {@link #afterPropertiesSet()}. */
     private jakarta.servlet.ServletContext servletContext;
@@ -224,7 +268,7 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         for (String asset : LEGACY_SIGNATURE_ASSETS) {
             deploySharedJavascriptAsset(asset, targetDir);
         }
-        deployGeneratedAsset("BNK.png", targetDir, BLANK_SIGNATURE_PNG);
+        deployGeneratedAsset("BNK.png", targetDir, BLANK_PNG);
         deploySampleLabCompatibilityAssets(targetDir);
 
         // Per-asset outcomes are logged above (deployed / already-exists / failed). This line marks
@@ -432,11 +476,13 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
         }
     }
 
+    // FindSecBugs PATH_TRAVERSAL_IN: filename is a shipped asset name, checked by validateGeneratedChildPath; targetDir is configuration
+    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "filename is a shipped asset name checked by PathValidationUtils.validateGeneratedChildPath; targetDir is the configured eForm image directory")
     private void deployAssetFromStream(String filename, File targetDir, InputStream is, String sourceLabel) {
         File targetFile = PathValidationUtils.validateGeneratedChildPath(filename, targetDir);
         Path targetPath = targetFile.toPath();
         Path tempFile = null;
-        boolean managed = isManagedAsset(filename);
+        boolean managed = isManagedAsset(filename) || isRetiredShippedCopy(filename, targetPath);
         if (targetFile.exists() && !managed) {
             logger.debug("Seeded eForm asset already exists, leaving clinic copy in place: {}",
                     targetFile.getAbsolutePath());
@@ -477,6 +523,33 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
      */
     static boolean isManagedAsset(String filename) {
         return MANAGED_ASSETS.contains(filename);
+    }
+
+    /**
+     * True when {@code target} holds exactly the bytes of a retired CARLOS-generated version of a
+     * seeded asset (see {@link #RETIRED_SEEDED_ASSET_SHA256}), which may therefore be upgraded.
+     * Fails safe: a missing, linked, oversized or unreadable file is treated as a clinic copy.
+     *
+     * @param filename deployed asset filename
+     * @param target validated on-disk location of that asset
+     * @return {@code true} only for an exact retired-version match
+     */
+    static boolean isRetiredShippedCopy(String filename, Path target) {
+        Set<String> retired = RETIRED_SEEDED_ASSET_SHA256.get(filename);
+        if (retired == null || !Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS)) {
+            return false;
+        }
+        try {
+            if (Files.size(target) > RETIRED_SEEDED_ASSET_MAX_BYTES) {
+                return false;
+            }
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(target));
+            return retired.contains(HexFormat.of().formatHex(digest));
+        } catch (IOException | NoSuchAlgorithmException e) {
+            logger.warn("Could not compare seeded eForm asset with retired shipped versions; leaving it in place: {}",
+                    target, e);
+            return false;
+        }
     }
 
     void moveTempFile(Path tempFile, Path targetPath) throws IOException {
@@ -560,11 +633,19 @@ public class EFormAssetDeployer implements InitializingBean, ServletContextAware
                       var ctxEl = doc && doc.getElementById ? doc.getElementById('context') : null;
                       var fidEl = doc && doc.getElementById ? doc.getElementById('fid') : null;
                       var ctx = ctxEl ? ctxEl.value : '';
-                      if (ctx && global.navigator && global.navigator.sendBeacon && global.URLSearchParams) {
+                      // XMLHttpRequest, never navigator.sendBeacon(): a beacon cannot carry the
+                      // CSRF-TOKEN header and this page has no token to put in its body, so
+                      // CSRFGuard refused every report with 403. CSRFGuard's client script, which
+                      // the server injects into every eForm page, adds the token to an XHR on its
+                      // own -- the same path the toolbar's window.onerror report takes.
+                      if (ctx && global.XMLHttpRequest && global.URLSearchParams) {
                         var params = new global.URLSearchParams();
                         params.append('formId', fidEl ? fidEl.value : '');
                         params.append('error', 'lab decision-support stub invoked (not deployed): ' + (fnName || 'unknown'));
-                        global.navigator.sendBeacon(ctx + '/eform/logEformError', params);
+                        var report = new global.XMLHttpRequest();
+                        report.open('POST', ctx + '/eform/logEformError', true);
+                        report.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded; charset=UTF-8');
+                        report.send(params.toString());
                       }
                     } catch (e) { /* best-effort visibility only; never break the form */ }
                   }

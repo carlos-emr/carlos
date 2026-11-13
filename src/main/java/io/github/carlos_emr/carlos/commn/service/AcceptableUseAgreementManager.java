@@ -36,21 +36,36 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import io.github.carlos_emr.CarlosProperties;
-import org.apache.commons.io.FileUtils;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import org.apache.logging.log4j.Logger;
 import io.github.carlos_emr.carlos.commn.dao.PropertyDao;
 import io.github.carlos_emr.carlos.commn.model.Property;
 import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.utility.PathValidationUtils;
 import io.github.carlos_emr.carlos.utility.SpringUtils;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.safety.Safelist;
 
 public class AcceptableUseAgreementManager {
     private static Logger logger = MiscUtils.getLogger();
 
-    private static boolean loadAttempted = false;
+    // Coordinate agreement text, version and validity updates on one private monitor.
+    private static final Object CACHE_LOCK = new Object();
+
+    private static volatile boolean loadAttempted = false;
 
     private static String auaText;
+    // Display form of auaText, sanitized once per load rather than on every login page.
+    private static String auaHtml;
+    private static AgreementVersion loadedVersion;
+
+    private record AgreementVersion(Path path, FileTime modified, long size, Object fileKey) { }
+
     private boolean auaAvailable;
     private boolean alwaysShow;
     private static Date agreementCutoffDate;
@@ -58,51 +73,95 @@ public class AcceptableUseAgreementManager {
 
     private static PropertyDao propertyDao = SpringUtils.getBean(PropertyDao.class);
 
-    // FindSecBugs PATH_TRAVERSAL_IN: path derived from trusted configuration/constant/DB value, not user-controllable input
-    @SuppressFBWarnings(value = "PATH_TRAVERSAL_IN", justification = "path derived from trusted configuration/constant/DB value, not user-controllable input")
-    private static void loadAUA() {
-        String path = CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR") + File.separator + "login" + File.separator + "AcceptableUseAgreement.txt";
-        try {
-            File auaFile = PathValidationUtils.resolveTrustedPath(new File(path));
-            if (!auaFile.exists()) {
-                loadAttempted = true;
-                logger.debug("No AcceptableUseAgreement File present. disabling AcceptableUseAgreement prompt");
-                auaText = null;
-                return; // nothing more to do
-            }
+    /**
+     * Returns the canonical agreement used by both upload and login readers.
+     * The directory may be created by an administrator upload.
+     * @return a validated child beneath BASE_DOCUMENT_DIR/login
+     * @since 2026-09-19
+     */
+    public static File getAgreementFile() {
+        File base = PathValidationUtils.validateConfiguredDirectory(
+                CarlosProperties.getInstance().getProperty("BASE_DOCUMENT_DIR"), "BASE_DOCUMENT_DIR");
+        File directory = PathValidationUtils.validateGeneratedChildPath("login", base);
+        return PathValidationUtils.validateGeneratedChildPath("AcceptableUseAgreement.txt", directory);
+    }
 
-            auaText = FileUtils.readFileToString(auaFile);
-
-        } catch (Exception e) {
-            logger.error("ERROR LOADING AcceptableUseAgreement text from path " + path, e);
+    /**
+     * Discards cached text and validity after a successful administrator change.
+     * Uploading text does not change the show_aua login policy.
+     * @since 2026-09-19
+     */
+    public static void invalidateCache() {
+        synchronized (CACHE_LOCK) {
+            loadAttempted = false;
             auaText = null;
-        } finally {
-            loadAttempted = true;
+            auaHtml = null;
+            loadedVersion = null;
+            agreementCutoffDate = null;
         }
+    }
 
+    /**
+     * Keeps agreement readers out while an administrator publishes text and
+     * persists its validity, including any rollback after a persistence error.
+     * The update may call the cache methods reentrantly without exposing the monitor.
+     *
+     * @param update the complete publication, validity update and rollback operation
+     */
+    public static void updateAgreement(Runnable update) {
+        synchronized (CACHE_LOCK) {
+            update.run();
+        }
+    }
+
+    private static void loadAUA() {
+        synchronized (CACHE_LOCK) {
+            try {
+                Path path = getAgreementFile().toPath();
+                boolean exists = Files.exists(path);
+                BasicFileAttributes attributes = exists ? Files.readAttributes(path, BasicFileAttributes.class) : null;
+                AgreementVersion version = new AgreementVersion(path,
+                        exists ? attributes.lastModifiedTime() : null,
+                        exists ? attributes.size() : -1,
+                        exists ? attributes.fileKey() : null);
+                if (loadAttempted && version.equals(loadedVersion)) return;
+                // Also notice deployment/restoration changes outside the upload action.
+                // A missing file must never leave an old agreement active in memory.
+                auaText = exists ? Files.readString(path, StandardCharsets.UTF_8) : null;
+                auaHtml = auaText == null ? null : sanitizeForDisplay(auaText);
+                loadedVersion = version;
+            } catch (Exception e) {
+                logger.error("Error loading acceptable-use agreement", e);
+                auaText = null;
+                auaHtml = null;
+                loadedVersion = null;
+            } finally {
+                loadAttempted = true;
+            }
+        }
     }
 
     public static boolean hasAUA() {
-        String auaProp = CarlosProperties.getInstance().getProperty("show_aua");
+        synchronized (CACHE_LOCK) {
+            String auaProp = CarlosProperties.getInstance().getProperty("show_aua");
 
-        if (auaProp == null) {
-            auaProp = "";
-        }
+            if (auaProp == null) {
+                auaProp = "";
+            }
 
-        if (!(auaProp.equals("always") || auaProp.equals("true"))) {
-            return false;
-        }
+            if (!(auaProp.equals("always") || auaProp.equals("true"))) {
+                return false;
+            }
 
-        logger.debug("loadAttempted " + loadAttempted + " auaText " + auaText);
+            logger.debug("Acceptable-use agreement load attempted: {}", loadAttempted);
 
-        if (!loadAttempted) {
             AcceptableUseAgreementManager.loadAUA();
-        }
 
-        if (auaText == null) {
-            return false;
+            if (auaText == null) {
+                return false;
+            }
+            return true;
         }
-        return true;
     }
 
     public boolean auaAlwaysShow() {
@@ -120,60 +179,99 @@ public class AcceptableUseAgreementManager {
     }
 
     public static String getAUAText() {
-        if (!loadAttempted) {
+        synchronized (CACHE_LOCK) {
             AcceptableUseAgreementManager.loadAUA();
+            return auaText;
         }
-        return auaText;
     }
 
     public String getText() {
-        if (!loadAttempted) {
+        return getAUAText();
+    }
+
+    /**
+     * Returns the agreement as HTML that is safe to write into a page unencoded.
+     *
+     * <p>The file has always been rendered as markup, and deployed agreements use document
+     * formatting (headings, paragraphs, emphasis, lists, tables, links), which is kept. Since
+     * an administrator can publish the file from Administration and the login page shows it
+     * before anyone signs in, everything else -- script, event handlers, style attributes,
+     * frames, forms, images -- is removed so an {@code _admin} account cannot run script or
+     * restyle the page in front of every user's credentials. The stored file and
+     * {@link #getAUAText()} keep the exact uploaded bytes.
+     *
+     * @return sanitized agreement HTML, or {@code null} when no agreement can be read
+     * @since 2026-10-22
+     */
+    public static String getAUAHtml() {
+        synchronized (CACHE_LOCK) {
             AcceptableUseAgreementManager.loadAUA();
+            return auaHtml;
         }
-        return auaText;
+    }
+
+    /**
+     * Bean accessor for the login page.
+     *
+     * @return the same value as {@link #getAUAHtml()}
+     * @since 2026-10-22
+     */
+    public String getHtml() {
+        return getAUAHtml();
+    }
+
+    // Document formatting only: relaxed() carries no style attribute, script, handler or frame;
+    // images are dropped too, so the login page cannot be made to load or show anything else.
+    private static final Safelist AGREEMENT_SAFELIST = Safelist.relaxed().removeTags("img");
+
+    static String sanitizeForDisplay(String text) {
+        // prettyPrint off: keep the author's whitespace instead of reflowing it.
+        return Jsoup.clean(text, "", AGREEMENT_SAFELIST, new Document.OutputSettings().prettyPrint(false));
     }
 
     public static Date getAgreementCutoffDate() {
+        synchronized (CACHE_LOCK) {
 
-        if (agreementCutoffDate != null) {
+            if (agreementCutoffDate != null) {
+                return agreementCutoffDate;
+            }
+
+            Calendar cal = GregorianCalendar.getInstance();
+
+            Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
+            if (latestProperty == null) {  //Default to one year
+                cal.add(Calendar.YEAR, -1);
+                return cal.getTime();
+            }
+
+            if ("aua_valid_from".equals(latestProperty.getName())) {
+                //2012-09-20 01.08.30
+                SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                try {
+                    Date validFromTime = dateTimeFormatter.parse(latestProperty.getValue());
+                    cal.setTimeInMillis(validFromTime.getTime());
+                } catch (Exception e) {
+                    logger.error("Error: parsing aua_valid_from date " + latestProperty.getName(), e);
+                }
+            } else {
+                String val = latestProperty.getValue();
+                String[] splitVal = val.split(" ");
+                int duration = Integer.parseInt(splitVal[0]);
+                duration = duration * -1;
+                int period = Calendar.YEAR;
+                if ("month".equals(splitVal[1])) {
+                    period = Calendar.MONTH;
+                } else if ("weeks".equals(splitVal[1])) {
+                    period = Calendar.WEEK_OF_YEAR;
+                } else if ("days".equals(splitVal[1])) {
+                    period = Calendar.DAY_OF_YEAR;
+                }
+                cal.add(period, duration);
+
+            }
+            agreementCutoffDate = cal.getTime();
             return agreementCutoffDate;
         }
-
-        Calendar cal = GregorianCalendar.getInstance();
-
-        Property latestProperty = AcceptableUseAgreementManager.findLatestProperty();
-        if (latestProperty == null) {  //Default to one year
-            cal.add(Calendar.YEAR, -1);
-            return cal.getTime();
-        }
-
-        if ("aua_valid_from".equals(latestProperty.getName())) {
-            //2012-09-20 01.08.30
-            SimpleDateFormat dateTimeFormatter = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            try {
-                Date validFromTime = dateTimeFormatter.parse(latestProperty.getValue());
-                cal.setTimeInMillis(validFromTime.getTime());
-            } catch (Exception e) {
-                logger.error("Error: parsing aua_valid_from date " + latestProperty.getName(), e);
-            }
-        } else {
-            String val = latestProperty.getValue();
-            String[] splitVal = val.split(" ");
-            int duration = Integer.parseInt(splitVal[0]);
-            duration = duration * -1;
-            int period = Calendar.YEAR;
-            if ("month".equals(splitVal[1])) {
-                period = Calendar.MONTH;
-            } else if ("weeks".equals(splitVal[1])) {
-                period = Calendar.WEEK_OF_YEAR;
-            } else if ("days".equals(splitVal[1])) {
-                period = Calendar.DAY_OF_YEAR;
-            }
-            cal.add(period, duration);
-
-        }
-        agreementCutoffDate = cal.getTime();
-        return agreementCutoffDate;
     }
 
     public static Property findLatestProperty() {

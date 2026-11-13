@@ -28,6 +28,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,6 +55,9 @@ public class PropertyDaoIntegrationTest extends CarlosTestBase {
 
     @Autowired
     private PropertyDao propertyDao;
+
+    @PersistenceContext(unitName = "entityManagerFactory")
+    private EntityManager entityManager;
 
     private Property createProperty(String name, String value, String providerNo) {
         Property prop = new Property();
@@ -84,6 +89,25 @@ public class PropertyDaoIntegrationTest extends CarlosTestBase {
             assertThat(found).isNotNull();
             assertThat(found.getName()).isEqualTo("test.read");
             assertThat(found.getValue()).isEqualTo("value1");
+        }
+
+        @Test
+        @Tag("create")
+        @Tag("read")
+        @DisplayName("should keep a value longer than the old 2,000-character column, such as a formatted email footer")
+        void shouldRoundTripLongValue_forFormattedFooter() {
+            // Issue #3981: property.value is TEXT so a formatted footer of 2,000 visible
+            // characters fits with its formatting.
+            String footer = "<b>Riverside Clinic</b><br><a href=\"https://clinic.example/book\">Book online</a><br>"
+                    .repeat(80);
+            assertThat(footer.length()).isGreaterThan(6_000);
+            Property saved = createProperty("email_footer_test", footer, null);
+            entityManager.flush();
+            entityManager.clear();
+
+            Property found = propertyDao.find(saved.getId());
+
+            assertThat(found.getValue()).isEqualTo(footer);
         }
     }
 

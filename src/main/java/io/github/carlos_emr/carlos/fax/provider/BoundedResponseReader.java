@@ -48,10 +48,10 @@ import org.apache.hc.core5.http.ContentType;
  * Content-Length (which chunked responses omit and a hostile server can
  * understate) — though an honest oversized declaration fails fast.
  *
- * <p>This is a safety net over a pipeline that still buffers the whole
- * document in memory as base64. Streaming it to disk instead — which would
- * make this cap a formality — is tracked in
- * <a href="https://github.com/carlos-emr/carlos/issues/3512">#3512</a>.
+ * <p>Provider document paths now use {@link FaxResponseStream} and {@link FaxDownload}
+ * to enforce the same transport ceiling without buffering the payload. Their metadata
+ * has an independent 1 MiB ceiling. These bounded-buffer methods remain for compatibility
+ * and their focused regression tests; document transfers must never call them.
  */
 final class BoundedResponseReader {
 
@@ -109,7 +109,7 @@ final class BoundedResponseReader {
                 }
                 logger.warn("{}={} is not positive; using the {} MiB default",
                         MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException _) {
                 logger.warn("{}={} is not a number; using the {} MiB default",
                         MAX_RESPONSE_MB_PROPERTY, configured, DEFAULT_MAX_RESPONSE_MB);
             }
@@ -184,7 +184,7 @@ final class BoundedResponseReader {
                 if (parsed != null && parsed.getCharset() != null) {
                     charset = parsed.getCharset();
                 }
-            } catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException _) {
                 // A malformed Content-Type (unknown or illegal charset name)
                 // must not escape as an unchecked exception past callers that
                 // catch IOException — that would bypass the fax pipeline's
@@ -209,8 +209,12 @@ final class BoundedResponseReader {
                 if (total > maxBytes) {
                     throw new IOException(overLimitMessage("more than " + maxBytes + " bytes", maxBytes));
                 }
+                // buffer is a size-bounded ByteArrayOutputStream of an upstream response, not an HTML sink.
+                // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
                 buffer.write(chunk, 0, n);
             }
+            // buffer is a size-bounded ByteArrayOutputStream of an upstream response, not an HTML sink.
+            // nosemgrep: java.lang.security.audit.xss.no-direct-response-writer.no-direct-response-writer
             return buffer.toString(charset);
         }
     }

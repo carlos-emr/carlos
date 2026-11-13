@@ -63,6 +63,7 @@
             <result name="HRM">/encounter/displayHRM</result>
             <result name="eams">/eaaps/displayEctEaaps</result>
         </action>
+        <action name="encounter/formExists" class="io.github.carlos_emr.carlos.encounter.pageUtil.FormExists2Action"/>
         <action name="encounter/displayForms" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayForm2Action">
             <result name="labs">/encounter/displayLabs</result>
             <result name="forms">/encounter/displayForms</result>
@@ -409,6 +410,8 @@
         <action name="encounter/ViewConsultation" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewConsultationRequests2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ViewConsultationRequests.jsp</result>
         </action>
+        <!-- Consultant type-ahead on the Consultations list (issue #3976): read-only JSON, _con r, returns NONE. -->
+        <action name="encounter/consultation/searchConsultants" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.ConsultantSearch2Action"/>
         <action name="encounter/ViewRequest" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctViewRequest2Action">
             <result name="failESend">/encounter/ViewRequest</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConsultationFormRequest.jsp</result>
@@ -432,6 +435,7 @@
             <result name="attachform">/form/forwardshortcutname</result>
         </action>
         <action name="encounter/oscarConsultationRequest/ConsultationFormFax" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.pageUtil.EctConsultationFormFax2Action">
+            <result name="attachmentReview">/WEB-INF/jsp/encounter/oscarConsultationRequest/ReviewConsultationAttachments.jsp</result>
             <result name="faxUncertain">/WEB-INF/jsp/encounter/oscarConsultationRequest/FaxSubmissionUncertain.jsp</result>
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/ConfirmConsultationRequest.jsp</result>
             <result name="error">/encounter/ViewRequest?error=true</result>
@@ -445,6 +449,7 @@
         <action name="encounter/ConsultationLookup2Action" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.ConsultationLookup2Action"/>
         <action name="encounter/AddService" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConAddService2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/AddService.jsp</result>
+            <result name="submissionRefused">/WEB-INF/jsp/common/formSubmissionRefused.jsp</result>
         </action>
         <action name="encounter/ShowAllServices" class="io.github.carlos_emr.carlos.encounter.oscarConsultationRequest.config.pageUtil.EctConShowAllServices2Action">
             <result name="list">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/ShowAllServices.jsp</result>
@@ -489,6 +494,14 @@
             <result name="success">/WEB-INF/jsp/encounter/oscarConsultationRequest/config/DeleteServices.jsp</result>
         </action>
         <action name="encounter/InsertTemplate" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
+            <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
+            <result name="success2">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
+        </action>
+        <!-- Legacy URL compatibility: the Ocean Toolbar's client script (loaded from
+             ocean.cognisantmd.com) is hardcoded to the OSCAR19 route shape
+             "/oscarEncounter/InsertTemplate.do?templateName=__Ocean&version=2" and cannot be
+             updated from CARLOS. Same action/results as encounter/InsertTemplate above. -->
+        <action name="oscarEncounter/InsertTemplate.do" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctInsertTemplate2Action">
             <result name="success">/WEB-INF/jsp/encounter/InsertTemplate.jsp</result>
             <result name="success2">/WEB-INF/jsp/encounter/InsertTemplate2.jsp</result>
         </action>
@@ -570,6 +583,14 @@
         <action name="encounter/oscarMeasurements/DeleteData2" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteData2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/close.jsp</result>
         </action>
+        <!--
+            Health Tracker save endpoint. POST-only (see HealthTrackerUpdate2Action);
+            the clean path redirects from inside the action so a refresh cannot
+            re-post, and only the validation-error path resolves a result here.
+        -->
+        <action name="encounter/oscarMeasurements/HealthTrackerUpdate" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.HealthTrackerUpdate2Action">
+            <result name="failure">/WEB-INF/jsp/encounter/oscarMeasurements/HealthTracker.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/SetupAddMeasuringInstruction" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupAddMeasuringInstruction2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasuringInstruction.jsp</result>
         </action>
@@ -590,6 +611,10 @@
             <result name="addDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSadd.jsp</result>
             <result name="removeDSHTML">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDSremove.jsp</result>
         </action>
+        <!-- Adds or removes a group's decision support from the Add and Remove pages' POST forms (POST only). -->
+        <action name="encounter/oscarMeasurements/MeasurementGroupDecisionSupport" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctMeasurementGroupDecisionSupport2Action">
+            <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/MeasurementGroupDScomplete.jsp</result>
+        </action>
         <action name="encounter/oscarMeasurements/SetupEditMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctSetupEditMeasurementGroup2Action">
             <result name="continue">/WEB-INF/jsp/encounter/oscarMeasurements/EditMeasurementGroup.jsp</result>
         </action>
@@ -608,6 +633,9 @@
         </action>
         <action name="encounter/oscarMeasurements/AddMeasurementGroup" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctAddMeasurementGroup2Action">
             <result name="success">/WEB-INF/jsp/encounter/oscarMeasurements/ProcessEditMeasurementGroupAction.jsp</result>
+            <!-- Nothing was written (no type chosen, or the name was taken meanwhile): the
+                 type-selection page again, with the reason. -->
+            <result name="input">/WEB-INF/jsp/encounter/oscarMeasurements/AddMeasurementGroup.jsp</result>
         </action>
         <action name="encounter/oscarMeasurements/DeleteMeasurementStyleSheet" class="io.github.carlos_emr.carlos.encounter.oscarMeasurements.pageUtil.EctDeleteMeasurementStyleSheet2Action">
             <result name="success">/encounter/oscarMeasurements/SetupDisplayMeasurementStyleSheet</result>
@@ -707,6 +735,17 @@
             <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
             <result name="HRM">/encounter/displayHRM</result>
             <result name="eams">/eaaps/displayEctEaaps</result>
+        </action>
+        <!-- Family Doctor / Referring Doctor panels at the top of the eChart left navigation
+             (OSCAR 19's fDoc/rDoc widgets); requested only when the provider's eChart
+             preferences turn them on (newCaseManagementView.js.jsp). -->
+        <action name="encounter/displayFamilyDoctor" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayFamilyDoctor2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
+        </action>
+        <action name="encounter/displayReferringDoctor" class="io.github.carlos_emr.carlos.encounter.pageUtil.EctDisplayReferringDoctor2Action">
+            <result name="success">/WEB-INF/jsp/encounter/LeftNavBarDisplay.jsp</result>
+            <result name="error">/WEB-INF/jsp/encounter/LeftNavBarError.jsp</result>
         </action>
 
     </package>

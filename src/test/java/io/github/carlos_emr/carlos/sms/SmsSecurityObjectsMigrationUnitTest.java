@@ -221,7 +221,7 @@ class SmsSecurityObjectsMigrationUnitTest {
                     .toList();
             assertThat(candidates).as("exactly one SMS security objects migration").hasSize(1);
             // A renumber must be loud: the number was chosen to sit above every open claim at the time.
-            assertThat(candidates.get(0).getFileName().toString()).startsWith("V1.0.31__");
+            assertThat(candidates.get(0).getFileName().toString()).startsWith("V1.0.71__");
             return candidates.get(0);
         }
     }

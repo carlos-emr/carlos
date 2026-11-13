@@ -9,8 +9,11 @@
 package io.github.carlos_emr.carlos.eform.data;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.LinkedHashMap;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +26,39 @@ import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 @Tag("unit")
 @DisplayName("DatabaseAP SQL parameterization")
 class DatabaseAPUnitTest extends CarlosUnitTestBase {
+
+    @Test
+    void shouldKeepInsertedDataLiteral_inTheCompatibilityReplacer() {
+        for (String value : List.of("${value}", "${other}", "${", "$1\\tail", "</textarea><script>alert(1)</script>")) {
+            assertThat(DatabaseAP.parserReplace("value", value, "${value}|${value}"))
+                    .isEqualTo(value + "|" + value);
+        }
+        assertThat(DatabaseAP.parserReplace("value", null, "a${value}b${unknown}")).isEqualTo("ab${unknown}");
+    }
+
+    @Test
+    void shouldRenderOriginalDuplicateAndCrossAliasMarkers_withoutParsingInsertedValues() {
+        assertThat(DatabaseAP.renderOutput("${first}|${second}|${first}",
+                Map.of("first", "${second}", "second", "${first}")))
+                .isEqualTo("${second}|${first}|${second}");
+        assertThat(DatabaseAP.renderOutput("${first}${first}",
+                List.of("first", "first"), List.of("${first}", "later value")))
+                .isEqualTo("${first}${first}");
+        assertThat(DatabaseAP.renderOutput("a${first}b${first}",
+                List.of("first", "first"), Arrays.asList(null, "later value"))).isEqualTo("ab");
+    }
+
+    @Test
+    void shouldPreserveUnknownTokensAndMalformedData_andKeepNullAndEmptyValuesEmpty() {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("empty", ""); values.put("nil", null); values.put("value", "$1\\tail${unfinished");
+        assertThat(DatabaseAP.renderOutput("${empty}${nil}${value}|${unknown}", values))
+                .isEqualTo("$1\\tail${unfinished|${unknown}");
+        assertThat(DatabaseAP.renderOutput("unchanged ${unfinished", values)).isEqualTo("unchanged ${unfinished");
+        assertThat(DatabaseAP.renderOutput("constant", List.of(), List.of())).isEqualTo("constant");
+        assertThatThrownBy(() -> DatabaseAP.renderOutput("${value}", List.of("value"), List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 
     @Test
     @DisplayName("should parameterize quoted and unquoted placeholders")

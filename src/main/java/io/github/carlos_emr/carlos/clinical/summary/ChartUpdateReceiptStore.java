@@ -70,10 +70,11 @@ public class ChartUpdateReceiptStore {
 
     /** Legacy installations can retain nontransactional tables; do not claim atomic writes there. */
     public void requireTransactionalTables(boolean history, boolean legacyChart) {
+        // TicklerAttachmentService writes ticklerdocs; the legacy tickler_link store is read-only.
         String[] tables = history
                 ? new String[]{"clinical_chart_update_receipt", "demographic", "casemgmt_note", "casemgmt_issue",
                     "casemgmt_issue_notes", "casemgmt_note_link", "casemgmt_note_lock", "hash_audit"}
-                : new String[]{"clinical_chart_update_receipt", "demographic", "tickler", "tickler_link"};
+                : new String[]{"clinical_chart_update_receipt", "demographic", "tickler", "ticklerdocs"};
         for (String table : tables) requireInnoDb(table);
         if (history && legacyChart) requireInnoDb("eChart");
     }

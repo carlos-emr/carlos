@@ -33,6 +33,7 @@
 <%@ page import="io.github.carlos_emr.carlos.encounter.immunization.config.data.EctImmImmunizationSetData" %>
 <%@ page import="io.github.carlos_emr.carlos.util.UtilXML" %>
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -125,7 +126,7 @@
             int i = 0;
         %>
         <h1><fmt:message key="encounter.immunization.config.immunizationSetDisplay.msgSet"/>:
-            <%=setNamed%>
+            <carlos:encode value='<%= setNamed %>' context="html"/>
         </h1>
         <table cellpadding=2 cellspacing=0 border="2px" rules="all"
                id="tblSet<%=i%>" style="margin-bottom: 10px">
@@ -256,7 +257,8 @@
             String givenDate = cell.getAttribute("givenDate");
             String refusedDate = cell.getAttribute("refusedDate");
             String lot = cell.getAttribute("lot");
-            String provider = cell.getAttribute("providers");
+            // A schedule saved before a namespace rename has "provider"; one saved during it has "providers".
+            String provider = cell.getAttribute("providers").isEmpty() ? cell.getAttribute("provider") : cell.getAttribute("providers");
             String comments = cell.getAttribute("comments");
 
             s += "<input type=hidden id='" + id + "_givenDate'>"

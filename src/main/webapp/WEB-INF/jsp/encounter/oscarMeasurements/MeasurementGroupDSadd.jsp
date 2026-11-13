@@ -45,6 +45,7 @@
 %>
 
 <%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
+<%@ taglib uri="carlos" prefix="carlos" %>
 <fmt:setBundle basename="oscarResources"/>
 
 
@@ -79,12 +80,15 @@
     <h3><fmt:message key="encounter.Measurements.msgEditMeasurementGroup"/> - Add Decision Support to <em
             class="text-info"><%=groupName%>
     </em> Group </h3>
-    <p><em>The following listed decision support files are available for the flowsheets. Make a
+    <p><em>The following listed decision support files are available for both the flowsheets and the Health
+        Tracker. Make a
         selection and press "add" to make that decision support available on the <strong><%=groupName%>
         </strong> measurement group.</em></p>
 
 
-    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/ViewMeasurementGroupDScomplete" method="post" name="formAdd">
+    <form action="<%= request.getContextPath() %>/encounter/oscarMeasurements/MeasurementGroupDecisionSupport" method="post" name="formAdd">
+        <%-- The group this page shows: another tab may open a different group in the session before this posts. --%>
+        <input type="hidden" name="groupName" value="<carlos:encode value='<%= groupName %>' context="htmlAttribute"/>">
         <select name="htmlName">
             <option value="-1">Select Decision Support</option>
             <%

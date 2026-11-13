@@ -120,7 +120,12 @@ public class SecurityDelete2Action extends ActionSupport {
             if (entity != null) {
                 String userName = entity.getUserName();
                 try {
-                    securityDao.remove(entity);
+                    // find() has its own transaction: the returned entity can be detached here.
+                    // The ID overload reloads and removes within one DAO transaction.
+                    if (!securityDao.remove(securityNo)) {
+                        request.setAttribute("msg", "Security entry not found.");
+                        return;
+                    }
                 } catch (RuntimeException e) {
                     MiscUtils.getLogger().error("Failed to delete security entry", e);
                     request.setAttribute("msg", "Failed to delete security entry.");

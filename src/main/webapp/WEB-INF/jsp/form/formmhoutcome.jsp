@@ -59,6 +59,7 @@
 <%@ page import="io.github.carlos_emr.carlos.form.FrmRecordFactory" %>
 <%@ page import="io.github.carlos_emr.CarlosProperties" %>
 <%@ page import="io.github.carlos_emr.carlos.util.StringUtils" %>
+<%@ page import="io.github.carlos_emr.carlos.utility.SafeEncode" %>
 <% java.util.Properties oscarVariables = CarlosProperties.getInstance(); %>
 
 <html>
@@ -103,20 +104,22 @@
 
             function getMainAction() {
                 mainAction = document.forms[0].action;
-                mainTarget = docuemtn.forms[0].target;
+                mainTarget = document.forms[0].target;
             }
 
             function onPrint() {
                 document.forms[0].submit.value = "print"; //printReferral
                 var ret = numvalidate();
+                if (ret === false) return false;
                 //if(ret==true) {
                 //ret = confirm("Do you wish to save this form and view the print preview?");
                 popupFixedPage(650, 850, '<%= request.getContextPath() %>/provider/notice.htm');
                 document.forms[0].action = "<%= request.getContextPath() %>/form/formmhoutcomeprint";
                 document.forms[0].target = "planner";
-                document.forms[0].submit();
-                document.forms[0].target = "apptProviderSearch";
-                //}
+                HTMLFormElement.prototype.submit.call(document.forms[0]);
+                // Leave the form as Save expects to find it.
+                document.forms[0].action = mainAction;
+                document.forms[0].target = mainTarget;
                 return false;
             }
 
@@ -132,6 +135,8 @@
             }
 
             function onSaveExit() {
+                // Set, not left to the hidden default: after Print the field holds "print".
+                document.forms[0].submit.value = "exit";
                 var ret = checkAllDates();
                 document.forms[0].action = mainAction;
                 document.forms[0].target = mainTarget;
@@ -377,18 +382,18 @@
     <form action="${pageContext.request.contextPath}/form/formname" method="post" onsubmit="return numvalidate()">
 
         <input type="hidden" name="demographic_no"
-               value="<%= props.getProperty("demographic_no", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("demographic_no", "0")) %>"/>
         <input type="hidden" name="ID"
-               value="<%= props.getProperty("ID", "0") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("ID", "0")) %>"/>
         <input type="hidden" name="provider_no"
                value="<carlos:encode value='<%= StringUtils.noNull(request.getParameter("provNo")) %>' context="htmlAttribute"/>"/>
         <input type="hidden" name="formCreated"
-               value="<%= props.getProperty("formCreated", "") %>"/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("formCreated", "")) %>"/>
         <input type="hidden" name="form_class" value="<%=formClass%>"/>
         <input type="hidden" name="form_link" value="<%=formLink%>"/>
         <input type="hidden" name="formId" value="<%=formId%>"/>
         <input type="hidden" name="c_lastVisited"
-               value=<%=props.getProperty("c_lastVisited", "Referral")%>/>
+               value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_lastVisited", "Referral")) %>"/>
         <input type="hidden" name="submit" value="exit"/>
 
         <table class="Head" class="hidePrint">
@@ -424,30 +429,30 @@
                             <td width="50%" rowspan="5">&nbsp;</td>
                             <td>Name:</td>
                             <td align="right"><input type="text" name="c_pName" size="40"
-                                                     value="<%= props.getProperty("c_pName", "") %>" readonly="true"/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_pName", "")) %>" readonly="true"/>
                             </td>
                         </tr>
                         <tr>
                             <td>Sex:</td>
                             <td align="right"><input type="text" name="c_sex" size="40"
-                                                     value="<%= props.getProperty("c_sex", "") %>" readonly="true"/>
+                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_sex", "")) %>" readonly="true"/>
                             </td>
                         </tr>
             </tr>
             <td>Address:</td>
             <td align="right"><input type="text" name="c_address" size="40"
-                                     value="<%= props.getProperty("c_address", "") %>" readonly="true"/></td>
+                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_address", "")) %>" readonly="true"/></td>
             </tr>
             <tr>
                 <td>Home Phone:</td>
                 <td align="right"><input type="text" name="c_homePhone"
-                                         size="40" value="<%= props.getProperty("c_homePhone", "") %>"
+                                         size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_homePhone", "")) %>"
                                          readonly="true"/></td>
             </tr>
             <tr>
                 <td>Birth Date <small>(yyyy/mm/dd)</small>:</td>
                 <td align="right"><input type="text" name="c_birthDate"
-                                         size="40" value="<%= props.getProperty("c_birthDate", "") %>"
+                                         size="40" value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_birthDate", "")) %>"
                                          readonly="true"/></td>
             </tr>
         </table>
@@ -460,23 +465,23 @@
                     <tr>
                         <td>Referral Date<small>(yyyy/mm/dd)</small>:</td>
                         <td align="left"><input type="text" name="c_referralDate"
-                                                value="<%= props.getProperty("c_referralDate", "") %>"
+                                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_referralDate", "")) %>"
                                                 readonly="true"/></td>
                         <td>Referred By:</td>
                         <td align="left"><input type="text" name="c_referredBy"
-                                                value="<%= props.getProperty("c_referredBy", "") %>"
+                                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("c_referredBy", "")) %>"
                                                 readonly="true"/></td>
                         <td>Number of Visits:</td>
                         <td align="left"><input type="text" name="o_numVisits"
-                                                value="<%= props.getProperty("o_numVisits", "") %>"/></td>
+                                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_numVisits", "")) %>"/></td>
                     </tr>
                     <tr>
                         <td>Termination Date<small>(yyyy/mm/dd)</small>:</td>
                         <td align="left"><input type="text" name="o_formDate"
-                                                value="<%= props.getProperty("o_formDate", "") %>"/></td>
+                                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_formDate", "")) %>"/></td>
                         <td>HSO Specialist:</td>
                         <td align="left"><input type="text" name="o_specialist"
-                                                value="<%= props.getProperty("o_specialist", "") %>"/></td>
+                                                value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_specialist", "")) %>"/></td>
                     </tr>
                 </table>
             </td>
@@ -488,11 +493,11 @@
                         <td class="mhList" valign="top">Services Provided:<br>
                             <br>
                             &nbsp; 1. <input type="text" name="o_sp1"
-                                             value="<%= props.getProperty("o_sp1", "") %>" size="2"/> &nbsp;
+                                             value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_sp1", "")) %>" size="2"/> &nbsp;
                             2. <input type="text" name="o_sp2"
-                                      value="<%= props.getProperty("o_sp2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_sp2", "")) %>" size="2"/> &nbsp;
                             3. <input type="text" name="o_sp3"
-                                      value="<%= props.getProperty("o_sp3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_sp3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] sp = list.loadData("mhOutcome/ServicesProvided.txt", projecthome, path);
                                 for (int i = 0; i < sp.length; i++) {
@@ -500,22 +505,22 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_sp', <%=i+1%>);"><%=i + 1%>.
-                                <%= sp[i] %>
+                                <%= SafeEncode.forHtmlContent(sp[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="o_spOther"
-                                            value="<%= props.getProperty("o_spOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_spOther", "")) %>"/></td>
                         <td class="mhList" valign="top">Problems Encountered:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="o_pe1"
-                                                                     value="<%= props.getProperty("o_pe1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pe1", "")) %>"
                                                                      size="2"/> &nbsp;
                             2. <input type="text" name="o_pe2"
-                                      value="<%= props.getProperty("o_pe2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pe2", "")) %>" size="2"/> &nbsp;
                             3. <input type="text" name="o_pe3"
-                                      value="<%= props.getProperty("o_pe3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pe3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] pe = list.loadData("mhOutcome/ProblemsEncountered.txt", projecthome, path);
                                 for (int i = 0; i < pe.length; i++) {
@@ -523,22 +528,22 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_pe', <%=i+1%>);"><%=i + 1%>.
-                                <%= pe[i] %>
+                                <%= SafeEncode.forHtmlContent(pe[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="o_peOther"
-                                            value="<%= props.getProperty("o_peOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_peOther", "")) %>"/></td>
                         <td class="mhList" valign="top">Disposition:<br>
                             <br>
                             &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 1. <input type="text" name="o_d1"
-                                                                     value="<%= props.getProperty("o_d1", "") %>"
+                                                                     value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_d1", "")) %>"
                                                                      size="2"/> &nbsp; 2.
                             <input type="text" name="o_d2"
-                                   value="<%= props.getProperty("o_d2", "") %>" size="2"/> &nbsp; 3.
+                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_d2", "")) %>" size="2"/> &nbsp; 3.
                             <input type="text" name="o_d3"
-                                   value="<%= props.getProperty("o_d3", "") %>" size="2"/> <br>
+                                   value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_d3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] d = list.loadData("mhOutcome/Disposition.txt", projecthome, path);
                                 for (int i = 0; i < d.length; i++) {
@@ -546,21 +551,21 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_d', <%=i+1%>);"><%=i + 1%>.
-                                <%= d[i] %>
+                                <%= SafeEncode.forHtmlContent(d[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="o_dOther"
-                                            value="<%= props.getProperty("o_dOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_dOther", "")) %>"/></td>
                         <td class="mhList" valign="top">Patient Not Seen:<br>
                             <br>
                             &nbsp; 1. <input typns="text" name="o_pns1"
-                                             value="<%= props.getProperty("o_pns1", "") %>" size="2"/> &nbsp;
+                                             value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pns1", "")) %>" size="2"/> &nbsp;
                             2. <input typns="text" name="o_pns2"
-                                      value="<%= props.getProperty("o_pns2", "") %>" size="2"/> &nbsp;
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pns2", "")) %>" size="2"/> &nbsp;
                             3. <input typns="text" name="o_pns3"
-                                      value="<%= props.getProperty("o_pns3", "") %>" size="2"/> <br>
+                                      value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pns3", "")) %>" size="2"/> <br>
                             <br>
                             <% String[] pns = list.loadData("mhOutcome/PatientNotSeen.txt", projecthome, path);
                                 for (int i = 0; i < pns.length; i++) {
@@ -568,13 +573,13 @@
                             %> <a
                                     href="javascript: function myFunction() {return false; }"
                                     class="mhlink" onclick="javascript:insert('o_pns', <%=i+1%>);"><%=i + 1%>.
-                                <%= pns[i] %>
+                                <%= SafeEncode.forHtmlContent(pns[i]) %>
                             </a><br>
                             <%
                                     }
                                 }
                             %> &nbsp;<input type="text" name="o_pnsOther"
-                                            value="<%= props.getProperty("o_pnsOther", "") %>"/></td>
+                                            value="<%= SafeEncode.forHtmlAttribute(props.getProperty("o_pnsOther", "")) %>"/></td>
                     </tr>
                     <tr>
                         <td class="mhSelect"><br>
@@ -591,7 +596,7 @@
                         <td colspan="4" class="mhList" valign="top">Assessment
                             Comments:<br>
                             <textarea class="mhOutTextarea"
-                                      name="o_outComments"><%= props.getProperty("o_outComments", "") %></textarea>
+                                      name="o_outComments"><%= SafeEncode.forHtmlContent(props.getProperty("o_outComments", "")) %></textarea>
                         </td>
                     </tr>
                 </table>

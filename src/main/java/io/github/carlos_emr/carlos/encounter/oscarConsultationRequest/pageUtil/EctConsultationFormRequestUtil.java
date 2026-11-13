@@ -266,11 +266,11 @@ public class EctConsultationFormRequestUtil {
 		
 		if (cr != null) {
 			fdid = cr.getFdid();
-			pwb = ConversionUtils.toBoolString(cr.isPatientWillBook());
-			urgency = cr.getUrgency();
-			providerNo = cr.getProviderNo();
-			referalDate = ConversionUtils.toDateString(cr.getReferralDate());
-			service = "" + cr.getServiceId();
+			pwb = StringUtils.noNull(ConversionUtils.toBoolString(cr.isPatientWillBook()));
+			urgency = StringUtils.noNull(cr.getUrgency());
+			providerNo = StringUtils.noNull(cr.getProviderNo());
+			referalDate = StringUtils.noNull(ConversionUtils.toDateString(cr.getReferralDate()));
+			service = cr.getServiceId() != null ? String.valueOf(cr.getServiceId()) : "";
 
             // attempting to make this code as backwards compatible as possible while enabling
             // the use of a patients health care team directly in the Consultation module.
@@ -328,13 +328,13 @@ public class EctConsultationFormRequestUtil {
 
 
 			Date appointmentTime = cr.getAppointmentTime();
-			reasonForConsultation = cr.getReasonForReferral();
-			clinicalInformation = cr.getClinicalInfo();
-			concurrentProblems = cr.getConcurrentProblems();
-			currentMedications = cr.getCurrentMeds();
-			allergies = cr.getAllergies();
-			sendTo = cr.getSendTo();
-			status = cr.getStatus();
+			reasonForConsultation = StringUtils.noNull(cr.getReasonForReferral());
+			clinicalInformation = StringUtils.noNull(cr.getClinicalInfo());
+			concurrentProblems = StringUtils.noNull(cr.getConcurrentProblems());
+			currentMedications = StringUtils.noNull(cr.getCurrentMeds());
+			allergies = StringUtils.noNull(cr.getAllergies());
+			sendTo = StringUtils.noNull(cr.getSendTo());
+			status = StringUtils.noNull(cr.getStatus());
 			setAppointmentInstructions( cr.getAppointmentInstructions() );
 			setAppointmentInstructionsLabel( cr.getAppointmentInstructionsLabel() );
 			letterheadName = cr.getLetterheadName();
@@ -349,7 +349,7 @@ public class EctConsultationFormRequestUtil {
             letterheadPhone = letterheadPhone == null ? "" : letterheadPhone;
             letterheadFax = letterheadFax == null ? "" : letterheadFax;
 
-            signatureImg = cr.getSignatureImg();
+            signatureImg = StringUtils.noNull(cr.getSignatureImg());
 
             appointmentNotes = cr.getStatusText();
             if (appointmentNotes == null || appointmentNotes.equals("null")) {
@@ -536,14 +536,26 @@ public class EctConsultationFormRequestUtil {
         return ps.get(0).getFormattedName();
     }
 
+    /**
+     * Looks up the display name of a consultation service.
+     *
+     * @param id String the service id as stored on the consultation request; may be null, blank or
+     *           non-numeric on legacy rows
+     * @return String the service description, or an empty string when the id is missing, malformed
+     *         or unknown (previously a NumberFormatException aborted consult printing)
+     */
     public String getServiceName(String id) {
-        String retval = new String();
-        ConsultationServices cs = consultationServiceDao.find(Integer.parseInt(id));
-        if (cs != null) {
-            retval = cs.getServiceDesc();
+        if (id == null || id.isBlank()) {
+            return "";
         }
-
-        return retval;
+        int serviceId;
+        try {
+            serviceId = Integer.parseInt(id.trim());
+        } catch (NumberFormatException e) {
+            return "";
+        }
+        ConsultationServices cs = consultationServiceDao.find(serviceId);
+        return cs != null ? cs.getServiceDesc() : "";
     }
 
     /**
@@ -584,6 +596,22 @@ public class EctConsultationFormRequestUtil {
             appointmentInstructions = "";
         }
         this.appointmentInstructions = appointmentInstructions;
+    }
+
+    /**
+     * Set both halves of the appointment instruction for a print preview of unsaved work.
+     *
+     * <p>The setters are private because the stored record is the only thing that normally writes
+     * them. The preview renders a form the clinician has edited but not saved, and the PDF prints
+     * the label rather than the value, so the two have to move together — see
+     * {@link ConsultationPreviewOverlay}. Nothing here reaches the database.</p>
+     *
+     * @param value the posted lookup value
+     * @param label the label that value resolves to, as the PDF will print it
+     */
+    void setAppointmentInstructionsForPreview(String value, String label) {
+        setAppointmentInstructions(value);
+        setAppointmentInstructionsLabel(label);
     }
 
     public String getAppointmentInstructionsLabel() {
@@ -814,7 +842,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSendTo() {
-        return sendTo;
+        return StringUtils.noNull(sendTo);
     }
 
     public void setSendTo(String sendTo) {
@@ -926,7 +954,7 @@ public class EctConsultationFormRequestUtil {
     }
 
     public String getSignatureImg() {
-        return signatureImg;
+        return StringUtils.noNull(signatureImg);
     }
 
     public void setSignatureImg(String signatureImg) {
