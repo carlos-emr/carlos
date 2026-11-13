@@ -273,7 +273,17 @@ ImmunizationType is the configured Health Canada type when it is one of the CT-0
 is left out (never guessed) for a configured vaccine outside that list, such as COVID-19,
 Pneu-C-20 or RZV. Site, route, dose, lot, manufacturer, instructions and comments map to their
 standard elements, and an eight-digit DIN becomes ImmunizationCode; text typed in the DIN box
-that is not an eight-digit DIN is never exported as one. "Completed externally" exports as given
+that is not an eight-digit DIN is never exported as one. The prevention form's text boxes have no
+length limit, so a recorded value longer than its element (ImmunizationName, Manufacturer,
+LotNumber, Route, Site and Dose hold 120 characters, Instructions 250) is ordinary: it is left out
+of that element and moves whole to Notes as a labelled line (`Name: `, `Manufacturer: `,
+`Lot number: `, `Route: `, `Site: `, `Dose: `, `Instructions: `), after the status line and before
+the comments, and stays exact in the residual (`OVERLONG_NATIVE_TEXT_MOVED_WHOLE_TO_NOTES`,
+destination `Notes;ResidualInfo`). A name moved this way is replaced by the configured prevention
+type, as a blank name is (the catch-all and Rh labels below apply the same way); it is never
+clipped. Only Notes that would exceed their 32,000 characters still hold
+(`IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW`). Census chart A31a (a 160-character Td name)
+was held as `CDS_EXPORT_UNMAPPED_DATA` before this rule. "Completed externally" exports as given
 (RefusedFlag N) and "Ineligible" as not given (RefusedFlag Y), with the status as the first line
 of Notes. The complete parent, extension and precision rows travel in the same
 `CARLOS.Prevention.Source.v1` residual as screenings, so the recording provider, reminder date

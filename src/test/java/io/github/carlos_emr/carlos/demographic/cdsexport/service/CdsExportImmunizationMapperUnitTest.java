@@ -517,6 +517,117 @@ class CdsExportImmunizationMapperUnitTest {
     }
 
     @Test
+    void shouldMoveAnOverlongRecordedName_wholeToNotesInsteadOfHoldingTheVaccine()
+            throws Exception {
+        // Census chart FAKE-C2N-A31a, as the prevention form stored it: a 160-character brand
+        // name (ImmunizationName holds 120) held the patient as CDS_EXPORT_UNMAPPED_DATA.
+        String longName = "FAKE tetanus diphtheria booster ".repeat(5);
+        String lot = "FAKE-LOT-" + "X".repeat(40);
+        String dose = "0.5 mL given in the left deltoid after verbal consent ".repeat(2);
+        parent.put("prevention_date", "2026-09-16 00:00:00");
+        int id = 30;
+        extra(id++, "location", "");
+        extra(id++, "din", "");
+        extra(id++, "lot", lot);
+        extra(id++, "route", "IM");
+        extra(id++, "dose", dose);
+        extra(id++, "comments", "");
+        extra(id++, "manufacture", "FAKE maker");
+        extra(id++, "name", longName);
+        extra(id++, "expiryDate", "");
+        extra(id, "providerName", "");
+        var result = map();
+        assertThat(result.nativeRowRepresentable()).isTrue();
+        var value = result.value();
+        // The configured type names the vaccine, as when the name box is left empty.
+        assertThat(value.name()).isEqualTo("Td");
+        assertThat(value.type()).isEqualTo("Td");
+        assertThat(value.lot()).isEqualTo(lot);
+        assertThat(value.dose()).isEqualTo(dose);
+        assertThat(value.manufacturer()).isEqualTo("FAKE maker");
+        assertThat(value.notes()).isEqualTo("Name: " + longName);
+        assertThat(value.sourceContext()).contains("FAKE\\u0020tetanus");
+        var moved =
+                result.fields().entrySet().stream()
+                        .filter(
+                                entry ->
+                                        CdsExportImmunizationMapper.OVERLONG_MOVED_TO_NOTES.equals(
+                                                entry.getValue().rule()))
+                        .toList();
+        assertThat(moved).singleElement().satisfies(entry -> {
+            assertThat(entry.getKey().column()).isEqualTo("val");
+            assertThat(entry.getValue().outcome())
+                    .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
+            assertThat(entry.getValue().destination()).isEqualTo("Notes;ResidualInfo");
+        });
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.IMMUNIZATIONS,
+                                body -> new CdsExportImmunizationXmlWriter().write(value, body)),
+                        StandardCharsets.UTF_8);
+        assertThat(xml).contains("Notes>Name: " + longName + "</", lot, dose);
+    }
+
+    @Test
+    void shouldPlaceEveryOverlongValue_afterTheStatusAndBeforeTheComments() throws Exception {
+        parent.put("refused", "3");
+        String lot = "L".repeat(121), instructions = "I".repeat(251);
+        extra(30, "lot", lot);
+        extra(31, "dose", "0.5 mL");
+        extra(32, "instructions", instructions);
+        extra(33, "comments", "Given at pharmacy");
+        var value = map().value();
+        assertThat(value).isNotNull();
+        assertThat(value.lot()).isNull();
+        assertThat(value.instructions()).isNull();
+        assertThat(value.dose()).isEqualTo("0.5 mL");
+        assertThat(value.notes())
+                .isEqualTo(
+                        "Completed externally\nLot number: "
+                                + lot
+                                + "\nInstructions: "
+                                + instructions
+                                + "\nGiven at pharmacy");
+        // A value at the element's own limit still maps to it.
+        extras.clear();
+        extra(30, "lot", "L".repeat(120));
+        assertThat(map().value().lot()).hasSize(120);
+        // A catch-all entry whose long name moved is named by its label on the screen.
+        definitions =
+                CdsExportPreventionClassifier.fromCaptured(
+                        "a".repeat(64),
+                        "<preventions><item name='OtherA' layout='injection' headingName='Other' healthCanadaType=''/></preventions>"
+                                .getBytes(StandardCharsets.UTF_8),
+                        List.of());
+        parent.put("prevention_type", "OtherA");
+        parent.put("refused", "0");
+        extras.clear();
+        extra(30, "name", "N".repeat(121));
+        var other = map().value();
+        assertThat(other.name()).isEqualTo(CdsExportImmunizationMapper.CATCH_ALL_LABEL);
+        assertThat(other.notes()).isEqualTo("Name: " + "N".repeat(121));
+    }
+
+    @Test
+    void shouldStillHoldMovedTextThatNotesCannotHold_withTheNotesCapacityRule() throws Exception {
+        extra(30, "name", "N".repeat(121));
+        extra(31, "comments", "C".repeat(31_900));
+        var result = map();
+        assertThat(result.value()).isNull();
+        assertThat(
+                        result.fields().values().stream()
+                                .filter(
+                                        field ->
+                                                field.outcome()
+                                                        == CdsExportFieldAssessmentDto.Outcome
+                                                                .REQUIRES_REVIEW)
+                                .map(CdsExportFieldAssessmentDto::rule)
+                                .distinct())
+                .containsExactly("IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+    }
+
+    @Test
     void shouldExportAnRhImmuneGlobulinInjection_asAnUntypedImmunization() throws Exception {
         // The Rh Immune Globulin form (addRhInjection.jsp) posts type RH with product, lot,
         // dosage and reason, and no name box.

@@ -356,7 +356,10 @@ malformed structured numeric still holds the patient
 handlers could not have stored (for example "ORU" without its R01 trigger:
 `CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
 
-Vaccines export under Immunizations. Prevention screenings (the Screenings types and
+Vaccines export under Immunizations. A name, manufacturer, lot, route, site or dose typed
+longer than CDS allows (120 characters; 250 for instructions) is not cut and does not hold the
+patient: it is written whole in the vaccine's Notes as a labelled line ("Name: ...",
+"Lot number: ..."), and a vaccine whose name moved there is named by its prevention type. Prevention screenings (the Screenings types and
 OtherB) export only under PastHealth, so a package without the history categories carries no
 screening history; its ReadMe says so. Superseded or removed prevention versions are not
 exported: when a prevention is edited, CARLOS keeps the earlier version as a deleted row, and a

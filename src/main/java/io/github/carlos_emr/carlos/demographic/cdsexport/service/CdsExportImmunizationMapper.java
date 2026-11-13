@@ -34,7 +34,8 @@ import java.util.*;
  * extension and precision rows travel in the {@code CARLOS.Prevention.Source.v1} residual, so a
  * value CARLOS records with no CDS Immunizations element (the recording provider, a reminder
  * date, flu risk factors, a refusal reason, a vaccine type outside the CT-020 list) is carried
- * exactly instead of refusing the chart. Empty extension rows, which the prevention form saves
+ * exactly instead of refusing the chart. A recorded value longer than its element moves whole to
+ * Notes ({@link #OVERLONG_MOVED_TO_NOTES}). Empty extension rows, which the prevention form saves
  * for every unfilled input, are not facts. Duplicate standard keys, stale imported date hints,
  * malformed program restrictions, removed versions and unknown statuses still require
  * reconciliation; no first/last row silently wins.
@@ -220,9 +221,20 @@ public final class CdsExportImmunizationMapper {
                     "ImmunizationName",
                     "CAPTURED_TYPE_IS_NOT_PROVEN_IMMUNIZATION");
         var byKey = extensionFields(id, extensions, decisions);
-        String name = oneOf(byKey, List.of("name", "cdsName"), "ImmunizationName", 120);
-        if (!byKey.containsKey("name")
-                && !byKey.containsKey("cdsName")
+        // Text recorded longer than its CDS element, moved whole to Notes (never clipped).
+        var moved = new ArrayList<String>();
+        var movedFields = new ArrayList<CdsExportNativeFieldAssessments>();
+        String name =
+                fitted(
+                        byKey,
+                        List.of("name", "cdsName"),
+                        "ImmunizationName",
+                        120,
+                        "Name",
+                        moved,
+                        movedFields);
+        boolean nameMoved = !moved.isEmpty();
+        if ((nameMoved || !byKey.containsKey("name") && !byKey.containsKey("cdsName"))
                 && nativeType != null
                 && !nativeType.equals(CATCH_ALL_TYPE)
                 && CdsExportNativeFieldAssessments.legal(nativeType, 120))
@@ -232,7 +244,7 @@ public final class CdsExportImmunizationMapper {
                             : nativeType;
         if ((name == null || name.isBlank())
                 && category.rule() == CdsExportPreventionClassifier.Rule.CATCH_ALL_INJECTION
-                && !byKey.containsKey("cdsName")) name = CATCH_ALL_LABEL;
+                && (nameMoved || !byKey.containsKey("cdsName"))) name = CATCH_ALL_LABEL;
         if (name == null || name.isBlank())
             source.review("prevention_type", "ImmunizationName", "IMMUNIZATION_NAME_REQUIRED");
         boolean typeProven = true;
@@ -384,13 +396,34 @@ public final class CdsExportImmunizationMapper {
         } else if (system != null)
             for (var fields : byKey.get("cdsCodeSystem"))
                 fields.review("val", "ImmunizationCode", "CODE_AND_AUTHORITY_MUST_BE_PAIRED");
+        // In element order, so the moved lines read in the order the elements would.
+        String manufacturer =
+                fitted(byKey, List.of("manufacture"), "Manufacturer", 120, "Manufacturer",
+                        moved, movedFields);
+        String lot =
+                fitted(byKey, List.of("lot"), "LotNumber", 120, "Lot number", moved, movedFields);
+        String route = fitted(byKey, List.of("route"), "Route", 120, "Route", moved, movedFields);
+        String site = fitted(byKey, List.of("location"), "Site", 120, "Site", moved, movedFields);
+        String dose = fitted(byKey, List.of("dose"), "Dose", 120, "Dose", moved, movedFields);
+        String instructions =
+                fitted(byKey, List.of("instructions"), "Instructions", 250, "Instructions",
+                        moved, movedFields);
         var commentsFields = byKey.getOrDefault("comments", List.of());
         String notes = oneOf(byKey, List.of("comments"), "Notes", 32000);
-        if (statusNote != null) {
-            notes = notes == null ? statusNote : statusNote + "\n" + notes;
+        if (statusNote != null || !moved.isEmpty()) {
+            // The status label opens Notes, then the over-long values, then the comments.
+            var lines = new ArrayList<String>();
+            if (statusNote != null) lines.add(statusNote);
+            lines.addAll(moved);
+            if (notes != null) lines.add(notes);
+            notes = String.join("\n", lines);
             if (!CdsExportNativeFieldAssessments.legal(notes, 32000)) {
-                source.review("refused", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                if (statusNote != null)
+                    source.review(
+                            "refused", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
                 for (var fields : commentsFields)
+                    fields.review("val", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
+                for (var fields : movedFields)
                     fields.review("val", "Notes", "IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW");
                 notes = null;
             }
@@ -404,16 +437,16 @@ public final class CdsExportImmunizationMapper {
                 new CdsExportImmunizationDto(
                         name,
                         type,
-                        oneOf(byKey, List.of("manufacture"), "Manufacturer", 120),
-                        oneOf(byKey, List.of("lot"), "LotNumber", 120),
-                        oneOf(byKey, List.of("route"), "Route", 120),
-                        oneOf(byKey, List.of("location"), "Site", 120),
-                        oneOf(byKey, List.of("dose"), "Dose", 120),
+                        manufacturer,
+                        lot,
+                        route,
+                        site,
+                        dose,
                         din,
                         din == null ? null : system,
                         date,
                         refused,
-                        oneOf(byKey, List.of("instructions"), "Instructions", 250),
+                        instructions,
                         notes,
                         CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(context)));
         return new Candidate(value, decisions);
@@ -530,6 +563,44 @@ public final class CdsExportImmunizationMapper {
         return rows.stream()
                 .sorted(Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
                 .toList();
+    }
+
+    /**
+     * Rule of a recorded vaccine value longer than its CDS element: the element is left out, the
+     * value moves whole to Notes as a labelled line (after the status label, before the
+     * comments) and stays exact in the prevention residual. Never clipped, never held.
+     */
+    static final String OVERLONG_MOVED_TO_NOTES = "OVERLONG_NATIVE_TEXT_MOVED_WHOLE_TO_NOTES";
+
+    /**
+     * {@link #oneOf}, except that a single legal value longer than {@code maximum} code points
+     * moves whole to Notes as "{@code label}: value" ({@link #OVERLONG_MOVED_TO_NOTES}) instead
+     * of requiring review. The prevention form's text boxes have no length limit, so a long
+     * brand name, lot or dose is ordinary chart data.
+     */
+    private static String fitted(
+            Map<String, List<CdsExportNativeFieldAssessments>> source,
+            List<String> keys,
+            String destination,
+            int maximum,
+            String label,
+            List<String> moved,
+            List<CdsExportNativeFieldAssessments> movedFields) {
+        var present = new ArrayList<CdsExportNativeFieldAssessments>();
+        for (String key : keys) present.addAll(source.getOrDefault(key, List.of()));
+        if (present.size() == 1) {
+            var fields = present.getFirst();
+            String value = fields.raw("val");
+            if (value != null
+                    && value.codePointCount(0, value.length()) > maximum
+                    && CdsExportNativeFieldAssessments.legal(value, Integer.MAX_VALUE)) {
+                fields.set("val", Outcome.MAPPED, "Notes;" + RESIDUAL, OVERLONG_MOVED_TO_NOTES);
+                moved.add(label + ": " + value);
+                movedFields.add(fields);
+                return null;
+            }
+        }
+        return oneOf(source, keys, destination, maximum);
     }
 
     private static String oneOf(
