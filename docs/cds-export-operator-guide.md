@@ -179,6 +179,25 @@ exported: when a prevention is edited, CARLOS keeps the earlier version as a del
 deleted prevention is also only flagged. Only the current version of each prevention is sent,
 as the legacy exporter did, and the earlier versions do not hold the patient for review.
 
+A vaccine imported without a configured ImmunizationType is filed in CARLOS as `OtherA`
+("Other immunization or injection"). It is exported as an immunization, from its original
+imported elements, because the import's own sealed receipt proves where it came from; select
+Immunizations (a PastHealth-only export still holds such a patient, because the row could be a
+screening). If the receipt cannot be verified (an import from before native-baseline witnesses,
+or a receipt that no longer matches) or the vaccine's type was changed after the import, the
+patient is held. A receipt that cannot be opened because the native-baseline key is missing
+stops the job with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`: restore the key files
+([native-baseline witness key](cds-import-configuration.md#native-baseline-witness-key)) and
+resume.
+
+An `OtherA` entry recorded in CARLOS itself holds the patient with `CATEGORY_NOT_PROVEN`, because
+"other injection" does not say it was a vaccine. If your clinic records only vaccines under
+`OtherA`, set a non-blank `healthCanadaType` on the `OtherA` item of the prevention configuration
+named by `PREVENTION_ITEMS` (use a value no other item declares, for example `Other`); every
+`OtherA` entry is then exported as an immunization. ImmunizationType is written only for a
+CT-020 value, so with `Other` it is left out. Each entry still needs a recorded vaccine name.
+Export the held patients again in a new job after the change.
+
 Database-selected prescriptions require a working configured `drugref_url`. Public
 DIN qualification sends the DIN and lookup option only. The clinician's authored name
 and complete compound-strength text remain intact; the standard strength uses the

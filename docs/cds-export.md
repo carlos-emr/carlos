@@ -85,6 +85,44 @@ import claims still hold the patient. An imported vaccine is written from its re
 elements without this residual, so a provider, reminder or status added after the import holds
 the patient for review.
 
+An imported vaccine whose ImmunizationType was absent or not configured is filed by the CARLOS
+importer as the catch-all `OtherA` (review finding F10). The prevention configuration cannot
+prove `OtherA` is a vaccine, so the row is kept as an Immunizations occurrence only on the
+importer's own receipt (`CdsExportImmunizationImportReceipts`): an applied (`COMMITTED` or
+`ALREADY_COMPLETE`) `Immunizations` import unit of this patient whose receipt names exactly one
+`preventions` row, this one, and whose native-baseline witness, sealed under the installation
+key and bound to that receipt's digest, records the row's identifier and this patient. The same
+rule covers any unrestricted row the classification cannot place (an unknown, unresolved or
+conflicting type), never a program-restricted row, and it never moves a row the classification
+did place. Capture-time selection reads the units through `CdsImportUnitDao` in the capture's
+repeatable-read snapshot, and the finished-capture reclassification re-proves the partition
+from the captured `cds_import_unit` rows, so both reach the same vaccine set. A legacy unit
+without a witness, a unit that was not applied, a rewritten receipt or tampered witness, and
+another patient's import prove nothing; the row then keeps its classification review
+(`CATEGORY_NOT_PROVEN` for `OtherA`). The importer's provenance extensions (`cdsName`,
+`cdsType`, `cdsDatePrecision` and the others) are ordinary editable chart rows and are never
+proof. A witness that cannot be opened because the installation key is missing refuses the job
+with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`, as the retained index does. The occurrence is
+then reconciled like any imported vaccine. For the catch-all type the sealed baseline itself
+witnesses the importer's type projection, so the original ImmunizationType is exported (an
+absent one stays absent) whatever today's declaration for `OtherA` says; a native type change
+fails the baseline match and holds the patient with `PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, and
+every other native change keeps its existing reconciliation code. Any other imported type still
+needs today's declared type to equal the original ImmunizationType, or it holds the patient with
+the same code. A PastHealth export without
+Immunizations captures no Immunizations unit, so the row still holds it: it could be a screening.
+
+A native `OtherA` row, never imported, still holds the patient with `CATEGORY_NOT_PROVEN`; the
+exporter does not guess that an "other injection" is a vaccine. A clinic that records only
+vaccines under `OtherA` can say so in its prevention configuration: give the `OtherA` item (an
+`injection` layout outside the Screenings heading) a non-blank `healthCanadaType` in the file
+`PREVENTION_ITEMS` names, and the classification treats every `OtherA` row as a configured
+immunization. ImmunizationType is exported only when that value is a CT-020 value; otherwise it
+is left out and the native type travels in the residual, and a row without a recorded name still
+holds the patient because `OtherA` is never used as ImmunizationName. Choose a value no other
+item declares: the importer files an incoming ImmunizationType under the last injection item
+declaring it, so reusing another item's value would redirect those imports to `OtherA`.
+
 Superseded or removed prevention versions are not exported, for vaccines and screenings alike.
 CARLOS never edits a prevention in place: an edit soft-deletes the old row (`deleted = '1'`)
 and inserts the new version, and a delete only sets the flag. The legacy exporter read only
