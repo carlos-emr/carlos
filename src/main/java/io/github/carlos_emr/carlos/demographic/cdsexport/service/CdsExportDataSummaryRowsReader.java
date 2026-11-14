@@ -86,7 +86,30 @@ final class CdsExportDataSummaryRowsReader {
     static final String SIZE_LIMIT = "CDS_EXPORT_DATA_SUMMARY_SIZE_LIMIT";
 
     /** Where a row lies in the rows member, and what it counts toward a record part. */
-    private record Stored(long offset, long bytes, byte[] sha256, int fields, long text, long binary) {}
+    private record Stored(long offset, long bytes, byte[] sha256, int fields, long text, long binary) {
+        /** Two entries are equal when their places, counts and the bytes of their digests are. */
+        @Override
+        public boolean equals(Object other) {
+            return other instanceof Stored entry
+                    && offset == entry.offset
+                    && bytes == entry.bytes
+                    && fields == entry.fields
+                    && text == entry.text
+                    && binary == entry.binary
+                    && java.util.Arrays.equals(sha256, entry.sha256);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * Objects.hash(offset, bytes, fields, text, binary)
+                    + java.util.Arrays.hashCode(sha256);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportDataSummaryRowsReader.Stored[protected]";
+        }
+    }
 
     /**
      * The index of the captured rows of every data-summary table in the capture (each reduced to
@@ -304,7 +327,6 @@ final class CdsExportDataSummaryRowsReader {
         private final Map<String, Map<String, Stored>> stored = new HashMap<>();
         private final Map<String, SortedSet<String>> planning = new HashMap<>();
         private final Map<String, String> demographic = new HashMap<>();
-        private final MessageDigest digest = sha256();
         private long demographicRows;
         private String table, key;
         private Map<String, CdsExportDataSummaryPlanner.Value> values = new TreeMap<>();
@@ -427,7 +449,7 @@ final class CdsExportDataSummaryRowsReader {
                     byte[] encoded = encode(whole);
                     member.write(encoded);
                     length = encoded.length;
-                    hash = digest.digest(encoded);
+                    hash = sha256().digest(encoded);
                     java.util.Arrays.fill(encoded, (byte) 0);
                 }
                 if (stored.computeIfAbsent(table, ignored -> new HashMap<>())
@@ -450,6 +472,8 @@ final class CdsExportDataSummaryRowsReader {
             var columns =
                     planning.computeIfAbsent(whole.table(), CdsExportDataSummaryPlanner::planning);
             var kept = new TreeMap<String, CdsExportDataSummaryPlanner.Value>();
+            // One digest for this row's planning values; it holds no state between rows.
+            MessageDigest digest = sha256();
             for (String column : columns) {
                 var value = whole.values().get(column);
                 if (value == null) continue;
