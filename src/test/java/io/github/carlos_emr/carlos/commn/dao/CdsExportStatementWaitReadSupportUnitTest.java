@@ -31,7 +31,8 @@ import org.junit.jupiter.api.Test;
 /**
  * A statement's deadline is a wait that is sent again, never a failure of the export: the same
  * statement on the same connection with twice the wait, until it is answered or the attempt
- * itself ends.
+ * itself ends. Reads shared CARLOS code makes run as a unit, which is read again whole, in a new
+ * transaction, when the server ended any of its statements at the unit's deadline.
  */
 @Tag("unit")
 @Tag("cds-export")
@@ -298,5 +299,178 @@ class CdsExportStatementWaitReadSupportUnitTest {
                     return null;
                 });
         verify(connection, never()).setNetworkTimeout(any(), anyInt());
+    }
+
+    /** A unit's transactions: one new transaction on the server's connection for each sending. */
+    private static org.springframework.transaction.support.TransactionTemplate units(
+            CdsExportStatementWaitTestServer server) {
+        var units = new org.springframework.transaction.support.TransactionTemplate(server.manager());
+        units.setReadOnly(true);
+        return units;
+    }
+
+    @Test
+    void shouldSendTheWholeUnitAgain_whenItsSharedCodeSwallowedAStatementEndedAtTheDeadline()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        String answer =
+                CdsExportStatementWaitReadSupport.transaction(
+                        units(server),
+                        status -> {
+                            CdsExportStatementWaitReadSupport.arm();
+                            // The shared privilege check: the server ends its statement at the
+                            // deadline once, and the check answers that as a refusal.
+                            if (server.transactions() == 1) {
+                                server.endStatement();
+                                return "refused";
+                            }
+                            return "granted";
+                        });
+        // The refusal was the deadline's, not the chart's: the unit was read again.
+        assertThat(answer).isEqualTo("granted");
+        assertThat(server.transactions()).isEqualTo(2);
+        // 30 s, then twice that, each put back to the connection's own deadline before the
+        // connection could go back to its pool.
+        assertThat(server.deadlines()).containsExactly(30, 0.0d, 60, 0.0d);
+        assertThat(server.deadline()).isZero();
+        // 30 s and its grace fit the 60 s socket timeout; 60 s was given 90 s, then put back.
+        verify(server.connection()).setNetworkTimeout(any(), eq(90_000));
+        assertThat(server.socket()).isEqualTo(60_000);
+    }
+
+    @Test
+    void shouldSendTheUnitAgain_whenTheEndedStatementFailedTheWork() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var answer =
+                CdsExportStatementWaitReadSupport.transaction(
+                        units(server),
+                        1,
+                        status -> {
+                            CdsExportStatementWaitReadSupport.arm();
+                            if (server.transactions() < 3) {
+                                server.endStatement();
+                                throw new IllegalStateException("provider lookup ended", ended());
+                            }
+                            return "provider";
+                        });
+        assertThat(answer).isEqualTo("provider");
+        assertThat(server.deadlines()).containsExactly(1, 0.0d, 2, 0.0d, 4, 0.0d);
+    }
+
+    @Test
+    void shouldReadTheUnitOnce_whenItsOwnWaitingReadsSentTheirEndedStatementAgain()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var sent = new int[1];
+        CdsExportStatementWaitReadSupport.transaction(
+                units(server),
+                status -> {
+                    CdsExportStatementWaitReadSupport.arm();
+                    // A read through the wait support: ended once, sent again, answered.
+                    return CdsExportStatementWaitReadSupport.await(
+                            server.em(),
+                            null,
+                            30,
+                            seconds -> {
+                                if (++sent[0] == 1) {
+                                    server.endStatement();
+                                    throw ended();
+                                }
+                                return "row";
+                            });
+                });
+        assertThat(server.transactions()).isEqualTo(1);
+        assertThat(sent[0]).isEqualTo(2);
+    }
+
+    @Test
+    void shouldPassTheWorksOwnFailureOn_whenNoStatementWasEnded() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var refused = new SecurityException("CDS_EXPORT_AUTHORIZATION_DENIED");
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.transaction(
+                                        units(server),
+                                        status -> {
+                                            CdsExportStatementWaitReadSupport.arm();
+                                            throw refused;
+                                        }))
+                .isSameAs(refused);
+        assertThat(server.transactions()).isEqualTo(1);
+        assertThat(server.deadline()).isZero();
+    }
+
+    @Test
+    void shouldReportTheDatabase_whenTheConnectionIsLostWhileTheUnitIsArmed() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.transaction(
+                                        units(server),
+                                        status -> {
+                                            CdsExportStatementWaitReadSupport.arm();
+                                            server.lose();
+                                            // What the shared check makes of the lost read.
+                                            throw new SecurityException(
+                                                    "CDS_EXPORT_AUTHORIZATION_DENIED");
+                                        }))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportDatabaseUnavailableException.class)
+                .hasMessage("CDS_EXPORT_DATABASE_UNAVAILABLE");
+        assertThat(server.transactions()).isEqualTo(1);
+    }
+
+    @Test
+    void shouldAbortTheConnection_whenItsOwnDeadlineCannotBePutBack() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        server.refuseDeadlineBack();
+        String answer =
+                CdsExportStatementWaitReadSupport.transaction(
+                        units(server),
+                        status -> {
+                            CdsExportStatementWaitReadSupport.arm();
+                            return "answered";
+                        });
+        assertThat(answer).isEqualTo("answered");
+        // It never goes back to its pool with the unit's deadline.
+        verify(server.connection()).abort(any());
+    }
+
+    @Test
+    void shouldArmNothing_onAConnectionWithoutASocketTimeoutOrOutsideAUnit() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(0);
+        CdsExportStatementWaitReadSupport.transaction(
+                units(server),
+                status -> {
+                    CdsExportStatementWaitReadSupport.arm();
+                    return null;
+                });
+        // Outside a unit an arm changes nothing either.
+        CdsExportStatementWaitReadSupport.arm();
+        verify(server.connection(), never()).prepareStatement(any(String.class));
+        verify(server.connection(), never()).setNetworkTimeout(any(), anyInt());
+    }
+
+    @Test
+    void shouldEndTheUnitsWaiting_whenTheObserverSaysTheAttemptHasEnded() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        restore =
+                CdsExportStatementWaitReadSupport.observe(
+                        waited -> {
+                            throw new IllegalStateException("CDS_EXPORT_OWNER_FENCED");
+                        });
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.transaction(
+                                        units(server),
+                                        status -> {
+                                            CdsExportStatementWaitReadSupport.arm();
+                                            server.endStatement();
+                                            return "refused";
+                                        }))
+                .hasMessage("CDS_EXPORT_OWNER_FENCED");
+        assertThat(server.transactions()).isEqualTo(1);
+        assertThat(server.deadline()).isZero();
     }
 }

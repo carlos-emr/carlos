@@ -245,6 +245,123 @@ class CdsExportAccessServiceUnitTest {
         }
     }
 
+    /** The service as Spring builds it: each call in its own transaction on the server's connection. */
+    private CdsExportAccessService waiting(
+            io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer server) {
+        return new CdsExportAccessService(
+                permissions,
+                configuration,
+                providers,
+                accounts,
+                mock(ProviderFacilityDao.class),
+                notes,
+                server.manager());
+    }
+
+    @Test
+    void shouldMakeTheCallAgainWhole_whenTheServerEndedAPrivilegeReadTheCheckAnsweredAsARefusal()
+            throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var service = waiting(server);
+        var command = demographicCommand("100");
+        var actor = service.webActor(session, command);
+        int before = server.transactions();
+        // The patient's _demographic row is read while another session holds its table: the
+        // server ends that read at the call's deadline once, and the shared privilege check
+        // answers the failed read as a refusal.
+        boolean[] ended = {false};
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("r"), eq("27")))
+                .thenAnswer(
+                        call -> {
+                            if (ended[0]) return true;
+                            ended[0] = true;
+                            server.endStatement();
+                            return false;
+                        });
+        // Not refused for how long the database took: the call was made again, whole.
+        assertThat(service.requirePatient(actor, command, 27).getLoggedInProviderNo())
+                .isEqualTo("100");
+        assertThat(server.transactions() - before).isEqualTo(2);
+        // Each sending had its own deadline (30 s, then 60 s), each put back.
+        assertThat(server.deadlines()).endsWith(30, 0.0d, 60, 0.0d);
+        assertThat(server.deadline()).isZero();
+    }
+
+    @Test
+    void shouldStillRefuseTheCall_whenTheRefusalIsTheChartsAndNoStatementWasEnded()
+            throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var service = waiting(server);
+        var command = demographicCommand("100");
+        var actor = service.webActor(session, command);
+        int before = server.transactions();
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("r"), eq("27")))
+                .thenReturn(false);
+        assertThatThrownBy(() -> service.requirePatient(actor, command, 27))
+                .hasMessage("CDS_EXPORT_AUTHORIZATION_DENIED");
+        // A real refusal is read once.
+        assertThat(server.transactions() - before).isEqualTo(1);
+    }
+
+    @Test
+    void shouldReportTheDatabase_whenItIsLostDuringAPrivilegeReadTheCheckAnsweredAsARefusal()
+            throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var service = waiting(server);
+        var command = demographicCommand("100");
+        var actor = service.webActor(session, command);
+        when(permissions.hasPrivilegeReadOnly(any(), eq("_demographic"), eq("r"), eq("27")))
+                .thenAnswer(
+                        call -> {
+                            server.lose();
+                            return false;
+                        });
+        // Not CDS_EXPORT_ACCESS_CHANGED: the database, not the chart's access, failed.
+        assertThatThrownBy(() -> service.requirePatient(actor, command, 27))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportDatabaseUnavailableException.class);
+    }
+
+    @Test
+    void shouldDecideEveryGateInOneTransaction_andMakeTheWholePassAgainAfterAnEndedRead()
+            throws Exception {
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        var service = waiting(server);
+        var command = demographicCommand("100");
+        var actor = service.webActor(session, command);
+        int before = server.transactions();
+        boolean[] ended = {false};
+        when(permissions.readOnlySnapshot(any(), any()))
+                .thenAnswer(
+                        call -> {
+                            LoggedInInfo who = call.getArgument(0);
+                            return new SecurityInfoManager.PrivilegeSnapshot() {
+                                @Override
+                                public boolean hasPrivilege(
+                                        String object, String privilege, String patient) {
+                                    if ("_rx".equals(object) && !ended[0]) {
+                                        ended[0] = true;
+                                        server.endStatement();
+                                        return false;
+                                    }
+                                    return permissions.hasPrivilegeReadOnly(
+                                            who, object, privilege, patient);
+                                }
+
+                                @Override
+                                public boolean isAllowedAccessToPatientRecord(Integer patient) {
+                                    return true;
+                                }
+                            };
+                        });
+        var decisions = service.decidePatient(actor, command, 27);
+        // The pharmacy gate the ended read would have refused is granted, by the pass made again.
+        decisions.require(CdsExportAccessService.Gate.PHARMACY);
+        decisions.require(CdsExportAccessService.Gate.PATIENT);
+        assertThat(server.transactions() - before).isEqualTo(2);
+    }
+
     private static CdsExportCommand demographicCommand(String provider) {
         return new CdsExportCommand(
                 "pharmacy-rights",

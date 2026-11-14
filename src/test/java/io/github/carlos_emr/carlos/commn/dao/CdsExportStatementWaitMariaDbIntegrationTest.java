@@ -5,6 +5,7 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock;
 import jakarta.persistence.EntityManager;
@@ -224,6 +225,95 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
                         em.unwrap(Session.class)
                                 .doWork(connection -> after.add(connection.getNetworkTimeout())));
         assertThat(after).containsExactly(1_500);
+    }
+
+    /** A new read-committed, read-only transaction for each sending of a unit, as callers use. */
+    private TransactionTemplate units() {
+        var units = new TransactionTemplate(snapshot.getTransactionManager());
+        units.setReadOnly(true);
+        units.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        units.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return units;
+    }
+
+    /** The pooled connection's socket timeout and own statement deadline, read in a transaction. */
+    private List<Object> pooled() {
+        List<Object> found = new ArrayList<>();
+        snapshot.executeWithoutResult(
+                status ->
+                        em.unwrap(Session.class)
+                                .doWork(
+                                        connection -> {
+                                            found.add(connection.getNetworkTimeout());
+                                            try (var statement = connection.createStatement();
+                                                    var rows =
+                                                            statement.executeQuery(
+                                                                    "select"
+                                                                        + " @@SESSION.max_statement_time")) {
+                                                rows.next();
+                                                found.add(rows.getDouble(1));
+                                            }
+                                        }));
+        return found;
+    }
+
+    @Test
+    void shouldReadASharedUnitAgainWhole_whenTheServerEndsAStatementTheSharedCodeSwallowed() {
+        // The pool's one connection gives up on a silent socket after 1.5 s.
+        open(1_500);
+        var sendings = new int[1];
+        long started = System.nanoTime();
+        String answer =
+                CdsExportStatementWaitReadSupport.transaction(
+                        units(),
+                        1,
+                        status -> {
+                            sendings[0]++;
+                            CdsExportStatementWaitReadSupport.arm();
+                            try {
+                                // A plain statement, as code shared with the rest of CARLOS sends
+                                // it: no deadline of its own, 2.5 s of work.
+                                Object[] row =
+                                        (Object[])
+                                                em.createNativeQuery(
+                                                                "select sleep(2.5),1",
+                                                                Object[].class)
+                                                        .getSingleResult();
+                                return ((Number) row[0]).intValue() == 0 ? "granted" : "cut";
+                            } catch (RuntimeException failed) {
+                                // What the shared privilege check makes of a failed read.
+                                return "refused";
+                            }
+                        });
+        // Ended at 1 s and at 2 s and answered within 4 s, never cut off by the 1.5 s socket
+        // timeout: the refusals were the deadline's, and the third reading is the answer.
+        assertThat(answer).isEqualTo("granted");
+        assertThat(sendings[0]).isEqualTo(3);
+        assertThat((System.nanoTime() - started) / 1_000_000L).isBetween(5_000L, 30_000L);
+        // The same physical connection, back in its pool as it was: its own socket timeout and
+        // no deadline left behind.
+        assertThat(pooled()).containsExactly(1_500, 0.0d);
+    }
+
+    @Test
+    void shouldPassASharedReadsOwnFailureOn_withoutReadingTheUnitAgain() {
+        open(1_500);
+        var sendings = new int[1];
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.transaction(
+                                        units(),
+                                        1,
+                                        status -> {
+                                            sendings[0]++;
+                                            CdsExportStatementWaitReadSupport.arm();
+                                            return em.createNativeQuery(
+                                                            "select missing from `chart`")
+                                                    .getResultList();
+                                        }))
+                .isInstanceOf(RuntimeException.class);
+        assertThat(sendings[0]).isEqualTo(1);
+        assertThat(pooled()).containsExactly(1_500, 0.0d);
     }
 
     @Test

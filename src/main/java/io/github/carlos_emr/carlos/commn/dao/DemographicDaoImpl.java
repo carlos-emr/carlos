@@ -109,13 +109,17 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         if (physicianNos == null || physicianNos.isEmpty() || physicianNos.size() > 100
                 || physicianNos.stream().anyMatch(value -> value == null || !value.matches("[A-Za-z0-9_-]{1,16}"))
                 || limit < 1 || limit > 500) throw new IllegalArgumentException("CDS_EXPORT_SELECTION_QUERY_INVALID");
-        var query = entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
+        // A page of a large clinic's roster waits for its answer and is sent again when the server
+        // ends it at its deadline, in the same snapshot; the socket timeout never cuts it off.
+        var query = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
                 + "(d.demographicNo,d.providerNo) from Demographic d where d.providerNo in :physicians"
                 + (afterDemographicNo == null ? "" : " and d.demographicNo>:after")
-                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class)
+                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class))
                 .setParameter("physicians", List.copyOf(physicianNos)).setMaxResults(limit);
         if (afterDemographicNo != null) query.setParameter("after", afterDemographicNo);
-        return query.getResultList();
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> page = query.getResultList();
+        return page;
     }
 
     @Override
@@ -127,10 +131,13 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
                 || new java.util.HashSet<>(demographicNos).size() != demographicNos.size()) {
             throw new IllegalArgumentException("CDS_EXPORT_SELECTION_QUERY_INVALID");
         }
-        return entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
+        @SuppressWarnings("unchecked")
+        List<io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto> page = CdsExportStatementWaitReadSupport.waiting(entityManager(),
+                entityManager().createQuery("select new io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto"
                 + "(d.demographicNo,d.providerNo) from Demographic d where d.demographicNo in :patients"
-                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class)
+                + " order by d.demographicNo", io.github.carlos_emr.carlos.commn.dto.CdsExportSelectionRowDto.class))
                 .setParameter("patients", List.copyOf(demographicNos)).setMaxResults(demographicNos.size()).getResultList();
+        return page;
     }
 
     /**
@@ -152,8 +159,8 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         String projection = columns.stream().map(column -> "CAST(d.`" + column + "` AS BINARY)")
                 .collect(java.util.stream.Collectors.joining(","));
         @SuppressWarnings("unchecked")
-        List<Object[]> rows = entityManager().createNativeQuery("select d.demographic_no," + projection
-                + " from demographic d where d.demographic_no=:patient", Object[].class)
+        List<Object[]> rows = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.demographic_no," + projection
+                + " from demographic d where d.demographic_no=:patient", Object[].class))
                 .setParameter("patient", demographicNo).setMaxResults(1).getResultList();
         if (rows.isEmpty()) return null;
         Object[] row = rows.getFirst();
@@ -191,16 +198,18 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
         // Zero rows acquire the table metadata lock and require visibility of every physical
         // column. SELECT 1 alone permits column-only grants to hide a future clinical field.
-        entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class).getResultList();
+        // Every statement here waits for its answer: the metadata lock, above all, can be held
+        // for as long as another session's schema change takes.
+        CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class)).getResultList();
         @SuppressWarnings("unchecked")
-        List<String> engines = entityManager().createNativeQuery("select ENGINE from information_schema.TABLES "
-                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and TABLE_TYPE='BASE TABLE'", String.class)
+        List<String> engines = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select ENGINE from information_schema.TABLES "
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and TABLE_TYPE='BASE TABLE'", String.class))
                 .setMaxResults(2).getResultList();
         if (engines.size() != 1) throw new IllegalStateException("CDS_EXPORT_SOURCE_SCHEMA_REQUIRES_REVIEW");
         @SuppressWarnings("unchecked")
-        List<Object[]> columns = entityManager().createNativeQuery("select COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,"
+        List<Object[]> columns = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,"
                 + "CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'') from information_schema.COLUMNS "
-                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic'", Object[].class)
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic'", Object[].class))
                 .setMaxResults(4097).getResultList();
         if (columns.isEmpty() || columns.size() > 4096) throw new IllegalStateException("CDS_EXPORT_SOURCE_SCHEMA_REQUIRES_REVIEW");
         var captured = new java.util.ArrayList<io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column>();
@@ -211,10 +220,10 @@ public class DemographicDaoImpl extends AbstractJpaDao implements ApplicationEve
         }
         captured.sort(java.util.Comparator.comparing(io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto.Column::name));
         @SuppressWarnings("unchecked")
-        List<String> primaryKey = entityManager().createNativeQuery("select COLUMN_NAME from information_schema.KEY_COLUMN_USAGE "
-                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and CONSTRAINT_NAME='PRIMARY' order by ORDINAL_POSITION", String.class)
+        List<String> primaryKey = CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select COLUMN_NAME from information_schema.KEY_COLUMN_USAGE "
+                + "where TABLE_SCHEMA=DATABASE() and TABLE_NAME='demographic' and CONSTRAINT_NAME='PRIMARY' order by ORDINAL_POSITION", String.class))
                 .setMaxResults(17).getResultList();
-        entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class).getResultList();
+        CdsExportStatementWaitReadSupport.waiting(entityManager(), entityManager().createNativeQuery("select d.* from demographic d limit 0", Object[].class)).getResultList();
         return new io.github.carlos_emr.carlos.commn.dto.CdsExportTableSchemaDto("demographic", engines.getFirst(), captured, primaryKey);
     }
 

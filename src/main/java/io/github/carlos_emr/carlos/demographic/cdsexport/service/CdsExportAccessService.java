@@ -39,9 +39,10 @@ import jakarta.persistence.PersistenceContext;
 import java.util.Date;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Reconstructs current account/provider/facility and permissions at each disclosure boundary. A
@@ -49,12 +50,19 @@ import org.springframework.transaction.annotation.Transactional;
  * call owns a fresh read-committed transaction, so an enclosing captured source snapshot cannot
  * keep a revoked permission alive. Never invoke while holding a maintenance capability that would
  * block these ordinary clinical security reads.
+ *
+ * <p>No read of a call is cut off by the connection's socket timeout. The note and program reads
+ * of {@link io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao} wait for their
+ * answer statement by statement. The other reads are made by code the rest of CARLOS shares (the
+ * account, provider, facility and membership lookups, and the role and privilege rows {@link
+ * SecurityInfoManager} evaluates), so a call is one unit of {@link
+ * io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport#transaction}: its
+ * transaction is armed before the first of them, and when the server ended any statement at its
+ * deadline (which the privilege check would otherwise have answered as a refusal) the whole call
+ * is made again in a new transaction with twice the wait. Every call is a read, and every answer
+ * a fresh read-committed one, so making it again is only reading again.</p>
  */
 @Service
-@Transactional(
-        readOnly = true,
-        propagation = Propagation.REQUIRES_NEW,
-        isolation = Isolation.READ_COMMITTED)
 public class CdsExportAccessService {
     private final SecurityInfoManager security;
     private final CdsExportConfigurationService configuration;
@@ -65,6 +73,16 @@ public class CdsExportAccessService {
 
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
+
+    /**
+     * The transaction of one call: new, read-committed and read-only, as the class's calls have
+     * always had. Null only where the service is built without a transaction manager (unit tests),
+     * and then a call runs on whatever the caller provides.
+     */
+    private final TransactionTemplate transactions;
+
+    /** The transaction of the call running on this thread; a call it makes joins it. */
+    private final ThreadLocal<TransactionStatus> call = new ThreadLocal<>();
 
     /**
      * The authorization rows already read by the pass running on this thread, or nothing.
@@ -134,6 +152,7 @@ public class CdsExportAccessService {
 
     /** {@link SecurityInfoManager#hasPrivilegeReadOnly}, from the running pass's rows if any. */
     private boolean privilege(LoggedInInfo context, String object, String right, String target) {
+        shared();
         var snapshot = snapshot(context);
         return snapshot == null
                 ? security.hasPrivilegeReadOnly(context, object, right, target)
@@ -142,6 +161,7 @@ public class CdsExportAccessService {
 
     /** {@link SecurityInfoManager#isAllowedAccessToPatientRecord}, likewise. */
     private boolean patientRecordAllowed(LoggedInInfo context, Integer patient) {
+        shared();
         var snapshot = snapshot(context);
         return snapshot == null
                 ? security.isAllowedAccessToPatientRecord(context, patient)
@@ -184,47 +204,112 @@ public class CdsExportAccessService {
         return known;
     }
 
-    public CdsExportAccessService(
+    CdsExportAccessService(
             SecurityInfoManager security,
             CdsExportConfigurationService configuration,
             ProviderDao providers,
             SecurityDao accounts,
             ProviderFacilityDao memberships,
             io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao notes) {
+        this(security, configuration, providers, accounts, memberships, notes, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportAccessService(
+            SecurityInfoManager security,
+            CdsExportConfigurationService configuration,
+            ProviderDao providers,
+            SecurityDao accounts,
+            ProviderFacilityDao memberships,
+            io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao notes,
+            PlatformTransactionManager transactions) {
         this.security = Objects.requireNonNull(security);
         this.configuration = Objects.requireNonNull(configuration);
         this.providers = Objects.requireNonNull(providers);
         this.accounts = Objects.requireNonNull(accounts);
         this.memberships = Objects.requireNonNull(memberships);
         this.notes = Objects.requireNonNull(notes);
+        if (transactions == null) this.transactions = null;
+        else {
+            this.transactions = new TransactionTemplate(transactions);
+            this.transactions.setReadOnly(true);
+            this.transactions.setPropagationBehavior(
+                    TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            this.transactions.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        }
+    }
+
+    /**
+     * One call: its own transaction, made again whole while a statement of it is ended at its
+     * deadline ({@link io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport
+     * #transaction}). A call made by a call joins its transaction, as a call of this class on
+     * itself always has.
+     */
+    private <T> T read(java.util.function.Supplier<T> work) {
+        if (transactions == null || call.get() != null) return work.get();
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.transaction(
+                transactions,
+                status -> {
+                    call.set(status);
+                    try {
+                        return work.get();
+                    } finally {
+                        call.remove();
+                    }
+                });
+    }
+
+    private void run(Runnable work) {
+        read(
+                () -> {
+                    work.run();
+                    return null;
+                });
+    }
+
+    /**
+     * Before a read that code shared with the rest of CARLOS makes: arms the call's transaction
+     * so that its statements wait and are made again rather than cut off.
+     */
+    private static void shared() {
+        io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.arm();
     }
 
     public CdsExportActorDto webActor(LoggedInInfo supplied, CdsExportCommand command) {
-        Security account = sessionAccount(supplied);
-        CdsExportActorDto actor =
-                new CdsExportActorDto(
-                        "web-" + account.getSecurityNo(),
-                        command.providerNo(),
-                        account.getSecurityNo(),
-                        command.facilityId());
-        context(actor, command, null, null, false);
-        return actor;
+        return read(
+                () -> {
+                    Security account = sessionAccount(supplied);
+                    CdsExportActorDto actor =
+                            new CdsExportActorDto(
+                                    "web-" + account.getSecurityNo(),
+                                    command.providerNo(),
+                                    account.getSecurityNo(),
+                                    command.facilityId());
+                    context(actor, command, null, null, false);
+                    return actor;
+                });
     }
 
     /** Caller must first verify the immutable root-issued exact-argv delegation ticket. */
     public CdsExportActorDto delegatedActor(String verifiedOperator, CdsExportCommand command) {
-        CdsExportActorDto actor =
-                new CdsExportActorDto(
-                        verifiedOperator, command.providerNo(), null, command.facilityId());
-        context(actor, command, null, null, false);
-        return actor;
+        return read(
+                () -> {
+                    CdsExportActorDto actor =
+                            new CdsExportActorDto(
+                                    verifiedOperator,
+                                    command.providerNo(),
+                                    null,
+                                    command.facilityId());
+                    context(actor, command, null, null, false);
+                    return actor;
+                });
     }
 
     /**
      * Worker entry rechecks the recorded actor's current global scope before any patient discovery.
      */
     public void requireScope(CdsExportActorDto actor, CdsExportCommand command) {
-        context(actor, command, null, null, false);
+        run(() -> context(actor, command, null, null, false));
     }
 
     /**
@@ -233,10 +318,15 @@ public class CdsExportAccessService {
      */
     public CdsExportActorDto delegatedSession(
             String verifiedOperator, String provider, Integer historicalFacilityHint) {
-        Integer facility = configuration.metadataFacility(verifiedOperator, historicalFacilityHint);
-        var actor = new CdsExportActorDto(verifiedOperator, provider, null, facility);
-        metadataContext(actor);
-        return actor;
+        return read(
+                () -> {
+                    Integer facility =
+                            configuration.metadataFacility(
+                                    verifiedOperator, historicalFacilityHint);
+                    var actor = new CdsExportActorDto(verifiedOperator, provider, null, facility);
+                    metadataContext(actor);
+                    return actor;
+                });
     }
 
     /**
@@ -245,7 +335,7 @@ public class CdsExportAccessService {
     public LoggedInInfo requirePatient(
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         requireSelectedPatient(command, patient);
-        return context(actor, command, patient, null, false);
+        return read(() -> context(actor, command, patient, null, false));
     }
 
     /**
@@ -262,7 +352,7 @@ public class CdsExportAccessService {
         if (category == null
                 || !command.categories().contains(category)
                 || sensitiveLaboratory && category != CdsCategory.LABORATORY_RESULTS) deny();
-        return context(actor, command, patient, category, sensitiveLaboratory);
+        return read(() -> context(actor, command, patient, category, sensitiveLaboratory));
     }
 
     /**
@@ -283,7 +373,8 @@ public class CdsExportAccessService {
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         requireSelectedPatient(command, patient);
         if (!command.categories().contains(CdsCategory.DEMOGRAPHICS)) deny();
-        return context(actor, command, patient, CdsCategory.DEMOGRAPHICS, false, "_rx");
+        return read(
+                () -> context(actor, command, patient, CdsCategory.DEMOGRAPHICS, false, "_rx"));
     }
 
     /**
@@ -297,19 +388,23 @@ public class CdsExportAccessService {
             CdsCategory category,
             io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected) {
         requireNoteCategory(command, category, expected);
-        CurrentIdentity current = chartIdentity(actor, command, expected.patient(), category);
-        if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
-                || !notes.canRead(
-                        current.effective().getLoggedInProviderNo(),
-                        expected,
-                        command.facilityId(),
-                        configuration.filterNotesOnFacility())
-                || current.operator() != null
-                        && !notes.canRead(
-                                current.operator().getLoggedInProviderNo(),
-                                expected,
-                                command.facilityId(),
-                                configuration.filterNotesOnFacility())) deny();
+        run(
+                () -> {
+                    CurrentIdentity current =
+                            chartIdentity(actor, command, expected.patient(), category);
+                    if (!expected.equals(notes.findScope(expected.patient(), expected.noteId()))
+                            || !notes.canRead(
+                                    current.effective().getLoggedInProviderNo(),
+                                    expected,
+                                    command.facilityId(),
+                                    configuration.filterNotesOnFacility())
+                            || current.operator() != null
+                                    && !notes.canRead(
+                                            current.operator().getLoggedInProviderNo(),
+                                            expected,
+                                            command.facilityId(),
+                                            configuration.filterNotesOnFacility())) deny();
+                });
     }
 
     private static void requireNoteCategory(
@@ -375,6 +470,15 @@ public class CdsExportAccessService {
             PatientGrants grants) {
         requireNoteCategory(command, category, expected);
         if (grants == null || expected.patient() != grants.patient) deny();
+        run(() -> noteRead(actor, command, category, expected, grants));
+    }
+
+    private void noteRead(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto expected,
+            PatientGrants grants) {
         CurrentIdentity current = grants.chart.get(category);
         if (current == null) {
             current = chartIdentity(actor, command, expected.patient(), category);
@@ -425,6 +529,16 @@ public class CdsExportAccessService {
             if (scope.patient() != patient || scope.noteId() <= previous) deny();
             previous = scope.noteId();
         }
+        run(() -> notesRead(actor, command, category, batch, patient));
+    }
+
+    private void notesRead(
+            CdsExportActorDto actor,
+            CdsExportCommand command,
+            CdsCategory category,
+            java.util.List<io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto>
+                    batch,
+            int patient) {
         inPass(
                 command,
                 patient,
@@ -478,21 +592,24 @@ public class CdsExportAccessService {
                 || command == null
                 || !CdsExportNoteSourceReader.CATEGORIES.contains(category)
                 || !command.categories().contains(category)) deny();
-        CurrentIdentity current = chartIdentity(actor, command, patient, category);
-        boolean filter = configuration.filterNotesOnFacility();
-        return notes.canReadProgram(
-                        current.effective().getLoggedInProviderNo(),
-                        patient,
-                        program,
-                        command.facilityId(),
-                        filter)
-                && (current.operator() == null
-                        || notes.canReadProgram(
-                                current.operator().getLoggedInProviderNo(),
-                                patient,
-                                program,
-                                command.facilityId(),
-                                filter));
+        return read(
+                () -> {
+                    CurrentIdentity current = chartIdentity(actor, command, patient, category);
+                    boolean filter = configuration.filterNotesOnFacility();
+                    return notes.canReadProgram(
+                                    current.effective().getLoggedInProviderNo(),
+                                    patient,
+                                    program,
+                                    command.facilityId(),
+                                    filter)
+                            && (current.operator() == null
+                                    || notes.canReadProgram(
+                                            current.operator().getLoggedInProviderNo(),
+                                            patient,
+                                            program,
+                                            command.facilityId(),
+                                            filter));
+                });
     }
 
     /**
@@ -525,12 +642,16 @@ public class CdsExportAccessService {
                 || !command.categories().contains(category)) deny();
         long value = Long.parseLong(program);
         if (value < Integer.MIN_VALUE || value > Integer.MAX_VALUE) deny();
-        CurrentIdentity current = chartIdentity(actor, command, patient, category);
-        return notes.canReadRestrictedProgram(
-                        current.effective().getLoggedInProviderNo(), (int) value)
-                && (current.operator() == null
-                        || notes.canReadRestrictedProgram(
-                                current.operator().getLoggedInProviderNo(), (int) value));
+        return read(
+                () -> {
+                    CurrentIdentity current = chartIdentity(actor, command, patient, category);
+                    return notes.canReadRestrictedProgram(
+                                    current.effective().getLoggedInProviderNo(), (int) value)
+                            && (current.operator() == null
+                                    || notes.canReadRestrictedProgram(
+                                            current.operator().getLoggedInProviderNo(),
+                                            (int) value));
+                });
     }
 
     /** The record security objects a printed form may require ({@link #canReadRecordObject}). */
@@ -549,15 +670,19 @@ public class CdsExportAccessService {
                 || !RECORD_OBJECTS.contains(object)
                 || command == null
                 || !command.categories().contains(CdsCategory.REPORTS)) deny();
-        CurrentIdentity current = chartIdentity(actor, command, patient, CdsCategory.REPORTS);
-        for (var context :
-                current.operator() == null
-                        ? java.util.List.of(current.effective())
-                        : java.util.List.of(current.effective(), current.operator()))
-            if (!privilege(context, object, "r", null)
-                    || !privilege(context, object, "r", Integer.toString(patient)))
-                return false;
-        return true;
+        return read(
+                () -> {
+                    CurrentIdentity current =
+                            chartIdentity(actor, command, patient, CdsCategory.REPORTS);
+                    for (var context :
+                            current.operator() == null
+                                    ? java.util.List.of(current.effective())
+                                    : java.util.List.of(current.effective(), current.operator()))
+                        if (!privilege(context, object, "r", null)
+                                || !privilege(context, object, "r", Integer.toString(patient)))
+                            return false;
+                    return true;
+                });
     }
 
     /**
@@ -568,12 +693,16 @@ public class CdsExportAccessService {
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         if (command == null
                 || !command.categories().containsAll(CdsExportNoteSourceReader.CATEGORIES)) deny();
-        CurrentIdentity current =
-                chartIdentity(actor, command, patient, CdsCategory.CLINICAL_NOTES);
-        if (!notes.canReadChart(current.effective().getLoggedInProviderNo(), patient)
-                || current.operator() != null
-                        && !notes.canReadChart(current.operator().getLoggedInProviderNo(), patient))
-            deny();
+        run(
+                () -> {
+                    CurrentIdentity current =
+                            chartIdentity(actor, command, patient, CdsCategory.CLINICAL_NOTES);
+                    if (!notes.canReadChart(current.effective().getLoggedInProviderNo(), patient)
+                            || current.operator() != null
+                                    && !notes.canReadChart(
+                                            current.operator().getLoggedInProviderNo(), patient))
+                        deny();
+                });
     }
 
     /**
@@ -817,6 +946,11 @@ public class CdsExportAccessService {
     public PatientDecisions decidePatient(
             CdsExportActorDto actor, CdsExportCommand command, int patient) {
         requireSelectedPatient(command, patient);
+        return read(() -> decisions(actor, command, patient));
+    }
+
+    private PatientDecisions decisions(
+            CdsExportActorDto actor, CdsExportCommand command, int patient) {
         return inPass(
                 command,
                 patient,
@@ -863,11 +997,8 @@ public class CdsExportAccessService {
                     // A read that failed under one of these checks was answered as a refusal, but
                     // it also condemned this transaction: refuse the whole pass rather than let the
                     // commit fail as an infrastructure error after the decisions were returned.
-                    if (org.springframework.transaction.support.TransactionSynchronizationManager
-                                    .isActualTransactionActive()
-                            && org.springframework.transaction.interceptor.TransactionAspectSupport
-                                    .currentTransactionStatus()
-                                    .isRollbackOnly()) deny();
+                    var status = call.get();
+                    if (status != null && status.isRollbackOnly()) deny();
                     return decisions;
                 });
     }
@@ -886,6 +1017,11 @@ public class CdsExportAccessService {
         Objects.requireNonNull(request);
         int patient = request.patient();
         requireSelectedPatient(command, patient);
+        run(() -> recheck(actor, command, request, patient));
+    }
+
+    private void recheck(
+            CdsExportActorDto actor, CdsExportCommand command, PatientRecheck request, int patient) {
         inPass(
                 command,
                 patient,
@@ -939,9 +1075,12 @@ public class CdsExportAccessService {
      * clinical publication/download authority.
      */
     public void requireObserve(CdsExportActorDto observer, CdsExportJobOwnerDto owner) {
-        LoggedInInfo current = metadataContext(observer);
-        if (!Objects.equals(observer.operatorKey(), owner.operatorKey())
-                && !privilege(current, "_admin", "w", null)) deny();
+        run(
+                () -> {
+                    LoggedInInfo current = metadataContext(observer);
+                    if (!Objects.equals(observer.operatorKey(), owner.operatorKey())
+                            && !privilege(current, "_admin", "w", null)) deny();
+                });
     }
 
     /** Compatibility overload for trusted callers already holding a validated immutable intent. */
@@ -983,19 +1122,23 @@ public class CdsExportAccessService {
      * export command.
      */
     public CdsExportActorDto operatorSession(LoggedInInfo supplied) {
-        Security account = sessionAccount(supplied);
-        Integer facility =
-                supplied.getCurrentFacility() == null
-                        ? null
-                        : supplied.getCurrentFacility().getId();
-        LoggedInInfo current = providerContext(account.getProviderNo(), facility, account);
-        requireAdministration(current);
-        if (!privilege(current, "_demographic", "r", null)) deny();
-        return new CdsExportActorDto(
-                "web-" + account.getSecurityNo(),
-                account.getProviderNo(),
-                account.getSecurityNo(),
-                facility);
+        return read(
+                () -> {
+                    Security account = sessionAccount(supplied);
+                    Integer facility =
+                            supplied.getCurrentFacility() == null
+                                    ? null
+                                    : supplied.getCurrentFacility().getId();
+                    LoggedInInfo current =
+                            providerContext(account.getProviderNo(), facility, account);
+                    requireAdministration(current);
+                    if (!privilege(current, "_demographic", "r", null)) deny();
+                    return new CdsExportActorDto(
+                            "web-" + account.getSecurityNo(),
+                            account.getProviderNo(),
+                            account.getSecurityNo(),
+                            facility);
+                });
     }
 
     private LoggedInInfo context(
@@ -1183,6 +1326,7 @@ public class CdsExportAccessService {
     }
 
     private Security activeAccount(Integer number) {
+        shared();
         Security account = number == null ? null : accounts.find(number.intValue());
         if (account == null
                 || Integer.valueOf(1).equals(account.getBExpireset())
@@ -1192,6 +1336,7 @@ public class CdsExportAccessService {
     }
 
     private LoggedInInfo providerContext(String number, Integer facilityId, Security account) {
+        shared();
         Provider provider = providers.getProvider(number);
         if (provider == null
                 || !Objects.equals(number, provider.getProviderNo())

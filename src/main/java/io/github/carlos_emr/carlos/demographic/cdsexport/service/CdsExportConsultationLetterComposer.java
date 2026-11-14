@@ -95,10 +95,39 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
     private final CdsExportPrintedFormReadDao references;
     private final DigitalSignatureManager signatures;
 
+    /**
+     * The transaction the signature manager's own reads run in, or null where the composer is
+     * built without a transaction manager (unit tests): the reads then run as they are.
+     */
+    private final org.springframework.transaction.support.TransactionTemplate signatureReads;
+
     public CdsExportConsultationLetterComposer(
             CdsExportPrintedFormReadDao references, DigitalSignatureManager signatures) {
+        this(references, signatures, null);
+    }
+
+    /**
+     * @param transactions the signature manager's two reads (the signature's owner, then its
+     *     image) run in one short read-only transaction of their own whose statements wait for a
+     *     slow database and are made again rather than cut off by the connection's socket timeout
+     *     ({@link io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport#transaction})
+     */
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportConsultationLetterComposer(
+            CdsExportPrintedFormReadDao references,
+            DigitalSignatureManager signatures,
+            org.springframework.transaction.PlatformTransactionManager transactions) {
         this.references = Objects.requireNonNull(references);
         this.signatures = Objects.requireNonNull(signatures);
+        if (transactions == null) signatureReads = null;
+        else {
+            signatureReads = new org.springframework.transaction.support.TransactionTemplate(transactions);
+            signatureReads.setReadOnly(true);
+            signatureReads.setPropagationBehavior(
+                    org.springframework.transaction.TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            signatureReads.setIsolationLevel(
+                    org.springframework.transaction.TransactionDefinition.ISOLATION_READ_COMMITTED);
+        }
     }
 
     @Override
@@ -373,16 +402,29 @@ public class CdsExportConsultationLetterComposer implements CdsExportDataSummary
         Integer patient = number(plan.demographic().get("demographic_no"));
         if (!captured || patient == null) return null;
         int signatureId = Integer.parseInt(id);
+        java.util.function.Supplier<byte[]> read =
+                () -> {
+                    var owner = signatures.getDigitalSignatureMetadata(signatureId);
+                    if (owner == null
+                            || owner.getModuleType() != ModuleType.CONSULTATION
+                            || owner.getDemographicId() == null
+                            || owner.getDemographicId().intValue() != patient) return null;
+                    var stored = signatures.getDigitalSignature(signatureId);
+                    byte[] image = stored == null ? null : stored.getSignatureImage();
+                    return image == null || image.length == 0 ? null : image;
+                };
         try {
-            var owner = signatures.getDigitalSignatureMetadata(signatureId);
-            if (owner == null
-                    || owner.getModuleType() != ModuleType.CONSULTATION
-                    || owner.getDemographicId() == null
-                    || owner.getDemographicId().intValue() != patient) return null;
-            var stored = signatures.getDigitalSignature(signatureId);
-            byte[] image = stored == null ? null : stored.getSignatureImage();
-            return image == null || image.length == 0 ? null : image;
+            if (signatureReads == null) return read.get();
+            return io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.transaction(
+                    signatureReads,
+                    status -> {
+                        io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.arm();
+                        return read.get();
+                    });
         } catch (RuntimeException unreadable) {
+            // The database gone stops the job under its own code, and the job can be resumed.
+            if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                    .CdsExportDatabaseUnavailableException.lost(unreadable)) throw unreadable;
             // A lookup or decryption failure leaves the letter unsigned and named, never a hold.
             return null;
         }

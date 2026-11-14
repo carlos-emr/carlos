@@ -379,9 +379,9 @@ public class CdsExportSourceCatalogueDao {
     }
 
     private int tableNameCaseMode() {
+        // Every statement of the catalogue waits for its answer, this one too.
         Object value =
-                entityManager
-                        .createNativeQuery("select @@lower_case_table_names")
+                waiting(entityManager.createNativeQuery("select @@lower_case_table_names"))
                         .getSingleResult();
         if (!(value instanceof Number)) review();
         int mode = ((Number) value).intValue();
