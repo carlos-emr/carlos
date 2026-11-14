@@ -1066,8 +1066,64 @@ public class CdsExportAccessService {
         if (patient < 1
                 || command == null
                 || command.selection() == CdsExportCommand.Selection.SELECTED_PATIENTS
-                        && java.util.Collections.binarySearch(command.patientNos(), patient) < 0)
+                        && java.util.Collections.binarySearch(command.patientNos(), patient) < 0
+                        && !inSealedGroup(command, patient))
             deny();
+    }
+
+    /**
+     * The patient file the current thread is exporting, when it is a group of charts linked by
+     * Merge Records ({@link #sealedGroup}); null otherwise.
+     */
+    private static final ThreadLocal<SealedGroup> SEALED_GROUP = new ThreadLocal<>();
+
+    /** An open sealed group; closing it ends it on the thread that opened it. */
+    @FunctionalInterface
+    public interface GroupScope extends AutoCloseable {
+        @Override
+        void close();
+    }
+
+    /** The charts of one sealed patient file, and those of them the job selected. */
+    private record SealedGroup(
+            java.util.Set<Integer> charts, java.util.List<Integer> selected) {}
+
+    /**
+     * A chart of the open sealed group passes the selected-patient check when the group holds a
+     * chart this very command selected: a merged chart the job did not name is exported with
+     * the chart it did name. Every other check still applies to it as if it were exported alone.
+     */
+    private static boolean inSealedGroup(CdsExportCommand command, int patient) {
+        var group = SEALED_GROUP.get();
+        if (group == null || !group.charts().contains(patient)) return false;
+        for (int chart : group.selected())
+            if (java.util.Collections.binarySearch(command.patientNos(), chart) >= 0) return true;
+        return false;
+    }
+
+    /**
+     * Opens, on the calling thread, the scope of one patient file of charts linked by Merge
+     * Records, taken from the job's sealed cohort ({@code CdsExportCohortService.Patient}). While
+     * it is open a chart of the group passes the selected-patient check if the group holds a
+     * chart the job selected; nothing else is relaxed. The caller closes it when the file is
+     * finished, held or abandoned; scopes do not nest.
+     *
+     * @param charts every chart of the group
+     * @param selected the charts of the group the job selected
+     */
+    public static GroupScope sealedGroup(
+            java.util.Collection<Integer> charts, java.util.Collection<Integer> selected) {
+        if (SEALED_GROUP.get() != null) throw new IllegalStateException("CDS_EXPORT_SESSION_ACTIVE");
+        var group =
+                new SealedGroup(
+                        java.util.Set.copyOf(charts),
+                        java.util.List.copyOf(new java.util.TreeSet<>(selected)));
+        if (group.charts().isEmpty() || !group.charts().containsAll(group.selected()))
+            throw new IllegalArgumentException("CDS_EXPORT_PATIENT_SCOPE_INVALID");
+        SEALED_GROUP.set(group);
+        return () -> {
+            if (SEALED_GROUP.get() == group) SEALED_GROUP.remove();
+        };
     }
 
     /**

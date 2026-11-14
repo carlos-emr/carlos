@@ -291,6 +291,85 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldCheckEveryChartOfAMergedGroupAsIfAlone_andNameTheRefusedChart() throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 12))
+                .thenReturn(decisions(12));
+        // The merged chart's own opening pass refuses its patient gate.
+        var refused = new CdsExportAccessService.PatientDecisions(34);
+        refused.refuse(CdsExportAccessService.Gate.PATIENT, "CDS_EXPORT_AUTHORIZATION_DENIED");
+        when(access.decidePatient(document.actor(), document.command(), 34)).thenReturn(refused);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.beginGroup(List.of(12, 34));
+                            control.authorizePatient(12);
+                            control.authorizeCategory(12, CdsCategory.LABORATORY_RESULTS, true);
+                            assertThatThrownBy(() -> control.authorizePatient(34))
+                                    .isInstanceOfSatisfying(
+                                            CdsExportMergedChartAccessException.class,
+                                            failure -> assertThat(failure.chart()).isEqualTo(34))
+                                    .hasMessage("CDS_EXPORT_MERGED_CHART_ACCESS")
+                                    .hasMessageNotContaining("34");
+                            control.discardGroup();
+                            // The sessions are gone: a later check is answered fresh.
+                            control.authorizePatient(12);
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        verify(access, times(1)).decidePatient(document.actor(), document.command(), 12);
+        verify(access, times(1)).decidePatient(document.actor(), document.command(), 34);
+        verify(access, never()).recheckPatient(any(), any(), any());
+        verify(access).requirePatient(document.actor(), document.command(), 12);
+    }
+
+    @Test
+    void shouldHoldTheGroup_whenAMergedChartsRightIsRevokedBeforeItsClosingPass()
+            throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 12))
+                .thenReturn(decisions(12));
+        when(access.decidePatient(document.actor(), document.command(), 34))
+                .thenReturn(decisions(34));
+        doAnswer(
+                        call -> {
+                            CdsExportAccessService.PatientRecheck request = call.getArgument(2);
+                            if (request.patient() == 34)
+                                throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+                            return null;
+                        })
+                .when(access)
+                .recheckPatient(any(), any(), any());
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.beginGroup(List.of(12, 34));
+                            control.authorizePatient(12);
+                            control.authorizePatient(34);
+                            assertThatThrownBy(control::endGroup)
+                                    .isInstanceOfSatisfying(
+                                            CdsExportMergedChartAccessException.class,
+                                            failure -> assertThat(failure.chart()).isEqualTo(34));
+                            control.discardGroup();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        var requests =
+                org.mockito.ArgumentCaptor.forClass(CdsExportAccessService.PatientRecheck.class);
+        verify(access, times(2))
+                .recheckPatient(eq(document.actor()), eq(document.command()), requests.capture());
+        assertThat(requests.getAllValues())
+                .extracting(CdsExportAccessService.PatientRecheck::patient)
+                .containsExactly(12, 34);
+    }
+
+    @Test
     void shouldHoldThePatient_whenTheClosingPassOfItsSessionIsRefused() throws Exception {
         when(access.decidePatient(document.actor(), document.command(), 27))
                 .thenReturn(decisions(27));

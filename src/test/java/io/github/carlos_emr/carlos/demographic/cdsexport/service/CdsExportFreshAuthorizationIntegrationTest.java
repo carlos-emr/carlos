@@ -68,114 +68,9 @@ class CdsExportFreshAuthorizationIntegrationTest {
     @Test
     void shouldSeeRevocation_withoutClearingTheRequestsPreexistingManagedEntities()
             throws Exception {
-        try (var context = new AnnotationConfigApplicationContext()) {
-            DataSource source =
-                    new DriverManagerDataSource(
-                            "jdbc:h2:mem:fresh_"
-                                    + UUID.randomUUID()
-                                    + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1",
-                            "sa",
-                            "");
-            context.register(Config.class);
-            context.registerBean("dataSource", DataSource.class, () -> source);
-            context.registerBean(
-                    "entityManagerFactory",
-                    LocalContainerEntityManagerFactoryBean.class,
-                    () -> {
-                        var factory = new LocalContainerEntityManagerFactoryBean();
-                        factory.setPersistenceUnitName("entityManagerFactory");
-                        factory.setDataSource(source);
-                        factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-                        factory.setManagedTypes(
-                                PersistenceManagedTypes.of(
-                                        Provider.class.getName(), Security.class.getName()));
-                        factory.setJpaPropertyMap(
-                                Map.of(
-                                        "hibernate.hbm2ddl.auto",
-                                        "create-drop",
-                                        "hibernate.dialect",
-                                        "org.hibernate.dialect.H2Dialect"));
-                        return factory;
-                    });
-            context.registerBean(
-                    "transactionManager",
-                    PlatformTransactionManager.class,
-                    () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
-            context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
-            context.registerBean(
-                    CdsExportConfigurationService.class,
-                    () -> new CdsExportConfigurationService(new Properties()));
-            context.registerBean(
-                    SecurityInfoManager.class,
-                    () -> {
-                        var security = mock(SecurityInfoManager.class);
-                        when(security.hasPrivilegeReadOnly(
-                                        any(), anyString(), anyString(), nullable(String.class)))
-                                .thenReturn(true);
-                        return security;
-                    });
-            context.registerBean(
-                    ProviderDao.class,
-                    () -> {
-                        var providers = mock(ProviderDao.class);
-                        var shared =
-                                SharedEntityManagerCreator.createSharedEntityManager(
-                                        context.getBean(EntityManagerFactory.class));
-                        when(providers.getProvider(anyString()))
-                                .thenAnswer(
-                                        call ->
-                                                shared.find(
-                                                        Provider.class,
-                                                        (String) call.getArgument(0)));
-                        return providers;
-                    });
-            context.registerBean(
-                    SecurityDao.class,
-                    () -> {
-                        var accounts = mock(SecurityDao.class);
-                        var shared =
-                                SharedEntityManagerCreator.createSharedEntityManager(
-                                        context.getBean(EntityManagerFactory.class));
-                        when(accounts.find(anyInt()))
-                                .thenAnswer(
-                                        call ->
-                                                shared.find(
-                                                        Security.class,
-                                                        (Integer) call.getArgument(0)));
-                        return accounts;
-                    });
-            context.registerBean(ProviderFacilityDao.class, () -> mock(ProviderFacilityDao.class));
-            context.registerBean(
-                    io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class,
-                    () ->
-                            mock(
-                                    io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao
-                                            .class));
-            context.register(CdsFreshAuthorizationReadAspect.class, CdsExportAccessService.class);
-            context.refresh();
+        try (var context = context()) {
             var factory = context.getBean(EntityManagerFactory.class);
-            int accountId;
-            try (var setup = factory.createEntityManager()) {
-                setup.getTransaction().begin();
-                var provider = new Provider();
-                provider.setProviderNo("100");
-                provider.setStatus("1");
-                provider.setFirstName("FAKE-CDS");
-                provider.setLastName("Authorization");
-                provider.setProviderType("doctor");
-                provider.setSex("F");
-                provider.setSpecialty("");
-                setup.persist(provider);
-                var account = new Security();
-                account.setUserName("FAKE-CDS-AUTH");
-                account.setPassword("synthetic");
-                account.setProviderNo("100");
-                account.setBExpireset(0);
-                setup.persist(account);
-                setup.flush();
-                accountId = account.getSecurityNo();
-                setup.getTransaction().commit();
-            }
+            int accountId = seed(factory);
             try (var view = factory.createEntityManager()) {
                 var oldAccount = view.find(Security.class, accountId);
                 var provider = view.find(Provider.class, "100");
@@ -211,5 +106,186 @@ class CdsExportFreshAuthorizationIntegrationTest {
                 }
             }
         }
+    }
+
+    @Test
+    void shouldRefuseAMergedChartsClosingPass_whenItsRightIsRevokedAfterItsOpeningPass()
+            throws Exception {
+        try (var context = context()) {
+            var factory = context.getBean(EntityManagerFactory.class);
+            int accountId = seed(factory);
+            var access = context.getBean(CdsExportAccessService.class);
+            LoggedInInfo viewer;
+            try (var view = factory.createEntityManager()) {
+                viewer = new LoggedInInfo();
+                viewer.setLoggedInSecurity(view.find(Security.class, accountId));
+                viewer.setLoggedInProvider(view.find(Provider.class, "100"));
+            }
+            var actor = access.operatorSession(viewer);
+            // The job named chart 5; chart 34 is merged into it.
+            var command =
+                    new io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand(
+                            "merged-access",
+                            "100",
+                            null,
+                            io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile
+                                    .ONTARIO_MD_5_2,
+                            io.github.carlos_emr.carlos.demographic.cdsexport.command
+                                    .CdsExportCommand.Selection.SELECTED_PATIENTS,
+                            java.util.List.of(),
+                            java.util.List.of(5),
+                            java.util.Set.of(
+                                    io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
+                                            .DEMOGRAPHICS),
+                            "recipient",
+                            "audit");
+            // Alone, the merged chart is not a selected patient.
+            assertThatThrownBy(() -> access.decidePatient(actor, command, 34))
+                    .isInstanceOf(SecurityException.class);
+            try (var group =
+                    CdsExportAccessService.sealedGroup(
+                            java.util.List.of(5, 34), java.util.List.of(5))) {
+                // Its own opening pass, as if it were exported alone, grants it.
+                var decisions = access.decidePatient(actor, command, 34);
+                decisions.require(CdsExportAccessService.Gate.PATIENT);
+                var request =
+                        new CdsExportAccessService.PatientRecheck(
+                                34,
+                                java.util.Set.of(CdsExportAccessService.Gate.PATIENT),
+                                Map.of(),
+                                java.util.Set.of());
+                access.recheckPatient(actor, command, request);
+                // Another transaction revokes the account between the two passes.
+                try (var changed = factory.createEntityManager()) {
+                    changed.getTransaction().begin();
+                    var revoked = changed.find(Security.class, accountId);
+                    revoked.setBExpireset(1);
+                    revoked.setDateExpiredate(
+                            java.util.Date.from(Instant.parse("2000-01-01T00:00:00Z")));
+                    changed.getTransaction().commit();
+                }
+                assertThatThrownBy(() -> access.recheckPatient(actor, command, request))
+                        .isInstanceOf(SecurityException.class);
+            }
+        }
+    }
+
+    /** The access service over a real account and provider in an owned in-memory database. */
+    private static AnnotationConfigApplicationContext context() {
+        var context = new AnnotationConfigApplicationContext();
+        DataSource source =
+                new DriverManagerDataSource(
+                        "jdbc:h2:mem:fresh_"
+                                + UUID.randomUUID()
+                                + ";MODE=MySQL;DATABASE_TO_UPPER=false;DB_CLOSE_DELAY=-1",
+                        "sa",
+                        "");
+        context.register(Config.class);
+        context.registerBean("dataSource", DataSource.class, () -> source);
+        context.registerBean(
+                "entityManagerFactory",
+                LocalContainerEntityManagerFactoryBean.class,
+                () -> {
+                    var factory = new LocalContainerEntityManagerFactoryBean();
+                    factory.setPersistenceUnitName("entityManagerFactory");
+                    factory.setDataSource(source);
+                    factory.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+                    factory.setManagedTypes(
+                            PersistenceManagedTypes.of(
+                                    Provider.class.getName(), Security.class.getName()));
+                    factory.setJpaPropertyMap(
+                            Map.of(
+                                    "hibernate.hbm2ddl.auto",
+                                    "create-drop",
+                                    "hibernate.dialect",
+                                    "org.hibernate.dialect.H2Dialect"));
+                    return factory;
+                });
+        context.registerBean(
+                "transactionManager",
+                PlatformTransactionManager.class,
+                () -> new JpaTransactionManager(context.getBean(EntityManagerFactory.class)));
+        context.registerBean(PersistenceAnnotationBeanPostProcessor.class);
+        context.registerBean(
+                CdsExportConfigurationService.class,
+                () -> new CdsExportConfigurationService(new Properties()));
+        context.registerBean(
+                SecurityInfoManager.class,
+                () -> {
+                    var security = mock(SecurityInfoManager.class);
+                    when(security.hasPrivilegeReadOnly(
+                                    any(), anyString(), anyString(), nullable(String.class)))
+                            .thenReturn(true);
+                    when(security.isAllowedAccessToPatientRecord(any(), anyInt()))
+                            .thenReturn(true);
+                    return security;
+                });
+        context.registerBean(
+                ProviderDao.class,
+                () -> {
+                    var providers = mock(ProviderDao.class);
+                    var shared =
+                            SharedEntityManagerCreator.createSharedEntityManager(
+                                    context.getBean(EntityManagerFactory.class));
+                    when(providers.getProvider(anyString()))
+                            .thenAnswer(
+                                    call ->
+                                            shared.find(
+                                                    Provider.class,
+                                                    (String) call.getArgument(0)));
+                    return providers;
+                });
+        context.registerBean(
+                SecurityDao.class,
+                () -> {
+                    var accounts = mock(SecurityDao.class);
+                    var shared =
+                            SharedEntityManagerCreator.createSharedEntityManager(
+                                    context.getBean(EntityManagerFactory.class));
+                    when(accounts.find(anyInt()))
+                            .thenAnswer(
+                                    call ->
+                                            shared.find(
+                                                    Security.class,
+                                                    (Integer) call.getArgument(0)));
+                    return accounts;
+                });
+        context.registerBean(ProviderFacilityDao.class, () -> mock(ProviderFacilityDao.class));
+        context.registerBean(
+                io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao.class,
+                () ->
+                        mock(
+                                io.github.carlos_emr.carlos.casemgmt.dao.CdsExportNoteAccessDao
+                                        .class));
+        context.register(CdsFreshAuthorizationReadAspect.class, CdsExportAccessService.class);
+        context.refresh();
+        return context;
+    }
+
+    /** One active provider with one active account; returns the account. */
+    private static int seed(EntityManagerFactory factory) {
+        int accountId;
+        try (var setup = factory.createEntityManager()) {
+            setup.getTransaction().begin();
+            var provider = new Provider();
+            provider.setProviderNo("100");
+            provider.setStatus("1");
+            provider.setFirstName("FAKE-CDS");
+            provider.setLastName("Authorization");
+            provider.setProviderType("doctor");
+            provider.setSex("F");
+            provider.setSpecialty("");
+            setup.persist(provider);
+            var account = new Security();
+            account.setUserName("FAKE-CDS-AUTH");
+            account.setPassword("synthetic");
+            account.setProviderNo("100");
+            account.setBExpireset(0);
+            setup.persist(account);
+            setup.flush();
+            accountId = account.getSecurityNo();
+            setup.getTransaction().commit();
+        }
+        return accountId;
     }
 }
