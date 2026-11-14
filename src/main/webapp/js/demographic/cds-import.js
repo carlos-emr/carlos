@@ -268,6 +268,16 @@
         return data;
     }
 
+    /**
+     * Whether a failed request was refused before anything was accepted: a JSON refusal with a
+     * code and a 4xx status other than 408 and 429. Anything else (an abandoned request, a lost
+     * reply, a proxy or login page, a server error) leaves the outcome unknown.
+     */
+    function refusedBeforeAcceptance(error) {
+        return !!error && Number.isInteger(error.status) && error.status >= 400 && error.status < 500
+            && error.status !== 408 && error.status !== 429 && typeof error.code === 'string' && error.code !== '';
+    }
+
     function apiResult(status, data) {
         if (status < 200 || status > 299 || data?.ok !== true) {
             const failure = new Error(data?.code || 'IMPORT_RESPONSE_FAILED');
@@ -381,7 +391,7 @@
         return offset;
     }
 
-    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, uploadRemoval, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
+    const api = {API_VERSION, API_VERSION_HEADER, jobStatusUrl, friendlyState, uploadPresentation, uploadRemoval, refusedBeforeAcceptance, jobPresentation, monitorAcceptedRun, readOpenedJobStatus, statusPresentation, boundedIds, latestUploadAttempt, mayStopPolling, recoveryControls, indexedSourceValuePath, reviewEligibility,
         effectiveOptions, sha256, boundedJson, apiResponse, postChunk, verifyPrefix};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CarlosCdsImport = api;
@@ -418,6 +428,7 @@
             controlPending: 'La demande précédente attend un accusé de réception. Vérifier l’état durable avant de réessayer.',
             controlChecked: 'État vérifié — fermer cet avertissement',
             controlCapacity: 'Vérifier et fermer les avertissements des tâches précédentes avant une autre demande.',
+            submitUnconfirmed: 'La soumission de {0} n’a pas pu être confirmée ({1}). Elle a peut-être été acceptée : vérifier sa tâche dans la liste des transferts avant de la soumettre de nouveau.',
         } : {
             failed: 'The request did not complete. Check durable status before retrying.',
             choose: 'Select at least one XML/ZIP file.',
@@ -444,6 +455,7 @@
             controlPending: 'The previous request is awaiting acknowledgement. Check durable status before retrying.',
             controlChecked: 'Status checked — dismiss this warning',
             controlCapacity: 'Check and dismiss the warnings for earlier jobs before sending another control request.',
+            submitUnconfirmed: 'The submission of {0} could not be confirmed ({1}). It may have been accepted: check its job in the upload list before submitting it again.',
         };
         let activeRun = '';
         let activeView;
@@ -572,7 +584,10 @@
             return field.value;
         }
         // Metadata requests only; a raw chunk goes through postChunk. The request is abandoned
-        // after 30 seconds in which no part of its reply arrived, never for its total time.
+        // after 30 seconds in which no part of its reply arrived, never for its total time. A
+        // GET's wait starts when it is sent. A POST's starts only when its reply begins: fetch()
+        // cannot show when the body has gone, and a busy server that takes long to answer a
+        // submission has not failed it.
         async function request(route, params = {}, options = {}) {
             params = {...params, apiVersion: API_VERSION};
             const method = options.method || 'GET';
@@ -591,7 +606,7 @@
                 global.clearTimeout(silence);
                 silence = global.setTimeout(() => controller.abort(), 30000);
             };
-            progressed();
+            if (method === 'GET') progressed();
             try {
                 const response = await global.fetch(url, {method, headers, body, signal: controller.signal,
                     credentials: 'same-origin', cache: 'no-store'});
@@ -615,6 +630,11 @@
         }
         function failure(error) {
             if (error instanceof StatusReadError && !error.current()) return;
+            if (error?.unconfirmed) {
+                notice(text.submitUnconfirmed.replace('{0}', String(error.subject || '')).replace('{1}', error.code), true);
+                loadUploads(true).catch(() => {});
+                return;
+            }
             notice(error.message === 'UPLOAD_SECURE_CONTEXT_REQUIRED' ? text.secure
                 : text.failed + ' ' + String(error.message || 'IMPORT_UNAVAILABLE').slice(0, 160), true);
         }
@@ -651,7 +671,17 @@
         function cell(row, value) { const td = document.createElement('td'); td.textContent = value == null ? '' : String(value); row.append(td); return td; }
 
         async function submitUpload(id, options) {
-            const response = await request('cdsImportSubmit', {...options, uploadId: id}, {method: 'POST'});
+            let response;
+            try {
+                response = await request('cdsImportSubmit', {...options, uploadId: id}, {method: 'POST'});
+            } catch (error) {
+                if (refusedBeforeAcceptance(error)) throw error;
+                // The server may have accepted it: it is never sent again blind.
+                const unconfirmed = new Error('IMPORT_SUBMISSION_UNCONFIRMED');
+                unconfirmed.unconfirmed = true; unconfirmed.subject = id;
+                unconfirmed.code = String(error?.message || 'IMPORT_UNAVAILABLE').slice(0, 96);
+                throw unconfirmed;
+            }
             let monitoredView;
             const accepted = await monitorAcceptedRun(response, async id => {
                 rememberRun(id); notice(text.accepted + ' ' + id);
@@ -734,7 +764,15 @@
                 try {
                     for (const file of files) {
                         const receipt = await transfer(file, resumeId);
-                        await submitUpload(receipt.id, options); accepted++;
+                        try {
+                            await submitUpload(receipt.id, options); accepted++;
+                        } catch (error) {
+                            if (!error?.unconfirmed) throw error;
+                            // Stop here: the next file waits until this one is checked.
+                            notice(text.submitUnconfirmed.replace('{0}', file.name).replace('{1}', error.code), true);
+                            await loadUploads(true).catch(() => {});
+                            return;
+                        }
                         byId('uploadResumeId').value = '';
                     }
                     notice(accepted + ' ' + text.queued);

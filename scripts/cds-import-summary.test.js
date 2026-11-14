@@ -334,3 +334,12 @@ test('older job markup or a browser without the scrolling method still preserves
     assert.equal(result.job.id,id);
   }
 });
+
+test('only a coded refusal settles a submission; any other failure leaves it unconfirmed', () => {
+  const failed = (status, code) => Object.assign(new Error(code || 'IMPORT_RESPONSE_FAILED'), {status, code});
+  assert.equal(client.refusedBeforeAcceptance(failed(409, 'SUBMISSION_CONFLICT')), true);
+  assert.equal(client.refusedBeforeAcceptance(failed(403, 'IMPORT_DELEGATION_DENIED')), true);
+  for (const error of [failed(408, 'UPLOAD_CHUNK_STALLED'), failed(429, 'UPLOAD_IO_BUSY'), failed(503, 'IMPORT_UNAVAILABLE'),
+    failed(400), new Error('AbortError'), new Error('IMPORT_RESPONSE_UNAVAILABLE_HTTP_504'), null])
+    assert.equal(client.refusedBeforeAcceptance(error), false);
+});

@@ -226,8 +226,11 @@ function page(dataset, {files, answer, sent} = {}) {
     history: {replaceState() {}}, localStorage: {getItem: () => null, setItem() {}}, navigator: {},
     setTimeout: time.setTimeout, clearTimeout: time.clearTimeout,
     fetch(url, init) {
-      return new Promise(resolve => {
-        const row = {url, init, respond: (value, status = 200) => resolve(reply(value, status))};
+      return new Promise((resolve, reject) => {
+        const row = {url, init, respond: (value, status = 200) => resolve(reply(value, status)),
+          respondRaw: response => resolve(response)};
+        // As a browser does, an aborted request rejects.
+        init?.signal?.addEventListener('abort', () => reject(new Error('AbortError')));
         requests.push(row);
         if (answer?.(row)) return;
         if (url.pathname.endsWith('/cdsImportStatus')) row.respond({ok: true, rows: []});
@@ -364,4 +367,52 @@ test('twenty-five files are each begun and submitted while every earlier upload 
   await until(() => /^25 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'not every file was accepted', 50000);
   assert.equal(mostReserved, count, 'all twenty-five reservations were held at once');
   assert.equal(p.requests.filter(row => row.url.pathname.endsWith('/cdsImportSubmit')).length, count);
+});
+
+test('a submission whose reply begins after forty seconds is still accepted, not abandoned', async () => {
+  // A busy server: the submission's reply begins forty seconds after it was sent. The page waits,
+  // since the silence window of a POST starts only when its reply begins.
+  let submit;
+  const p = page({chunkStallMillis: '120000'}, {
+    sent: xhr => xhr.reply(200, {ok: true, upload: receipt(4)}),
+    answer: row => {
+      if (row.url.pathname.endsWith('/cdsImportSubmit')) { submit = row; return true; }
+      if (!row.url.pathname.endsWith('/cdsUpload')) return false;
+      const operation = row.init.body.get('operation');
+      row.respond({ok: true, upload: operation === 'begin' ? receipt(0) : {...receipt(4), state: 'COMPLETE'}});
+      return true;
+    }
+  });
+  p.node('cdsImportForm').fire('submit');
+  await until(() => submit, 'the upload was not submitted');
+  p.time.advance(40000);
+  assert.equal(submit.init.signal.aborted, false, 'a slow server is waited for');
+  submit.respond({ok: true, accepted: true, job: {id: '55555555-5555-4555-8555-555555555555', state: 'ACCEPTED'}}, 202);
+  await until(() => /^1 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'the slow submission was not accepted');
+});
+
+test('a submission whose outcome is unknown is reported unconfirmed, never sent again, and stops the batch', async () => {
+  // A proxy ends the submission with its own error page: the server may have accepted the run.
+  const files = [new File([Buffer.from('<a/>')], 'synthetic.xml'), new File([Buffer.from('<b/>')], 'second.xml')];
+  const p = page({chunkStallMillis: '120000'}, {
+    files,
+    sent: xhr => xhr.reply(200, {ok: true, upload: receipt(4)}),
+    answer: row => {
+      if (row.url.pathname.endsWith('/cdsImportSubmit')) {
+        row.respondRaw(new Response('<html>Gateway Time-out</html>', {status: 504, headers: {'content-type': 'text/html'}}));
+        return true;
+      }
+      if (!row.url.pathname.endsWith('/cdsUpload')) return false;
+      const operation = row.init.body.get('operation');
+      row.respond({ok: true, upload: operation === 'begin' ? receipt(0) : {...receipt(4), state: 'COMPLETE'}});
+      return true;
+    }
+  });
+  p.node('cdsImportForm').fire('submit');
+  await until(() => /could not be confirmed/.test(p.node('cdsNotice').textContent), 'no unconfirmed notice was shown');
+  assert.match(p.node('cdsNotice').textContent, /^The submission of synthetic\.xml could not be confirmed \(IMPORT_RESPONSE_UNAVAILABLE_HTTP_504\)/);
+  assert.equal(p.requests.filter(row => row.url.pathname.endsWith('/cdsImportSubmit')).length, 1, 'never sent again');
+  assert.equal(p.uploads().filter(row => row.init.body.get('operation') === 'begin').length, 1, 'the next file waits');
+  await until(() => p.requests.some(row => row.url.pathname.endsWith('/cdsImportStatus')
+    && row.url.searchParams.get('section') === 'uploads'), 'the upload list was not read again');
 });
