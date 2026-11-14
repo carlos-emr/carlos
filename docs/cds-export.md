@@ -894,11 +894,28 @@ only the files of live documents whose content is a file (`Plan.DOCUMENT_FILES`)
 document (`status = 'D'`, `EDocUtil.deleteDocument`) or a deleted patient link is not shown in the
 chart and is not exported, as the legacy exporter exported active documents only; its document
 and link rows stay in the capture, every field gets the `DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART`
-disposition, and it is neither an expected occurrence nor a reason to hold the patient. One
-document's problem holds only its patient: an HTML document with no stored HTML or an unknown
-document or link status (`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW`), an empty file
-(`..._FILE_EMPTY`), a missing file
-(`..._FILE_MISSING`) or an unsupported stored name (`..._FILENAME_UNSUPPORTED`). A file of any
+disposition, and it is neither an expected occurrence nor a reason to hold the patient. Apart
+from `D`, the chart never reads a document's status: its list shows every document whose status
+is not `D` (`DocumentDao.findDocuments`) and the viewer (`ManageDocument2Action.display`) shows a
+non-empty `docxml`, otherwise the file, whatever the status says. The REST document API stores
+any status its caller sends, in the document and in its link (`DocumentConverter.getAsDomainObject`,
+`DocumentManagerImpl.saveDocument`). So a document of any other status (`I`, `X`, empty), or a
+link of any status but `D`, is exported exactly as the chart shows it, its stored HTML or its file,
+and both statuses stay exact in Notes with the rest of their rows; a CARLOS import keeps that
+Notes text in the report's retained source and exports it again unchanged
+(`CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW` is gone). An Add HTML document whose `docxml`
+is empty shows its file; it names none, so its file is missing (below), as the chart reports when
+it is opened. Only the generic edit request (`AddEditDocument2Action.editDocument`, which stores
+`""` as the HTML) can empty it, and no screen sends that request for an Add HTML document: the
+document list opens the HTML editor for status `H`, the document and note browsers for content
+type `text/html`, and the HTML editor (`AddEditHtml2Action`) refuses an empty body. The removal
+test is exact, as the capture's byte comparison is: a status that the database's case-insensitive
+collation equates with `D` without being `D` (a lowercase `d`), which only a REST caller can
+store, is exported though the chart's list hides it. One document's problem holds only its
+patient: an empty file (`..._FILE_EMPTY`), a missing file (`..._FILE_MISSING`) or an
+unsupported stored name (`..._FILENAME_UNSUPPORTED`); see
+[Holds that remain in reports, laboratory results and HRM](#holds-that-remain-in-reports-laboratory-results-and-hrm)
+for the paths that write a document's file. A file of any
 size is exported: it is streamed into the capture and into the package as a file member
 (`cds.export.maxDocumentBytes`, which held the patient of a file over 1 GiB with
 `..._FILE_TOO_LARGE`, is retired and ignored). No column of the document or its link holds

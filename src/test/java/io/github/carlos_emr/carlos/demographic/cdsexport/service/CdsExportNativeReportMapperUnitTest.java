@@ -180,11 +180,9 @@ class CdsExportNativeReportMapperUnitTest {
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");
         // A soft-deleted document is no longer a review case: the occurrence service accounts
         // for it as not exported and never maps it (review R6), so reaching the mapper is a
-        // scope error. A status the chart does not know still holds the patient.
+        // scope error. Any other status is shown by the chart and is exported (below).
         assertThatThrownBy(() -> map(edit(document(), "status", "D")))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_SCOPE_INVALID");
-        assertThatThrownBy(() -> map(edit(document(), "status", "I")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
         // Without a live program check, a document shown only inside a program is held.
         assertThatThrownBy(
                         () ->
@@ -408,20 +406,23 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldHoldAnUnknownLinkStatus_whileAcceptingActiveHtmlAndLegacyNullLinks() throws Exception {
+    void shouldExportAnyDocumentOrLinkStatusTheChartShows_exactInNotes() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW held the chart. The REST
+        // document API stores whatever status its caller sends, in the document and its link.
         var unknown = new LinkedHashMap<>(link().fields());
         unknown.put("status", "I");
-        assertThatThrownBy(
-                        () ->
-                                mapper.map(
-                                        27,
-                                        document(),
-                                        new CdsExportCapturedTextRowDto(
-                                                "ctl_document", link().recordKey(), unknown),
-                                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
-                                        providers(),
-                                        ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+        var exported =
+                mapper.map(
+                        27,
+                        edit(document(), "status", "X"),
+                        new CdsExportCapturedTextRowDto("ctl_document", link().recordKey(), unknown),
+                        CdsExportNativeReportMapper.Content.file(PATH, "pdf"),
+                        providers(),
+                        ZoneId.of("America/Toronto"));
+        assertThat(exported.text()).containsEntry("Format", "Binary").containsEntry("FilePath", PATH);
+        assertThat(exported.text().get("Notes")).contains("\"status\":\"X\"", "\"status\":\"I\"");
+        assertThat(exported.fields().values())
+                .noneMatch(field -> field.outcome() == CdsExportFieldAssessmentDto.Outcome.REQUIRES_REVIEW);
         var legacy = new LinkedHashMap<>(link().fields());
         legacy.put("status", null);
         assertThat(

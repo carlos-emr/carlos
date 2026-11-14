@@ -47,34 +47,39 @@ import java.util.Map;
  * {@code docxml} as HTML instead of any file, so a document whose {@code docxml} is not empty
  * is represented by that stored HTML and its file is never read.
  *
+ * <p>Apart from {@code D}, the chart does not read a document's status: its list shows every
+ * document whose status is not {@code D} ({@code DocumentDao.findDocuments}) and
+ * {@code ManageDocument2Action.display} never looks at it. The REST document API stores any
+ * status its caller sends ({@code DocumentConverter.getAsDomainObject}, which
+ * {@code DocumentManagerImpl.saveDocument} also writes into the link), so a status other than
+ * {@code A}, {@code H} or {@code D} is a document the chart shows like any other. Such a
+ * document is exported as the chart shows it, and its status values stay exact in the report's
+ * Notes with the rest of its document and link rows.
+ *
  * <p>The capture reads a file exactly for {@link #FILE}; the {@code DOCUMENT_FILES} read plan
  * in {@code CdsExportPatientTableReadSupport} applies the same rule in SQL, and the occurrence
  * service refuses a capture in which the two disagree.
  */
 enum CdsExportDocumentRepresentation {
-    /** A live uploaded or scanned document (status A, no stored HTML): its stored file. */
+    /** A document the chart shows with no stored HTML, whatever its status: its stored file. */
     FILE,
-    /** A live document whose content is the HTML kept in {@code docxml}. */
+    /** A document the chart shows whose content is the HTML kept in {@code docxml}. */
     STORED_HTML,
     /** A soft-deleted document or a deleted patient link: not in the chart, not exported. */
-    REMOVED,
-    /**
-     * A document the chart cannot display (an HTML document with no stored HTML, which the
-     * chart reports as a missing file) or with a status this release does not know.
-     */
-    UNREPRESENTED;
+    REMOVED;
 
     /** The disposition of every captured field of a document the chart no longer shows. */
     static final String REMOVED_RULE = "DELETED_DOCUMENT_OR_LINK_NOT_SHOWN_IN_CHART";
 
     static CdsExportDocumentRepresentation of(
             Map<String, String> document, Map<String, String> link) {
-        String status = document.get("status");
-        if (removed(status, link.get("status"))) return REMOVED;
+        if (removed(document.get("status"), link.get("status"))) return REMOVED;
+        // What the chart shows: a non-empty docxml, else the stored file. An Add HTML document
+        // whose docxml is empty (only a request the screens never send can empty it) names no
+        // file, so its file is missing (CDS_EXPORT_NATIVE_REPORT_FILE_MISSING), as the chart
+        // reports when it is opened.
         String html = document.get("docxml");
-        if (html != null && !html.isEmpty())
-            return "A".equals(status) || "H".equals(status) ? STORED_HTML : UNREPRESENTED;
-        return "A".equals(status) ? FILE : UNREPRESENTED;
+        return html != null && !html.isEmpty() ? STORED_HTML : FILE;
     }
 
     static boolean removed(String documentStatus, String linkStatus) {

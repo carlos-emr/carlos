@@ -1025,11 +1025,33 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThisPatient_forAnHtmlDocumentWithNoStoredHtml() throws Exception {
-        add(99, storedHtml(99, "html", ""), "H", null);
-        assertThatThrownBy(this::assemble)
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW");
+    void shouldExportTheStoredFile_ofADocumentWhoseStatusTheChartDoesNotRead() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_STATUS_REQUIRES_REVIEW held the chart. The REST
+        // document API stores any status its caller sends, in the document and in its link; the
+        // chart lists every document not D and shows its file. An H document with no stored HTML
+        // and a real file (also a REST document) shows that file too.
+        var unknown = uploaded(97, "20260305101700rest.pdf", "application/pdf");
+        unknown.put("status", "X");
+        add(97, unknown, "X", PDF);
+        var html = uploaded(98, "20260305101800rest-html.pdf", "application/pdf");
+        html.put("status", "H");
+        add(98, html, "H", PDF);
+        var reports = reports(assemble());
+        assertThat(reports).hasSize(2);
+        assertThat(reports)
+                .allSatisfy(
+                        report ->
+                                assertThat(report)
+                                        .contains(
+                                                "<Format>Binary</Format>",
+                                                "<FileExtensionAndVersion>pdf</FileExtensionAndVersion>"));
+        // Both statuses stay exact in Notes, in the document row and in its link.
+        String quote = "(\"|&quot;)";
+        assertThat(reports.get(0))
+                .containsPattern(quote + "status" + quote + ":" + quote + "X" + quote);
+        assertThat(reports.get(1))
+                .containsPattern(quote + "status" + quote + ":" + quote + "H" + quote);
+        assertThat(attachments).hasSize(2);
     }
 
     @Test
