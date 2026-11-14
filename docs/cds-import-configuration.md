@@ -214,7 +214,13 @@ from the page's upload list. The window is fixed in `CdsUploadService.CHUNK_STAL
 setting, and the page is given the server's value. Behind the packaged proxy a request body that
 stops for 15 seconds is ended sooner by nginx (`client_body_timeout`, time between two reads,
 not the whole transfer) and retried the same way. The page's other requests carry small JSON
-replies and are abandoned after 30 seconds in which no part of the reply arrived.
+replies. A read (GET) is abandoned after 30 seconds in which no part of its reply arrived. A
+submission or control request (POST) is never abandoned while the server works on it: its 30
+seconds of silence start only when its reply begins, since a busy server that is slow to answer
+has not failed it. A submission whose outcome the page cannot confirm (abandoned, a lost reply, a
+proxy or login page, anything but a JSON refusal) is reported as unconfirmed, in English and
+French: the page reads the upload list again, where an accepted upload shows its job, never
+sends it again by itself, and stops before the next selected file.
 
 Ordinary database, document-store and application settings remain necessary. Credentials retain
 their exact configured values and must never appear in public evidence. See
