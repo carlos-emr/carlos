@@ -18,8 +18,8 @@ const CHUNK_URL = ORIGIN + '/carlos/form/cdsUpload?operation=chunk&uploadId=' + 
 const RECEIPT = {ok: true, upload: {id: UPLOAD, receivedBytes: 3}};
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
-async function until(condition, message) {
-  for (let turn = 0; turn < 500; turn++) {
+async function until(condition, message, turns = 500) {
+  for (let turn = 0; turn < turns; turn++) {
     if (condition()) return;
     await settle();
   }
@@ -48,13 +48,14 @@ function virtualClock() {
 }
 
 // The XMLHttpRequest surface the page uses. send() calls a prototype onsend hook the way
-// CSRFGuard's hijacked send() does, so a test can install the guard's header injection.
-function xhrClass(created) {
+// CSRFGuard's hijacked send() does, so a test can install the guard's header injection; an
+// optional sent() callback lets a test answer each request as it is sent.
+function xhrClass(created, sent) {
   return class FakeXhr {
     constructor() { this.upload = {}; this.headers = {}; this.readyState = 0; this.aborted = false; created.push(this); }
     open(method, url) { this.method = method; this.url = url; this.readyState = 1; }
     setRequestHeader(name, value) { this.headers[name] = name in this.headers ? this.headers[name] + ', ' + value : value; }
-    send(body) { if (typeof this.onsend === 'function') this.onsend(body); this.body = body; this.sent = true; }
+    send(body) { if (typeof this.onsend === 'function') this.onsend(body); this.body = body; this.sent = true; sent?.(this); }
     abort() { this.aborted = true; this.readyState = 4; this.onreadystatechange?.(); this.onabort?.(); }
     getResponseHeader(name) { return this.replyHeaders?.[name.toLowerCase()] ?? null; }
     sending(loaded) { this.upload.onprogress?.({loaded, lengthComputable: true}); }
@@ -207,8 +208,8 @@ class Element {
 }
 
 // Drives the real DOMContentLoaded controller: metadata through a deferred fetch, chunks through
-// the fake XMLHttpRequest, both on the virtual clock.
-function page(dataset) {
+// the fake XMLHttpRequest, both on the virtual clock. answer(row) may answer a request at once.
+function page(dataset, {files, answer, sent} = {}) {
   const nodes = new Map(); const requests = []; const xhrs = []; const time = virtualClock();
   const node = id => { if (!nodes.has(id)) nodes.set(id, new Element()); return nodes.get(id); };
   node('cdsImport').dataset = {context: '/carlos', owner: 'web-fixture', ...dataset};
@@ -220,7 +221,7 @@ function page(dataset) {
   const reply = (value, status) => new Response(JSON.stringify({apiVersion: 2, ...value}),
     {status, headers: {'content-type': 'application/json', 'X-CARLOS-CDS-API-Version': '2'}});
   const sandbox = vm.createContext({document, URL, URLSearchParams, AbortController, TextDecoder, WritableStream,
-    crypto: globalThis.crypto, XMLHttpRequest: xhrClass(xhrs),
+    crypto: globalThis.crypto, XMLHttpRequest: xhrClass(xhrs, sent),
     location: {origin: ORIGIN, href: ORIGIN + '/carlos/form/importUpload'},
     history: {replaceState() {}}, localStorage: {getItem: () => null, setItem() {}}, navigator: {},
     setTimeout: time.setTimeout, clearTimeout: time.clearTimeout,
@@ -228,15 +229,17 @@ function page(dataset) {
       return new Promise(resolve => {
         const row = {url, init, respond: (value, status = 200) => resolve(reply(value, status))};
         requests.push(row);
+        if (answer?.(row)) return;
         if (url.pathname.endsWith('/cdsImportStatus')) row.respond({ok: true, rows: []});
       });
     }});
   vm.runInContext(SOURCE, sandbox); document.ready();
   const file = new File([Buffer.from('<a/>')], 'synthetic.xml');
-  node('importFile').files = [file];
+  node('importFile').files = files || [file];
   node('cdsSource').selectedOptions = [{dataset: {namespace: 'urn:synthetic', profile: 'synthetic-profile'}}];
   node('providerNo').value = '999998';
-  return {node, time, xhrs, file, uploads: () => requests.filter(row => row.url.pathname.endsWith('/cdsUpload'))};
+  return {node, time, xhrs, file, requests,
+    uploads: () => requests.filter(row => row.url.pathname.endsWith('/cdsUpload'))};
 }
 
 const receipt = receivedBytes => ({id: UPLOAD, fileName: 'synthetic.xml', expectedBytes: 4, receivedBytes,
@@ -280,4 +283,46 @@ test('a page without the server chunk window asks for a reload before beginning 
   await until(() => /IMPORT_CLIENT_REFRESH_REQUIRED/.test(p.node('cdsNotice').textContent), 'no reload notice was shown');
   assert.equal(p.uploads().length, 0);
   assert.equal(p.xhrs.length, 0);
+});
+
+test('any number of selected files is uploaded and submitted, one file after another', async () => {
+  const count = 130; // more than the 128 a selection was once limited to
+  const files = Array.from({length: count}, (_, n) => new File([Buffer.from('<p' + n + '/>')], `patient-${n}.xml`));
+  const id = (prefix, n) => prefix + '-0000-4000-8000-' + String(n).padStart(12, '0');
+  const upload = (n, state, receivedBytes) => ({id: id('00000000', n), fileName: files[n].name,
+    expectedBytes: files[n].size, receivedBytes, chunkBytes: 65536, committedChunks: receivedBytes ? 1 : 0, state});
+  const order = [];
+  const p = page({chunkStallMillis: '120000'}, {
+    files,
+    sent: xhr => {
+      const n = Number(new URL(xhr.url, ORIGIN).searchParams.get('uploadId').slice(-12));
+      order.push('chunk ' + n);
+      xhr.reply(200, {ok: true, upload: upload(n, 'OPEN', files[n].size)});
+    },
+    answer: row => {
+      if (row.url.pathname.endsWith('/cdsImportSubmit')) {
+        const n = Number(row.init.body.get('uploadId').slice(-12));
+        order.push('submit ' + n);
+        row.respond({ok: true, accepted: true, job: {id: id('11111111', n), state: 'ACCEPTED'}}, 202);
+        return true;
+      }
+      if (!row.url.pathname.endsWith('/cdsUpload')) return false;
+      const operation = row.init.body.get('operation');
+      if (operation === 'begin') {
+        const n = files.findIndex(file => file.name === row.init.body.get('fileName'));
+        order.push('begin ' + n);
+        row.respond({ok: true, upload: upload(n, 'OPEN', 0)});
+      } else {
+        const n = Number(row.init.body.get('uploadId').slice(-12));
+        order.push('finish ' + n);
+        row.respond({ok: true, upload: upload(n, 'COMPLETE', files[n].size)});
+      }
+      return true;
+    }
+  });
+  p.node('cdsImportForm').fire('submit');
+  await until(() => order.length === count * 4, 'not every file was transferred and submitted', 200000);
+  assert.deepEqual(order, Array.from({length: count}, (_, n) => ['begin', 'chunk', 'finish', 'submit']
+    .map(step => step + ' ' + n)).flat());
+  await until(() => /^130 file\(s\) accepted/.test(p.node('cdsNotice').textContent), 'no completion notice', 20000);
 });

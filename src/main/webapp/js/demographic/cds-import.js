@@ -382,7 +382,7 @@
         const fr = document.documentElement.lang.toLowerCase().startsWith('fr');
         const text = fr ? {
             failed: 'La demande n’a pas abouti. Vérifier l’état durable avant de réessayer.',
-            choose: 'Sélectionner au moins un fichier XML/ZIP.', maxFiles: 'Au plus 128 fichiers par sélection; utiliser un ZIP pour les grands lots.',
+            choose: 'Sélectionner au moins un fichier XML/ZIP.',
             accepted: 'Accepté; l’importation clinique n’est pas encore confirmée.', verify: 'Vérification du préfixe déjà reçu',
             transfer: 'Transfert', state: 'État durable', unavailable: 'État indisponible ou périmé; reconnecter après réauthentification.',
             queued: 'fichier(s) accepté(s). Vérifier les reçus durables de chaque tâche.', resume: 'Sélectionner pour reprise',
@@ -408,7 +408,7 @@
             controlCapacity: 'Vérifier et fermer les avertissements des tâches précédentes avant une autre demande.',
         } : {
             failed: 'The request did not complete. Check durable status before retrying.',
-            choose: 'Select at least one XML/ZIP file.', maxFiles: 'Select at most 128 files at once; use a ZIP for larger batches.',
+            choose: 'Select at least one XML/ZIP file.',
             accepted: 'Accepted; clinical completion has not yet been confirmed.', verify: 'Verifying previously received prefix',
             transfer: 'Transfer', state: 'Durable state', unavailable: 'Status unavailable or stale; reconnect after reauthentication.',
             queued: 'file(s) accepted. Check each durable run receipt.', resume: 'Select for resume',
@@ -713,7 +713,7 @@
             safe(async () => {
                 const files = byId('importFile').files;
                 if (!files.length) throw new Error(text.choose);
-                if (files.length > 128) throw new Error(text.maxFiles);
+                // Any number of files: each is uploaded and submitted in turn, as its own run.
                 const options = readOptions();
                 const resumeId = byId('uploadResumeId').value.trim();
                 if (resumeId && files.length !== 1) throw new Error(text.selectOne);
