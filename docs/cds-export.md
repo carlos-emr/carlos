@@ -1735,6 +1735,24 @@ and the member's authenticated end), and the member's own digest, which the ledg
 `cohort_digest` and every patient scope names, covers both lines. A second line that differs fails
 with `CDS_EXPORT_COHORT_INVENTORY_INVALID`, as any other altered manifest does.
 
+**The implementation's own identity.** Every job binds the identity of the application that
+accepted it (`CdsExportImplementationIdentityService`) and of the shared CDS rules and runtime
+(`CdsRulesetFingerprint`, `CdsRuntimeIdentity`, which the import binds too). Each hashes
+CARLOS's classes, its migrations and contracts, the BouncyCastle jars, the semantic dependency
+jars, the JDK's `lib/modules` and its time-zone rules as streams. They once refused 32,768
+resources a pattern, 65,536 hashed entries, names over 4,096 characters, 512 MiB hashed in all,
+a BouncyCastle jar over 128 MiB (export); 4,096 classes a pattern, 256 nested classes, 8,192
+classes and 16 MiB a resource (rules); a jar over 128 MiB, a `lib/modules` over 512 MiB, 1,024
+characters of a JVM property, 4,096 time zones, 16 versions of one, 64 MiB of zone rules or
+1 MiB of one zone (runtime). None of these could be reached by clinic data, but CARLOS growing
+or a different JDK distribution would have failed every export and import
+(`CDS_EXPORT_IMPLEMENTATION_IDENTITY_UNAVAILABLE`, `IMPORT_RULESET_IMPLEMENTATION_UNAVAILABLE`,
+`IMPORT_RULESET_RUNTIME_UNAVAILABLE`). They are deleted. What stays is where each byte comes
+from: the anchor class and the single origin every resource must share, no resource shadowed
+by another artifact, one digest per name, a file that changes while it is hashed, a stream
+that returns nothing, and the build version's form (at most 128 characters, CARLOS's own
+build string).
+
 **Still fixed, and why.**
 
 - Nothing about the size of a request (see "Request size" above).
