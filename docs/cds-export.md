@@ -2351,32 +2351,87 @@ the items of the list named `reasonCode` that the patient's current appointments
 active or not; `LookupList` is read only as that list-name filter. All lookup scopes follow
 selected patient/category references.
 
-The native appointment mapper accounts for every row and used lookup field. It requires
-exact captured identities and an unambiguous full-code status definition. It preserves
-literal times and derives only a positive same-day whole-minute duration; overnight and
-subminute slots require review. A slot the schedule accepts at a daylight-saving change (inside
-the spring-forward gap, inside the fall-back overlap, or spanning the change) is written as the
-schedule's exact date, wall-clock time and minutes with no UTC offset
-(`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`); every other time carries the clinical
-zone's single offset, and none is ever invented. Imported status never substitutes
-for a changed or cleared current status. This category has no `ResidualInfo`. The writer's
-actual bytes pass the pinned XSD and receiving parser checks.
+The native appointment mapper accounts for every row and used lookup field and requires exact
+captured identities. Imported status never substitutes for a changed or cleared current status.
+The category has no `ResidualInfo`, so every current appointment also has one NewCategory record,
+`CARLOS.Appointment.Source.v1` (below), that holds the complete stored row. An element value that
+CDS cannot hold exactly is written in its schema-valid form by a named rule and is whole in that
+record; no such value holds a chart. The writer's actual bytes pass the pinned XSD and receiving
+parser checks.
 
-What an appointment exports, and what stays in CARLOS:
+Timing (`CdsExportAppointmentTimingMapper`, shared with the importer through
+`CdsAppointmentSourceContract.minutes`):
+
+- `AppointmentDate` and `AppointmentTime` are the stored date and start clock, seconds included.
+- `Duration` is the slot in whole minutes. The scheduler stores an inclusive end (start + duration
+  - 1 minute); an appointment written by a CDS import keeps the exclusive end. An end not on a
+  minute counts its started minute (`STARTED_MINUTE_COUNTED_...`). A stored end earlier than the
+  start is an end on the next day, as the add form stores 23:30 for 60 minutes (end 00:29):
+  `Duration` is 60 (`END_ON_NEXT_DAY_...`). The form's duration 0 (an inclusive end one minute
+  before the start, which is also what a full 24 hours stores), an exclusive end equal to the
+  start, or an end that is not a time of day states no positive length: `Duration`, which is
+  optional and must be positive, is left out (`NO_POSITIVE_LENGTH_DURATION_LEFT_OUT_...`). In each
+  of these cases the exact stored end is in the source record.
+- A start with no single whole-minute offset in the clinical zone (inside the spring-forward gap,
+  inside the fall-back overlap, a slot spanning the change, or a date before standard time) is
+  written as the schedule's wall-clock time with no UTC offset
+  (`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`); every other time carries the clinical
+  zone's single offset, and none is ever invented.
+- The one timing hold: a stored date or start that is not a calendar date or a time of day at all
+  (a zero date, `838:59:59`). `AppointmentDate` and `AppointmentTime` are required and nothing
+  could be written for them: `CDS_EXPORT_APPOINTMENT_START_NOT_A_CALENDAR_TIME`.
+  (`CDS_EXPORT_APPOINTMENT_TIMING_REQUIRES_REVIEW` is gone.)
+
+What an appointment exports:
 
 | Native value | Export |
 | --- | --- |
-| date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` (end is inclusive) |
-| `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. Any other code needs its own exact definition. |
-| `provider_no` | `Provider`: public name and OHIP number |
-| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label requires review. |
-| `notes` | `AppointmentNotes` |
-| `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource` | Operational: scheduler display, booking site, billing workflow, the appointment template name and booking provenance have no CDS Appointments field. The template's reason and notes already reach the purpose and notes. |
-| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text is what the user left in the booking's name box (the Edit Appointment form stores its `keyword` field as typed, `AppointmentUpdateRecord2Action`): it is exported as a labelled line after the notes, `Booking name: <name>` (`BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE`), and no longer holds the patient (`CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW` is gone). |
-| `remarks` | A labelled line after the notes, `Remarks: <remarks>` (`APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE`). The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and OSCAR 19 data (its reminder mailer's `Emailed:` marks) fill it, and the patient's appointment history shows it. Appointments has no `ResidualInfo`, so the notes are the carrier; it used to hold the patient. |
-| `program_id` | Operational: the program a booking was made under (OSCAR 19 with its program view on; CARLOS always stores 0) is scheduler context like the booking site (`BOOKING_PROGRAM_NOT_A_CDS_APPOINTMENT_FIELD`). It used to hold the patient. |
-| `imported_status` | Unchanged review rule (retained status reconciliation). |
-| storage audit and identity columns | Operational. |
+| date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` by the timing rules above; exact start and end in the source record |
+| `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. A code with no single definition (none, or duplicates), or whose definition has no label CDS text can hold (blank, over 250 characters with its mark, XML-illegal), is written as the stored code itself (`STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED`, `STATUS_DEFINITION_WITHOUT_USABLE_LABEL_WRITTEN_AS_STORED_CODE`); the code and its captured definitions are in the source record. It used to hold the patient. |
+| `provider_no` | `Provider`: public name and OHIP number. A number with no provider record (migrated data), or whose record cannot form a CDS Provider (a missing, over-long or XML-illegal name part), is exported without `Provider`, as a prescription is without its prescriber; the stored number and the record's public columns are in the source record. `EXACT_PUBLIC_PROVIDER_REFERENCE_REQUIRED` and `PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW` no longer hold an appointment. |
+| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label requires review (the column is NOT NULL). |
+| `notes` | `AppointmentNotes`. The complete notes text is the stored notes, after a `Reason:` line and before `Booking name:` and `Remarks:` lines when there are any. The Edit Appointment form admits 32,768 characters and the element 32,000: a longer complete text is cut to the first characters that fit before the mark `[CARLOS: shortened to the CDS limit of 32,000 characters]` on its own last line (`NOTES_CUT_AT_CDS_LIMIT_COMPLETE_TEXT_IN_APPOINTMENT_SOURCE_RECORD`), and the complete text is in the source record's `complete.AppointmentNotes`. It used to hold the patient (generic, `CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`, `CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW`). |
+| text with characters no XML document can hold | The element text leaves those characters out (`XML_ILLEGAL_CHARACTERS_LEFT_OUT_EXACT_VALUE_IN_APPOINTMENT_SOURCE_RECORD`); the exact value is in the source record, where JSON escapes it. It used to hold the patient. |
+| `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource`, non-zero `program_id` | No CDS Appointments field: carried in the source record (`NO_CDS_APPOINTMENT_FIELD_IN_APPOINTMENT_SOURCE_RECORD`). They used to be exported nowhere. |
+| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text is what the user left in the booking's name box (the Edit Appointment form stores its `keyword` field as typed, `AppointmentUpdateRecord2Action`): it is exported as a labelled line after the notes, `Booking name: <name>` (`BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE`). |
+| `remarks` | A labelled line after the notes, `Remarks: <remarks>` (`APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE`). The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and OSCAR 19 data (its reminder mailer's `Emailed:` marks) fill it, and the patient's appointment history shows it. |
+| `imported_status` | Unchanged review rule on a row no applied import claims (an import receipt the system cannot prove). |
+| storage audit and identity columns | Operational in the element's receipt; whole in the source record. |
+
+#### `CARLOS.Appointment.Source.v1`
+
+One NewCategory record per current appointment (`CategoryName` `CARLOS.NativeAppointment.v1`,
+written by `CdsExportNewCategoryOccurrenceService` from the Appointments assembly's own decisions
+through `CdsExportAppointmentOccurrenceService.forEachOccurrence`, built by
+`CdsExportAppointmentSourceMapper`, predicted by `CdsExportPatientInventoryService` as one
+`NEW_CATEGORY` identity per captured appointment row, with its own receipt). Its single residual
+`CARLOS.Appointment.Source.v1` (type `string`) holds a JSON object in a fixed key order with
+every space escaped, so `xs:token` normalization cannot change it:
+
+| Key | Content |
+| --- | --- |
+| `version` | `1` |
+| `appointment` | 1-based position of the appointment's `Appointments` element in the same patient record; elements and records are written in the same order |
+| `fields` | every captured `appointment` column exactly as stored, SQL NULL as JSON `null` |
+| `complete` | by element name, the complete text of an element that holds only its schema-valid form (`AppointmentNotes`, `AppointmentPurpose`, `AppointmentStatus`) |
+| `statusDefinitions` | the captured `appointment_status` rows of the stored status code (and of its first letter for a signed or verified code) |
+| `publicProvider` | the captured public provider columns of the stored provider number, or `null` |
+
+JSON escapes control characters and the exporter escapes U+FFFE/U+FFFF, so a stored value no XML
+document can hold is still carried exactly. The record of an imported appointment carries its
+current row the same way. A retained copy of an earlier sender's record (CARLOS-to-CARLOS-to-
+CARLOS) is still re-exported with the other retained NewCategory records; the current record is
+always written after it, and a reader uses the last record naming an element position.
+
+When the job does not select NewCategory the record is not written. The appointment's own receipt
+then decides each value only the record would hold `OPERATIONAL`
+`NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED` (a value whose schema-valid form is in the element:
+`NORMALIZED_VALUE_EXACT_FORM_NEW_CATEGORY_NOT_SELECTED`), the chart still exports, and the package
+ReadMe states per patient `Patient records not exported: Appointment source records
+(NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED): <count>`.
+
+The CARLOS importer reads the record back (`docs/cds-import.md`, "CARLOS appointment source
+record").
 
 The separate owning archive DAO captures every `appointmentArchive` version, including repeated
 booking IDs, SQL NULL/empty values, large text and historical-only status/provider definitions.
@@ -2768,8 +2823,9 @@ Strict export capacities follow the migration dictionary and Guide section 1.10 
 1k is 1,000 and 32k is 32,000. Appointment notes, medication duration/quantity text, medication
 notes/instructions and strength now use those bounds. Allergy and medication retained assembly
 call the same validation gate as direct serialization, preventing original imported values from
-bypassing dictionary limits. Oversize values require review; no truncation or importer limit
-change is made. The 54-case isolated suite passed, including direct/retained validation and a
+bypassing dictionary limits. (Since then an oversize value no longer requires review: it is
+written in its schema-valid form by a named rule and carried whole in its CARLOS source
+carrier; for appointments see `CARLOS.Appointment.Source.v1` above.) The 54-case isolated suite passed, including direct/retained validation and a
 caught-failure document check. The expanded combined package passed all 2,368 selected Java
 tests with zero failures, errors or skips. Installed clinical-path verification remains pending.
 
@@ -2779,14 +2835,14 @@ import and captured as trusted configuration, together with the installed timezo
 version. Recovery reads that encrypted capture and rejects missing old metadata, changed
 rules, mismatched generations or an explicit projection zone that differs from the capture.
 It never substitutes current settings or the JVM default. The XML clock carries its proved
-offset, including winter/summer differences; historical second offsets and out-of-range wire
-offsets require review. An actual importer preparation test preserves the instant when a
+offset, including winter/summer differences; a historical second offset or an offset outside
+the wire range is written as the wall-clock time with no offset, never held. An actual importer preparation test preserves the instant when a
 Toronto appointment is received by a Vancouver clinic.
 
 Current edits and clears take effect; unchanged recorded provider and full source-view purpose
 values require separately verified source-field pages. Post-option dates are not shifted again.
 Native patient-display names require an exact captured same-patient join. Storage audit fields
-receive explicit assessments. Unknown clinical extras, program affiliations, source-only
+receive explicit assessments. Source-only
 calendar records, aliases and merged patients remain review gates; native archive versions are
 superseded history and deleted imported appointments are not exported (decision 17, above). A
 reason-list label chosen in CARLOS for an imported appointment whose purpose was not edited
@@ -2795,14 +2851,16 @@ marker), as the day sheet shows it (`EXACT_CAPTURED_REASON_CODE_LABEL`,
 `VERIFIED_UNCHANGED_PREPARED_PURPOSE_AFTER_SCHEDULE_REASON_LABEL`). When the label and the
 imported purpose do not fit the 250 characters CDS allows together, the imported purpose is kept
 exactly and the label opens AppointmentNotes as a first line `Reason: <label>`
-(`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`); only notes that would then pass the
-32,000 characters an imported note may use (an imported note within the label's length, at most
-263 characters, of that bound) still hold (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`).
+(`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`).
 A booking name that is not the patient's and remarks stored on an imported appointment are
 appended to its notes as on a never-imported one (`Booking name: `, `Remarks: `), which makes
-the notes current; notes they would take past 32,000 characters hold with
-`CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW`, because the category has no residual to
-carry them. All original field IDs are accounted for and the last callback cannot
+the notes current. Notes that such a line takes past 32,000 characters, like notes edited in
+CARLOS up to the form's 32,768, are cut by the native rule and whole in
+`CARLOS.Appointment.Source.v1` (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY` and
+`CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW` are gone). An appointment whose import
+restored the sender's stored end or complete notes from that record
+(`CdsAppointmentNativeDto.source`) is read by the native rule for those values: the end is the
+scheduler's inclusive end and the notes are current. All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.

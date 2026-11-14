@@ -364,6 +364,43 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldReadARestoredEndAsTheSchedulersInclusiveEnd_andRestoredNotesAsCurrent()
+            throws Exception {
+        // The import restored the sender's stored end and complete notes from its
+        // CARLOS.Appointment.Source.v1 record: 23:30 to 00:29 is 60 minutes ending tomorrow, and
+        // the retained element text (the cut form) is no longer what the row holds.
+        String complete = "n".repeat(32500);
+        for (var row : List.of(old, current)) {
+            row.put("start_time", "23:30:00");
+            row.put("end_time", "00:29:00");
+            row.put("notes", complete);
+            row.put("location", "Main Clinic");
+        }
+        originalNotes = CdsExportAppointmentMapper.fitNotes(complete).element();
+        prepared =
+                new CdsAppointmentNativeDto(
+                        prepared.date(),
+                        "23:30",
+                        "00:29",
+                        prepared.status(),
+                        prepared.purpose(),
+                        complete,
+                        prepared.providerNo(),
+                        true,
+                        List.of(),
+                        new io.github.carlos_emr.carlos.demographic.cdsimport.dto
+                                .CdsAppointmentSourceDto(
+                                true, true, null, null, "Main Clinic", null, null, null, null));
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().timing().time()).isEqualTo("23:30:00");
+        assertThat(result.mapping().value().timing().durationMinutes()).isEqualTo(60);
+        assertThat(result.mapping().value().notes()).isEqualTo(originalNotes);
+        assertThat(result.mapping().complete()).containsEntry("AppointmentNotes", complete);
+        assertThat(result.currentPaths()).contains("AppointmentNotes");
+    }
+
+    @Test
     void shouldPrefixTheReasonLabel_toTheUneditedImportedPurposeAsTheDaySheetShowsIt()
             throws Exception {
         // Imports never set reasonCode. Editing the booking in CARLOS submits the reason list's

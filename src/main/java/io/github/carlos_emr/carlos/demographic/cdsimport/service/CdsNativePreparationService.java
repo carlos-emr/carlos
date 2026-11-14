@@ -230,6 +230,23 @@ public class CdsNativePreparationService {
                 throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
             }
         }
+        if (type
+                == io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAppointmentNativeDto
+                        .class)
+            try {
+                // A preparation sealed before the appointment source record was read back.
+                return JSON.treeToValue(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsPreparedAppointmentDefaults.apply(
+                                JSON.reader()
+                                        .with(
+                                                com.fasterxml.jackson.core.JsonParser.Feature
+                                                        .STRICT_DUPLICATE_DETECTION)
+                                        .readTree(prepared.getPayload())),
+                        type);
+            } catch (IllegalArgumentException invalid) {
+                throw new CdsImportException("NATIVE_PREPARATION_VERIFICATION_FAILED");
+            }
         return JSON.readValue(prepared.getPayload(), type);
     }
 

@@ -641,6 +641,15 @@ The following ordinary charts are exported and are not held:
   remarks (OSCAR 19 reminder marks such as "Emailed:"): each is sent as a labelled line after
   the appointment's notes (`Booking name: `, `Remarks: `); a reason-list label too long to
   stand before the reason opens the notes as `Reason: `;
+- an appointment with notes longer than the 32,000 characters CDS allows (the Edit Appointment
+  form accepts 32,768): the notes are cut at the limit and end with the line
+  `[CARLOS: shortened to the CDS limit of 32,000 characters]`;
+- an appointment that runs past midnight (23:30 for 60 minutes), has no length (duration 0) or
+  ends between minutes: the start is sent as stored, with the length to the next day, no
+  Duration, or the started minute counted;
+- an appointment whose status code has no definition in Administration > Schedule Management >
+  Appointment Status Setting (the stored code is sent), or whose provider number names no
+  provider record (sent without Provider);
 - a vaccine or screening whose text is longer than Notes can hold: whole parts are left out of
   Notes, never cut, and stay exact in the CARLOS residual;
 - a laboratory result, flag or other value longer than its CDS element.
@@ -719,6 +728,19 @@ later for an imported appointment is written before its imported purpose, as the
 shows it. When the label and a long imported purpose do not fit the 250 characters CDS allows
 together, the imported purpose is kept whole and the label is written as the first line of the
 appointment notes (`Reason: <label>`); neither is cut.
+
+Every appointment also has a CARLOS source record in the NewCategory category
+(`CARLOS.Appointment.Source.v1`). It holds the appointment exactly as stored: the complete notes
+when they were cut, the exact start and end, the status code, the provider number, and the
+scheduler values CDS has no field for (type, location, resources, urgency, billing, style,
+booking source). A receiving CARLOS restores from it the exact end, the complete notes and the
+scheduler values; another EMR can ignore it. If you do not select NewCategory, these records
+are not written: the appointments are still exported from their standard fields, and the ReadMe
+lists for each patient `Patient records not exported: Appointment source records
+(NO_CDS_ELEMENT_NEW_CATEGORY_NOT_SELECTED)` with their number. Only an appointment whose stored
+date or start is not a date or a time of day at all (a zero date in migrated data) holds its
+patient, with `CDS_EXPORT_APPOINTMENT_START_NOT_A_CALENDAR_TIME`; correct the booking and export
+again.
 
 A care value that came from an earlier CDS import and was later deleted in the
 chart (the way CARLOS corrects a measurement) is not exported, as any deleted

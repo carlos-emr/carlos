@@ -724,6 +724,260 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                 .contains("CDS_APPOINTMENT_DST_DURATION_SOURCE_ONLY");
     }
 
+    /** An Appointments element preceded by the CARLOS source record that names it. */
+    private CdsRecordDto appointmentWithSource(
+            String time,
+            String duration,
+            String notes,
+            long position,
+            Map<String, String> stored,
+            String completeNotes)
+            throws Exception {
+        var row = new java.util.TreeMap<String, String>();
+        for (String column :
+                List.of(
+                        "appointment_date",
+                        "start_time",
+                        "end_time",
+                        "style",
+                        "billing",
+                        "location",
+                        "resources",
+                        "urgency",
+                        "type",
+                        "bookingSource",
+                        "status")) row.put(column, null);
+        row.putAll(stored);
+        var document = new java.util.LinkedHashMap<String, Object>();
+        document.put("version", 1);
+        document.put("appointment", position);
+        document.put("fields", row);
+        document.put(
+                "complete",
+                completeNotes == null ? Map.of() : Map.of("AppointmentNotes", completeNotes));
+        document.put("statusDefinitions", List.of());
+        document.put("publicProvider", null);
+        parse(appointmentXml(time, duration, notes) + sourceRecord(document), "");
+        return firstParsed("Appointments");
+    }
+
+    private static String sourceRecord(Object document) throws Exception {
+        String json =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .writeValueAsString(document)
+                        .replace(" ", "\\u0020")
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;");
+        return "<NewCategory><CategoryName>CARLOS.NativeAppointment.v1</CategoryName>"
+                + "<CategoryDescription>source</CategoryDescription><ResidualInfo>"
+                + "<cdsd:DataElement><cdsd:Name>CARLOS.Appointment.Source.v1</cdsd:Name>"
+                + "<cdsd:DataType>string</cdsd:DataType><cdsd:Content>"
+                + json
+                + "</cdsd:Content></cdsd:DataElement></ResidualInfo></NewCategory>";
+    }
+
+    private static String appointmentXml(String time, String duration, String notes) {
+        return "<Appointments><AppointmentTime>"
+                + time
+                + "</AppointmentTime>"
+                + (duration == null ? "" : "<Duration>" + duration + "</Duration>")
+                + "<AppointmentDate><cdsd:FullDate>2026-03-04</cdsd:FullDate></AppointmentDate>"
+                + (notes == null ? "" : "<AppointmentNotes>" + notes + "</AppointmentNotes>")
+                + "</Appointments>";
+    }
+
+    @Test
+    void shouldRestoreAnOvernightSlotAndSchedulerContext_fromAProvenSourceRecord()
+            throws Exception {
+        // The sender stored 23:30 to 00:29 (60 minutes, ending tomorrow): without its source
+        // record this is a source-only appointment; with it, the exact stored slot is native.
+        var stored = new java.util.HashMap<String, String>();
+        stored.put("appointment_date", "2026-03-04");
+        stored.put("start_time", "23:30:00");
+        stored.put("end_time", "00:29:00");
+        stored.put("location", "Main Clinic");
+        stored.put("type", "Follow-up visit");
+        stored.put("resources", "Room 2");
+        stored.put("urgency", "critical");
+        stored.put("style", "1");
+        stored.put("billing", "B");
+        stored.put("bookingSource", "OSCAR");
+        var record = appointmentWithSource("23:30:00-05:00", "60", null, 1, stored, null);
+        appointments.prepare("run", 1, "unit", record, command);
+        var dto = captured(CdsAppointmentNativeDto.class);
+        assertThat(dto.representable()).isTrue();
+        assertThat(dto.date()).isEqualTo("2026-03-04");
+        assertThat(dto.start()).isEqualTo("23:30");
+        assertThat(dto.end()).isEqualTo("00:29");
+        assertThat(dto.source().nativeEnd()).isTrue();
+        assertThat(dto.source().location()).isEqualTo("Main Clinic");
+        assertThat(dto.source().type()).isEqualTo("Follow-up visit");
+        assertThat(dto.source().resources()).isEqualTo("Room 2");
+        assertThat(dto.source().urgency()).isEqualTo("critical");
+        assertThat(dto.source().style()).isEqualTo("1");
+        assertThat(dto.source().billing()).isEqualTo("B");
+        assertThat(dto.source().bookingSource()).isEqualTo("OSCAR");
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_APPOINTMENT_SOURCE_RECORD_APPLIED")
+                .doesNotContain("CDS_APPOINTMENT_CROSS_MIDNIGHT_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldRestoreASlotWithNoStatedLength_fromAProvenSourceRecord() throws Exception {
+        // The add form's duration 0 stores an end one minute before the start; the element has
+        // no Duration. The stored end is restored exactly.
+        var stored =
+                Map.of(
+                        "appointment_date", "2026-03-04",
+                        "start_time", "10:00:00",
+                        "end_time", "09:59:00");
+        var record = appointmentWithSource("10:00:00", null, null, 1, stored, null);
+        appointments.prepare("run", 1, "unit", record, command);
+        var dto = captured(CdsAppointmentNativeDto.class);
+        assertThat(dto.representable()).isTrue();
+        assertThat(dto.end()).isEqualTo("09:59");
+        assertThat(dto.source().nativeEnd()).isTrue();
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain("CDS_APPOINTMENT_DURATION_SOURCE_ONLY");
+    }
+
+    @Test
+    void shouldReportAndIgnoreASourceRecord_thatDoesNotProveItsElement() throws Exception {
+        // Another date, another start, a stored end that does not give the element's Duration,
+        // and a record naming another position: nothing is guessed from any of them.
+        for (var stored :
+                List.of(
+                        Map.of(
+                                "appointment_date", "2026-03-05",
+                                "start_time", "10:00:00",
+                                "end_time", "10:29:00",
+                                "location", "Elsewhere"),
+                        Map.of(
+                                "appointment_date", "2026-03-04",
+                                "start_time", "10:15:00",
+                                "end_time", "10:44:00",
+                                "location", "Elsewhere"),
+                        Map.of(
+                                "appointment_date", "2026-03-04",
+                                "start_time", "10:00:00",
+                                "end_time", "11:29:00",
+                                "location", "Elsewhere"))) {
+            clearInvocations(preparation);
+            var record = appointmentWithSource("10:00:00", "30", null, 1, stored, null);
+            appointments.prepare("run", 1, "unit", record, command);
+            var dto = captured(CdsAppointmentNativeDto.class);
+            assertThat(dto.representable()).isTrue();
+            assertThat(dto.end()).isEqualTo("10:30");
+            assertThat(dto.source()).isNull();
+            assertThat(dto.diagnostics())
+                    .extracting(CdsClinicalDiagnosticDto::code)
+                    .contains("CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED");
+        }
+        clearInvocations(preparation);
+        var other =
+                appointmentWithSource(
+                        "10:00:00",
+                        "30",
+                        null,
+                        2,
+                        Map.of(
+                                "appointment_date", "2026-03-04",
+                                "start_time", "10:00:00",
+                                "end_time", "10:29:00",
+                                "location", "Elsewhere"),
+                        null);
+        appointments.prepare("run", 1, "unit", other, command);
+        var unnamed = captured(CdsAppointmentNativeDto.class);
+        assertThat(unnamed.source()).isNull();
+        assertThat(unnamed.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain(
+                        "CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED",
+                        "CDS_APPOINTMENT_SOURCE_RECORD_APPLIED");
+        // A record that is not a version 1 document is reported, never repaired.
+        clearInvocations(preparation);
+        parse(
+                appointmentXml("10:00:00", "30", null)
+                        + sourceRecord(Map.of("version", 2, "appointment", 1)),
+                "");
+        appointments.prepare("run", 1, "unit", firstParsed("Appointments"), command);
+        assertThat(captured(CdsAppointmentNativeDto.class).diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED");
+    }
+
+    @Test
+    void shouldRestoreCompleteNotes_onlyWhenTheElementIsExactlyTheirSharedCut() throws Exception {
+        var stored =
+                Map.of(
+                        "appointment_date", "2026-03-04",
+                        "start_time", "10:00:00",
+                        "end_time", "10:29:00");
+        String complete = "n".repeat(32500);
+        String element =
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsAppointmentSourceContract
+                        .notesElement(complete);
+        assertThat(element).hasSize(32000);
+        var record = appointmentWithSource("10:00:00", "30", element, 1, stored, complete);
+        appointments.prepare("run", 1, "unit", record, command);
+        var dto = captured(CdsAppointmentNativeDto.class);
+        assertThat(dto.notes()).isEqualTo(complete);
+        assertThat(dto.source().completeNotes()).isTrue();
+        // Notes that are not the cut of the claimed complete text keep the element's text.
+        clearInvocations(preparation);
+        record = appointmentWithSource("10:00:00", "30", "Other notes", 1, stored, complete);
+        appointments.prepare("run", 1, "unit", record, command);
+        dto = captured(CdsAppointmentNativeDto.class);
+        assertThat(dto.notes()).isEqualTo("Other notes");
+        assertThat(dto.source().completeNotes()).isFalse();
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_APPOINTMENT_SOURCE_NOTES_NOT_RESTORED");
+    }
+
+    @Test
+    void shouldUseTheLastSourceRecordNamingAnElement_notAnOlderRetainedCopy() throws Exception {
+        // A re-export carries the earlier sender's record before the current one.
+        var older = new java.util.LinkedHashMap<String, Object>();
+        older.put("version", 1);
+        older.put("appointment", 1);
+        var olderRow = new java.util.TreeMap<String, String>();
+        for (String column :
+                List.of(
+                        "appointment_date",
+                        "start_time",
+                        "end_time",
+                        "style",
+                        "billing",
+                        "location",
+                        "resources",
+                        "urgency",
+                        "type",
+                        "bookingSource")) olderRow.put(column, null);
+        olderRow.putAll(
+                Map.of(
+                        "appointment_date", "2026-03-04",
+                        "start_time", "10:00:00",
+                        "end_time", "10:29:00",
+                        "location", "Old site"));
+        older.put("fields", olderRow);
+        older.put("complete", Map.of());
+        var current = new java.util.LinkedHashMap<String, Object>(older);
+        var currentRow = new java.util.TreeMap<>(olderRow);
+        currentRow.put("location", "New site");
+        current.put("fields", currentRow);
+        parse(
+                appointmentXml("10:00:00", "30", null)
+                        + sourceRecord(older)
+                        + sourceRecord(current),
+                "");
+        appointments.prepare("run", 1, "unit", firstParsed("Appointments"), command);
+        assertThat(captured(CdsAppointmentNativeDto.class).source().location())
+                .isEqualTo("New site");
+    }
+
     @Test
     void shouldRequireConfiguredClinicZone_beforeClaimingUnambiguousCalendarTiming()
             throws Exception {
@@ -768,6 +1022,77 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
         assertThat(dto.diagnostics())
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .contains("CDS_APPOINTMENT_PURPOSE_SOURCE_VIEW");
+    }
+
+    @Test
+    void shouldWriteTheRestoredEndAndSchedulerContext_fromThePreparedSource() throws Exception {
+        var dto =
+                new CdsAppointmentNativeDto(
+                        "2026-03-04",
+                        "23:30",
+                        "00:29",
+                        "Source full status",
+                        "Full purpose",
+                        "Notes",
+                        "77",
+                        true,
+                        List.of(),
+                        new CdsAppointmentSourceDto(
+                                true, false, "1", "B", "Main Clinic", "Room 2", "critical",
+                                "Follow-up visit", "OSCAR"));
+        var record = appointment("23:30:00", "60", "<cdsd:FullDate>2026-03-04</cdsd:FullDate>", "");
+        when(preparation.load(
+                        "run", 1, "unit", record.sha256(), command, CdsAppointmentNativeDto.class))
+                .thenReturn(dto);
+        doAnswer(
+                        call -> {
+                            ((Appointment) call.getArgument(0)).setId(9);
+                            return null;
+                        })
+                .when(appointmentsDao)
+                .persist(any(Appointment.class));
+        when(demographicDao.getDemographicById(42))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        appointments.write("run", 1, "unit", 42, record, command, n -> {});
+        var captor = ArgumentCaptor.forClass(Appointment.class);
+        verify(appointmentsDao).persist(captor.capture());
+        var written = captor.getValue();
+        assertThat(written.getStartTime()).isEqualTo(java.sql.Time.valueOf("23:30:00"));
+        assertThat(written.getEndTime()).isEqualTo(java.sql.Time.valueOf("00:29:00"));
+        assertThat(written.getLocation()).isEqualTo("Main Clinic");
+        assertThat(written.getResources()).isEqualTo("Room 2");
+        assertThat(written.getUrgency()).isEqualTo("critical");
+        assertThat(written.getType()).isEqualTo("Follow-up visit");
+        assertThat(written.getStyle()).isEqualTo("1");
+        assertThat(written.getBilling()).isEqualTo("B");
+        assertThat(written.getBookingSource()).isEqualTo(Appointment.BookingSource.OSCAR);
+        // The status stays the sender's status text; no code is restored.
+        assertThat(written.getStatus()).isEmpty();
+        assertThat(written.getImportedStatus()).isEqualTo("Source full status");
+    }
+
+    @Test
+    void shouldReadAPreparationSealedBeforeTheSourceRecord_asNothingRestored() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var earlier =
+                (com.fasterxml.jackson.databind.node.ObjectNode)
+                        mapper.readTree(
+                                "{\"date\":\"2026-03-04\",\"start\":\"10:00\",\"end\":\"10:30\","
+                                        + "\"status\":null,\"purpose\":null,\"notes\":null,"
+                                        + "\"providerNo\":null,\"representable\":true,"
+                                        + "\"diagnostics\":[]}");
+        var defaulted =
+                io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparedAppointmentDefaults
+                        .apply(earlier);
+        assertThat(defaulted.get("source").isNull()).isTrue();
+        assertThat(earlier.has("source")).isFalse();
+        assertThat(mapper.treeToValue(defaulted, CdsAppointmentNativeDto.class).source()).isNull();
+        earlier.put("source", "text");
+        assertThatThrownBy(
+                        () ->
+                                io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsPreparedAppointmentDefaults.apply(earlier))
+                .hasMessage("CDS_PREPARED_APPOINTMENT_DEFAULTS_INVALID");
     }
 
     @Test
@@ -1767,7 +2092,15 @@ class CdsCoreProjectionUnitTest extends CarlosUnitTestBase {
                         CdsInputLimitsDto.defaults(),
                         () -> false,
                         records::add);
+        parsed = records;
         return records.get(records.size() - 1);
+    }
+
+    /** Every record of the patient file most recently parsed. */
+    private List<CdsRecordDto> parsed = List.of();
+
+    private CdsRecordDto firstParsed(String section) {
+        return parsed.stream().filter(r -> r.section().equals(section)).findFirst().orElseThrow();
     }
 
     private static String address(String kind, String street, String city) {

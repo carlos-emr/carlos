@@ -165,8 +165,12 @@ public final class CdsExportAppointmentFieldReconciler {
                                 lookups,
                                 clinicalZone,
                                 demographic,
+                                // An end edited in CARLOS, or restored by the import from the
+                                // sender's source record, is the scheduler's inclusive end.
                                 difference.changedColumns().contains("start_time")
                                                 || difference.changedColumns().contains("end_time")
+                                                || prepared.source() != null
+                                                        && prepared.source().nativeEnd()
                                         ? CdsExportAppointmentTimingMapper.EndConvention
                                                 .NATIVE_INCLUSIVE
                                         : CdsExportAppointmentTimingMapper.EndConvention
@@ -253,7 +257,12 @@ public final class CdsExportAppointmentFieldReconciler {
                 complete.put("AppointmentPurpose", candidate.complete().get("AppointmentPurpose"));
         }
         String notes = candidate.notes();
-        if (!difference.changedColumns().contains("notes")) {
+        // Notes the import restored whole from the sender's source record are longer than (or
+        // differ from) the retained element text, which held only their schema-valid form: they
+        // are the current notes, written again by the native rule.
+        boolean restoredNotes = prepared.source() != null && prepared.source().completeNotes();
+        if (restoredNotes) current.add("AppointmentNotes");
+        else if (!difference.changedColumns().contains("notes")) {
             if (!Objects.equals(original.notes(), prepared.notes()))
                 review("CDS_EXPORT_APPOINTMENT_ORIGINAL_NOTES_REQUIRED");
             notes = prepared.notes();

@@ -80,6 +80,7 @@ are added only after seal verification).
 | `CARLOS.Medication.Source.v1` | string (JSON) | Medications | Restores the native quantity unit and as-needed flag (#6198) when the standard Quantity and Frequency/TreatmentType agree with it; refused when malformed, duplicated or contradicted. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | Immunizations | Restores the free-text "Other" administering provider and the reminder date (#6198) when the carrier's status matches RefusedFlag; refused when malformed or duplicated. The rest stays protected source. |
 | `CARLOS.Prevention.Source.v1` | string (JSON) | PastHealth | Not interpreted: retained as protected source data like any other residual. |
+| `CARLOS.Appointment.Source.v1` | string (JSON) | NewCategory `CARLOS.NativeAppointment.v1` | Read for the Appointments element it names (see "CARLOS appointment source record"): restores the exact stored end, the complete notes and the scheduler context once the record proves itself; otherwise reported and not used. Always also retained as protected source data. |
 
 The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
 as one JSON object, every space escaped so `xs:token` normalization cannot alter it. The
@@ -120,15 +121,71 @@ restored values are part of the sealed preparation (`CdsMedicationDto.quantityUn
 their bytes and seal, and defaulted after seal verification. The import receipt's native-baseline
 witness records the rows as written. Re-exporting the unedited imported chart writes the
 original elements beside the retained original carrier (the reconcilers account the restored
-columns to it), so a further CARLOS import restores the same values; a restored value changed in
-CARLOS since the import holds the patient (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`),
-because the retained carrier would restate the old value.
+columns to it), so a further CARLOS import restores the same values. A restored medication value
+changed in CARLOS since the import is exported as current: the sender's
+`CARLOS.Medication.Source.v1` is removed and the current row travels in
+`CARLOS.Medication.CurrentSource.v1`. A restored vaccine value changed since the import still
+holds the patient (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`), because the retained
+carrier would restate the old value.
 
 What the carriers alone still carry, and the importer does not restore, stays visible in the
 protected source view of the import: for a medication, the exact IEEE dose witnesses and the
 other native columns (a week duration arrives as its exact day count, months and years with
 their unit); for a vaccine, the never-remind flag, the CVC concept, flu risk factors and the
 other native extensions.
+
+### CARLOS appointment source record
+
+CDS 5.2 Appointments has no ResidualInfo, so a CARLOS sender writes one NewCategory record per
+appointment (`CategoryName` `CARLOS.NativeAppointment.v1`, residual
+`CARLOS.Appointment.Source.v1`; its content is defined in `docs/cds-export.md`). Its `appointment`
+member is the 1-based position of the Appointments element it belongs to in the same patient
+file. `CdsAppointmentResidualReader` finds it from the patient file's own sealed parse (the
+records manifest is checked against the parse seal) and uses the **last** record in document
+order that names the position: a CARLOS export writes its current record for every element after
+any retained copy of an earlier sender's record, so an older copy is never used.
+
+Nothing is taken from a record until it proves itself against its element
+(`CdsAppointmentPersister`):
+
+- the receiving clinic's `cds.import.clinicalZone` is set and the element has an exact calendar
+  date;
+- the element's date and start, read in that zone, are the record's `appointment_date` and
+  `start_time`;
+- the record's `end_time` gives the element's Duration by the shared rule
+  (`CdsAppointmentSourceContract.minutes`): as the scheduler's inclusive end (no Duration when the
+  end states no positive length), or as the exclusive end an earlier CDS import left.
+
+Then:
+
+- **Exact end.** With an inclusive end the appointment is written with the sender's stored date,
+  start and end. A slot past midnight (23:30 with end 00:29), with no stated length, with an end
+  between minutes, or at a daylight-saving change, which the element alone leaves a source-only
+  record (`CDS_APPOINTMENT_CROSS_MIDNIGHT_SOURCE_ONLY`, `..._DURATION_SOURCE_ONLY`,
+  `..._DST_DURATION_SOURCE_ONLY`, `..._LOCAL_TIME_SOURCE_ONLY`), becomes a native appointment
+  exactly as the sender's schedule showed it.
+- **Complete notes.** When the record carries `complete.AppointmentNotes` and the element's notes
+  are exactly the shared cut of that text (`CdsAppointmentSourceContract.notesElement`: without
+  XML-illegal characters, cut before the mark at 32,000 characters) and the text fits the notes
+  column (32,768 characters), the complete text is stored. Otherwise the element's notes are
+  kept and `CDS_APPOINTMENT_SOURCE_NOTES_NOT_RESTORED` is reported.
+- **Scheduler context.** `style`, `billing`, `location`, `resources`, `urgency`, `type` and
+  `bookingSource` are stored as the sender stored them. A value longer than the receiving column
+  (`CDS_APPOINTMENT_SOURCE_COLUMN_CAPACITY_NOT_RESTORED`) or a booking source this build does not
+  know (`CDS_APPOINTMENT_SOURCE_BOOKING_SOURCE_NOT_RESTORED`) is reported and left empty.
+
+A record that is not a readable version 1 document, or that does not prove itself, is reported
+as `CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED` (path `NewCategory`) and the appointment is
+imported from its standard elements only; an applied record is reported as
+`CDS_APPOINTMENT_SOURCE_RECORD_APPLIED`. Not restored, by decision: the status code (the status
+arrives as the sender's status text; a code depends on the receiving clinic's own status table),
+the provider number (the provider is matched from the Provider element, as always), the booking
+name and remarks (they already travel as labelled lines of the notes), the reason-list item and
+the program. They stay in the retained record. What was restored is part of the sealed
+preparation (`CdsAppointmentNativeDto.source`, defaulted to "nothing restored" for earlier
+payloads after seal verification, `CdsPreparedAppointmentDefaults`). Re-exporting such an
+appointment reads a restored end as the scheduler's inclusive end and restored notes as current
+notes, and writes a new source record for it after the retained one.
 
 Export clinical qualification remains separate from these shared transfer rules.
 
