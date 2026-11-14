@@ -278,9 +278,12 @@ archived family history, past health, problem, risk factor or alert item likewis
 that begin with a statement that it is archived and not current; its archive state also
 travels in `CARLOS.History.Archived.v1`, from which a CARLOS importer restores it. A
 history item longer than its description element (250 characters, 120 for a risk
-factor) has no description; its complete text is in Notes, and also in the versioned
+factor, 1,000 for an alert) has no description; its complete text is in the versioned
 `CARLOS.History.Narrative.v1` residual (whitespace escaped), from which a CARLOS
-importer restores the item's exact text. Personal history, which CDS allows only as
+importer restores the item's exact text, and also in Notes when Notes has room for it
+(32,000 characters for family history, 64,000 for past health, problems and risk
+factors). An alert's Notes are no longer than its description, so a long alert travels
+in the residual only. No length of a history item holds the patient. Personal history, which CDS allows only as
 residual data, travels in the same carrier, so a CARLOS importer restores it exactly, line
 breaks included. That carrier is an escaped JSON string (quotes, `\u0020` for each space,
 `\n` for each line break), which another EMR shows literally, so the same text is also

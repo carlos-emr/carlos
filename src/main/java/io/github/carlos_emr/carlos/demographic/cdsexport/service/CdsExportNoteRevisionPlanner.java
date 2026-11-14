@@ -42,7 +42,6 @@ public final class CdsExportNoteRevisionPlanner {
                     || !canonicalUuid.matches(
                             "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
                     || revisions.isEmpty()
-                    || revisions.size() > 8192
                     || currentNoteId != revisions.getLast())
                 throw new IllegalArgumentException("CDS_EXPORT_NOTE_REVISION_CHAIN_INVALID");
             long previous = 0;
@@ -71,10 +70,7 @@ public final class CdsExportNoteRevisionPlanner {
             if (patient < 1
                     || sourceManifestSha256 == null
                     || !sourceManifestSha256.matches("[0-9a-f]{64}")
-                    || rows < 0
-                    || rows > 8192)
-                throw new IllegalArgumentException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
-            if (chains.size() > 8192 || reviews.size() > 8192)
+                    || rows < 0)
                 throw new IllegalArgumentException("CDS_EXPORT_NOTE_REVISION_INVENTORY_INVALID");
             var all = new HashSet<Long>(reviews.keySet());
             if (all.stream().anyMatch(id -> id == null || id < 1))
@@ -123,7 +119,6 @@ public final class CdsExportNoteRevisionPlanner {
                 || manifest == null
                 || !manifest.matches("[0-9a-f]{64}")
                 || expected == null
-                || expected.size() > 8192
                 || witnesses == null
                 || metadata == null) invalid();
         var ids = new HashSet<Long>();
@@ -138,8 +133,7 @@ public final class CdsExportNoteRevisionPlanner {
             if (row == null
                     || row.patient() != patient
                     || !ids.contains(row.noteId())
-                    || !seen.add(row.noteId())
-                    || seen.size() > 8192) invalid();
+                    || !seen.add(row.noteId())) invalid();
             verify(row, witnesses.get(row.noteId()));
             if (row.uuid() == null || row.uuid().isEmpty()) {
                 reviews.put(row.noteId(), Review.MISSING_UUID);

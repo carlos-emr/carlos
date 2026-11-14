@@ -360,7 +360,7 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseMissingAuthorLookup_ambiguousClockAndOversizedText() {
+    void shouldRefuseMissingAuthorLookup_andAnAmbiguousClock() {
         assertThatThrownBy(
                         () ->
                                 mapper.map(
@@ -372,17 +372,43 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .hasMessage("CDS_EXPORT_NATIVE_NOTE_PROVIDER_REQUIRED");
         assertThatThrownBy(() -> CdsExportNativeHistoryMapper.clock("2026-11-01 01:30:00", ZONE))
                 .hasMessage("CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS");
-        assertThatThrownBy(
-                        () ->
-                                map(
+    }
+
+    @Test
+    void shouldCarryTheWholeNarrative_whenItIsLongerThanNotesOrAnAlertDescription()
+            throws Exception {
+        // Before: family history text past 32,000 characters, and an alert past 1,000, held the
+        // patient (CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY).
+        String family = "f".repeat(32001);
+        var mapped =
+                map(CdsCategory.FAMILY_HISTORY, List.of(note(91, family, "FamHistory", List.of())));
+        assertThat(mapped.value().text())
+                .containsEntry("NativeNarrative", family)
+                .doesNotContainKeys("Notes", "ProblemDiagnosisProcedureDescription");
+        String xml = new String(render(mapped.value()), StandardCharsets.UTF_8);
+        assertThat(xml)
+                .contains("CARLOS.History.Narrative.v1", "\"" + family + "\"")
+                .doesNotContain("<Notes>");
+        // A narrative that fits Notes is still written there for every other receiver.
+        String readable = "r".repeat(32000);
+        assertThat(
+                        map(
                                         CdsCategory.FAMILY_HISTORY,
-                                        List.of(
-                                                note(
-                                                        91,
-                                                        "x".repeat(32001),
-                                                        "FamHistory",
-                                                        List.of()))))
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
+                                        List.of(note(91, readable, "FamHistory", List.of())))
+                                .value()
+                                .text())
+                .containsEntry("NativeNarrative", readable)
+                .containsEntry("Notes", readable);
+        String alert = "a".repeat(1001);
+        var reminder =
+                map(
+                        CdsCategory.ALERTS_AND_SPECIAL_NEEDS,
+                        List.of(note(91, alert, "Reminders", List.of())));
+        assertThat(reminder.value().text())
+                .containsEntry("NativeNarrative", alert)
+                .doesNotContainKeys("Notes", "AlertDescription");
+        assertThat(new String(render(reminder.value()), StandardCharsets.UTF_8))
+                .contains("CARLOS.History.Narrative.v1", "\"" + alert + "\"");
     }
 
     @Test

@@ -487,7 +487,7 @@ in the ProblemList scope (read plans `DISEASE_REGISTRY`, `DISEASE_REGISTRY_PRECI
   no OnsetDate; the stored value and any precision row stay in the residual.
 - Nothing is clipped or dropped. A code a standard element cannot carry exactly (more than 20
   characters, or irregular spacing), a blank coding system, a description over 250 characters or
-  notes over 65,536 characters leave that element out and travel only in the residual. The
+  notes over 64,000 characters leave that element out and travel only in the residual. The
   `CARLOS.NativeHistory.v1` residual carries the complete row (every column except the row
   identity and patient owner), its precision rows and the matched code-table rows as JSON with
   SQL NULL and empty text distinct and every space escaped; `CARLOS.History.Archived.v1` is
@@ -3332,6 +3332,23 @@ instead of holding the patient; the exact rows still travel in `CARLOS.NativeHis
 - A coded issue description with edge, repeated or line-break spaces (the seeded `ICSW420` ends in
   a space) is written token-normalized in StandardCodeDescription, an `xs:token`, as any
   schema-aware reader keeps it anyway (A26); the exact description is in the context.
+
+A FamilyHistory, PastHealth, ProblemList, RiskFactors or AlertsAndSpecialNeeds item whose text is
+longer than its description element (250 characters; RiskFactor 120; AlertDescription 1,000) is
+written without a description. Its complete narrative travels in `CARLOS.History.Narrative.v1`,
+which the CARLOS importer restores when the description is absent (`CdsHistoryPersister`; a
+narrative past the importer's own note size becomes its structured-source placeholder with the
+source fields retained). The same text is also written in Notes when it fits there with the
+item's statements and, for an archived item, the archived statement: 32,000 characters for
+FamilyHistory, 64,000 for PastHealth, ProblemList and RiskFactors (`text32K`/`text64K` counted as
+the guide counts them, which `CdsExportXmlValidator` enforces). When it does not fit, and for
+every long alert (alert Notes are `text1K`, no longer than the description), the residual alone
+carries it. No narrative length holds the patient
+(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` now fires only when the item's own statements,
+values such as Treatment or Exposure Details that neither their element nor Notes can hold,
+exceed Notes by themselves). The mapper and the revision planner no longer refuse a note with
+more than 8,192 revisions or a chart with more than 8,192 note rows; the occurrence service's
+own window still applies (see the capacity table).
 
 PersonalHistory allows only `ResidualInfo`. Its narrative travels exactly in
 `CARLOS.History.Narrative.v1`, an escaped JSON string (`"Lives\u0020alone.\n..."`) that a CARLOS

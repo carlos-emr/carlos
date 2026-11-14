@@ -106,13 +106,23 @@ public final class CdsExportNativeHistoryMapper {
                 : ARCHIVED_ITEM_STATEMENT + "\n\n" + notes;
     }
 
-    /** The CDS 5.2 Notes limit of a CPP category (text32K, text64K or text1K). */
+    /**
+     * The Notes limit of a CPP category: text32K, text64K or text1K, counted as the migration
+     * guide counts them (k = 1,000), which is also what CdsExportXmlValidator enforces on the
+     * finished document. The XSD aliases admit 1,024 multiples; a value between the two would
+     * pass here and fail there.
+     */
     static int notesLimit(CdsCategory category) {
         return switch (category) {
-            case FAMILY_HISTORY -> 32768;
-            case ALERTS_AND_SPECIAL_NEEDS -> 1024;
-            default -> 65536;
+            case FAMILY_HISTORY -> 32000;
+            case ALERTS_AND_SPECIAL_NEEDS -> 1000;
+            default -> 64000;
         };
+    }
+
+    /** Characters a Notes part takes, with the blank line that separates it from the next. */
+    private static int length(String part) {
+        return part == null ? 0 : part.codePointCount(0, part.length()) + 2;
     }
 
     /**
@@ -208,7 +218,6 @@ public final class CdsExportNativeHistoryMapper {
         Objects.requireNonNull(readableProgram);
         if (patient < 1
                 || revisions.isEmpty()
-                || revisions.size() > 8192
                 || !CdsExportNoteSourceReader.CATEGORIES.contains(category)) invalid();
         var current = revisions.getLast();
         // An imported note later re-filed under another CPP category is a chart condition for
@@ -485,33 +494,47 @@ public final class CdsExportNativeHistoryMapper {
         } else {
             String path = bodyPath(category);
             int cap = bodyMaximum(category);
-            int notesCap = category == CdsCategory.FAMILY_HISTORY ? 32000 : 64000;
+            // The statements alone, for an imported item whose narrative is unchanged: the native
+            // reconciler adds them to the imported Notes (CdsExportHistoryNativeReconciler).
+            String statements = overflow.isEmpty() ? null : String.join("\n\n", overflow);
+            if (statements != null) text.put(STATEMENTS, statements);
+            // What Notes can take of this item: its limit, less the statement that leads an
+            // archived item's Notes (CdsExportNativeHistoryXmlWriter) and the item's statements.
+            int room = notesLimit(category) - length(statements);
+            if (archived) room -= length(ARCHIVED_ITEM_STATEMENT);
             var notes = new ArrayList<String>();
             if (body.codePointCount(0, body.length()) <= cap) put(text, path, body);
-            else if (category != CdsCategory.ALERTS_AND_SPECIAL_NEEDS) {
-                if (!CdsExportNativeFieldAssessments.legal(body, notesCap))
-                    review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
-                notes.add(body);
-                // Notes alone is not the item's text to a CARLOS importer; the versioned carrier
-                // lets it restore the narrative instead of a placeholder.
+            else {
+                // The description element cannot hold the text, so the item has none and its
+                // complete narrative travels in CARLOS.History.Narrative.v1, which a CARLOS
+                // importer restores. The same text is written in Notes for every other receiver
+                // when Notes has room for it. When it has not (an alert, whose Notes are no
+                // longer than its description, or a narrative past the Notes limit), the carrier
+                // alone holds it: no length holds the patient and nothing is cut.
                 text.put("NativeNarrative", body);
+                boolean readable =
+                        category != CdsCategory.ALERTS_AND_SPECIAL_NEEDS
+                                && CdsExportNativeFieldAssessments.legal(body, room);
+                if (readable) notes.add(body);
                 var note = current.note().value();
                 var key = new CdsExportNativeFieldKeyDto(note.table(), note.recordKey(), "note");
                 var prior = decisions.get(key);
                 decisions.put(
                         key,
                         new CdsExportFieldAssessmentDto(
-                                prior.presence(), prior.outcome(), "Notes", prior.rule()));
-            } else review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
+                                prior.presence(),
+                                prior.outcome(),
+                                readable ? "Notes" : "ResidualInfo",
+                                prior.rule()));
+            }
             notes.addAll(overflow);
-            // The statements alone, for an imported item whose narrative is unchanged: the native
-            // reconciler adds them to the imported Notes (CdsExportHistoryNativeReconciler).
-            if (!overflow.isEmpty()) text.put(STATEMENTS, String.join("\n\n", overflow));
             if (!notes.isEmpty()) {
                 String joined = String.join("\n\n", notes);
+                // Only the statements can still be too long here: values of the item's own
+                // fields (Treatment, Exposure Details...) that neither their element nor Notes
+                // can hold. They have no carrier of their own.
                 if (!CdsExportNativeFieldAssessments.legal(
-                        joined,
-                        category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS ? 1000 : notesCap))
+                        archived ? archivedNotes(joined) : joined, notesLimit(category)))
                     review("CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY");
                 put(text, "Notes", joined);
             }
@@ -760,8 +783,9 @@ public final class CdsExportNativeHistoryMapper {
                         description.codePointCount(0, description.length()) <= 250
                                 ? "ProblemDiagnosisDescription"
                                 : "Notes";
-                if (!CdsExportNativeFieldAssessments.legal(
-                        description, destination.equals("Notes") ? 64000 : 250))
+                // issue.description is varchar(255): it always fits Notes, so only a
+                // character XML cannot carry is refused here.
+                if (!CdsExportNativeFieldAssessments.legal(description, Integer.MAX_VALUE))
                     review("CDS_EXPORT_NATIVE_ISSUE_DESCRIPTION_CAPACITY");
                 text.put(destination, description);
                 fields.put(
