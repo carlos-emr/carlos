@@ -95,7 +95,8 @@ public final class CdsExportImmunizationXmlWriter {
         // whitespace normalization cannot alter the carried values.
         if (value.sourceContext() != null
                 && (value.sourceContext().isEmpty()
-                        || !CdsExportNativeFieldAssessments.legal(value.sourceContext(), 1 << 24)
+                        || !CdsExportNativeFieldAssessments.legal(
+                                value.sourceContext(), Integer.MAX_VALUE)
                         || value.sourceContext()
                                 .chars()
                                 .anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')))

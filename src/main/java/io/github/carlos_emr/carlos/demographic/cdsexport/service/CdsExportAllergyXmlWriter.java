@@ -143,12 +143,12 @@ public final class CdsExportAllergyXmlWriter {
         if (allergy.longReaction() != null
                 && !CdsExportNativeFieldAssessments.legal(allergy.longReaction(), 32768))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
-        // The complete-row carrier is one xs:token: no literal whitespace, at most 16,777,216
-        // characters (the bound of every JSON residual carrier).
+        // The complete-row carrier is one xs:token: no literal whitespace. It has no length
+        // bound (the schema gives residual Content none).
         String context = allergy.sourceContext();
         if (context != null
                 && (context.isEmpty()
-                        || !CdsExportNativeFieldAssessments.legal(context, 1 << 24)
+                        || !CdsExportNativeFieldAssessments.legal(context, Integer.MAX_VALUE)
                         || context.chars()
                                 .anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_SOURCE_CONTEXT_REQUIRES_REVIEW");

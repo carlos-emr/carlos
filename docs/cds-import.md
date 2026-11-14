@@ -84,8 +84,14 @@ are added only after seal verification).
 
 The two `Source.v1` carriers hold a complete native row (SQL NULL kept distinct from empty)
 as one JSON object, every space escaped so `xs:token` normalization cannot alter it. The
-importer reads them strictly (`CdsSourceContextParser`: `"version":1`, no duplicate member,
-nothing after the document, at most 2^24 characters) and restores only the native values CDS
+importer reads them strictly and as a stream (`CdsSourceContextParser`, over
+`CdsFieldParser.openToken`): one object with `"version":1`, nesting of at most 16, no repeated
+member among those it reads, nothing after the document. A carrier has no length limit, on either
+side: the reader keeps only the members it restores and skips every other value where it stands,
+whatever its size, so a row with megabytes of text costs no more memory than a small one. What it
+keeps is bounded by what can be restored (a kept text can be no longer than an appointment's
+complete notes, the longest text restored from a carrier; extension rows are visited one at a
+time). The 16,777,216-character bound both sides once applied is gone. The importer restores only the native values CDS
 has no element for, and only when the standard elements the exporter wrote from the same row
 agree with the carrier. The carrier itself, and every value it alone carries, stays unchanged in
 the import's retained source fields.
@@ -113,7 +119,8 @@ the import's retained source fields.
   exporter wrote (given and completed externally `N`, refused and ineligible `Y`), else
   `CDS_IMMUNIZATION_NATIVE_FIELD_REQUIRES_REVIEW` (path `RefusedFlag`).
 
-A malformed, oversized or duplicated carrier, a `prn` other than 0 or 1, an unknown status or an
+A malformed or duplicated carrier, a restorable value longer than any column it could be restored
+to, a `prn` other than 0 or 1, an unknown status or an
 invalid date is `CDS_MEDICATION_NATIVE_STATE_REQUIRES_REVIEW` or
 `CDS_IMMUNIZATION_NATIVE_STATE_REQUIRES_REVIEW` (path `ResidualInfo`); nothing is guessed. The
 restored values are part of the sealed preparation (`CdsMedicationDto.quantityUnit`/`asNeeded`,

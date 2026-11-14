@@ -50,7 +50,7 @@ import java.util.*;
  *       number, or null when no provider record has that number.
  * </ul>
  *
- * <p>JSON escapes control characters itself and U+FFFE/U+FFFF are escaped here, so a stored value
+ * <p>JSON escapes control characters itself and U+FFFE/U+FFFF are escaped with the spaces, so a stored value
  * no XML document can hold is still carried exactly. Nothing in this record can hold a chart.
  * When the job does not select NewCategory the record is not written; the appointment's own
  * receipt then decides those values {@code OPERATIONAL}
@@ -149,18 +149,12 @@ public final class CdsExportAppointmentSourceMapper {
                         CdsExportDemographicSupportingMapper.DESTINATION,
                         RULE);
         }
-        return new Source(tokenText(JSON.writeValueAsString(context)), rows, decisions);
-    }
-
-    /**
-     * JSON as {@code xs:token} content no reader can alter: spaces escaped, and the two code
-     * points XML forbids that JSON does not escape written as JSON escapes (they occur only
-     * inside strings).
-     */
-    static String tokenText(String json) {
-        return CdsExportScreeningMapper.tokenSafe(json)
-                .replace("￾", "\\ufffe")
-                .replace("￿", "\\uffff");
+        // tokenSafe escapes every space and the two code points XML forbids that JSON leaves
+        // raw, so the content is xs:token text no reader can alter.
+        return new Source(
+                CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(context)),
+                rows,
+                decisions);
     }
 
     public static void write(Source source, CdsExportXmlComposer.ContentWriter xml)

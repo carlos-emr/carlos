@@ -182,7 +182,7 @@ public final class CdsExportMedicationReasonMapper {
         context.put("version", 1);
         context.put("reasons", carried);
         String residual = CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(context));
-        if (!CdsExportNativeFieldAssessments.legal(residual, 1 << 24))
+        if (!CdsExportNativeFieldAssessments.legal(residual, Integer.MAX_VALUE))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
                     .CdsExportMappingReviewException("CDS_EXPORT_MEDICATION_REASON_REQUIRES_REVIEW");
         var indication = indication(shown);

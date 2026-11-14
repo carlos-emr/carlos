@@ -148,7 +148,7 @@ final class CdsAppointmentResidualReader {
         CdsRecordDto record = index.byPosition.get(appointment.ordinal());
         if (record == null) return index.unreadable ? new Found(null) : null;
         try {
-            return new Found(source(tree(content(record))));
+            return new Found(source(record, content(record)));
         } catch (IllegalArgumentException malformed) {
             return new Found(null);
         }
@@ -176,9 +176,15 @@ final class CdsAppointmentResidualReader {
                                         ? listed.withCorrections(appointment.corrections())
                                         : listed;
                         try {
-                            String content = content(record);
+                            CdsFieldDto content = content(record);
                             if (content == null) return;
-                            JsonNode position = tree(content).get("appointment");
+                            // Read as a stream: only the position is kept, whatever the size
+                            // of the stored row and of its complete texts.
+                            JsonNode position =
+                                    CdsSourceContextParser.read(
+                                                    fields.openToken(record, content),
+                                                    Set.of("appointment"))
+                                            .get("appointment");
                             if (position == null
                                     || !position.isIntegralNumber()
                                     || !position.canConvertToLong()
@@ -198,18 +204,13 @@ final class CdsAppointmentResidualReader {
         return new Index(sealed, byPosition, unreadable[0]);
     }
 
-    private static JsonNode tree(String content) {
-        if (content == null) throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
-        return CdsSourceContextParser.parse(content);
-    }
-
     /**
-     * @return the Content of the record's one {@code CARLOS.Appointment.Source.v1} element, or
-     *     null when the record is not an appointment source record
+     * @return the Content field of the record's one {@code CARLOS.Appointment.Source.v1} element,
+     *     or null when the record is not an appointment source record
      * @throws IllegalArgumentException when it is one but its element is missing, repeated or not
      *     a string
      */
-    private String content(CdsRecordDto record) throws IOException {
+    private CdsFieldDto content(CdsRecordDto record) throws IOException {
         String category;
         try {
             category = fields.firstToken(record, "CategoryName", 64);
@@ -241,7 +242,8 @@ final class CdsAppointmentResidualReader {
     private final class State {
         private final CdsRecordDto record;
         private final Map<String, CdsFieldDto> values = new HashMap<>();
-        private String group, content;
+        private String group;
+        private CdsFieldDto content;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -282,11 +284,7 @@ final class CdsAppointmentResidualReader {
                         || !CdsNativeExtensionContract.STRING_TYPE.equals(
                                 fields.readToken(record, values.get("DataType"), 7)))
                     throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
-                content =
-                        fields.readToken(
-                                record,
-                                values.get("Content"),
-                                CdsSourceContextParser.MAXIMUM_CHARACTERS);
+                content = values.get("Content");
             } catch (CdsInputException capacity) {
                 if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
                 throw new IllegalArgumentException("CDS_SOURCE_CONTEXT_MALFORMED");
@@ -295,7 +293,16 @@ final class CdsAppointmentResidualReader {
         }
     }
 
-    private static Source source(JsonNode root) {
+    /**
+     * Reads the record as a stream: it may be of any size. Only the restorable columns and the
+     * complete notes are kept; a complete text longer than any column it could be restored to is
+     * refused by the parser, never held.
+     */
+    private Source source(CdsRecordDto record, CdsFieldDto content) throws IOException {
+        var wanted = new java.util.HashSet<String>();
+        wanted.add("complete/AppointmentNotes");
+        for (String column : COLUMNS) wanted.add("fields/" + column);
+        JsonNode root = CdsSourceContextParser.read(fields.openToken(record, content), wanted);
         JsonNode row = CdsSourceContextParser.row(root, "fields", COLUMNS);
         JsonNode complete = root.get("complete");
         String notes = null;

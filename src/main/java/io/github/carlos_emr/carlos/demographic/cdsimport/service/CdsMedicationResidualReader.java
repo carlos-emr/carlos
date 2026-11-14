@@ -159,19 +159,22 @@ final class CdsMedicationResidualReader {
             values.clear();
         }
 
-        /** The complete native row (#6198); only a well-formed version 1 document is read. */
+        /**
+         * The complete native row (#6198); only a well-formed version 1 document is read. The
+         * carrier is read as a stream and may be of any size: only the four restorable columns
+         * are kept, every other column is skipped where it stands.
+         */
         private SourceContext sourceContext(CdsFieldDto content) throws IOException {
-            String text;
-            try {
-                text = fields.readToken(record, content, CdsSourceContextParser.MAXIMUM_CHARACTERS);
-            } catch (CdsInputException capacity) {
-                if (!capacity.code().equals("CDS_TARGET_TEXT_CAPACITY_EXCEEDED")) throw capacity;
-                throw invalidValue();
-            }
             try {
                 var row =
                         CdsSourceContextParser.row(
-                                CdsSourceContextParser.parse(text),
+                                CdsSourceContextParser.read(
+                                        fields.openToken(record, content),
+                                        Set.of(
+                                                "fields/quantity",
+                                                "fields/unit",
+                                                "fields/unitName",
+                                                "fields/prn")),
                                 "fields",
                                 "quantity",
                                 "unit",

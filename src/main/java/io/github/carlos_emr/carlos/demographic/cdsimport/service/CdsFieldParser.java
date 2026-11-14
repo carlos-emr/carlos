@@ -220,6 +220,72 @@ public class CdsFieldParser {
         return readLogicalText(record, field, maxNormalizedCharacters, "collapse");
     }
 
+    /**
+     * The field's logical value (an audited correction included) as XML Schema token text, read
+     * as a stream: leading and trailing XML whitespace is dropped and every inner run becomes one
+     * space, exactly as {@link #readToken} collapses it, but nothing is materialized. A value of
+     * any length can be consumed in constant memory. The stored value's digest is proved when the
+     * reader reaches its end; the caller owns and closes the reader within its current operation.
+     */
+    public Reader openToken(CdsRecordDto record, CdsFieldDto field) throws IOException {
+        if (field.kind().equals("BINARY"))
+            throw new IllegalArgumentException("Invalid textual CDS field request");
+        Reader source =
+                new InputStreamReader(
+                        logicalValue(record, field),
+                        StandardCharsets.UTF_8
+                                .newDecoder()
+                                .onMalformedInput(CodingErrorAction.REPORT)
+                                .onUnmappableCharacter(CodingErrorAction.REPORT));
+        return new Reader() {
+            private final char[] block = new char[4096];
+            private int position, limit;
+            private boolean started, pending, ended;
+
+            @Override
+            public int read(char[] target, int offset, int length) throws IOException {
+                if (length == 0) return 0;
+                int written = 0;
+                while (written < length) {
+                    if (position == limit) {
+                        if (ended) break;
+                        // Return what is ready rather than block for more than was asked.
+                        if (written > 0) break;
+                        limit = source.read(block, 0, block.length);
+                        position = 0;
+                        if (limit < 0) {
+                            limit = 0;
+                            ended = true;
+                            break;
+                        }
+                        continue;
+                    }
+                    char c = block[position];
+                    if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+                        pending = started;
+                        position++;
+                        continue;
+                    }
+                    if (pending) {
+                        // The collapsed space; the character itself is delivered next.
+                        target[offset + written++] = ' ';
+                        pending = false;
+                        continue;
+                    }
+                    target[offset + written++] = c;
+                    started = true;
+                    position++;
+                }
+                return written == 0 && ended ? -1 : written;
+            }
+
+            @Override
+            public void close() throws IOException {
+                source.close();
+            }
+        };
+    }
+
     /** Returns only an explicit audited override; a large original remains a streamed source reference. */
     public Optional<String> correctedLogicalText(
             CdsRecordDto record, CdsFieldDto field, int maxCharacters) throws IOException {

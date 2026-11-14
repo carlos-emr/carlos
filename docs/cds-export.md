@@ -2453,6 +2453,23 @@ ReadMe states per patient `Patient records not exported: Appointment source reco
 The CARLOS importer reads the record back (`docs/cds-import.md`, "CARLOS appointment source
 record").
 
+#### Carriers have no length limit
+
+The schema's residual `Content` is an `xs:token` with no `maxLength`. The exporter once refused
+any JSON carrier longer than 16,777,216 characters (`legal(json, 1 << 24)`), which held the
+patient (or, for a screening, stopped the job with `CDS_EXPORT_SCREENING_VALUE_INVALID`): a row
+needs only about 2.8 MB of text with many spaces to reach it, because every space is written as
+a six-character escape. Nothing depended on the number: the XML composer and validator bound only
+the whole patient document, and the importer now reads carriers as a stream
+(`docs/cds-import.md`). The bound is removed, with no other number in its place, for
+`CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Medication.Reasons.v1`,
+`CARLOS.Prescription.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` (vaccines and
+screenings) and `CARLOS.Appointment.Source.v1`. `tokenSafe` also escapes U+FFFE and U+FFFF, so a
+carrier is always XML text. The same expression is still in force in the demographic, history,
+care, laboratory and inbox-review mappers (`CdsExportDemographicSupportingMapper`,
+`CdsExportNativeHistoryMapper`, `CdsExportNativeCareMapper`, `CdsExportNativeLaboratoryMapper`,
+`CdsExportInboxReviewMapper`), which were not changed here.
+
 #### Records that need NewCategory when it is not selected
 
 The operator's category choice never holds a chart. Five kinds of captured record have no CDS

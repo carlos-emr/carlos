@@ -625,6 +625,48 @@ class CdsExportAllergyMapperUnitTest {
     }
 
     @Test
+    void shouldCarryASourceContextPastTheFormerSixteenMillionCharacterBound_withoutHolding()
+            throws Exception {
+        // The reaction column is MEDIUMTEXT. Five million characters of ordinary words, every
+        // space of which the carrier writes as a six-character escape, make a carrier of about
+        // 17.5 million characters: over the 16,777,216 the exporter once allowed, which held the
+        // patient (CDS_EXPORT_ALLERGY_SOURCE_CONTEXT_REQUIRES_REVIEW). The schema has no such
+        // limit and neither has the exporter now.
+        var fields = baseline();
+        String reaction = "a ".repeat(2_500_000);
+        fields.put("reaction", reaction);
+        var mapped = mapper.map(27, allergy(fields), List.of());
+        assertThat(mapped.nativeRowRepresentable()).isTrue();
+        String context = mapped.value().sourceContext();
+        assertThat(context.length()).isGreaterThan(1 << 24);
+        assertThat(context.indexOf(' ')).isNegative();
+        // The writer's own validation, which carried the bound, accepts it.
+        CdsExportAllergyXmlWriter.validate(mapped.value());
+        assertThat(mapped.fields().get(key("reaction")).destination())
+                .isEqualTo(CdsExportAllergyMapper.SOURCE);
+        // The exact text is in the carrier: its length after decoding is the stored length.
+        try (var parser =
+                new com.fasterxml.jackson.core.JsonFactory().createParser(context)) {
+            long carried = -1;
+            while (parser.nextToken() != null)
+                if (parser.currentToken() == com.fasterxml.jackson.core.JsonToken.FIELD_NAME
+                        && parser.currentName().equals("reaction")) {
+                    parser.nextToken();
+                    carried = parser.getTextLength();
+                }
+            assertThat(carried).isEqualTo(reaction.length());
+        }
+    }
+
+    @Test
+    void shouldEscapeTheCodePointsXmlForbids_soACarrierIsAlwaysXmlText() {
+        String json = "{\"a\":\"x y\ufffez\uffff\"}";
+        String token = CdsExportScreeningMapper.tokenSafe(json);
+        assertThat(token).isEqualTo("{\"a\":\"x\\u0020y\\ufffez\\uffff\"}");
+        assertThat(CdsExportNativeFieldAssessments.legal(token, Integer.MAX_VALUE)).isTrue();
+    }
+
+    @Test
     void shouldRefuseForeignPatientParentAndRecordIdentities_beforeMappingTheirValues() {
         var row = allergy(baseline());
         assertThatThrownBy(() -> mapper.map(28, row, List.of()))

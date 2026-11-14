@@ -333,10 +333,19 @@ public final class CdsExportScreeningMapper {
     /**
      * Residual Content is an xs:token, whose normalization collapses XML whitespace. Compact
      * JSON already escapes tab, CR and LF inside strings, and its only literal spaces are inside
-     * strings, so escaping them keeps the exact values under any schema-aware reader.
+     * strings, so escaping them keeps the exact values under any schema-aware reader. U+FFFE and
+     * U+FFFF, which XML forbids and JSON does not escape, also occur only inside strings and are
+     * written as JSON escapes.
+     *
+     * <p>A carrier has no length limit of its own: the schema's residual Content is an
+     * {@code xs:token} without a {@code maxLength}, the XML composer and validator bound only the
+     * whole document, and the CARLOS importer reads a carrier as a stream. The 16,777,216
+     * character bound this exporter once applied to every carrier is gone.
      */
     static String tokenSafe(String json) {
-        return json.replace(" ", "\\u0020");
+        return json.replace(" ", "\\u0020")
+                .replace("\ufffe", "\\ufffe")
+                .replace("\uffff", "\\uffff");
     }
 
     /** Every captured field is carried exactly in the residual unless a rule says otherwise. */

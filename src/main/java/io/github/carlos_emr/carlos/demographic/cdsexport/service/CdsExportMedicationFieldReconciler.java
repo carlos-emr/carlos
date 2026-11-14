@@ -514,7 +514,7 @@ public final class CdsExportMedicationFieldReconciler {
                         com.fasterxml.jackson.databind.json.JsonMapper.builder()
                                 .build()
                                 .writeValueAsString(details));
-        if (!CdsExportNativeFieldAssessments.legal(content, 1 << 24))
+        if (!CdsExportNativeFieldAssessments.legal(content, Integer.MAX_VALUE))
             review("CDS_EXPORT_MEDICATION_CURRENT_SOURCE_REQUIRES_REVIEW");
         return content;
     }

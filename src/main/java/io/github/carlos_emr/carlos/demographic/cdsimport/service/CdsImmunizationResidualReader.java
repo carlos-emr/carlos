@@ -139,10 +139,8 @@ final class CdsImmunizationResidualReader {
                 invalid();
             if (!CdsNativeExtensionContract.STRING_TYPE.equals(token(values.get("DataType"), 7)))
                 invalid();
-            String content =
-                    token(values.get("Content"), CdsSourceContextParser.MAXIMUM_CHARACTERS);
             try {
-                source = sourceContext(content);
+                source = sourceContext(fields.openToken(record, values.get("Content")));
             } catch (IllegalArgumentException malformed) {
                 throw invalidValue();
             }
@@ -159,21 +157,37 @@ final class CdsImmunizationResidualReader {
         }
     }
 
-    private static SourceContext sourceContext(String content) {
-        var root = CdsSourceContextParser.parse(content);
+    /**
+     * Reads the carrier as a stream: it may be of any size. Only the three restorable prevention
+     * columns are kept; the extension rows are visited one at a time and only a non-empty
+     * {@code providerName} value is kept.
+     */
+    private static SourceContext sourceContext(java.io.Reader content) throws IOException {
+        var providerNames = new ArrayList<String>();
+        var root =
+                CdsSourceContextParser.read(
+                        content,
+                        Set.of(
+                                "prevention/provider_no",
+                                "prevention/next_date",
+                                "prevention/refused"),
+                        Map.of("extensions", Set.of("keyval", "val")),
+                        (array, extension) -> {
+                            var row = CdsSourceContextParser.element(extension, "keyval", "val");
+                            String key = CdsSourceContextParser.text(row, "keyval"),
+                                    value = CdsSourceContextParser.text(row, "val");
+                            // More than one typed name is never resolved (the caller asks
+                            // for review), so a third and later one need not be kept.
+                            if ("providerName".equals(key)
+                                    && value != null
+                                    && !value.isEmpty()
+                                    && providerNames.size() < 2) providerNames.add(value);
+                        });
         var parent =
                 CdsSourceContextParser.row(
                         root, "prevention", "provider_no", "next_date", "refused");
         var extensions = root.get("extensions");
         if (extensions == null || !extensions.isArray()) throw malformed();
-        var providerNames = new ArrayList<String>();
-        for (var extension : extensions) {
-            var row = CdsSourceContextParser.element(extension, "keyval", "val");
-            String key = CdsSourceContextParser.text(row, "keyval"),
-                    value = CdsSourceContextParser.text(row, "val");
-            if ("providerName".equals(key) && value != null && !value.isEmpty())
-                providerNames.add(value);
-        }
         return new SourceContext(
                 CdsSourceContextParser.text(parent, "provider_no"),
                 providerNames,

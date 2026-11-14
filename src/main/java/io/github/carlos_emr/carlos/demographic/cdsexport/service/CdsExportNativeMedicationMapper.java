@@ -427,7 +427,9 @@ public final class CdsExportNativeMedicationMapper {
         }
         details.put("currentness", knownStatus ? status : "UNESTABLISHED");
         String metadata = JsonMapper.builder().build().writeValueAsString(details);
-        if (!CdsExportNativeFieldAssessments.legal(metadata, 1 << 24)) review();
+        // No length bound: only text no XML document can hold would be refused, and JSON
+        // escapes control characters itself.
+        if (!CdsExportNativeFieldAssessments.legal(metadata, Integer.MAX_VALUE)) review();
         var reasons = new CdsExportMedicationReasonMapper().map(patient, row, reasonRows);
         if (reasons.problemCode() != null)
             values.put(Field.ProblemCode, reasons.problemCode());

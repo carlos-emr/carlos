@@ -207,7 +207,7 @@ public class CdsExportPrescriptionOccurrenceService {
         context.put("fields", source.prescription().fields());
         context.put("publicAuthor", source.author() == null ? null : source.author().fields());
         String json = JsonMapper.builder().build().writeValueAsString(context);
-        if (!CdsExportNativeFieldAssessments.legal(json, 1 << 24)) invalid();
+        if (!CdsExportNativeFieldAssessments.legal(json, Integer.MAX_VALUE)) invalid();
         xml.element("cds", "CategoryName", "CARLOS.NativePrescription.v1");
         xml.element("cds", "CategoryDescription", "Native printed prescription and source context");
         xml.start("cds", "ResidualInfo");
