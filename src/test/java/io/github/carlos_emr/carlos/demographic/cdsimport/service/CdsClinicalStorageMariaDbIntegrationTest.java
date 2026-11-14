@@ -206,6 +206,99 @@ class CdsClinicalStorageMariaDbIntegrationTest {
     }
 
     @Test
+    void shouldStoreLargeNotesWhole_upToWhatThePreparedRecordColumnAdmits() {
+        // casemgmt_note.note is LONGTEXT: a note over 1 MiB is stored whole. A note reaches it
+        // through its prepared record, held in cds_import_preparation.payload, whose check admits
+        // 1,048,576 bytes: a record of that size is stored and read back whole, and one byte more
+        // is refused even under the packaged server's empty sql_mode, never cut. That is the bound
+        // CdsNativePreparationService applies before anything is written.
+        String note = "Synthetic encounter detail \u00e9 \ud83d\ude00\n".repeat(32_000);
+        assertThat(note.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+                .isGreaterThan(1 << 20);
+        try (Session session = factory.openSession()) {
+            var transaction = session.beginTransaction();
+            try {
+                session.doWork(
+                        connection -> {
+                            try (var mode = connection.createStatement()) {
+                                mode.execute("SET SESSION sql_mode=''");
+                            }
+                            long id;
+                            try (var insert =
+                                    connection.prepareStatement(
+                                            "INSERT INTO casemgmt_note (update_date,"
+                                                    + "observation_date,demographic_no,note,"
+                                                    + "history,uuid) VALUES (NOW(),NOW(),974238,"
+                                                    + "?,'',?)",
+                                            java.sql.Statement.RETURN_GENERATED_KEYS)) {
+                                insert.setString(1, note);
+                                insert.setString(2, java.util.UUID.randomUUID().toString());
+                                assertThat(insert.executeUpdate()).isEqualTo(1);
+                                try (var keys = insert.getGeneratedKeys()) {
+                                    assertThat(keys.next()).isTrue();
+                                    id = keys.getLong(1);
+                                }
+                            }
+                            try (var read =
+                                    connection.prepareStatement(
+                                            "SELECT note FROM casemgmt_note WHERE note_id=?")) {
+                                read.setLong(1, id);
+                                try (var rows = read.executeQuery()) {
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getString(1)).isEqualTo(note);
+                                }
+                            }
+                            String fits = "{\"content\":\"" + "\u00e9".repeat(524_281) + "\"}";
+                            assertThat(fits.getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                                    .hasSize(CdsNativePreparationService.MAXIMUM);
+                            preparation(connection, "e".repeat(64), fits);
+                            try (var read =
+                                    connection.prepareStatement(
+                                            "SELECT payload FROM cds_import_preparation WHERE id=?")) {
+                                read.setString(1, "e".repeat(64));
+                                try (var rows = read.executeQuery()) {
+                                    assertThat(rows.next()).isTrue();
+                                    assertThat(rows.getString(1)).isEqualTo(fits);
+                                }
+                            }
+                            assertThatThrownBy(
+                                            () ->
+                                                    preparation(
+                                                            connection,
+                                                            "d".repeat(64),
+                                                            fits.replace("\"}", "x\"}")))
+                                    .isInstanceOf(java.sql.SQLException.class);
+                        });
+            } finally {
+                transaction.rollback();
+            }
+        }
+    }
+
+    private static void preparation(java.sql.Connection connection, String id, String payload)
+            throws java.sql.SQLException {
+        try (var insert =
+                connection.prepareStatement(
+                        "INSERT INTO cds_import_preparation (id,run_id,unit_key,source_digest,"
+                                + "options_digest,ruleset_digest,payload_type,payload,digest)"
+                                + " VALUES (?,?,?,?,?,?,?,?,?)")) {
+            insert.setString(1, id);
+            insert.setString(2, "11111111-1111-4111-8111-111111111111");
+            insert.setString(3, id);
+            insert.setString(4, "a".repeat(64));
+            insert.setString(5, "b".repeat(64));
+            insert.setString(6, "c".repeat(64));
+            insert.setString(
+                    7,
+                    io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsHistoryNativeDto.class
+                            .getName());
+            insert.setString(8, payload);
+            insert.setString(9, "f".repeat(64));
+            insert.executeUpdate();
+        }
+    }
+
+    @Test
     void shouldReplayArchiveCapacityMigration_withoutChangingRowsOrAdoptedMetadata()
             throws Exception {
         String migration;

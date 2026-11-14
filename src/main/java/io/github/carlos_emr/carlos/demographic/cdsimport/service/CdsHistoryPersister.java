@@ -58,9 +58,29 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-/** Clinical notes/history retain full bounded content or an explicit source-view marker, never a clipped clinical statement. */
+/**
+ * Clinical notes/history retain their whole content or an explicit source-view marker, never a
+ * clipped clinical statement.
+ *
+ * <p>A note is stored whole when its prepared record fits the column that holds it between
+ * preparation and write ({@code cds_import_preparation.payload}, checked at {@link
+ * CdsNativePreparationService#MAXIMUM} bytes): about 1 MiB of text. Only a note whose prepared
+ * record is larger becomes the documented placeholder; its complete original and normalized text
+ * stays in the category's source fields. {@code casemgmt_note.note} itself is LONGTEXT. No
+ * setting chooses the size: {@code cds.import.native.maxNoteBytes} is retired.
+ */
 @Service
 public class CdsHistoryPersister {
+    /**
+     * No longer note can be held whole, because its prepared record contains it; the source read
+     * stops here. Whether a shorter note fits is decided by the record's own size when it is
+     * stored.
+     */
+    static final long NOTE_CAPACITY = CdsNativePreparationService.MAXIMUM;
+
+    /** Each escaped character of a narrative carrier is at most six encoded ones. */
+    private static final int CARRIER_CAPACITY = Math.toIntExact(6 * NOTE_CAPACITY);
+
     private static final Map<String, String> ISSUES =
             Map.of(
                     "PersonalHistory",
@@ -140,8 +160,7 @@ public class CdsHistoryPersister {
         try {
             String exact =
                     CdsNativeExtensionContract.decodePatientAlert(
-                            fields.readLogicalText(
-                                    record, carrier, (int) Math.min(6 * limit, 2_400_000)));
+                            fields.readLogicalText(record, carrier, CARRIER_CAPACITY));
             if (exact.getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= limit
                     && (element == null
                             || CdsNativeExtensionContract.xmlElementText(exact)
@@ -319,8 +338,7 @@ public class CdsHistoryPersister {
         if (nativeState.archived())
             notice.accept(new CdsClinicalDiagnosticDto(
                     "CDS_HISTORY_ARCHIVE_STATE_VENDOR_EXTENSION", "ResidualInfo"));
-        long limit = configuration.number("cds.import.native.maxNoteBytes", 262144);
-        if (limit > 393216) throw new CdsImportException("NATIVE_NOTE_LIMIT_CONFIGURATION_INVALID");
+        long limit = NOTE_CAPACITY;
         String content;
         // A CARLOS export writes AlertDescription with U+FFFD for each character XML cannot
         // carry and the exact Alert beside it; the exact text is used only when it is proven.
@@ -343,11 +361,11 @@ public class CdsHistoryPersister {
             boolean oversized = false;
             try {
                 if (encoded) {
-                    // Each escaped character is at most six encoded ones; the decoded narrative
-                    // is held to the same native bound as any other body below.
+                    // Each escaped character is at most six encoded ones, so a longer carrier
+                    // decodes to a narrative past the bound; the decoded narrative is held to the
+                    // same bound as any other body below.
                     String carrier =
-                            fields.readLogicalText(
-                                    record, descriptor[0], (int) Math.min(6 * limit, 2_400_000));
+                            fields.readLogicalText(record, descriptor[0], CARRIER_CAPACITY);
                     try {
                         logical = CdsNativeExtensionContract.decodeNarrative(carrier);
                     } catch (IllegalArgumentException malformed) {
@@ -373,16 +391,8 @@ public class CdsHistoryPersister {
                         logical.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > limit;
             }
             if (oversized) {
-                content =
-                        "[CDS "
-                                + record.section()
-                                + ": narrative exceeds the bounded native projection. Read the"
-                                + " complete original and normalized values in this clinical"
-                                + " category's CDS source fields. No narrative excerpt was"
-                                + " substituted.]";
-                notice.accept(
-                        new CdsClinicalDiagnosticDto(
-                                "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW", contentPath == null ? "ResidualInfo" : contentPath));
+                content = placeholder(record);
+                notice.accept(sourceView(contentPath));
             } else content = logical;
         }
         Long observation = null, created = null;
@@ -425,21 +435,60 @@ public class CdsHistoryPersister {
                                 false);
             }
         }
-        preparation.store(
-                run,
-                epoch,
-                unit,
-                record.effectiveSha256(),
-                command,
-                new CdsHistoryNativeDto(
-                        content,
-                        ISSUES.get(record.section()),
-                        observation,
-                        created,
-                        author,
-                        observationDate,
-                        observationField,
-                        List.copyOf(warnings.values()), nativeState.archived()));
+        try {
+            preparation.store(
+                    run,
+                    epoch,
+                    unit,
+                    record.effectiveSha256(),
+                    command,
+                    new CdsHistoryNativeDto(
+                            content,
+                            ISSUES.get(record.section()),
+                            observation,
+                            created,
+                            author,
+                            observationDate,
+                            observationField,
+                            List.copyOf(warnings.values()),
+                            nativeState.archived()));
+        } catch (CdsImportException capacity) {
+            if (!"NATIVE_PREPARATION_CAPACITY_EXCEEDED".equals(capacity.getCode())) throw capacity;
+            // The whole note does not fit the column that holds its prepared record: the
+            // documented placeholder is stored, and the complete text stays in the source fields.
+            notice.accept(sourceView(contentPath));
+            preparation.store(
+                    run,
+                    epoch,
+                    unit,
+                    record.effectiveSha256(),
+                    command,
+                    new CdsHistoryNativeDto(
+                            placeholder(record),
+                            ISSUES.get(record.section()),
+                            observation,
+                            created,
+                            author,
+                            observationDate,
+                            observationField,
+                            List.copyOf(warnings.values()),
+                            nativeState.archived()));
+        }
+    }
+
+    /** The documented native note of a narrative too large to hold: its source fields have it. */
+    private static String placeholder(CdsRecordDto record) {
+        return "[CDS "
+                + record.section()
+                + ": narrative exceeds the bounded native projection. Read the complete original"
+                + " and normalized values in this clinical category's CDS source fields. No"
+                + " narrative excerpt was substituted.]";
+    }
+
+    private static CdsClinicalDiagnosticDto sourceView(String contentPath) {
+        return new CdsClinicalDiagnosticDto(
+                "CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW",
+                contentPath == null ? "ResidualInfo" : contentPath);
     }
 
     @Transactional(propagation = Propagation.MANDATORY, rollbackFor = Exception.class)

@@ -23,7 +23,12 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
 
 import java.util.List;
 
-/** Bounded native clinical note projection; oversized source text is never clipped into a false statement. */
+/**
+ * The prepared native clinical note: its whole content, or the documented placeholder when the
+ * note's prepared record does not fit its column; oversized source text is never clipped into a
+ * false statement. The record's size is held by that column ({@code cds_import_preparation}),
+ * not by a length here.
+ */
 public record CdsHistoryNativeDto(
         String content,
         String issueCode,
@@ -59,9 +64,7 @@ public record CdsHistoryNativeDto(
 
     public CdsHistoryNativeDto {
         diagnostics = List.copyOf(diagnostics);
-        if (content == null
-                || content.codePointCount(0, content.length()) > 393216
-                || providerNo != null && providerNo.length() > 6)
+        if (content == null || providerNo != null && providerNo.length() > 6)
             throw new IllegalArgumentException("HISTORY_PREPARED_TEXT_INVALID");
     }
 

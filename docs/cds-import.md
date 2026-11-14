@@ -253,7 +253,19 @@ code below. Text from a sender that is not CARLOS is unaffected, whatever it con
 - **Patient Alert**: `CARLOS.PatientAlert.v1`, in the marker table above.
 
 The text is restored before the native note size is checked: the stored value is never longer in
-UTF-8 than its U+FFFD form.
+UTF-8 than its U+FFFD form. A note, restored or not, is stored whole when its prepared record fits
+the column that holds it between preparation and write: `cds_import_preparation.payload`, whose
+check admits 1,048,576 bytes (about 1 MiB of text; the export reads the retained record under the
+same bound). `casemgmt_note.note` itself is LONGTEXT. Only a larger note becomes the documented
+placeholder, its complete text in the source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`). No
+setting chooses the size; earlier builds held a note to 256 KiB (`cds.import.native.maxNoteBytes`,
+retired).
+
+Editing such a note in the encounter or CPP editor is safe. The save posts the whole text: the
+packaged WAF admits a 16 MiB form and nginx and Tomcat 50 MB, and a larger form is refused before
+anything is written, so the note stays as it was. The note and its revision history are LONGTEXT,
+and the packaged server accepts a 1 GiB statement. The CPP editor also copies the note into the
+legacy CPP and eChart summaries, which are MEDIUMTEXT (16 MiB); one imported note cannot fill them.
 
 ### CARLOS appointment source record
 

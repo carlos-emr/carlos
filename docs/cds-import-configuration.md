@@ -33,7 +33,6 @@ again in the same transaction ([statement deadlines are waits](cds-import-jdbc-t
 | `cds.import.worker.enabled` | `true` | Web durable-work dispatcher; forced off in the CLI. |
 | `cds.import.preacceptRetentionMillis` | `86400000` | Abandoned preaccept staging retention, milliseconds; live accepted work is preserved. |
 | `cds.import.approvedTriggerManifest` | empty | Approved trigger manifest for target safety checks. Empty does not approve arbitrary triggers. |
-| `cds.import.native.maxNoteBytes` | `262144` | Native history-note UTF-8 byte limit; included in normalization provenance. |
 | `cds.import.mapping.restoreArchivedAllergies` | `false` | `true` restores an allergy carrying `CARLOS.Allergy.Archived.v1=true` as a native archived allergy. The default imports it active with a `CDS_ALLERGY_ARCHIVED_SOURCE_MARKER` warning; when enabled each restored allergy gets `CDS_ALLERGY_ARCHIVED_SOURCE_RESTORED`. Any other value refuses. Part of the normalization policy digest (fixed per run) and recorded in each prepared allergy. |
 
 Roots must pass engine ownership, permissions, filesystem and no-symlink checks. A pathname
@@ -98,8 +97,14 @@ letters, digits, `.`, `_` or `-`), the width of the run and lineage columns that
 
 The normalization digest includes configured `cds.import.native.*`, `cds.import.mapping.*`,
 `cds.import.normalization.*` and selected `cds.import.source.<namespace>.*` keys, excluding the
-source's `profiles` list. This fingerprints policy; unused keys do not become mapping switches.
-The JVM calendar zone and `hibernate.jdbc.time_zone` also contribute to the digest.
+source's `profiles` list and every retired setting. This fingerprints policy; unused keys do not
+become mapping switches. The JVM calendar zone and `hibernate.jdbc.time_zone` also contribute to
+the digest. The retired note size used to be part of it on every installation (its default was
+always included), so retiring it changed every installation's digest once: it changes the
+fingerprint of runs accepted from now on only. A run accepted by an earlier build already could
+not continue on a new one (its implementation fingerprint differs, `IMPORT_RULESET_OR_OPTIONS_INCOMPATIBLE`),
+and a repeated import reuses earlier checkpoints only under an unchanged ruleset, as after any
+upgrade.
 
 ## Disk reserve and stall window
 
@@ -190,6 +195,7 @@ import or upload of a process logs one WARN naming the ones still set, never the
 | `cds.import.upload.maxFileBytes` | 64 GiB | The upload store's disk reserve, checked before every chunk. |
 | `cds.import.upload.maxTotalBytes` | 256 GiB | The upload store's disk reserve, checked before every chunk. |
 | `cds.import.upload.maxFiles` | `20000` | Nothing: any number of uploads may wait for their runs' snapshots. A store out of space refuses at the disk reserve, and one out of inodes fails the step that needed one. |
+| `cds.import.native.maxNoteBytes` | `262144` | What the column holding a note's prepared record admits (`cds_import_preparation.payload`, checked at 1,048,576 bytes, about 1 MiB of text): a ClinicalNote or CPP item whose record fits is stored whole, and only a larger one becomes the documented placeholder, its complete text kept in the category's source fields (`CDS_NOTE_COMPLETE_TEXT_SOURCE_VIEW`). No longer part of the normalization digest. |
 
 ## Browser upload
 

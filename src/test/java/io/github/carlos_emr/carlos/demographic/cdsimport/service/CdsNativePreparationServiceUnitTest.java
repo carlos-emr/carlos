@@ -147,6 +147,7 @@ class CdsNativePreparationServiceUnitTest {
 
     @Test
     void shouldRefuseOversizedPreparation_beforeOpeningMetadataTransaction() {
+        // Larger than the payload column's check admits (1,048,576 bytes).
         var dao = mock(CdsImportPreparationDao.class);
         var service = service(dao);
         assertThatThrownBy(
@@ -161,6 +162,48 @@ class CdsNativePreparationServiceUnitTest {
                 .isInstanceOf(Exception.class)
                 .hasStackTraceContaining("NATIVE_PREPARATION_CAPACITY_EXCEEDED");
         verifyNoInteractions(dao);
+    }
+
+    @Test
+    void shouldStoreAndLoadPreparation_whenItIsNearItsColumnCheck() throws Exception {
+        // A note of about 0.9 MiB is prepared whole and read back exactly: the record's own size,
+        // not a note setting, decides whether it fits.
+        var dao = mock(CdsImportPreparationDao.class);
+        Map<String, CdsImportPreparation> rows = new HashMap<>();
+        when(dao.get(anyString())).thenAnswer(call -> rows.get(call.getArgument(0)));
+        doAnswer(
+                        call -> {
+                            CdsImportPreparation row = call.getArgument(0);
+                            rows.put(row.getId(), row);
+                            return null;
+                        })
+                .when(dao)
+                .persist(any());
+        var service = service(dao);
+        String text = "Synthetic note line\n".repeat(45_000);
+        service.store(
+                "run", 1, "a".repeat(64), "b".repeat(64), command(), new Source(text, Map.of()));
+        byte[] payload =
+                rows.values()
+                        .iterator()
+                        .next()
+                        .getPayload()
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(payload)
+                .hasSizeGreaterThan(900_000)
+                .hasSizeLessThanOrEqualTo(CdsNativePreparationService.MAXIMUM);
+        try (var active = mockStatic(CdsImportUnitService.class)) {
+            assertThat(
+                            service.load(
+                                            "run",
+                                            1,
+                                            "a".repeat(64),
+                                            "b".repeat(64),
+                                            command(),
+                                            Source.class)
+                                    .text())
+                    .isEqualTo(text);
+        }
     }
 
     @ParameterizedTest

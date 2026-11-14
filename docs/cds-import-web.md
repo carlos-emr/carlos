@@ -91,7 +91,6 @@ Date-only, partial and missing source note timestamps remain unknown in native e
 | `cds.import.minimumFreeDiskBytes` | 512 MiB free-disk reserve, checked before every chunk |
 | `cds.import.upload.ttlHours` | 24 hours: the unsubmitted upload's stall window; the upload list shows when each unsubmitted upload is removed |
 | `cds.import.clinicalZone` | Explicit clinic/source time zone; no guessed local-time resolution |
-| `cds.import.native.maxNoteBytes` | 256 KiB bounded native narrative projection; maximum 384 KiB |
 
 A file of any size, and any number of files, is uploaded: `cds.import.upload.maxFileBytes`,
 `maxTotalBytes` and `maxFiles` are retired and ignored (see the
