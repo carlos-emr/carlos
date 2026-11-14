@@ -257,6 +257,10 @@ public final class CdsExportAppointmentFieldReconciler {
                 complete.put("AppointmentPurpose", candidate.complete().get("AppointmentPurpose"));
         }
         String notes = candidate.notes();
+        // True while the notes are the imported element's own text, unchanged: they are exported
+        // exactly as imported, up to the schema's 32,768 characters, never cut to the
+        // dictionary's 32,000 (CdsExportDictionaryLength).
+        boolean importedNotes = false;
         // Notes the import restored whole from the sender's source record are longer than (or
         // differ from) the retained element text, which held only their schema-valid form: they
         // are the current notes, written again by the native rule.
@@ -266,6 +270,7 @@ public final class CdsExportAppointmentFieldReconciler {
             if (!Objects.equals(original.notes(), prepared.notes()))
                 review("CDS_EXPORT_APPOINTMENT_ORIGINAL_NOTES_REQUIRED");
             notes = prepared.notes();
+            importedNotes = true;
             prior.add("AppointmentNotes");
             mark(
                     row,
@@ -278,6 +283,7 @@ public final class CdsExportAppointmentFieldReconciler {
         if (labelInNotes != null) {
             String line = "Reason: " + labelInNotes;
             notes = notes == null || notes.isEmpty() ? line : line + "\n" + notes;
+            importedNotes = false;
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
@@ -285,26 +291,30 @@ public final class CdsExportAppointmentFieldReconciler {
             // A booking name that is not the patient's, and remarks: the same labelled lines as
             // on a never-imported appointment, after the notes, which are then current.
             notes = CdsExportAppointmentMapper.withLines(notes, candidate.noteLines());
+            importedNotes = false;
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
         // Notes the element cannot hold whole (current notes of up to 32,768 characters, or
         // imported notes with a label, booking-name or remarks line): cut by the native rule,
-        // never held; the complete text goes to the appointment's source record.
-        var fittedNotes = CdsExportAppointmentMapper.fitNotes(notes);
-        if (fittedNotes.complete() != null) {
-            complete.put("AppointmentNotes", fittedNotes.complete());
-            mark(
-                    row,
-                    fields,
-                    "notes",
-                    Outcome.MAPPED,
-                    "AppointmentNotes," + CdsExportAppointmentMapper.CARRIER,
-                    fittedNotes.rule());
-            prior.remove("AppointmentNotes");
-            current.add("AppointmentNotes");
+        // never held; the complete text goes to the appointment's source record. Imported notes
+        // left unchanged are not CARLOS text and are exported exactly as imported.
+        if (!importedNotes) {
+            var fittedNotes = CdsExportAppointmentMapper.fitNotes(notes);
+            if (fittedNotes.complete() != null) {
+                complete.put("AppointmentNotes", fittedNotes.complete());
+                mark(
+                        row,
+                        fields,
+                        "notes",
+                        Outcome.MAPPED,
+                        "AppointmentNotes," + CdsExportAppointmentMapper.CARRIER,
+                        fittedNotes.rule());
+                prior.remove("AppointmentNotes");
+                current.add("AppointmentNotes");
+            }
+            notes = fittedNotes.element();
         }
-        notes = fittedNotes.element();
         var provider = candidate.value() == null ? null : candidate.value().provider();
         if (!difference.changedColumns().contains("provider_no")) {
             if (prepared.providerNo() != null

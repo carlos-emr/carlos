@@ -319,7 +319,9 @@ public final class CdsExportImmunizationFieldReconciler {
         boolean blocked =
                 fields.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
-        if (!blocked) CdsExportImmunizationXmlWriter.validate(value);
+        // Unchanged imported Notes are exported as imported; CARLOS text keeps the dictionary's
+        // length (CdsExportDictionaryLength).
+        if (!blocked) CdsExportImmunizationXmlWriter.validate(value, selected.contains(Part.NOTES));
         return new Result(
                 index.sourceManifestSha256(),
                 address,

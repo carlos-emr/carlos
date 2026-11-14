@@ -43,7 +43,11 @@ public final class CdsExportAppointmentRetainedAssembler {
         if (!index.sourceManifestSha256().equals(decision.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
-        CdsExportAppointmentXmlWriter.validate(decision.mapping().value());
+        // Notes the reconciler kept as the imported element's own text are exported exactly as
+        // imported; any other notes are CARLOS text (CdsExportDictionaryLength).
+        CdsExportAppointmentXmlWriter.validate(
+                decision.mapping().value(),
+                decision.preparedPaths().contains("AppointmentNotes"));
         var fields =
                 new CdsExportRetainedOccurrenceFields()
                         .fieldsFor(

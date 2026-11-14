@@ -74,7 +74,18 @@ public final class CdsExportImmunizationXmlWriter {
         optional(xml, "Notes", value.notes());
     }
 
+    /** The gate of an immunization CARLOS writes: its Notes keep the dictionary length. */
     static void validate(CdsExportImmunizationDto value) throws IOException {
+        validate(value, false);
+    }
+
+    /**
+     * @param importedNotes true when Notes is the imported element's own text, unchanged: it is
+     *     exported as imported, up to the schema's 32,768 characters; any other Notes text is
+     *     CARLOS text and keeps the data dictionary's 32,000 (CdsExportDictionaryLength)
+     */
+    static void validate(CdsExportImmunizationDto value, boolean importedNotes)
+            throws IOException {
         java.util.Objects.requireNonNull(value);
         if (value.name() == null || value.name().isBlank()) invalid();
         text(value.name(), 120);
@@ -85,7 +96,9 @@ public final class CdsExportImmunizationXmlWriter {
         text(value.site(), 120);
         text(value.dose(), 120);
         text(value.instructions(), 250);
-        text(value.notes(), 32000);
+        text(
+                value.notes(),
+                CdsExportDictionaryLength.maximum(CdsExportDictionaryLength.TEXT_32K, importedNotes));
         if (value.type() != null && !CdsExportImmunizationVocabulary.TYPES.contains(value.type()))
             invalid();
         if (value.code() != null

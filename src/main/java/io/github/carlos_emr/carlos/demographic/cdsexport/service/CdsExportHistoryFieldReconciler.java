@@ -941,7 +941,9 @@ public final class CdsExportHistoryFieldReconciler {
         return switch (category) {
             case RISK_FACTORS -> 120;
             case FAMILY_HISTORY, PAST_HEALTH, PROBLEM_LIST -> 250;
-            case ALERTS_AND_SPECIAL_NEEDS -> 1024;
+            // AlertDescription is a text1K: a current narrative is CARLOS text, so it keeps the
+            // data dictionary's 1,000 characters, as the native mapper's does (bodyMaximum).
+            case ALERTS_AND_SPECIAL_NEEDS -> CdsExportDictionaryLength.TEXT_1K;
             // MyClinicalNotesContent has no length facet.
             case CLINICAL_NOTES -> Integer.MAX_VALUE;
             default -> 0;

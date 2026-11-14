@@ -41,14 +41,14 @@ public record CdsExportMedicationDto(
         Form(120),
         Route(120),
         Frequency(120),
-        Duration(1000),
-        RefillDuration(1000),
-        Quantity(1000),
-        RefillQuantity(1000),
+        Duration(1000, 1024),
+        RefillDuration(1000, 1024),
+        Quantity(1000, 1024),
+        RefillQuantity(1000, 1024),
         LongTermMedication(1),
         PastMedications(1),
-        Notes(32000),
-        PrescriptionInstructions(32000),
+        Notes(32000, 32768),
+        PrescriptionInstructions(32000, 32768),
         PatientCompliance(1),
         TreatmentType(50),
         PrescriptionStatus(10),
@@ -61,13 +61,31 @@ public record CdsExportMedicationDto(
         ProblemCode(10),
         ProtocolIdentifier(20);
         private final int maximum;
+        private final int schemaMaximum;
 
         Field(int maximum) {
-            this.maximum = maximum;
+            this(maximum, maximum);
         }
 
+        Field(int maximum, int schemaMaximum) {
+            this.maximum = maximum;
+            this.schemaMaximum = schemaMaximum;
+        }
+
+        /**
+         * The most characters CARLOS writes in the element: the data dictionary's length (1,000
+         * or 32,000 for the 1K and 32K fields), which the native mappers keep.
+         */
         public int maximum() {
             return maximum;
+        }
+
+        /**
+         * The schema's maxLength (1,024 or 32,768 for the 1K and 32K fields), which an imported
+         * element retained unchanged may use: it is exported exactly as it was imported.
+         */
+        public int schemaMaximum() {
+            return schemaMaximum;
         }
 
         public boolean indicator() {

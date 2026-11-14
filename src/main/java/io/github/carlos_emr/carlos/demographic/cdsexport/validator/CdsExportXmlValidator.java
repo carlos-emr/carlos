@@ -422,7 +422,11 @@ public final class CdsExportXmlValidator {
                 check();
                 Frame frame = stack.peek();
                 if (!frame.child) frame.scalar.finishScalar(validator);
-                dictionaryLength(frame);
+                // A text1K, text32K or text64K value is held to the schema's maxLength (1,024,
+                // 32,768, 65,536) by the JDK validator, never to the data dictionary's 1,000,
+                // 32,000 or 64,000: an imported element retained unchanged is exported as it was
+                // imported, and text CARLOS writes keeps the dictionary length by its writer's
+                // rule (CdsExportDictionaryLength), so no length holds a chart here.
                 validator.endElement(uri, local, qualified);
                 if (frame.capture) {
                     String value = frame.value.toString();
@@ -482,23 +486,6 @@ public final class CdsExportXmlValidator {
             }
             if (report.text) textReports++;
             if (binary) binaryReports++;
-        }
-
-        private void dictionaryLength(Frame frame) throws IOException {
-            var type = frame.scalar.type();
-            if (type == null || !"cds_dt".equals(type.getTypeNamespace())) return;
-            long maximum =
-                    switch (type.getTypeName()) {
-                        case "text1K" -> 1000;
-                        case "text32K" -> 32000;
-                        case "text64K" -> 64000;
-                        default -> Long.MAX_VALUE;
-                    };
-            // Guide 1.10 defines k=1000, whereas these XSD aliases use 1024 multiples.
-            // Refuse the ambiguous range for explicit review; never shorten clinical text.
-            if (frame.scalar.normalizedCharacters() > maximum) {
-                fail("CDS_EXPORT_DICTIONARY_LENGTH_REQUIRES_REVIEW");
-            }
         }
 
         private void identity(Frame frame, char[] chars, int offset, int length)

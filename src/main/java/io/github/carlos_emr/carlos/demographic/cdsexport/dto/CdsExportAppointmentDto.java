@@ -21,13 +21,19 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
-/** Schema values after source/current-field reconciliation; this value alone does not establish appointment coverage. */
+/**
+ * Schema values after source/current-field reconciliation; this value alone does not establish
+ * appointment coverage. The bounds here are the schema's: AppointmentNotes (text32K) admits
+ * 32,768 characters, which an imported note retained unchanged may use. Notes CARLOS writes keep
+ * the data dictionary's 32,000 by the native rule (CdsExportAppointmentMapper.fitNotes), which
+ * CdsExportAppointmentXmlWriter checks.
+ */
 public record CdsExportAppointmentDto(CdsExportAppointmentTimingDto timing, String status,
         CdsExportPublicProviderDto provider, String purpose, String notes) {
     public CdsExportAppointmentDto {
         if (timing == null || status != null && status.codePointCount(0, status.length()) > 250
                 || purpose != null && purpose.codePointCount(0, purpose.length()) > 250
-                || notes != null && notes.codePointCount(0, notes.length()) > 32000) {
+                || notes != null && notes.codePointCount(0, notes.length()) > 32768) {
             throw new IllegalArgumentException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
         }
     }

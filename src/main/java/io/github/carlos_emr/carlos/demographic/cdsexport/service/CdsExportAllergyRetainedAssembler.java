@@ -70,7 +70,16 @@ public final class CdsExportAllergyRetainedAssembler {
         if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
-        CdsExportAllergyXmlWriter.validate(decision.mapping().value());
+        var preparedSource =
+                new CdsExportRetainedPreparationReader()
+                        .allergy(index, decision.unitAddress())
+                        .value();
+        var historical = new CdsExportPreparedAllergyMapper().map(preparedSource);
+        var current = decision.mapping().value();
+        // Notes equal to the imported element's own text are exported exactly as imported (the
+        // schema accepted them); any other Notes text is CARLOS text (CdsExportDictionaryLength).
+        CdsExportAllergyXmlWriter.validate(
+                current, current.notes() != null && current.notes().equals(historical.notes()));
         var fields =
                 new CdsExportRetainedOccurrenceFields()
                         .fieldsFor(
@@ -91,12 +100,6 @@ public final class CdsExportAllergyRetainedAssembler {
                             : field.sourcePath().substring(root.length() + 1);
             if (relative.putIfAbsent(path, field) != null) scope();
         }
-        var preparedSource =
-                new CdsExportRetainedPreparationReader()
-                        .allergy(index, decision.unitAddress())
-                        .value();
-        var historical = new CdsExportPreparedAllergyMapper().map(preparedSource);
-        var current = decision.mapping().value();
         // F9: a sender's standard Code with CodeType ATC (not CARLOS's ATC residual) stays the
         // standard Code subtree while the coded agent is unchanged; only a CARLOS-authored ATC
         // travels in CARLOS.Allergy.Atc.v1.

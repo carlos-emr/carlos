@@ -149,22 +149,27 @@ class CdsExportAppointmentXmlWriterUnitTest {
     }
 
     @Test
-    void shouldVerifyDictionaryNoteLimitIsStricterThanTheBroaderWireSchema_withoutChangingImportLimits()
+    void shouldKeepTheDictionaryNoteLimitForCarlosText_andTheSchemaLimitForUnchangedImportedNotes()
             throws Exception {
         var timing =
                 new CdsExportAppointmentTimingMapper()
                         .map("2024-02-29", "09:00:00", "10:00:00", ZoneId.of("America/Toronto"));
-        assertThat(
-                        new CdsExportAppointmentDto(timing, null, null, null, "😀".repeat(32000))
-                                .notes()
-                                .codePointCount(0, 64000))
-                .isEqualTo(32000);
-        for (int length : List.of(32001, 32768))
-            assertThatThrownBy(
-                            () ->
-                                    new CdsExportAppointmentDto(
-                                            timing, null, null, null, "x".repeat(length)))
+        var full = new CdsExportAppointmentDto(timing, null, null, null, "😀".repeat(32000));
+        assertThat(full.notes().codePointCount(0, 64000)).isEqualTo(32000);
+        CdsExportAppointmentXmlWriter.validate(full);
+        // The value holds what the schema admits: an imported note retained unchanged may use
+        // the schema's 32,768 characters and is written exactly as imported. Notes CARLOS
+        // writes keep the dictionary's 32,000 (CdsExportAppointmentMapper.fitNotes) at the
+        // writer.
+        for (int length : List.of(32001, 32768)) {
+            var value = new CdsExportAppointmentDto(timing, null, null, null, "x".repeat(length));
+            CdsExportAppointmentXmlWriter.validate(value, true);
+            assertThatThrownBy(() -> CdsExportAppointmentXmlWriter.validate(value))
                     .hasMessage("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
+        }
+        assertThatThrownBy(
+                        () -> new CdsExportAppointmentDto(timing, null, null, null, "x".repeat(32769)))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
     }
 
     @Test

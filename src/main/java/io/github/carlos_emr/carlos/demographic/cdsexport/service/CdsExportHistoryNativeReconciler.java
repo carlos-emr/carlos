@@ -494,8 +494,17 @@ final class CdsExportHistoryNativeReconciler {
             changed = true;
         }
 
-        /** The Notes text within {@code limit}: whole parts, the last left out first. */
+        /**
+         * The Notes text within {@code limit}: whole parts, the last left out first. The imported
+         * Notes alone, unchanged, are not text CARLOS wrote: they stay exactly as imported, as
+         * the schema accepted them, whatever their length (CdsExportDictionaryLength).
+         */
         String fit(int limit) {
+            if (!archived
+                    && current.isEmpty()
+                    && imported != null
+                    && !imported.isEmpty()
+                    && imported.equals(importedExact)) return imported;
             var parts = new ArrayList<String>();
             if (archived) parts.add(CdsExportNativeHistoryMapper.ARCHIVED_ITEM_STATEMENT);
             int fixed = parts.size(), importedAt = -1;

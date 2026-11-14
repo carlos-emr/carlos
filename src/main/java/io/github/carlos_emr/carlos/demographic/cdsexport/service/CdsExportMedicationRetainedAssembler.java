@@ -96,16 +96,6 @@ public final class CdsExportMedicationRetainedAssembler {
         if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
-        try {
-            CdsExportMedicationXmlWriter.validate(decision.mapping().value());
-        } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
-                        .CdsExportMappingReviewException held) {
-            throw held;
-        } catch (IOException unwritable) {
-            // A value of this one prescription the writer cannot hold concerns this patient's
-            // chart: the patient is held under a named code, the job is not stopped.
-            review("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
-        }
         var fields =
                 new CdsExportRetainedOccurrenceFields()
                         .fieldsFor(
@@ -125,6 +115,24 @@ public final class CdsExportMedicationRetainedAssembler {
                             ? ""
                             : field.sourcePath().substring(root.length() + 1);
             if (relative.putIfAbsent(path, field) != null) scope();
+        }
+        // A part proven unchanged whose imported element exists is kept exactly as imported
+        // (below): its value is held to the schema's length, not to the dictionary's that CARLOS
+        // text keeps (CdsExportDictionaryLength). Every value written from the reconciled
+        // prescription is CARLOS text.
+        var imported = EnumSet.noneOf(CdsExportMedicationDto.Field.class);
+        for (var field : CdsExportMedicationDto.Field.values())
+            if (preservedPart(decision.preparedPaths(), field.name())
+                    && !ids(relative, field.name() + "[1]").isEmpty()) imported.add(field);
+        try {
+            CdsExportMedicationXmlWriter.validate(decision.mapping().value(), imported);
+        } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException held) {
+            throw held;
+        } catch (IOException unwritable) {
+            // A value of this one prescription the writer cannot hold concerns this patient's
+            // chart: the patient is held under a named code, the job is not stopped.
+            review("CDS_EXPORT_MEDICATION_VALUES_REQUIRES_REVIEW");
         }
         var current = decision.mapping().value();
         if (decision.retainedStrengthRequired()

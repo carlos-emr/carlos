@@ -57,9 +57,12 @@ public final class CdsExportScreeningXmlWriter {
                 || !CdsExportNativeFieldAssessments.legal(value.description(), 250)
                 // dateFullOrPartial has no clock arm: a native time stays in the residual.
                 || value.procedureDate().precision() == CdsExportDateDto.Precision.DATE_TIME
+                // Native Notes keep the data dictionary's length (the mapper's rule leaves longer
+                // text out, exact in the residual); an integrity check the mapper never trips.
                 || value.notes() != null
                         && (value.notes().isEmpty()
-                                || !CdsExportNativeFieldAssessments.legal(value.notes(), 65_536))
+                                || !CdsExportNativeFieldAssessments.legal(
+                                        value.notes(), CdsExportScreeningMapper.NOTES_LIMIT))
                 || value.sourceContext().isEmpty()
                 || !CdsExportNativeFieldAssessments.legal(value.sourceContext(), Integer.MAX_VALUE)
                 || value.sourceContext().chars().anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n'))

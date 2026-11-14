@@ -46,7 +46,17 @@ public final class CdsExportImmunizationRetainedAssembler {
         if (!decision.sourceManifestSha256().equals(index.sourceManifestSha256())
                 || !index.sourceManifestSha256().equals(checked.sourceManifestSha256())
                 || !index.appliedUnits().contains(decision.unitAddress())) scope();
-        CdsExportImmunizationXmlWriter.validate(decision.mapping().value());
+        var historical =
+                new CdsExportPreparedImmunizationMapper()
+                        .map(
+                                new CdsExportRetainedPreparationReader()
+                                        .immunization(index, decision.unitAddress())
+                                        .value());
+        var current = decision.mapping().value();
+        // Notes equal to the imported element's own text are exported exactly as imported (the
+        // schema accepted them); any other Notes text is CARLOS text (CdsExportDictionaryLength).
+        CdsExportImmunizationXmlWriter.validate(
+                current, current.notes() != null && current.notes().equals(historical.notes()));
         var fields =
                 new CdsExportRetainedOccurrenceFields()
                         .fieldsFor(
@@ -67,13 +77,6 @@ public final class CdsExportImmunizationRetainedAssembler {
                             : field.sourcePath().substring(root.length() + 1);
             if (relative.putIfAbsent(path, field) != null) scope();
         }
-        var historical =
-                new CdsExportPreparedImmunizationMapper()
-                        .map(
-                                new CdsExportRetainedPreparationReader()
-                                        .immunization(index, decision.unitAddress())
-                                        .value());
-        var current = decision.mapping().value();
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         for (var entry : parts(current).entrySet()) {
             checkpoint.run();

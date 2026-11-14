@@ -309,6 +309,31 @@ class CdsExportScreeningMapperUnitTest {
         render(mapped.value());
     }
 
+    @Test
+    void shouldKeepCommentsPastTheDictionaryLengthOutOfNotes_exactInTheResidual() throws Exception {
+        // PastHealth/Notes is a text64K. Comments between the dictionary's 64,000 characters and
+        // the schema's 65,536 used to be written and then held by the export validator; like
+        // longer ones they now stay out of Notes, never cut, exact in the residual.
+        var row = parent(31, Map.of());
+        for (int length : new int[] {64_000, 64_001, 65_536}) {
+            var comments = extension(42, 31, "comments", "c".repeat(length));
+            var mapped = map(row, List.of(comments), List.of());
+            assertThat(mapped.representable()).isTrue();
+            var xml = render(mapped.value());
+            if (length <= CdsExportDictionaryLength.TEXT_64K) {
+                assertThat(element(xml, "cds", "Notes")).isEqualTo("c".repeat(length));
+                assertThat(field(mapped, comments, "val").destination())
+                        .isEqualTo(CdsExportScreeningMapper.NOTES);
+                continue;
+            }
+            assertThat(element(xml, "cds", "Notes")).isNull();
+            assertThat(field(mapped, comments, "val").rule())
+                    .isEqualTo(CdsExportScreeningMapper.OVERLONG_IN_RESIDUAL);
+            assertThat(context(mapped).path("extensions").get(0).path("val").asText())
+                    .isEqualTo("c".repeat(length));
+        }
+    }
+
     // Superseded or removed versions (deleted = "1") are skipped by the occurrence service and
     // never reach the mapper there; a legacy NULL flag is the current version. Only an unknown
     // flag still holds the patient (the earlier rule held "1" and NULL as well).

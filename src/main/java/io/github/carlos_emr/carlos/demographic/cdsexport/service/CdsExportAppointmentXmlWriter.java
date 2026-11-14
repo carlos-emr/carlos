@@ -56,7 +56,19 @@ public final class CdsExportAppointmentXmlWriter {
         optional(xml, "AppointmentNotes", appointment.notes());
     }
 
+    /** The gate of an appointment CARLOS writes: its notes keep the dictionary length. */
     static void validate(CdsExportAppointmentDto appointment) throws IOException {
+        validate(appointment, false);
+    }
+
+    /**
+     * @param importedNotes true when AppointmentNotes is the imported element's own text,
+     *     unchanged: it is exported as imported, up to the schema's 32,768 characters; any other
+     *     notes are CARLOS text and keep the data dictionary's 32,000 by the native rule
+     *     (CdsExportAppointmentMapper.fitNotes, CdsExportDictionaryLength)
+     */
+    static void validate(CdsExportAppointmentDto appointment, boolean importedNotes)
+            throws IOException {
         Objects.requireNonNull(appointment);
         // A time with no offset is the schedule's wall-clock time at a daylight-saving transition
         // (CdsExportAppointmentTimingMapper); xs:time allows it and the importer reads it as local.
@@ -65,7 +77,10 @@ public final class CdsExportAppointmentXmlWriter {
                 || appointment.purpose() != null
                         && !CdsExportNativeFieldAssessments.legal(appointment.purpose(), 250)
                 || appointment.notes() != null
-                        && !CdsExportNativeFieldAssessments.legal(appointment.notes(), 32000))
+                        && !CdsExportNativeFieldAssessments.legal(
+                                appointment.notes(),
+                                CdsExportDictionaryLength.maximum(
+                                        CdsExportDictionaryLength.TEXT_32K, importedNotes)))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_APPOINTMENT_VALUES_REQUIRES_REVIEW");
     }
 

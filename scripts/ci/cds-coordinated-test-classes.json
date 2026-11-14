@@ -146,6 +146,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDemographicSupportingMapperUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDiagnosisCodeReferenceSourceReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDictionaryBoundaryUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDictionaryLengthContractUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosurePolicyServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDisclosureScopeServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDrugReferenceLookupServiceUnitTest",

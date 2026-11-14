@@ -449,6 +449,75 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
                 .hasMessage("CDS_EXPORT_ALLERGY_EXTENSION_DUPLICATE");
     }
 
+    @Test
+    void shouldExportUnchangedImportedNotesInTheDictionaryGap_exactlyAsImported() throws Exception {
+        // Owner decision (#56): Notes (text32K) the import accepted up to the schema's 32,768
+        // characters are exported as imported when nobody changed them; the writer's gate held
+        // them past the dictionary's 32,000 (CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW).
+        for (int length : new int[] {32_001, 32_768}) {
+            String notes = "n".repeat(length);
+            var f = withImportedNotes(CdsExportAllergyFieldReconcilerUnitTest.baseline(), notes);
+            var allergy =
+                    new CdsClinicalNormalizationService(new CdsFieldParser())
+                            .allergy(parse(prepare(f).content(), "gap-" + length).get(1));
+            assertThat(allergy.notes()).isEqualTo(notes);
+        }
+    }
+
+    @Test
+    void shouldKeepImportedNotesExact_andLeaveTheArchiveStatementOutWhenTheyDoNotFitTogether()
+            throws Exception {
+        // Archived in CARLOS after the import: the statement is CARLOS text and Notes hold whole
+        // parts within the dictionary's 32,000 characters. Imported Notes too long to have it
+        // beside them stay exactly as imported; the archive state is exact in its marker.
+        var current = CdsExportAllergyFieldReconcilerUnitTest.baseline();
+        current.put("archived", "1");
+        for (String notes : List.of("n".repeat(31_950), "n".repeat(32_768))) {
+            var received =
+                    parse(
+                                    prepare(withImportedNotes(current, notes)).content(),
+                                    "archived-" + notes.length())
+                            .get(1);
+            var allergy = new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(received);
+            assertThat(allergy.notes()).isEqualTo(notes);
+            assertThat(allergy.archived()).isTrue();
+        }
+        // Short imported Notes still say so in words for every receiver.
+        var stated =
+                new CdsClinicalNormalizationService(new CdsFieldParser())
+                        .allergy(
+                                parse(
+                                                prepare(withImportedNotes(current, "Seen in clinic"))
+                                                        .content(),
+                                                "stated")
+                                        .get(1));
+        assertThat(stated.notes())
+                .isEqualTo("Seen in clinic\n" + CdsExportAllergyMapper.ARCHIVED_NOTE);
+    }
+
+    /** The standard fixture whose imported Notes, retained and prepared, are {@code notes}. */
+    private Fixture withImportedNotes(Map<String, String> current, String notes) throws Exception {
+        var fields = new ArrayList<CdsExportRetainedFieldDto>();
+        for (var field : standardFields("DIN", "00123456"))
+            fields.add(
+                    field.sourcePath().endsWith("/Notes[1]") ? field("Notes[1]", "cds", notes) : field);
+        var original = CdsExportAllergyFieldReconcilerUnitTest.source();
+        var source =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto(
+                        original.description(),
+                        original.property(),
+                        original.code(),
+                        original.codeSystem(),
+                        original.reactionType(),
+                        original.reaction(),
+                        original.severity(),
+                        original.lifeStage(),
+                        notes,
+                        original.start(),
+                        original.recorded());
+        return fixture(current, CdsExportAllergyFieldReconcilerUnitTest.baseline(), source, fields);
+    }
+
     /** Every residual DataElement of the received allergy, name to content. */
     private static Map<String, String> residuals(CdsRecordDto record) throws Exception {
         var parser = new CdsFieldParser();
