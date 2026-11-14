@@ -146,17 +146,23 @@ about one year (MariaDB's largest `wait_timeout`).
 ## XML input guards
 
 These protect the parser's memory, which they keep from growing with anything but the schema.
-Each is a hostile-input guard that a genuine CDS 5.2 file, from CARLOS or another vendor and of
-any size, cannot reach: the pinned schema fixes the element and attribute names, the nesting and
-the attributes, and the size of a file only adds more of the same records.
+Each counts only what the pinned schema fixes (the element and attribute names, their namespaces,
+the nesting and the attributes), so a genuine CDS 5.2 file, from CARLOS or another vendor and of
+any size, does not reach it: the size of a file only adds more of the same records. What the
+schema leaves to the writer is not counted. In particular a writer may declare its namespace
+prefixes as it likes (all on the root, the same prefix again on every element, or a new prefix
+for every declaration): only the prefixes in scope at one time and the namespace URIs are
+counted, and names are counted by namespace and local name, so prefixes do not multiply them.
+Earlier builds counted every prefix and every prefixed name a document declared, which a
+schema-valid file whose writer invents a new prefix per declaration could pass.
 
 | Property | Default | Guards | Why a genuine file cannot reach it |
 | --- | --- | --- | --- |
 | `cds.import.maxXmlDepth` | `256`; minimum `4` | Element nesting held on the parser stack. | The schema's deepest path is 8 elements from the root. |
 | `cds.import.maxScalarCharacters` | `65536`; minimum `65536` | One schema-constrained value held for validation, and one start tag, comment or processing instruction, which the parser holds whole. | The longest length-restricted schema type is `text64K` (65,536 characters), so a longer constrained value is schema-invalid. Unrestricted text, numbers and base64 binary values are not counted: they stream to the value spool, so a note or report of any length is imported. Start tags carry only the schema's short attributes; CARLOS writes one short header comment. |
 | `cds.import.maxPathCharacters` | `8192`; minimum `256` | One archive member path or record-relative XML path. | Record paths are at most 8 short schema names with ordinals; member paths are file names within the export. |
-| `cds.import.maxNamespaceAliases` | `128` | Distinct namespace prefixes and URIs in one document. | The schema uses two namespaces (`cds`, `cds_dt`) plus the XML Schema instance namespace. |
-| `cds.import.maxUniqueXmlNames` | `4096` | Distinct qualified names (and processing-instruction targets) in one document. | The schema defines a few hundred element and attribute names. |
+| `cds.import.maxNamespaceAliases` | `128` | Namespace prefixes in scope at one time (declared on the current element or an ancestor), and distinct namespace URIs in one document. Prefixes declared and gone out of scope are not counted. | A CDS file uses three namespaces (`cds`, `cds_dt` and the XML Schema instance), declared on the root or redeclared on any element. Only a file that declares more than 128 prefixes on one element path, or more than 128 namespaces it does not use, reaches it. |
+| `cds.import.maxUniqueXmlNames` | `4096` | Distinct names in one document, by namespace and local name (prefixes do not multiply them), and processing-instruction targets. | The schema defines a few hundred element and attribute names, whatever prefixes a writer gives them. |
 | `cds.import.maxXmlNameCharacters` | `256`; minimum `64` | One qualified name or prefix. | The schema's longest name is under 50 characters. |
 | `cds.import.maxNamespaceUriCharacters` | `4096`; minimum `128` | One namespace URI. | The schema's URIs are `cds`, `cds_dt` and the 41-character XML Schema instance URI. |
 

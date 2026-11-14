@@ -55,7 +55,6 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.text.Normalizer;
 import java.util.Locale;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -838,41 +837,47 @@ public class CdsSnapshotService {
         private int depth;
         private int reportDepth;
         private StringBuilder reference;
-        private final Set<String> names = new HashSet<>();
-        private final Set<String> aliases = new HashSet<>();
-        private final Set<String> namespaces = new HashSet<>();
+        // The same accounting as the full parse: URIs, prefixes in scope at one time and
+        // expanded names, never the prefixes a writer declares over the document.
+        private final io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsXmlNameAccount
+                names;
 
         private ReferencedFilesHandler(Path originalXml, Inventory inventory) {
             this.originalXml = originalXml;
             this.inventory = inventory;
+            names =
+                    new io.github.carlos_emr.carlos.demographic.cdsimport.support
+                            .CdsXmlNameAccount(
+                            inventory.limits.maxNamespaceAliases(),
+                            inventory.limits.maxUniqueXmlNames(),
+                            inventory.limits.maxXmlNameCharacters(),
+                            inventory.limits.maxNamespaceUriCharacters());
         }
 
         @Override
         public void startPrefixMapping(String prefix, String uri) throws SAXException {
-            if (prefix.length() > inventory.limits.maxXmlNameCharacters()
-                    || uri.length() > inventory.limits.maxNamespaceUriCharacters()
-                    || aliases.add(prefix)
-                            && aliases.size() > inventory.limits.maxNamespaceAliases()
-                    || namespaces.add(uri)
-                            && namespaces.size() > inventory.limits.maxNamespaceAliases()) {
+            if (!names.declare(prefix, uri))
                 throw new SAXException(CdsPaths.failure("CDS_XML_NAMESPACE_RESOURCE_LIMIT"));
-            }
         }
 
-        private void name(String value) throws SAXException {
-            if (value.length() > inventory.limits.maxXmlNameCharacters()
-                    || names.add(value) && names.size() > inventory.limits.maxUniqueXmlNames()) {
+        @Override
+        public void endPrefixMapping(String prefix) {
+            names.undeclare(prefix);
+        }
+
+        private void name(String uri, String local, String qualified) throws SAXException {
+            if (!names.name(uri, local, qualified))
                 throw new SAXException(CdsPaths.failure("CDS_XML_NAME_RESOURCE_LIMIT"));
-            }
         }
 
         @Override
         public void startElement(String uri, String local, String qualified, Attributes attrs)
                 throws SAXException {
-            name(qualified);
+            name(uri, local, qualified);
             if (attrs.getLength() > CdsXmlParser.MAX_ELEMENT_ATTRIBUTES)
                 throw new SAXException(CdsPaths.failure("CDS_XML_ATTRIBUTE_RESOURCE_LIMIT"));
-            for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
+            for (int i = 0; i < attrs.getLength(); i++)
+                name(attrs.getURI(i), attrs.getLocalName(i), attrs.getQName(i));
             depth++;
             if (depth > inventory.limits.maxXmlDepth())
                 throw new SAXException(CdsPaths.failure("CDS_XML_DEPTH_LIMIT"));

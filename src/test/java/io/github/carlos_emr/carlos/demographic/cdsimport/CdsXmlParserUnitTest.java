@@ -116,6 +116,79 @@ class CdsXmlParserUnitTest {
     }
 
     @Test
+    void shouldParseAFile_whenItRedeclaresItsPrefixOnEveryElement() throws Exception {
+        // Each element declares the prefix it uses, the same prefix every time.
+        String xml =
+                fixture()
+                        .replaceAll("<([A-Z][A-Za-z0-9]*)([ >])", "<p:$1 xmlns:p=\"cds\"$2")
+                        .replaceAll("</([A-Z][A-Za-z0-9]*)>", "</p:$1>")
+                        .replaceAll("<cdsd:([A-Za-z0-9]+)", "<q:$1 xmlns:q=\"cds_dt\"")
+                        .replaceAll("</cdsd:([A-Za-z0-9]+)>", "</q:$1>");
+        assertTrue(xml.contains("<p:Gender xmlns:p=\"cds\">"));
+        List<CdsRecordDto> records = parse(xml);
+        assertEquals(4, records.size());
+        assertEquals("F", fields.firstToken(records.get(0), "Gender", 1));
+    }
+
+    @Test
+    void shouldParseAFile_whenItsWriterInventsANewPrefixForEveryElement() throws Exception {
+        // 500 allergies, every element under a prefix of its own declared on it: more than 5,000
+        // prefixes and qualified names over the document, past the 128 prefixes and 4,096
+        // qualified names once refused, though only three namespaces are ever used.
+        String fixture = fixture();
+        int start = fixture.indexOf("<AllergiesAndAdverseReactions>");
+        int end =
+                fixture.indexOf("</AllergiesAndAdverseReactions>")
+                        + "</AllergiesAndAdverseReactions>".length();
+        String xml =
+                freshPrefixes(
+                        fixture.substring(0, start)
+                                + fixture.substring(start, end).repeat(500)
+                                + fixture.substring(end));
+        assertTrue(xml.contains("xmlns:n5000=\"cds"));
+        List<CdsRecordDto> records = parse(xml);
+        assertEquals(503, records.size());
+        assertEquals("MO", fields.firstToken(records.get(500), "Severity", 2));
+    }
+
+    @Test
+    void shouldRefuseAFile_whenMorePrefixesThanTheBoundAreInScopeAtOnce() throws Exception {
+        var extra = new StringBuilder();
+        for (int n = 0; n < 129; n++) extra.append(" xmlns:x").append(n).append("=\"cds\"");
+        String xml = fixture().replace("<OmdCds ", "<OmdCds" + extra + " ");
+        CdsInputException failure = assertThrows(CdsInputException.class, () -> parse(xml));
+        assertEquals("CDS_XML_NAMESPACE_RESOURCE_LIMIT", failure.code());
+    }
+
+    /** Every element of {@code xml} under a prefix of its own, declared on that element. */
+    private static String freshPrefixes(String xml) {
+        var tag = java.util.regex.Pattern.compile("<(/?)(?:(cdsd):)?([A-Z][A-Za-z0-9]*)");
+        var matcher = tag.matcher(xml);
+        var out = new StringBuilder(xml.length() * 2);
+        var open = new java.util.ArrayDeque<String>();
+        int last = 0, next = 0;
+        while (matcher.find()) {
+            out.append(xml, last, matcher.start());
+            if (matcher.group(1).isEmpty()) {
+                String prefix = "n" + next++;
+                String uri = "cdsd".equals(matcher.group(2)) ? "cds_dt" : "cds";
+                out.append('<')
+                        .append(prefix)
+                        .append(':')
+                        .append(matcher.group(3))
+                        .append(" xmlns:")
+                        .append(prefix)
+                        .append("=\"")
+                        .append(uri)
+                        .append('"');
+                open.push(prefix);
+            } else out.append("</").append(open.pop()).append(':').append(matcher.group(3));
+            last = matcher.end();
+        }
+        return out.append(xml, last, xml.length()).toString();
+    }
+
+    @Test
     void shouldRefuseGlobalReportsRoot_whenItIsNotAPatientEnvelope() throws Exception {
         CdsInputException failure =
                 assertThrows(
