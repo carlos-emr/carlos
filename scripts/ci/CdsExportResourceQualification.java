@@ -71,7 +71,7 @@ public final class CdsExportResourceQualification {
     private static Map<String, Object> large(Path root, long memberBytes) throws Exception {
         boolean large = memberBytes == MEMBER_BYTES;
         require(Files.getFileStore(root).getUsableSpace() >= (large ? 56 * GIB : 64L << 20), "RUNNER_STORAGE_REQUIRED");
-        var store = store(root, 32 * GIB, large ? GIB : 1L << 20);
+        var store = store(root, large ? GIB : 1L << 20);
         byte[] block = new byte[65536];
         for (int i = 0; i < block.length; i++) block[i] = (byte) (i * 31 + 7);
         MessageDigest expected = MessageDigest.getInstance("SHA-256");
@@ -226,7 +226,7 @@ public final class CdsExportResourceQualification {
         require(fileStore.type().equals("tmpfs") && fileStore.getTotalSpace() == (32L << 20), "OWNED_32M_TMPFS_REQUIRED");
         long initial = fileStore.getUsableSpace();
         require(initial > (30L << 20), "EMPTY_TMPFS_REQUIRED");
-        var reserve = store(root, 64L << 20, initial + 1);
+        var reserve = store(root, initial + 1);
         boolean reserveRefused = false;
         try {
             reserve.stage("RESERVE_FAILURE", output -> output.write(1));
@@ -235,7 +235,7 @@ public final class CdsExportResourceQualification {
             reserveRefused = true;
         }
         require(reserveRefused && stageFiles(root) == 0, "RESERVE_ACCEPTED_OR_LEFT_PARTIAL_FILE");
-        var store = store(root, 64L << 20, 0);
+        var store = store(root, 0);
         boolean[] physicalFailure = {false};
         boolean enospcRefused = false;
         try {
@@ -269,10 +269,10 @@ public final class CdsExportResourceQualification {
         }
     }
 
-    private static CdsExportStagingService store(Path root, long maximum, long reserve) {
+    private static CdsExportStagingService store(Path root, long reserve) {
         byte[] key = new byte[32];
         new SecureRandom().nextBytes(key);
-        return new CdsExportStagingService(root, UUID.randomUUID().toString(), 1, new SecretKeySpec(key, "AES"), maximum,
+        return new CdsExportStagingService(root, UUID.randomUUID().toString(), 1, new SecretKeySpec(key, "AES"),
                 reserve, CdsExportResourceQualification::checkpoint);
     }
 
