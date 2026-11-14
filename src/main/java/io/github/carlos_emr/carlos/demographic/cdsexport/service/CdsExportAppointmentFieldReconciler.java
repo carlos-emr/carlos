@@ -287,10 +287,23 @@ public final class CdsExportAppointmentFieldReconciler {
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
         }
-        if (!candidate.noteLines().isEmpty()) {
-            // A booking name that is not the patient's, and remarks: the same labelled lines as
-            // on a never-imported appointment, after the notes, which are then current.
-            notes = CdsExportAppointmentMapper.withLines(notes, candidate.noteLines());
+        var lines = new ArrayList<>(candidate.noteLines());
+        // An imported status changed since the import beside a status code (the REST and SOAP
+        // appointment services store whatever they are sent): the labelled line a never-imported
+        // booking has (CdsExportAppointmentMapper.importedStatus). Unchanged, it is the import's
+        // own status text, which the status code now supersedes (below).
+        String statusCode = row.fields().get("status");
+        if (statusCode != null
+                && !statusCode.isEmpty()
+                && difference.changedColumns().contains("imported_status")) {
+            String statusLine = CdsExportAppointmentMapper.importedStatusLine(row, fields);
+            if (statusLine != null) lines.add(statusLine);
+        }
+        if (!lines.isEmpty()) {
+            // A booking name that is not the patient's, remarks and an imported status: the same
+            // labelled lines as on a never-imported appointment, after the notes, which are then
+            // current.
+            notes = CdsExportAppointmentMapper.withLines(notes, lines);
             importedNotes = false;
             prior.remove("AppointmentNotes");
             current.add("AppointmentNotes");
@@ -371,7 +384,11 @@ public final class CdsExportAppointmentFieldReconciler {
                     "AppointmentStatus",
                     "VERIFIED_PRIOR_IMPORTED_STATUS_AFTER_CURRENT_STATUS_EDIT");
             current.add("AppointmentStatus");
-        }
+        } else
+            // The status code is current, and the changed imported status was decided by the
+            // native rule (a labelled notes line, added above, or blank and not shown). It held
+            // the patient as RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION.
+            current.add("AppointmentStatus");
         boolean blocked =
                 candidate.value() == null
                         || fields.values().stream()

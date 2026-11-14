@@ -227,8 +227,15 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
             throws Exception {
         current.put("status", "Q1");
         assertThat(reconcile().mapping().value().status()).isEqualTo("Exact booked Ω");
+        // The REST and SOAP appointment services store whatever imported status they are sent.
+        // A changed one beside the current code is the labelled notes line a never-imported
+        // booking has; it held the patient (RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION).
         current.put("imported_status", "Another independently edited status");
-        assertThat(reconcile().mapping().value()).isNull();
+        var changed = reconcile();
+        assertThat(changed.mapping().value().status()).isEqualTo("Exact booked Ω");
+        assertThat(changed.mapping().value().notes())
+                .isEqualTo(originalNotes + "\nImported status: Another independently edited status");
+        assertThat(changed.currentPaths()).contains("AppointmentStatus", "AppointmentNotes");
     }
 
     @Test
