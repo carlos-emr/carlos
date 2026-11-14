@@ -296,7 +296,7 @@ public class CdsExportHistoryOccurrenceService {
                                         plan(index, inventory, context, control::checkpoint);
                                 boolean nativeHistory = false;
                                 for (var occurrence : occurrences)
-                                    if (requiresNativeContext(occurrence, context)) {
+                                    if (requiresNativeContext(occurrence, context, checked)) {
                                         nativeHistory = true;
                                         break;
                                     }
@@ -562,7 +562,7 @@ public class CdsExportHistoryOccurrenceService {
                         }
                         CdsExportHistoryFieldReconciler.Result decision;
                         CdsExportNativeHistoryMapper.Result nativeHistory = null;
-                        if (requiresNativeContext(occurrence, context)) {
+                        if (requiresNativeContext(occurrence, context, checked)) {
                             var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
                             for (long id : occurrence.revisions()) {
                                 control.authorizeNote(category, context.scope(id));
@@ -1029,11 +1029,20 @@ public class CdsExportHistoryOccurrenceService {
     }
 
     private static boolean requiresNativeContext(
-            Occurrence occurrence, CdsExportHistoryCurrentContext context) throws IOException {
+            Occurrence occurrence,
+            CdsExportHistoryCurrentContext context,
+            CdsExportRetainedReceiptVerificationDto checked)
+            throws IOException {
         if (occurrence.issueId() != null) return false;
         if (occurrence.address() == null
                 || occurrence.sourceCategory() != null
                 || occurrence.revisions().size() > 1) return true;
+        // A flag of the patient issue that files the imported item (acute, certain, major,
+        // resolved), changed in the chart's issue list with no new revision of the item: only
+        // the native revision context carries that row. It was a hold
+        // (CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION).
+        if (CdsExportHistoryFieldReconciler.issueContextChanged(
+                checked.units().get(occurrence.address()))) return true;
         // The retained import source has no place for what a note is attached to; only the
         // native revision context carries it. (The CARLOS importer writes no note links, so an
         // imported note has one only if CARLOS attached it to a record later.)

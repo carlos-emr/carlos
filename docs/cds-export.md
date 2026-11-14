@@ -153,31 +153,24 @@ mapper fills from every carried decision.
 | A personal contact whose row is of the professional subtype or marked deleted (`UNEXPECTED_NATIVE_CONTACT_SUBTYPE_REQUIRES_REVIEW`, `DELETED_OR_UNKNOWN_CONTACT_HISTORY_REQUIRES_REVIEW`), or whose row is missing (`EXACT_LINKED_CONTACT_MISSING_REQUIRES_REVIEW`) | The contact search; contact administration | Exported with the subtype or flag carried; a missing row gives no Contact and the association is carried. |
 | A set MRP flag on a personal contact (undecided column) | Not offered by the personal contact screens | Carried. |
 | An active pharmacy link to a missing row, a status no screen writes, two links ranked first, a consent flag of another spelling, a preferred pharmacy without a name (`CDS_EXPORT_NATIVE_PHARMACY_LINK_DANGLING`, `..._LINK_STATUS_UNKNOWN`, `..._FIRST_PREFERENCE_TIED`, `..._CONSENT_UNKNOWN`, `..._NAME_REQUIRED`) | SQL outside CARLOS; concurrent ranking | No PreferredPharmacy is asserted from such a link; links and pharmacies are carried. For an imported chart the imported element is removed too (`CdsExportRetainedPharmacyReconciler`), never kept as if it were the one preference. |
-| The note of an imported contact edited on one side only (`EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW`) | Manage Contacts saves the note on the association, the contact editor on the contact | When the imported element holds nothing CARLOS keeps only in the import's source (no middle name, one purpose, one phone of each type), the element is removed and the contact is decided from its current rows like any contact (`Result.current`); both notes are carried. |
+| An imported contact edited in CARLOS in a way its imported element could not follow (`EDITED_COMPOUND_OR_UNPROJECTED_CONTACT_VALUE_REQUIRES_REVIEW`) | The contact editor (first name, phones, note); Manage Contacts (relationship, EC, SDM, note; every save rewrites those columns of every listed contact) | The edited part takes its current value by the rule of a contact added in CARLOS and the imported element it replaces is listed as replaced; the rest stays the import's projection (`CdsExportContactFieldReconciler`). First name: the column holds the source's first and middle names together, so FirstName is replaced and MiddleName removed. Relationship, EC or SDM of a contact with several source purposes: only the purposes that column was projected from are replaced, so the purposes behind the marker stay while the relationship still holds the marker. Phone: the source phones projected into the column (equal repeats of a type; a home or cell number with its extension folded in) are replaced; phones the import kept as source only stay and a number typed since is a further PhoneNumber. Notes that now differ between the contact and its association: no Note element, both carried; when the element holds nothing kept only in the import's source, the element is removed and the contact decided from its current rows (`Result.current`). |
+| An imported contact with several source purposes picked again from the contact search (`RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED`, `CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`) | Manage Contacts, contact search | The imported element stays with its purposes and the further relationship's purposes join it (the reconciler decides the further association's columns). The marker "Multiple source purposes; see imported Contact details" is never a ContactPurpose: on any row the stored text is carried. |
+| An imported association pointed at another contact row (`CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID`, a job stop) | The server accepts another contact on an existing association (`Contact2Action.linkContactToDemographic`); the forms do not offer it (an existing row's search link is rendered without text) | The imported element is removed, its source fields listed as replaced, and the association is exported with the contact it names, like any added contact (`CdsExportContactFieldReconciler.repointed`, which still proves the association against its import baseline). |
 
-| An imported family or referring physician that the Health Care Team removed, made inactive, moved to the other role, or joined with a second member in the role (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`, `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`) | Health Care Team | The imported element is replaced by the chart's current physician of that role, or removed when there is none (`CdsExportRetainedProfessionalContactReconciler`); its source fields stay in the import's retained source, replaced. |
+| An imported family or referring physician that the Health Care Team removed, made inactive, moved to the other role, joined with a second member in the role, or whose team entry now names another contact row (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`, `ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED`, `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`) | Health Care Team (a changed contact only through the server, as above) | The imported element is replaced by the chart's current physician of that role, or removed when there is none (`CdsExportRetainedProfessionalContactReconciler`); its source fields stay in the import's retained source, replaced. |
+| A Family or Referring Doctor added to the team of an imported chart whose source physician the import did not file (`UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT`) | Health Care Team. The import files no team entry only for a source physician that names nobody (a missing or blank name, `CDS_CONTEXT_PHYSICIAN_SOURCE_ONLY`) | The element states the chart's physician; the source element's fields are listed as replaced. |
 
 No placeholder text is written for any of these.
 
-**Still held, with the screen that reaches it.** These need the import's retained source to
-state the contact, and deciding the contact from its current rows would lose what only that
-source holds:
-
-- An imported contact that has a separate middle name and whose first name is edited (the
-  contact editor), or whose note is edited on one side.
-- An imported contact with several purposes (CARLOS keeps the marker "Multiple source purposes;
-  see imported Contact details" as its relationship) whose relationship, EC or SDM is changed in
-  Manage Contacts, or who is picked again from the contact search with another relationship
-  (`RETAINED_CONTACT_PURPOSE_RECONCILIATION_REQUIRED`, `CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`).
-- An imported contact with two phones of one type, or a home or mobile extension, whose phone of
-  that type is edited.
-- An imported association that Manage Contacts re-pointed at another contact row
-  (`CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID`, a plain I/O failure).
-- An imported family or referring physician whose team entry was re-pointed at another contact
-  row (`ORIGINAL_PROFESSIONAL_CONTACT_REFERENCE_CHANGED`), and a team member added in a role
-  for which the import kept a physician it did not file in the team
-  (`UNPROJECTED_SOURCE_PROFESSIONAL_RELATIONSHIP_CONFLICT`); both end as
-  `CDS_EXPORT_PROFESSIONAL_RELATIONSHIP_REQUIRES_REVIEW`.
+**Still held.** Only what the import's own receipt cannot prove: a contact or association row
+that left the capture (`CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW`; no screen deletes these
+rows), a row two import units claim (`CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW`), a missing or
+unreadable import baseline (`CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED`,
+`CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW`), a baseline row that is not what the sealed
+preparation projects (`PREPARED_NATIVE_CONTACT_PROJECTION_NOT_PROVEN`), an association state no
+screen writes (`EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW`), and an imported
+physician's team entry that left the capture (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`
+with no row).
 
 The health-care-team roles Specialist and Dietician (procontact.jsp) have no FamilyPhysician or
 ReferredPhysician meaning, but an active external contact (type 2) in such a role is a
@@ -234,11 +227,11 @@ decision names the rule.
   new association and appended like any added contact. When the imported association is still
   current and the person is picked again with another relationship, the contact is decided with
   all its current associations (one Contact, every purpose) and appended, and the imported element
-  is replaced; this used to hold with `CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW`. An
-  imported contact whose source had several purposes keeps only the placeholder role
-  "Multiple source purposes; see imported Contact details" in CARLOS, so grouping it with a new
-  relationship still holds (`CDS_EXPORT_CONTACT_MAPPING_REQUIRES_REVIEW`), as does a deleted or
-  active flag no screen writes. A later association that is itself removed or inactive leaves the
+  is replaced; this used to hold with `CDS_EXPORT_CONTACT_NEW_ASSOCIATION_REQUIRES_REVIEW`. When
+  the imported element holds content CARLOS keeps only in the import's source (several purposes
+  behind the marker "Multiple source purposes; see imported Contact details", a separate middle
+  name, phones no column holds), it stays in place instead and the further relationship's
+  purposes join it. A deleted or active flag no screen writes still holds. A later association that is itself removed or inactive leaves the
   imported contact as it is. A contact added after the import and later removed or made inactive
   no longer fails the assembly's row count (`CDS_EXPORT_CONTACT_ASSEMBLY_SCOPE_INVALID`).
 - Preferred pharmacy (`CdsExportRetainedPharmacyReconciler`): once the imported link is no longer
@@ -4099,8 +4092,37 @@ context under `refiledImportedSource`: rule `REFILED_IMPORTED_ITEM_SOURCE_SECTIO
 source section name, and each element's path and exact value in source order (a date at the
 import's verified shift). Its receipt accounts those retained fields, so the source section's
 closure still holds, and nothing is presented twice. An unmoved imported item exports exactly as
-before. A CPP item whose import date metadata or observation date changed outside the editors
-still holds (`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`).
+before.
+
+An imported CPP item whose observation date changed is exported too. The CPP editor leaves that
+date alone; the REST note API (`NotesService.saveIssueNote`) sets it on every save. The import
+had projected one source date (StartDate, OnsetDate, OnsetOrEventDate or ProcedureDate,
+DateActive) into it. By the rule of an item written in CARLOS a CPP item's observation date has
+no element and travels in the revision context, so the native reconciler removes the imported
+date element (its source fields are listed as replaced) unless a CPP date of the current
+revision is written to that element; both dates and the import's date metadata rows are exact in
+`CARLOS.NativeHistory.v1`. It held with
+`CDS_EXPORT_HISTORY_NATIVE_SOURCE_RECONCILIATION_REQUIRED`.
+
+A flag of the patient issue that files an imported item in its CPP section (acute, certain,
+major, resolved) can be changed in the chart's issue list, which lists every patient issue, CPP
+section tags included, and saves without a new revision of the items the issue files. It held
+every imported item of the section (`CDS_EXPORT_HISTORY_ISSUE_EDIT_REQUIRES_RECONCILIATION`).
+Such an item is now given native context (`CdsExportHistoryOccurrenceService.requiresNativeContext`,
+from the receipt check of the unit's `casemgmt_issue` reference:
+`CdsExportHistoryFieldReconciler.issueContextChanged`), whose revision details carry the issue
+row exactly; a change of the row's update time alone, which every save stamps, is not one. The
+imported tag row pointed at another issue definition moves the item out of its section and is
+exported as a re-filed item, as above.
+
+Still held for an imported history item: what the import's receipt cannot prove (a missing or
+changed baseline, `CDS_EXPORT_HISTORY_NATIVE_BASELINE_REQUIRED`,
+`..._DATE_BASELINE_REQUIRED`, `..._ISSUE_LINK_BASELINE_REQUIRED`, `..._FIELD_CODEC_REQUIRES_REVIEW`,
+`..._ISSUE_EDIT_REQUIRES_RECONCILIATION` when the issue row has no usable baseline); the
+import's date metadata rows removed while the observation date is unchanged
+(`CDS_EXPORT_HISTORY_DATE_EXTENSION_DELETION_REQUIRES_REVIEW`; every save copies them, no screen
+deletes them); an imported row changed in place with no new revision (no screen does it); and a
+revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy).
 
 ### Captured note access dependencies
 
