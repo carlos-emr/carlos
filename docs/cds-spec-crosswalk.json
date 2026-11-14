@@ -38099,9 +38099,11 @@
         "errorPolicy": "Pinned-XSD invalidity and unsupported semantic/capacity cases block preflight/sealing. Documented complete-source fallbacks carry durable source-path warnings or clinical-review blockers, never silent truncation or invented dates/authorship. Native/field failures roll back their unit, retain holds and require reconciliation/resume; a clinical review blocker is not clean completion.",
         "implementation": [
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentPersister.java",
-          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java"
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/dto/CdsTemporalDto.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsAppointmentResidualReader.java",
+          "src/main/java/io/github/carlos_emr/carlos/demographic/cds/contract/CdsAppointmentSourceContract.java"
         ],
-        "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning. Native creation/update audit clocks remain local server metadata; the REST editVersion token is not CDS source data.",
+        "normalization": "Year/month date, absent/long/cross-midnight duration, unsupported clock precision, missing zone/DST ambiguity or provider mismatch does not invent calendar timing. Offset normalized only with explicit zone; source status stays separate from native booked status; long purpose gets visible source reference. Native calendar days must round-trip the actual SQL DATE/legacy calendar; an unrepresentable day remains a typed source-only appointment with an explicit warning. Native creation/update audit clocks remain local server metadata; the REST editVersion token is not CDS source data. A CARLOS sender also writes one NewCategory record per appointment (CARLOS.Appointment.Source.v1) naming its element's position. It is used only after it proves itself against that element (same position; the element's date and start, read in the receiving clinical zone, equal the record's stored date and start; the stored end gives the element's Duration by the shared inclusive or exclusive rule). Then the exact stored end (a slot past midnight, with no stated length or at a daylight-saving change becomes a native appointment), the complete notes when the element is exactly their shared cut, and the scheduler context (style, billing, location, resources, urgency, type, booking source) are restored. A record that is unreadable or does not prove itself is reported (CDS_APPOINTMENT_SOURCE_RECORD_NOT_APPLIED) and nothing is taken from it; the status code, provider number, booking name, remarks and program are never restored.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 13 (Appointments)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39770,7 +39772,7 @@
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsSourceFieldService.java",
           "src/main/java/io/github/carlos_emr/carlos/demographic/cdsimport/service/CdsImportFieldPersister.java"
         ],
-        "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts.",
+        "normalization": "Schema-defined logical whitespace only (plus separately audited reviewed scalar overlay when applicable); original values retain exact path, namespace, type, repetition and precision. Codes, residual Name/DataType/Content, source reviewer/created clocks and unsupported structured metadata are not reinterpreted as successful generic Notes. Category anchors can exist without projecting these facts. The CARLOS.Appointment.Source.v1 record of a CARLOS sender is retained here like every other NewCategory record and is additionally read for the Appointments element it names (appointment-calendar); it is never itself a native row.",
         "normativeBasis": [
           "EMR Data Migration Implementation Guide v1.1 section 18.1 (NewCategory)",
           "EMR Data Migration Requirements v1.1 DP02.01",
@@ -39908,7 +39910,7 @@
       }
     },
     "scope": "Reachable leaf/attribute/choice contract of the two pinned wire XSDs, shared by explicitly selected PCON-2024-02 and OntarioMD-5.2 logical profiles; documentary review is not certification of all CDS-S logical requirements. Reviewed path groups distinguish native projections from protected generic source preservation. Native projection eligibility can be conditional, as described. On 2026-11-05, Codex independently reviewed the FrmSetupForm2Action reader update for PR #5602: the ongoing-concerns prefill changed, while the reviewed medication dose, pharmacy-instruction and timing mappings and their getDrugList/medicationLine reader behavior remain unchanged. On 2026-11-10, the shared CPP archive and authored PersonalHistory residual contract, sealed-payload defaults and receiving importer were reviewed together with native export round-trip evidence. This documents conditional CARLOS extensions, not standard receiver support for those extensions.",
-    "sha256": "050b079a2b3d9dc2af2ec8c41add29f95320795efa8641f6bcb35a99d9f15d3c"
+    "sha256": "098c194c1a76ea08ea4fd15eeda9d38d37b94129e42a89d36b6269afffb2b213"
   },
   "root": "cds:OmdCds",
   "schemas": [
