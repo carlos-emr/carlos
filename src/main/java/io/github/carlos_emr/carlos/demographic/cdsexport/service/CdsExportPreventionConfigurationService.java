@@ -42,7 +42,6 @@ import org.springframework.stereotype.Service;
 public class CdsExportPreventionConfigurationService {
     private static final byte[] MAGIC = "CDSPCFG1".getBytes(StandardCharsets.US_ASCII);
     private static final Set<String> TABLES = Set.of("CVCImmunization", "CVCMapping");
-    private static final int MAX_XML = 1_048_576;
     private final CdsExportNativeCaptureService captures;
     private final CdsExportStagingFactory stores;
     private final CdsExportCapturedTextRowsReader rows;
@@ -178,7 +177,7 @@ public class CdsExportPreventionConfigurationService {
                                     .plaintextSha256()
                                     .getBytes(StandardCharsets.US_ASCII))) invalid();
             int length = input.readInt();
-            if (length != receipt.xmlBytes() || length < 1 || length > MAX_XML) invalid();
+            if (length != receipt.xmlBytes() || length < 1) invalid();
             xml = input.readNBytes(length);
             if (xml.length != length
                     || input.read() != -1
@@ -319,7 +318,9 @@ public class CdsExportPreventionConfigurationService {
                                                                 != CdsExportCapturedFieldDto.Kind
                                                                         .BINARY
                                                         || field.bytes() < 1
-                                                        || field.bytes() > MAX_XML)
+                                                        // A Java array's own maximum (outside
+                                                        // CARLOS): no configuration reaches it.
+                                                        || field.bytes() > Integer.MAX_VALUE - 8)
                                         || values.containsKey(field.column())) invalid();
                                 var output = new ByteArrayOutputStream((int) field.bytes());
                                 values.put(field.column(), output);

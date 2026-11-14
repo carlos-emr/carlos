@@ -98,8 +98,9 @@ document is read. A problem with one document holds only its patient:
 `CDS_EXPORT_NATIVE_REPORT_FILE_MISSING` (the file the document row names is not there, for
 example after a purge), `CDS_EXPORT_NATIVE_REPORT_FILENAME_UNSUPPORTED` (a stored name
 that is absolute, leaves the directory, or contains a colon, backslash or control
-character) and `CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` (larger than
-`cds.export.maxDocumentBytes`, 1 GiB by default).
+character). A document of any size is exported: `cds.export.maxDocumentBytes` (1 GiB, which held
+the patient of a larger file with `CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE`) is retired; a value
+still set is ignored and named once in the log (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`).
 
 Each patient's file is in a folder named for the patient's primary physician (MRP) and
 billing number. A physician with no billing number recorded keeps a folder with the name only,
@@ -654,7 +655,8 @@ package larger than 32 GiB).
 - These settings are no longer used: `cds.export.maxPatients`, `cds.export.maxPackageMembers`,
   `cds.export.maxPackageIndexBytes`, `cds.export.maxSupportingBytes`,
   `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes`,
-  `cds.export.maxStagedFileBytes` and `cds.export.captureTimeoutSeconds`. If your configuration still sets one, whatever its value, the
+  `cds.export.maxStagedFileBytes`, `cds.export.captureTimeoutSeconds` and
+  `cds.export.maxDocumentBytes`. If your configuration still sets one, whatever its value, the
   application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and carries
   on; remove them when convenient.
 
@@ -1001,7 +1003,6 @@ note. The application log records, for each chart with eForms, one line
 | Property | Default | Meaning |
 | --- | --- | --- |
 | `cds.export.eformRenderIntervalMillis` | `250` | Pause between two export renders (0 to 60000). |
-| `cds.export.maxDocumentBytes` | 1 GiB | Also bounds one rendered eForm; a larger one is noted, not held. |
 | `cds.export.cliRendererHandoffSeconds` | `120` | How long a foreground command-line export that selects Reports leaves its job to the web application before running it itself (0 to 86400; 0 never hands off). |
 | `eform_pdf_browser_base_url` | derived | Where the renderer reaches the application. A render without a request uses `http://127.0.0.1:<port>/<context>` from Tomcat's single plain-HTTP connector (18080 on the packaged install); set it when Tomcat has several plain connectors or only TLS. |
 

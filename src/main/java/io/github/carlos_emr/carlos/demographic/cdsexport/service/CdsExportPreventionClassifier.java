@@ -87,7 +87,6 @@ public final class CdsExportPreventionClassifier {
     /** The prevention type the Rh Immune Globulin form saves (AddPrevention2Action.RH_INJECTION_TYPE). */
     static final String RH_TYPE = "RH";
 
-    private static final int MAX_XML = 1_048_576;
     private static final Set<String> VACCINE_COLUMNS =
             Set.of(
                     "displayName",
@@ -132,7 +131,6 @@ public final class CdsExportPreventionClassifier {
         if (source != null && !source.matches("[0-9a-f]{64}")
                 || configuration == null
                 || configuration.length < 1
-                || configuration.length > MAX_XML
                 || catalogue == null) invalid();
         sourceManifestSha256 = source;
         byte[] xml = configuration.clone();
@@ -142,9 +140,14 @@ public final class CdsExportPreventionClassifier {
         var reviewRules = new HashMap<String, Rule>();
         var catchAllNames = new HashSet<String>();
         try {
+            // The clinic's own configuration, not chart data: neither its size nor the number or
+            // length of an item's attributes refuses an export. Only its shape is checked (one
+            // root, items one level below it, no namespaces) with the JDK's own secure
+            // processing; the depth is the format, not a size.
+            int unbounded = Integer.MAX_VALUE - 8;
             var reader =
                     io.github.carlos_emr.carlos.demographic.cds.contract.CdsXmlReaders.reader(
-                            128, 1024, 2, 64, 4);
+                            unbounded, unbounded, 2, unbounded, 4);
             var handler =
                     new org.xml.sax.helpers.DefaultHandler() {
                         private int depth;
@@ -157,11 +160,9 @@ public final class CdsExportPreventionClassifier {
                                 String qualified,
                                 org.xml.sax.Attributes attributes)
                                 throws org.xml.sax.SAXException {
-                            if (!uri.isEmpty() || ++depth > 2 || attributes.getLength() > 64)
-                                reject();
+                            if (!uri.isEmpty() || ++depth > 2) reject();
                             for (int i = 0; i < attributes.getLength(); i++)
-                                if (!attributes.getURI(i).isEmpty()
-                                        || attributes.getValue(i).length() > 4096) reject();
+                                if (!attributes.getURI(i).isEmpty()) reject();
                             if (depth == 1) {
                                 if (root || !"preventions".equals(local)) reject();
                                 root = true;

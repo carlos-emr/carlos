@@ -78,7 +78,6 @@ public class CdsExportEformRenderService {
         RENDERER_UNAVAILABLE("the rendering browser was unavailable"),
         NOT_IN_THIS_PROCESS("the export ran outside the web application, which renders eForms"),
         CHANGED("the eForm changed while the export ran"),
-        TOO_LARGE("the rendered form exceeded the export's document size limit"),
         NOT_PREPARED("rendering was not attempted");
 
         private final String description;
@@ -192,9 +191,6 @@ public class CdsExportEformRenderService {
                 TimeUnit.MILLISECONDS.toNanos(
                         CdsExportActivePlanService.number(
                                 settings, "eformRenderIntervalMillis", 250, 0, 60_000));
-        long maximumBytes =
-                CdsExportActivePlanService.number(
-                        settings, "maxDocumentBytes", 1_073_741_824L, 1, 1L << 40);
         long started = clock.getAsLong();
         if (open.get() && started - openUntil.get() < 0)
             return Outcome.unavailable(Reason.RENDERER_UNAVAILABLE, 0);
@@ -231,7 +227,8 @@ public class CdsExportEformRenderService {
                     // The renderer's own output vanished or cannot be read: a renderer fault.
                     return done(Reason.BROWSER_FAILURE, started, true);
                 }
-                if (bytes > maximumBytes) return done(Reason.TOO_LARGE, started, false);
+                // A rendered form of any size is spooled whole (streamed from the renderer's
+                // file): cds.export.maxDocumentBytes, which dropped a larger one, is retired.
                 if (!pdf) return done(Reason.BROWSER_FAILURE, started, true);
                 // A spool write failure is the export's own storage failing: it stops the job.
                 var file = spool.stage("EFORM_RENDERING", out -> Files.copy(rendered.path(), out));

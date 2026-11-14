@@ -293,10 +293,8 @@ class CdsExportPreventionConfigurationServiceUnitTest {
     }
 
     @Test
-    void shouldVerifyOversizedAndSymlinkConfigurationAreRejected_beforeCreatingOwnedOutput() throws Exception {
-        Files.write(configuration, new byte[1_048_577]);
-        assertThatThrownBy(this::freeze).hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");
-        assertEmpty();
+    void shouldVerifySymlinkConfigurationIsRejected_beforeCreatingOwnedOutput() throws Exception {
+        // A configuration of any size is read (1 MiB used to stop every export); a link is not.
         Files.delete(configuration);
         Files.createSymbolicLink(configuration, Files.writeString(root.resolve("other.xml"), XML));
         assertThatThrownBy(this::freeze).hasMessage("CDS_EXPORT_PREVENTION_CONFIG_UNAVAILABLE");

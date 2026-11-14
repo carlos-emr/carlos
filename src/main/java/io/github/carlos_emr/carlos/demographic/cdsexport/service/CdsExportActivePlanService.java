@@ -143,7 +143,10 @@ public class CdsExportActivePlanService {
                     "captureTimeoutSeconds",
                     // The count of one chart's rows and occurrences: hospital reports, its last
                     // reader, are read window by window (CdsExportSectionWindowPlanner).
-                    "maxIndexRows");
+                    "maxIndexRows",
+                    // The size of one stored document, HRM report file or rendered eForm: a file
+                    // of any size is streamed into the capture or spool and is a package member.
+                    "maxDocumentBytes");
 
     private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
             new java.util.concurrent.atomic.AtomicBoolean();

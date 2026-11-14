@@ -172,38 +172,33 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void shouldVerifyEnforcesByteElementAndAttributeBounds_withoutTruncating() {
-        assertThatThrownBy(
-                        () ->
-                                CdsExportPreventionClassifier.fromCaptured(
-                                        SOURCE, new byte[1_048_577], List.of()))
-                .isInstanceOf(IOException.class);
+    void shouldClassifyAConfigurationOfAnySize_andRefuseOnlyANameNoColumnHolds() throws Exception {
+        // The clinic's own configuration: its size, an item's number of attributes and an
+        // attribute's length used to stop every export (1 MiB, 64, 4,096). Only the item name
+        // keeps its bound, the prevention type column it names (varchar(255)).
+        String attributes =
+                java.util.stream.IntStream.range(0, 65)
+                        .mapToObj(i -> "a" + i + "='x' ")
+                        .collect(java.util.stream.Collectors.joining());
+        var items = new StringBuilder("<preventions>");
+        items.append("<item name='Td' layout='injection' desc='")
+                .append("X".repeat(4097))
+                .append("' ")
+                .append(attributes)
+                .append("/>");
+        while (items.length() <= 1_048_576)
+            items.append("<item name='Item").append(items.length()).append("' layout='injection'/>");
+        items.append("</preventions>");
+        byte[] large = items.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(large.length).isGreaterThan(1_048_576);
+        var classifier = CdsExportPreventionClassifier.fromCaptured(SOURCE, large, List.of());
+        assertThat(classifier).isNotNull();
         assertThatThrownBy(
                         () ->
                                 from(
                                         "<preventions><item name='"
                                                 + "X".repeat(256)
                                                 + "'/></preventions>",
-                                        List.of()))
-                .isInstanceOf(IOException.class);
-        assertThatThrownBy(
-                        () ->
-                                from(
-                                        "<preventions><item name='Td' desc='"
-                                                + "X".repeat(4097)
-                                                + "'/></preventions>",
-                                        List.of()))
-                .isInstanceOf(IOException.class);
-        assertThatThrownBy(
-                        () ->
-                                from(
-                                        "<preventions><item name='Td' "
-                                                + java.util.stream.IntStream.range(0, 65)
-                                                        .mapToObj(i -> "a" + i + "='x' ")
-                                                        .collect(
-                                                                java.util.stream.Collectors
-                                                                        .joining())
-                                                + "/></preventions>",
                                         List.of()))
                 .isInstanceOf(IOException.class);
     }
