@@ -1171,6 +1171,97 @@ whose members are stored uncompressed. Lifting these for a genuine export withou
 them for a crafted archive needs a package the import can verify (a manifest of member count
 and bytes sealed by the exporter and checked before extraction); that is not built.
 
+#### Continuing a stopped export: what is kept, and what reuse needs
+
+This is a design and the facts it rests on. Reuse of finished charts across attempts is not
+built: it cannot be done safely inside the current design without a retention decision, a
+ledger change and a guarantee from the capture that are each outside the packaging step.
+
+**What an attempt keeps, and what the next one can see.** Nothing clinical survives an attempt
+that does not reach READY:
+
+- Every claim is a new attempt: `CdsExportLedgerService.claim` increments the owner epoch, clears
+  the run's cohort and artifact pointers (`resetAttemptEvidence`) and returns to DISCOVERING.
+  `resume` and `release` clear the same pointers. The ledger keeps the request, the events, the
+  attempt rows and, for an attempt that prepared a package, its artifact context; it keeps no
+  pointer to a chart of an attempt that stopped earlier.
+- Every attempt has its own store: `CdsExportStagingFactory.create` makes the directory
+  `<root>/<run>/<epoch>` and refuses an existing one. Each staged member's header and key
+  derivation are bound to `<run>/<epoch>` (`CdsExportStagingService.binding`), so a member of
+  one attempt is not a member of another; it can still be read through
+  `openExisting(run, earlierEpoch, binding)`.
+- A stopped job gives its files up at once: `finish` with FAILED, REVIEW_REQUIRED or CANCELLED
+  calls `attempts.expireForRun`, and the retention sweep erases every attempt directory of the
+  run within about a minute (`CdsExportRetentionService`). That was a deliberate privacy and
+  disk decision. Only an attempt that lost its worker (a restart, a crash, an expired lease
+  before any outcome) leaves its directory until the seven-day attempt ceiling.
+- The roster is discovered again (`CdsExportSelectionService.capture`), and the cohort manifest
+  names the epoch, so its digest differs in every attempt. Each capture receipt
+  (`CdsExportNativeCaptureDto`), each finished document (`CdsExportPatientDocumentService
+  .Document`) and each file binding carries the run, the epoch and that cohort digest, and the
+  services that read them check all three.
+- `compose` erases what it staged when it fails, and its chart spool with it.
+  `CdsExportVerifiedCaptures` lives inside one patient's authorization session and is zeroed
+  when the patient ends. Nothing in memory outlives the attempt.
+
+**What a resumed attempt would reuse.** Not the capture members: they are bound to the old
+cohort and are intermediates. The unit of reuse is the finished chart as the packaging step
+already records it for its own spool: the patient number, the archive path and naming record,
+the validated XML member and its digest and counts, the attachment members, the note scopes and
+the ReadMe counts. Everything after the capture loop (re-authorization, disclosure manifest,
+supporting files, inventory, archive, delivery) needs only that record and those members.
+
+**How a changed chart is detected.** A chart is reused only when a fresh capture of the
+patient's source rows is identical to the one its finished chart was built from. The resumed
+attempt captures the patient as it does now (`CdsExportNativeCaptureService.capture`, the same
+reads, the same authorization session and audit) and compares a fingerprint of that capture
+with the fingerprint stored beside the finished chart: the captured tables with their column
+sets, row counts and schema digests, and the length and SHA-256 of the capture's value and index
+members. `CdsExportNativeCaptureComposer` writes those two members from the rows alone (no run,
+epoch or time). Equal fingerprints: the fresh capture is discarded and the finished chart is
+adopted, skipping the retained-payload freeze, every occurrence service, the XML composition and
+validation, the document files and the eForm rendering. Any difference, or no stored chart: the
+attempt goes on with the fresh capture exactly as today. A chart is therefore never reused on
+the strength of a timestamp or a counter, and never silently. Authorization is not part of the
+fingerprint and is not reused: the three cohort passes (`beginAuthorizationPass`, the live
+gates, `authorizeNotes`) run over adopted charts as over new ones.
+
+What the fingerprint does not cover is what a finished chart took from outside the patient's
+captured rows: stored document files, eForm templates and renderings, and clinic-wide reference
+rows read while mapping. A single long attempt has the same property (a chart finished in its
+first hour is not rebuilt when a template changes in its tenth), so an adopted chart is
+equivalent to a chart of a longer attempt, but that equivalence is a decision to be taken, not
+an oversight to inherit.
+
+**Why this is not built here.** Four things are missing, none of them in the packaging step:
+
+1. *Retention.* The files of a stopped attempt must outlive it until a resumed attempt has
+   adopted them or a deadline passes. `finish` erases them at once on purpose. Keeping a stopped
+   job's finished charts on disk, and for how long, is a privacy decision.
+2. *A durable, pinned checkpoint.* The finished-chart records must be sealed where a later
+   attempt can find them and trust them. Every member the export reads back is pinned by a
+   digest the ledger or a sealed manifest holds, never found by listing a directory. A stopped
+   attempt has no such pointer: `cds_export_attempt` holds a context only for a prepared
+   package. That needs a column (a migration) or a second meaning for the context columns.
+3. *A deterministic capture.* The comparison is only sound if two captures of unchanged rows
+   are byte-identical: a fixed row order for every table reader and nothing attempt-specific in
+   the value and index members. The capture service, composer and reader are being changed
+   separately and must state and test that property.
+4. *Adoption in the new attempt's own terms.* An adopted member must become a member of the new
+   attempt (copied into its store, so its scope, ownership manifest and cleanup are the new
+   attempt's), and the chart audit, the progress counters and the held-patient list must say
+   what was read and what was adopted.
+
+**The smallest safe step.** Seal the chart spool as it grows: write each finished chart's
+record, with its capture fingerprint, to a `CHART_CHECKPOINT` member chain of the attempt and
+record the latest member's identifier, digest and chart count on the attempt row at each
+heartbeat. That changes nothing an export produces, gives a stopped attempt an exact, pinned
+list of what it finished, and makes the progress the operator sees (charts finished, not just
+charts read) survive the attempt. Adoption then becomes: open the previous attempt's checkpoint
+through `openExisting`, and for each cohort patient with a record, capture, compare and copy.
+Until the four points above are settled, a stopped export starts again from its first chart,
+which is why the first protection of a long export remains not stopping it.
+
 This change targets `release/2026.08`, integrating through
 `9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
 Its released migration bytes are identical to the pinned upgrade SQL baseline, that same commit
