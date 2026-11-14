@@ -484,6 +484,209 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                 .requireRepresentable(carrier.rows(), carrier.fields(), 1_000_000, () -> {});
     }
 
+    @Test
+    void shouldRestoreTheStoredSlotNotesAndSchedulerContext_whenTheCarlosImporterReadsTheExport()
+            throws Exception {
+        // CARLOS to CARLOS: a booking that runs past midnight, with notes longer than the CDS
+        // element and scheduler values CDS has no field for. The export writes the element by
+        // its documented rules and the appointment's source record; the importer proves the
+        // record against the element and restores the exact stored values.
+        var stored = new TreeMap<String, String>();
+        stored.put("start_time", "23:30:00");
+        stored.put("end_time", "00:29:00");
+        stored.put("notes", "n".repeat(32500));
+        stored.put("location", "Main Clinic");
+        stored.put("type", "Follow-up visit");
+        stored.put("resources", "Room 2");
+        stored.put("urgency", "critical");
+        stored.put("style", "1");
+        stored.put("billing", "B");
+        stored.put("bookingSource", "OSCAR");
+        var f =
+                fixture(
+                        new CdsExportAppointmentFieldReconcilerUnitTest().nativeFixture(stored),
+                        false);
+        selectNewCategory(f);
+        var occurrences = new ArrayList<CdsExportAppointmentOccurrenceService.Occurrence>();
+        new CdsExportAppointmentOccurrenceService(
+                        f.values, f.verification, f.witnesses, f.captures, f.rows, f.zones)
+                .forEachOccurrence(
+                        f.lease,
+                        f.patient,
+                        PATIENT,
+                        f.tables,
+                        f.source,
+                        file("4", "RETAINED_MANIFEST"),
+                        new CdsExportClinicalOccurrenceService.Bounds(
+                                100000, 8L << 20, 1000, 8L << 20, 100, 1000),
+                        f.control,
+                        occurrences::add);
+        assertThat(occurrences).hasSize(1);
+        var occurrence = occurrences.getFirst();
+        var carrier =
+                CdsExportAppointmentSourceMapper.map(
+                        occurrence.ordinal(),
+                        occurrence.row(),
+                        occurrence.lookups(),
+                        occurrence.complete());
+        var patient = new TreeMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(column -> patient.put(column, null));
+        patient.putAll(
+                Map.of(
+                        "first_name", "Synthetic",
+                        "last_name", "Fixture",
+                        "year_of_birth", "1980",
+                        "month_of_birth", "01",
+                        "date_of_birth", "01",
+                        "patient_status", "AC",
+                        "sex", "U"));
+        var demographic =
+                new CdsExportDemographicMapper().map(new CdsExportDemographicRowDto(27, patient));
+        var selected =
+                Set.of(
+                        CdsCategory.DEMOGRAPHICS,
+                        CdsCategory.APPOINTMENTS,
+                        CdsCategory.NEW_CATEGORY);
+        var sections =
+                List.of(
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        PATIENT, CdsCategory.DEMOGRAPHICS, "f".repeat(64)),
+                                xml -> new CdsExportDemographicXmlWriter().write(demographic, xml)),
+                        new CdsExportXmlComposer.Section(
+                                occurrence.identity(), occurrence.content()),
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(
+                                        PATIENT, CdsCategory.NEW_CATEGORY, "e".repeat(64)),
+                                xml -> CdsExportAppointmentSourceMapper.write(carrier, xml)));
+        var output = new ByteArrayOutputStream();
+        new CdsExportXmlComposer()
+                .compose(
+                        output,
+                        HASH,
+                        PATIENT,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        sections.iterator(),
+                        ignored -> {},
+                        8L << 20,
+                        () -> {});
+        // The package's own gate: the document with the source record is schema-valid.
+        new CdsExportXmlValidator()
+                .validate(
+                        new ByteArrayInputStream(output.toByteArray()),
+                        "27",
+                        selected,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        CdsExportXmlLimitsDto.defaults(),
+                        ignored -> {},
+                        () -> {});
+        var folder = Files.createTempDirectory(directory, "transfer-");
+        var received = new ArrayList<CdsRecordDto>();
+        new CdsXmlParser()
+                .parse(
+                        Files.write(folder.resolve("patient.xml"), output.toByteArray()),
+                        folder.resolve("parsed"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        received::add);
+        var element =
+                received.stream()
+                        .filter(record -> record.section().equals("Appointments"))
+                        .findFirst()
+                        .orElseThrow();
+        var parser = new CdsFieldParser();
+        // What any receiver reads: the start, 60 minutes, and notes cut at the CDS limit.
+        assertThat(parser.firstText(element, "Duration", 8)).isEqualTo("60");
+        assertThat(parser.firstText(element, "AppointmentNotes", 32768))
+                .hasSize(32000)
+                .endsWith(CdsExportAppointmentMapper.SHORTENED_MARK);
+        // What a receiving CARLOS restores.
+        var settings = new Properties();
+        settings.setProperty("cds.import.clinicalZone", "America/Toronto");
+        var providers = mock(CdsProviderResolver.class);
+        when(providers.resolve(any(), any(), any(), any(), anyBoolean()))
+                .thenReturn(
+                        new CdsProviderMatchDto(
+                                null, CdsProviderMatchDto.Outcome.SOURCE_IDENTITY_ABSENT));
+        var preparation = mock(CdsNativePreparationService.class);
+        var appointmentDao = mock(io.github.carlos_emr.carlos.commn.dao.OscarAppointmentDao.class);
+        var demographicDao = mock(io.github.carlos_emr.carlos.commn.dao.DemographicDao.class);
+        var importer =
+                new CdsAppointmentPersister(
+                        parser,
+                        new CdsClinicalNormalizationService(parser),
+                        new CdsImportConfigurationService(settings),
+                        providers,
+                        preparation,
+                        appointmentDao,
+                        demographicDao);
+        var command =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.command.CdsImportCommand(
+                        folder,
+                        "owned-submission",
+                        "999998",
+                        null,
+                        null,
+                        "clinic",
+                        "pcon-2024-02",
+                        false,
+                        false,
+                        true,
+                        0,
+                        null,
+                        false);
+        importer.prepare("run", 1, "unit", element, command);
+        var prepared = org.mockito.ArgumentCaptor.forClass(Object.class);
+        verify(preparation)
+                .store(eq("run"), eq(1L), eq("unit"), anyString(), eq(command), prepared.capture());
+        var dto = (CdsAppointmentNativeDto) prepared.getValue();
+        assertThat(dto.representable()).isTrue();
+        assertThat(dto.date()).isEqualTo(occurrence.row().fields().get("appointment_date"));
+        assertThat(dto.start()).isEqualTo("23:30");
+        assertThat(dto.end()).isEqualTo("00:29");
+        assertThat(dto.notes()).isEqualTo("n".repeat(32500));
+        assertThat(dto.source().nativeEnd()).isTrue();
+        assertThat(dto.source().completeNotes()).isTrue();
+        assertThat(dto.diagnostics())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .contains("CDS_APPOINTMENT_SOURCE_RECORD_APPLIED")
+                .doesNotContain("CDS_APPOINTMENT_CROSS_MIDNIGHT_SOURCE_ONLY");
+        when(preparation.load(
+                        "run", 1, "unit", element.sha256(), command, CdsAppointmentNativeDto.class))
+                .thenReturn(dto);
+        doAnswer(
+                        call -> {
+                            ((io.github.carlos_emr.carlos.commn.model.Appointment)
+                                            call.getArgument(0))
+                                    .setId(9);
+                            return null;
+                        })
+                .when(appointmentDao)
+                .persist(any(io.github.carlos_emr.carlos.commn.model.Appointment.class));
+        when(demographicDao.getDemographicById(42))
+                .thenReturn(new io.github.carlos_emr.carlos.commn.model.Demographic());
+        importer.write("run", 1, "unit", 42, element, command, notice -> {});
+        var written =
+                org.mockito.ArgumentCaptor.forClass(
+                        io.github.carlos_emr.carlos.commn.model.Appointment.class);
+        verify(appointmentDao).persist(written.capture());
+        var row = written.getValue();
+        assertThat(row.getStartTime()).isEqualTo(java.sql.Time.valueOf("23:30:00"));
+        assertThat(row.getEndTime()).isEqualTo(java.sql.Time.valueOf("00:29:00"));
+        assertThat(row.getNotes()).isEqualTo(stored.get("notes"));
+        assertThat(row.getLocation()).isEqualTo("Main Clinic");
+        assertThat(row.getType()).isEqualTo("Follow-up visit");
+        assertThat(row.getResources()).isEqualTo("Room 2");
+        assertThat(row.getUrgency()).isEqualTo("critical");
+        assertThat(row.getStyle()).isEqualTo("1");
+        assertThat(row.getBilling()).isEqualTo("B");
+        assertThat(row.getBookingSource())
+                .isEqualTo(io.github.carlos_emr.carlos.commn.model.Appointment.BookingSource.OSCAR);
+    }
+
     private static void selectNewCategory(Fixture f) {
         var old = f.lease.document();
         var command =

@@ -413,8 +413,95 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
 
     private record Reconciled(
             CdsExportMedicationFieldReconciler.Result result,
-            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto
-                    row) {}
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportCapturedTextRowDto row,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportRetainedIndexDto index,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                            .CdsExportRetainedReceiptVerificationDto
+                    checked) {}
+
+    @Test
+    void shouldCarryTheCurrentRowOfAStoredImportedPrescription_throughExportAndImport(
+            @org.junit.jupiter.api.io.TempDir Path directory) throws Exception {
+        // An imported prescription, written by the real persister and DAO, is then hidden from
+        // the CPP (RxHideCpp2Action updates hide_cpp in place). The row read back through the
+        // owning DAO reconciles without a hold; the retained assembler adds
+        // CARLOS.Medication.CurrentSource.v1 with that stored row; the composed, schema-valid
+        // document is read by the CARLOS importer, which keeps the carrier as protected source.
+        var prepared = CdsExportMedicationFieldReconcilerUnitTest.source();
+        var outcome =
+                reconcileActualProjection(
+                        prepared,
+                        CdsExportMedicationFieldReconcilerUnitTest.fixture(
+                                CdsExportMedicationFieldReconcilerUnitTest.baseline(),
+                                CdsExportMedicationFieldReconcilerUnitTest.numbers(),
+                                true),
+                        null,
+                        "update drugs set hide_cpp=1 where drugid=? and demographic_no=?");
+        var result = outcome.result();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(outcome.row().fields()).containsEntry("hide_cpp", "1");
+        assertThat(result.currentSource()).isNotNull();
+        var assembled =
+                CdsExportMedicationRetainedAssemblerUnitTest.attach(
+                        patient,
+                        outcome.index(),
+                        outcome.checked(),
+                        result,
+                        null,
+                        false,
+                        true,
+                        List.of());
+        var plan = CdsExportMedicationRetainedAssemblerUnitTest.prepare(assembled, patient);
+        var record =
+                CdsExportMedicationRetainedAssemblerUnitTest.parse(
+                                directory, plan.content(), "stored-current-source")
+                        .get(1);
+        var parser =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsFieldParser();
+        var names = new ArrayList<String>();
+        var contents = new ArrayList<String>();
+        parser.forEachField(
+                record,
+                field -> {
+                    try {
+                        String path =
+                                io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                        .CdsFieldParser.unindexed(field.path());
+                        if (path.equals("ResidualInfo/DataElement/Name"))
+                            names.add(parser.readToken(record, field, 128));
+                        if (path.equals("ResidualInfo/DataElement/Content"))
+                            contents.add(parser.readToken(record, field, 1 << 20));
+                    } catch (java.io.IOException invalid) {
+                        throw new java.io.UncheckedIOException(invalid);
+                    }
+                });
+        int carrier =
+                names.indexOf(
+                        io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(carrier).isNotNegative();
+        var stored =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(contents.get(carrier))
+                        .get("fields");
+        // Every column of the row MariaDB holds is in the carrier, exactly.
+        outcome.row()
+                .fields()
+                .forEach(
+                        (column, value) -> {
+                            assertThat(stored.has(column)).as(column).isTrue();
+                            if (value == null) assertThat(stored.get(column).isNull()).isTrue();
+                            else assertThat(stored.get(column).asText()).isEqualTo(value);
+                        });
+        assertThat(stored.get("hide_cpp").asText()).isEqualTo("1");
+        assertThat(stored.get("demographic_no").asText()).isEqualTo(Integer.toString(patient));
+        // The importer reads the prescription; the carrier does not disturb it.
+        var imported =
+                new io.github.carlos_emr.carlos.demographic.cdsimport.service
+                                .CdsClinicalNormalizationService(parser)
+                        .medication(record);
+        assertThat(imported.din()).isEqualTo("00123456");
+    }
 
     /**
      * Persists the importer's projection of {@code preparedSource} through the real persister and
@@ -425,6 +512,19 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
             io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto preparedSource,
             CdsExportMedicationFieldReconcilerUnitTest.Fixture base,
             String editedNote)
+            throws Exception {
+        return reconcileActualProjection(preparedSource, base, editedNote, null);
+    }
+
+    /**
+     * @param edit an SQL update of the stored prescription run after the import's receipt, with
+     *     the drug id and the patient as its two parameters; null for none
+     */
+    private Reconciled reconcileActualProjection(
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto preparedSource,
+            CdsExportMedicationFieldReconcilerUnitTest.Fixture base,
+            String editedNote,
+            String edit)
             throws Exception {
         var drugs = context.getBean(DrugDaoImpl.class);
         var persister =
@@ -478,6 +578,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                         editedNote,
                         inserted,
                         patient);
+            if (edit != null) sql.update(edit, inserted, patient);
             var currentReceipt =
                     write.execute(
                             status ->
@@ -637,7 +738,7 @@ class CdsExportMedicationCaptureMariaDbIntegrationTest {
                                             now),
                                     List.of(),
                                     Map.of());
-            return new Reconciled(result, row);
+            return new Reconciled(result, row, index, checked);
         } finally {
             Integer cleanupId = inserted == null ? candidate.getId() : inserted;
             if (cleanupId != null)

@@ -261,6 +261,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionFileServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSelectionIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportServiceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceCarrierMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceCatalogueUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceRecipeUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSchemaValidatorUnitTest",

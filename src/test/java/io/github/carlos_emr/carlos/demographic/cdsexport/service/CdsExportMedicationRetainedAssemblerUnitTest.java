@@ -603,8 +603,20 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
     }
 
     private static CdsExportRetainedSectionWriter.Prepared prepare(Fixture f) throws Exception {
+        return prepare(f, 27);
+    }
+
+    static CdsExportRetainedSectionWriter.Prepared prepare(Fixture f, int patient)
+            throws Exception {
         return new CdsExportMedicationRetainedAssembler()
-                .prepare(27, f.decision(), f.index(), f.checked(), f.fields(), inline(), () -> {});
+                .prepare(
+                        patient,
+                        f.decision(),
+                        f.index(),
+                        f.checked(),
+                        f.fields(),
+                        inline(),
+                        () -> {});
     }
 
     static Fixture fixture(Map<String, String> current) throws Exception {
@@ -675,6 +687,32 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                         source,
                         baseline);
         var decision = CdsExportMedicationFieldReconcilerUnitTest.reconcile(base);
+        return attach(
+                27,
+                base.index(),
+                base.checked(),
+                decision,
+                strengthPayload,
+                omitStrength,
+                sourceExtras,
+                senderMarkers);
+    }
+
+    /**
+     * Adds the retained source fields of the occurrence to a reconciled unit, so its decision can
+     * be assembled. Also used with a unit reconciled from rows actually stored in MariaDB.
+     */
+    static Fixture attach(
+            int patient,
+            CdsExportRetainedIndexDto baseIndex,
+            CdsExportRetainedReceiptVerificationDto baseChecked,
+            CdsExportMedicationFieldReconciler.Result decision,
+            Path strengthPayload,
+            boolean omitStrength,
+            boolean sourceExtras,
+            List<List<String>> senderMarkers)
+            throws Exception {
+        boolean sourceOnlyStrength = strengthPayload != null;
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("DrugName[1]", "cds", "Original café drug"));
         fields.add(field("DrugIdentificationNumber[1]", "cds", "00123456"));
@@ -718,8 +756,8 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
             fields.add(field(element + "Content[1]", "cds_dt", senderMarkers.get(i).get(2)));
         }
         var metadata = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
-        for (var field : fields) metadata.put(field.id(), metadata(field));
-        var tables = new LinkedHashMap<>(base.index().tables());
+        for (var field : fields) metadata.put(field.id(), metadata(field, patient));
+        var tables = new LinkedHashMap<>(baseIndex.tables());
         tables.put("cds_import_field", metadata);
         var sourceRefs =
                 fields.stream()
@@ -728,12 +766,12 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                                         new CdsExportRetainedIndexDto.Reference(
                                                 "cds_import_field", field.id(), "c".repeat(64)))
                         .toList();
-        var references = new LinkedHashMap<>(base.index().references());
+        var references = new LinkedHashMap<>(baseIndex.references());
         references.put(FIELD_ADDRESS, sourceRefs);
         var index =
                 new CdsExportRetainedIndexDto(
-                        base.index().sourceManifestSha256(),
-                        base.index().metadataRows() + fields.size(),
+                        baseIndex.sourceManifestSha256(),
+                        baseIndex.metadataRows() + fields.size(),
                         16384,
                         tables,
                         Set.of(ADDRESS, FIELD_ADDRESS),
@@ -742,20 +780,20 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                                 .collect(
                                         java.util.stream.Collectors.toMap(
                                                 CdsExportRetainedFieldDto::id, field -> ADDRESS)));
-        var units = new LinkedHashMap<>(base.checked().units());
+        var units = new LinkedHashMap<>(baseChecked.units());
         units.put(
                 FIELD_ADDRESS,
                 sourceRefs.stream()
                         .map(ref -> new CheckedReference(ref, ref.digest(), Reason.UNCHANGED_ROW))
                         .toList());
-        var unchanged = new HashSet<>(base.checked().unchangedUnits());
+        var unchanged = new HashSet<>(baseChecked.unchangedUnits());
         unchanged.add(FIELD_ADDRESS);
         var checked =
                 new CdsExportRetainedReceiptVerificationDto(
                         index.sourceManifestSha256(),
                         units,
                         unchanged,
-                        base.checked().reviewUnits());
+                        baseChecked.reviewUnits());
         return new Fixture(index, checked, decision, fields);
     }
 
@@ -814,7 +852,7 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                         path.toAbsolutePath().normalize().toString(), digest, 0, bytes.length));
     }
 
-    private static CdsExportCapturedTextRowDto metadata(CdsExportRetainedFieldDto f) {
+    private static CdsExportCapturedTextRowDto metadata(CdsExportRetainedFieldDto f, int patient) {
         var values = new LinkedHashMap<String, String>();
         CdsExportPatientTableReadSupport.Plan.IMPORT_FIELDS
                 .columns()
@@ -830,7 +868,7 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                         "unit_key",
                         f.fieldUnitKey(),
                         "demographic_no",
-                        "27",
+                        Integer.toString(patient),
                         "category",
                         f.category().wireName(),
                         "source_path",
@@ -872,6 +910,12 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
 
     private List<CdsRecordDto> parse(CdsExportXmlComposer.Content content, String name)
             throws Exception {
+        return parse(directory, content, name);
+    }
+
+    /** The occurrence composed into a patient document and read back by the CARLOS importer. */
+    static List<CdsRecordDto> parse(
+            Path directory, CdsExportXmlComposer.Content content, String name) throws Exception {
         var patient = new LinkedHashMap<String, String>();
         CdsExportDemographicRowDto.COLUMNS.forEach(c -> patient.put(c, null));
         patient.putAll(

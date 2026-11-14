@@ -4079,6 +4079,26 @@
               "name": "shouldReconcileAnActuallyPersistedRestoredQuantityUnitAndAsNeededFlag_withoutAHold",
               "container": "",
               "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldCarryTheCurrentRowOfAStoredImportedPrescription_throughExportAndImport",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceCarrierMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldCarryAStoredAllergyRowWithValuesCdsHasNoElementFor_throughExportAndImport",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldRestoreAStoredAppointmentExactly_inAnotherChartThroughExportAndImport",
+              "container": "",
+              "check": "java-cds-transfer-export"
             }
           ]
         },
