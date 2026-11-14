@@ -48,6 +48,7 @@ import io.github.carlos_emr.carlos.utility.MiscUtils;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBean;
 import io.github.carlos_emr.carlos.encounter.oscarMeasurements.bean.EctMeasurementsDataBeanHandler;
 import io.github.carlos_emr.carlos.prevention.PreventionData;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -70,6 +71,7 @@ public class FOBTReport implements PreventionReport {
     public Hashtable<String, Object> runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate) {
 
         int inList = 0;
+        int unreadable = 0;
         double done = 0, doneWithGrace = 0;
         ArrayList<PreventionReportDisplay> returnReport = new ArrayList<PreventionReportDisplay>();
 
@@ -78,10 +80,22 @@ public class FOBTReport implements PreventionReport {
             Integer demo = Integer.valueOf(fieldList.get(0));
 
             //search   prevention_date prevention_type  deleted   refused
-            ArrayList<Map<String, Object>> prevs = PreventionData.getExactPreventionData(loggedInInfo, "FOBT", demo);
+            // Both reads decide this patient's row, so either failing makes the row unreadable.
+            ArrayList<Map<String, Object>> prevs;
+            ArrayList<Map<String, Object>> colonoscopys;
+            try {
+                prevs = PreventionData.getExactPreventionData(loggedInInfo, "FOBT", demo);
+                colonoscopys = PreventionData.getExactPreventionData(loggedInInfo, "COLONOSCOPY", demo);
+            } catch (PreventionSourceUnavailableException unavailable) {
+                // One unreadable chart must neither abort the report nor vanish from it: the
+                // patient is listed as "could not be read" and counted for the page's notice.
+                returnReport.add(PreventionReportDisplay.unreadable(demo));
+                PreventionData.logUnreadable("FOBT prevention report", demo);
+                unreadable++;
+                continue;
+            }
 
             ArrayList<Map<String, Object>> noFutureItems = removeFutureItems(prevs, asofDate);
-            ArrayList<Map<String, Object>> colonoscopys = PreventionData.getExactPreventionData(loggedInInfo, "COLONOSCOPY", demo);
 
             PreventionReportDisplay prd = new PreventionReportDisplay();
             prd.demographicNo = demo;
@@ -202,6 +216,7 @@ public class FOBTReport implements PreventionReport {
         h.put("percent", percentStr);
         h.put("percentWithGrace", percentWithGraceStr);
         h.put("returnReport", returnReport);
+        h.put(UNREADABLE_COUNT, "" + unreadable);
         h.put("inEligible", "" + inList);
         h.put("eformSearch", "FOBT");
         h.put("followUpType", "FOBF");

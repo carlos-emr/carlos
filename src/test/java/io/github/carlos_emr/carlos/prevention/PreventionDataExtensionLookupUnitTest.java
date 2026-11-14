@@ -86,9 +86,31 @@ class PreventionDataExtensionLookupUnitTest extends CarlosUnitTestBase {
                 LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
             org.assertj.core.api.Assertions.assertThatThrownBy(
                             () -> PreventionData.getPreventionDataFromExt("workflowId", "17"))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("PREVENTION_SOURCE_UNAVAILABLE");
+                    .isExactlyInstanceOf(
+                            io.github.carlos_emr.carlos.prevention.dto
+                                    .PreventionSourceUnavailableException.class)
+                    .hasCauseInstanceOf(
+                            org.springframework.dao.DataAccessResourceFailureException.class)
+                    // The exception's own text is fixed: it never repeats the failure's.
+                    .hasMessageNotContaining(CLINICAL_MARKER);
             assertThat(logs.messages()).noneMatch(message -> message.contains(CLINICAL_MARKER));
+            // The record read failed inside the extension lookup: reported once, not once per reader.
+            assertThat(logs.messages())
+                    .filteredOn(message -> message.contains("PREVENTION_SOURCE_UNAVAILABLE"))
+                    .hasSize(1);
+        }
+    }
+
+    @Test
+    void shouldLogOneSanitizedLine_whenACallerShowsTheReadAsUnreadable() {
+        try (LogCapture logs = LogCapture.forLogger(PreventionData.class)) {
+            PreventionData.logUnreadable("flowsheet\r\nforged entry", "7\nforged entry");
+
+            assertThat(logs.messages()).hasSize(1);
+            assertThat(logs.messages().get(0))
+                    .startsWith("PREVENTION_SOURCE_UNAVAILABLE shown as unreadable by flowsheet")
+                    .contains("demographicNo=7")
+                    .doesNotContain("\r", "\n");
         }
     }
 

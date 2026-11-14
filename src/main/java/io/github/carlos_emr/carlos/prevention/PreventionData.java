@@ -43,6 +43,7 @@ import io.github.carlos_emr.carlos.commn.dao.PreventionDao;
 import io.github.carlos_emr.carlos.commn.dao.PreventionExtDao;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDateDTO;
 import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.managers.DHIRSubmissionManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
@@ -65,9 +66,29 @@ public class PreventionData {
         // prevent instantiation
     }
 
-    private static IllegalStateException sourceUnavailable(Exception failure) {
-        log.error("PREVENTION_SOURCE_UNAVAILABLE {}", io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
-        return new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE", failure);
+    private static PreventionSourceUnavailableException sourceUnavailable(Exception failure) {
+        if (failure instanceof PreventionSourceUnavailableException alreadyReported) {
+            // One reader calling another (the extension lookup reads each record by id): the
+            // failure was wrapped and logged where it happened, so it is passed on as it is.
+            return alreadyReported;
+        }
+        log.error("{} {}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.exceptionTrace(failure));
+        return new PreventionSourceUnavailableException(failure);
+    }
+
+    /**
+     * Records which caller answered a failed prevention read with its "could not be read" result,
+     * and for which chart. The failure and its stack trace are logged once where the read failed
+     * (see {@link PreventionSourceUnavailableException}), so this line carries identifiers only.
+     *
+     * @param caller        a fixed name for the page, report or service that shows the result
+     * @param demographicNo the chart the read was for, or {@code null} when the caller has none
+     */
+    public static void logUnreadable(String caller, Object demographicNo) {
+        log.warn("{} shown as unreadable by {} for demographicNo={}", PreventionSourceUnavailableException.MESSAGE,
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitize(caller),
+                io.github.carlos_emr.carlos.utility.LogSafe.sanitizeObject(demographicNo));
     }
 
     private static PreventionDateDTO dateOf(Prevention prevention) {

@@ -64,6 +64,8 @@ import io.github.carlos_emr.carlos.demographic.data.DemographicData;
 import io.github.carlos_emr.carlos.managers.CanadianVaccineCatalogueManager;
 import io.github.carlos_emr.carlos.managers.DemographicManager;
 import io.github.carlos_emr.carlos.managers.PreventionManager;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException;
+import io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException;
 import io.github.carlos_emr.carlos.test.logging.LogCapture;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.util.UtilDateUtilities;
@@ -127,7 +129,73 @@ class PreventionPageDataUnitTest extends CarlosUnitTestBase {
         when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenThrow(failure);
         PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("PREVENTION_SOURCE_UNAVAILABLE").hasCause(failure);
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+    }
+
+    @Test
+    @DisplayName("should refuse every type once one read failed, including types already read")
+    void shouldRefuseEveryType_onceOneReadHasFailed() {
+        var failure = new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure");
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7)).thenThrow(failure);
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+        assertThat(pageData.getPreventionData("Flu")).hasSize(1);
+
+        assertThatThrownBy(() -> pageData.getPreventionData("PAP"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+
+        // The Flu rows were read, but a page that showed them now would show part of the history
+        // as the whole of it.
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class).hasCause(failure);
+        assertThatThrownBy(() -> pageData.getPreventionData("MMR"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+        verify(preventionDao, times(0)).findByTypeAndDemoNo("MMR", 7);
+    }
+
+    @Test
+    @DisplayName("should tell a page before it writes anything that the preventions cannot be read")
+    void shouldReportUnreadable_beforeThePageWritesAnyType() {
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("synthetic source failure"));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThat(pageData.canReadAll(java.util.Arrays.asList("Flu", null, "PAP", "MMR"))).isFalse();
+
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionSourceUnavailableException.class);
+    }
+
+    @Test
+    @DisplayName("should read each listed type once when all of them can be read")
+    void shouldKeepPreloadedLists_whenEveryTypeCanBeRead() {
+        Prevention flu = prevention(1, "Flu", 2020);
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenReturn(List.of(flu));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThat(pageData.canReadAll(List.of("Flu", "PAP"))).isTrue();
+
+        assertThat(pageData.getPreventionData("Flu")).hasSize(1);
+        assertThat(pageData.getPreventionData("PAP")).isEmpty();
+        verify(preventionDao, times(1)).findByTypeAndDemoNo("Flu", 7);
+        verify(preventionDao, times(1)).findByTypeAndDemoNo("PAP", 7);
+    }
+
+    @Test
+    @DisplayName("should pass a date that needs review through without remembering it as unreadable")
+    void shouldPassTheDateReviewRefusalThrough_withoutMarkingThePageUnreadable() {
+        when(preventionDao.findByTypeAndDemoNo("Flu", 7)).thenThrow(new PreventionDatePrecisionException());
+        Prevention pap = prevention(2, "PAP", 2021);
+        when(preventionDao.findByTypeAndDemoNo("PAP", 7)).thenReturn(List.of(pap));
+        PreventionPageData pageData = new PreventionPageData(user, PATIENT, demographicManager);
+
+        assertThatThrownBy(() -> pageData.getPreventionData("Flu"))
+                .isExactlyInstanceOf(PreventionDatePrecisionException.class);
+
+        assertThat(pageData.getPreventionData("PAP")).hasSize(1);
     }
 
     @Test

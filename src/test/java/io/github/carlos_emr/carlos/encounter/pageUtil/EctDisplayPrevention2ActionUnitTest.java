@@ -288,8 +288,30 @@ class EctDisplayPrevention2ActionUnitTest {
             assertThat(panel.getItem(0).getURL()).isEqualTo(LIST_HANDLER);
         }
 
+        @Test
+        void shouldPropagateAnyOtherIllegalState_whenOnlyItsMessageNamesAnUnavailableSource() {
+            // The handler recognises the exception type. A different failure that happens to
+            // carry the same text is not a prevention read failure and must not be swallowed.
+            papFailure = new IllegalStateException(
+                    io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException.MESSAGE);
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> render(true, mock(CVCMappingDao.class)))
+                    .isSameAs(papFailure);
+        }
+
+        @Test
+        void shouldPropagateTheDateReviewRefusal_whenAPreventionReadReportsIt() {
+            papFailure = new io.github.carlos_emr.carlos.prevention.dto.PreventionDatePrecisionException();
+
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> render(true, mock(CVCMappingDao.class)))
+                    .isSameAs(papFailure);
+        }
+
         /** Makes the PAP read fail as an unavailable prevention source. */
         private boolean unavailablePap;
+
+        /** Makes the PAP read fail with this exception instead. */
+        private RuntimeException papFailure;
 
         private NavBarDisplayDAO render(boolean canWrite, CVCMappingDao cvcMappingDao) throws Exception {
             Map<String, Object> record = history("917", null);
@@ -341,7 +363,11 @@ class EctDisplayPrevention2ActionUnitTest {
                 data.when(() -> PreventionData.getPreventionKeyValues("917")).thenReturn(new HashMap<>());
                 if (unavailablePap) {
                     data.when(() -> PreventionData.getPreventionData(loggedInInfo, "PAP", 42))
-                            .thenThrow(new IllegalStateException("PREVENTION_SOURCE_UNAVAILABLE"));
+                            .thenThrow(new io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException(
+                                    new java.io.IOException("synthetic source failure")));
+                }
+                if (papFailure != null) {
+                    data.when(() -> PreventionData.getPreventionData(loggedInInfo, "PAP", 42)).thenThrow(papFailure);
                 }
 
                 EctDisplayPrevention2Action action = spy(new EctDisplayPrevention2Action(cvcMappingDao));

@@ -226,6 +226,13 @@
         String percentage = (String) request.getAttribute("percent");
         String percentageWithGrace = (String) request.getAttribute("percentWithGrace");
         ArrayList list = (ArrayList) request.getAttribute("returnReport");
+        // Patients whose preventions could not be read are in the list, marked, never left out.
+        int unreadablePatients = 0;
+        try {
+            unreadablePatients = Integer.parseInt(String.valueOf(request.getAttribute("unreadablePatients")));
+        } catch (NumberFormatException noCount) {
+            unreadablePatients = 0;
+        }
         Date asDate = (Date) request.getAttribute("asDate");
         if (asDate == null) {
             asDate = Calendar.getInstance().getTime();
@@ -234,6 +241,13 @@
         if (list != null) {
     %>
     <div style="margin-top:10px;">
+        <% if (unreadablePatients > 0) { %>
+        <div class="alert alert-danger" role="alert" id="preventionReportIncomplete">
+            <fmt:message key="prevention.reporting.incomplete">
+                <fmt:param value="<%= Integer.valueOf(unreadablePatients) %>"/>
+            </fmt:message>
+        </div>
+        <% } %>
         <form name="frmBatchBill" action="" method="post">
             <input type="hidden" name="${_csrf.parameterName}" value="${_csrf.token}"/>
             <input type="hidden" name="clinic_view" value="<%=CarlosProperties.getInstance().getProperty("clinic_view","")%>">
@@ -323,8 +337,9 @@ else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else if (dis.isUnreadable()) labelClass = "bg-dark";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
+%><span class="badge <%=labelClass%>"><% if (dis.isUnreadable()) { %><fmt:message key="prevention.reporting.unreadable"/><% } else { %><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/><% } %></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
                     <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>
 
@@ -347,8 +362,9 @@ else if ("yellow".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("orange".equals(dis.color)) labelClass = "bg-warning text-dark";
 else if ("pink".equals(dis.color)) labelClass = "bg-info";
 else if ("Magenta".equals(dis.color)) labelClass = "bg-info";
+else if (dis.isUnreadable()) labelClass = "bg-dark";
 else labelClass = "bg-secondary";
-%><span class="badge <%=labelClass%>"><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/></span></td>
+%><span class="badge <%=labelClass%>"><% if (dis.isUnreadable()) { %><fmt:message key="prevention.reporting.unreadable"/><% } else { %><carlos:encode value='<%= StringUtils.defaultString(dis.state) %>' context="html"/><% } %></span></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numShots) %>' context="html"/></td>
                     <td><carlos:encode value='<%= String.valueOf(dis.numMonths) %>' context="html"/></td>
                     <td><carlos:encode value='<%= StringUtils.defaultString(dis.lastDate) %>' context="html"/></td>

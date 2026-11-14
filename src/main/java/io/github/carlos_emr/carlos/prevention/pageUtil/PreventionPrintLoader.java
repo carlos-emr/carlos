@@ -178,6 +178,9 @@ public class PreventionPrintLoader {
      * @throws IllegalArgumentException if no patient has that number
      * @throws RuntimeException if the user may not read the patient, as {@link PreventionPageData}
      *         throws it
+     * @throws io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException if
+     *         any selected type could not be read; no printout is returned, so the types read
+     *         before the failure can never be printed as the whole history
      */
     public Printout load(LoggedInInfo loggedInInfo, String demographicNo, String[] selectedTypes,
                          boolean immunizationsOnly) {

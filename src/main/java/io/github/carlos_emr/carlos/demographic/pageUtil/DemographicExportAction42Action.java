@@ -2878,11 +2878,9 @@ public class DemographicExportAction42Action extends ActionSupport {
                 // otherwise "succeed" here having exported nothing at all.
                 throw new IllegalStateException("No export implementation for supported template " + template);
         }
-        } catch (IllegalStateException failure) {
-            if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(failure.getMessage())) {
-                auditFailure(loggedInInfo, list.size(), failure);
-                throw failure;
-            }
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException failure) {
+            // Recognised by type, never by message text. Every other failure, including the
+            // prevention date-precision refusal, goes to the general handler below unchanged.
             writeExportAuditLog(loggedInInfo, list.size(), "prevention_source_unavailable", "<unavailable>", null);
             if (!response.isCommitted()) {
                 // Same shape as the unsupported-template refusal: status and a fixed reason code

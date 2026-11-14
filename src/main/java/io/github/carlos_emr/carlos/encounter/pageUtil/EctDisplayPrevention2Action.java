@@ -207,8 +207,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                         }
                     }
                 }
-            } catch (IllegalStateException unavailable) {
-                if (!"PREVENTION_SOURCE_UNAVAILABLE".equals(unavailable.getMessage())) throw unavailable;
+            } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
                 // A prevention read failed (logged by PreventionData). Say so in the panel rather
                 // than list the rows that happened to be read as if they were the whole history,
                 // or leave the panel blank.
@@ -218,6 +217,7 @@ public class EctDisplayPrevention2Action extends EctDisplayAction {
                 item.setLinkTitle(getText("encounter.LeftNavBar.PreventionUnavailable"));
                 item.setURL(url);
                 Dao.addItem(item);
+                PreventionData.logUnreadable("encounter prevention panel", demographicNumber);
                 return true;
             }
 

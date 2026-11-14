@@ -144,6 +144,9 @@ public class PreventionReport2Action extends ActionSupport {
         request.setAttribute("percentWithGrace", h.get("percentWithGrace"));
         request.setAttribute("returnReport", h.get("returnReport"));
         request.setAttribute("inEligible", h.get("inEligible"));
+        // Above zero when some charts could not be read: the page then says, above the totals,
+        // that the report is incomplete and for how many patients.
+        request.setAttribute("unreadablePatients", h.get(PreventionReport.UNREADABLE_COUNT));
         request.setAttribute("eformSearch", h.get("eformSearch"));
         request.setAttribute("followUpType", h.get("followUpType"));
         request.setAttribute("BillCode", h.get("BillCode"));

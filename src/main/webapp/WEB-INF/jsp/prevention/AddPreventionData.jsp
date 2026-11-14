@@ -150,7 +150,27 @@
 
     if (id != null) {
 
-        existingPrevention = PreventionData.getPreventionById(id);
+        try {
+            existingPrevention = PreventionData.getPreventionById(id);
+        } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+            // The record could not be read. Showing the entry form with today's date and empty
+            // fields would present defaults as the saved record and let them be saved over it,
+            // so this window shows only the reason.
+            PreventionData.logUnreadable("prevention record popup", demographic_no);
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <title><fmt:message key="prevention.unreadable.label"/></title>
+</head>
+<body>
+<div class="prevention-unreadable" role="alert"
+     style="color:#842029; background:#f8d7da; border:1px solid #f5c2c7; padding:10px 14px; margin:12px; font-family:sans-serif;"><fmt:message key="prevention.unreadable.record"/></div>
+</body>
+</html>
+<%
+            return;
+        }
 
         prevDate = (String) existingPrevention.get("preventionDate");
         prevDate = partialDateDao.getDatePartial(prevDate, PartialDate.PREVENTION, Integer.parseInt(id), PartialDate.PREVENTION_PREVENTIONDATE);

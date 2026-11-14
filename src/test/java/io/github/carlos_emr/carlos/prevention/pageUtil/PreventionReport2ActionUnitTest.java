@@ -6,6 +6,11 @@
 package io.github.carlos_emr.carlos.prevention.pageUtil;
 
 import io.github.carlos_emr.carlos.managers.SecurityInfoManager;
+import io.github.carlos_emr.carlos.prevention.reports.PreventionReport;
+import io.github.carlos_emr.carlos.prevention.reports.PreventionReportFactory;
+import io.github.carlos_emr.carlos.report.data.RptDemographicQueryBuilder;
+import io.github.carlos_emr.carlos.report.data.RptDemographicQueryLoader;
+import io.github.carlos_emr.carlos.report.pageUtil.RptDemographicReport2Form;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 
@@ -88,6 +93,40 @@ class PreventionReport2ActionUnitTest extends CarlosUnitTestBase {
         request.addParameter("prevention", "not-a-report");
 
         assertThat(new PreventionReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+    }
+
+    @Test
+    @DisplayName("should pass the count of unreadable patients to the page with the report")
+    void shouldPublishUnreadableCount_whenTheReportCouldNotReadSomePatients() {
+        request.addParameter("patientSet", "1");
+        request.addParameter("prevention", "Flu");
+        request.addParameter("asofDate", "2026-11-01");
+        java.util.ArrayList<PreventionReportDisplay> rows = new java.util.ArrayList<>();
+        rows.add(PreventionReportDisplay.unreadable(102));
+        java.util.Hashtable<String, Object> ran = new java.util.Hashtable<>();
+        ran.put("returnReport", rows);
+        ran.put(PreventionReport.UNREADABLE_COUNT, "1");
+        ran.put("up2date", "0");
+        ran.put("percent", "0");
+        ran.put("inEligible", "0");
+        PreventionReport report = (user, patients, asOf) -> ran;
+
+        try (var loaders = org.mockito.Mockito.mockConstruction(RptDemographicQueryLoader.class,
+                     (loader, context) -> when(loader.queryLoader(org.mockito.ArgumentMatchers.any()))
+                             .thenAnswer(call -> call.getArgument(0)));
+             var builders = org.mockito.Mockito.mockConstruction(RptDemographicQueryBuilder.class,
+                     (builder, context) -> when(builder.buildQuery(org.mockito.ArgumentMatchers.eq(loggedInInfo),
+                             org.mockito.ArgumentMatchers.any(RptDemographicReport2Form.class)))
+                             .thenReturn(new java.util.ArrayList<>()));
+             MockedStatic<PreventionReportFactory> factory = mockStatic(PreventionReportFactory.class)) {
+            factory.when(() -> PreventionReportFactory.getPreventionReport("Flu")).thenReturn(report);
+
+            assertThat(new PreventionReport2Action().execute()).isEqualTo(ActionSupport.SUCCESS);
+        }
+
+        // The page reads this to say, above the totals, that the report is incomplete.
+        assertThat(request.getAttribute("unreadablePatients")).isEqualTo("1");
+        assertThat(request.getAttribute("returnReport")).isSameAs(rows);
     }
 
     @Test

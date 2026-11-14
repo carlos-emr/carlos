@@ -140,6 +140,33 @@
     Prevention p = PreventionData.getPrevention(loggedInInfo, Integer.valueOf(demographic_no));
 
     Integer demographicId = Integer.parseInt(demographic_no);
+
+    // A prevention read can fail part-way down the page. Every type the page is about to list is
+    // read here, before any of them is written, so a failure puts one "could not be read" message
+    // in place of the lists; the types read before the failure are never shown as if they were
+    // the patient's whole history. pageData keeps each list, so the loops below read nothing twice.
+    boolean classicPreventionView = CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW", "yes");
+    List<String> listedPreventionTypes = new ArrayList<String>();
+    if (!classicPreventionView) {
+        for (HashMap<String, String> listedPrevention : prevList) {
+            listedPreventionTypes.add(listedPrevention.get("name"));
+        }
+    } else if (configSets != null) {
+        for (Map<String, Object> listedSet : configSets) {
+            String[] listedNames = (String[]) listedSet.get("prevList");
+            for (int listedIdx = 0; listedNames != null && listedIdx < listedNames.length; listedIdx++) {
+                HashMap<String, String> listedPrevention = pdc.getPrevention(listedNames[listedIdx]);
+                if (listedPrevention != null) {
+                    listedPreventionTypes.add(listedPrevention.get("name"));
+                }
+            }
+        }
+    }
+    boolean preventionsUnreadable = !pageData.canReadAll(listedPreventionTypes);
+    if (preventionsUnreadable) {
+        PreventionData.logUnreadable("prevention page", demographicId);
+    }
+    boolean printUnreadable = request.getAttribute("printUnreadable") != null;
     Date demographicDateOfBirth = pageData.getDateOfBirth();
     String demographicDob = UtilDateUtilities.DateToString(demographicDateOfBirth);
 
@@ -802,7 +829,11 @@
                 <td valign="top" class="MainTableRightColumn">
 
                     <% if (printError) { %>
+                    <% if (printUnreadable) { %>
+                    <div class="alert alert-danger" role="alert" id="preventionPrintUnreadable"><fmt:message key="prevention.unreadable.print"/></div>
+                    <% } else { %>
                     <div class="alert alert-danger" role="alert">An error occurred while trying to print</div>
+                    <% } %>
                     <% } %>
 
                     <%if (dhirEnabled && !isSSOLoggedIn && !hideSSOWarning) {%>
@@ -921,7 +952,11 @@
                     <div>
                         <input type="hidden" name="demographic_no" value="<carlos:encode value='<%= demographic_no %>' context="htmlAttribute"/>"/>
                                 <%
-                 if (!io.github.carlos_emr.CarlosProperties.getInstance().getBooleanProperty("PREVENTION_CLASSIC_VIEW","yes")){
+                 if (preventionsUnreadable) {
+               %>
+                        <div class="alert alert-danger" role="alert" id="preventionsUnreadable"><fmt:message key="prevention.unreadable.message"/></div>
+                                <%
+                 } else if (!classicPreventionView) {
                    ArrayList<Map<String,Object>> hiddenlist = new ArrayList<Map<String,Object>>();
                   for (int i = 0 ; i < prevList.size(); i++){
                   		HashMap<String,String> h = prevList.get(i);

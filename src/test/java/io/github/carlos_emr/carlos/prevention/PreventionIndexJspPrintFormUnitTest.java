@@ -110,4 +110,31 @@ class PreventionIndexJspPrintFormUnitTest {
                 .isLessThan(jsp.indexOf("if (warnings.size() > 0 || recomendations.size() > 0 || dsProblems)"));
         assertThat(jsp).containsOnlyOnce("An error occurred while trying to print");
     }
+
+    @Test
+    @DisplayName("should say that nothing was printed because preventions could not be read")
+    void shouldShowUnreadablePrintReason_insideThePrintErrorBanner() {
+        int banner = jsp.indexOf("<% if (printError) { %>");
+        int reason = jsp.indexOf("<fmt:message key=\"prevention.unreadable.print\"/>");
+        assertThat(reason).isGreaterThan(banner)
+                .isLessThan(jsp.indexOf("An error occurred while trying to print"));
+        assertThat(jsp).contains("boolean printUnreadable = request.getAttribute(\"printUnreadable\") != null;");
+    }
+
+    @Test
+    @DisplayName("should read every listed type before writing any and show one message in place of the lists")
+    void shouldShowOneUnreadableMessageInPlaceOfTheLists_whenATypeCannotBeRead() {
+        // The check runs in the page's opening scriptlet, before any markup is written.
+        int check = jsp.indexOf("boolean preventionsUnreadable = !pageData.canReadAll(listedPreventionTypes);");
+        assertThat(check).isPositive().isLessThan(jsp.indexOf("<body"));
+        // One branch shows the message; the per-type lists are only in the other branches.
+        int message = jsp.indexOf("<fmt:message key=\"prevention.unreadable.message\"/>");
+        int branch = jsp.lastIndexOf("if (preventionsUnreadable) {");
+        assertThat(branch).isGreaterThan(jsp.indexOf("<body")).isLessThan(message);
+        assertThat(message).isLessThan(jsp.indexOf("} else if (!classicPreventionView) {"));
+        assertThat(jsp.indexOf("pageData.getPreventionData(prevName)"))
+                .isGreaterThan(jsp.indexOf("} else if (!classicPreventionView) {"));
+        assertThat(jsp.indexOf("pageData.getPreventionData(prevType)"))
+                .isGreaterThan(jsp.indexOf("} else if (!classicPreventionView) {"));
+    }
 }

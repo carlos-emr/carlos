@@ -74,6 +74,7 @@
 <%@ taglib uri="/WEB-INF/security.tld" prefix="security" %>
 
 <%@ taglib uri="carlos" prefix="carlos" %>
+<%@ taglib uri="jakarta.tags.fmt" prefix="fmt" %>
 <%
     if (session.getAttribute("user") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
     if (session.getAttribute("userrole") == null) response.sendRedirect(request.getContextPath() + "/logoutPage");
@@ -765,10 +766,20 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
 
                     String prevType = (String) h2.get("prevention_type");
                     long startPrevType = System.currentTimeMillis();
-                    ArrayList<Map<String, Object>> alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
-                    // Reverse to display newest first (matching measurements/drugs display order)
-                    // The query returns ASC order for Prevention page compatibility
-                    Collections.reverse(alist);
+                    // A failed read is stated in this section, on the selection page and on the
+                    // printout. A section printed with no rows would go on paper as "never had it".
+                    ArrayList<Map<String, Object>> alist;
+                    boolean preventionUnreadable = false;
+                    try {
+                        alist = PreventionData.getPreventionData(LoggedInInfo.getLoggedInInfoFromSession(request), prevType, Integer.valueOf(demographic_no));
+                        // Reverse to display newest first (matching measurements/drugs display order)
+                        // The query returns ASC order for Prevention page compatibility
+                        Collections.reverse(alist);
+                    } catch (io.github.carlos_emr.carlos.prevention.dto.PreventionSourceUnavailableException unavailable) {
+                        alist = new ArrayList<Map<String, Object>>();
+                        preventionUnreadable = true;
+                        PreventionData.logUnreadable("flowsheet print", Integer.valueOf(demographic_no));
+                    }
                 %>
 
                 <div class="preventionSection" style="<%=hidden%>">
@@ -785,6 +796,11 @@ maybe use jquery/ajax to post this data instead of submitting a form to send ALL
                             <span title="<carlos:encode value='<%= String.valueOf(h2.get("guideline")) %>' context="htmlAttribute"/>"><carlos:encode value='<%= String.valueOf(h2.get("display_name")) %>' context="html"/></span>
                         </p>
                     </div><!--headPrevention-->
+                    <% if (preventionUnreadable) { %>
+                    <div class="prevention-unreadable" role="alert" style="color:#842029; font-weight:bold; padding:2px 4px;">
+                        <p><fmt:setBundle basename="oscarResources"/><fmt:message key="prevention.unreadable.message"/></p>
+                    </div>
+                    <% } %>
                     <%
                         out.flush();
                         for (int k = 0; k < alist.size(); k++) {

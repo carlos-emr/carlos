@@ -40,5 +40,13 @@ import io.github.carlos_emr.carlos.utility.LoggedInInfo;
  * @author jay
  */
 public interface PreventionReport {
+    /**
+     * Key of the report entry that counts the patients whose preventions could not be read (a
+     * decimal string, {@code "0"} when every chart was read). Those patients are in
+     * {@code returnReport} as {@link io.github.carlos_emr.carlos.prevention.pageUtil.PreventionReportDisplay#unreadable(Integer)}
+     * rows; a report with a count above zero is incomplete and must be shown as such.
+     */
+    String UNREADABLE_COUNT = "unreadable";
+
     public Hashtable runReport(LoggedInInfo loggedInInfo, ArrayList<ArrayList<String>> list, Date asofDate);
 }
