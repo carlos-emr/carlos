@@ -71,6 +71,9 @@ final class CdsExportInboxReviewMapper {
     /** Rule of every field of a route that is carried whole with its comment. */
     static final String CARRIED_RULE = "CARRIED_WHOLE_WITH_ITS_INBOX_REVIEW_COMMENT";
 
+    /** Rule of every field of a route whose status is none CARLOS writes, carried whole. */
+    static final String UNKNOWN_STATUS_RULE = "INBOX_ROUTE_OF_A_STATUS_CARLOS_DOES_NOT_WRITE_CARRIED_WHOLE";
+
     /** One review: the provider's public values, the review time and its local provider number. */
     record Review(String providerNo, CdsExportPublicProviderDto provider, CdsExportDateDto reviewed) {
         @Override
@@ -173,8 +176,9 @@ final class CdsExportInboxReviewMapper {
             var review = route(route, providers, zone, fields, used, values);
             if (review != null) found.add(review);
             String comment = route.fields().get("comment");
-            if (comment != null && !comment.isEmpty() || dateOnly && review != null)
-                carried.add(route);
+            if (comment != null && !comment.isEmpty()
+                    || dateOnly && review != null
+                    || unknownStatus(route)) carried.add(route);
         }
         for (var row : sorted(reviews)) {
             rows.add(row);
@@ -212,14 +216,34 @@ final class CdsExportInboxReviewMapper {
         return new Reviews(List.copyOf(distinct.values()), carried, values, fields, rows);
     }
 
-    /** The routes that travel whole in the source context: those with a comment, in row order. */
+    /**
+     * The routes that travel whole in the source context, in row order: those with a comment,
+     * and those whose status is none CARLOS writes ({@link #unknownStatus}).
+     */
     static List<CdsExportCapturedTextRowDto> carried(List<CdsExportCapturedTextRowDto> routes) {
         var result = new ArrayList<CdsExportCapturedTextRowDto>();
         for (var route : sorted(routes)) {
             String comment = route.fields().get("comment");
-            if (comment != null && !comment.isEmpty()) result.add(route);
+            if (comment != null && !comment.isEmpty() || unknownStatus(route)) result.add(route);
         }
         return List.copyOf(result);
+    }
+
+    /**
+     * Whether an inbox route's status is none that CARLOS writes. The inbox screens write
+     * {@code A}, {@code N}, {@code F} and {@code X}; routing rules and the lab feeds write
+     * {@code N} or {@code F}. {@code ReportStatusUpdate2Action} stores the first character of
+     * whatever status a request names, so a request no screen sends can store any other
+     * character. Such a route is no acknowledgement: it travels whole, its status exact, as a
+     * route with a comment does, and holds nothing (it held the chart with
+     * {@code CDS_EXPORT_INBOX_ROUTING_STATUS_REQUIRES_REVIEW}).
+     */
+    static boolean unknownStatus(CdsExportCapturedTextRowDto route) {
+        String status = route.fields().get("status");
+        return route.table().startsWith("providerLabRouting")
+                && status != null
+                && !status.equals("A")
+                && !WORKFLOW.contains(status);
     }
 
     /** Every field of a carried route, as accounted by the record that carries it whole. */
@@ -244,6 +268,7 @@ final class CdsExportInboxReviewMapper {
         if (!row.table().startsWith("providerLabRouting")) return true;
         String comment = row.fields().get("comment"), provider = row.fields().get("provider_no");
         return comment != null && !comment.isEmpty()
+                || unknownStatus(row)
                 || "A".equals(row.fields().get("status"))
                         && provider != null
                         && !provider.isBlank()
@@ -351,8 +376,7 @@ final class CdsExportInboxReviewMapper {
                 || !row.fields().keySet().equals(ROUTING_COLUMNS)) invalid();
         var state = new CdsExportNativeFieldAssessments(row, fields);
         String status = row.fields().get("status"), provider = row.fields().get("provider_no");
-        if (status != null && !status.equals("A") && !WORKFLOW.contains(status))
-            review("CDS_EXPORT_INBOX_ROUTING_STATUS_REQUIRES_REVIEW");
+        boolean unknown = unknownStatus(row);
         boolean unclaimed = provider == null || provider.isBlank() || provider.equals("0");
         for (String column : List.of("id", "lab_no", "lab_type"))
             state.operational(column, "LOCAL_INBOX_ROUTING_IDENTITY_AND_REPORT_LINK");
@@ -387,9 +411,16 @@ final class CdsExportInboxReviewMapper {
                 state.operational(column, rule);
         }
         String comment = row.fields().get("comment");
-        if (comment == null || comment.isEmpty())
+        if (comment == null || comment.isEmpty()) {
             state.set("comment", Outcome.ABSENT, "", "NO_INBOX_REVIEW_COMMENT");
-        else {
+            // A status CARLOS does not write travels whole, exact, with the rest of its route.
+            if (unknown)
+                for (String column : ROUTING_COLUMNS) {
+                    var key = new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column);
+                    if (fields.get(key).outcome() == Outcome.OPERATIONAL)
+                        state.set(column, Outcome.MAPPED, carrier, UNKNOWN_STATUS_RULE);
+                }
+        } else {
             // No comment is refused for its characters or length: it is a varchar(255), and both
             // carriers are JSON, where a character XML cannot carry is its JSON escape
             // (CdsExportResidualJson).
