@@ -1581,20 +1581,19 @@ chosen by physician stores only the physicians.
 - The receiving CARLOS import has its own admission settings; see "Importing a large CARLOS
   export" below.
 
-**Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive: the
-package carries nothing the import could verify to tell a genuine CARLOS export from a crafted
-archive, so the import's hostile-input protections apply to it unchanged. They are settings with
-no upper bound, not fixed numbers, and a package larger than their defaults needs them raised on
-the receiving server before the import (`docs/cds-import-configuration.md`):
-`cds.import.maxSourceBytes` (default 64 GiB; the archive and any one member),
-`cds.import.maxExpandedBytes` (default 512 GiB; all members together),
-`cds.import.maxEntries` (default 2,000,000), `cds.import.maxBinaryBytes` (default 64 GiB; one
-decoded report), `cds.import.maxDurationMillis` (default 24 hours for one attempt) and, for a
-browser upload, `cds.import.upload.maxFileBytes`, `maxTotalBytes` and `maxFiles`. The
-compression-ratio refusal (`cds.import.maxCompressionRatio`) never applies to a CARLOS package,
-whose members are stored uncompressed. Lifting these for a genuine export without weakening
-them for a crafted archive needs a package the import can verify (a manifest of member count
-and bytes sealed by the exporter and checked before extraction); that is not built.
+**Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive, and
+nothing needs raising on the receiving server for a large one (`docs/cds-import-configuration.md`).
+No size, entry count, compression ratio or duration refuses a package: every byte the import
+writes (the upload, the snapshot, the parse and plan spools, the published documents) is checked
+against the receiving store's free-disk reserve (`cds.import.minimumFreeDiskBytes`), which is
+what stops a package that store cannot hold, under its own code, resumably once space is freed.
+`cds.import.maxDurationMillis` is a stall window, not a time limit: an import that keeps making
+progress runs to its end however long it takes. A browser upload is sent chunk by chunk with no
+size or total limit. The receiving store needs free space for the package, its expanded
+snapshot, the spools and the documents. The former `cds.import.maxSourceBytes`,
+`maxExpandedBytes`, `maxEntries`, `maxBinaryBytes`, `maxCompressionRatio`, `upload.maxFileBytes`
+and `upload.maxTotalBytes` settings are retired and ignored. The import's XML guards (depth,
+names, namespaces, constrained values) are hostile-input guards a genuine package cannot reach.
 
 #### Continuing a stopped export: what is kept, and what reuse needs
 
@@ -1712,7 +1711,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
 | 10,000 prevention or vaccine-catalogue rows and 4 MiB of their scope columns; 10,000 selected preventions in one read; 1,000,000 Immunizations import units and 64 MiB of their witnesses | `CdsExportPreventionSnapshotService`, `CdsExportPatientTableReadSupport.requireSelected`, `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService`, `CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator` | the whole job (`CDS_EXPORT_PREVENTION_SNAPSHOT_INVALID`, `CDS_EXPORT_NATIVE_SOURCE_INVALID`, `CDS_EXPORT_PREVENTION_SCOPE_LIMIT`) | removed: every row is read a page of 32 at a time; a statement names at most 8,192 selected preventions (`PREVENTION_ID_BATCH`) and a chart with more is read in further statements whose rows are merged in key order |
-| 4,096 copies and 4 MiB of an import run's course-copy plan; 2 MiB of one run's captured options | `CdsExportRetainedImportOptionsReader`, `CdsExportRetainedIndexService` | the whole job (`CDS_EXPORT_RETAINED_COPY_PLAN_INVALID`, `CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: these were not the importer's stored format (the importer writes as many copies as `cds.import.maxEntries` and `cds.import.maxExpandedBytes` allow); the plan is authenticated by its seal and read as a stream |
+| 4,096 copies and 4 MiB of an import run's course-copy plan; 2 MiB of one run's captured options | `CdsExportRetainedImportOptionsReader`, `CdsExportRetainedIndexService` | the whole job (`CDS_EXPORT_RETAINED_COPY_PLAN_INVALID`, `CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: these were not the importer's stored format (the importer writes as many copies as the course has, with no count or size ceiling); the plan is authenticated by its seal and read as a stream |
 | One whole receipt (several kilobytes) and one metadata row held for every note of a chart | `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionPlanner` | the worker, as an out-of-memory failure on a very long chart | each receipt is reduced as it is read to 40 bytes (`CdsExportNoteRevisionPlanner.Witnesses`) and each metadata row is compared as it is read |
 | 1,025 base tables, 65,536 columns or 16,384 primary-key columns in the clinic's database | `CdsExportSourceCatalogueDao`, `CdsExportPhysicalSchemaReadSupport` | every job of that clinic (`CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`) | removed: the schema's metadata is read whole; extra local tables are listed as before |
 | 8,192 problem-registry entries and episodes of one chart, 64 code-table rows for one code | `CdsExportDiagnosisCodeReadSupport` | the whole job (`CDS_EXPORT_RESOURCE_LIMIT`) | removed: every code the chart names is looked up |

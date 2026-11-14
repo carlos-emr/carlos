@@ -196,31 +196,39 @@ Final reconciliation still verifies referenced bytes outside database transactio
 Pages are bounded at 200 rows; source field pages at 32. Seal calculation batches dependency
 metadata for 200 units instead of making an unbounded graph or a query per dependency. Final
 native receipt verification uses one semantic unit per owning transaction. Operator report files
-are streamed row by row, rather than accumulated in memory. These are explicit bounds, not a
-promise that arbitrarily large input requires no disk or execution time; configured source,
-expansion, private storage and retention limits remain admission requirements.
+are streamed row by row, rather than accumulated in memory. These bounds keep memory fixed; they
+do not limit the input. A larger source needs proportionally more disk and time, and only the
+free-disk reserve, an I/O failure or a stall (below) stops it.
 
 ## Operator outcomes and protected evidence
 
-Each active execution attempt has one monotonic elapsed budget using `cds.import.maxDurationMillis`
-(the existing default is 24 hours). It spans snapshot verification, planning, preparation and all
-clinical units rather than restarting at each unit. The budget is checked by existing cooperative
-I/O controls and between atomic units. A committed unit remains committed if the next check expires;
-the stopped outcome retains its source, receipts and holds for an authorized resume of the same run.
-A resume starts a fresh bounded active attempt; time spent stopped or awaiting review is excluded.
-No elapsed heartbeat authorizes takeover or changes an uncertain commit into a rollback.
+Each active execution attempt has one stall window, `cds.import.maxDurationMillis` (default 24
+hours). It is not a budget: every snapshot read, parse callback, planned row, preparation step,
+verification read and unit callback of the attempt is a checkpoint, and the window bounds only the
+time since the last one, so an attempt that keeps making progress runs to its end however long it
+takes. One window spans snapshot verification, planning, preparation and all clinical units, so no
+stage starts a fresh clock that could hide a silent gap. A worker silent for the whole window stops
+at its next checkpoint with `IMPORT_WORKER_STALLED`, an operational failure: a committed unit
+remains committed, and the stopped outcome retains its source, receipts and holds for an authorized
+resume of the same run. A worker that never returns leaves its coordinator and maintenance sessions
+silent; the database closes them after the window plus the unwind allowance, releasing the locks as
+for a dead process, so a resume can take over. A resume starts a fresh window; time spent stopped or
+awaiting review is not counted. No elapsed heartbeat authorizes takeover or changes an uncertain
+commit into a rollback.
 
-Protected report generation has a separate fresh budget under the same policy. Its streaming,
-validation, hashing and cleanup loops check that budget before a new immutable report set is
-selected. Timeout records delivery failure without rewriting clinical outcomes, selecting an
-incomplete report set or replaying clinical writes. A stopped `FAILED` delivery requires the
+Protected report generation has its own stall window under the same setting. Its streaming,
+validation, hashing and cleanup loops are checkpoints of it before a new immutable report set is
+selected. A generation silent for the window stops with `IMPORT_REPORT_GENERATION_STALLED` and
+records delivery failure without rewriting clinical outcomes, selecting an incomplete report set or
+replaying clinical writes. A stopped `FAILED` delivery requires the
 existing explicit recovery route, rather than an automatic retry loop. An already selected immutable
 `DELIVERED` generation keeps its acknowledgement, pointer and hashes
-when a later report attempt times out; failed cleanup makes the current operation non-clean until
-explicit recovery selects a fresh complete generation. The historical timeout remains a nonblocking
-operational warning in subsequent reports. The controls are cooperative: they cannot impose an
-absolute deadline on a kernel-blocked filesystem open/read/write/fsync or
-replace the independent bounded JDBC/network policies and process supervision.
+when a later report attempt stalls; failed cleanup makes the current operation non-clean until
+explicit recovery selects a fresh complete generation. The historical stall remains a nonblocking
+operational warning in subsequent reports. The checkpoints are cooperative: a kernel-blocked
+filesystem open/read/write/fsync is seen only when it returns, or through the silent ownership
+sessions the database closes; they do not replace the independent bounded JDBC/network policies and
+process supervision.
 
 Run state, per-patient outcome, clinical completeness, report delivery and cleanup are separate.
 `COMPLETE` alone does not mean that the operator's files were delivered. `cleanComplete` requires

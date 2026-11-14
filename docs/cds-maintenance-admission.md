@@ -26,9 +26,13 @@ row lock and therefore waits for admitted JDBC, Hibernate and background transac
 or roll back. New ordinary clinical work refuses once the advisory owner is entering. Neither
 pool abandoned-connection reclamation nor a heartbeat controls ownership.
 
-Both the maintenance and coordinator physical sessions set and verify a `wait_timeout` that
-covers `cds.import.maxDurationMillis` plus the bounded network-unwind interval. Shared file-read
-polling checks the maintenance advisory lock at the same cadence as coordinator ownership.
+Both the maintenance and coordinator physical sessions set and verify a `wait_timeout` of the
+import's stall window (`cds.import.maxDurationMillis`) plus the bounded network-unwind interval. A
+worker that keeps making progress uses both sessions every few seconds while it reads and at
+every clinical unit (never inside a unit's transaction); one that stalls leaves them silent, and the server closes them and
+releases the advisory locks exactly as for a dead process, so a resume can take over. Shared
+file-read polling checks the maintenance advisory lock at the same cadence as coordinator
+ownership.
 A changed owner connection or unavailable heartbeat fences the work; a failed observation
 never becomes a cached success or permission to take over.
 
