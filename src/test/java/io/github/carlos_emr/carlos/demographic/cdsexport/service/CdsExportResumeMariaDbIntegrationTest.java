@@ -109,7 +109,6 @@ class CdsExportResumeMariaDbIntegrationTest {
     private AnnotationConfigApplicationContext context;
     private JdbcTemplate sql;
     private CdsExportRecipientFixture recipient;
-    private TimeZone previousZone;
     private String run;
 
     @BeforeEach
@@ -122,10 +121,20 @@ class CdsExportResumeMariaDbIntegrationTest {
         String url = jdbc.getProperty("jdbcUrl", "");
         assertThat(url).matches("jdbc:mariadb://[^/]+/cds_export_test(?:\\?.*)?");
         assertThat(jdbc.getProperty("ownedDisposableDatabase")).isEqualTo("true");
-        // Protected staging refuses an ancestor another user could write to, which a shared
-        // temporary directory is: everything lives below the build directory.
-        base = Path.of("target", "cds-export-resume-" + UUID.randomUUID()).toAbsolutePath();
-        Files.createDirectories(base);
+        // Protected staging refuses an ancestor that another user owns or could write to: a
+        // shared temporary directory is one, and so is a checkout bind-mounted from the host
+        // runner, as in the native tier, which supplies its own private root. Elsewhere the
+        // process home is used.
+        base =
+                Files.createTempDirectory(
+                        Path.of(
+                                        System.getProperty(
+                                                "cds.export.test.documentRoot",
+                                                System.getProperty("user.home")))
+                                .toAbsolutePath(),
+                        "cds-export-resume-",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
         Files.setPosixFilePermissions(base, PosixFilePermissions.fromString("rwx------"));
         storeRoot = directory(base.resolve("store"));
         var keys = directory(base.resolve("keys"));
@@ -148,7 +157,12 @@ class CdsExportResumeMariaDbIntegrationTest {
         settings.setProperty("cds.export.worker.enabled", "false");
         settings.setProperty("cds.import.worker.enabled", "false");
         settings.setProperty("cds.export.operator." + OPERATOR + ".providers", PROVIDER);
-        settings.setProperty("cds.export.clinicalZone", "America/Toronto");
+        // The command-line runtime runs in the clinical zone, which here is this JVM's own
+        // default zone. The default is never changed: the import's ruleset fingerprint, cached
+        // once per JVM, froze the defaults when another test in this JVM first computed it, and
+        // a different zone now would be IMPORT_FROZEN_RUNTIME_CHANGED, as it would be in
+        // production.
+        settings.setProperty("cds.export.clinicalZone", TimeZone.getDefault().toZoneId().getId());
         settings.setProperty("cds.export.store.active", "primary");
         settings.setProperty("cds.export.store.primary.root", storeRoot.toString());
         settings.setProperty("cds.export.masterKey.active", "primary");
@@ -156,9 +170,6 @@ class CdsExportResumeMariaDbIntegrationTest {
         settings.setProperty("cds.export.minimumFreeBytes", "0");
         settings.setProperty("cds.export.policyRoot", policy.toString());
         settings.setProperty("DOCUMENT_DIR", documents.toString());
-        // The command-line runtime runs in the clinical zone.
-        previousZone = TimeZone.getDefault();
-        TimeZone.setDefault(TimeZone.getTimeZone("America/Toronto"));
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().setActiveProfiles("cds-export-cli");
         context.getEnvironment()
@@ -201,7 +212,6 @@ class CdsExportResumeMariaDbIntegrationTest {
             try {
                 if (context != null) context.close();
             } finally {
-                if (previousZone != null) TimeZone.setDefault(previousZone);
                 if (base != null && Files.exists(base))
                     try (var files = Files.walk(base)) {
                         for (var path : files.sorted(Comparator.reverseOrder()).toList())

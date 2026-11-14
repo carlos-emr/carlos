@@ -73,13 +73,23 @@ class CdsExportCheckpointRetentionUnitTest {
     private CdsExportRetentionService retention;
 
     /**
-     * A protected store root and key below the build directory: the store refuses any ancestor
-     * that another user could write to, which a shared temporary directory is.
+     * A protected store root and key in a private directory. The store refuses any ancestor that
+     * another user owns or could write to: a shared temporary directory is one, and so is a
+     * checkout bind-mounted from the host runner, as in the native tier, which supplies its own
+     * private root ({@code cds.export.test.documentRoot}). Elsewhere the process home is used.
      */
     @BeforeEach
     void protectedStore() throws Exception {
-        base = Path.of("target", "cds-export-checkpoint-" + UUID.randomUUID()).toAbsolutePath();
-        Files.createDirectories(base);
+        base =
+                Files.createTempDirectory(
+                        Path.of(
+                                        System.getProperty(
+                                                "cds.export.test.documentRoot",
+                                                System.getProperty("user.home")))
+                                .toAbsolutePath(),
+                        "cds-export-checkpoint-",
+                        PosixFilePermissions.asFileAttribute(
+                                PosixFilePermissions.fromString("rwx------")));
         Files.setPosixFilePermissions(base, PosixFilePermissions.fromString("rwx------"));
         var root = Files.createDirectory(base.resolve("store"));
         Files.setPosixFilePermissions(root, PosixFilePermissions.fromString("rwx------"));
@@ -106,7 +116,9 @@ class CdsExportCheckpointRetentionUnitTest {
 
     @AfterEach
     void eraseProtectedStore() throws IOException {
-        retention.close();
+        // A setup that failed part way leaves nothing to close, and its own error is the report.
+        if (retention != null) retention.close();
+        if (base == null || !Files.exists(base)) return;
         try (var files = Files.walk(base)) {
             for (var path : files.sorted(java.util.Comparator.reverseOrder()).toList())
                 Files.deleteIfExists(path);
