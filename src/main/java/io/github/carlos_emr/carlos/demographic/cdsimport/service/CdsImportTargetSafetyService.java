@@ -48,12 +48,19 @@ import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-/** Finite native writer catalogue gate. Verification holds metadata locks until owner close. */
+/**
+ * Native writer catalogue gate. Verification holds metadata locks until owner close.
+ *
+ * <p>No count or size of the clinic's own catalogue refuses an import: every target table is
+ * pinned and verified however many there are, every trigger on them is read and must be approved
+ * however many there are and however long its body, and the approval manifest is read as a
+ * stream whatever its size. The manifest's trust checks (absolute, root-owned, not group or world
+ * writable, no symbolic link) are what protect it.
+ */
 @Service
 public class CdsImportTargetSafetyService {
-    private static final int MAXIMUM_TARGETS = 256;
+    /** How many tables one pin statement names: below MariaDB's 61-table join limit. */
     private static final int MAXIMUM_PIN_BATCH_SIZE = 16;
-    private static final int MAXIMUM_TRIGGERS = 1024;
     private static final ObjectMapper JSON =
             new ObjectMapper(
                     JsonFactory.builder()
@@ -198,8 +205,6 @@ public class CdsImportTargetSafetyService {
         for (String physical : catalogue.keySet()) {
             if (physical.toLowerCase(Locale.ROOT).startsWith("cds_import_")) targets.add(physical);
         }
-        if (targets.size() > MAXIMUM_TARGETS)
-            throw problem("IMPORT_TARGET_CATALOGUE_REQUIRES_REVIEW");
         return targets;
     }
 
@@ -227,8 +232,6 @@ public class CdsImportTargetSafetyService {
                                 try (var rows = query.executeQuery()) {
                                     while (rows.next()) {
                                         if (!targets.contains(rows.getString(3))) continue;
-                                        if (found.size() >= MAXIMUM_TRIGGERS)
-                                            throw problem("IMPORT_TARGET_TRIGGER_REQUIRES_REVIEW");
                                         found.add(
                                                 new Trigger(
                                                         rows.getString(1) + "." + rows.getString(2),
@@ -325,8 +328,6 @@ public class CdsImportTargetSafetyService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             for (int index = 1; index <= 12; index++) {
                 String value = rows.getString(index);
-                if (value != null && value.length() > 1_048_576)
-                    throw problem("IMPORT_TARGET_TRIGGER_REQUIRES_REVIEW");
                 byte[] bytes = value == null ? null : value.getBytes(StandardCharsets.UTF_8);
                 int length = bytes == null ? -1 : bytes.length;
                 digest.update(
@@ -344,7 +345,11 @@ public class CdsImportTargetSafetyService {
         }
     }
 
-    private Map<String, String> approvals() {
+    /**
+     * The approved triggers of the trusted manifest, by schema-qualified name. Package-private so
+     * a fixture can supply approvals without a root-owned file; production reads the manifest.
+     */
+    Map<String, String> approvals() {
         String configured = configuration.value("cds.import.approvedTriggerManifest", "");
         if (configured.isBlank()) throw problem("IMPORT_TARGET_TRIGGER_APPROVAL_REQUIRED");
         try {
@@ -369,33 +374,43 @@ public class CdsImportTargetSafetyService {
                     throw problem("IMPORT_TRIGGER_MANIFEST_UNTRUSTED");
                 }
             }
-            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
-                    || Files.size(path) > 1_048_576)
+            if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS))
                 throw problem("IMPORT_TRIGGER_MANIFEST_UNTRUSTED");
-            var root = JSON.readTree(Files.readString(path, StandardCharsets.UTF_8));
-            if (!root.isObject()
-                    || root.size() != 2
-                    || root.path("format").asInt() != 1
-                    || !root.path("approvedTriggers").isObject()) {
-                throw problem("IMPORT_TRIGGER_MANIFEST_INVALID");
+            try (var input = Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS)) {
+                return approvedTriggers(input);
             }
-            Map<String, String> approved = new HashMap<>();
-            var fields = root.path("approvedTriggers").fields();
-            while (fields.hasNext()) {
-                var entry = fields.next();
-                if (approved.size() >= MAXIMUM_TRIGGERS
-                        || entry.getKey().length() > 256
-                        || !entry.getValue().isTextual()
-                        || !entry.getValue().asText().matches("[0-9a-f]{64}"))
-                    throw problem("IMPORT_TRIGGER_MANIFEST_INVALID");
-                approved.put(entry.getKey(), entry.getValue().asText());
-            }
-            return approved;
         } catch (java.io.IOException
                 | UnsupportedOperationException
                 | IllegalArgumentException failure) {
             throw problem("IMPORT_TRIGGER_MANIFEST_UNTRUSTED");
         }
+    }
+
+    /**
+     * Reads an approval manifest from a stream: {@code {"format":1,"approvedTriggers":{...}}}, any
+     * number of approved triggers, each a schema-qualified name and the SHA-256 of its definition.
+     * A malformed document, a repeated name or a value that is not a digest is refused.
+     */
+    static Map<String, String> approvedTriggers(java.io.InputStream input)
+            throws java.io.IOException {
+        var root = JSON.readTree(input);
+        if (root == null
+                || !root.isObject()
+                || root.size() != 2
+                || root.path("format").asInt() != 1
+                || !root.path("approvedTriggers").isObject()) {
+            throw problem("IMPORT_TRIGGER_MANIFEST_INVALID");
+        }
+        Map<String, String> approved = new HashMap<>();
+        var fields = root.path("approvedTriggers").fields();
+        while (fields.hasNext()) {
+            var entry = fields.next();
+            if (!entry.getValue().isTextual()
+                    || !entry.getValue().asText().matches("[0-9a-f]{64}"))
+                throw problem("IMPORT_TRIGGER_MANIFEST_INVALID");
+            approved.put(entry.getKey(), entry.getValue().asText());
+        }
+        return approved;
     }
 
     private static String quote(String identifier) {

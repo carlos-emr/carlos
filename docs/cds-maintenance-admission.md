@@ -89,7 +89,10 @@ absolute JSON file with this shape:
 ```
 
 The file and every ancestor must be root-owned, have no symlinks, and deny group/other writes.
-Keep it outside staging/upload roots and mount it read-only for the application. The SHA-256
+Keep it outside staging/upload roots and mount it read-only for the application. It is read as
+a stream and may approve any number of triggers; nothing about the clinic's catalogue is counted
+(every target table is pinned and every trigger on one is read, however many there are and however
+long its body). The SHA-256
 covers twelve fields, in order: trigger schema, name, event object table, event manipulation,
 action timing, action statement, SQL mode, definer, client character set, connection collation,
 database collation and action order. Encode each nullable field as UTF-8 preceded by its signed
