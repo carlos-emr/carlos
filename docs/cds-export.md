@@ -1122,7 +1122,12 @@ context and schema are now built once):
   was delivered to) from its first `TransactionInformation`. A message date with an offset keeps
   it; one without is a clinic wall-clock time (`cds.export.clinicalZone`). SourceFacility is the
   facility CARLOS recorded (`HRMDocument.sourceFacility`), as the legacy exporter wrote it.
-- TextContent is the report text. A binary report's decoded Media is attached at
+- TextContent is the report text. A character XML 1.0 cannot carry is written as U+FFFD and the
+  exact text travels in Notes as `message.TextContent`, as its JSON escape: only an HRM file that
+  declares XML 1.1 can hold one, as a character reference, and `HRMReportParser.unmarshal`, which
+  files every HRM report, accepts such a file (`CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW` is
+  gone). A CARLOS import keeps that Notes text in the report's retained source and exports it
+  again unchanged. A binary report's decoded Media is attached at
   `Reports/<hash>.<ext>` (FilePath, Format Binary), the extension decided from the declared
   extension and the bytes (`CdsExportReportFileFormats`); FileExtensionAndVersion keeps the
   message's own value.
@@ -1135,7 +1140,10 @@ context and schema are now built once):
   Every sign-off row travels whole in Notes (`signOffs`), keeping its exact time; an undated
   sign-off, an unclaimed one or one by a provider the lookup cannot name stays in Notes only.
   Unsigned routes (0 or NULL) are `UNSIGNED_HRM_INBOX_ROUTING_WORKFLOW`; any other `signedOff`
-  value holds the patient (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`).
+  value holds the patient (`CDS_EXPORT_HRM_SIGN_OFF_STATUS_REQUIRES_REVIEW`). No path writes one:
+  `HRMModifyDocument2Action.signOff` refuses any value but 0 or 1 before it writes, and the HRM
+  parser's routing (`HRMReportParser`) and `HrmProviderRoutingService` write 0; OSCAR 19's
+  sign-off screen sent 1 or 0, and the migration copies its rows unchanged.
 - Notes is `[CARLOS HRM report source context]` with the report row (`hrmReport`: description,
   category id, duplicate count, parent report, recipient, the patient identity the report named,
   class and subclass names, dates), its patient links, every comment that was not deleted, with
@@ -1165,7 +1173,13 @@ belongs to no chart; a report whose only links name such charts is unattributabl
 before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
 patient or report number is not spelled as its canonical decimal number (a legacy alias such as
 `0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`) and a sign-off state
-other than 0 or 1. A wall-clock time with no single offset in the clinic zone is written with no
+other than 0 or 1. Neither is reachable. The link columns are `varchar(20)`, but every CARLOS
+writer stores them through the `HRMDocumentToDemographic` entity's `Integer` fields, which bind
+the canonical decimal, and only two create a link: `HRMReportParser.routeReportToDemographic`
+and `HRMModifyDocument2Action` (assigning a chart, which parses the number first); OSCAR 19's
+writers stored the
+chart and report numbers its search screen and HRM parser produced, which are canonical too. Only
+a row written outside CARLOS holds. A wall-clock time with no single offset in the clinic zone is written with no
 offset (see "Times at a daylight-saving change"). A report file of any size is read
 (`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` and `cds.export.maxDocumentBytes` are retired). Untrusted storage
 still stops the job.

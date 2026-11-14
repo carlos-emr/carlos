@@ -255,6 +255,34 @@ class CdsExportHospitalReportMapperUnitTest {
     }
 
     @Test
+    void shouldShowACharacterXmlCannotCarryAsReplacement_andKeepTheExactTextInNotes() throws Exception {
+        // Before: CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW held the chart. Only an HRM file
+        // that declares XML 1.1 can hold such a character, as a character reference.
+        byte[] message =
+                fixture()
+                        .replace("<?xml version=\"1.0\"", "<?xml version=\"1.1\"")
+                        .replace("SEED-HRM-ATTACHMENT-MARKER", "SEED-HRM&#x1;ATTACHMENT-MARKER")
+                        .getBytes(StandardCharsets.UTF_8);
+        var parsed = CdsExportHospitalReportMessage.parse(message);
+        String exact = parsed.reports().getFirst().text();
+        assertThat(exact).contains("SEED-HRM\u0001ATTACHMENT-MARKER");
+        var source =
+                new CdsExportHospitalReportMapper.Source(
+                        PATIENT,
+                        reportRow(5, report(5)),
+                        List.of(link(9, 5)),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        file(5, CdsExportHospitalReportFileSourceReader.State.READ, message));
+        var result = mapped(source, parsed, CdsExportHospitalReportMapper.Content.text());
+        assertThat(result.text().get("TextContent"))
+                .startsWith("SEED-HRM\uFFFDATTACHMENT-MARKER")
+                .hasSameSizeAs(exact);
+        assertThat(result.text().get("Notes")).contains("SEED-HRM\\u0001ATTACHMENT-MARKER");
+    }
+
+    @Test
     void shouldExportASignOffAsReportReviewed_andKeepItsExactTimeInNotes() throws Exception {
         byte[] message = fixture().getBytes(StandardCharsets.UTF_8);
         var source =
