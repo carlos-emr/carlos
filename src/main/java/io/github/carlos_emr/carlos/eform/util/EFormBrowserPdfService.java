@@ -930,6 +930,39 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
     public RenderedEformPdf renderSavedEformPdf(
             LoggedInInfo loggedInInfo, int fdid, EFormRenderApproval approval, SavedEformReads reads)
             throws PDFGenerationException {
+        return renderSaved(loggedInInfo, fdid, approval, reads, null);
+    }
+
+    /**
+     * {@link #renderSavedEformPdf(LoggedInInfo, int, EFormRenderApproval, SavedEformReads)} for a
+     * caller that waits for a render slot as long as it takes instead of the ordinary 30 seconds:
+     * the CDS export, which renders one form at a time, so it never holds more than one of the
+     * slots and a clinician's print or fax always keeps the other. The render keeps its place in
+     * the slot queue, and {@code waitingForSlot} runs about once a second while it waits, outside
+     * every lock; it ends the wait by throwing, and that exception passes through with no render
+     * started. A full queue is still refused at once (the retryable capacity failure).
+     *
+     * @param waitingForSlot the caller's check while it waits for a slot; never null
+     */
+    public RenderedEformPdf renderSavedEformPdf(
+            LoggedInInfo loggedInInfo,
+            int fdid,
+            EFormRenderApproval approval,
+            SavedEformReads reads,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
+        return renderSaved(
+                loggedInInfo, fdid, approval, reads, Objects.requireNonNull(waitingForSlot));
+    }
+
+    /** The saved-eForm render; {@code waitingForSlot} null for the ordinary 30-second slot wait. */
+    private RenderedEformPdf renderSaved(
+            LoggedInInfo loggedInInfo,
+            int fdid,
+            EFormRenderApproval approval,
+            SavedEformReads reads,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
         Objects.requireNonNull(reads);
         EFormData eFormData = reads.run(() -> SpringUtils.getBean(EFormDataDao.class).find(fdid));
         if (eFormData == null) {
@@ -951,7 +984,8 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
         // measurement data — the route the renderer's adapter replaces enforces _measurement.
         boolean measurementsPermitted = reads.run(() -> securityInfoManager.hasPrivilege(
                 loggedInInfo, "_measurement", SecurityInfoManager.READ, demographicId));
-        return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted);
+        return renderSavedEformPdfAuthorized(
+                fdid, providerId, approval, measurementsPermitted, waitingForSlot);
     }
 
     /**
@@ -987,6 +1021,21 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
     RenderedEformPdf renderSavedEformPdfAuthorized(
             int fdid, String providerId, EFormRenderApproval approval, boolean measurementsPermitted)
             throws PDFGenerationException {
+        return renderSavedEformPdfAuthorized(fdid, providerId, approval, measurementsPermitted, null);
+    }
+
+    /**
+     * @param waitingForSlot null for the ordinary 30-second slot wait; otherwise the render waits
+     *     for a slot as long as it takes, keeping its place in the queue, and this runs about once
+     *     a second while it waits (see the public overload that takes it)
+     */
+    RenderedEformPdf renderSavedEformPdfAuthorized(
+            int fdid,
+            String providerId,
+            EFormRenderApproval approval,
+            boolean measurementsPermitted,
+            Runnable waitingForSlot)
+            throws PDFGenerationException {
         // Resolve the managed temp root and sweep stale renderer artifacts BEFORE competing for a
         // render slot. The sweep is best-effort housekeeping (a filesystem walk of the shared root);
         // running it while holding one of the scarce MAX_CONCURRENT_RENDERS slots would charge its
@@ -997,7 +1046,10 @@ public class EFormBrowserPdfService implements org.springframework.web.context.S
 
         RenderAdmission.Lease lease;
         try {
-            lease = ADMISSION.acquire(RenderAdmission.Kind.PDF, RENDER_SLOT_WAIT);
+            lease =
+                    waitingForSlot == null
+                            ? ADMISSION.acquire(RenderAdmission.Kind.PDF, RENDER_SLOT_WAIT)
+                            : ADMISSION.acquire(RenderAdmission.Kind.PDF, waitingForSlot);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new PDFGenerationException("Browser rendering was aborted before it started.", true);
