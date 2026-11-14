@@ -120,6 +120,48 @@ public class CdsExportClinicalPackageService {
                         List.of()));
     }
 
+    /**
+     * The chart record a checkpoint entry holds ({@link #checkpointRecord}), read back strictly:
+     * the record of {@code patient}, with no note scopes.
+     *
+     * @throws IOException {@code CDS_EXPORT_CHART_CHECKPOINT_INVALID} when it is not one
+     */
+    static Chart checkpointChart(com.fasterxml.jackson.databind.JsonNode node, int patient)
+            throws IOException {
+        Chart chart;
+        try {
+            chart = RECORDS.treeToValue(node, Chart.class);
+        } catch (IOException | IllegalArgumentException malformed) {
+            throw new IOException("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        }
+        if (chart == null
+                || chart.patient() != patient
+                || chart.relative() == null
+                || chart.naming() == null
+                || chart.xml() == null
+                || !"PATIENT_XML".equals(chart.xml().purpose())
+                || chart.attachments() == null
+                || chart.validation() == null
+                || chart.notes() == null
+                || !chart.notes().isEmpty()
+                || chart.attachments().stream()
+                        .anyMatch(
+                                attachment ->
+                                        attachment == null
+                                                || !"REPORT_ATTACHMENT"
+                                                        .equals(attachment.file().purpose())))
+            throw new IOException("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+        return chart;
+    }
+
+    /** The staged members a checkpointed chart is made of: its XML, then its attachments. */
+    static List<CdsExportStagedFileDto> chartMembers(Chart chart) {
+        var members = new ArrayList<CdsExportStagedFileDto>(1 + chart.attachments().size());
+        members.add(chart.xml());
+        for (var attachment : chart.attachments()) members.add(attachment.file());
+        return members;
+    }
+
     /** A spooled chart: its patient number, then the chart as JSON. */
     private static byte[] encode(Chart chart) throws IOException {
         byte[] json = RECORDS.writeValueAsBytes(chart);

@@ -74,6 +74,16 @@ public class CdsExportLedgerService {
      */
     private static final int MAX_DOCUMENT = 262_144;
     private static final long LEASE_SECONDS = 120;
+    /**
+     * The seven-day ceiling of an attempt's protected staging: an attempt whose worker was lost
+     * keeps its directory until seven days after it was claimed, and a stopped attempt keeps its
+     * finished charts for a resumed attempt until seven days after it stopped.
+     */
+    private static final long ATTEMPT_SECONDS = 7 * 86_400L;
+    /** An attempt stopped with finished charts kept; the sweep has not trimmed it yet. */
+    static final String KEEPING = "KEEPING";
+    /** A kept attempt holding only its checkpoint and the members the checkpoint pins. */
+    static final String KEPT = "KEPT";
     /** The diagnostic report names at most this many held charts; the encrypted ReadMe names all. */
     private static final int MAX_REPORTED_HELD = 4096;
     private static final JsonMapper JSON =
@@ -411,6 +421,11 @@ public class CdsExportLedgerService {
                         return null;
                     }
                     CdsExportJobDocumentDto document = document(run);
+                    // An earlier attempt whose worker was lost before it recorded any outcome
+                    // and that sealed a finished-chart checkpoint keeps its charts, until its own
+                    // seven-day ceiling, for the attempt claimed now to adopt.
+                    for (var orphan : attempts.orphanedCheckpoints(id, now))
+                        keep(run, attempts.lock(id, orphan.getEpoch()), orphan.getExpiresAt(), now);
                     run.setOwnerEpoch(Math.addExact(run.getOwnerEpoch(), 1));
                     run.setOwnerToken(UUID.randomUUID().toString());
                     run.setLeaseUntil(now.plusSeconds(LEASE_SECONDS));
@@ -424,7 +439,7 @@ public class CdsExportLedgerService {
                     attempt.setState("CAPTURING");
                     attempt.setCreatedAt(now);
                     attempt.setUpdatedAt(now);
-                    attempt.setExpiresAt(now.plusSeconds(7 * 86_400L));
+                    attempt.setExpiresAt(now.plusSeconds(ATTEMPT_SECONDS));
                     attempts.persist(attempt);
                     run.setUpdatedAt(now);
                     event(run, "ATTEMPT_CLAIMED", document.actor().operatorKey(), null, now);
@@ -855,6 +870,9 @@ public class CdsExportLedgerService {
                             || !Objects.equals(
                                     run.getCohortDigest(), expected.cohort().plaintextSha256()))
                         artifactInvalid();
+                    // Charts kept by earlier attempts of the job have served their purpose.
+                    attempts.flush();
+                    attempts.expireKeptForRun(run.getId(), now);
                     run.setProcessedPatients(expected.patients());
                     run.setArtifactMember(expected.ciphertext().memberId());
                     run.setArtifactDigest(expected.ciphertext().plaintextSha256());
@@ -1123,6 +1141,22 @@ public class CdsExportLedgerService {
                     if (complete) {
                         attempt.setContextDocument(null);
                         attempt.setContextDigest(null);
+                        if (attempt.getCheckpointMember() != null)
+                            // Kept charts erased: with the job's cancellation, after a resumed
+                            // attempt adopted past them, or after their seven days.
+                            event(
+                                    run,
+                                    "CHARTS_ERASED",
+                                    run.getOperator(),
+                                    "CDS_EXPORT_CHARTS_ERASED_"
+                                            + (attempt.getCheckpointCharts() == null
+                                                    ? 0
+                                                    : attempt.getCheckpointCharts()),
+                                    now,
+                                    cleanup.epoch());
+                        attempt.setCheckpointMember(null);
+                        attempt.setCheckpointDigest(null);
+                        attempt.setCheckpointBytes(null);
                     }
                     event(
                             run,
@@ -1153,6 +1187,145 @@ public class CdsExportLedgerService {
         public String toString() {
             return "CdsExportCleanup[protected]";
         }
+    }
+
+    /** One kept attempt whose unpinned members the retention sweep has not erased yet. */
+    public record Untrimmed(String runId, long epoch) {}
+
+    /** Kept attempts the retention sweep still has to trim, oldest change first. */
+    public List<Untrimmed> untrimmed(int limit) {
+        page(limit);
+        return transaction(
+                read,
+                () ->
+                        attempts.untrimmed(runs.now(), limit).stream()
+                                .map(value -> new Untrimmed(value.getRunId(), value.getEpoch()))
+                                .toList());
+    }
+
+    /**
+     * Exclusive lease to erase the members of a kept attempt that its checkpoint does not pin.
+     * Mutually exclusive with downloads and with the attempt's own erasure, like cleanup.
+     */
+    public record Trim(
+            String runId,
+            long epoch,
+            String token,
+            CdsExportJobDocumentDto document,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportChartCheckpointDto
+                    pointer) {
+        @Override
+        public String toString() {
+            return "CdsExportTrim[protected]";
+        }
+    }
+
+    /** How a trim ended. */
+    public enum TrimOutcome {
+        /** Only the checkpoint and the members it pins remain: the attempt is {@value #KEPT}. */
+        TRIMMED,
+        /** Not finished; the next sweep tries again. */
+        RETRY,
+        /**
+         * The checkpoint cannot be trusted or read (its chain does not match the recorded
+         * pointer, or its key is gone): nothing of the attempt can be adopted, so it is erased.
+         */
+        REJECTED
+    }
+
+    public Trim beginTrim(String id, long epoch) {
+        runId(id);
+        if (epoch < 1) throw new IllegalArgumentException("CDS_EXPORT_EPOCH_INVALID");
+        return transaction(
+                write,
+                () -> {
+                    var run = required(runs.lock(id));
+                    var attempt = attempt(run, epoch);
+                    var now = runs.now();
+                    if (!KEEPING.equals(attempt.getState())
+                            || attempt.getCheckpointMember() == null
+                            || !attempt.getExpiresAt().isAfter(now)
+                            || run.getOwnerEpoch() == epoch && liveOwner(run, now)
+                            || attempt.getDownloadUntil() != null
+                                    && attempt.getDownloadUntil().isAfter(now)
+                            || attempt.getCleanupUntil() != null
+                                    && attempt.getCleanupUntil().isAfter(now)) return null;
+                    var pointer =
+                            new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportChartCheckpointDto(
+                                    attempt.getCheckpointMember(),
+                                    attempt.getCheckpointDigest(),
+                                    attempt.getCheckpointBytes(),
+                                    attempt.getCheckpointCharts());
+                    var token = UUID.randomUUID().toString();
+                    attempt.setCleanupToken(token);
+                    attempt.setCleanupUntil(now.plusSeconds(LEASE_SECONDS));
+                    attempt.setUpdatedAt(now);
+                    return new Trim(id, epoch, token, document(run), pointer);
+                });
+    }
+
+    public void trimCheckpoint(Trim trim) {
+        transaction(
+                write,
+                () -> {
+                    var run = required(runs.lock(trim.runId()));
+                    var now = runs.now();
+                    var attempt = trimAttempt(run, trim, now);
+                    attempt.setCleanupUntil(now.plusSeconds(LEASE_SECONDS));
+                    attempt.setUpdatedAt(now);
+                    return null;
+                });
+    }
+
+    public void finishTrim(Trim trim, TrimOutcome outcome) {
+        Objects.requireNonNull(outcome);
+        transaction(
+                write,
+                () -> {
+                    var run = required(runs.lock(trim.runId()));
+                    var now = runs.now();
+                    var attempt = trimAttempt(run, trim, now);
+                    attempt.setCleanupToken(null);
+                    attempt.setCleanupUntil(null);
+                    attempt.setUpdatedAt(now);
+                    switch (outcome) {
+                        case TRIMMED -> {
+                            attempt.setState(KEPT);
+                            // The prepared package it pointed to, if any, is gone.
+                            attempt.setContextDocument(null);
+                            attempt.setContextDigest(null);
+                        }
+                        case REJECTED -> {
+                            attempt.setExpiresAt(now);
+                            event(
+                                    run,
+                                    "CHECKPOINT_REJECTED",
+                                    run.getOperator(),
+                                    "CDS_EXPORT_CHART_CHECKPOINT_INVALID",
+                                    now,
+                                    trim.epoch());
+                        }
+                        case RETRY -> {
+                            /* Still KEEPING; the next sweep tries again. */
+                        }
+                        default -> throw new IllegalArgumentException("CDS_EXPORT_TRIM_INVALID");
+                    }
+                    return null;
+                });
+    }
+
+    private CdsExportAttempt trimAttempt(CdsExportRun run, Trim trim, Instant now) {
+        var attempt = attempt(run, trim.epoch());
+        if (!Objects.equals(attempt.getCleanupToken(), trim.token())
+                || attempt.getCleanupUntil() == null
+                || !attempt.getCleanupUntil().isAfter(now)
+                || !KEEPING.equals(attempt.getState())
+                || !Objects.equals(attempt.getCheckpointMember(), trim.pointer().memberId())
+                || run.getOwnerEpoch() == trim.epoch() && liveOwner(run, now)
+                || attempt.getDownloadUntil() != null && attempt.getDownloadUntil().isAfter(now))
+            throw new IllegalStateException("CDS_EXPORT_CLEANUP_FENCED");
+        return attempt;
     }
 
     /**
@@ -1239,7 +1412,18 @@ public class CdsExportLedgerService {
                     if (run.isCancelRequested() && state(run) == CdsExportState.CANCELLED)
                         return null;
                     if (state(run).terminal() && state(run) != CdsExportState.READY) {
-                        throw new IllegalStateException("CDS_EXPORT_CANCEL_INVALID");
+                        // A stopped job that keeps finished charts for a resume: cancelling it
+                        // erases them (the next retention sweep removes the kept attempts whole)
+                        // and leaves its recorded outcome as it was. Nothing else of a stopped
+                        // job can be cancelled.
+                        if (run.isCancelRequested()) return null;
+                        if (attempts.kept(id, now).isEmpty())
+                            throw new IllegalStateException("CDS_EXPORT_CANCEL_INVALID");
+                        run.setCancelRequested(true);
+                        attempts.expireForRun(id, now);
+                        run.setUpdatedAt(now);
+                        event(run, "CANCEL_REQUESTED", operator, null, now);
+                        return null;
                     }
                     run.setCancelRequested(true);
                     attempts.expireForRun(id, now);
@@ -1309,9 +1493,10 @@ public class CdsExportLedgerService {
                     if (run.isCancelRequested())
                         finish(run, CdsExportState.CANCELLED, "CDS_EXPORT_CANCELLED", now);
                     else {
-                        // The next claim starts a new generation that captures again; this
-                        // generation's partial staging is no longer needed.
-                        attempts.expireForRun(run.getId(), now);
+                        // The next claim starts a new generation that captures again: this
+                        // generation's finished charts are kept for it to adopt, and the rest of
+                        // its partial staging is no longer needed.
+                        keepCheckpoint(run, now);
                         run.setState(CdsExportState.ACCEPTED.name());
                         run.setOwnerToken(null);
                         run.setLeaseUntil(null);
@@ -1365,24 +1550,73 @@ public class CdsExportLedgerService {
                             run,
                             run.isCancelRequested() ? CdsExportState.CANCELLED : outcome,
                             run.isCancelRequested() ? "CDS_EXPORT_CANCELLED" : code,
-                            now);
+                            now,
+                            true);
                     return null;
                 });
     }
 
     private void finish(CdsExportRun run, CdsExportState outcome, String code, Instant now) {
+        finish(run, outcome, code, now, false);
+    }
+
+    /**
+     * Records the job's outcome.
+     *
+     * @param resumable true when the attempt itself stopped (a failure, a review, an expired or
+     *     stalled worker) and the operator can resume the job: its finished charts are then kept
+     *     for the resumed attempt ({@link #keepCheckpoint}). A cancellation, or a job that can
+     *     never be resumed as it is (its runtime changed, its intent is unreadable), keeps nothing.
+     */
+    private void finish(
+            CdsExportRun run, CdsExportState outcome, String code, Instant now, boolean resumable) {
         // A failed, refused or cancelled job has no package to keep: its staged selection,
         // captures and partial outputs become eligible for the next retention sweep at once,
-        // instead of holding private data and disk reserve for the attempt's 7-day ceiling.
-        if (outcome == CdsExportState.FAILED
-                || outcome == CdsExportState.REVIEW_REQUIRED
-                || outcome == CdsExportState.CANCELLED) attempts.expireForRun(run.getId(), now);
+        // instead of holding private data and disk reserve for the attempt's 7-day ceiling. Only
+        // a resumable job keeps its finished charts, encrypted, for a resumed attempt to adopt.
+        if (outcome == CdsExportState.FAILED || outcome == CdsExportState.REVIEW_REQUIRED) {
+            if (resumable) keepCheckpoint(run, now);
+            else attempts.expireForRun(run.getId(), now);
+        } else if (outcome == CdsExportState.CANCELLED) attempts.expireForRun(run.getId(), now);
         run.setState(outcome.name());
         run.setSafeCode(code);
         run.setUpdatedAt(now);
         run.setOwnerToken(null);
         run.setLeaseUntil(null);
         event(run, outcome.name(), run.getOperator(), code, now);
+    }
+
+    /**
+     * A job that stopped and can be resumed keeps its current attempt's finished charts: when the
+     * attempt recorded a checkpoint, the attempt is kept ({@value #KEEPING}) until seven days from
+     * now, and the retention sweep then erases every member of it the checkpoint does not pin.
+     * An earlier attempt already kept stays as it is (until its own expiry, until a later attempt
+     * has adopted past it, or until the job is cancelled). Every other attempt of the job is
+     * released to the retention sweep at once, as before.
+     */
+    private void keepCheckpoint(CdsExportRun run, Instant now) {
+        var current = attempts.lock(run.getId(), run.getOwnerEpoch());
+        if (current != null
+                && current.getCheckpointMember() != null
+                && java.util.Set.of("CAPTURING", "PREPARED", "ENCRYPTED").contains(current.getState()))
+            keep(run, current, now.plusSeconds(ATTEMPT_SECONDS), now);
+        attempts.flush();
+        attempts.expireUnkeptForRun(run.getId(), now);
+    }
+
+    /** Keeps one attempt's finished charts until {@code until}; audited with their count. */
+    private void keep(CdsExportRun run, CdsExportAttempt attempt, Instant until, Instant now) {
+        attempt.setState(KEEPING);
+        attempt.setExpiresAt(until);
+        attempt.setUpdatedAt(now);
+        long charts = attempt.getCheckpointCharts() == null ? 0 : attempt.getCheckpointCharts();
+        event(
+                run,
+                "CHARTS_KEPT",
+                run.getOperator(),
+                "CDS_EXPORT_CHARTS_KEPT_" + charts,
+                now,
+                attempt.getEpoch());
     }
 
     private CdsExportRun owned(CdsExportLeaseDto lease) {
@@ -1437,7 +1671,8 @@ public class CdsExportLedgerService {
                             run,
                             run.isCancelRequested() ? CdsExportState.CANCELLED : outcome,
                             run.isCancelRequested() ? "CDS_EXPORT_CANCELLED" : code,
-                            now);
+                            now,
+                            true);
                     return true;
                 });
     }

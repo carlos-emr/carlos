@@ -188,6 +188,65 @@ public class CdsExportStagingFactory {
         // Preserve the run directory: another epoch can be active concurrently.
     }
 
+    /**
+     * Erases every member of a kept attempt that its finished-chart checkpoint does not pin, so a
+     * stopped attempt's staging shrinks to its finished charts and their checkpoint. The same
+     * anchored, validated deletion as {@link #purgeAttempt}: every entry must be a private staged
+     * member of this attempt before anything is erased, and is checked again just before it is.
+     * The pinned members and the directory stay. A missing or changed key does not matter here:
+     * the caller found the pinned members through the key.
+     *
+     * @param pinned whether the member with this identifier is pinned
+     * @return the members erased
+     */
+    public long trimAttempt(
+            String runId,
+            long epoch,
+            CdsExportStorageBindingDto binding,
+            java.util.function.Predicate<String> pinned,
+            Runnable checkpoint)
+            throws IOException {
+        scope(runId, epoch);
+        Objects.requireNonNull(binding);
+        Objects.requireNonNull(pinned);
+        Objects.requireNonNull(checkpoint);
+        checkpoint.run();
+        Path base = root(binding.rootId()),
+                run = base.resolve(runId),
+                directory = run.resolve(Long.toString(epoch));
+        CdsExportProtectedFiles.dataDirectory(run);
+        CdsExportProtectedFiles.dataDirectory(directory);
+        try (var opened = Files.newDirectoryStream(directory)) {
+            if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure))
+                throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
+            for (Path entry : opened) {
+                checkpoint.run();
+                validateCleanupMember(secure, directory, entry);
+            }
+        }
+        long erased = 0;
+        try (var opened = Files.newDirectoryStream(directory)) {
+            if (!(opened instanceof java.nio.file.SecureDirectoryStream<Path> secure))
+                throw new IOException("CDS_EXPORT_SECURE_DIRECTORY_REQUIRED");
+            for (Path entry : opened) {
+                checkpoint.run();
+                validateCleanupMember(secure, directory, entry);
+                String name = entry.getFileName().toString();
+                if (pinned.test(name.substring(0, name.length() - ".stage".length()))) continue;
+                secure.deleteFile(entry.getFileName());
+                erased++;
+            }
+        }
+        try (var channel =
+                java.nio.channels.FileChannel.open(
+                        directory,
+                        java.nio.file.StandardOpenOption.READ,
+                        java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+            channel.force(true);
+        }
+        return erased;
+    }
+
     /** Keep both the complete preflight and the immediately-before-unlink check. */
     private static void validateCleanupMember(
             java.nio.file.SecureDirectoryStream<Path> secure,

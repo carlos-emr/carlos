@@ -428,6 +428,22 @@ final class CdsExportChartCheckpointReader {
         return null;
     }
 
+    /**
+     * True when a failure to open or read a kept checkpoint, or a member it pins, means the
+     * checkpoint cannot be trusted or used at all (its chain does not match the recorded pointer,
+     * a member is missing, altered or of another attempt, or the attempt's key is gone), rather
+     * than that the storage failed for now.
+     */
+    static boolean untrusted(IOException failure) {
+        if (failure instanceof java.nio.file.NoSuchFileException) return true;
+        String code = failure.getMessage();
+        return code != null
+                && (code.equals("CDS_EXPORT_CHART_CHECKPOINT_INVALID")
+                        || code.startsWith("CDS_EXPORT_STAGED_")
+                        || code.equals("CDS_EXPORT_STORAGE_KEY_CHANGED")
+                        || code.equals("CDS_EXPORT_AES256_KEY_REQUIRED"));
+    }
+
     private static boolean count(JsonNode value) {
         return value.isIntegralNumber() && value.canConvertToLong() && value.longValue() >= 0;
     }
