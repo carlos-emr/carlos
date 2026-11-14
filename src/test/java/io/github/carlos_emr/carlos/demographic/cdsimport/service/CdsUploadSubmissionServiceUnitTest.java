@@ -119,12 +119,6 @@ class CdsUploadSubmissionServiceUnitTest extends CarlosUnitTestBase {
                                         .filter(row -> call.getArgument(0).equals(row.getRunId()))
                                         .findFirst()
                                         .orElse(null));
-        when(storage.reservedCount())
-                .thenAnswer(
-                        call ->
-                                uploadRows.values().stream()
-                                        .filter(row -> !row.isQuotaReleased())
-                                        .count());
         doAnswer(
                         call -> {
                             CdsUpload row = call.getArgument(0);

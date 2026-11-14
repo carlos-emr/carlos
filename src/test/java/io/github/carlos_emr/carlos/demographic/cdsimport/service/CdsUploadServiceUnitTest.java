@@ -91,12 +91,6 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
                                         .filter(row -> call.getArgument(0).equals(row.getRunId()))
                                         .findFirst()
                                         .orElse(null));
-        when(uploads.reservedCount())
-                .thenAnswer(
-                        call ->
-                                stored.values().stream()
-                                        .filter(row -> !row.isQuotaReleased())
-                                        .count());
         doAnswer(
                         call -> {
                             CdsUpload row = call.getArgument(0);
@@ -594,17 +588,61 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAvoidInodeGrowth_whenThePendingUploadCountRefusesANewUpload() throws Exception {
-        var counted = service(Map.of("cds.import.upload.maxFiles", "1"));
-        counted.begin(OWNER, "source.xml", 100);
-        long before;
-        try (var files = Files.list(temporary.resolve("uploads"))) {
-            before = files.count();
+    void shouldBeginUpload_whenTwentyThousandReservationsAwaitSnapshot() throws Exception {
+        // One XML file per patient: 20,000 uploads still hold their reservations, each waiting
+        // for its run's snapshot, and the retired count is set as low as it goes.
+        Instant begun = Instant.now();
+        for (int n = 0; n < 20_000; n++) {
+            CdsUpload waiting = new CdsUpload();
+            waiting.setId(UUID.randomUUID().toString());
+            waiting.setOperator(OWNER);
+            waiting.setSourceName("patient-" + n + ".xml");
+            waiting.setMediaKind("XML");
+            waiting.setExpectedBytes(100);
+            waiting.setState("SUBMITTED");
+            waiting.setSubmissionKey("web-upload-" + waiting.getId());
+            waiting.setCreatedAt(begun);
+            waiting.setUpdatedAt(begun);
+            stored.put(waiting.getId(), waiting);
         }
-        assertThatThrownBy(() -> counted.begin(OWNER, "source.xml", 100))
-                .hasMessage("UPLOAD_CAPACITY_BUSY");
-        try (var files = Files.list(temporary.resolve("uploads"))) {
-            assertThat(files.count()).isEqualTo(before);
+        budget.setReservedBytes(20_000L * 100);
+        var counted = service(Map.of("cds.import.upload.maxFiles", "1"));
+        var upload = counted.begin(OWNER, "patient-20000.xml", 100);
+        assertThat(upload.state()).isEqualTo("OPEN");
+        assertThat(stored.values().stream().filter(row -> !row.isQuotaReleased()).count())
+                .isEqualTo(20_001);
+        assertThat(budget.getReservedBytes()).isEqualTo(20_001L * 100);
+        assertThat(Files.isDirectory(temporary.resolve("uploads").resolve(upload.id()))).isTrue();
+        byte[] body = new byte[100];
+        assertThat(
+                        counted.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        body.length,
+                                        hash(body),
+                                        new ByteArrayInputStream(body))
+                                .receivedBytes())
+                .isEqualTo(100);
+    }
+
+    @Test
+    void shouldStateRemovalTime_whenUploadIsUnsubmitted() throws Exception {
+        var idle = service(Map.of("cds.import.upload.ttlHours", "6"));
+        var upload = idle.begin(OWNER, "source.xml", 1);
+        CdsUpload row = stored.get(upload.id());
+        assertThat(upload.removedAt())
+                .isEqualTo(row.getUpdatedAt().plus(java.time.Duration.ofHours(6)).toEpochMilli());
+        Instant later = row.getUpdatedAt().plusSeconds(3600);
+        row.setUpdatedAt(later);
+        assertThat(idle.status(OWNER, upload.id()).removedAt())
+                .as("every stored chunk restarts the idle window")
+                .isEqualTo(later.plus(java.time.Duration.ofHours(6)).toEpochMilli());
+        for (String submitted : List.of("SUBMITTED", "SUBMITTED_DRY_RUN", "RETIRED")) {
+            row.setState(submitted);
+            assertThat(idle.status(OWNER, upload.id()).removedAt())
+                    .as("a submitted upload is never removed for idleness")
+                    .isNull();
         }
     }
 

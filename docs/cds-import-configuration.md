@@ -183,18 +183,21 @@ import or upload of a process logs one WARN naming the ones still set, never the
 | `cds.import.maxCompressionRatio` | `200` | The disk reserve: a highly compressed genuine member (a blank scanned page) is accepted, and a decompression bomb stops at the reserve. |
 | `cds.import.upload.maxFileBytes` | 64 GiB | The upload store's disk reserve, checked before every chunk. |
 | `cds.import.upload.maxTotalBytes` | 256 GiB | The upload store's disk reserve, checked before every chunk. |
+| `cds.import.upload.maxFiles` | `20000` | Nothing: any number of uploads may wait for their runs' snapshots. A store out of space refuses at the disk reserve, and one out of inodes fails the step that needed one. |
 
 ## Browser upload
 
-No upload size or total refuses a browser upload: a file of any size is sent in chunks and
+No upload size, total or count refuses a browser upload: a file of any size is sent in chunks and
 stored until the upload store reaches its free-disk reserve, when the chunk is refused
-(`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507) and the same upload resumes once space is freed.
+(`UPLOAD_DISK_RESERVE_REFUSED`, HTTP 507) and the same upload resumes once space is freed. Any
+number of uploads may be begun and wait for their runs' snapshots (one XML file per patient is
+one upload per patient). A store that runs out of inodes fails the step that needed one
+(`UPLOAD_STORAGE_UNAVAILABLE`, HTTP 503).
 
 | Property | Default | Meaning |
 | --- | --- | --- |
 | `cds.import.upload.maxChunkBytes` | 4 MiB | Transfer unit, 64 KiB to 16 MiB, also advertised to the browser. A chunk is never failed for the time it takes (see below), so a slow link needs no smaller chunk. |
-| `cds.import.upload.maxFiles` | `20000` | Uploads that may hold a reservation at once (begun and not yet abandoned or retired by their run's snapshot). It keeps a client that begins uploads in a loop from exhausting inodes; one import needs one upload. |
-| `cds.import.upload.ttlHours` | `24` | Hours an unsubmitted upload may stay idle before cleanup abandons it; every stored chunk restarts the interval. |
+| `cds.import.upload.ttlHours` | `24` | The unsubmitted upload's stall window: hours an upload that is neither submitted nor sent a chunk may stay idle before cleanup abandons it and removes its bytes. Every stored chunk restarts the interval, and the import page's upload list shows, for each unsubmitted upload, when it will be removed ("Removed at ..."). A submitted upload is never removed for idleness. |
 
 A chunk is given up only when it stops moving, never for its total time. The server fails a chunk
 (`UPLOAD_CHUNK_STALLED`, HTTP 408) only when two minutes pass without one of its bytes arriving.

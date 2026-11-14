@@ -240,6 +240,17 @@ test('clinical progress counts verified prior records without treating an upload
   assert.match(client.uploadPresentation('COMPLETE',true),/Fichier reçu/);
 });
 
+test('each unsubmitted upload states when it is removed, in English and French', () => {
+  const removedAt=Date.UTC(2026,10,16,15,30);
+  const at=french=>new Date(removedAt).toLocaleString(french?'fr-CA':'en-CA');
+  assert.equal(client.uploadRemoval({state:'OPEN',removedAt}),
+    'Removed at '+at(false)+' unless submitted or resumed before then');
+  assert.equal(client.uploadRemoval({state:'COMPLETE',removedAt},true),
+    'Supprimé le '+at(true)+' s’il n’est ni soumis ni repris d’ici là');
+  for(const upload of [{state:'SUBMITTED',removedAt:null},{state:'RETIRED'},{state:'OPEN',removedAt:'soon'},null])
+    assert.equal(client.uploadRemoval(upload),'','a submitted upload is never removed for idleness');
+});
+
 test('terminal report or cleanup failures require attention rather than an endless finishing state', () => {
   for(const changed of [{reportDeliveryFailed:true,reportState:'FAILED',reportsDelivered:false},
     {cleanupState:'FAILED',cleanupComplete:false},{maintenanceReleaseState:'RELEASE_FAILED',cleanupComplete:false}]) {

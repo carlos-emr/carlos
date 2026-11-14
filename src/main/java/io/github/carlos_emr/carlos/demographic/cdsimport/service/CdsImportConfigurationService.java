@@ -184,7 +184,9 @@ public class CdsImportConfigurationService {
      * stream and stops at the reserve ({@code CDS_INPUT_DISK_RESERVE}). The browser upload's
      * size and total byte budget are retired for the same reason: an upload of any size is stored
      * chunk by chunk, each chunk checked against the reserve of the upload store before it is
-     * written ({@code UPLOAD_DISK_RESERVE_REFUSED}).
+     * written ({@code UPLOAD_DISK_RESERVE_REFUSED}). The count of uploads awaiting their runs'
+     * snapshots is retired too: a store out of space refuses at that reserve, and one out of
+     * inodes fails the step that needed one.
      */
     public static final List<String> RETIRED_SETTINGS =
             List.of(
@@ -194,7 +196,8 @@ public class CdsImportConfigurationService {
                     "cds.import.maxBinaryBytes",
                     "cds.import.maxCompressionRatio",
                     "cds.import.upload.maxFileBytes",
-                    "cds.import.upload.maxTotalBytes");
+                    "cds.import.upload.maxTotalBytes",
+                    "cds.import.upload.maxFiles");
 
     private final AtomicBoolean retiredReported = new AtomicBoolean();
 
