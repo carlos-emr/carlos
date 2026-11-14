@@ -113,6 +113,28 @@ class CdsLaboratoryImportServiceUnitTest {
     }
 
     @Test
+    void shouldKeepTheLaboratorysExactTimeText_whenACarlosExportStatedItWithTheLabInformation()
+            throws Exception {
+        // A CARLOS export writes a collection time whose offset no xs:dateTime holds as its wall
+        // clock and states the laboratory's text in TestResultsInformationReportedByTheLab; a
+        // report naming no laboratory has an empty LaboratoryName. The receiving CARLOS keeps the
+        // exact text in the result's laboratory information and an empty laboratory name.
+        var result = result();
+        result.setLaboratoryName("");
+        String information =
+                "Ordered test: Metabolic panel\n"
+                        + "Requisition time sent by the laboratory: 20261308100000\n"
+                        + "Collection time sent by the laboratory: 20260709143500+2500";
+        result.setInformationFromLab(information);
+        var wall = CdsTemporal.parse(null, null, null, "2026-07-09T14:35:00", "CollectionDateTime");
+        var parser = new CdsLaboratoryMessageParser();
+        parser.init(CdsLaboratoryImportService.message(result, patient(), wall));
+        assertThat(parser.getOBXComment(0, 0, 0)).isEqualTo(information);
+        assertThat(parser.getTimeStamp(0, 0)).isEqualTo("2026-07-09 14:35:00");
+        assertThat(parser.getPatientLocation()).isEmpty();
+    }
+
+    @Test
     void shouldEscapeNewSegments_whenSourceContainsLineBreaks() {
         assertThat(CdsLaboratoryImportService.escape("value\rOBX|fake\nNTE|fake"))
                 .isEqualTo("value\\X0D\\OBX\\F\\fake\\X0A\\NTE\\F\\fake");

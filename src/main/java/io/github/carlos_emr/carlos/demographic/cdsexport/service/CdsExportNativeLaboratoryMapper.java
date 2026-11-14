@@ -38,8 +38,11 @@ import java.util.*;
  * <p>Text is exported as the laboratory wrote it. Results, notes, reference ranges and names are
  * read from the raw segment, so a separator a laboratory left unescaped stays in the text instead
  * of cutting it at the first piece, and HL7 escapes are decoded the way CARLOS displays them (see
- * {@link #decode}). A structured value (numeric, date, coded) with unexpected components needs
- * review.
+ * {@link #decode}). A value of any type is written: one this mapping does not read structurally
+ * is the laboratory's whole text of it. A time is written at the precision the laboratory sent
+ * ({@link #temporal}); one that is no calendar time, or whose offset no {@code xs:dateTime}
+ * holds, is stated with the laboratory's facts as it was sent ({@link #REQUISITION_SENT},
+ * {@link #COLLECTION_SENT}).
  */
 final class CdsExportNativeLaboratoryMapper {
     /**
@@ -54,6 +57,25 @@ final class CdsExportNativeLaboratoryMapper {
     static final String UNKNOWN_FLAG = "U";
 
     private static final Set<String> TEXT_TYPES = Set.of("ST", "TX", "FT");
+
+    /**
+     * Starts the TestResultsInformationReportedByTheLab line that states a requisition time
+     * (OBR-6) exactly as the laboratory sent it, when it is not written as sent: it is no
+     * calendar time, or its offset is one no {@code xs:dateTime} holds.
+     */
+    static final String REQUISITION_SENT = "Requisition time sent by the laboratory: ";
+
+    /**
+     * Starts the TestResultsInformationReportedByTheLab line that states a collection time
+     * (OBX-14 or OBR-7) exactly as the laboratory sent it, when it is not written as sent.
+     */
+    static final String COLLECTION_SENT = "Collection time sent by the laboratory: ";
+
+    /**
+     * Starts the TestResultsInformationReportedByTheLab line that holds a laboratory name longer
+     * than LaboratoryName's 120 characters, whole.
+     */
+    static final String LABORATORY_NAME_COMPLETE = "Laboratory name (complete): ";
 
     record Value(
             String ordinal,
@@ -102,17 +124,18 @@ final class CdsExportNativeLaboratoryMapper {
             throws IOException {
         try {
             var result = new ArrayList<Value>();
-            String laboratory = source.information().fields().get("sending_facility");
-            if (laboratory == null || laboratory.isEmpty())
-                laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
-            laboratory = literal(laboratory);
-            if (laboratory.isEmpty()) review("CDS_EXPORT_NATIVE_LAB_NAME_REQUIRED");
+            String laboratory = laboratoryName(source);
             var raw = source.parsed().raw();
             for (var observation : source.parsed().observations()) {
                 var text = new LinkedHashMap<String, String>();
                 var dates = new LinkedHashMap<String, CdsExportDateDto>();
                 Segment obx = observation.result(), obr = observation.order();
-                put(text, "LaboratoryName", laboratory, 120);
+                // LaboratoryName is mandatory and its type allows empty text: a report that
+                // names no laboratory has an empty name, as CARLOS holds it, and a name longer
+                // than the element is written whole with the laboratory's facts.
+                String named = CdsExportXmlText.element(laboratory);
+                boolean whole = named.codePointCount(0, named.length()) <= 120;
+                text.put("LaboratoryName", whole ? named : "");
                 String reportedName = componentText(raw, obx, 3, 0, 2);
                 put(text, "TestNameReportedByLab", reportedName, 120);
                 put(text, "LabTestCode", scalar(obx, 3, 0, 1), 50);
@@ -128,12 +151,15 @@ final class CdsExportNativeLaboratoryMapper {
                 put(text, "AccessionNumber", accession, 120);
                 String type = scalar(obx, 2, 0, 1);
                 // ED (an embedded document) is not a result value: the parser exports it as a
-                // Reports entry (CdsExportLaboratoryDocumentMapper).
-                if (!Set.of("NM", "SN", "ST", "TX", "FT", "CE", "CWE", "CNE", "DT", "TS", "DTM")
-                        .contains(type)) review("CDS_EXPORT_NATIVE_LAB_VALUE_TYPE_REQUIRES_REVIEW");
+                // Reports entry (CdsExportLaboratoryDocumentMapper). A value type this mapping
+                // does not read structurally (a laboratory's own NUM, TXT or DOC, an RP, TM or
+                // any other) is the laboratory's text of the value, as for ST.
                 String value;
-                if (type.equals("SN")) value = structuredNumeric(raw, obx, observation.repetition());
-                else if (Set.of("CE", "CWE", "CNE").contains(type)) {
+                if (type.equals("SN")) {
+                    value = structuredNumeric(raw, obx, observation.repetition());
+                    // Not a structured numeric ("^POSITIVE", five components): its whole text.
+                    if (value == null) value = rawText(raw, obx, 5, observation.repetition());
+                } else if (Set.of("CE", "CWE", "CNE").contains(type)) {
                     String code = scalar(obx, 5, observation.repetition(), 1);
                     String description =
                             componentText(raw, obx, 5, observation.repetition(), 2);
@@ -146,23 +172,15 @@ final class CdsExportNativeLaboratoryMapper {
                     var lines = new ArrayList<String>();
                     for (String line : raw.repetitions(obx, 5)) lines.add(literal(decode(line, raw)));
                     value = String.join("\n", lines);
-                } else if (type.equals("ST"))
+                } else
+                    // ST, a numeric or date value and any other type: the laboratory's whole
+                    // text of the value. A number that is no decimal ("<5", "POSITIVE") or a value
+                    // with more components than its first is written as sent, never refused.
                     value = rawText(raw, obx, 5, observation.repetition());
-                else {
-                    value = scalar(obx, 5, observation.repetition(), 1);
-                    if (!value.equals(rawText(raw, obx, 5, observation.repetition())))
-                        review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
-                }
-                if (type.equals("NM") && !value.isEmpty()) {
-                    try {
-                        new java.math.BigDecimal(value);
-                    } catch (NumberFormatException invalid) {
-                        review("CDS_EXPORT_NATIVE_LAB_NUMERIC_VALUE_INVALID");
-                    }
-                }
                 // Only laboratory-reported facts: CARLOS provenance stays in the NewCategory
                 // residual, never in a field a receiver shows as the laboratory's commentary.
                 var information = new ArrayList<String>();
+                if (!whole) information.add(LABORATORY_NAME_COMPLETE + named);
                 String subId = scalar(obx, 4, 0, 1);
                 if (!subId.isEmpty()) information.add("Observation sub-ID: " + subId);
                 if (!orderedName.isEmpty()) information.add("Ordered test: " + orderedName);
@@ -184,17 +202,29 @@ final class CdsExportNativeLaboratoryMapper {
                 }
                 put(text, "ReferenceRangeText", rawText(raw, obx, 7, 0), 1024);
                 String requested = scalar(obr, 6, 0, 1);
-                if (!requested.isEmpty())
-                    dates.put("LabRequisitionDateTime", temporal(requested, zone));
-                String collected = scalar(obx, 14, 0, 1);
-                if (collected.isEmpty()) collected = scalar(obr, 7, 0, 1);
-                // No collection time was sent: the report date the chart lists for this report
-                // (CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME, recorded in the residual).
-                dates.put(
-                        "CollectionDateTime",
-                        collected.isEmpty()
-                                ? chartDate(source, zone)
-                                : temporal(collected, zone));
+                if (!requested.isEmpty()) {
+                    // A time that is no calendar time, or whose offset no xs:dateTime holds, is
+                    // not written as sent: the laboratory's text is stated with its facts.
+                    var requisition = read(requested, zone);
+                    if (requisition.date() != null)
+                        dates.put("LabRequisitionDateTime", requisition.date());
+                    if (!requisition.asSent()) information.add(REQUISITION_SENT + requested);
+                }
+                // The collection time is the first of OBX-14 and OBR-7 that the laboratory sent
+                // and that is a calendar time; a sent time passed over, or written without its
+                // offset, is stated with the laboratory's facts. None: the report date the chart
+                // lists (CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME, recorded in the residual).
+                CdsExportDateDto collection = null;
+                for (String sent : List.of(scalar(obx, 14, 0, 1), scalar(obr, 7, 0, 1))) {
+                    if (sent.isEmpty()) continue;
+                    var reading = read(sent, zone);
+                    if (!reading.asSent()) information.add(COLLECTION_SENT + sent);
+                    if (reading.date() != null) {
+                        collection = reading.date();
+                        break;
+                    }
+                }
+                dates.put("CollectionDateTime", collection == null ? chartDate(source, zone) : collection);
                 String flag = scalar(obx, 8, 0, 1);
                 if (obx.getField(8).length > 1) {
                     var flags = new ArrayList<String>();
@@ -261,16 +291,22 @@ final class CdsExportNativeLaboratoryMapper {
             throws IOException {
         var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         result.putAll(reviews.fields());
-        boolean chartDated = !undated(source).isEmpty();
+        // The stored field the chart's report date came from, when an observation carries it:
+        // obr_date (directly or through the HL7 field it names) or, when the upload stored none,
+        // the time CARLOS stored the report. MSH-7 travels in the message itself.
+        String dated = undated(source).isEmpty() ? null : chartDateSource(source);
+        var chartRow =
+                CREATED.equals(dated)
+                        ? source.message()
+                        : dated == null || dated.equals("MSH-7") ? null : source.information();
+        String chartField = CREATED.equals(dated) ? "created" : "obr_date";
         for (var row : source.rows()) {
             var assessed = new CdsExportNativeFieldAssessments(row, result);
             for (var entry : row.fields().entrySet()) {
                 // No value is refused for its characters or length: CARLOS.Laboratory.v1 is
                 // JSON, where a character XML cannot carry is its escape, and residual Content
                 // has no maxLength.
-                if (chartDated
-                        && row == source.information()
-                        && entry.getKey().equals("obr_date")) {
+                if (row == chartRow && entry.getKey().equals(chartField)) {
                     assessed.set(
                             entry.getKey(),
                             CdsExportFieldAssessmentDto.Outcome.MAPPED,
@@ -291,6 +327,9 @@ final class CdsExportNativeLaboratoryMapper {
     /** Rule of a collection date taken from the report date the chart lists. */
     static final String CHART_REPORT_DATE = "CHART_REPORT_DATE_WITHOUT_SENT_COLLECTION_TIME";
 
+    /** The source named when the chart's date is the time CARLOS stored the report. */
+    static final String CREATED = "hl7TextMessage.created";
+
     /** The report date as MessageUploader stores it: always a full clock, padded when needed. */
     private static final java.util.regex.Pattern STORED_REPORT_DATE =
             java.util.regex.Pattern.compile("([0-9]{4}-[0-9]{2}-[0-9]{2}) [0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.0)?");
@@ -301,17 +340,18 @@ final class CdsExportNativeLaboratoryMapper {
                     "([0-9]{4})([0-9]{2})?([0-9]{2})?([0-9]{2})?([0-9]{2})?([0-9]{2})?(?:\\.[0-9]{1,9})?(?:[+-][0-9]{4})?");
 
     /**
-     * The ordinals of the observations whose OBX-14 and OBR-7 are both empty: the laboratory sent
-     * no collection time for them, so they carry the report date the chart lists.
+     * The ordinals of the observations the laboratory sent no collection time for that is a
+     * calendar time (OBX-14 and OBR-7 empty, or neither readable): they carry the report date the
+     * chart lists.
      */
     static List<String> undated(CdsExportLaboratoryOccurrenceService.NativeSource source)
             throws IOException {
         var result = new ArrayList<String>();
         try {
             for (var observation : source.parsed().observations())
-                if (scalar(observation.result(), 14, 0, 1).isEmpty()
-                        && scalar(observation.order(), 7, 0, 1).isEmpty())
-                    result.add(observation.ordinal());
+                if (read(scalar(observation.result(), 14, 0, 1), ZoneOffset.UTC).date() == null
+                        && read(scalar(observation.order(), 7, 0, 1), ZoneOffset.UTC).date()
+                                == null) result.add(observation.ordinal());
         } catch (HL7Exception failure) {
             review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
         }
@@ -324,10 +364,15 @@ final class CdsExportNativeLaboratoryMapper {
      * that is empty, as {@code hl7TextInfo.obr_date}, reformatted to a full clock. The first
      * OBR-7, OBR-6, OBR-14 or OBR-22 (in message order), then MSH-7, whose wall clock equals the
      * stored date names its field, so the date keeps the precision the laboratory sent; when none
-     * does, the stored date itself is the source.
+     * does, the stored date itself is the source. The upload stores an empty date when it cannot
+     * read the handler's ({@code UtilDateUtilities.StringToDate} answers null and {@code
+     * DateToString} writes ""): the message time (MSH-7) is then the source when it is a calendar
+     * time, and otherwise the time CARLOS stored the report ({@code hl7TextMessage.created},
+     * never null).
      *
-     * @return the field name, such as {@code OBR[1]-6} or {@code MSH-7}, or {@code
-     *     hl7TextInfo.obr_date}; null when the chart has no date for the report
+     * @return the field name, such as {@code OBR[1]-6}, {@code MSH-7}, {@code
+     *     hl7TextInfo.obr_date} or {@code hl7TextMessage.created}; null when the report has no
+     *     date at all
      */
     static String chartDateSource(CdsExportLaboratoryOccurrenceService.NativeSource source)
             throws IOException {
@@ -339,9 +384,15 @@ final class CdsExportNativeLaboratoryMapper {
             CdsExportLaboratoryOccurrenceService.NativeSource source) throws IOException {
         String stored = source.information() == null ? null : source.information().fields().get("obr_date");
         var match = stored == null ? null : STORED_REPORT_DATE.matcher(stored);
-        if (match == null || !match.matches()) return null;
-        String wall = stored.substring(0, 19);
         try {
+            String sent = literal(new Terser(source.parsed().message()).get("/MSH-7-1"));
+            if (match == null || !match.matches()) {
+                if (read(sent, ZoneOffset.UTC).date() != null) return Map.entry("MSH-7", sent);
+                String created = source.message().fields().get("created");
+                var received = created == null ? null : STORED_REPORT_DATE.matcher(created);
+                return received == null || !received.matches() ? null : Map.entry(CREATED, created);
+            }
+            String wall = stored.substring(0, 19);
             int order = 0;
             for (var segment : source.parsed().raw().orders()) {
                 order++;
@@ -351,8 +402,7 @@ final class CdsExportNativeLaboratoryMapper {
                         return Map.entry("OBR[" + order + "]-" + field, value);
                 }
             }
-            String sent = new Terser(source.parsed().message()).get("/MSH-7-1");
-            if (wall.equals(wallClock(literal(sent)))) return Map.entry("MSH-7", literal(sent));
+            if (wall.equals(wallClock(sent))) return Map.entry("MSH-7", sent);
         } catch (HL7Exception failure) {
             review("CDS_EXPORT_NATIVE_LAB_FIELDS_REQUIRES_REVIEW");
         }
@@ -380,15 +430,17 @@ final class CdsExportNativeLaboratoryMapper {
     /**
      * The collection date of an observation the laboratory sent no collection time for: the
      * report date the chart lists, at the precision of the HL7 field it came from, or the stored
-     * date's day when no field gives it (the upload pads the time). Held only when the chart has
-     * no date for the report at all.
+     * date's day when no field gives it (the upload pads the time); the day CARLOS stored the
+     * report when the upload stored no date and MSH-7 is no calendar time. Every stored report has
+     * that time ({@code hl7TextMessage.created} is NOT NULL and set on every store), so only a row
+     * written outside CARLOS without it is still held.
      */
     static CdsExportDateDto chartDate(
             CdsExportLaboratoryOccurrenceService.NativeSource source, ZoneId zone)
             throws IOException {
         var candidate = chartDateCandidate(source);
         if (candidate == null) review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
-        if (candidate.getKey().equals("hl7TextInfo.obr_date"))
+        if (candidate.getKey().equals("hl7TextInfo.obr_date") || candidate.getKey().equals(CREATED))
             try {
                 return new CdsExportDateDto(
                         CdsExportDateDto.Precision.DATE,
@@ -396,7 +448,21 @@ final class CdsExportNativeLaboratoryMapper {
             } catch (DateTimeException invalid) {
                 review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
             }
-        return temporal(candidate.getValue(), zone);
+        var date = temporal(candidate.getValue(), zone);
+        if (date == null) review("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
+        return date;
+    }
+
+    /**
+     * The laboratory's name: the sending facility the upload stored, else the first component of
+     * MSH-4; empty when the report names none.
+     */
+    static String laboratoryName(CdsExportLaboratoryOccurrenceService.NativeSource source)
+            throws HL7Exception {
+        String laboratory = source.information().fields().get("sending_facility");
+        if (laboratory == null || laboratory.isEmpty())
+            laboratory = new Terser(source.parsed().message()).get("/MSH-4-1");
+        return literal(laboratory);
     }
 
     void write(Value value, CdsExportXmlComposer.ContentWriter xml) throws IOException {
@@ -563,9 +629,10 @@ final class CdsExportNativeLaboratoryMapper {
      * separator or suffix and second number, written together as the laboratory reports them
      * ({@code ">60"}, {@code "1:20"}, {@code "10-20"}, {@code "2+"}). Some laboratories escape the
      * SN's own component separators ({@code \S\1\S\:\S\20}, the Excelleris guide's titre);
-     * the escaped text then holds the same four components. A value that is not a structured
-     * numeric in either form is malformed and needs review; the exact text always stays in the
-     * complete source message.
+     * the escaped text then holds the same four components.
+     *
+     * @return the rendered value, or null when the value is not a structured numeric in either
+     *     form; the caller then writes the laboratory's whole text of it
      */
     static String structuredNumeric(
             CdsExportNativeLaboratoryParser.Raw raw, Segment obx, int repetition)
@@ -576,18 +643,16 @@ final class CdsExportNativeLaboratoryMapper {
                 CdsExportNativeLaboratoryParser.Raw.split(repetitions.get(repetition), raw.component);
         var parts = new ArrayList<String>();
         for (String component : components)
-            if (component.indexOf(raw.subcomponent) >= 0)
-                review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+            if (component.indexOf(raw.subcomponent) >= 0) return null;
             else parts.add(literal(decode(component, raw)));
         if (parts.size() == 1 && parts.getFirst().indexOf(raw.component) >= 0)
             parts =
                     new ArrayList<>(
                             CdsExportNativeLaboratoryParser.Raw.split(
                                     parts.getFirst(), raw.component));
-        if (parts.size() > 4) review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+        if (parts.size() > 4) return null;
         String rendered = String.join("", parts);
-        if (!rendered.isEmpty() && !STRUCTURED_NUMERIC.matcher(rendered).matches())
-            review("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+        if (!rendered.isEmpty() && !STRUCTURED_NUMERIC.matcher(rendered).matches()) return null;
         return rendered;
     }
 
@@ -602,96 +667,128 @@ final class CdsExportNativeLaboratoryMapper {
                         + "(?:[-+/.:](?:[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+))?)?");
     }
 
+    /**
+     * How an HL7 time is written: its CDS date, or null for text that is no calendar time, and
+     * whether that date is the time as the laboratory sent it.
+     */
+    record Reading(CdsExportDateDto date, boolean asSent) {}
+
+    private static final Reading UNREADABLE = new Reading(null, false);
+
+    /** An HL7 TS (DTM): digits, an optional fraction of a second and an optional offset. */
+    private static final java.util.regex.Pattern SENT_TIME =
+            java.util.regex.Pattern.compile(
+                    "([0-9]{4}(?:[0-9]{2}){0,5})(\\.[0-9]{1,9})?(?:([+-][0-9]{2})([0-9]{2}))?");
+
+    /**
+     * An HL7 time as a CDS date, at the precision the laboratory sent: {@code YYYY} a year,
+     * {@code YYYYMM} a month, {@code YYYYMMDD} a date; hour or minute precision ({@code
+     * YYYYMMDDHH[MM]}) its date, since a CDS date-time carries seconds that were never sent;
+     * seconds a date-time at the laboratory's offset, or in the clinic's zone when it sent none
+     * ({@link CdsExportNativeHistoryMapper#clock}). An offset sent with less than seconds says
+     * nothing a date keeps. A seconds time whose offset no {@code xs:dateTime} holds (beyond
+     * &plusmn;14:00, or minutes of 60 or more) is the laboratory's wall clock without an offset.
+     *
+     * @return the date, or null when the text is no calendar time (not an HL7 TS, year 0000, a
+     *     thirteenth month, an hour 24, ...)
+     */
     static CdsExportDateDto temporal(String value, ZoneId zone) throws IOException {
+        return read(value, zone).date();
+    }
+
+    /** {@link #temporal}, and whether the date written is the time as the laboratory sent it. */
+    static Reading read(String value, ZoneId zone) throws IOException {
+        var parts = value == null ? null : SENT_TIME.matcher(value);
+        if (parts == null || !parts.matches()) return UNREADABLE;
+        String digits = parts.group(1), fraction = parts.group(2);
+        String hours = parts.group(3), minutes = parts.group(4);
+        if (digits.startsWith("0000") || fraction != null && digits.length() != 14)
+            return UNREADABLE;
         try {
-            if (value == null
-                    || !value.matches(
-                            "[0-9]{4}(?:[0-9]{2}){0,5}(?:\\.[0-9]{1,9})?(?:[+-][0-9]{4})?"))
-                review("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-            String offset = "";
-            int end = value.length();
-            if (end >= 5 && (value.charAt(end - 5) == '+' || value.charAt(end - 5) == '-')) {
-                offset = value.substring(end - 5);
-                value = value.substring(0, end - 5);
-            }
-            if (value.startsWith("0000")) review("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-            if (offset.isEmpty() && value.length() == 4)
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.YEAR, Year.parse(value).toString());
-            if (offset.isEmpty() && value.length() == 6)
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.YEAR_MONTH,
-                        YearMonth.of(
-                                        Integer.parseInt(value.substring(0, 4)),
-                                        Integer.parseInt(value.substring(4)))
-                                .toString());
-            if (offset.isEmpty() && value.length() == 8)
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.DATE,
-                        LocalDate.parse(value, DateTimeFormatter.BASIC_ISO_DATE).toString());
-            if (value.length() == 10 || value.length() == 12) {
-                // Hour or minute precision (YYYYMMDDHH[MM], with or without an offset). A CDS
-                // date-time carries seconds, which the laboratory did not report: the date it
-                // wrote is exported, never an invented ":00", and the exact time stays in the
-                // complete source message.
-                LocalDateTime.parse(
-                        value.substring(0, 4)
-                                + "-"
-                                + value.substring(4, 6)
-                                + "-"
-                                + value.substring(6, 8)
-                                + "T"
-                                + value.substring(8, 10)
-                                + ":"
-                                + (value.length() == 12 ? value.substring(10, 12) : "00"));
-                if (!offset.isEmpty()) {
-                    var reported =
-                            ZoneOffset.of(offset.substring(0, 3) + ":" + offset.substring(3));
-                    if (Math.abs(reported.getTotalSeconds()) > 14 * 3600)
-                        review("CDS_EXPORT_NATIVE_LAB_OFFSET_REQUIRES_REVIEW");
+            int year = Integer.parseInt(digits.substring(0, 4));
+            switch (digits.length()) {
+                case 4 -> {
+                    return new Reading(
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.YEAR, Year.of(year).toString()),
+                            true);
                 }
-                return new CdsExportDateDto(
-                        CdsExportDateDto.Precision.DATE,
-                        LocalDate.parse(value.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE)
-                                .toString());
+                case 6 -> {
+                    return new Reading(
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.YEAR_MONTH,
+                                    YearMonth.of(year, Integer.parseInt(digits.substring(4)))
+                                            .toString()),
+                            true);
+                }
+                case 8 -> {
+                    return new Reading(date(digits), true);
+                }
+                case 10, 12 -> {
+                    // Hour or minute precision: the date the laboratory wrote, never an invented
+                    // ":00"; the exact time stays in the complete source message.
+                    LocalTime.of(
+                            Integer.parseInt(digits.substring(8, 10)),
+                            digits.length() == 12 ? Integer.parseInt(digits.substring(10, 12)) : 0);
+                    return new Reading(date(digits), true);
+                }
+                default -> {
+                    String iso =
+                            digits.substring(0, 4)
+                                    + "-"
+                                    + digits.substring(4, 6)
+                                    + "-"
+                                    + digits.substring(6, 8)
+                                    + "T"
+                                    + digits.substring(8, 10)
+                                    + ":"
+                                    + digits.substring(10, 12)
+                                    + ":"
+                                    + digits.substring(12, 14)
+                                    + (fraction == null ? "" : fraction);
+                    var local = LocalDateTime.parse(iso);
+                    if (hours == null)
+                        return new Reading(CdsExportNativeHistoryMapper.clock(iso, zone), true);
+                    int offsetMinutes = Integer.parseInt(minutes);
+                    int offsetHours = Integer.parseInt(hours.substring(1));
+                    if (offsetMinutes >= 60 || offsetHours * 60 + offsetMinutes > 14 * 60)
+                        // No xs:dateTime holds this offset: the laboratory's wall clock,
+                        // without one; the sent text is stated with the laboratory's facts.
+                        return new Reading(
+                                new CdsExportDateDto(
+                                        CdsExportDateDto.Precision.DATE_TIME,
+                                        DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(local)),
+                                false);
+                    var offset = ZoneOffset.of(hours + ":" + minutes);
+                    return new Reading(
+                            new CdsExportDateDto(
+                                    CdsExportDateDto.Precision.DATE_TIME,
+                                    DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(local.atOffset(offset))),
+                            true);
+                }
             }
-            if (value.length() < 14 || value.length() > 24)
-                review("CDS_EXPORT_NATIVE_LAB_CLOCK_PRECISION_REQUIRES_REVIEW");
-            String iso =
-                    value.substring(0, 4)
-                            + "-"
-                            + value.substring(4, 6)
-                            + "-"
-                            + value.substring(6, 8)
-                            + "T"
-                            + value.substring(8, 10)
-                            + ":"
-                            + value.substring(10, 12)
-                            + ":"
-                            + value.substring(12);
-            var local = LocalDateTime.parse(iso);
-            if (offset.isEmpty()) return CdsExportNativeHistoryMapper.clock(iso, zone);
-            var actualOffset = ZoneOffset.of(offset.substring(0, 3) + ":" + offset.substring(3));
-            if (Math.abs(actualOffset.getTotalSeconds()) > 14 * 3600)
-                review("CDS_EXPORT_NATIVE_LAB_OFFSET_REQUIRES_REVIEW");
-            return new CdsExportDateDto(
-                    CdsExportDateDto.Precision.DATE_TIME,
-                    DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(local.atOffset(actualOffset)));
-        } catch (DateTimeException | NumberFormatException failure) {
-            review("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-            return null;
+        } catch (DateTimeException | NumberFormatException notACalendarTime) {
+            return UNREADABLE;
         }
     }
 
+    private static CdsExportDateDto date(String digits) {
+        return new CdsExportDateDto(
+                CdsExportDateDto.Precision.DATE,
+                LocalDate.parse(digits.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).toString());
+    }
+
+    /** One component's text; empty for the order fields of a result sent before any order. */
     private static String scalar(Segment segment, int field, int repetition, int component)
             throws HL7Exception {
-        return literal(Terser.get(segment, field, repetition, component, 1));
+        return segment == null ? "" : literal(Terser.get(segment, field, repetition, component, 1));
     }
 
     /** The laboratory's whole text of one repetition; separators it left unescaped stay literal. */
     private static String rawText(
             CdsExportNativeLaboratoryParser.Raw raw, Segment segment, int field, int repetition)
             throws IOException {
+        if (segment == null) return "";
         var repetitions = raw.repetitions(segment, field);
         return repetition >= repetitions.size()
                 ? ""
@@ -706,6 +803,7 @@ final class CdsExportNativeLaboratoryMapper {
             int repetition,
             int component)
             throws IOException {
+        if (segment == null) return "";
         var repetitions = raw.repetitions(segment, field);
         if (repetition >= repetitions.size()) return "";
         var components =

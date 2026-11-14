@@ -142,28 +142,36 @@ final class CdsExportNativeLaboratoryParser {
             } finally {
                 Arrays.fill(bytes, (byte) 0);
             }
-            if (!text.startsWith("MSH")) review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
+            // Line breaks or spaces before the first segment belong to no field: an upload that
+            // took the message from an XML element's text keeps the line break after the opening
+            // tag, and DefaultGenericHandler, which parsed it for the chart, skips it the same way.
+            text = text.stripLeading();
+            // Every handler parses what MessageUploader stored, and Factory.getHandler retries a
+            // message its typed handler refuses with DefaultGenericHandler; one that neither
+            // parses was never stored, so these two codes guard rows written outside CARLOS.
+            if (!text.startsWith("MSH") || text.length() < 8)
+                review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
             // A stored message may hold a character XML 1.0 cannot carry (a control character a
             // sending system left in a field). It is not an HL7 delimiter, so the message parses
             // the same with U+FFFD in its place; every element then shows U+FFFD there, and the
             // stored message travels exactly in the report's CARLOS.NativeLaboratory.v1 record.
-            text = CdsExportXmlText.element(text);
+            text = segments(CdsExportXmlText.element(text));
             // PipeParser never accepts XML, entities, DTDs or network schema locations.
             var parser = new PipeParser();
             // Default primitive rules trim/correct authored text. Retain source lexical values;
             // interpreted fields and all destination constraints are qualified by the mapper.
             parser.setValidationContext(new ValidationContextImpl());
-            Message message = parser.parse(segmentBreaks(text));
+            Message message = parser.parse(text);
             var segments = new ArrayList<Segment>();
             collect(message, segments, checkpoint);
             if (segments.isEmpty() || !segments.getFirst().getName().equals("MSH")) invalid();
-            var msh = segments.getFirst();
-            // "ORU" without its R01 trigger never gets here: HAPI cannot tell the structure from
-            // it, so CARLOS's own handlers (CMLHandler and the others parse with PipeParser) never
-            // stored such a message, and parse() above refuses it the same way.
-            if (!"ORU".equals(Terser.get(msh, 9, 0, 1, 1))
-                    || !"R01".equals(Terser.get(msh, 9, 0, 2, 1)))
-                review("CDS_EXPORT_NATIVE_LAB_MESSAGE_TYPE_REQUIRES_REVIEW");
+            // Every message CARLOS stored as a laboratory report is read as one, whatever MSH-9
+            // names: its OBR and OBX segments are its orders and results, as the chart's lab
+            // display reads them. The handlers parse some feeds under another type (SpireHandler
+            // rewrites MDM^R01 to ORU^R01, IHAPOIHandler an O01 trigger to R01) but store the
+            // message as received; HAPI parses a structure it has no class for as a generic
+            // message, whose segments are read here in their order. "ORU" without a trigger
+            // cannot be parsed by HAPI at all, so no handler stored such a message.
             var observations = new ArrayList<Observation>();
             Segment order = null, result = null;
             List<Segment> orderComments = new ArrayList<>(), resultComments = new ArrayList<>();
@@ -172,11 +180,17 @@ final class CdsExportNativeLaboratoryParser {
             boolean blockedMessage = false;
             // An order without results (a pending, cancelled or fee-only test: the CML samples
             // end with one) is not a result: it adds no observation, and its OBR and NTE
-            // segments travel in the complete source message.
+            // segments travel in the complete source message. A result the laboratory sent
+            // before any order is still a result, of no order (ordinal 0:n): its order fields
+            // are empty.
             for (var segment : segments) {
                 checkpoint.run();
                 switch (segment.getName()) {
                     case "PID" -> {
+                        // MessageUploader routes a message to the patient of its first PID, and
+                        // Utilities.separateMessages splits uploaded files at every PID. A message
+                        // that still names two patients would put another patient's results in
+                        // this file, so it is held for review rather than exported.
                         if (++patients > 1) review("CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS");
                     }
                     case "ORC" -> {
@@ -212,7 +226,6 @@ final class CdsExportNativeLaboratoryParser {
                         resultComments = new ArrayList<>();
                     }
                     case "OBX" -> {
-                        if (order == null) review("CDS_EXPORT_NATIVE_LAB_RESULT_WITHOUT_ORDER");
                         append(
                                 observations,
                                 documents,
@@ -242,10 +255,9 @@ final class CdsExportNativeLaboratoryParser {
                     }
                 }
             }
-            // A message with no order, or for no patient, is not a laboratory report. One whose
-            // orders all wait for results exports no result; it travels whole in its NewCategory
-            // supporting record.
-            if (orders == 0 || patients != 1) review("CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE");
+            // A message with no order exports no result, like one whose orders all wait for
+            // results, and one with no PID is the report the chart routed to this patient: either
+            // travels whole in its NewCategory supporting record.
             append(
                     observations,
                     documents,
@@ -294,10 +306,9 @@ final class CdsExportNativeLaboratoryParser {
     }
 
     private static Raw raw(String text, List<Segment> segments) throws IOException, HL7Exception {
-        if (text.length() < 8) review("CDS_EXPORT_NATIVE_LAB_MESSAGE_ENCODING");
         var raw = new Raw(text.charAt(3), text.charAt(4), text.charAt(5), text.charAt(6), text.charAt(7));
         var lines = new HashMap<String, ArrayDeque<String[]>>();
-        for (String line : text.split("\r\n|\r|\n")) {
+        for (String line : text.split("\r")) {
             if (line.length() < 3) continue;
             String name = line.substring(0, 3);
             if (Set.of("OBR", "OBX", "NTE").contains(name))
@@ -342,17 +353,32 @@ final class CdsExportNativeLaboratoryParser {
     }
 
     /**
-     * The stored message with every line break as HAPI's segment separator (CR), the way CARLOS's
-     * own lab handlers read it. HAPI ends a segment only at CR, but a report uploaded inside an
-     * XML file (Excelleris ON and PATHL7 wrap each message in CDATA) is stored as the XML parser
-     * returns it, with LF between segments; ExcellerisOntarioHandler, PATHL7Handler, CMLHandler
-     * and the others therefore parse {@code hl7Body.replaceAll("\n", "\r\n")}. Read as stored,
-     * such a message is one long MSH segment with no PID or OBR. HL7 v2 text never carries a
-     * literal line break inside a field (it is escaped as {@code \.br\} or {@code \X0A\}), so the
-     * conversion changes no value, and {@link #raw} already splits the raw lines the same way.
+     * The stored message as CARLOS's own lab handlers read it, one segment per CR (HAPI's segment
+     * separator). HAPI ends a segment only at CR, but a report uploaded inside an XML file
+     * (Excelleris ON and PATHL7 wrap each message in CDATA) is stored as the XML parser returns
+     * it, with LF between segments; ExcellerisOntarioHandler, PATHL7Handler, CMLHandler and the
+     * others therefore parse {@code hl7Body.replaceAll("\n", "\r\n")}. Read as stored, such a
+     * message is one long MSH segment with no PID or OBR. Every line break is therefore a segment
+     * break, with two exceptions DefaultGenericHandler makes, which Factory.getHandler uses for a
+     * message its typed handler refuses: whitespace that starts a line is dropped (HAPI drops it
+     * too), and a line whose fourth character is not the field separator continues the segment
+     * before it ("Labs often insert breaks into comments"), so the text keeps that line break
+     * literally. HL7 v2 otherwise never carries a literal line break inside a field (it is escaped
+     * as {@code \.br\} or {@code \X0A\}), so the conversion changes no other value. Lines left
+     * empty are dropped. {@code text} starts with {@code MSH} and its field separator.
      */
-    static String segmentBreaks(String text) {
-        return text.replace("\r\n", "\r").replace('\n', '\r');
+    static String segments(String text) {
+        char field = text.charAt(3);
+        var out = new StringBuilder(text.length());
+        for (String line : text.split("\r\n|\r|\n")) {
+            line = line.stripLeading();
+            if (line.isEmpty()) continue;
+            if (line.length() >= 4 && line.charAt(3) != field && !out.isEmpty()) {
+                out.setLength(out.length() - 1);
+                out.append('\n').append(line).append('\r');
+            } else out.append(line).append('\r');
+        }
+        return out.toString();
     }
 
     /** HAPI's own unescaping: only the delimiter escapes; formatting escapes stay as written. */

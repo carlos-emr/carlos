@@ -288,10 +288,45 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                 .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2012-04-05"));
         assertThat(CdsExportNativeLaboratoryMapper.chartDateSource(source))
                 .isEqualTo("hl7TextInfo.obr_date");
-        // Only a report the chart has no date for at all is still held.
-        var undated = CdsExportNativeLaboratoryMapperUnitTest.source(text, null);
-        assertThatThrownBy(() -> new CdsExportNativeLaboratoryMapper().map(undated, TORONTO))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED");
+        // The upload stores an empty report date when it cannot read the handler's
+        // (UtilDateUtilities.StringToDate answers null): the message time (MSH-7, minute
+        // precision here, so its date) is the chart's date. It held the patient
+        // (CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED).
+        var undated = CdsExportNativeLaboratoryMapperUnitTest.source(text, "");
+        assertThat(new CdsExportNativeLaboratoryMapper().map(undated, TORONTO).getFirst().dates())
+                .containsEntry(
+                        "CollectionDateTime",
+                        new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2012-04-04"));
+        assertThat(CdsExportNativeLaboratoryMapper.chartDateSource(undated)).isEqualTo("MSH-7");
+        // No date stored and an MSH-7 that is no calendar time: the day CARLOS stored the report
+        // (hl7TextMessage.created, NOT NULL), mapped from that column.
+        var received =
+                CdsExportNativeLaboratoryMapperUnitTest.source(
+                        text.replace("|201204041604||ORU^R01|", "|2012-04-04||ORU^R01|"),
+                        "",
+                        "2012-04-06 08:15:00");
+        assertThat(new CdsExportNativeLaboratoryMapper().map(received, TORONTO).getFirst().dates())
+                .containsEntry(
+                        "CollectionDateTime",
+                        new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2012-04-06"));
+        assertThat(CdsExportNativeLaboratoryMapper.chartDateSource(received))
+                .isEqualTo("hl7TextMessage.created");
+        assertThat(
+                        CdsExportNativeLaboratoryMapper.assessments(received)
+                                .get(
+                                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                                .CdsExportNativeFieldKeyDto(
+                                                "hl7TextMessage",
+                                                received.message().recordKey(),
+                                                "created"))
+                                .destination())
+                .isEqualTo("LaboratoryResults/CollectionDateTime");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(
+                        received.rows(),
+                        CdsExportNativeLaboratoryMapper.assessments(received),
+                        100000,
+                        () -> {});
     }
 
     @Test
@@ -313,20 +348,22 @@ class CdsExportNativeLaboratoryFeedUnitTest {
     }
 
     @Test
-    void shouldStillHoldAMalformedStructuredNumeric_withItsNamedCode() {
-        for (String malformed : List.of("^abc", "^1^:^2^3^4", "approximately 5"))
-            assertThatThrownBy(
-                            () ->
-                                    new CdsExportNativeLaboratoryMapper()
-                                            .map(
-                                                    source(
-                                                            message()
-                                                                    .replace(
-                                                                            "|NM|2345-7^Glucose^LN||5.4|",
-                                                                            "|SN|2345-7^Glucose^LN||" + malformed + "|")),
-                                                    TORONTO))
+    void shouldWriteAMalformedStructuredNumeric_asTheLaboratorysWholeText() throws Exception {
+        // These held the patient (CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW).
+        for (String malformed : List.of("^abc", "^1^:^2^3^4", "approximately 5", "<&5"))
+            assertThat(
+                            new CdsExportNativeLaboratoryMapper()
+                                    .map(
+                                            source(
+                                                    message()
+                                                            .replace(
+                                                                    "|NM|2345-7^Glucose^LN||5.4|",
+                                                                    "|SN|2345-7^Glucose^LN||" + malformed + "|")),
+                                            TORONTO)
+                                    .getFirst()
+                                    .text())
                     .as(malformed)
-                    .hasMessage("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+                    .containsEntry("ResultValue", malformed);
     }
 
     @Test
@@ -341,12 +378,18 @@ class CdsExportNativeLaboratoryFeedUnitTest {
         // A minute inside the autumn DST overlap has a date, so it is no longer ambiguous.
         assertThat(CdsExportNativeLaboratoryMapper.temporal("202611010130", TORONTO).lexical())
                 .isEqualTo("2026-11-01");
-        assertThatThrownBy(() -> CdsExportNativeLaboratoryMapper.temporal("202613091435", TORONTO))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> CdsExportNativeLaboratoryMapper.temporal("202607091475", TORONTO))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> CdsExportNativeLaboratoryMapper.temporal("202607091435+1500", TORONTO))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_OFFSET_REQUIRES_REVIEW");
+        // A thirteenth month or a 75th minute is no calendar time: no date (it held the patient).
+        assertThat(CdsExportNativeLaboratoryMapper.temporal("202613091435", TORONTO)).isNull();
+        assertThat(CdsExportNativeLaboratoryMapper.temporal("202607091475", TORONTO)).isNull();
+        // The offset of a minute-precision time says nothing its date keeps, so +1500 (beyond
+        // xs:dateTime's +14:00) no longer holds it; a date sent with an offset is that date.
+        assertThat(CdsExportNativeLaboratoryMapper.read("202607091435+1500", TORONTO))
+                .isEqualTo(
+                        new CdsExportNativeLaboratoryMapper.Reading(
+                                new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2026-07-09"),
+                                true));
+        assertThat(CdsExportNativeLaboratoryMapper.temporal("20260709-0500", TORONTO))
+                .isEqualTo(new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2026-07-09"));
     }
 
     @Test
@@ -378,13 +421,17 @@ class CdsExportNativeLaboratoryFeedUnitTest {
         var waiting = source(pending);
         assertThat(waiting.parsed().observations()).isEmpty();
         assertThat(new CdsExportNativeLaboratoryMapper().map(waiting, TORONTO)).isEmpty();
-        // A message without any order still is no laboratory report.
-        assertThatThrownBy(
-                        () ->
-                                source(
-                                        "MSH|^~\\&|Reports|CML||28662|200507141114-0500||ORU^R01||1|2.3\r"
-                                                + "PID|1|||1849782642^LG^ON|SYNTHETIC^PATIENT||19410619|F\r"))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE");
+        // A message without any order, or without a PID, exports no result or the results the
+        // chart routed to this patient; neither is held (CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE).
+        var orderless =
+                source(
+                        "MSH|^~\\&|Reports|CML||28662|200507141114-0500||ORU^R01||1|2.3\r"
+                                + "PID|1|||1849782642^LG^ON|SYNTHETIC^PATIENT||19410619|F\r"
+                                + "NTE|1|L|REPORT TO FOLLOW\r");
+        assertThat(orderless.parsed().observations()).isEmpty();
+        assertThat(new CdsExportNativeLaboratoryMapper().map(orderless, TORONTO)).isEmpty();
+        var unnamed = source(text.replaceFirst("PID\\|[^\r]*\r", ""));
+        assertThat(new CdsExportNativeLaboratoryMapper().map(unnamed, TORONTO)).hasSize(3);
     }
 
     @Test
@@ -405,8 +452,50 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                 .isInstanceOf(ca.uhn.hl7v2.HL7Exception.class);
         assertThatThrownBy(() -> source(dummy))
                 .hasMessage("CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> source(message().replace("|ORU^R01|", "|ORU^R30|")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_MESSAGE_TYPE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldExportAStoredReport_whateverTypeItsMessageHeaderNames() throws Exception {
+        // SpireHandler stores MDM^R01 as received (it rewrites the type only to parse), and HAPI
+        // reads a structure it has no class for as a generic message. Such reports held the
+        // patient (CDS_EXPORT_NATIVE_LAB_MESSAGE_TYPE_REQUIRES_REVIEW).
+        var expected = new CdsExportNativeLaboratoryMapper().map(source(message()), TORONTO);
+        for (String type : List.of("MDM^R01", "ORU^O01", "ORU^R30"))
+            assertThat(
+                            new CdsExportNativeLaboratoryMapper()
+                                    .map(source(message().replace("|ORU^R01|", "|" + type + "|")), TORONTO))
+                    .as(type)
+                    .usingRecursiveComparison()
+                    .isEqualTo(expected);
+    }
+
+    @Test
+    void shouldReadAReportTheGenericHandlerStored_withIndentedSegmentsAndABrokenComment()
+            throws Exception {
+        // Factory.getHandler retries a message its typed handler refuses with
+        // DefaultGenericHandler, which drops the whitespace that starts a line and joins a line
+        // that is no segment ("Labs often insert breaks into comments") to the segment before
+        // it. MessageUploader stores the message as received. Such reports held the patient
+        // (CDS_EXPORT_NATIVE_LAB_SEGMENT_ALIGNMENT, ..._MESSAGE_REQUIRES_REVIEW).
+        // As a file upload stores it (Utilities.separateMessages ends every line with CR LF).
+        String stored =
+                message()
+                        .replace("\r", "\r\n")
+                        .replace("\r\nOBR|1|", "\r\n  OBR|1|")
+                        .replace(
+                                "Exact café \\F\\ details 😀",
+                                "First line of a comment\r\nsecond line of it");
+        assertThatCode(
+                        () ->
+                                new io.github.carlos_emr.carlos.lab.ca.all.parsers
+                                                .DefaultGenericHandler()
+                                        .init(stored))
+                .doesNotThrowAnyException();
+        var values = new CdsExportNativeLaboratoryMapper().map(source(stored), TORONTO);
+        assertThat(values).hasSize(4);
+        assertThat(values.getFirst().text())
+                .containsEntry("NotesFromLab", "First line of a comment\nsecond line of it")
+                .containsEntry("ResultValue", "5.4");
     }
 
     @Test

@@ -140,10 +140,17 @@ class CdsExportNativeLaboratoryMapperUnitTest {
      */
     static CdsExportLaboratoryOccurrenceService.NativeSource source(String text, String obrDate)
             throws Exception {
-        var message =
-                row(
-                        Plan.LABORATORY_MESSAGES,
-                        "91",
+        return source(text, obrDate, null);
+    }
+
+    /**
+     * @param created the time CARLOS stored the report ({@code hl7TextMessage.created}, as the
+     *     capture renders a DATETIME), or null
+     */
+    static CdsExportLaboratoryOccurrenceService.NativeSource source(
+            String text, String obrDate, String created) throws Exception {
+        var stored =
+                new HashMap<>(
                         Map.of(
                                 "lab_id",
                                 "91",
@@ -152,6 +159,8 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                                         .encodeToString(text.getBytes(StandardCharsets.UTF_8)),
                                 "type",
                                 "HL7"));
+        if (created != null) stored.put("created", created);
+        var message = row(Plan.LABORATORY_MESSAGES, "91", stored);
         var information =
                 row(
                         Plan.LABORATORY_INFORMATION,
@@ -295,14 +304,16 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                 .containsEntry("NotesFromLab", "Specimen A & B ^ C")
                 .containsEntry("ReferenceRangeText", "3.5^5.0")
                 .containsEntry("ResultUnit", "mmol/L");
-        // A numeric value with an unexpected component is not silently cut.
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportNativeLaboratoryMapper()
-                                        .map(
-                                                source(message().replace("||5.4|", "||5.4^9|")),
-                                                ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW");
+        // A numeric value with an unexpected component is written whole, never cut; it held the
+        // patient (CDS_EXPORT_NATIVE_LAB_VALUE_COMPONENTS_REQUIRES_REVIEW).
+        assertThat(
+                        new CdsExportNativeLaboratoryMapper()
+                                .map(
+                                        source(message().replace("||5.4|", "||5.4^9|")),
+                                        ZoneId.of("America/Toronto"))
+                                .getFirst()
+                                .text())
+                .containsEntry("ResultValue", "5.4^9");
     }
 
     @Test
@@ -536,16 +547,30 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
-    void shouldRefuseComplexUnsupportedValues_missingCollectionClocks_andUnattributableOrders() {
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportNativeLaboratoryMapper()
-                                        .map(
-                                                source(message().replace("|NM|", "|CP|")),
-                                                ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_VALUE_TYPE_REQUIRES_REVIEW");
-        assertThatThrownBy(() -> source(message().replace("OBR|2", "ORC|2")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_RESULT_WITHOUT_ORDER");
+    void shouldExportAnyValueTypeAndAResultSentBeforeItsOrder_butHoldTwoPatientsInOneMessage()
+            throws Exception {
+        var toronto = ZoneId.of("America/Toronto");
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        // A value type this mapping does not read structurally is the laboratory's text of it
+        // (CDS_EXPORT_NATIVE_LAB_VALUE_TYPE_REQUIRES_REVIEW held the patient).
+        assertThat(mapper.map(source(message().replace("|NM|", "|CP|")), toronto).getFirst().text())
+                .containsEntry("ResultValue", "5.4");
+        // A result after an ORC but before its OBR is a result of no order: its order fields are
+        // empty and it carries the chart's report date (CDS_EXPORT_NATIVE_LAB_RESULT_WITHOUT_ORDER
+        // held the patient). The upload stored no report date here, so that date is MSH-7's.
+        var orphan = source(message().replace("OBR|2", "ORC|2"));
+        assertThat(orphan.parsed().observations().getLast().order()).isNull();
+        var values = mapper.map(orphan, toronto);
+        assertThat(values).hasSize(4);
+        assertThat(values.getLast().text())
+                .containsEntry("TestName", "Repeated native result")
+                .doesNotContainKey("TestResultsInformationReportedByTheLab");
+        assertThat(values.getLast().dates().get("CollectionDateTime").lexical())
+                .isEqualTo("2026-07-10T12:30:00-04:00");
+        for (var value : values)
+            CdsExportNativeHistoryMapperUnitTest.render(
+                    CdsCategory.LABORATORY_RESULTS, xml -> mapper.write(value, xml));
+        // A message naming two patients would put another patient's results in this file.
         assertThatThrownBy(() -> source(message() + "PID|2||ANOTHER\r"))
                 .hasMessage("CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS");
         assertThatThrownBy(
@@ -553,6 +578,103 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                                 new CdsExportNativeLaboratoryParser()
                                         .parse("not valid base64!", () -> {}))
                 .hasMessage("CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW");
+    }
+
+    @Test
+    void shouldWriteEveryTimeItCan_andStateEachSentTimeNotWrittenAsSentWithTheLabFacts()
+            throws Exception {
+        // These held the patient (CDS_EXPORT_NATIVE_LAB_OFFSET_REQUIRES_REVIEW,
+        // ..._DATE_REQUIRES_REVIEW, ..._CLOCK_PRECISION_REQUIRES_REVIEW).
+        var toronto = ZoneId.of("America/Toronto");
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        String text =
+                message()
+                        // OBR-6: a thirteenth month is no calendar time.
+                        .replace("|20260708100000-0400|", "|20261308100000|")
+                        // OBX-14 of the first result: an offset no xs:dateTime holds.
+                        .replace(
+                                "|3.5-7.8|N|||F|||20260709143500-0400",
+                                "|3.5-7.8|N|||F|||20260709143500+2500")
+                        // OBX-14 of the second: thirteen digits, no HL7 time; OBR-7 is used.
+                        .replace("|A|||F|||20260709143500-0400", "|A|||F|||2026070914350");
+        var values = mapper.map(source(text), toronto);
+        var first = values.getFirst();
+        assertThat(first.dates())
+                .doesNotContainKey("LabRequisitionDateTime")
+                .containsEntry(
+                        "CollectionDateTime",
+                        new CdsExportDateDto(CdsExportDateDto.Precision.DATE_TIME, "2026-07-09T14:35:00"));
+        assertThat(first.text().get("TestResultsInformationReportedByTheLab"))
+                .isEqualTo(
+                        "Ordered test: Metabolic panel\n"
+                                + "Requisition time sent by the laboratory: 20261308100000\n"
+                                + "Collection time sent by the laboratory: 20260709143500+2500");
+        var second = values.get(1);
+        assertThat(second.dates().get("CollectionDateTime").lexical())
+                .isEqualTo("2026-07-09T14:35:00-04:00");
+        assertThat(second.text().get("TestResultsInformationReportedByTheLab"))
+                .endsWith("Collection time sent by the laboratory: 2026070914350");
+        // Neither OBX-14 nor OBR-7 a calendar time: both are stated, and the chart's date is
+        // used (the upload stored 2026-07-10 12:30:00, which MSH-7 sent).
+        var undated =
+                source(
+                        text.replace("|20260709143500-0400\r", "|2026-07-09\r"),
+                        "2026-07-10 12:30:00");
+        var chart = mapper.map(undated, toronto).get(1);
+        assertThat(chart.dates().get("CollectionDateTime").lexical())
+                .isEqualTo("2026-07-10T12:30:00-04:00");
+        assertThat(chart.text().get("TestResultsInformationReportedByTheLab"))
+                .endsWith(
+                        "Collection time sent by the laboratory: 2026070914350\n"
+                                + "Collection time sent by the laboratory: 2026-07-09");
+        assertThat(CdsExportNativeLaboratoryMapper.undated(undated)).containsExactly("1:2:0");
+        for (var value : values)
+            CdsExportNativeHistoryMapperUnitTest.render(
+                    CdsCategory.LABORATORY_RESULTS, xml -> mapper.write(value, xml));
+    }
+
+    @Test
+    void shouldWriteAnEmptyLaboratoryName_whenTheReportNamesNoLaboratory() throws Exception {
+        // It held the patient (CDS_EXPORT_NATIVE_LAB_NAME_REQUIRED). LaboratoryName is mandatory
+        // and its type allows empty text, which is what CARLOS holds.
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        var toronto = ZoneId.of("America/Toronto");
+        var values = mapper.map(unstored(message().replace("|LABAPP|Native Lab|", "|LABAPP||")), toronto);
+        assertThat(values.getFirst().text()).containsEntry("LaboratoryName", "");
+        String xml =
+                new String(
+                        CdsExportNativeHistoryMapperUnitTest.render(
+                                CdsCategory.LABORATORY_RESULTS,
+                                body -> mapper.write(values.getFirst(), body)),
+                        StandardCharsets.UTF_8);
+        // Valid against the schema: render() validates the file.
+        assertThat(xml).contains("<LaboratoryResults><LaboratoryName></LaboratoryName>");
+        // A name longer than the element's 120 characters is written whole with the facts.
+        String longName = "Regional laboratory ".repeat(7).strip();
+        var named =
+                mapper.map(
+                        unstored(message().replace("|LABAPP|Native Lab|", "|LABAPP|" + longName + "|")),
+                        toronto);
+        assertThat(named.getFirst().text())
+                .containsEntry("LaboratoryName", "")
+                .containsEntry(
+                        "TestResultsInformationReportedByTheLab",
+                        "Laboratory name (complete): " + longName + "\nOrdered test: Metabolic panel");
+    }
+
+    /** {@link #source}, with no sending facility stored: the name is MSH-4's. */
+    private static CdsExportLaboratoryOccurrenceService.NativeSource unstored(String text)
+            throws Exception {
+        var source = source(text);
+        var fields = new LinkedHashMap<>(source.information().fields());
+        fields.put("sending_facility", null);
+        return new CdsExportLaboratoryOccurrenceService.NativeSource(
+                source.id(),
+                source.message(),
+                new CdsExportCapturedTextRowDto(
+                        source.information().table(), source.information().recordKey(), fields),
+                source.routing(),
+                source.parsed());
     }
 
     @Test
@@ -620,11 +742,11 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                                         "202607091435", ZoneId.of("America/Toronto"))
                                 .lexical())
                 .isEqualTo("2026-07-09");
-        assertThatThrownBy(
-                        () ->
-                                CdsExportNativeLaboratoryMapper.temporal(
-                                        "2026070914351", ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
+        // Text that is no HL7 time is no date; it held the patient.
+        assertThat(
+                        CdsExportNativeLaboratoryMapper.temporal(
+                                "2026070914351", ZoneId.of("America/Toronto")))
+                .isNull();
         // A time with no offset inside the autumn overlap is its wall-clock time with no offset
         // (CdsExportNativeHistoryMapper.clock); it held the patient.
         assertThat(
