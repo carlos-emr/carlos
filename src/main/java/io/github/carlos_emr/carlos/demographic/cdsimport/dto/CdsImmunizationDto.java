@@ -27,9 +27,13 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.dto;
  * <p>{@code providerName} and {@code reminderDate} (#6198) are restored from a CARLOS sender's
  * {@code CARLOS.Prevention.Source.v1}: the free-text name of the form's "Other" administering
  * provider, and the native reminder date ({@code yyyy-MM-dd}, after any synthetic date shift).
- * CDS has no Immunizations element for either. Both are omitted from the sealed preparation when
- * null, so a payload sealed before they existed keeps its bytes and digest
- * ({@code CdsPreparedImmunizationDefaults} supplies them after seal verification).
+ * CDS has no Immunizations element for either. So is {@code nativeType}, the sender's own
+ * prevention type ({@code preventions.prevention_type}), which ImmunizationType does not always
+ * name: an entry the sender exports without ImmunizationType (a type outside CT-020, an Rh
+ * injection, a type its configuration does not define) would otherwise be stored as the
+ * catch-all type. All three are omitted from the sealed preparation when null, so a payload
+ * sealed before they existed keeps its bytes and digest ({@code CdsPreparedImmunizationDefaults}
+ * supplies them after seal verification).
  */
 public record CdsImmunizationDto(String name, String type, String manufacturer, String lot,
         String route, String site, String dose, String code, String codeSystem,
@@ -44,11 +48,21 @@ public record CdsImmunizationDto(String name, String type, String manufacturer, 
         // omitted, for every payload sealed before they existed (CdsPreparedImmunizationDefaults).
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
-                java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
+                java.util.List<CdsClinicalDiagnosticDto> diagnostics,
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+                String nativeType) {
+    /** {@code preventions.prevention_type} holds 255 characters. */
+    public static final int NATIVE_TYPE_CAPACITY = 255;
+
     public CdsImmunizationDto {
         diagnostics = diagnostics == null ? java.util.List.of() : java.util.List.copyOf(diagnostics);
         if (providerName != null && providerName.isEmpty())
             throw new IllegalArgumentException("CDS_IMMUNIZATION_PROVIDER_NAME_INVALID");
+        if (nativeType != null
+                && (nativeType.isEmpty()
+                        || nativeType.codePointCount(0, nativeType.length()) > NATIVE_TYPE_CAPACITY))
+            throw new IllegalArgumentException("CDS_IMMUNIZATION_NATIVE_TYPE_INVALID");
         if (reminderDate != null) {
             try {
                 var parsed =
@@ -65,7 +79,17 @@ public record CdsImmunizationDto(String name, String type, String manufacturer, 
         }
     }
 
-    /** Every value but the restore warnings: none. */
+    /** Every value but the restored native type: none. */
+    public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
+            String route, String site, String dose, String code, String codeSystem,
+            boolean refused, String instructions, String notes, CdsTemporalDto date,
+            String providerName, String reminderDate,
+            java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
+        this(name, type, manufacturer, lot, route, site, dose, code, codeSystem, refused,
+                instructions, notes, date, providerName, reminderDate, diagnostics, null);
+    }
+
+    /** Every value but the restore warnings and the restored native type: none. */
     public CdsImmunizationDto(String name, String type, String manufacturer, String lot,
             String route, String site, String dose, String code, String codeSystem,
             boolean refused, String instructions, String notes, CdsTemporalDto date,

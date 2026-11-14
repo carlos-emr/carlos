@@ -140,6 +140,8 @@ public class CdsImmunizationPersister {
         prevention.setProviderNo(source.providerName() == null ? "" : "-1");
         prevention.setCreatorProviderNo(auditProviderNo);
         prevention.setPreventionType(preventionType(source.type()));
+        // A CARLOS sender's own type, restored from its carrier, is stored as it was.
+        if (source.nativeType() != null) prevention.setPreventionType(source.nativeType());
         prevention.setRefused(source.refused());
         prevention.setPreventionDate(nativeDate(source));
         // The native reminder date restored from the carrier; a DATE has no clock or zone.
