@@ -1527,8 +1527,14 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldRefuseAnOversizedTextRow_withoutReturningAPartialRow() throws Exception {
+    void shouldReadATextRowLongerThanItsBufferedSize_decodingItsValuesAsTheyArrive()
+            throws Exception {
+        // #58: a row over the caller's bound was refused (CDS_EXPORT_NATIVE_ROW_INVALID). No row
+        // is refused for its size now: a value past the buffering threshold is decoded chunk by
+        // chunk as the verified capture streams it, three-byte characters split across the
+        // capture's 64 KiB reads included, and the row is the same as when it is buffered.
         var ext = new ExtensionRows();
+        ext.value = "€ café\n".repeat(30_000);
         var service = new CdsExportNativeCaptureService(List.of(ext), factory, clock, transactions);
         var receipt =
                 service.capture(
@@ -1538,23 +1544,34 @@ class CdsExportNativeCaptureServiceUnitTest {
                         1000,
                         8L << 20,
                         new Control());
-        var rows = new AtomicInteger();
-        assertThatThrownBy(
-                        () ->
-                                new CdsExportCapturedTextRowsReader(service)
-                                        .forEach(
-                                                lease,
-                                                patientScope,
-                                                Set.of("demographicExt"),
-                                                "demographicExt",
-                                                receipt.manifest(),
-                                                1000,
-                                                8L << 20,
-                                                1,
-                                                new Control(),
-                                                row -> rows.incrementAndGet()))
-                .hasMessage("CDS_EXPORT_NATIVE_ROW_INVALID");
-        assertThat(rows).hasValue(0);
+        var results =
+                new java.util.ArrayList<
+                        List<
+                                io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                        .CdsExportCapturedTextRowDto>>();
+        for (int buffered : new int[] {1, 1 << 20}) {
+            var rows =
+                    new java.util.ArrayList<
+                            io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                    .CdsExportCapturedTextRowDto>();
+            new CdsExportCapturedTextRowsReader(service)
+                    .forEach(
+                            lease,
+                            patientScope,
+                            Set.of("demographicExt"),
+                            "demographicExt",
+                            receipt.manifest(),
+                            1000,
+                            8L << 20,
+                            buffered,
+                            new Control(),
+                            rows::add);
+            assertThat(rows).hasSize(2);
+            assertThat(rows.getFirst().fields()).containsEntry("value", ext.value);
+            assertThat(rows.get(1).fields()).containsEntry("value", null);
+            results.add(rows);
+        }
+        assertThat(results.getFirst()).isEqualTo(results.get(1));
     }
 
     @Test
@@ -2299,6 +2316,8 @@ class CdsExportNativeCaptureServiceUnitTest {
 
     private static final class ExtensionRows implements CdsExportNativeSourceReader {
         private boolean fail, receipts;
+        // The first row's value; empty unless a test needs a long one.
+        private String value = "";
 
         @Override
         public String table() {
@@ -2365,7 +2384,7 @@ class CdsExportNativeCaptureServiceUnitTest {
                 row.put("date_time", "2026-11-05 10:00:00");
                 row.put("key_val", "synthetic");
                 row.put("dashboard_single_value_key", "synthetic");
-                row.put("value", id == -1 ? "" : null);
+                row.put("value", id == -1 ? value : null);
                 writer.row(CdsExportPatientTableSourceReader.key(id), row);
             }
         }
