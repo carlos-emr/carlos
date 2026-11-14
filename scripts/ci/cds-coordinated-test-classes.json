@@ -259,6 +259,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceCatalogueUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceRecipeUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSourceSchemaValidatorUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSpoolServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportStagingServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportStorageProtocolUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportSupportingFilesComposerUnitTest",
