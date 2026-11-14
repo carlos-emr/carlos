@@ -432,6 +432,44 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
+    void shouldLeaveOutAnElementItsValueOverflows_insteadOfHoldingTheReport() throws Exception {
+        // A coded (CE) result longer than ResultValue, a reference range longer than its
+        // element and repeated flags longer than theirs: none is clipped and none holds the
+        // chart. The laboratory's own text is written whole with its facts, and the complete
+        // message travels in CARLOS.Laboratory.v1.
+        var mapper = new CdsExportNativeLaboratoryMapper();
+        String full = "Coded organism description ".repeat(6).strip();
+        var coded =
+                mapper.map(
+                                source(
+                                        message()
+                                                .replace(
+                                                        "|ST|COMMENT^Narrative^L||A\\T\\B|",
+                                                        "|CE|COMMENT^Narrative^L||" + full + "|")),
+                                ZoneId.of("America/Toronto"))
+                        .get(1);
+        assertThat(coded.text()).doesNotContainKey("ResultValue");
+        assertThat(coded.text().get("TestResultsInformationReportedByTheLab"))
+                .contains("Result text (complete):\n" + full);
+        String range = "r".repeat(1025);
+        var ranged =
+                mapper.map(
+                                source(message().replace("|3.5-7.8|N|", "|" + range + "|N|")),
+                                ZoneId.of("America/Toronto"))
+                        .getFirst();
+        assertThat(ranged.text()).doesNotContainKey("ReferenceRangeText");
+        String flags = "FLAG-" + "x".repeat(50);
+        var flagged =
+                mapper.map(
+                                source(message().replace("|3.5-7.8|N|", "|3.5-7.8|" + flags + "|")),
+                                ZoneId.of("America/Toronto"))
+                        .getFirst();
+        assertThat(flagged.enumFlag()).isTrue();
+        assertThat(flagged.text().get("TestResultsInformationReportedByTheLab"))
+                .contains("Abnormal flags (complete): " + flags);
+    }
+
+    @Test
     void shouldWriteAnHl7ChangeUpFlag_asPlainTextRatherThanTheCdsUnknown() throws Exception {
         // Review LAB-05: HL7 U is "significant change up"; the CDS enumeration's U is Unknown.
         var mapper = new CdsExportNativeLaboratoryMapper();

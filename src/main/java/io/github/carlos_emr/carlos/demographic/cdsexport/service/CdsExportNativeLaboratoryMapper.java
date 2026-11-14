@@ -175,11 +175,10 @@ final class CdsExportNativeLaboratoryMapper {
                         // Units sent only as the CE text component are still the result's unit.
                         if (unit.isEmpty()) unit = componentText(raw, obx, 6, 0, 2);
                         put(text, "ResultUnit", unit, 120);
-                    } else {
-                        if (!TEXT_TYPES.contains(type))
-                            review("CDS_EXPORT_NATIVE_LAB_RESULT_VALUE_CAPACITY");
+                    } else
+                        // Longer than ResultValue (120 characters), whatever the observation's
+                        // type: never clipped, and written whole with the laboratory's facts.
                         information.add("Result text (complete):\n" + value);
-                    }
                 }
                 put(text, "ReferenceRangeText", rawText(raw, obx, 7, 0), 1024);
                 String requested = scalar(obr, 6, 0, 1);
@@ -201,8 +200,14 @@ final class CdsExportNativeLaboratoryMapper {
                         flags.add(scalar(obx, 8, i, 1));
                     flag = String.join("; ", flags);
                 }
-                if (!CdsExportNativeFieldAssessments.legal(flag, 50))
-                    review("CDS_EXPORT_NATIVE_LAB_FLAG_CAPACITY");
+                if (!CdsExportNativeFieldAssessments.legal(flag, 50)) {
+                    if (!CdsExportNativeFieldAssessments.legal(flag, Integer.MAX_VALUE))
+                        review("CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW");
+                    // Flags longer than the element (several repetitions joined): written whole
+                    // with the laboratory's facts; the flag element says Unknown.
+                    information.add("Abnormal flags (complete): " + flag);
+                    flag = "";
+                }
                 // The data dictionary translates a result with no flag to Unknown.
                 boolean enumFlag = flag.isEmpty() || FLAGS.contains(flag);
                 if (flag.isEmpty()) flag = UNKNOWN_FLAG;
@@ -774,8 +779,14 @@ final class CdsExportNativeLaboratoryMapper {
     private static void put(Map<String, String> values, String name, String value, int maximum)
             throws IOException {
         if (value == null || value.isEmpty()) return;
-        if (!CdsExportNativeFieldAssessments.legal(value, maximum))
-            review("CDS_EXPORT_NATIVE_LAB_WIRE_CAPACITY");
+        if (!CdsExportNativeFieldAssessments.legal(value, maximum)) {
+            // Text no XML document can hold still requires review. A value longer than its
+            // element is left out whole, never clipped: the complete laboratory message and rows
+            // travel in the report's CARLOS.Laboratory.v1 record.
+            if (!CdsExportNativeFieldAssessments.legal(value, Integer.MAX_VALUE))
+                review("CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW");
+            return;
+        }
         values.put(name, value);
     }
 
