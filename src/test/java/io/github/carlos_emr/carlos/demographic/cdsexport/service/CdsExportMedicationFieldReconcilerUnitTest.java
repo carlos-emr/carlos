@@ -344,8 +344,11 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRequireReview_whenTheSourceOnlyStrengthPlaceholderChangesOrIsCleared()
+    void shouldExportTheCurrentStrength_whenTheSourceOnlyStrengthPlaceholderChangesOrIsCleared()
             throws Exception {
+        // Was SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED. The strength a user (or the REST service)
+        // put in place of the import's placeholder is the current one: the sender's Strength
+        // element no longer stands, and a typed strength travels in the current-source carrier.
         for (String value : Arrays.asList("10 mg", null)) {
             var current = sourceOnlyStrengthBaseline();
             current.put("dosage", value);
@@ -357,9 +360,16 @@ class CdsExportMedicationFieldReconcilerUnitTest {
                                     true,
                                     sourceOnlyStrength(),
                                     sourceOnlyStrengthBaseline()));
-            assertThat(result.mapping().nativeRowRepresentable()).isFalse();
-            assertThat(result.mapping().fields().get(key("dosage")).rule())
-                    .isEqualTo("SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
+            assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(result.currentPaths()).contains("Strength");
+            assertThat(result.preparedPaths()).doesNotContain("Strength");
+            assertThat(result.retainedStrengthRequired()).isFalse();
+            assertThat(result.mapping().value().strengthAmount()).isNull();
+            if (value != null) {
+                assertThat(result.mapping().fields().get(key("dosage")).rule())
+                        .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+                assertThat(result.currentSource()).contains("\"dosage\":\"10\\u0020mg\"");
+            }
         }
     }
 

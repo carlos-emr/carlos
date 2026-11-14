@@ -484,6 +484,110 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
         assertThat(keptPlan.replacedFields()).isEmpty();
     }
 
+    @Test
+    void shouldRemoveASendersSourceCarrier_whenAValueRestoredFromItWasChangedInCarlos()
+            throws Exception {
+        // The import restored the as-needed flag from a CARLOS sender's
+        // CARLOS.Medication.Source.v1; the flag was then cleared here. The sender's carrier would
+        // restate the old flag (and a CARLOS importer would restore it), so the whole element is
+        // removed, its three fields are listed as replaced, and the current row travels in
+        // CARLOS.Medication.CurrentSource.v1. The vendor's own residual is untouched.
+        String senders = "{\"version\":1,\"fields\":{\"prn\":\"1\",\"unitName\":\"mL\"}}";
+        var markers =
+                List.of(
+                        List.of(
+                                CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT,
+                                "string",
+                                senders));
+        var unchanged =
+                fixture(
+                        CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline(),
+                        null,
+                        false,
+                        true,
+                        markers,
+                        CdsExportMedicationFieldReconcilerUnitTest.restoredSource(),
+                        CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline());
+        // While nothing changed the sender's carrier stays exactly as it was received.
+        var keptPlan = prepare(unchanged);
+        assertThat(residuals(keptPlan.content(), "sender-kept"))
+                .containsEntry(CdsNativeExtensionContract.MEDICATION_SOURCE_CONTEXT, senders)
+                .doesNotContainKey(CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(keptPlan.replacedFields()).isEmpty();
+        var current = CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline();
+        current.put("prn", "0");
+        var f =
+                fixture(
+                        current,
+                        null,
+                        false,
+                        true,
+                        markers,
+                        CdsExportMedicationFieldReconcilerUnitTest.restoredSource(),
+                        CdsExportMedicationFieldReconcilerUnitTest.restoredBaseline());
+        assertThat(f.decision().supersedesSenderSource()).isTrue();
+        var plan = prepare(f);
+        var residual = residuals(plan.content(), "sender-removed");
+        assertThat(residual.keySet())
+                .containsExactly(
+                        "Vendor.custom", CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(residual.get("Vendor.custom")).isEqualTo("Vendor café 😀 content");
+        assertThat(
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(
+                                        residual.get(
+                                                CdsNativeExtensionContract
+                                                        .MEDICATION_CURRENT_SOURCE))
+                                .get("fields")
+                                .get("prn")
+                                .asText())
+                .isEqualTo("0");
+        assertThat(plan.replacedFields())
+                .containsAll(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().contains("/DataElement[2]/"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+        assertThat(plan.retainedFields())
+                .containsAll(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().contains("/DataElement[1]/"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+    }
+
+    @Test
+    void shouldRemoveTheSendersStrength_whenItsPlaceholderWasReplacedInCarlos() throws Exception {
+        // Was SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED (a hold). The import kept the source's
+        // Strength element and a placeholder in the strength column; a strength typed over the
+        // placeholder is the current one. The sender's Strength no longer stands: it is removed
+        // and listed as replaced, and the typed text travels in the current-source carrier.
+        var current = CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrengthBaseline();
+        current.put("dosage", "10 mg");
+        var f = fixture(current, directory.resolve("replaced-strength.txt"));
+        assertThat(f.decision().mapping().nativeRowRepresentable()).isTrue();
+        var plan = prepare(f);
+        var record = parse(plan.content(), "replaced-strength").get(1);
+        assertThat(new CdsFieldParser().firstToken(record, "Strength/Amount", 100)).isNull();
+        assertThat(plan.replacedFields())
+                .containsAll(
+                        f.fields().stream()
+                                .filter(field -> field.sourcePath().contains("/Strength["))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+        assertThat(
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(
+                                        residuals(plan.content(), "replaced-strength-residual")
+                                                .get(
+                                                        CdsNativeExtensionContract
+                                                                .MEDICATION_CURRENT_SOURCE))
+                                .get("fields")
+                                .get("dosage")
+                                .asText())
+                .isEqualTo("10 mg");
+    }
+
     private static CdsExportMedicationReasonMapper.Result reasons() throws Exception {
         var drug =
                 CdsExportMedicationMapperUnitTest.medication(
@@ -538,18 +642,38 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
             List<List<String>> senderMarkers)
             throws Exception {
         boolean sourceOnlyStrength = strengthPayload != null;
+        return fixture(
+                current,
+                strengthPayload,
+                omitStrength,
+                sourceExtras,
+                senderMarkers,
+                sourceOnlyStrength
+                        ? CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrength()
+                        : CdsExportMedicationFieldReconcilerUnitTest.source(),
+                sourceOnlyStrength
+                        ? CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrengthBaseline()
+                        : CdsExportMedicationFieldReconcilerUnitTest.baseline());
+    }
+
+    /** {@code source} and {@code baseline}: the sealed preparation and the row the import wrote. */
+    static Fixture fixture(
+            Map<String, String> current,
+            Path strengthPayload,
+            boolean omitStrength,
+            boolean sourceExtras,
+            List<List<String>> senderMarkers,
+            io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsMedicationDto source,
+            Map<String, String> baseline)
+            throws Exception {
+        boolean sourceOnlyStrength = strengthPayload != null;
         var base =
                 CdsExportMedicationFieldReconcilerUnitTest.fixture(
                         current,
                         CdsExportMedicationFieldReconcilerUnitTest.numbers(),
                         true,
-                        sourceOnlyStrength
-                                ? CdsExportMedicationFieldReconcilerUnitTest.sourceOnlyStrength()
-                                : CdsExportMedicationFieldReconcilerUnitTest.source(),
-                        sourceOnlyStrength
-                                ? CdsExportMedicationFieldReconcilerUnitTest
-                                        .sourceOnlyStrengthBaseline()
-                                : CdsExportMedicationFieldReconcilerUnitTest.baseline());
+                        source,
+                        baseline);
         var decision = CdsExportMedicationFieldReconcilerUnitTest.reconcile(base);
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("DrugName[1]", "cds", "Original café drug"));

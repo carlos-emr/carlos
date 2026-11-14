@@ -644,6 +644,11 @@ The following ordinary charts are exported and are not held:
   is sent as no longer current (Nullified, Aborted or Obsolete, past medication Yes), and the
   reason, date and the rest of its current row travel in the CARLOS residual
   `CARLOS.Medication.CurrentSource.v1`;
+- an imported allergy changed in CARLOS after its import (archived, or a value changed through
+  the REST service): it is sent as the chart now holds it, and a value CDS has no field for
+  travels with the allergy's current row in the CARLOS residual `CARLOS.Allergy.Source.v1`;
+- an imported prescription whose strength was typed over the import's placeholder: the typed
+  strength is sent in the CARLOS residual and the sender's original Strength is no longer sent;
 - an appointment whose name box holds something other than the patient's name, or that has
   remarks (OSCAR 19 reminder marks such as "Emailed:"): each is sent as a labelled line after
   the appointment's notes (`Booking name: `, `Remarks: `); a reason-list label too long to

@@ -309,10 +309,11 @@ public final class CdsExportMedicationFieldReconciler {
                 // is superseded (removed, its fields listed as replaced) and the complete current
                 // row travels in CARLOS.Medication.CurrentSource.v1.
                 supersedesSender = true;
-            if (source.strengthSourceOnly() && group.path().equals("Strength") && !unchanged) {
-                mark(current, decisions, group, "SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED");
-                continue;
-            }
+            // A source strength the import could not hold natively left a placeholder in the
+            // strength column and kept the source's Strength element. A strength changed (or
+            // cleared) in CARLOS since is the current one: the sender's Strength element is
+            // removed (its fields listed as replaced) and the stored text travels in
+            // CARLOS.Medication.CurrentSource.v1, as any unstructured strength does. Not a hold.
             boolean date =
                     group.path().equals("StartDate")
                             || group.path().equals("PrescriptionWrittenDate");
@@ -483,7 +484,8 @@ public final class CdsExportMedicationFieldReconciler {
                 new CdsExportMedicationMappingDto(result, decisions),
                 preparedPaths,
                 currentPaths,
-                source.strengthSourceOnly(),
+                // The retained Strength element must stand only while the placeholder does.
+                source.strengthSourceOnly() && chosen.contains("Strength"),
                 currentSource,
                 blocked ? null : archived,
                 !blocked && supersedesSender);

@@ -143,10 +143,15 @@ class CdsExportAllergyFieldReconcilerUnitTest {
                 .isEqualTo("NATIVE_SEVERE_HAS_NO_CDS_SEVERITY_VALUE");
         fields = baseline();
         fields.put("entry_date", "2024-03-01");
+        // Was UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION: a recorded date changed in
+        // CARLOS is the current calendar date and supersedes the source clock the column never
+        // held; the chart is not held.
         var result = reconcile(fixture(fields, true, source()), List.of());
-        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
-        assertThat(result.mapping().fields().get(key("entry_date")).rule())
-                .isEqualTo("UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION");
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().recorded().lexical()).isEqualTo("2024-03-01");
+        assertThat(result.currentPaths()).contains("RecordedDate");
+        assertThat(result.currentSource()).contains("\"entry_date\":\"2024-03-01\"");
+        assertThat(result.carried()).isFalse();
     }
 
     @Test
@@ -172,9 +177,7 @@ class CdsExportAllergyFieldReconcilerUnitTest {
     }
 
     @Test
-    void
-            shouldRequireReviewForNewPrecisionRows_insteadOfRestoringTheOriginalPrecisionOrInventingAFullDate()
-                    throws Exception {
+    void shouldUseTheCurrentPrecisionRows_whenTheyChangedSinceTheImport() throws Exception {
         var precision =
                 new CdsExportCapturedTextRowDto(
                         "partial_date",
@@ -190,10 +193,79 @@ class CdsExportAllergyFieldReconcilerUnitTest {
                                 "1",
                                 "format",
                                 "YYYY"));
+        // Was CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW. The current column with its current
+        // precision row is the date, exactly as a never-imported allergy exports it; the original
+        // precision is not restored and no full date is invented.
         var result = reconcile(fixture(baseline(), true, source()), List.of(precision));
-        assertThat(result.mapping().nativeRowRepresentable()).isFalse();
-        assertThat(result.mapping().fields().get(key("start_date")).rule())
-                .isEqualTo("CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW");
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        var nativeRule =
+                new CdsExportAllergyMapper()
+                        .map(27, fixture(baseline(), true, source()).row, List.of(precision));
+        assertThat(result.mapping().value().start()).isEqualTo(nativeRule.value().start());
+        assertThat(result.mapping().value().start().precision())
+                .isEqualTo(CdsExportDateDto.Precision.YEAR);
+        assertThat(result.currentPaths()).contains("StartDate");
+    }
+
+    @Test
+    void shouldCarryACurrentValueWithNoElement_inTheCurrentRowsSourceContext() throws Exception {
+        // A REST or direct edit left a severity code outside the list and a recording provider:
+        // both used to hold the patient. They travel in CARLOS.Allergy.Source.v1 for the current
+        // row, by the rule of a never-imported allergy.
+        var fields = baseline();
+        fields.put("severity_of_reaction", "9");
+        fields.put("providerNo", "999998");
+        var result = reconcile(fixture(fields, true, source()), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().severity()).isNull();
+        assertThat(result.carried()).isTrue();
+        assertThat(result.currentSource())
+                .contains("\"severity_of_reaction\":\"9\"")
+                .contains("\"providerNo\":\"999998\"")
+                .doesNotContain(" ");
+        for (String column : List.of("severity_of_reaction", "providerNo")) {
+            assertThat(result.mapping().fields().get(key(column)).destination())
+                    .isEqualTo("ResidualInfo/CARLOS.Allergy.Source.v1");
+            assertThat(result.mapping().fields().get(key(column)).rule())
+                    .isEqualTo("EXACT_NATIVE_ALLERGY_SOURCE_CONTEXT");
+        }
+    }
+
+    @Test
+    void shouldWriteAChangedLongReactionAfterTheImportedNotes_insteadOfHolding() throws Exception {
+        // Was CHANGED_LONG_REACTION_REQUIRES_REVIEW.
+        var fields = baseline();
+        String reaction = "r".repeat(200);
+        fields.put("reaction", reaction);
+        var result = reconcile(fixture(fields, true, source()), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().reaction()).isNull();
+        assertThat(result.mapping().value().longReaction()).isEqualTo(reaction);
+        assertThat(result.mapping().value().notes()).endsWith("Reaction:\n" + reaction);
+        assertThat(result.currentPaths()).contains("Reaction", "Notes");
+    }
+
+    @Test
+    void shouldLabelAnAllergyLeftWithoutAgent_andCarryItsCurrentRow() throws Exception {
+        // Was ALLERGY_AGENT_REQUIRED_AFTER_RECONCILIATION.
+        var fields = baseline();
+        fields.put("DESCRIPTION", "");
+        fields.put("regional_identifier", null);
+        var result = reconcile(fixture(fields, true, source()), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().description())
+                .isEqualTo(CdsExportAllergyMapper.UNNAMED_AGENT);
+        assertThat(result.carried()).isTrue();
+        assertThat(result.currentSource()).isNotNull();
+    }
+
+    @Test
+    void shouldLeaveAnUnchangedImportedAllergyWithoutACurrentSourceContext() throws Exception {
+        var result = reconcile(fixture(baseline(), true, source()), List.of());
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.currentPaths()).isEmpty();
+        assertThat(result.currentSource()).isNull();
+        assertThat(result.carried()).isFalse();
     }
 
     @Test

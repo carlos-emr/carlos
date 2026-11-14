@@ -81,7 +81,7 @@ public final class CdsExportAllergyMapper {
      *   <li>A reaction too long even for Notes, and a row with no agent.</li>
      * </ul>
      */
-    private static final Set<String> CARRIED_RULES =
+    static final Set<String> CARRIED_RULES =
             Set.of(
                     "UNMAPPED_NATIVE_VALUE",
                     "CODE_REQUIRES_REVIEW",
@@ -129,18 +129,7 @@ public final class CdsExportAllergyMapper {
         if (blocked) return new CdsExportAllergyMappingDto(null, fields);
         var value = candidate.value();
         if (carried) {
-            var details = new LinkedHashMap<String, Object>();
-            details.put("version", 1);
-            details.put("fields", new java.util.TreeMap<>(row.fields()));
-            details.put(
-                    "precision",
-                    precision.stream()
-                            .sorted(
-                                    java.util.Comparator.comparing(
-                                            CdsExportCapturedTextRowDto::recordKey))
-                            .map(entry -> new java.util.TreeMap<>(entry.fields()))
-                            .toList());
-            String context = CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(details));
+            String context = sourceContext(row, precision);
             boolean unnamed =
                     (value.description() == null || value.description().isBlank())
                             && value.codeValue() == null;
@@ -165,6 +154,28 @@ public final class CdsExportAllergyMapper {
                             context);
         }
         return new CdsExportAllergyMappingDto(value, fields);
+    }
+
+    /**
+     * The content of {@code CARLOS.Allergy.Source.v1}: the complete stored row and its
+     * date-precision rows as one JSON object in a fixed key order, SQL NULL distinct from empty
+     * text, every space escaped so {@code xs:token} normalization cannot change it.
+     */
+    static String sourceContext(
+            CdsExportCapturedTextRowDto row, List<CdsExportCapturedTextRowDto> precision)
+            throws IOException {
+        var details = new LinkedHashMap<String, Object>();
+        details.put("version", 1);
+        details.put("fields", new java.util.TreeMap<>(row.fields()));
+        details.put(
+                "precision",
+                precision.stream()
+                        .sorted(
+                                java.util.Comparator.comparing(
+                                        CdsExportCapturedTextRowDto::recordKey))
+                        .map(entry -> new java.util.TreeMap<>(entry.fields()))
+                        .toList());
+        return CdsExportScreeningMapper.tokenSafe(JSON.writeValueAsString(details));
     }
 
     /**

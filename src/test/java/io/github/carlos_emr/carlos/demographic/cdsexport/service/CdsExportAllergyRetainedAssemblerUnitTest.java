@@ -353,6 +353,129 @@ class CdsExportAllergyRetainedAssemblerUnitTest {
         assertThat(moderate.nativeSeverity()).isNull();
     }
 
+    @Test
+    void shouldAddTheCurrentRowsSourceContext_whenAChangedValueHasNoElement() throws Exception {
+        // An imported allergy whose severity was set (through the REST service or directly) to
+        // a code outside the list used to hold the patient. The standard Severity is left out
+        // and the complete current row is added as CARLOS.Allergy.Source.v1 beside the vendor's
+        // own residual, which stays untouched.
+        var current = CdsExportAllergyFieldReconcilerUnitTest.baseline();
+        current.put("severity_of_reaction", "9");
+        var f =
+                fixture(
+                        current,
+                        CdsExportAllergyFieldReconcilerUnitTest.baseline(),
+                        CdsExportAllergyFieldReconcilerUnitTest.source(),
+                        standardFields("DIN", "00123456"));
+        assertThat(f.decision.carried()).isTrue();
+        var plan = prepare(f);
+        var records = parse(plan.content(), "source-added");
+        var allergy =
+                new CdsClinicalNormalizationService(new CdsFieldParser()).allergy(records.get(1));
+        assertThat(allergy.severity()).isNull();
+        var residuals = residuals(records.get(1));
+        assertThat(residuals).containsEntry("Vendor.other", "Vendor content");
+        assertThat(residuals.get(CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT))
+                .isEqualTo(f.decision.currentSource())
+                .contains("\"severity_of_reaction\":\"9\"");
+        // Nothing of the sender's own residual was replaced.
+        assertThat(plan.retainedFields())
+                .containsAll(
+                        f.fields.stream()
+                                .filter(field -> field.sourcePath().contains("/DataElement[1]/"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+    }
+
+    @Test
+    void shouldReplaceASendersSourceContext_withTheCurrentRowOnceTheAllergyChanged()
+            throws Exception {
+        // A CARLOS sender's own CARLOS.Allergy.Source.v1 describes the row as the sender held
+        // it. After a change in this CARLOS (here: archived on the allergy page) it would restate
+        // the old row, so its content is replaced with the current row and listed as replaced;
+        // its name and type fields are kept.
+        String senders = "{\"version\":1,\"fields\":{\"archived\":\"0\"},\"precision\":[]}";
+        var fields = standardFields("DIN", "00123456");
+        fields.add(
+                field(
+                        "ResidualInfo[1]/DataElement[2]/Name[1]",
+                        "cds_dt",
+                        CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT));
+        fields.add(field("ResidualInfo[1]/DataElement[2]/DataType[1]", "cds_dt", "string"));
+        fields.add(field("ResidualInfo[1]/DataElement[2]/Content[1]", "cds_dt", senders));
+        var previous = CdsExportAllergyFieldReconcilerUnitTest.baseline();
+        // Unchanged: the sender's carrier is retained exactly.
+        var untouched = fixture(previous, previous, CdsExportAllergyFieldReconcilerUnitTest.source(), fields);
+        assertThat(untouched.decision.currentSource()).isNull();
+        assertThat(residuals(parse(prepare(untouched).content(), "source-kept").get(1)))
+                .containsEntry(CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT, senders);
+        var current = new java.util.LinkedHashMap<>(previous);
+        current.put("archived", "1");
+        var f = fixture(current, previous, CdsExportAllergyFieldReconcilerUnitTest.source(), fields);
+        assertThat(f.decision.carried()).isFalse();
+        var plan = prepare(f);
+        var residuals = residuals(parse(plan.content(), "source-replaced").get(1));
+        assertThat(residuals.get(CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT))
+                .isEqualTo(f.decision.currentSource())
+                .contains("\"archived\":\"1\"");
+        var content =
+                f.fields.stream()
+                        .filter(field -> field.sourcePath().endsWith("/DataElement[2]/Content[1]"))
+                        .findFirst()
+                        .orElseThrow();
+        assertThat(plan.replacedFields()).contains(content.id());
+        assertThat(plan.retainedFields())
+                .containsAll(
+                        f.fields.stream()
+                                .filter(
+                                        field ->
+                                                field.sourcePath().endsWith("/DataElement[2]/Name[1]")
+                                                        || field.sourcePath()
+                                                                .endsWith(
+                                                                        "/DataElement[2]/DataType[1]"))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+        // Two elements of that name cannot both be the row's carrier.
+        var duplicate = new ArrayList<>(fields);
+        duplicate.add(
+                field(
+                        "ResidualInfo[1]/DataElement[3]/Name[1]",
+                        "cds_dt",
+                        CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT));
+        duplicate.add(field("ResidualInfo[1]/DataElement[3]/DataType[1]", "cds_dt", "string"));
+        duplicate.add(field("ResidualInfo[1]/DataElement[3]/Content[1]", "cds_dt", senders));
+        var twice = fixture(current, previous, CdsExportAllergyFieldReconcilerUnitTest.source(), duplicate);
+        assertThatThrownBy(() -> prepare(twice))
+                .hasMessage("CDS_EXPORT_ALLERGY_EXTENSION_DUPLICATE");
+    }
+
+    /** Every residual DataElement of the received allergy, name to content. */
+    private static Map<String, String> residuals(CdsRecordDto record) throws Exception {
+        var parser = new CdsFieldParser();
+        var names = new java.util.TreeMap<String, String>();
+        var contents = new java.util.TreeMap<String, String>();
+        var failure = new java.util.concurrent.atomic.AtomicReference<Exception>();
+        parser.forEachField(
+                record,
+                field -> {
+                    var match =
+                            java.util.regex.Pattern.compile(
+                                            "ResidualInfo\\[1\\]/DataElement\\[([0-9]+)\\]/(Name|Content)\\[1\\]")
+                                    .matcher(field.path());
+                    if (!match.matches()) return;
+                    try {
+                        (match.group(2).equals("Name") ? names : contents)
+                                .put(match.group(1), parser.readToken(record, field, 1 << 20));
+                    } catch (Exception problem) {
+                        failure.set(problem);
+                    }
+                });
+        if (failure.get() != null) throw failure.get();
+        var result = new java.util.LinkedHashMap<String, String>();
+        names.forEach((position, name) -> result.put(name, contents.get(position)));
+        return result;
+    }
+
     private static ArrayList<CdsExportRetainedFieldDto> standardFields(String type, String code) {
         var fields = new ArrayList<CdsExportRetainedFieldDto>();
         fields.add(field("OffendingAgentDescription[1]", "cds", "Original agent"));

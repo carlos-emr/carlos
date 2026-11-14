@@ -28,7 +28,16 @@ import java.io.Reader;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/** Reconciled standard allergy fields plus every untouched retained extension, in one authenticated source occurrence. */
+/**
+ * Reconciled standard allergy fields plus every untouched retained extension, in one
+ * authenticated source occurrence.
+ *
+ * <p>An imported allergy changed in CARLOS carries its complete current row in {@code
+ * CARLOS.Allergy.Source.v1} ({@link CdsExportAllergyFieldReconciler.Result#currentSource}): the
+ * element is added when a current value has no CDS element, and a sender's own element of that
+ * name is always replaced, because it would restate the row as the sender held it. The receipt
+ * lists the replaced content field.
+ */
 public final class CdsExportAllergyRetainedAssembler {
     private static final Pattern MARKER =
             Pattern.compile("ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]{0,17})\\]/Name\\[1\\]");
@@ -105,6 +114,7 @@ public final class CdsExportAllergyRetainedAssembler {
                         new CdsExportRetainedSectionWriter.Change(path, prior, part.getValue()));
         }
         var existing = new HashMap<String, String>();
+        String sourceContext = null;
         long maximum = 0;
         for (var entry : relative.entrySet()) {
             checkpoint.run();
@@ -112,6 +122,20 @@ public final class CdsExportAllergyRetainedAssembler {
             if (!match.matches()) continue;
             maximum = Math.max(maximum, Long.parseLong(match.group(1)));
             String name = token(values, entry.getValue(), checkpoint, 128);
+            if (CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT.equals(name)) {
+                // A sender's complete-row carrier: located, never compared (its content is the
+                // sender's row, not a projection of this one).
+                String located = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
+                if (sourceContext != null) review("CDS_EXPORT_ALLERGY_EXTENSION_DUPLICATE");
+                var type = relative.get(located + "/DataType[1]");
+                if (type == null
+                        || relative.get(located + "/Content[1]") == null
+                        || !CdsNativeExtensionContract.STRING_TYPE.equals(
+                                token(values, type, checkpoint, 128)))
+                    review("CDS_EXPORT_ALLERGY_EXTENSION_TYPE_REQUIRES_REVIEW");
+                sourceContext = located;
+                continue;
+            }
             if (name == null || !KNOWN.contains(name)) continue;
             String path = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
             if (existing.putIfAbsent(name, path) != null)
@@ -160,6 +184,17 @@ public final class CdsExportAllergyRetainedAssembler {
                                     xml -> xml.text(value)));
                 }
             } else if (value != null) additions.put(name, value);
+        }
+        if (decision.currentSource() != null) {
+            String json = decision.currentSource();
+            if (sourceContext != null)
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                sourceContext + "/Content[1]",
+                                Set.of(relative.get(sourceContext + "/Content[1]").id()),
+                                xml -> xml.text(json)));
+            else if (decision.carried())
+                additions.put(CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT, json);
         }
         if (!additions.isEmpty()) {
             boolean residual =

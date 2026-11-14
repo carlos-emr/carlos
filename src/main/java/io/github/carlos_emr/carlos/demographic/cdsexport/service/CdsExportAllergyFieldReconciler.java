@@ -34,21 +34,47 @@ import java.util.*;
 /**
  * Fieldwise reconciliation of one imported allergy against authenticated native witnesses.
  * Historical values survive only when the original projection is proved and their own
- * dependencies are unchanged. A changed, representable native field supplies that field;
- * another field's edit cannot resurrect old content or erase unprojected source meaning.
- * Missing rows, aliases and ambiguous date metadata require explicit review. Unknown retained
- * extensions still need their own carrier/coverage; this result alone cannot publish a section.
+ * dependencies are unchanged. A field changed in CARLOS since the import is exported as the
+ * chart now holds it, by the same rule as on a never-imported allergy: a changed date with its
+ * current precision rows (it supersedes a source clock or offset the column never held), a long
+ * reaction in Notes, an unnamed agent under the native label, and every current value CDS has no
+ * element for in {@code CARLOS.Allergy.Source.v1}, which then holds the complete current row.
+ * Another field's edit cannot resurrect old content. Only what the import's receipt cannot
+ * prove still holds the patient: a missing row, an alias, a missing baseline, and a sealed
+ * preparation that does not describe the row the receipt says the import wrote
+ * ({@code PREPARED_NATIVE_PROJECTION_NOT_PROVEN}: the retained source fields of that unit then
+ * cannot be shown to belong to this row, so neither they nor a guess are exported).
  */
 public final class CdsExportAllergyFieldReconciler {
+    /**
+     * @param currentSource the content of {@code CARLOS.Allergy.Source.v1} for the current row
+     *     when any field was changed in CARLOS since the import, otherwise null. The assembler
+     *     writes it when {@code carried} is set, and always replaces a sender's own carrier with
+     *     it, because that carrier would restate the row as the sender held it.
+     * @param carried whether a current value has no CDS element and travels only in {@code
+     *     currentSource}
+     */
     public record Result(
             String sourceManifestSha256,
             String unitAddress,
             CdsExportAllergyMappingDto mapping,
             Set<String> preparedPaths,
-            Set<String> currentPaths) {
+            Set<String> currentPaths,
+            String currentSource,
+            boolean carried) {
         public Result {
             preparedPaths = Set.copyOf(preparedPaths);
             currentPaths = Set.copyOf(currentPaths);
+        }
+
+        /** A reconciliation with nothing to carry beside the standard elements and markers. */
+        public Result(
+                String sourceManifestSha256,
+                String unitAddress,
+                CdsExportAllergyMappingDto mapping,
+                Set<String> preparedPaths,
+                Set<String> currentPaths) {
+            this(sourceManifestSha256, unitAddress, mapping, preparedPaths, currentPaths, null, false);
         }
 
         @Override
@@ -142,22 +168,13 @@ public final class CdsExportAllergyFieldReconciler {
             }
             boolean unchanged = Collections.disjoint(group.columns, difference.changedColumns());
             if ((group == Group.START || group == Group.RECORDED) && !precisionUnchanged) {
-                mark(current, decisions, group, "CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW");
+                // The date's precision rows changed since the import: the current column and its
+                // current precision rows are the date, as on a never-imported allergy.
+                currentPaths.add(group.path);
                 continue;
             }
-            if (!unchanged
-                    && (group == Group.RECORDED
-                                    && old.recorded().precision()
-                                            == CdsExportDateDto.Precision.DATE_TIME
-                            || group == Group.RECORDED && hasOffset(old.recorded())
-                            || group == Group.START && hasOffset(old.start()))) {
-                mark(
-                        current,
-                        decisions,
-                        group,
-                        "UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION");
-                continue;
-            }
+            // A date changed in CARLOS is a plain calendar date: it supersedes a source clock or
+            // offset the native column never held, as an edited prescription date does.
             if (unchanged && group == Group.ARCHIVED && source.archivedNotRestored()) {
                 // The source marked the allergy archived but this import kept it active
                 // (decision 9): the native state, not the source marker, is what CARLOS holds.
@@ -181,35 +198,82 @@ public final class CdsExportAllergyFieldReconciler {
                 }
             } else currentPaths.add(group.path);
         }
-        // A native reaction too long for Reaction travels in a native allergy's Notes. This path
-        // keeps the imported Notes, so such a value on an imported row (CARLOS amends an allergy
-        // by archiving it and adding a native row, never by editing it in place) is held rather
-        // than dropped.
-        if (!choosePrepared.contains(Group.REACTION)
-                && "Notes"
-                        .equals(
-                                decisions
-                                        .get(
-                                                new CdsExportNativeFieldKeyDto(
-                                                        current.table(),
-                                                        current.recordKey(),
-                                                        "reaction"))
-                                        .destination()))
-            mark(current, decisions, Group.REACTION, "CHANGED_LONG_REACTION_REQUIRES_REVIEW");
-        preparedPaths.add(
-                "Notes"); // This standard field was retained but has no native allergy column.
+        boolean archivedNow =
+                choosePrepared.contains(Group.ARCHIVED) ? old.archived() : values.archived();
+        // The imported Notes are kept (they have no native column); a reaction changed in CARLOS
+        // to one too long for Reaction is written after them, as a never-imported allergy writes
+        // it in Notes, and exactly in CARLOS.Allergy.Reaction.v1.
+        String notes = notes(old.notes(), old.archived(), archivedNow);
+        boolean carried = false;
+        if (!choosePrepared.contains(Group.REACTION) && values.longReaction() != null) {
+            String earlier =
+                    old.longReaction() == null
+                            ? null
+                            : CdsExportAllergyMapper.LONG_REACTION_LABEL + old.longReaction();
+            String kept = notes;
+            // The sender's own statement of the earlier long reaction is replaced, not repeated.
+            if (earlier != null && kept != null && kept.endsWith(earlier))
+                kept = kept.substring(0, kept.length() - earlier.length()).stripTrailing();
+            String statement = CdsExportAllergyMapper.LONG_REACTION_LABEL + values.longReaction();
+            String combined = kept == null || kept.isEmpty() ? statement : kept + "\n\n" + statement;
+            if (CdsExportNativeFieldAssessments.legal(combined, 32000)) {
+                notes = combined;
+                currentPaths.add("Notes");
+            } else {
+                // No room beside the imported Notes: the reaction is exact in its own carrier
+                // and in the current row's source context; Notes are left as imported.
+                carried = true;
+                var key =
+                        new CdsExportNativeFieldKeyDto(
+                                current.table(), current.recordKey(), "reaction");
+                decisions.put(
+                        key,
+                        new CdsExportFieldAssessmentDto(
+                                decisions.get(key).presence(),
+                                Outcome.MAPPED,
+                                CdsExportAllergyMapper.SOURCE,
+                                CdsExportAllergyMapper.CARRIED));
+            }
+        }
+        if (!currentPaths.contains("Notes"))
+            preparedPaths.add(
+                    "Notes"); // This standard field was retained but has no native allergy column.
         String description =
                 choosePrepared.contains(Group.DESCRIPTION)
                         ? old.description()
                         : values.description();
         String codeType = choosePrepared.contains(Group.CODE) ? old.codeType() : values.codeType();
         String code = choosePrepared.contains(Group.CODE) ? old.codeValue() : values.codeValue();
-        if ((description == null || description.isBlank()) && code == null)
-            mark(
-                    current,
-                    decisions,
-                    Group.DESCRIPTION,
-                    "ALLERGY_AGENT_REQUIRED_AFTER_RECONCILIATION");
+        if ((description == null || description.isBlank()) && code == null) {
+            // As on a never-imported allergy: the entry says the agent is not recorded and the
+            // complete current row travels in its source context.
+            description = CdsExportAllergyMapper.UNNAMED_AGENT;
+            carried = true;
+        }
+        // Every current value CDS has no element for (a code outside its list, a date without
+        // established precision, a recording provider or First Databank identifier): carried in
+        // CARLOS.Allergy.Source.v1 by the rule of a never-imported allergy, never a hold. A group
+        // kept from the import was decided above and is not touched.
+        for (var entry : new ArrayList<>(decisions.entrySet())) {
+            var decision = entry.getValue();
+            if (decision.outcome() != Outcome.REQUIRES_REVIEW) continue;
+            boolean row = entry.getKey().table().equals(current.table());
+            String stored = row ? current.fields().get(entry.getKey().column()) : null;
+            boolean overlong =
+                    "WIRE_TEXT_REQUIRES_REVIEW".equals(decision.rule())
+                            && stored != null
+                            && CdsExportNativeFieldAssessments.legal(stored, Integer.MAX_VALUE);
+            if (!CdsExportAllergyMapper.CARRIED_RULES.contains(decision.rule()) && !overlong)
+                continue;
+            carried = true;
+            decisions.put(
+                    entry.getKey(),
+                    new CdsExportFieldAssessmentDto(
+                            decision.presence(),
+                            Outcome.MAPPED,
+                            CdsExportAllergyMapper.SOURCE,
+                            CdsExportAllergyMapper.CARRIED));
+        }
         var result =
                 new CdsExportAllergyDto(
                         description,
@@ -232,15 +296,8 @@ public final class CdsExportAllergyFieldReconciler {
                         choosePrepared.contains(Group.RECORDED)
                                 ? old.recorded()
                                 : values.recorded(),
-                        notes(
-                                old.notes(),
-                                old.archived(),
-                                choosePrepared.contains(Group.ARCHIVED)
-                                        ? old.archived()
-                                        : values.archived()),
-                        choosePrepared.contains(Group.ARCHIVED)
-                                ? old.archived()
-                                : values.archived(),
+                        notes,
+                        archivedNow,
                         choosePrepared.contains(Group.AGE) ? old.ageOfOnset() : values.ageOfOnset(),
                         choosePrepared.contains(Group.ONSET)
                                 ? old.onsetOfReaction()
@@ -251,20 +308,27 @@ public final class CdsExportAllergyFieldReconciler {
                         choosePrepared.contains(Group.SEVERITY)
                                 ? old.nativeSeverity()
                                 : values.nativeSeverity(),
-                        // An unchanged reaction keeps its carrier; a changed long one is held
-                        // above (the imported Notes would not say it).
+                        // An unchanged reaction keeps its carrier; a changed long one replaces
+                        // it and is written in Notes above.
                         choosePrepared.contains(Group.REACTION)
                                 ? old.longReaction()
                                 : values.longReaction());
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        // The current row's complete context: written when a value has no element, and the
+        // replacement of a sender's own carrier whenever anything was changed in CARLOS.
+        boolean changed = !currentPaths.isEmpty() || carried;
         return new Result(
                 index.sourceManifestSha256(),
                 unitAddress,
                 new CdsExportAllergyMappingDto(blocked ? null : result, decisions),
                 preparedPaths,
-                currentPaths);
+                currentPaths,
+                changed && !blocked
+                        ? CdsExportAllergyMapper.sourceContext(current, precision)
+                        : null,
+                carried && !blocked);
     }
 
     /**
@@ -444,19 +508,6 @@ public final class CdsExportAllergyFieldReconciler {
                             group.path,
                             rule));
         }
-    }
-
-    private static boolean hasOffset(CdsExportDateDto value) {
-        if (value.lexical() == null || value.precision() == CdsExportDateDto.Precision.DATE_TIME)
-            return false;
-        int length =
-                switch (value.precision()) {
-                    case YEAR -> 4;
-                    case YEAR_MONTH -> 7;
-                    case DATE -> 10;
-                    default -> 0;
-                };
-        return value.lexical().length() > length;
     }
 
     private static String trim(String value) {

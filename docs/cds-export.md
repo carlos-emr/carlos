@@ -2289,6 +2289,25 @@ only for such an allergy, and the column's decision is `EXACT_NATIVE_ALLERGY_SOU
   label `Offending agent not recorded`, because every CDS reader, the CARLOS importer included,
   needs a description or a code.
 
+An imported allergy changed in CARLOS since its import follows the same rule
+(`CdsExportAllergyFieldReconciler`, `CdsExportAllergyRetainedAssembler`). Each element group whose
+columns changed takes the current value by the rule of a never-imported allergy: a changed date
+with its current precision rows, also when the source had a clock or offset the column never
+held; a changed reaction too long for Reaction after the imported Notes (labelled `Reaction:`,
+replacing the sender's own statement of an earlier long reaction) and in
+`CARLOS.Allergy.Reaction.v1`; an allergy left with no agent under the label `Offending agent not
+recorded`. A current value with no element (the list above, and a recording provider written by a
+direct edit) travels in `CARLOS.Allergy.Source.v1` for the current row: the element is added
+(`Result.carried`), and a CARLOS sender's own element of that name is replaced with the current
+row whenever anything changed, archiving included, because it would restate the row as the sender
+held it; the receipt lists its content field as replaced. `CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`,
+`UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`, `CHANGED_LONG_REACTION_REQUIRES_REVIEW`,
+`ALLERGY_AGENT_REQUIRED_AFTER_RECONCILIATION` and the generic hold for a carried rule on a changed
+group are gone. Still held on an imported allergy: `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` (the
+unit's sealed preparation does not describe the row its receipt says the import wrote, so the
+unit's retained source fields cannot be shown to belong to this row), the baseline, codec,
+deletion, witness and alias codes, and text no XML document can hold.
+
 A CARLOS importer keeps the carrier as protected source (it is not one of the markers it
 restores). Still held: text no XML document can hold, and an archive flag that is neither 0 nor
 1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
@@ -4396,10 +4415,20 @@ old value from it, and the current row travels in `CurrentSource`
 `CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`, `UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`
 and `GENERATED_SIG_DEPENDENCIES_CHANGED_REQUIRES_REVIEW` are gone from this path).
 
+A source strength the import could not hold natively left a placeholder in `drugs.dosage` and
+kept the source's Strength element. While the placeholder stands the element is re-exported; a
+strength typed over it (or cleared) in CARLOS is the current one: the sender's Strength element
+is removed (the receipt lists its fields as replaced) and the typed text travels in
+`CurrentSource` like any unstructured strength (`SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED` is
+gone).
+
 Still held on an imported prescription: an import projection the receipt cannot prove
-(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes), a changed source-only
-strength placeholder (`SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED`), text no XML document can hold,
-and a physically deleted row. A sealed preparation that contradicts its own source (a duration
+(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes), text no XML document can
+hold, and a physically deleted row. `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
+not a data condition: the baseline row is authenticated by the receipt digest, and the unit's
+sealed preparation does not reproduce it, so the retained source fields of that unit cannot be
+shown to describe the row; neither they nor the current row alone would be a proven export of
+what was imported. A sealed preparation that contradicts its own source (a duration
 with no unit, `CDS_EXPORT_PREPARED_DURATION_INVALID`; a date that does not re-derive from its
 original text and shift, `CDS_EXPORT_PREPARED_TEMPORAL_REQUIRES_REVIEW`) is an integrity fault of
 that one patient's import: a named hold of that patient, never a failed job as it was. A source
