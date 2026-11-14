@@ -239,6 +239,141 @@ class CdsExportExecutionServiceUnitTest {
         verify(access).requirePharmacyRead(document.actor(), document.command(), 27);
     }
 
+    private static CdsExportAccessService.PatientDecisions decisions(int patient) {
+        var decisions = new CdsExportAccessService.PatientDecisions(patient);
+        decisions.grant(CdsExportAccessService.Gate.PATIENT);
+        decisions.grant(CdsExportAccessService.Gate.PHARMACY);
+        decisions.grant(
+                CdsExportAccessService.Gate.category(CdsCategory.LABORATORY_RESULTS, true));
+        return decisions;
+    }
+
+    @Test
+    void shouldOpenAndCloseOnePassPerPatientSession_insteadOfOneTransactionPerCheck()
+            throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 27))
+                .thenReturn(decisions(27));
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.beginPatient(27);
+                            for (int step = 0; step < 5; step++) {
+                                control.authorizePatient(27);
+                                control.authorizePharmacy(27);
+                                control.authorizeCategory(
+                                        27, CdsCategory.LABORATORY_RESULTS, true);
+                            }
+                            control.endPatient(27);
+                            control.discardPatient();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        verify(access, times(1)).decidePatient(document.actor(), document.command(), 27);
+        var request =
+                org.mockito.ArgumentCaptor.forClass(CdsExportAccessService.PatientRecheck.class);
+        verify(access, times(1))
+                .recheckPatient(eq(document.actor()), eq(document.command()), request.capture());
+        assertThat(request.getValue().patient()).isEqualTo(27);
+        assertThat(request.getValue().gates())
+                .containsExactly(
+                        CdsExportAccessService.Gate.PATIENT,
+                        CdsExportAccessService.Gate.PHARMACY,
+                        CdsExportAccessService.Gate.category(
+                                CdsCategory.LABORATORY_RESULTS, true));
+        verify(access, never()).requirePatient(any(), any(), anyInt());
+        verify(access, never()).requireCategory(any(), any(), anyInt(), any(), anyBoolean());
+    }
+
+    @Test
+    void shouldHoldThePatient_whenTheClosingPassOfItsSessionIsRefused() throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 27))
+                .thenReturn(decisions(27));
+        doThrow(new SecurityException("CDS_EXPORT_AUTHORIZATION_DENIED"))
+                .when(access)
+                .recheckPatient(any(), any(), any());
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.beginPatient(27);
+                            control.authorizePatient(27);
+                            assertThatThrownBy(() -> control.endPatient(27))
+                                    .isInstanceOf(SecurityException.class);
+                            // The session is gone: nothing of it answers a later check.
+                            control.authorizePatient(27);
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        verify(access).requirePatient(document.actor(), document.command(), 27);
+    }
+
+    @Test
+    void shouldDecideEachReauthorizationPassFromTheDatabase_andKeepNothingAfterIt()
+            throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 27))
+                .thenReturn(decisions(27));
+        var notes =
+                List.of(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportNoteAccessDto(91, 27, "17", "1"));
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            for (int pass = 0; pass < 3; pass++) {
+                                control.beginAuthorizationPass(27);
+                                control.authorizePatient(27);
+                                control.authorizePharmacy(27);
+                                control.authorizeNotes(CdsCategory.CLINICAL_NOTES, notes);
+                                control.endAuthorizationPass();
+                            }
+                            // Outside a pass every check is a fresh one again.
+                            control.authorizePatient(27);
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        verify(access, times(3)).decidePatient(document.actor(), document.command(), 27);
+        verify(access, times(3))
+                .requireNotesRead(
+                        document.actor(), document.command(), CdsCategory.CLINICAL_NOTES, notes);
+        verify(access, times(1)).requirePatient(document.actor(), document.command(), 27);
+        verify(access, never()).recheckPatient(any(), any(), any());
+    }
+
+    @Test
+    void shouldRefuseAReauthorizationPassInsideASession_soItsClosingPassCannotBeDropped()
+            throws Exception {
+        when(access.decidePatient(document.actor(), document.command(), 27))
+                .thenReturn(decisions(27));
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.beginPatient(27);
+                            assertThatThrownBy(() -> control.beginAuthorizationPass(27))
+                                    .hasMessage("CDS_EXPORT_SESSION_ACTIVE");
+                            assertThatThrownBy(control::endAuthorizationPass)
+                                    .hasMessage("CDS_EXPORT_SESSION_ACTIVE");
+                            control.endPatient(27);
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        execution.execute(RUN);
+
+        verify(access).recheckPatient(any(), any(), any());
+    }
+
     @Test
     void shouldObserveSourceCaptureControlSeparately_andRefuseAuthorizationInsideThatSnapshot()
             throws Exception {

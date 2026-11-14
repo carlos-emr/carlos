@@ -66,6 +66,124 @@ public class CdsExportAccessService {
     @PersistenceContext(unitName = "entityManagerFactory")
     private EntityManager entityManager;
 
+    /**
+     * The authorization rows already read by the pass running on this thread, or nothing.
+     *
+     * <p>A pass is one public call of this service, so one fresh read-committed transaction, that
+     * makes many checks for one actor, one command and one patient ({@link #decidePatient},
+     * {@link #recheckPatient}, {@link #requireNotesRead}). Each check is the ordinary one: the
+     * same method, the same {@link SecurityInfoManager} evaluation. Only the rows behind them are
+     * read once instead of once per check: each identity's roles and security-object rows
+     * ({@link SecurityInfoManager#readOnlySnapshot}), the provider, account and facility
+     * membership rows of the identity, and each program and reporter-role note grant. The rows
+     * are bound here by {@link #inPass} for the duration of that one call and removed before it
+     * returns, whatever its outcome. They never reach another transaction, patient, job or
+     * thread, and no decision is derived from a pass that has ended.
+     */
+    private final ThreadLocal<Pass> pass = new ThreadLocal<>();
+
+    private static final class Pass {
+        private final java.util.List<String> objects;
+        private final java.util.Map<String, SecurityInfoManager.PrivilegeSnapshot> snapshots =
+                new java.util.HashMap<>();
+        private final java.util.Map<java.util.List<Object>, Boolean> noteGrants =
+                new java.util.HashMap<>();
+        private CdsExportActorDto actor;
+        private CdsExportCommand command;
+        private CurrentIdentity identity;
+
+        private Pass(java.util.List<String> objects) {
+            this.objects = objects;
+        }
+    }
+
+    /** Every security object a check of this command may ask about, for one read ahead. */
+    private static java.util.List<String> objects(CdsExportCommand command, Integer patient) {
+        var names =
+                new java.util.LinkedHashSet<>(
+                        java.util.List.of(
+                                "_admin",
+                                "_cds_export",
+                                "_demographic",
+                                "_lab_sensitive",
+                                PHARMACY_READ,
+                                CHART_READ,
+                                DISEASE_REGISTRY_READ,
+                                EFORM_READ));
+        names.addAll(new java.util.TreeSet<>(RECORD_OBJECTS));
+        for (CdsCategory category : command.categories())
+            names.add(
+                    io.github.carlos_emr.carlos.demographic.cds.security.CdsCategoryReadPermission
+                            .object(category));
+        var all = new java.util.ArrayList<>(names);
+        if (patient != null) for (String name : names) all.add(name + "$" + patient);
+        return java.util.List.copyOf(all);
+    }
+
+    /** Runs {@code work} as one pass; a pass already running on this thread is continued. */
+    private <T> T inPass(
+            CdsExportCommand command, Integer patient, java.util.function.Supplier<T> work) {
+        if (command == null || pass.get() != null) return work.get();
+        pass.set(new Pass(objects(command, patient)));
+        try {
+            return work.get();
+        } finally {
+            pass.remove();
+        }
+    }
+
+    /** {@link SecurityInfoManager#hasPrivilegeReadOnly}, from the running pass's rows if any. */
+    private boolean privilege(LoggedInInfo context, String object, String right, String target) {
+        var snapshot = snapshot(context);
+        return snapshot == null
+                ? security.hasPrivilegeReadOnly(context, object, right, target)
+                : snapshot.hasPrivilege(object, right, target);
+    }
+
+    /** {@link SecurityInfoManager#isAllowedAccessToPatientRecord}, likewise. */
+    private boolean patientRecordAllowed(LoggedInInfo context, Integer patient) {
+        var snapshot = snapshot(context);
+        return snapshot == null
+                ? security.isAllowedAccessToPatientRecord(context, patient)
+                : snapshot.isAllowedAccessToPatientRecord(patient);
+    }
+
+    private SecurityInfoManager.PrivilegeSnapshot snapshot(LoggedInInfo context) {
+        var current = pass.get();
+        if (current == null || context == null || context.getLoggedInProviderNo() == null)
+            return null;
+        // Roles and privileges are those of the provider number; one snapshot per provider.
+        return current.snapshots.computeIfAbsent(
+                context.getLoggedInProviderNo(),
+                ignored -> security.readOnlySnapshot(context, current.objects));
+    }
+
+    /** The program and reporter-role grant of a note, asked once per pass for each provider. */
+    private boolean noteReadable(
+            String provider,
+            io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto scope,
+            Integer facility,
+            boolean filter) {
+        var current = pass.get();
+        if (current == null || provider == null)
+            return notes.canRead(provider, scope, facility, filter);
+        // The grant depends on these values only, never on which note of the patient carries them.
+        var key =
+                java.util.Arrays.<Object>asList(
+                        provider,
+                        scope.patient(),
+                        scope.program(),
+                        scope.reporterRole(),
+                        facility,
+                        filter);
+        Boolean known = current.noteGrants.get(key);
+        if (known == null) {
+            known = notes.canRead(provider, scope, facility, filter);
+            current.noteGrants.put(key, known);
+        }
+        return known;
+    }
+
     public CdsExportAccessService(
             SecurityInfoManager security,
             CdsExportConfigurationService configuration,
@@ -306,25 +424,35 @@ public class CdsExportAccessService {
             if (scope.patient() != patient || scope.noteId() <= previous) deny();
             previous = scope.noteId();
         }
-        CurrentIdentity current = chartIdentity(actor, command, patient, category);
-        var actual =
-                notes.findScopes(patient, batch.stream().map(scope -> scope.noteId()).toList());
-        if (!batch.equals(actual)) deny();
-        record Grant(String program, String reporterRole) {}
-        var checked = new java.util.HashSet<Grant>();
-        boolean filter = configuration.filterNotesOnFacility();
-        for (var scope : batch) {
-            if (!checked.add(new Grant(scope.program(), scope.reporterRole()))) continue;
-            if (!notes.canRead(
-                            current.effective().getLoggedInProviderNo(),
-                            scope,
-                            command.facilityId(),
-                            filter)
-                    || current.operator() != null
-                            && !notes.canRead(
-                                    current.operator().getLoggedInProviderNo(), scope,
-                                    command.facilityId(), filter)) deny();
-        }
+        inPass(
+                command,
+                patient,
+                () -> {
+                    CurrentIdentity current = chartIdentity(actor, command, patient, category);
+                    var actual =
+                            notes.findScopes(
+                                    patient, batch.stream().map(scope -> scope.noteId()).toList());
+                    if (!batch.equals(actual)) deny();
+                    record Grant(String program, String reporterRole) {}
+                    var checked = new java.util.HashSet<Grant>();
+                    boolean filter = configuration.filterNotesOnFacility();
+                    for (var scope : batch) {
+                        if (!checked.add(new Grant(scope.program(), scope.reporterRole())))
+                            continue;
+                        if (!noteReadable(
+                                        current.effective().getLoggedInProviderNo(),
+                                        scope,
+                                        command.facilityId(),
+                                        filter)
+                                || current.operator() != null
+                                        && !noteReadable(
+                                                current.operator().getLoggedInProviderNo(),
+                                                scope,
+                                                command.facilityId(),
+                                                filter)) deny();
+                    }
+                    return null;
+                });
     }
 
     /**
@@ -420,8 +548,8 @@ public class CdsExportAccessService {
                 current.operator() == null
                         ? java.util.List.of(current.effective())
                         : java.util.List.of(current.effective(), current.operator()))
-            if (!security.hasPrivilegeReadOnly(context, object, "r", null)
-                    || !security.hasPrivilegeReadOnly(context, object, "r", Integer.toString(patient)))
+            if (!privilege(context, object, "r", null)
+                    || !privilege(context, object, "r", Integer.toString(patient)))
                 return false;
         return true;
     }
@@ -442,6 +570,338 @@ public class CdsExportAccessService {
             deny();
     }
 
+    /**
+     * A fixed gate of one patient's export: the patient gate ({@link #requirePatient}), the
+     * preferred-pharmacy gate ({@link #requirePharmacyRead}), the case-management gate
+     * ({@link #requireCaseManagementRead}) or one category's gate ({@link #requireCategory}).
+     */
+    public record Gate(Kind kind, CdsCategory category, boolean sensitiveLaboratory) {
+        /** Which check a gate is. */
+        public enum Kind {
+            PATIENT,
+            PHARMACY,
+            CASE_MANAGEMENT,
+            CATEGORY
+        }
+
+        public static final Gate PATIENT = new Gate(Kind.PATIENT, null, false);
+        public static final Gate PHARMACY = new Gate(Kind.PHARMACY, null, false);
+        public static final Gate CASE_MANAGEMENT = new Gate(Kind.CASE_MANAGEMENT, null, false);
+
+        public Gate {
+            Objects.requireNonNull(kind);
+            if ((kind == Kind.CATEGORY) != (category != null)
+                    || sensitiveLaboratory && kind != Kind.CATEGORY)
+                throw new IllegalArgumentException("CDS_EXPORT_AUTHORIZATION_GATE_INVALID");
+        }
+
+        public static Gate category(CdsCategory category, boolean sensitiveLaboratory) {
+            return new Gate(Kind.CATEGORY, Objects.requireNonNull(category), sensitiveLaboratory);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAccessService.Gate[protected]";
+        }
+    }
+
+    /**
+     * A yes/no question about one patient whose "yes" a record depends on: whether the program
+     * of a patient issue is readable ({@link #canReadIssueProgram}), whether a program a record is
+     * restricted to is readable ({@link #canReadRestrictedProgram}) or whether a record's own
+     * security object is readable ({@link #canReadRecordObject}).
+     */
+    public record Question(Kind kind, CdsCategory category, String value) {
+        /** Which check a question is. */
+        public enum Kind {
+            ISSUE_PROGRAM,
+            RESTRICTED_PROGRAM,
+            RECORD
+        }
+
+        public Question {
+            Objects.requireNonNull(kind);
+            Objects.requireNonNull(value);
+            if ((kind == Kind.RECORD) != (category == null))
+                throw new IllegalArgumentException("CDS_EXPORT_AUTHORIZATION_QUESTION_INVALID");
+        }
+
+        public static Question issueProgram(CdsCategory category, String program) {
+            return new Question(Kind.ISSUE_PROGRAM, Objects.requireNonNull(category), program);
+        }
+
+        public static Question restrictedProgram(CdsCategory category, String program) {
+            return new Question(
+                    Kind.RESTRICTED_PROGRAM, Objects.requireNonNull(category), program);
+        }
+
+        public static Question record(String object) {
+            return new Question(Kind.RECORD, null, object);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAccessService.Question[protected]";
+        }
+    }
+
+    /**
+     * What {@link #decidePatient} decided for one patient in one pass: every fixed gate and
+     * every record-object question of the command, each granted or refused by its ordinary
+     * check, and the chart identities the patient's note checks start from. It answers for that
+     * one patient only. Its owner (one export worker's authorization session or one
+     * re-authorization pass) discards it when that patient is finished; a session's grants are
+     * all checked again, from the database, by {@link #recheckPatient} before the patient's
+     * output is accepted.
+     */
+    public static final class PatientDecisions {
+        private final int patient;
+        private final java.util.Map<Gate, String> gates = new java.util.HashMap<>();
+        private final java.util.Map<Question, Object> answers = new java.util.HashMap<>();
+        private final PatientGrants grants;
+
+        PatientDecisions(int patient) {
+            this.grants = new PatientGrants(patient);
+            this.patient = patient;
+        }
+
+        public int patient() {
+            return patient;
+        }
+
+        /** Whether this pass decided the gate; an undecided gate must be checked on its own. */
+        public boolean decided(Gate gate) {
+            return gates.containsKey(gate);
+        }
+
+        /**
+         * Passes a granted gate and refuses a refused one with the refusal its check gave.
+         *
+         * @throws SecurityException when the gate's check refused
+         * @throws IllegalStateException when the gate was not decided by this pass
+         */
+        public void require(Gate gate) {
+            String refusal = gates.get(gate);
+            if (refusal == null)
+                throw new IllegalStateException("CDS_EXPORT_AUTHORIZATION_GATE_UNDECIDED");
+            if (!refusal.isEmpty()) throw new SecurityException(refusal);
+        }
+
+        /**
+         * The answer this pass gave the question, or null when it did not ask it.
+         *
+         * @throws SecurityException when the question's own chart gates refused
+         */
+        public Boolean answer(Question question) {
+            Object answer = answers.get(question);
+            if (answer instanceof String refusal) throw new SecurityException(refusal);
+            return (Boolean) answer;
+        }
+
+        /** The patient's note grants, starting from the chart identities this pass established. */
+        public PatientGrants grants() {
+            return grants;
+        }
+
+        void grant(Gate gate) {
+            gates.put(Objects.requireNonNull(gate), "");
+        }
+
+        void refuse(Gate gate, String refusal) {
+            gates.put(Objects.requireNonNull(gate), refusal(refusal));
+        }
+
+        void answer(Question question, boolean answer) {
+            answers.put(Objects.requireNonNull(question), answer);
+        }
+
+        void refuse(Question question, String refusal) {
+            answers.put(Objects.requireNonNull(question), refusal(refusal));
+        }
+
+        private static String refusal(String message) {
+            return message == null || message.isEmpty()
+                    ? "CDS_EXPORT_AUTHORIZATION_DENIED"
+                    : message;
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAccessService.PatientDecisions[protected]";
+        }
+    }
+
+    /**
+     * Everything one patient's authorization session granted, for {@link #recheckPatient}: the
+     * gates it passed, every note it authorized (per category, in ascending note order) and
+     * every question it answered yes.
+     */
+    public record PatientRecheck(
+            int patient,
+            java.util.Set<Gate> gates,
+            java.util.Map<
+                            CdsCategory,
+                            java.util.List<
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportNoteAccessDto>>
+                    notes,
+            java.util.Set<Question> questions) {
+        public PatientRecheck {
+            gates = java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(gates));
+            var copy =
+                    new java.util.EnumMap<
+                            CdsCategory,
+                            java.util.List<
+                                    io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                            .CdsExportNoteAccessDto>>(CdsCategory.class);
+            notes.forEach((category, scopes) -> copy.put(category, java.util.List.copyOf(scopes)));
+            notes = java.util.Collections.unmodifiableMap(copy);
+            questions =
+                    java.util.Collections.unmodifiableSet(new java.util.LinkedHashSet<>(questions));
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportAccessService.PatientRecheck[protected]";
+        }
+    }
+
+    /** One fixed gate by its ordinary check, for a caller that holds no decisions for it. */
+    public void requireGate(
+            CdsExportActorDto actor, CdsExportCommand command, int patient, Gate gate) {
+        switch (Objects.requireNonNull(gate).kind()) {
+            case PATIENT -> requirePatient(actor, command, patient);
+            case PHARMACY -> requirePharmacyRead(actor, command, patient);
+            case CASE_MANAGEMENT -> requireCaseManagementRead(actor, command, patient);
+            case CATEGORY ->
+                    requireCategory(
+                            actor, command, patient, gate.category(), gate.sensitiveLaboratory());
+            default -> deny();
+        }
+    }
+
+    /** One question by its ordinary check, for a caller that holds no decisions for it. */
+    public boolean answerQuestion(
+            CdsExportActorDto actor, CdsExportCommand command, int patient, Question question) {
+        return switch (Objects.requireNonNull(question).kind()) {
+            case ISSUE_PROGRAM ->
+                    canReadIssueProgram(
+                            actor, command, question.category(), patient, question.value());
+            case RESTRICTED_PROGRAM ->
+                    canReadRestrictedProgram(
+                            actor, command, question.category(), patient, question.value());
+            case RECORD -> canReadRecordObject(actor, command, patient, question.value());
+        };
+    }
+
+    /**
+     * The opening pass of one patient: decides every fixed gate and record-object question of
+     * the command for this patient, each by its ordinary check, from one fresh read-committed
+     * transaction. A check that refuses is recorded as refused and does not stop the others, so
+     * a right the chart never needs (for example a record's printed form) cannot hold the
+     * patient. Who is exporting is established first and refuses the whole pass.
+     *
+     * <p>The decisions are current as of this call. They are for the one patient session or
+     * re-authorization pass that asked, and that owner must discard them when the patient is
+     * finished; a session must end with {@link #recheckPatient}.
+     *
+     * @throws SecurityException when the patient is not selected or the exporting identities are
+     *     no longer valid
+     */
+    public PatientDecisions decidePatient(
+            CdsExportActorDto actor, CdsExportCommand command, int patient) {
+        requireSelectedPatient(command, patient);
+        return inPass(
+                command,
+                patient,
+                () -> {
+                    identity(actor, command);
+                    var decisions = new PatientDecisions(patient);
+                    var gates = new java.util.ArrayList<Gate>();
+                    gates.add(Gate.PATIENT);
+                    gates.add(Gate.PHARMACY);
+                    if (command.categories().containsAll(CdsExportNoteSourceReader.CATEGORIES))
+                        gates.add(Gate.CASE_MANAGEMENT);
+                    for (CdsCategory category : command.categories())
+                        gates.add(Gate.category(category, false));
+                    if (command.categories().contains(CdsCategory.LABORATORY_RESULTS))
+                        gates.add(Gate.category(CdsCategory.LABORATORY_RESULTS, true));
+                    for (Gate gate : gates) {
+                        try {
+                            requireGate(actor, command, patient, gate);
+                            decisions.grant(gate);
+                        } catch (SecurityException refused) {
+                            decisions.refuse(gate, refused.getMessage());
+                        }
+                    }
+                    if (command.categories().contains(CdsCategory.REPORTS))
+                        for (String object : new java.util.TreeSet<>(RECORD_OBJECTS)) {
+                            var question = Question.record(object);
+                            try {
+                                decisions.answer(
+                                        question,
+                                        answerQuestion(actor, command, patient, question));
+                            } catch (SecurityException refused) {
+                                decisions.refuse(question, refused.getMessage());
+                            }
+                        }
+                    for (CdsCategory category : command.categories()) {
+                        if (!CdsExportNoteSourceReader.CATEGORIES.contains(category)) continue;
+                        try {
+                            decisions.grants.chart.put(
+                                    category, chartIdentity(actor, command, patient, category));
+                        } catch (SecurityException refused) {
+                            // The first note check of this category establishes it, and is refused.
+                        }
+                    }
+                    // A read that failed under one of these checks was answered as a refusal, but
+                    // it also condemned this transaction: refuse the whole pass rather than let the
+                    // commit fail as an infrastructure error after the decisions were returned.
+                    if (org.springframework.transaction.support.TransactionSynchronizationManager
+                                    .isActualTransactionActive()
+                            && org.springframework.transaction.interceptor.TransactionAspectSupport
+                                    .currentTransactionStatus()
+                                    .isRollbackOnly()) deny();
+                    return decisions;
+                });
+    }
+
+    /**
+     * The closing pass of one patient's authorization session: every gate the session passed,
+     * every note it authorized and every question it answered yes, checked again by its ordinary
+     * check from one fresh read-committed transaction. Nothing of the session is trusted; only
+     * the list of what to check comes from it.
+     *
+     * @throws SecurityException when any check refuses, or a question no longer answers yes
+     *     ({@code CDS_EXPORT_ACCESS_CHANGED})
+     */
+    public void recheckPatient(
+            CdsExportActorDto actor, CdsExportCommand command, PatientRecheck request) {
+        Objects.requireNonNull(request);
+        int patient = request.patient();
+        requireSelectedPatient(command, patient);
+        inPass(
+                command,
+                patient,
+                () -> {
+                    identity(actor, command);
+                    for (Gate gate : request.gates()) requireGate(actor, command, patient, gate);
+                    for (var entry : request.notes().entrySet()) {
+                        var scopes = entry.getValue();
+                        for (int start = 0; start < scopes.size(); start += 8192)
+                            requireNotesRead(
+                                    actor,
+                                    command,
+                                    entry.getKey(),
+                                    scopes.subList(start, Math.min(scopes.size(), start + 8192)));
+                    }
+                    for (Question question : request.questions())
+                        if (!answerQuestion(actor, command, patient, question))
+                            throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
+                    return null;
+                });
+    }
+
     private CurrentIdentity chartIdentity(
             CdsExportActorDto actor, CdsExportCommand command, int patient, CdsCategory category) {
         requireSelectedPatient(command, patient);
@@ -453,8 +913,8 @@ public class CdsExportAccessService {
                 current.operator() == null
                         ? java.util.List.of(current.effective())
                         : java.util.List.of(current.effective(), current.operator())) {
-            if (!security.hasPrivilegeReadOnly(context, "_eChart", "r", null)
-                    || !security.hasPrivilegeReadOnly(
+            if (!privilege(context, "_eChart", "r", null)
+                    || !privilege(
                             context, "_eChart", "r", Integer.toString(patient))) deny();
         }
         return current;
@@ -475,7 +935,7 @@ public class CdsExportAccessService {
     public void requireObserve(CdsExportActorDto observer, CdsExportJobOwnerDto owner) {
         LoggedInInfo current = metadataContext(observer);
         if (!Objects.equals(observer.operatorKey(), owner.operatorKey())
-                && !security.hasPrivilegeReadOnly(current, "_admin", "w", null)) deny();
+                && !privilege(current, "_admin", "w", null)) deny();
     }
 
     /** Compatibility overload for trusted callers already holding a validated immutable intent. */
@@ -524,7 +984,7 @@ public class CdsExportAccessService {
                         : supplied.getCurrentFacility().getId();
         LoggedInInfo current = providerContext(account.getProviderNo(), facility, account);
         requireAdministration(current);
-        if (!security.hasPrivilegeReadOnly(current, "_demographic", "r", null)) deny();
+        if (!privilege(current, "_demographic", "r", null)) deny();
         return new CdsExportActorDto(
                 "web-" + account.getSecurityNo(),
                 account.getProviderNo(),
@@ -551,9 +1011,9 @@ public class CdsExportAccessService {
         CurrentIdentity current = identity(actor, command);
         requireReads(current.effective(), command, patient, only, sensitive);
         if (additionalReadObject != null
-                && (!security.hasPrivilegeReadOnly(
+                && (!privilege(
                                 current.effective(), additionalReadObject, "r", null)
-                        || !security.hasPrivilegeReadOnly(
+                        || !privilege(
                                 current.effective(),
                                 additionalReadObject,
                                 "r",
@@ -561,9 +1021,9 @@ public class CdsExportAccessService {
         if (current.operator() != null) {
             requireReads(current.operator(), command, patient, only, sensitive);
             if (additionalReadObject != null
-                    && (!security.hasPrivilegeReadOnly(
+                    && (!privilege(
                                     current.operator(), additionalReadObject, "r", null)
-                            || !security.hasPrivilegeReadOnly(
+                            || !privilege(
                                     current.operator(),
                                     additionalReadObject,
                                     "r",
@@ -573,6 +1033,22 @@ public class CdsExportAccessService {
     }
 
     private CurrentIdentity identity(CdsExportActorDto actor, CdsExportCommand command) {
+        var current = pass.get();
+        if (current == null) return liveIdentity(actor, command);
+        // One pass is one actor and one command; any other pair is established on its own.
+        if (current.identity == null
+                || !Objects.equals(current.actor, actor)
+                || !Objects.equals(current.command, command)) {
+            var established = liveIdentity(actor, command);
+            if (current.identity != null) return established;
+            current.actor = actor;
+            current.command = command;
+            current.identity = established;
+        }
+        return current.identity;
+    }
+
+    private CurrentIdentity liveIdentity(CdsExportActorDto actor, CdsExportCommand command) {
         if (actor == null
                 || !Objects.equals(actor.providerNo(), command.providerNo())
                 || !Objects.equals(actor.facilityId(), command.facilityId())) deny();
@@ -607,15 +1083,15 @@ public class CdsExportAccessService {
         String target = patient == null ? null : patient.toString();
         // A role-level (patient == null) refusal names the missing security object so an operator
         // can grant it before resubmitting; a patient-level refusal stays generic.
-        if (!security.hasPrivilegeReadOnly(context, "_demographic", "r", target))
+        if (!privilege(context, "_demographic", "r", target))
             refuse(patient, "_demographic");
-        if (patient != null && !security.isAllowedAccessToPatientRecord(context, patient)) deny();
+        if (patient != null && !patientRecordAllowed(context, patient)) deny();
         for (CdsCategory category : command.categories()) {
             if (only != null && category != only) continue;
             String object =
                     io.github.carlos_emr.carlos.demographic.cds.security.CdsCategoryReadPermission
                             .object(category);
-            if (!security.hasPrivilegeReadOnly(context, object, "r", target))
+            if (!privilege(context, object, "r", target))
                 refuse(patient, object);
         }
         // Laboratory capture requires the sensitive-result right for every selected patient
@@ -627,32 +1103,32 @@ public class CdsExportAccessService {
                         && command.categories().contains(CdsCategory.LABORATORY_RESULTS)
                         && (only == null || only == CdsCategory.LABORATORY_RESULTS);
         if ((sensitive || laboratoryScope)
-                && !security.hasPrivilegeReadOnly(context, "_lab_sensitive", "r", target))
+                && !privilege(context, "_lab_sensitive", "r", target))
             refuse(patient, "_lab_sensitive");
         // ProblemList carries the Disease Registry, whose own screen needs _dxresearch read. It
         // is required whenever ProblemList is selected, by name at admission and again for each
         // patient, whether or not the chart holds a registry entry.
         if (command.categories().contains(CdsCategory.PROBLEM_LIST)
                 && (only == null || only == CdsCategory.PROBLEM_LIST)
-                && !security.hasPrivilegeReadOnly(context, DISEASE_REGISTRY_READ, "r", target))
+                && !privilege(context, DISEASE_REGISTRY_READ, "r", target))
             refuse(patient, DISEASE_REGISTRY_READ);
         // Reports carry every current eForm (its stored values and the form as the chart shows
         // it), so they need the eForm screen's own read right, by name at admission and again for
         // each patient, whether or not the chart holds an eForm (maintainer decision 6).
         if (command.categories().contains(CdsCategory.REPORTS)
                 && (only == null || only == CdsCategory.REPORTS)
-                && !security.hasPrivilegeReadOnly(context, EFORM_READ, "r", target))
+                && !privilege(context, EFORM_READ, "r", target))
             refuse(patient, EFORM_READ);
         // Every chart's capture reads its preferred pharmacy under _rx (Demographics is always
         // exported) and, with notes or history selected, its case management under _eChart,
         // whether or not the chart holds such a row. Name a missing role-level right at admission
         // and worker entry instead of stopping the job at its first patient as changed access.
         if (patient == null && only == null) {
-            if (!security.hasPrivilegeReadOnly(context, PHARMACY_READ, "r", null))
+            if (!privilege(context, PHARMACY_READ, "r", null))
                 refuse(null, PHARMACY_READ);
             if (!java.util.Collections.disjoint(
                             command.categories(), CdsExportNoteSourceReader.CATEGORIES)
-                    && !security.hasPrivilegeReadOnly(context, CHART_READ, "r", null))
+                    && !privilege(context, CHART_READ, "r", null))
                 refuse(null, CHART_READ);
         }
     }
@@ -687,8 +1163,8 @@ public class CdsExportAccessService {
     }
 
     private void requireAdministration(LoggedInInfo actor) {
-        if (!security.hasPrivilegeReadOnly(actor, "_admin", "w", null)
-                && !security.hasPrivilegeReadOnly(actor, "_cds_export", "w", null)) deny();
+        if (!privilege(actor, "_admin", "w", null)
+                && !privilege(actor, "_cds_export", "w", null)) deny();
     }
 
     private Security sessionAccount(LoggedInInfo supplied) {
@@ -727,7 +1203,7 @@ public class CdsExportAccessService {
     }
 
     private void requireMetadataRead(LoggedInInfo context) {
-        if (!security.hasPrivilegeReadOnly(context, "_demographic", "r", null)) deny();
+        if (!privilege(context, "_demographic", "r", null)) deny();
     }
 
     private record CurrentIdentity(LoggedInInfo effective, LoggedInInfo operator) {

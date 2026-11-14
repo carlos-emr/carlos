@@ -22,8 +22,11 @@
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
+import io.github.carlos_emr.carlos.demographic.cdsexport.command.CdsExportCommand;
+import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportActorDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNoteAccessDto;
-import java.util.ArrayList;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService.Gate;
+import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService.Question;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -34,36 +37,56 @@ import java.util.Set;
 import java.util.TreeMap;
 
 /**
- * One patient's authorization session inside one export worker.
+ * One patient's authorization inside one export worker: a session while the patient is captured
+ * and emitted, or one short re-authorization pass afterwards.
  *
  * <p>Every capture, reconciliation, mapping and emission step asks the run control again whether
  * the exporting identities may read the patient, a category, a note, a program-restricted record
  * or a printed record. Answered fresh each time, a chart of a few hundred notes cost hundreds of
- * thousands of identity and privilege queries. Inside a session the first answer for each check
- * is kept, and {@link #finish()} runs every check that granted access again, uncached, after the
- * patient's last read and before its output is accepted. A grant revoked at any point while the
- * patient was being read is therefore still refused before anything of that patient is accepted
- * ({@code CDS_EXPORT_ACCESS_CHANGED}), as it was when every step asked afresh: the closing check is
- * at least as late as the last per-step check used to be.
+ * thousands of identity and privilege queries; answered once per step but one transaction per
+ * check, every extra patient still cost about 180 transactions and 2,900 reads of the
+ * authorization tables. Now one <em>opening pass</em> ({@link Fresh#decide}) decides every fixed
+ * gate of the patient from the live database in one transaction when the session starts, before
+ * any of the patient's data is read; the note, issue-program and restricted-program checks,
+ * which depend on what the chart holds, are still made from the live database when first asked
+ * and their first answer kept. {@link #finish()} then runs one <em>closing pass</em>
+ * ({@link Fresh#recheck}): every check that granted access is made again, from the live database
+ * in one fresh transaction, after the patient's last read and before its output is accepted. A
+ * grant revoked at any point while the patient was being read is therefore still refused before
+ * anything of that patient is accepted ({@code CDS_EXPORT_ACCESS_CHANGED}): the closing pass is
+ * at least as late as the last per-step check used to be, and it trusts nothing but the list of
+ * checks to repeat.
  *
- * <p>The session belongs to exactly one patient and one worker thread. Checks for another patient
- * never use it, and the caller discards it when the patient is finished or held. Answers that
- * refused access are kept too: a refusal holds the patient or leaves a record out, so no grant
- * depends on it, and it is not repeated.
+ * <p>A gate decided by the opening pass is decided as of the session's start, not as of the step
+ * that asks. A right granted only after the session started therefore does not help that patient
+ * (it is refused and the patient held, as if the right were still missing); a right revoked after
+ * the session started is caught by the closing pass.
+ *
+ * <p>The object belongs to exactly one patient and one worker thread. Checks for another patient
+ * never use it, and the caller discards it when the patient is finished or held; the next
+ * patient starts with its own opening pass. Answers that refused access are kept too: a refusal
+ * holds the patient or leaves a record out, so no grant depends on it, and it is not repeated.
+ *
+ * <p>{@link #pass} opens the same thing without a closing check, for a caller that
+ * re-authorizes an already captured patient in one go (the cohort passes before packaging,
+ * publication and download). Every answer of such a pass comes from its own opening pass or a
+ * check made while it is open; it reads no patient data, so there is nothing for a closing pass
+ * to protect.
  */
 final class CdsExportPatientAuthorization {
 
-    /** The uncached checks, bound to the job's actor and command. */
+    /** The checks against the live database, bound to the job's actor and command. */
     interface Fresh {
-        void patient(int patient);
+        /** The opening pass: every fixed gate and record question, in one transaction. */
+        CdsExportAccessService.PatientDecisions decide(int patient);
 
-        void pharmacy(int patient);
+        /** One fixed gate the opening pass did not decide, uncached. */
+        void gate(int patient, Gate gate);
 
-        void caseManagement(int patient);
+        /** One question the opening pass did not ask, uncached. */
+        boolean answer(int patient, Question question);
 
-        void category(int patient, CdsCategory category, boolean sensitiveLaboratory);
-
-        /** One note inside this session (chart gates and grants kept in {@code grants}). */
+        /** One note inside a session (chart gates and grants kept in {@code grants}). */
         void note(
                 CdsCategory category,
                 CdsExportNoteAccessDto scope,
@@ -72,11 +95,59 @@ final class CdsExportPatientAuthorization {
         /** Every given note of one category, uncached, in ascending note order (at most 8192). */
         void notes(CdsCategory category, List<CdsExportNoteAccessDto> scopes);
 
-        boolean issueProgram(int patient, CdsCategory category, String program);
+        /** The closing pass: everything the session granted, uncached, in one transaction. */
+        void recheck(CdsExportAccessService.PatientRecheck request);
+    }
 
-        boolean restrictedProgram(int patient, CdsCategory category, String program);
+    /** The live checks of one job: the access service with the job's actor and command. */
+    static final class Live implements Fresh {
+        private final CdsExportAccessService access;
+        private final CdsExportActorDto actor;
+        private final CdsExportCommand command;
 
-        boolean record(int patient, String object);
+        Live(CdsExportAccessService access, CdsExportActorDto actor, CdsExportCommand command) {
+            this.access = Objects.requireNonNull(access);
+            this.actor = actor;
+            this.command = command;
+        }
+
+        @Override
+        public CdsExportAccessService.PatientDecisions decide(int patient) {
+            return access.decidePatient(actor, command, patient);
+        }
+
+        @Override
+        public void gate(int patient, Gate gate) {
+            access.requireGate(actor, command, patient, gate);
+        }
+
+        @Override
+        public boolean answer(int patient, Question question) {
+            return access.answerQuestion(actor, command, patient, question);
+        }
+
+        @Override
+        public void note(
+                CdsCategory category,
+                CdsExportNoteAccessDto scope,
+                CdsExportAccessService.PatientGrants grants) {
+            access.requireNoteRead(actor, command, category, scope, grants);
+        }
+
+        @Override
+        public void notes(CdsCategory category, List<CdsExportNoteAccessDto> scopes) {
+            access.requireNotesRead(actor, command, category, scopes);
+        }
+
+        @Override
+        public void recheck(CdsExportAccessService.PatientRecheck request) {
+            access.recheckPatient(actor, command, request);
+        }
+
+        @Override
+        public String toString() {
+            return "CdsExportPatientAuthorization.Live[protected]";
+        }
     }
 
     /** The largest batch the uncached note check accepts. */
@@ -84,41 +155,60 @@ final class CdsExportPatientAuthorization {
 
     private final int patient;
     private final Fresh fresh;
-    private final CdsExportAccessService.PatientGrants grants;
-    private final Set<String> granted = new LinkedHashSet<>();
-    private final Map<String, Boolean> answers = new LinkedHashMap<>();
+    private final boolean session;
+    private final CdsExportAccessService.PatientDecisions decisions;
+    private final Set<Gate> granted = new LinkedHashSet<>();
+    private final Map<Question, Boolean> answers = new LinkedHashMap<>();
     private final Map<CdsCategory, TreeMap<Long, CdsExportNoteAccessDto>> notes =
             new EnumMap<>(CdsCategory.class);
 
+    /** Starts one patient's session with its opening pass. */
     CdsExportPatientAuthorization(int patient, Fresh fresh) {
+        this(patient, fresh, true);
+    }
+
+    private CdsExportPatientAuthorization(int patient, Fresh fresh, boolean session) {
         this.fresh = Objects.requireNonNull(fresh);
-        this.grants = new CdsExportAccessService.PatientGrants(patient);
+        this.session = session;
         this.patient = patient;
+        var decided = Objects.requireNonNull(fresh.decide(patient));
+        // Decisions for another patient answer nothing here.
+        if (decided.patient() != patient)
+            throw new IllegalStateException("CDS_EXPORT_SESSION_PATIENT_MISMATCH");
+        this.decisions = decided;
+    }
+
+    /** Starts one re-authorization pass of an already captured patient; it has no closing check. */
+    static CdsExportPatientAuthorization pass(int patient, Fresh fresh) {
+        return new CdsExportPatientAuthorization(patient, fresh, false);
     }
 
     int patient() {
         return patient;
     }
 
+    /** True for a session, which must end with {@link #finish()}; false for a pass. */
+    boolean session() {
+        return session;
+    }
+
     void patient(int patient) {
-        once(patient, "patient", () -> fresh.patient(patient));
+        gate(patient, Gate.PATIENT);
     }
 
     void pharmacy(int patient) {
-        once(patient, "pharmacy", () -> fresh.pharmacy(patient));
+        gate(patient, Gate.PHARMACY);
     }
 
     void caseManagement(int patient) {
-        once(patient, "case-management", () -> fresh.caseManagement(patient));
+        gate(patient, Gate.CASE_MANAGEMENT);
     }
 
     void category(int patient, CdsCategory category, boolean sensitiveLaboratory) {
-        once(
-                patient,
-                "category\u0000" + category.name() + '\u0000' + sensitiveLaboratory,
-                () -> fresh.category(patient, category, sensitiveLaboratory));
+        gate(patient, Gate.category(category, sensitiveLaboratory));
     }
 
+    /** One note of a session; a pass authorizes notes in batches ({@link #notes}). */
     void note(CdsCategory category, CdsExportNoteAccessDto scope) {
         Objects.requireNonNull(category);
         own(scope.patient());
@@ -129,90 +219,66 @@ final class CdsExportPatientAuthorization {
             if (!prior.equals(scope)) throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
             return;
         }
-        fresh.note(category, scope, grants);
+        if (session) fresh.note(category, scope, decisions.grants());
+        else fresh.notes(category, List.of(scope));
         seen.put(scope.noteId(), scope);
     }
 
+    /** One batch of a pass, uncached, in ascending note order; a session takes notes one by one. */
+    void notes(CdsCategory category, List<CdsExportNoteAccessDto> scopes) {
+        var batch = List.copyOf(scopes);
+        for (var scope : batch) own(scope.patient());
+        if (session) for (var scope : batch) note(category, scope);
+        else fresh.notes(category, batch);
+    }
+
     boolean issueProgram(int patient, CdsCategory category, String program) {
-        return answer(
-                patient,
-                "issue\u0000" + category.name() + '\u0000' + program,
-                () -> fresh.issueProgram(patient, category, program));
+        return answer(patient, Question.issueProgram(category, program));
     }
 
     boolean restrictedProgram(int patient, CdsCategory category, String program) {
-        return answer(
-                patient,
-                "restricted\u0000" + category.name() + '\u0000' + program,
-                () -> fresh.restrictedProgram(patient, category, program));
+        return answer(patient, Question.restrictedProgram(category, program));
     }
 
     boolean record(int patient, String object) {
-        return answer(patient, "record\u0000" + object, () -> fresh.record(patient, object));
+        return answer(patient, Question.record(object));
     }
 
     /**
-     * Runs every check that granted access again, uncached: the patient, pharmacy, case
-     * management and category gates, every note of every category in batches, and every program
-     * and record object that answered yes. Any refusal or changed answer is a
-     * {@link SecurityException}, so the patient is held instead of accepted.
+     * The closing pass of a session: every check that granted access is made again from the live
+     * database, in one transaction ({@link Fresh#recheck}): the patient, pharmacy, case
+     * management and category gates, every note of every category, and every program and record
+     * object that answered yes. Any refusal or changed answer is a {@link SecurityException}, so
+     * the patient is held instead of accepted.
      */
     void finish() {
-        for (String key : List.copyOf(granted)) {
-            String[] parts = key.split("\u0000", -1);
-            switch (parts[0]) {
-                case "patient" -> fresh.patient(patient);
-                case "pharmacy" -> fresh.pharmacy(patient);
-                case "case-management" -> fresh.caseManagement(patient);
-                case "category" ->
-                        fresh.category(
-                                patient, CdsCategory.valueOf(parts[1]), Boolean.parseBoolean(parts[2]));
-                default -> throw new IllegalStateException("CDS_EXPORT_AUTHORIZATION_KEY_INVALID");
-            }
-        }
-        for (var entry : notes.entrySet()) {
-            var batch = new ArrayList<CdsExportNoteAccessDto>(NOTE_BATCH);
-            for (var scope : entry.getValue().values()) {
-                batch.add(scope);
-                if (batch.size() == NOTE_BATCH) {
-                    fresh.notes(entry.getKey(), List.copyOf(batch));
-                    batch.clear();
-                }
-            }
-            if (!batch.isEmpty()) fresh.notes(entry.getKey(), List.copyOf(batch));
-        }
-        for (var entry : answers.entrySet()) {
-            if (!entry.getValue()) continue;
-            String[] parts = entry.getKey().split("\u0000", -1);
-            boolean still =
-                    switch (parts[0]) {
-                        case "issue" ->
-                                fresh.issueProgram(patient, CdsCategory.valueOf(parts[1]), parts[2]);
-                        case "restricted" ->
-                                fresh.restrictedProgram(
-                                        patient, CdsCategory.valueOf(parts[1]), parts[2]);
-                        case "record" -> fresh.record(patient, parts[1]);
-                        default ->
-                                throw new IllegalStateException(
-                                        "CDS_EXPORT_AUTHORIZATION_KEY_INVALID");
-                    };
-            if (!still) throw new SecurityException("CDS_EXPORT_ACCESS_CHANGED");
-        }
+        if (!session) throw new IllegalStateException("CDS_EXPORT_SESSION_NOT_STARTED");
+        var scopes = new EnumMap<CdsCategory, List<CdsExportNoteAccessDto>>(CdsCategory.class);
+        notes.forEach((category, seen) -> scopes.put(category, List.copyOf(seen.values())));
+        var yes = new LinkedHashSet<Question>();
+        answers.forEach(
+                (question, answer) -> {
+                    if (answer) yes.add(question);
+                });
+        fresh.recheck(new CdsExportAccessService.PatientRecheck(patient, granted, scopes, yes));
     }
 
-    private void once(int patient, String key, Runnable check) {
+    private void gate(int patient, Gate gate) {
         own(patient);
-        if (granted.contains(key)) return;
-        check.run();
-        granted.add(key);
+        if (granted.contains(gate)) return;
+        // A refusal throws here every time it is asked, and is never remembered as a grant.
+        if (decisions.decided(gate)) decisions.require(gate);
+        else fresh.gate(patient, gate);
+        granted.add(gate);
     }
 
-    private boolean answer(int patient, String key, java.util.function.BooleanSupplier check) {
+    private boolean answer(int patient, Question question) {
         own(patient);
-        Boolean known = answers.get(key);
+        Boolean known = answers.get(question);
         if (known != null) return known;
-        boolean answer = check.getAsBoolean();
-        answers.put(key, answer);
+        Boolean decided = decisions.answer(question);
+        boolean answer = decided != null ? decided : fresh.answer(patient, question);
+        answers.put(question, answer);
         return answer;
     }
 

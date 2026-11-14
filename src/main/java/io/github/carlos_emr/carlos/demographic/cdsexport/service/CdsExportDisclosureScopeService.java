@@ -158,8 +158,6 @@ public class CdsExportDisclosureScopeService {
                                                 .matches("[0-9a-f]{64}")
                                         || !node.path("notes").isArray()
                                         || node.path("notes").size() > 8192) invalid();
-                                captures.authorizeScope(
-                                        intent.command(), patient.demographicNo(), tables, control);
                                 long previous = 0;
                                 var patientNotes =
                                         new java.util.ArrayList<CdsExportNoteAccessDto>();
@@ -175,10 +173,23 @@ public class CdsExportDisclosureScopeService {
                                     previous = scope.noteId();
                                     notes[0]++;
                                 }
-                                if (!patientNotes.isEmpty())
-                                    control.authorizeNotes(
-                                            CdsCategory.CLINICAL_NOTES,
-                                            java.util.List.copyOf(patientNotes));
+                                // One re-authorization pass per patient: its gates and notes are
+                                // checked from the live database now, without one transaction per
+                                // check.
+                                control.beginAuthorizationPass(patient.demographicNo());
+                                try {
+                                    captures.authorizeScope(
+                                            intent.command(),
+                                            patient.demographicNo(),
+                                            tables,
+                                            control);
+                                    if (!patientNotes.isEmpty())
+                                        control.authorizeNotes(
+                                                CdsCategory.CLINICAL_NOTES,
+                                                java.util.List.copyOf(patientNotes));
+                                } finally {
+                                    control.endAuthorizationPass();
+                                }
                             });
             if (count != patients
                     || !JSON.readTree(

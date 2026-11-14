@@ -134,6 +134,17 @@ public class CdsExportArtifactService {
         private final ScheduledExecutorService heartbeat;
         private CdsExportStagingService store;
         private boolean used, written, outputWritten, closed, completed;
+        /**
+         * The patient whose re-authorization pass is open, or null. A download reads no patient
+         * data; each cohort verification opens one pass per patient and discards it.
+         */
+        private CdsExportPatientAuthorization pass;
+
+        private CdsExportPatientAuthorization pass(int patient) {
+            var current = pass;
+            return current != null && current.patient() == patient ? current : null;
+        }
+
         private final CdsExportRunControl control =
                 new CdsExportRunControl() {
                     @Override
@@ -147,30 +158,62 @@ public class CdsExportArtifactService {
                     }
 
                     @Override
+                    public void beginAuthorizationPass(int patient) {
+                        probe();
+                        pass = null;
+                        pass =
+                                CdsExportPatientAuthorization.pass(
+                                        patient,
+                                        new CdsExportPatientAuthorization.Live(
+                                                access, actor, lease.document().command()));
+                    }
+
+                    @Override
+                    public void endAuthorizationPass() {
+                        pass = null;
+                    }
+
+                    @Override
                     public void authorizePatient(int patient) {
                         probe();
-                        access.requirePatient(actor, lease.document().command(), patient);
+                        var current = pass(patient);
+                        if (current != null) current.patient(patient);
+                        else access.requirePatient(actor, lease.document().command(), patient);
                     }
 
                     @Override
                     public void authorizeCategory(
                             int patient, CdsCategory category, boolean sensitive) {
                         probe();
-                        access.requireCategory(
-                                actor, lease.document().command(), patient, category, sensitive);
+                        var current = pass(patient);
+                        if (current != null) current.category(patient, category, sensitive);
+                        else
+                            access.requireCategory(
+                                    actor,
+                                    lease.document().command(),
+                                    patient,
+                                    category,
+                                    sensitive);
                     }
 
                     @Override
                     public void authorizePharmacy(int patient) {
                         probe();
-                        access.requirePharmacyRead(actor, lease.document().command(), patient);
+                        var current = pass(patient);
+                        if (current != null) current.pharmacy(patient);
+                        else
+                            access.requirePharmacyRead(
+                                    actor, lease.document().command(), patient);
                     }
 
                     @Override
                     public void authorizeCaseManagement(int patient) {
                         probe();
-                        access.requireCaseManagementRead(
-                                actor, lease.document().command(), patient);
+                        var current = pass(patient);
+                        if (current != null) current.caseManagement(patient);
+                        else
+                            access.requireCaseManagementRead(
+                                    actor, lease.document().command(), patient);
                     }
 
                     @Override
@@ -183,6 +226,9 @@ public class CdsExportArtifactService {
                     public boolean issueProgramReadable(
                             int patient, CdsCategory category, String program) {
                         probe();
+                        var current = pass(patient);
+                        if (current != null)
+                            return current.issueProgram(patient, category, program);
                         return access.canReadIssueProgram(
                                 actor, lease.document().command(), category, patient, program);
                     }
@@ -191,6 +237,9 @@ public class CdsExportArtifactService {
                     public boolean restrictedProgramReadable(
                             int patient, CdsCategory category, String program) {
                         probe();
+                        var current = pass(patient);
+                        if (current != null)
+                            return current.restrictedProgram(patient, category, program);
                         return access.canReadRestrictedProgram(
                                 actor, lease.document().command(), category, patient, program);
                     }
@@ -198,6 +247,8 @@ public class CdsExportArtifactService {
                     @Override
                     public boolean recordReadable(int patient, String object) {
                         probe();
+                        var current = pass(patient);
+                        if (current != null) return current.record(patient, object);
                         return access.canReadRecordObject(
                                 actor, lease.document().command(), patient, object);
                     }

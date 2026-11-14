@@ -820,8 +820,15 @@ public class CdsExportClinicalPackageService {
                     count++;
                     continue;
                 }
-                captures.authorizeSources(lease, patient, tables, control);
-                authorizeNotes(file.notes(), control);
+                // One re-authorization pass per patient: its gates and notes are checked from
+                // the live database now, without one transaction per check.
+                control.beginAuthorizationPass(patient.patient());
+                try {
+                    captures.authorizeSources(lease, patient, tables, control);
+                    authorizeNotes(file.notes(), control);
+                } finally {
+                    control.endAuthorizationPass();
+                }
                 if (auditPrepared) {
                     auditBatch.add(patient.patient());
                     if (auditBatch.size() == 100) {

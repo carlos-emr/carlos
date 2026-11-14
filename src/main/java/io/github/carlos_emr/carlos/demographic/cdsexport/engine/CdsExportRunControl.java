@@ -94,10 +94,13 @@ public interface CdsExportRunControl {
     }
 
     /**
-     * Starts one patient's authorization session: until {@link #endPatient} or
-     * {@link #discardPatient}, a check for this patient that already granted access may be
-     * answered from the session instead of asked again. An adapter without sessions answers every
-     * check fresh, which is always correct.
+     * Starts one patient's authorization session, before any of the patient's data is read: the
+     * adapter may decide the patient's fixed gates now, from the live database, and until
+     * {@link #endPatient} or {@link #discardPatient} answer a check for this patient that
+     * already granted access from the session instead of asking again. An adapter without
+     * sessions answers every check fresh, which is always correct.
+     *
+     * @throws SecurityException when the exporting identities may no longer export at all
      */
     default void beginPatient(int patient) {}
 
@@ -110,6 +113,21 @@ public interface CdsExportRunControl {
 
     /** Discards any session without checking; always safe, and called when a patient ends. */
     default void discardPatient() {}
+
+    /**
+     * Starts one re-authorization pass of an already captured patient: until
+     * {@link #endAuthorizationPass}, the adapter may answer this patient's checks from the
+     * authorization rows it reads now, from the live database, instead of once per check. No
+     * patient data is read inside a pass, so it has no closing check, and nothing of it may be
+     * kept once it ends. It is never opened inside a patient's session. An adapter without passes
+     * answers every check fresh, which is always correct.
+     *
+     * @throws SecurityException when the exporting identities may no longer export at all
+     */
+    default void beginAuthorizationPass(int patient) {}
+
+    /** Ends the re-authorization pass and discards everything it read; always safe. */
+    default void endAuthorizationPass() {}
 
     /**
      * The checked capture reads of the patient whose session is open, for the patient's later
