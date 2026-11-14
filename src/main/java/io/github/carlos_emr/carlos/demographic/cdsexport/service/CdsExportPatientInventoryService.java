@@ -294,6 +294,9 @@ public class CdsExportPatientInventoryService {
         // chart: its retained source fields are accounted as removed by the care assembly.
         var removedCare =
                 care.removedImportedParents(lease, patient, tables, source, index, bounds, control);
+        // Merged-chart records a sending CARLOS wrote describe its charts, not this chart: they
+        // are never written again (CdsExportRetainedMergedChartRecords), only named.
+        var receivedMergeRecords = CdsExportRetainedMergedChartRecords.units(index);
         for (var unit : index.tables().getOrDefault("cds_import_unit", Map.of()).values()) {
             control.checkpoint();
             String wire = unit.fields().get("category");
@@ -303,6 +306,14 @@ public class CdsExportPatientInventoryService {
             if (!index.appliedUnits().contains(address)) continue;
             if (!lease.document().command().categories().contains(category)) invalid();
             if (category == CdsCategory.CARE_ELEMENTS && removedCare.contains(address)) continue;
+            if (category == CdsCategory.NEW_CATEGORY && receivedMergeRecords.contains(address)) {
+                withhold(
+                        notSelected,
+                        CdsExportRetainedMergedChartRecords.NOT_EXPORTED_LABEL,
+                        "cds_import_unit",
+                        address);
+                continue;
+            }
             if (RETAINED.contains(category)) {
                 add(
                         expected,
@@ -616,7 +627,10 @@ public class CdsExportPatientInventoryService {
                     || field.category() == CdsCategory.CARE_ELEMENTS
                             && removedCare.contains(index.nativeParents().get(field.id()))
                     || field.category() == CdsCategory.IMMUNIZATIONS
-                            && removedVaccines.contains(index.nativeParents().get(field.id()))) {
+                            && removedVaccines.contains(index.nativeParents().get(field.id()))
+                    || field.category() == CdsCategory.NEW_CATEGORY
+                            && receivedMergeRecords.contains(
+                                    index.nativeParents().get(field.id()))) {
                 continue;
             }
             expected.expectField(field.id());

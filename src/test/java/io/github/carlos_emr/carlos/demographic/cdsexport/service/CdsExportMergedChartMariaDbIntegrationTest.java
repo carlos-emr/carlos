@@ -128,6 +128,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     private JdbcTemplate sql;
     private CdsExportRecipientFixture recipient;
     private String run;
+    private final List<String> exportRuns = new ArrayList<>();
 
     @BeforeEach
     void ownedDatabaseStorageAndPolicy() throws Exception {
@@ -174,6 +175,12 @@ class CdsExportMergedChartMariaDbIntegrationTest {
         settings.setProperty("cds.export.minimumFreeBytes", "0");
         settings.setProperty("cds.export.policyRoot", policy.toString());
         settings.setProperty("DOCUMENT_DIR", documents.toString());
+        // An imported chart's witnesses are sealed with the import's key, and its retained
+        // source is read from the import's staging root (see importer()).
+        settings.setProperty("cds.nativeBaseline.keyRoot", keys.toString());
+        settings.setProperty("cds.nativeBaseline.activeKey", "primary");
+        settings.setProperty(
+                "cds.import.stagingRoot", directory(base.resolve("import-runs")).toString());
         context = new AnnotationConfigApplicationContext();
         context.getEnvironment().setActiveProfiles("cds-export-cli");
         context.getEnvironment()
@@ -197,12 +204,6 @@ class CdsExportMergedChartMariaDbIntegrationTest {
     void eraseOwnedRowsAndFiles() throws Exception {
         try {
             if (sql != null) {
-                if (run != null) {
-                    sql.update("delete from cds_export_held_patient where run_id=?", run);
-                    sql.update("delete from cds_export_event where run_id=?", run);
-                    sql.update("delete from cds_export_attempt where run_id=?", run);
-                    sql.update("delete from cds_export_run where id=?", run);
-                }
                 // A run a failed assertion left stopped would keep the clinic in maintenance.
                 for (String importRun : importRuns)
                     if (List.of("INCOMPLETE", "RECONCILIATION_REQUIRED")
@@ -212,6 +213,12 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                         } catch (Exception failed) {
                             throw new IOException("Import run left in maintenance", failed);
                         }
+                for (String exportRun : exportRuns) {
+                    sql.update("delete from cds_export_held_patient where run_id=?", exportRun);
+                    sql.update("delete from cds_export_event where run_id=?", exportRun);
+                    sql.update("delete from cds_export_attempt where run_id=?", exportRun);
+                    sql.update("delete from cds_export_run where id=?", exportRun);
+                }
                 eraseImports();
                 var charts = new ArrayList<>(patients);
                 charts.addAll(imported);
@@ -420,6 +427,24 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                         CdsMergedChartContract.CHART_RECORD,
                         CdsMergedChartContract.CHART_RECORD,
                         CdsMergedChartContract.LINKS_RECORD);
+
+        // Exported again from the receiving CARLOS, the chart is one chart: every record is
+        // there, and the records the sender wrote about its own charts are not written again.
+        var again = entries(export(List.of(chart), EnumSet.allOf(CdsCategory.class), true));
+        var againFiles = again.keySet().stream().filter(name -> name.endsWith(".xml")).toList();
+        assertThat(againFiles).hasSize(1);
+        String reexported = new String(again.get(againFiles.getFirst()), StandardCharsets.UTF_8);
+        assertThat(count(reexported, "Appointments")).isEqualTo(3);
+        assertThat(count(reexported, "AllergiesAndAdverseReactions")).isEqualTo(3);
+        assertThat(count(reexported, "Reports")).isEqualTo(3);
+        assertThat(categories(reexported, CdsMergedChartContract.CHART_RECORD)).isZero();
+        assertThat(categories(reexported, CdsMergedChartContract.LINKS_RECORD)).isZero();
+        assertThat(text(again, "ReadMe.txt"))
+                .contains(
+                        line(
+                                CdsExportSupportingFilesComposer.NOT_EXPORTED,
+                                CdsExportRetainedMergedChartRecords.NOT_EXPORTED_LABEL + ": 3"))
+                .doesNotContain(CdsExportMergedChartReadMe.CHARTS_SELECTED);
     }
 
     @Test
@@ -505,6 +530,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
                                                     CdsCategory.APPOINTMENTS,
                                                     CdsCategory.NEW_CATEGORY)))
                             .id();
+            exportRuns.add(run);
             assertStopped(facade.executeDelegated(OPERATOR, PROVIDER, run));
             assertThat(keptAndAdopted(1)).containsExactly(1L, 0L);
 
@@ -546,6 +572,7 @@ class CdsExportMergedChartMariaDbIntegrationTest {
         var facade = context.getBean(CdsExportService.class);
         try (var spring = bridge()) {
             run = facade.acceptDelegated(OPERATOR, command(selected, categories)).id();
+            exportRuns.add(run);
             CdsExportJobDto job = facade.executeDelegated(OPERATOR, PROVIDER, run);
             assertThat(job.state()).isEqualTo(CdsExportState.READY);
             assertThat(job.heldBack()).isEqualTo(!complete);
@@ -575,7 +602,8 @@ class CdsExportMergedChartMariaDbIntegrationTest {
 
     private CdsExportCommand command(List<Integer> selected, Set<CdsCategory> categories) {
         return new CdsExportCommand(
-                "merged-" + token,
+                // One submission per job: a second job of the test is another submission.
+                "merged-" + token + "-" + exportRuns.size(),
                 PROVIDER,
                 null,
                 CdsLogicalProfile.ONTARIO_MD_5_2,
