@@ -623,6 +623,16 @@ public final class CdsExportHistoryFieldReconciler {
         else {
             String text = note.fields().get("note");
             int maximum = maximum(category);
+            // Reached on its own only when the imported note row's text changed in place. No
+            // CARLOS screen or API does that: the CPP editor (issueNoteSave, issueNoteSaveJson),
+            // the REST note service (saveIssueNote) and the encounter editor save every edit as
+            // a new revision with the same uuid (CaseManagementManagerImpl.saveNoteRevision), and
+            // the in-place writes they make (position, issues, the first history copy) change no
+            // text. A revised item takes the native path (requiresNativeContext), where this
+            // rule is one the native reconciler accounts for: a narrative longer than its
+            // element is left out of it whole and travels exactly in
+            // CARLOS.History.Narrative.v1, which a receiving CARLOS restores. Only a row changed
+            // directly in the database comes here, and it is held for review.
             if (text == null || !CdsExportNativeFieldAssessments.legal(text, maximum))
                 assessed.review("note", body, "CURRENT_NARRATIVE_NOT_REPRESENTABLE");
             else {

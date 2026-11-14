@@ -120,6 +120,11 @@ final class CdsExportHistoryNativeReconciler {
                         case PAST_HEALTH -> "PastHealthProblemDescriptionOrProcedures";
                         case PROBLEM_LIST -> "ProblemDiagnosisDescription";
                         case RISK_FACTORS -> "RiskFactor";
+                        // An imported alert edited past AlertDescription's 1,000 characters: kept,
+                        // the imported description would be read as the alert, and a receiving
+                        // CARLOS, which restores the narrative carrier only when no description
+                        // stands, would bring the imported text back instead of the edit.
+                        case ALERTS_AND_SPECIAL_NEEDS -> "AlertDescription";
                         default -> null;
                     };
             // An edit longer than the description element leaves the current text in Notes and

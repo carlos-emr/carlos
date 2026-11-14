@@ -366,11 +366,20 @@ import claims still hold the patient. An imported vaccine is written from its re
 elements without this residual while its row is the one the import wrote. When the sender was
 CARLOS, those retained elements include its original `CARLOS.Prevention.Source.v1`: the
 provider and reminder date the import restored from it are accounted to it while the sealed
-native baseline proves them unchanged, so the unedited vaccine round-trips without a hold, and a
-restored value changed in place (`setNextPreventionDate`) holds the patient
+native baseline proves them unchanged, so the unedited vaccine round-trips without a hold. A
+restored value changed in place would hold the patient
 (`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`) because the retained carrier would restate
-it. CARLOS otherwise never edits a prevention in place, so a provider, reminder or status
-recorded after the import is a new version, exported natively with the residual (below).
+it, and so would any value of the imported row the native mapper could carry only in this
+residual (`IMPORTED_OCCURRENCE_HAS_NO_NATIVE_RESIDUAL`, in `CdsExportImmunizationFieldReconciler`):
+no screen or API reaches either. CARLOS never changes a `preventions` or `preventionsExt` row in
+place. The prevention editor (`AddPrevention2Action`, `PreventionData.updatetPreventionData`)
+soft-deletes the edited row and inserts a new version that names it as `previousId`, a delete
+only sets `deleted = '1'`, the eForm path and `PreventionManager` only insert, the REST and SOAP
+prevention services only read, and `PreventionData.setNextPreventionDate`, the one in-place
+writer, has no caller. A provider, reminder, status or comment recorded after the import, a
+comment edited in the prevention editor included, is therefore a new version, exported natively
+with the residual (below), and the imported source fields are accounted as replaced; only a row
+changed directly in the database reaches these two holds.
 
 `preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
 screen writes or reads. A prevention row is restricted to a program under the rule the chart
@@ -1021,8 +1030,9 @@ A link naming a report that no longer exists shows nothing in the chart and is a
 belongs to no chart; a report whose only links name such charts is unattributable and, as
 before, holds every chart (`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). Only these hold the patient: a link whose
 patient or report number is not spelled as its canonical decimal number (a legacy alias such as
-`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`), a sign-off state other
-than 0 or 1 and an ambiguous wall-clock time. A report file of any size is read
+`0` + the chart number; `CDS_EXPORT_HRM_REPORT_LINK_REQUIRES_REVIEW`) and a sign-off state
+other than 0 or 1. A wall-clock time with no single offset in the clinic zone is written with no
+offset (see "Times at a daylight-saving change"). A report file of any size is read
 (`CDS_EXPORT_NATIVE_REPORT_FILE_TOO_LARGE` and `cds.export.maxDocumentBytes` are retired). Untrusted storage
 still stops the job.
 
@@ -1927,6 +1937,22 @@ Required limits that no longer hold a patient (second pass):
 | A character XML 1.0 cannot carry (a control character, U+FFFE, U+FFFF, an unpaired surrogate) | the same mappers, `CdsExportInboxReviewMapper`, `CdsExportDemographicSupportingMapper`, every carrier written through `CdsExportScreeningMapper.tokenSafe` | the patient | in a JSON carrier it is its `\uXXXX` escape (`CdsExportResidualJson`); in an element it is U+FFFD, one for one (`CdsExportXmlText`), and the exact text travels in the record's carrier: a note's revision details (`exactNarrative`), the Notes context of stored HTML, the `note` of `CARLOS.Demographic.v1`, the message of `CARLOS.Laboratory.v1` |
 | 16,777,216 characters per carrier | `CdsExportDemographicSupportingMapper`, `CdsExportNativeHistoryMapper`, `CdsExportHistoryFieldReconciler`, `CdsExportNativeLaboratoryMapper`, `CdsExportInboxReviewMapper` | the patient | removed, with no number in its place (ours, not the schema's) |
 
+### Times at a daylight-saving change
+
+A time stored as a local wall-clock value (a note's observation or save time, a report's
+observation, filing or review time, a lab time sent with no offset, an HRM message time with no
+offset) is written in `cds.export.clinicalZone` with that zone's offset
+(`CdsExportNativeHistoryMapper.clock`). When the zone has no single whole-minute offset for it,
+the time is written as its wall-clock value with no UTC offset, the rule appointments already
+follow (`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`): a time inside the hour the autumn
+change repeats, one inside the spring gap (a time a clinician can still type), and one before the
+zone's standard time (a local mean time offset with seconds). An `xs:dateTime` without a zone is
+schema-valid and a receiving CARLOS reads it as clinic time; no offset is ever invented, and the
+stored value travels exactly in the record's native details as before. Such a time held the
+patient (`CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS`, `CDS_EXPORT_NATIVE_HISTORY_OFFSET_NOT_REPRESENTABLE`):
+a note written in the repeated hour was enough. A stored instant (a `TIMESTAMP`) is never
+ambiguous and keeps its offset.
+
 ### A summary the PDF cannot show completely
 
 The data summary's PDF is the only carrier of a record that has no CDS element, and until this
@@ -2011,7 +2037,7 @@ The rule now (owner decision, "export unchanged when schema-valid";
 
 | Element (type) | CARLOS text keeps the dictionary length by |
 | --- | --- |
-| Demographics/NoteAboutPatient (`text64K`) | `CdsExportPatientNoteMapper.note`: a longer note is left out whole, the column in `CARLOS.Demographic.v1` |
+| Demographics/NoteAboutPatient (`text64K`) | `CdsExportPatientNoteMapper.note`: a longer note is cut before the shortened mark to 64,000 code points, the whole column in `CARLOS.Demographic.v1`, from which a receiving CARLOS restores it |
 | Notes of FamilyHistory (`text32K`), PastHealth, ProblemList, RiskFactors (`text64K`), AlertsAndSpecialNeeds (`text1K`) | `CdsExportNativeHistoryMapper` and `CdsExportHistoryNativeReconciler.Notes.fit`: whole parts only, a left-out part exact in `CARLOS.NativeHistory.v1` (statements, `importedNotes`) or `CARLOS.History.Narrative.v1`; imported Notes alone stay as imported. A screening's PastHealth/Notes keeps 64,000 (`CdsExportScreeningMapper.NOTES_LIMIT`, which allowed the schema's 65,536 and so held a comment in between), longer text exact in `CARLOS.Prevention.Source.v1`; a registry episode's ProblemList/Notes likewise in its residual |
 | AllergiesAndAdverseReactions/Notes (`text32K`) | `CdsExportAllergyMapper`; on an imported allergy (`CdsExportAllergyFieldReconciler.notes`) the archive statement or a changed long reaction is added only when it fits beside the imported Notes, otherwise the imported Notes stay as imported and the state is exact in `CARLOS.Allergy.Archived.v1` / `CARLOS.Allergy.Source.v1` |
 | MedicationsAndTreatments RefillDuration, RefillQuantity (`text1K`), Notes, PrescriptionInstructions (`text32K`) | `CdsExportMedicationMapper.text` and `CdsExportNativeMedicationMapper`: a longer value is left out, exact in `CARLOS.Medication.Source.v1`; refill counts are whole numbers |
@@ -4432,6 +4458,18 @@ import's date metadata rows removed while the observation date is unchanged
 deletes them); an imported row changed in place with no new revision (no screen does it); and a
 revision saved locked (`LOCKED_NOTE_REQUIRES_AUTHORIZATION_REVIEW`: privacy).
 
+No CARLOS screen or API changes an imported note row's text in place. The CPP editor
+(`issueNoteSave`, `issueNoteSaveJson`), the REST note service (`saveIssueNote`, `saveNote`) and
+the encounter editor save every edit as a new revision with the same uuid
+(`CaseManagementManagerImpl.saveNoteRevision`, or a new `CaseManagementNote`), and the in-place
+writes they do make (position, issues, the first copy into `history`) change no text. So
+`CURRENT_NARRATIVE_NOT_REPRESENTABLE`, which the strict import guard raises when an imported
+row's own text no longer fits its description element, holds only a row changed directly in the
+database. An imported item edited in CARLOS takes the native path: an imported alert (a
+Reminders item) edited past AlertDescription's 1,000 characters is written with AlertDescription
+left out whole and its exact narrative in `CARLOS.History.Narrative.v1`, which a receiving CARLOS
+restores as the item's text (`CdsExportHistoryImportedEditUnitTest`).
+
 ### Captured note access dependencies
 
 The encrypted native-source manifest can now carry each note’s patient, native identity, program and reporter-role dependencies. These are saved identities, not saved grants. Native capture prepares an immutable patient scope after category authorization, checks the prepared reader’s table/category/dependency identity, and verifies captured note scope fields independently during readback. Recovery and buffered final-row callbacks recheck the exact captured note dependencies through the common authorization boundary. A missing scope, another patient or note, changed program/role, locked or unknown lock flag, oversized metadata, missing field or expired validator refuses completion. Existing tables omit the empty note metadata property and retain their prior serialized manifest shape. The physical note reader is now integrated; issue/revision reconciliation still remains, and no clinical profile is enabled by these infrastructure checks.
@@ -4956,8 +4994,8 @@ the notes' program (`FILTER_ON_FACILITY` is on by default).
 Native charts are synthetic FAKE- data entered as the CARLOS screens store them: a demographic
 admitted to the provider's program, signed encounter notes scoped to that program and the
 provider's membership role, and uploaded HL7 results routed to the patient and acknowledged by
-the provider, one a day at local noon (a local time inside a daylight-saving change is held for
-review, which is the export's rule, not a scaling measurement). Imported charts are produced by
+the provider, one a day at local noon (the fixture keeps clear of daylight-saving changes; a
+local time inside one is written with no offset, see "Times at a daylight-saving change"). Imported charts are produced by
 the import lane's real-wire generator (`run-cds-performance.py`), so their export takes the
 retained receipt and witness reconciliation path. The imported 2048-note chart is imported
 first; each profile is its own job so that job does not serialize the others.

@@ -625,10 +625,12 @@ class CdsExportNativeLaboratoryMapperUnitTest {
                                 CdsExportNativeLaboratoryMapper.temporal(
                                         "2026070914351", ZoneId.of("America/Toronto")))
                 .hasMessage("CDS_EXPORT_NATIVE_LAB_DATE_REQUIRES_REVIEW");
-        assertThatThrownBy(
-                        () ->
-                                CdsExportNativeLaboratoryMapper.temporal(
-                                        "20261101013000", ZoneId.of("America/Toronto")))
-                .hasMessage("CDS_EXPORT_NATIVE_HISTORY_CLOCK_AMBIGUOUS");
+        // A time with no offset inside the autumn overlap is its wall-clock time with no offset
+        // (CdsExportNativeHistoryMapper.clock); it held the patient.
+        assertThat(
+                        CdsExportNativeLaboratoryMapper.temporal(
+                                        "20261101013000", ZoneId.of("America/Toronto"))
+                                .lexical())
+                .isEqualTo("2026-11-01T01:30:00");
     }
 }

@@ -23,7 +23,12 @@ package io.github.carlos_emr.carlos.demographic.cdsexport.dto;
 
 import java.util.List;
 
-/** Frozen public DPD product returned by the configured DrugRef unique-DIN lookup. */
+/**
+ * Frozen public DPD product returned by the configured DrugRef unique-DIN lookup. Its text bounds
+ * are integrity checks above the DrugRef columns (brand name 200, ingredient 240, strength 20,
+ * strength unit 40 characters); the number of ingredients is not bounded, since the DPD lists as
+ * many as a product has.
+ */
 public record CdsExportDrugReferenceDto(
         int version, String authority, String din, String product, List<Component> components) {
     public static final String AUTHORITY = "HEALTH_CANADA_DIN_VIA_DRUGREF";
@@ -43,8 +48,7 @@ public record CdsExportDrugReferenceDto(
                 || !din.matches("[0-9]{8}")
                 || product == null
                 || product.isBlank()
-                || product.length() > 1024
-                || components.size() > 64)
+                || product.length() > 1024)
             throw new IllegalArgumentException("CDS_EXPORT_DRUG_REFERENCE_INVALID");
         for (var component : components) {
             if (component == null

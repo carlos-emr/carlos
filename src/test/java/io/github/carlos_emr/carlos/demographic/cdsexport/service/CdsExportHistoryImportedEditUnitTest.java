@@ -242,6 +242,36 @@ class CdsExportHistoryImportedEditUnitTest {
     }
 
     @Test
+    void shouldExportAnImportedAlertEditedPastTheDictionaryLength_withItsExactNarrativeCarried(
+            @org.junit.jupiter.api.io.TempDir java.nio.file.Path receiving) throws Exception {
+        // An imported alert (a Reminders item) edited in the CPP editor past AlertDescription's
+        // 1,000 characters. No CARLOS screen or API changes the text of a note row in place:
+        // every edit is a new revision, which the native reconciler writes. The description is
+        // left out whole, never cut, and the exact narrative travels in
+        // CARLOS.History.Narrative.v1, which a receiving CARLOS restores as the item's text.
+        imported(CdsCategory.ALERTS_AND_SPECIAL_NEEDS, "Reminders", false);
+        source("AlertDescription[1]", "Imported narrative");
+        String narrative =
+                "Latex allergy: use nitrile gloves, café 😀\n  check every visit.\n".repeat(30);
+        assertThat(narrative.codePointCount(0, narrative.length())).isGreaterThan(1_000);
+        String xml = export(edited(92, Map.of("note", narrative), List.of(), Map.of()));
+        byte[] bytes = xml.getBytes(StandardCharsets.UTF_8);
+        assertThat(
+                        CdsExportNativeHistoryMapperUnitTest.residual(
+                                bytes, CdsNativeExtensionContract.HISTORY_NARRATIVE))
+                .isEqualTo(CdsNativeExtensionContract.encodeNarrative(narrative));
+        // The imported description is not left beside the current text.
+        assertThat(xml).doesNotContain("<AlertDescription>");
+        var receiver = new CdsExportHistoryInteroperabilityUnitTest();
+        receiver.root = receiving;
+        var received =
+                receiver.roundTrip(CdsCategory.ALERTS_AND_SPECIAL_NEEDS, bytes, "Reminders");
+        assertThat(received.note().getNote()).isEqualTo(narrative);
+        assertThat(received.prepared().diagnostics())
+                .noneMatch(d -> d.code().equals("CDS_HISTORY_STRUCTURED_SOURCE_FIELDS"));
+    }
+
+    @Test
     void shouldExportAnEditedImportedPersonalHistory_withTheCurrentNarrative() throws Exception {
         // B10: PersonalHistory has no standard narrative element; the edit travels encoded.
         imported(CdsCategory.PERSONAL_HISTORY, "SocHistory", false);

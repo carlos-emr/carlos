@@ -62,10 +62,12 @@ public class CdsExportDrugReferenceLookupService {
             var product = reference.getDrugByDIN(din, Boolean.FALSE);
             // RxDrugRef.getDrugByDIN reports "no product for this DIN" as null (#5006).
             if (product == null) return null;
+            // A product has as many active ingredients as the DPD lists (its own count,
+            // number_of_ais, is not bounded); every one is read. Only the first is written, as
+            // Strength (Guide 10.5).
             if (!din.equals(product.get("regional_identifier"))
                     || !(product.get("product") instanceof String name)
-                    || !(product.get("components") instanceof Vector<?> components)
-                    || components.size() > 64) review();
+                    || !(product.get("components") instanceof Vector<?> components)) review();
             var result = new ArrayList<CdsExportDrugReferenceDto.Component>();
             for (var item : (Vector<?>) product.get("components")) {
                 if (!(item instanceof Hashtable<?, ?> component)

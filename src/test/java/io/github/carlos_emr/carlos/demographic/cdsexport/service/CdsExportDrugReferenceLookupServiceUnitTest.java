@@ -82,6 +82,28 @@ class CdsExportDrugReferenceLookupServiceUnitTest {
     }
 
     @Test
+    void shouldReadEveryIngredient_ofAProductWithMoreThanSixtyFourOfThem() throws Exception {
+        // A product with more than 64 active ingredients (some natural and homeopathic products
+        // list well over a hundred) held its prescription's patient
+        // (CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW). The DPD bounds no such count.
+        var product = product();
+        var components = new Vector<Object>();
+        for (int i = 0; i < 150; i++) {
+            var component = new Hashtable<String, Object>();
+            component.put("name", "Ingredient " + i);
+            component.put("strength", Integer.toString(i + 1));
+            component.put("unit", "mg");
+            components.add(component);
+        }
+        product.put("components", components);
+        var client = mock(RxDrugRef.class);
+        when(client.getDrugByDIN("00123456", Boolean.FALSE)).thenReturn(product);
+        var value = new CdsExportDrugReferenceLookupService(client).read("00123456");
+        assertThat(value.components()).hasSize(150);
+        assertThat(value.components().getFirst().strength()).isEqualTo("1");
+    }
+
+    @Test
     void shouldPublishNumericStrengthsAsExactPlainDecimals_withoutATrailingZero() throws Exception {
         assertThat(CdsExportDrugReferenceLookupService.strength(500.0d)).isEqualTo("500");
         assertThat(CdsExportDrugReferenceLookupService.strength(1.0E7d)).isEqualTo("10000000");

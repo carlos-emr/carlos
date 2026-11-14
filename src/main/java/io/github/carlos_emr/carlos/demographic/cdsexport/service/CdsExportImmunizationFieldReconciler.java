@@ -149,6 +149,16 @@ public final class CdsExportImmunizationFieldReconciler {
         // A reconciled imported occurrence is written from its retained original elements and
         // carries no CARLOS native residual, so a value the native mapper could only carry there
         // (a provider, reminder or status added in CARLOS after the import) needs review here.
+        // No CARLOS screen or API reaches this. This reconciler sees an imported vaccine only
+        // while its own row is the current version, and CARLOS never changes a prevention row or
+        // its preventionsExt rows in place: the prevention editor (AddPrevention2Action through
+        // PreventionData.updatetPreventionData) soft-deletes the edited row and inserts a new
+        // version naming it as previousId, a delete only sets deleted = 1, the eForm and
+        // prevention managers only insert, and the REST and SOAP prevention services only read.
+        // An imported vaccine edited in CARLOS, its comments included, is therefore exported
+        // as its current native version, with the imported source fields accounted as replaced
+        // (CdsExportImmunizationOccurrenceService, CdsExportPreventionVersions); only a row
+        // changed directly in the database is held here.
         for (var entry : fields.entrySet())
             if (entry.getValue().outcome() == Outcome.MAPPED
                     && entry.getValue()
