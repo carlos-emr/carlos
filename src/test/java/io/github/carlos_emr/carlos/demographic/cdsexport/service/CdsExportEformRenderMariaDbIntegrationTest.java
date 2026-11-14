@@ -240,7 +240,7 @@ class CdsExportEformRenderMariaDbIntegrationTest {
                                             writer.endTable();
                                         });
                         var result = new TreeMap<String, CdsExportEformRenderings.Rendering>();
-                        var sink = new CdsExportEformRenderings.Fields(1000, result);
+                        var sink = new CdsExportEformRenderings.Fields(result);
                         new CdsExportNativeCaptureReader()
                                 .scan(
                                         new ByteArrayInputStream(values.toByteArray()),

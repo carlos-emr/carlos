@@ -42,9 +42,7 @@ import org.springframework.stereotype.Service;
 public class CdsExportPreventionConfigurationService {
     private static final byte[] MAGIC = "CDSPCFG1".getBytes(StandardCharsets.US_ASCII);
     private static final Set<String> TABLES = Set.of("CVCImmunization", "CVCMapping");
-    private static final int MAX_XML = 1_048_576,
-            MAX_ROWS = 10_000,
-            MAX_CATALOGUE_BYTES = 4_194_304;
+    private static final int MAX_XML = 1_048_576;
     private final CdsExportNativeCaptureService captures;
     private final CdsExportStagingFactory stores;
     private final CdsExportCapturedTextRowsReader rows;
@@ -228,8 +226,9 @@ public class CdsExportPreventionConfigurationService {
             CdsExportRunControl control)
             throws IOException {
         try {
+            // The clinic's vaccine catalogue, not rows of the chart: no count or size of it
+            // refuses a patient. It is held while the classifier is built from it.
             var catalogue = new ArrayList<CdsExportCapturedTextRowDto>();
-            long[] bytes = {0};
             var actual =
                     rows.forEachTable(
                             lease,
@@ -241,15 +240,7 @@ public class CdsExportPreventionConfigurationService {
                             maximumBytes,
                             16_384,
                             control,
-                            row -> {
-                                if (catalogue.size() >= MAX_ROWS) invalid();
-                                for (String value : row.fields().values())
-                                    if (value != null) {
-                                        bytes[0] += value.getBytes(StandardCharsets.UTF_8).length;
-                                        if (bytes[0] > MAX_CATALOGUE_BYTES) invalid();
-                                    }
-                                catalogue.add(row);
-                            });
+                            catalogue::add);
             if (!actual.equals(source.capture())) invalid();
             var classifier =
                     CdsExportPreventionClassifier.fromCaptured(

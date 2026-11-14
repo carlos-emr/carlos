@@ -87,9 +87,7 @@ public final class CdsExportPreventionClassifier {
     /** The prevention type the Rh Immune Globulin form saves (AddPrevention2Action.RH_INJECTION_TYPE). */
     static final String RH_TYPE = "RH";
 
-    private static final int MAX_XML = 1_048_576,
-            MAX_ROWS = 10_000,
-            MAX_CATALOGUE_BYTES = 4_194_304;
+    private static final int MAX_XML = 1_048_576;
     private static final Set<String> VACCINE_COLUMNS =
             Set.of(
                     "displayName",
@@ -149,7 +147,7 @@ public final class CdsExportPreventionClassifier {
                             128, 1024, 2, 64, 4);
             var handler =
                     new org.xml.sax.helpers.DefaultHandler() {
-                        private int depth, items;
+                        private int depth;
                         private boolean root;
 
                         @Override
@@ -172,7 +170,6 @@ public final class CdsExportPreventionClassifier {
                             String name = attributes.getValue("name"),
                                     layout = attributes.getValue("layout");
                             if (!"item".equals(local)
-                                    || ++items > MAX_ROWS
                                     || name == null
                                     || name.isEmpty()
                                     || !CdsExportNativeFieldAssessments.legal(name, 255)) reject();
@@ -262,10 +259,11 @@ public final class CdsExportPreventionClassifier {
         configured = Map.copyOf(types);
         configuredReviews = Map.copyOf(reviewRules);
         catchAll = Set.copyOf(catchAllNames);
+        // The clinic's vaccine catalogue is vocabulary, not rows of a chart: no count or size
+        // of it refuses a patient.
         var rows = new TreeMap<String, CdsExportCapturedTextRowDto>();
-        long bytes = 0;
         for (var row : catalogue) {
-            if (row == null || rows.size() >= MAX_ROWS) invalid();
+            if (row == null) invalid();
             Set<String> columns =
                     switch (row.table()) {
                         case "CVCImmunization" -> VACCINE_COLUMNS;
@@ -288,8 +286,6 @@ public final class CdsExportPreventionClassifier {
             for (String value : row.fields().values())
                 if (value != null) {
                     if (!CdsExportNativeFieldAssessments.legal(value, 255)) invalid();
-                    bytes = Math.addExact(bytes, value.getBytes(StandardCharsets.UTF_8).length);
-                    if (bytes > MAX_CATALOGUE_BYTES) invalid();
                 }
             for (String field :
                     row.table().equals("CVCMapping")

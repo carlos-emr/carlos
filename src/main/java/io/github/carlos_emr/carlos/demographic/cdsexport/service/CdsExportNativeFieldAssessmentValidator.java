@@ -85,8 +85,9 @@ public final class CdsExportNativeFieldAssessmentValidator {
             if (row == null || !rowKeys.add(row.table() + "/" + row.recordKey())) scope();
             for (var field : row.fields().entrySet()) {
                 checkpoint.run();
-                if (++expected > maximumFields)
-                    throw new IOException("CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT");
+                // No count of fields refuses an occurrence: its rows are held together by the
+                // caller already. maximumFields is the caller's former bound.
+                expected++;
                 var key =
                         new CdsExportNativeFieldKeyDto(
                                 row.table(), row.recordKey(), field.getKey());

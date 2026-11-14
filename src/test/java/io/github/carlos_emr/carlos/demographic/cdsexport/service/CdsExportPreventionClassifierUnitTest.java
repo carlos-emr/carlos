@@ -283,21 +283,19 @@ class CdsExportPreventionClassifierUnitTest {
     }
 
     @Test
-    void shouldVerifyBoundsEvenALazyCatalogueAndNeverSilentlyUsesItsPrefix_forPreventionClassifierContract() {
-        Iterable<CdsExportCapturedTextRowDto> endless =
-                () ->
-                        new Iterator<>() {
-                            int next = 1;
-
-                            public boolean hasNext() {
-                                return true;
-                            }
-
-                            public CdsExportCapturedTextRowDto next() {
-                                return vaccine(next++, "Vaccine", "123456789");
-                            }
-                        };
-        assertThatThrownBy(() -> from(XML, endless)).isInstanceOf(IOException.class);
+    void shouldClassifyEveryVaccine_whenTheCatalogueHoldsMoreThanTenThousandRows() throws Exception {
+        // Before: the 10,001st catalogue row, or 4 MiB of catalogue text, refused every patient
+        // of the clinic (CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID). The catalogue is the
+        // clinic's vocabulary: no count or size of it refuses a chart, and none of it is dropped.
+        var catalogue = new ArrayList<CdsExportCapturedTextRowDto>();
+        for (int id = 1; id <= 10_001; id++)
+            catalogue.add(vaccine(id, "Vaccine " + id, Integer.toString(100_000_000 + id)));
+        var value = from(XML, catalogue);
+        var shorter = from(XML, catalogue.subList(0, 10_000));
+        // The last row is part of the evidence, not a silently unused suffix.
+        assertThat(value.catalogueSha256()).isNotEqualTo(shorter.catalogueSha256());
+        assertThat(value.classify("Unconfigured", "100010001").rule()).isEqualTo(CVC_IMMUNIZATION);
+        assertThat(shorter.classify("Unconfigured", "100010001").kind()).isEqualTo(REQUIRES_REVIEW);
     }
 
     @Test

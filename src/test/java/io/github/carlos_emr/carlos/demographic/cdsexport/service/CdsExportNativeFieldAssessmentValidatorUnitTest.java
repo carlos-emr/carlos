@@ -139,10 +139,14 @@ class CdsExportNativeFieldAssessmentValidatorUnitTest {
     }
 
     @Test
-    void shouldVerifyBoundsAndFinalCancellationNeverReturnACompleteReceipt_forNativeFieldAssessmentValidatorContract() {
+    void shouldVerifyFinalCancellationNeverReturnsACompleteReceipt_forNativeFieldAssessmentValidatorContract()
+            throws Exception {
         var row = row();
-        assertThatThrownBy(() -> validator.validate(List.of(row), assessments(row), 2, () -> {}))
-                .hasMessage("CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT");
+        // Before: more fields than the caller's bound refused the occurrence
+        // (CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT). No count of fields refuses one.
+        assertThat(validator.validate(List.of(row), assessments(row), 2, () -> {}).fields())
+                .isEqualTo(row.fields().size())
+                .isGreaterThan(2);
         var calls = new java.util.concurrent.atomic.AtomicInteger();
         assertThatThrownBy(
                         () ->

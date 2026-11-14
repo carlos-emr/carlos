@@ -41,15 +41,14 @@ import java.util.regex.Pattern;
  * This is a serializer, not a reconciliation decision: callers must first qualify source
  * ownership, effective values, native changes, attachment references and vendor identity.
  * Values must come from authenticated export-owned capture, never mutable import staging.
- * Metadata is bounded independently of streamed text/binary sizes. No value is truncated.
+ * No count of fields, nodes, changes or path characters refuses a record: one imported record is
+ * rebuilt together, whatever its size, and cds_import_field stores any number of fields for one
+ * unit. No value is truncated.
  */
 public final class CdsExportRetainedSectionWriter {
     private static final Pattern ELEMENT =
             Pattern.compile("([A-Za-z_][A-Za-z0-9_.-]*)\\[([1-9][0-9]{0,17})\\]");
     private static final Pattern ATTRIBUTE = Pattern.compile("@([A-Za-z_][A-Za-z0-9_.-]*)");
-    private static final int MAX_FIELDS = 65_536;
-    private static final int MAX_NODES = 131_072;
-    private static final long MAX_PATH_CHARACTERS = 16L << 20;
 
     /** Each returned stream belongs to this writer and must authenticate its complete value at EOF/close. */
     public interface Values {
@@ -113,8 +112,7 @@ public final class CdsExportRetainedSectionWriter {
         Objects.requireNonNull(checkpoint);
         Objects.requireNonNull(changes);
         changes = List.copyOf(changes);
-        if (changes.size() > 4096) invalid();
-        if (supplied == null || supplied.isEmpty() || supplied.size() > MAX_FIELDS) invalid();
+        if (supplied == null || supplied.isEmpty()) invalid();
         var fields = List.copyOf(supplied);
         var first = fields.getFirst();
         String rootPath = rootPath(first);
@@ -126,13 +124,9 @@ public final class CdsExportRetainedSectionWriter {
         var root =
                 new Node(new CdsSchemaModel.ExpandedName("cds", first.category().wireName()), type);
         var ids = new HashSet<String>();
-        int nodes = 1;
-        long paths = 0;
         for (var field : fields) {
             checkpoint.run();
-            paths = Math.addExact(paths, field.sourcePath().length());
-            if (paths > MAX_PATH_CHARACTERS
-                    || !ids.add(field.id())
+            if (!ids.add(field.id())
                     || !first.runId().equals(field.runId())
                     || !first.sourcePatientKey().equals(field.sourcePatientKey())
                     || first.category() != field.category()
@@ -172,7 +166,6 @@ public final class CdsExportRetainedSectionWriter {
                 var key = new CdsSchemaContentOrder.Occurrence(name, ordinal);
                 Node child = current.children.get(key);
                 if (child == null) {
-                    if (++nodes > MAX_NODES) invalid();
                     child = new Node(name, current.type.child(name.namespace(), name.local()));
                     current.children.put(key, child);
                 }
@@ -205,7 +198,7 @@ public final class CdsExportRetainedSectionWriter {
         }
         if (!changes.isEmpty()) {
             changeOrder.finish();
-            normalize(root, new int[1], checkpoint);
+            normalize(root, checkpoint);
             qualify(root, checkpoint);
         }
         var retained = new HashSet<>(ids);
@@ -315,9 +308,8 @@ public final class CdsExportRetainedSectionWriter {
     }
 
     /** Deletion changes wire ordinals while retaining each remaining field's original captured address. */
-    private static void normalize(Node node, int[] count, Runnable checkpoint) throws IOException {
+    private static void normalize(Node node, Runnable checkpoint) throws IOException {
         checkpoint.run();
-        if (++count[0] > MAX_NODES) invalid();
         var children =
                 node.children.entrySet().stream()
                         .sorted(
@@ -338,7 +330,7 @@ public final class CdsExportRetainedSectionWriter {
             }
             node.children.put(
                     new CdsSchemaContentOrder.Occurrence(previous, ++ordinal), child.getValue());
-            normalize(child.getValue(), count, checkpoint);
+            normalize(child.getValue(), checkpoint);
         }
     }
 

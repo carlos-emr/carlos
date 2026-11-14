@@ -85,7 +85,9 @@ final class CdsExportEformRenderings {
             throws IOException {
         var result = new TreeMap<String, Rendering>();
         if (!captured(tables)) return result;
-        var sink = new Fields(bounds.nativeRows(), result);
+        // One descriptor for each eForm (its identity, author and content digest): no count of
+        // them refuses the chart.
+        var sink = new Fields(result);
         var actual =
                 captures.scan(
                         lease,
@@ -104,7 +106,6 @@ final class CdsExportEformRenderings {
     }
 
     static final class Fields implements CdsExportNativeCaptureReader.Fields {
-        private final int maximum;
         private final Map<String, Rendering> result;
         private final Map<String, String> text = new HashMap<>();
         private final Map<String, CdsExportCapturedFieldDto> seen = new HashMap<>();
@@ -112,8 +113,7 @@ final class CdsExportEformRenderings {
         private CdsExportCapturedFieldDto pending;
         private ByteArrayOutputStream value;
 
-        Fields(int maximum, Map<String, Rendering> result) {
-            this.maximum = maximum;
+        Fields(Map<String, Rendering> result) {
             this.result = result;
         }
 
@@ -187,8 +187,7 @@ final class CdsExportEformRenderings {
             for (String column : TEXT) fields.put(column, text.get(column));
             var descriptor = seen.get("content");
             fields.put("content", descriptor.bytes() == 0 ? "" : "sha256:" + descriptor.sha256());
-            if (result.size() >= maximum
-                    || result.putIfAbsent(
+            if (result.putIfAbsent(
                                     fdid,
                                     new Rendering(
                                             fdid,
