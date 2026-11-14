@@ -453,9 +453,32 @@ class CdsExportNativeReportMapperUnitTest {
     }
 
     @Test
-    void shouldRejectImportedPrecisionAnchors_withoutInventingAFullDate() {
-        assertThatThrownBy(() -> map(edit(document(), "cds_content_precision", "YEAR")))
-                .hasMessage("CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW");
+    void shouldExportAContentPrecisionAsTheChartShowsIt_withoutInventingAFullDate() throws Exception {
+        // Before: CDS_EXPORT_NATIVE_REPORT_IMPORTED_PRECISION_REQUIRES_REVIEW held the chart. A
+        // REST caller can store any precision; the chart shows the content time when there is one.
+        var undated =
+                map(
+                        edit(
+                                edit(
+                                        edit(document(), "cds_content_precision", "YEAR"),
+                                        "contentdatetime",
+                                        null),
+                                "receivedDate",
+                                null));
+        assertThat(undated.dates()).doesNotContainKey("ReceivedDateTime");
+        assertThat(undated.text().get("Notes")).contains("\"cds_content_precision\":\"YEAR\"");
+        var timed =
+                map(
+                        edit(
+                                edit(
+                                        edit(document(), "cds_content_precision", "LOCAL_DATE_TIME"),
+                                        "contentdatetime",
+                                        "2026-07-10 08:00:00"),
+                                "receivedDate",
+                                null));
+        assertThat(timed.dates().get("ReceivedDateTime").lexical()).startsWith("2026-07-10T08:00:00");
+        assertThat(timed.text().get("Notes"))
+                .contains("\"cds_content_precision\":\"LOCAL_DATE_TIME\"");
     }
 
     @Test
