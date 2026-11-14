@@ -470,11 +470,14 @@ an immunization without an ImmunizationType, with its name, lot, route, site and
 recorded without a name is named "Other immunization or injection". The CARLOS importer files
 such an entry as `OtherA` again. This applies when the prevention configuration files `OtherA` as
 the shipped one does (an injection item under the Other heading). Another injection item without
-a declared type, or an `OtherA` your configuration files elsewhere, still holds the patient with
-`CATEGORY_NOT_PROVEN`. Such items exist only if the server's prevention file (`PREVENTION_ITEMS`)
-was changed; no CARLOS screen creates one. Declare a `healthCanadaType` on that item of the file
-(ImmunizationType is written only for a CT-020 value) and export the held patients again in a new
-job. An Rh immune globulin injection recorded with the Rh Immune Globulin form is exported as an
+a declared type, or an `OtherA` your configuration files elsewhere, is placed where the
+prevention screen files it and by its form: under the Screenings heading it is a screening, and
+otherwise an injection form makes it an immunization. A type no item of the file names (OSCAR 19
+data, or an item the file no longer lists) is an immunization without an ImmunizationType. No
+prevention type holds a patient any more (`CATEGORY_NOT_PROVEN` and `UNKNOWN_TYPE` are gone). Such
+items exist only if the server's prevention file (`PREVENTION_ITEMS`) was changed; no CARLOS
+screen creates one. To have ImmunizationType written for one, declare a `healthCanadaType` on that
+item of the file (it is written only for a CT-020 value). An Rh immune globulin injection recorded with the Rh Immune Globulin form is exported as an
 immunization named "Rh immune globulin", with its lot, route and site; its product, dosage and
 reason are in the CARLOS residual.
 

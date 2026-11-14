@@ -34,11 +34,13 @@ their own logical tables (`preventions_screening`, `preventionsExt_screening`,
 `prevention_precision_screening`) beside the classification inputs shared with Immunizations,
 so every screening has its own expected PastHealth identity and row witnesses; a missing,
 duplicated or unwitnessed row refuses the patient. A row restricted to a program is exported
-under the program rule described below. A malformed program restriction flag, rows whose type is
-not a proven screening, unknown status codes, duplicate result/reason/comments extensions and
-unsupported date precision hold the patient for review, and any unclassifiable prevention row
-also holds a PastHealth export because it may be a screening.
-also holds a PastHealth export because it may be a screening.
+under the program rule described below. Every prevention row is placed as a vaccine or a
+screening (see "Where every prevention row goes" below), so no row holds a PastHealth export
+for its type any more. A stored date that is not a calendar date (OSCAR's zero date) or
+precision rows that give no one form leave ProcedureDate out, never a guessed one, with the
+column and its rows exact in the residual, and a precision row of another field is carried
+(`DATE_PRECISION_REQUIRES_REVIEW` is gone). What still holds a screening, and why no writer
+reaches it, is listed under "Prevention holds that remain" below.
 
 Every value the demographic add and edit screens write is exported, never held. Values with a
 Demographics element map to it. The patient alert (`demographiccust.cust3`, the forms' Alert
@@ -99,7 +101,7 @@ status of a pharmacy deleted in Manage Pharmacy but still preferred) travel in t
 are not exported (`REMOVED_PHARMACY_ASSOCIATION_NOT_IN_CURRENT_CHART`), whether or not that
 pharmacy's row still exists. The links' `consentToContact` of 1 is the model default
 (`DEFAULT_CONTACT_CONSENT_HAS_NO_CDS_CARRIER`) and never holds a chart. No pharmacy value holds
-a chart any more (see "Contacts, physicians and pharmacies: no remaining hold" below): an active
+a chart any more (see "Contacts, physicians and pharmacies: what still holds" below): an active
 link to a pharmacy row that no longer exists, a link status or consent flag no screen writes,
 two links both ranked first and a preferred pharmacy saved without a name were each a named hold
 (`CdsExportPharmacyMapper.REVIEW_CODES`, now only reached by a result built with a review in it)
@@ -131,8 +133,12 @@ used to fail the whole job are patient holds. No Demographics value holds the pa
 a missing or unlisted required value, a blank or over-long name, a health card without a usable
 number and repeated or hidden extension rows have documented elements (see "Demographics values
 no element holds exactly" below). A primary or enrolled physician whose provider record forms no
-CDS name would still hold, but provider first and last names are varchar(30) NOT NULL, so no
-CARLOS provider record reaches it; an OHIP number that is not six digits is not asserted and does
+CDS name would still hold (`PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW` in
+`CdsExportPublicProviderMapper`, which every provider reference uses: a note's signer, a report's
+or result's reviewer, a prescriber, an appointment's provider), but provider first and last names
+are varchar(30) NOT NULL (the V1 baseline; V1.0.59.6 keeps the definition), so no provider record
+any screen, API, import or the OSCAR 19 migration writes reaches it: only a missing or longer
+than 50-character name part would; an OHIP number that is not six digits is not asserted and does
 not hold. Tied first pharmacy
 preferences, a dangling pharmacy or contact link, two family or two referring physicians and an
 unknown contact consent or purpose flag no longer hold: see the next section.
@@ -214,7 +220,7 @@ when it carries nothing (`{"version":1,"demographic":{},"roster":{},"careTeam":[
 predicts it). The last native demographic record of a patient file is therefore always the
 sending chart's, and a CARLOS importer never restores an earlier sender's value for this chart.
 
-#### Contacts, physicians and pharmacies: no remaining hold
+#### Contacts, physicians and pharmacies: what still holds
 
 Every hold of `CdsExportPersonalContactMapper`, `CdsExportProfessionalContactMapper`,
 `CdsExportPharmacyMapper` and `CdsExportContactConsent` could be reached by data in an ordinary
@@ -246,15 +252,59 @@ mapper fills from every carried decision.
 
 No placeholder text is written for any of these.
 
-**Still held.** Only what the import's own receipt cannot prove: a contact or association row
-that left the capture (`CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW`; no screen deletes these
-rows), a row two import units claim (`CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW`), a missing or
-unreadable import baseline (`CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED`,
-`CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW`), a baseline row that is not what the sealed
-preparation projects (`PREPARED_NATIVE_CONTACT_PROJECTION_NOT_PROVEN`), an association state no
-screen writes (`EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW`), and an imported
-physician's team entry that left the capture (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED`
-with no row).
+**Still held.** Only what a damaged import ledger or a direct database write reaches. Each holds
+that one patient; until now most of them failed the whole job as a plain I/O failure:
+
+- a contact or association row that left the capture (`CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW`),
+  or an imported physician's team entry that left the capture or names another chart
+  (`ORIGINAL_PROFESSIONAL_RELATIONSHIP_MISSING_OR_MOVED` with no row): no code deletes a
+  `Contact`, `ProfessionalContact` or `DemographicContact` row (`Contact2Action.removeContact`
+  sets `deleted`), `Contact2Action.linkContactToDemographic` changes only a team entry the chart
+  owns (`requireOwnedContact`), and `DemographicManager.createUpdateDemographicContact` has no
+  caller;
+- a row two import units claim (`CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW`): the importer inserts
+  new rows for every contact and physician it files (`CdsContactPersister`,
+  `CdsDemographicRelationsService`);
+- an import baseline that does not match its receipt or cannot be read
+  (`CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED`, `CDS_EXPORT_PROFESSIONAL_FIELD_BASELINE_REQUIRED`),
+  and a schema change between the import and the export
+  (`CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW`): no migration since the native baseline
+  (V1.0.59.40) changes either table, and neither has a floating-point column. A missing
+  baseline is no longer one of these (see "Imports made before the native baseline" below);
+- a source value longer than its element (`CDS_EXPORT_CONTACT_SOURCE_VALUE_REQUIRES_REVIEW`,
+  `CDS_EXPORT_PROFESSIONAL_SOURCE_NAME_REQUIRES_REVIEW`): the importer validates every file
+  against the CDS schema, whose physician name parts hold 50 characters;
+- a baseline row that is not what the sealed preparation projects
+  (`PREPARED_NATIVE_CONTACT_PROJECTION_NOT_PROVEN`,
+  `CDS_EXPORT_PROFESSIONAL_PREPARED_PROJECTION_NOT_PROVEN`,
+  `CDS_EXPORT_PROFESSIONAL_ORIGINAL_RELATIONSHIP_REQUIRES_REVIEW`);
+- an association `deleted` or `active` flag other than 0 or 1
+  (`EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW`): `Contact2Action` stores only
+  those.
+
+**Not yet decided.** One contact row named both by a family or referring physician's team entry
+and by a personal contact (Manage Contacts' contact search lists every contact row,
+professional ones included, `ContactDao.search`) holds an imported chart
+(`CDS_EXPORT_CONTACT_SHARED_ROLE_REQUIRES_REVIEW`, `CdsExportDemographicCareAssembler`) and stops
+the export of a chart never imported (`CDS_EXPORT_NATIVE_DEMOGRAPHIC_SCOPE_INVALID`: the physician
+and personal-contact mappers decide the row's columns differently and
+`CdsExportNativeDemographicAssembler.merge` accepts two decisions of one column only for a
+provider row). A screen can reach it.
+
+**Imports made before the native baseline.** An import made on 2026.08.0-beta7 or an earlier build
+recorded no native baseline (V1.0.59.40), only its receipt's digest of each row it wrote; a
+missing baseline is never backfilled from today's rows. An unchanged row is proved by its
+digest, as before. Once a row of an imported personal contact changed, the contact is decided
+from its current rows as any contact added in CARLOS (`Result.current`): the imported element is
+removed, its source fields stay in the import's retained source, replaced, and the contact is
+appended. Content the element held that no column holds (purposes behind the marker, a separate
+middle name, a phone no column stores) stays only in that retained source. For each physician
+role the import filed (it filed a team entry for every source physician its preparation names),
+the import's own team entry, unchanged since and named as the import named it, keeps the imported
+element; otherwise the element states the chart's current physician of the role, or is removed
+when there is none, as for a team edited in CARLOS. Both held the patient
+(`CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED`, and `CDS_EXPORT_PROFESSIONAL_FIELD_BASELINE_REQUIRED`
+at every export of such a chart, changed or not).
 
 The health-care-team roles Specialist and Dietician (procontact.jsp) have no FamilyPhysician or
 ReferredPhysician meaning, but an active external contact (type 2) in such a role is a
@@ -315,7 +365,7 @@ decision names the rule.
   the imported element holds content CARLOS keeps only in the import's source (several purposes
   behind the marker "Multiple source purposes; see imported Contact details", a separate middle
   name, phones no column holds), it stays in place instead and the further relationship's
-  purposes join it. A deleted or active flag no screen writes still holds. A later association that is itself removed or inactive leaves the
+  purposes join it. A deleted or active flag no screen writes still holds (see "Still held" above). A later association that is itself removed or inactive leaves the
   imported contact as it is. A contact added after the import and later removed or made inactive
   no longer fails the assembly's row count (`CDS_EXPORT_CONTACT_ASSEMBLY_SCOPE_INVALID`).
 - Preferred pharmacy (`CdsExportRetainedPharmacyReconciler`): once the imported link is no longer
@@ -444,9 +494,8 @@ free-text name of the form's "Other" provider (`provider_no` `-1`; a CARLOS prov
 never restored) and the reminder date. The form saves an empty row for every unfilled
 input; an empty row is not a fact and never hides the type name. An edited vaccine's link to the
 version it replaced is not exported. A row restricted to a program is exported under the
-program rule below. A malformed program restriction flag, unknown status codes, duplicate
-standard fields, unsupported date precision and the importer's date hints on a row no applied
-import claims still hold the patient. An imported vaccine is written from its retained original
+program rule below. What still holds a vaccine, and why no writer reaches it, is listed under
+"Prevention holds that remain" below. An imported vaccine is written from its retained original
 elements without this residual while its row is the one the import wrote. When the sender was
 CARLOS, those retained elements include its original `CARLOS.Prevention.Source.v1`: the
 provider and reminder date the import restored from it are accounted to it while the sealed
@@ -464,6 +513,26 @@ writer, has no caller. A provider, reminder, status or comment recorded after th
 comment edited in the prevention editor included, is therefore a new version, exported natively
 with the residual (below), and the imported source fields are accounted as replaced; only a row
 changed directly in the database reaches these two holds.
+
+No name and no date holds a vaccine. A name recorded as only spaces names nothing: the entry is
+named as one recorded without a name, and the stored text is exact in the residual
+(`BLANK_NATIVE_NAME_EXACT_IN_RESIDUAL`). When the stored type cannot name an entry either, a fixed
+label does: `Unnamed immunization` when no type is stored (or only spaces), and `Immunization
+(type in Notes)` when the type is longer than ImmunizationName's 120 characters, with the type
+whole as the first moved line of Notes (`Type: `, `NATIVE_TYPE_LONGER_THAN_THE_NAME_MOVED_WHOLE_TO_NOTES`).
+Such types come only from OSCAR 19 data or a clinic's own prevention file; each held the patient
+(`IMMUNIZATION_NAME_REQUIRED`). A stored clock time the clinic zone gives no single whole-minute
+offset (inside the hour the autumn change repeats, inside the spring gap, or before the zone's
+standard time) is written as its wall-clock time with no offset, the rule notes and appointments
+follow (`LOCAL_WALL_CLOCK_TIME_AT_DAYLIGHT_SAVING_TRANSITION`, see "Times at a daylight-saving
+change"). A stored date that is not a calendar date (OSCAR's zero date, which OSCAR 19 data can
+hold) or precision rows that give no one form (two rows, a marker without a date, a marker no
+screen writes) leave Date out, never a guessed one, with the column and its rows exact in the
+residual (`DATE_WITHOUT_A_CDS_FORM_EXACT_IN_RESIDUAL`); a precision row of another field is
+carried (`PRECISION_ROW_OF_NO_PREVENTION_DATE_EXACT_IN_RESIDUAL`). These held the patient
+(`DATE_PRECISION_REQUIRES_REVIEW`). The CARLOS importer restores the sender's prevention type
+from the residual (see the import guide), so such an entry keeps its type; it keeps the label as
+its name and the `Type:` line in its comments.
 
 `preventions.restrictToProgram` and `programNo` are legacy OSCAR 19/CAISI columns that no CARLOS
 screen writes or reads. A prevention row is restricted to a program under the rule the chart
@@ -507,8 +576,8 @@ selection reads the units through `CdsImportUnitDao` in the capture's
 repeatable-read snapshot, and the finished-capture reclassification re-proves the partition
 from the captured `cds_import_unit` rows, so both reach the same vaccine set. A legacy unit
 without a witness, a unit that was not applied, a rewritten receipt or tampered witness, and
-another patient's import prove nothing; the row then keeps its classification review
-(`CATEGORY_NOT_PROVEN` for an `OtherA` filed outside the Other heading). The importer's provenance extensions (`cdsName`,
+another patient's import prove nothing; the row is then placed like any other (see "Where every
+prevention row goes" below). The importer's provenance extensions (`cdsName`,
 `cdsType`, `cdsDatePrecision` and the others) are ordinary editable chart rows and are never
 proof. A witness that cannot be opened because the installation key is missing refuses the job
 with `CDS_EXPORT_NATIVE_BASELINE_KEY_UNAVAILABLE`, as the retained index does. The occurrence is
@@ -518,8 +587,8 @@ absent one stays absent) whatever today's declaration for `OtherA` says; a nativ
 fails the baseline match and holds the patient with `PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, and
 every other native change keeps its existing reconciliation code. Any other imported type still
 needs today's declared type to equal the original ImmunizationType, or it holds the patient with
-the same code. Under a configuration that files `OtherA` elsewhere, a PastHealth export without
-Immunizations captures no Immunizations unit, so the row still holds it: it could be a screening.
+the same code. The receipt is proved for a PastHealth export without Immunizations too, so a
+proved vaccine is left out of it rather than taken for a screening.
 
 A native `OtherA` row ("Other immunization or injection", A30) is exported as an Immunizations
 entry without ImmunizationType when the configuration files `OtherA` as the shipped one does (an
@@ -531,13 +600,13 @@ round trip is the same row; every native row also travels in `CARLOS.Prevention.
 name box is optional: an entry recorded without a name is named `Other immunization or
 injection`, its label on the prevention screen. It is never a PastHealth screening, so it no
 longer holds a PastHealth-only export either. Any other `injection` item without a declared type,
-and an `OtherA` a clinic files elsewhere, still holds the patient with `CATEGORY_NOT_PROVEN` unless
-an import receipt proves it. Neither can be created from CARLOS's screens: prevention items come
-only from the XML file `PREVENTION_ITEMS` names in the server configuration (`carlos.properties`,
-default the bundled `oscar/prevention/PreventionItems.xml`, whose only such item is `OtherA` under
-Other); the Prevention Manager page only hides items and stop signs, and `AddPrevention2Action`
-refuses a type the configuration does not define. Changing that file is a server configuration
-change. The one exception the save action makes is `RH`, which the Rh Immune Globulin form
+and an `OtherA` a clinic files elsewhere, is placed by its heading and form (below); neither can be
+created from CARLOS's screens: prevention items come only from the XML file `PREVENTION_ITEMS`
+names in the server configuration (`carlos.properties`, default the bundled
+`oscar/prevention/PreventionItems.xml`, whose only such item is `OtherA` under Other); the
+Prevention Manager page only hides items and stop signs, and `AddPrevention2Action` refuses a type
+the configuration does not define. Changing that file is a server configuration change. The one
+exception the save action makes is `RH`, which the Rh Immune Globulin form
 (`addRhInjection.jsp`) saves without a configured item: it is exported as an Immunizations entry
 without ImmunizationType named `Rh immune globulin` (rule `RH_IMMUNE_GLOBULIN`,
 `RH_IMMUNE_GLOBULIN_AS_UNTYPED_IMMUNIZATION`); its product, dosage, reason and every other row stay
@@ -547,6 +616,85 @@ in the file `PREVENTION_ITEMS` names; ImmunizationType is exported only when tha
 CT-020 value; otherwise it is left out and the native type travels in the residual. Choose a value no other
 item declares: the importer files an incoming ImmunizationType under the last injection item
 declaring it, so reusing another item's value would redirect those imports to `OtherA`.
+
+#### Where every prevention row goes
+
+No prevention row holds the patient for its type. An import receipt that proves a row was
+written from an Immunizations element makes it a vaccine (above). Every other row takes the
+classification's decision, and a row the configuration and the catalogue leave unresolved is
+placed by `CdsExportPreventionClassifier.place`; each placement is a frame of the scope digest
+(`PLACED_<rule>_IMMUNIZATION` or `..._NON_IMMUNIZATION`), so the capture and its later check reach
+the same partition:
+
+- a type no configured item and no catalogue entry names (a type the OSCAR 19 migration copied
+  without a CARLOS item, a vaccine the clinic's catalogue no longer lists, an item a changed
+  prevention file dropped) is a vaccine: an Immunizations entry without ImmunizationType, named by
+  its recorded name or its type (`UNCONFIGURED_TYPE_AS_UNTYPED_IMMUNIZATION`). The prevention
+  module is the chart's immunization record. It held the patient (`UNKNOWN_TYPE`);
+- a type the catalogue names (its name or its concept) is a vaccine (`CVC_IMMUNIZATION`); a
+  vaccine mapping whose own concept is missing is not used (no CARLOS screen writes
+  `CVCMapping`, and the migration does not copy it). It held the patient
+  (`UNRESOLVED_CVC_MAPPING`);
+- a configured item whose configuration does not state its category consistently (an item
+  outside both headings, a layout no rule knows, a declared type beside a screening form or under
+  Screenings) is placed where the prevention screen files it and by the form that records it:
+  under Screenings a screening; otherwise a declared Health Canada type or a vaccine form
+  (`injection`, `h1n1`) a vaccine, a screening form (`PAPMAM`, `history`) a screening, and any
+  other form a vaccine (`CONFIGURED_ITEM_PLACED_BY_ITS_HEADING_AND_FORM`). It held the patient
+  (`CATEGORY_NOT_PROVEN`, `UNSUPPORTED_LAYOUT`, `CONFLICTING_CATEGORY`);
+- a configured screening the vaccine catalogue also names, or one recorded with a SNOMED concept,
+  stays a screening, with the concept in the residual (`CONFIGURED_OVER_CATALOGUE`). It held the
+  patient (`CONFLICTING_CATEGORY`, `UNRESOLVED_NON_IMMUNIZATION_CODE`).
+
+The only partition review left is a malformed program restriction flag (below).
+
+#### Prevention holds that remain
+
+These still hold the patient. No writer of the column can produce the value; only a direct
+database write, or a server configuration change where noted, reaches each one. The writers of
+`preventions` and `preventionsExt` are the prevention form (`AddPrevention2Action`,
+`PreventionData.insertPreventionData` and `updatetPreventionData`), the eForm prevention save
+(`EFormUtil`, `PreventionManager.addPreventionWithExts`), the CDS importer
+(`CdsImmunizationPersister`) and the OSCAR 19 migration, which copies rows OSCAR 19's own form
+wrote; the REST and SOAP prevention services only read, and no SQL outside the entities writes
+either table.
+
+- **`deleted` other than `0`, `1` or NULL** (`ARCHIVE_STATE_NEEDS_A_LOSSLESS_CARRIER`): the entity
+  (`Prevention.setDeleted`) stores only `0` or `1`. A `1` reaching a mapper
+  (`SUPERSEDED_OR_REMOVED_VERSION_IS_NOT_CURRENT`) is a guard: the occurrence services map only
+  current versions.
+- **`refused` other than `0` to `3`** (`UNKNOWN_PREVENTION_STATUS_REQUIRES_REVIEW`, screenings):
+  `Prevention.setRefused`, `setIneligible` and `setCompletedExternally` store only those codes.
+- **A malformed `restrictToProgram`** (anything but `0`, `1` or NULL; `PROGRAM_SCOPE_REQUIRES_REVIEW`,
+  `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`): no CARLOS screen writes the column, and `tinyint(1)`
+  holds only the values OSCAR 19's CAISI code wrote. A program nobody exporting works in also
+  holds the patient with this code; that is an authorization refusal, not a chart hold.
+- **Two `result`, `reason` or `comments` rows on one screening, or two rows of one standard field
+  on one vaccine** (`DUPLICATE_NATIVE_EXTENSION_REQUIRES_REVIEW`), and **a name or code under both
+  the form's and the importer's key** (`name` and `cdsName`, `din` and `cdsCode`;
+  `CONFLICTING_NATIVE_FIELD_ALIASES`): the form saves each key once per version
+  (`addHashtoArray`, one `request.getParameter` each), the eForm path saves a map, the importer
+  writes only its `cds*` keys and an edit's new version carries only the form's keys.
+- **An extension row without a key** (`UNKNOWN_NATIVE_EXTENSION_KEY`): every writer names its key.
+- **The importer's keys on a row no applied import unit claims** (`cdsType`, `cdsCode`,
+  `cdsCodeSystem`, `cdsDateOriginal`, `cdsDatePrecision`, `cdsName`;
+  `STALE_IMPORTED_DATE_HINT_REQUIRES_RECONCILIATION`, `NO_PINNED_WIRE_TYPE_EQUIVALENCE`,
+  `CODE_AND_AUTHORITY_MUST_BE_PAIRED`, an over-long wire value): only `CdsImmunizationPersister`
+  writes them, from an XSD-validated ImmunizationType (every CT-020 value is in
+  `CdsExportImmunizationVocabulary.TYPES`) and a paired ImmunizationCode, and an edit's new version
+  does not copy them. A chart whose import is still running stays held by the import, and an
+  abandoned import's chart is refused as a whole (`CDS_EXPORT_ABANDONED_IMPORT_REQUIRES_REVIEW`).
+- **An imported vaccine's wire type that today's configuration maps to another Health Canada type**
+  (`CONFLICTING_NATIVE_IMMUNIZATION_TYPE`): the importer files a wire type under an item declaring
+  it, or restores a CARLOS sender's own type; only a changed `PREVENTION_ITEMS` file (server
+  configuration) can make the two differ.
+- **A row changed in place since its import** (`CDS_EXPORT_IMMUNIZATION_FIELD_BASELINE_REQUIRED`,
+  `..._FIELD_CODEC_REQUIRES_REVIEW`, `..._DELETION_REQUIRES_REVIEW`, `..._ALIAS_REQUIRES_REVIEW`,
+  `..._DUPLICATE_BASELINE_EXTENSION`, `RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`,
+  `IMPORTED_OCCURRENCE_HAS_NO_NATIVE_RESIDUAL`): CARLOS never changes or deletes a prevention row
+  in place (above), and the CDS importer creates a new row for every Immunizations element, so two
+  units never claim one row. This holds also for an import made before the native baseline was
+  recorded (2026.08.0-beta7 and earlier): its unchanged rows are proved by their receipt digests.
 
 Superseded or removed prevention versions are not exported, for vaccines and screenings alike.
 CARLOS never edits a prevention in place: an edit soft-deletes the old row (`deleted = '1'`)
@@ -3419,14 +3567,25 @@ row whenever anything changed, archiving included, because it would restate the 
 held it; the receipt lists its content field as replaced. `CHANGED_PRECISION_DEPENDENCY_REQUIRES_REVIEW`,
 `UNPROJECTED_CLOCK_OR_OFFSET_REQUIRES_RECONCILIATION`, `CHANGED_LONG_REACTION_REQUIRES_REVIEW`,
 `ALLERGY_AGENT_REQUIRED_AFTER_RECONCILIATION` and the generic hold for a carried rule on a changed
-group are gone. Still held on an imported allergy: `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` (the
-unit's sealed preparation does not describe the row its receipt says the import wrote, so the
-unit's retained source fields cannot be shown to belong to this row), the baseline, codec,
-deletion, witness and alias codes. Text XML cannot carry no longer holds an allergy (see
-"Data summaries and last holds").
+group are gone. An import made before the native baseline was recorded (2026.08.0-beta7 and
+earlier builds) keeps only its receipt's digest of the row it wrote: once the allergy changed
+(archived, or reordered on the Rx page), no column can be shown unchanged, so every group is the
+current row's by the rule of a never-imported allergy and the unit's source fields are listed as
+replaced. It held the patient (`CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED`). Still held on an
+imported allergy: `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` (the unit's sealed preparation does not
+describe the row its receipt says the import wrote, so the unit's retained source fields cannot
+be shown to belong to this row), a baseline that does not match its receipt, and the codec,
+deletion, witness and alias codes: no code deletes an allergy row (the Rx page archives it), no
+migration since the native baseline changes the table, and the importer inserts a new row for
+every allergy. Text XML cannot carry no longer holds an allergy (see "Data summaries and last
+holds").
 
 A CARLOS importer keeps the carrier as protected source (it is not one of the markers it
-restores). Still held: an archive flag that is neither 0 nor 1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
+restores). Still held: an archive flag that is neither 0 nor 1 (`ARCHIVE_STATE_REQUIRED`). No
+writer stores one: `allergies.archived` is `tinyint(1) NOT NULL`, the entity (`Allergy.setArchived`)
+writes a boolean, every screen and the importer write through it, and the OSCAR 19 migration copies
+the flag OSCAR 19's own allergy entity wrote, supplying a value for a NULL (`PRIMITIVE_COLUMNS` in
+`o19map_schema.json`). An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
 amends an allergy by archiving it and adding a row. A brand allergen saved after
 the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
 is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
@@ -3525,13 +3684,13 @@ What an appointment exports:
 | date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` by the timing rules above; exact start and end in the source record |
 | `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. A code with no single definition (none, or duplicates), or whose definition has no label CDS text can hold (blank, over 250 characters with its mark, XML-illegal), is written as the stored code itself (`STATUS_CODE_WITHOUT_SINGLE_DEFINITION_WRITTEN_AS_STORED`, `STATUS_DEFINITION_WITHOUT_USABLE_LABEL_WRITTEN_AS_STORED_CODE`); the code and its captured definitions are in the source record. It used to hold the patient. |
 | `provider_no` | `Provider`: public name and OHIP number. A number with no provider record (migrated data), or whose record cannot form a CDS Provider (a missing, over-long or XML-illegal name part), is exported without `Provider`, as a prescription is without its prescriber; the stored number and the record's public columns are in the source record. `EXACT_PUBLIC_PROVIDER_REFERENCE_REQUIRED` and `PUBLIC_PROVIDER_VALUES_REQUIRES_REVIEW` no longer hold an appointment. |
-| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label requires review (the column is NOT NULL). |
+| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label (SQL NULL) still requires review (`REASON_CODE_ITEM_HAS_NO_LABEL`), but no writer stores one: the Lookup List Manager adds an item only with a non-empty label (`LookupListManager2Action`) and otherwise changes only its order or active flag, the REST schedule service only reads the list, the seed data labels every item, and the OSCAR 19 migration copies the items of OSCAR 19's Lookup List Manager, the screen CARLOS's is derived from. |
 | `notes` | `AppointmentNotes`. The complete notes text is the stored notes, after a `Reason:` line and before `Booking name:` and `Remarks:` lines when there are any. The Edit Appointment form admits 32,768 characters and the element 32,000: a longer complete text is cut to the first characters that fit before the mark `[CARLOS: shortened to the CDS limit of 32,000 characters]` on its own last line (`NOTES_CUT_AT_CDS_LIMIT_COMPLETE_TEXT_IN_APPOINTMENT_SOURCE_RECORD`), and the complete text is in the source record's `complete.AppointmentNotes`. It used to hold the patient (generic, `CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`, `CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW`). |
 | text with characters no XML document can hold | The element text leaves those characters out (`XML_ILLEGAL_CHARACTERS_LEFT_OUT_EXACT_VALUE_IN_APPOINTMENT_SOURCE_RECORD`); the exact value is in the source record, where JSON escapes it. It used to hold the patient. |
 | `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource`, non-zero `program_id` | No CDS Appointments field: carried in the source record (`NO_CDS_APPOINTMENT_FIELD_IN_APPOINTMENT_SOURCE_RECORD`). They used to be exported nowhere. |
 | `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text is what the user left in the booking's name box (the Edit Appointment form stores its `keyword` field as typed, `AppointmentUpdateRecord2Action`): it is exported as a labelled line after the notes, `Booking name: <name>` (`BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE`). |
 | `remarks` | A labelled line after the notes, `Remarks: <remarks>` (`APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE`). The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and OSCAR 19 data (its reminder mailer's `Emailed:` marks) fill it, and the patient's appointment history shows it. |
-| `imported_status` | Unchanged review rule on a row no applied import claims (an import receipt the system cannot prove). |
+| `imported_status` | Written by a CDS import (CARLOS's own, and OSCAR 19's, whose rows the OSCAR 19 migration copies) and by the REST and SOAP appointment services, which store what they are sent (`AppointmentConverter.applyEditableProperties`, `AppointmentTransfer.copyTo`); the Edit Appointment page shows it beside the status. With no status code it is `AppointmentStatus` (`IMPORTED_STATUS_WITHOUT_A_STATUS_CODE_AS_APPOINTMENT_STATUS`), the rule an imported booking follows, and a CARLOS import stores it back as the imported status. Beside a status code, `AppointmentStatus` is the code's label and the imported status is the labelled line `Imported status: <text>` after the notes (`IMPORTED_STATUS_AS_LABELLED_NOTES_LINE`), as the booking name and remarks are; a CARLOS import keeps it in the notes, as it does those lines. Blank text is not shown on the page and is not written (`BLANK_IMPORTED_STATUS_NOT_DISPLAYED`). The stored column is whole in the source record. On a booking no import unit claims, and on an imported booking whose status code changed, it held the patient (`RETAINED_APPOINTMENT_STATUS_REQUIRES_RECONCILIATION`). |
 | storage audit and identity columns | Operational in the element's receipt; whole in the source record. |
 
 #### `CARLOS.Appointment.Source.v1`
@@ -4064,7 +4223,17 @@ CARLOS up to the form's 32,768, are cut by the native rule and whole in
 `CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW` are gone). An appointment whose import
 restored the sender's stored end or complete notes from that record
 (`CdsAppointmentNativeDto.source`) is read by the native rule for those values: the end is the
-scheduler's inclusive end and the notes are current. All original field IDs are accounted for and the last callback cannot
+scheduler's inclusive end and the notes are current. An import made before the native baseline
+was recorded (2026.08.0-beta7 and earlier builds) keeps only its receipt's digest of the row it
+wrote: once the booking changed (an edit, a status set on the day sheet), every column counts as
+changed, so each element is the current row's by the rule of a never-imported booking and the
+unit's source fields are listed as replaced. Its end is read as the end that import wrote (start
+plus Duration), unless the source record restored the sender's end; an end typed in the
+scheduler since then reads one minute shorter. It held the patient
+(`CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED`). The other baseline, codec, alias and deletion
+codes still hold only what a damaged ledger or a direct database write reaches: no migration
+since the native baseline changes `appointment`, the importer inserts a new row for every
+booking, and CARLOS archives a booking before every change. All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.
@@ -5646,6 +5815,15 @@ without splitting it. In every case the exact columns travel in `CARLOS.Medicati
 A value of one prescription that the medication writer refuses is a patient hold
 (`CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW`); it used to fail the whole job as an I/O error.
 
+**A long-term copy of an imported prescription.** The Rx page's long-term toggle
+(`RxWriteScript2Action.updateLongTermStatus`) saves a copy of the prescription and archives the
+original; the copy keeps the import's provenance columns (`cds_dose_text`, `cds_currentness`,
+`cds_projection_incomplete`) and no import unit claims it. It is exported by the native rules:
+`cds_dose_text` is Dosage (the dose the Rx page shows), a `cds_currentness` that agrees with the
+status is its witness, and any other value travels exactly in `CARLOS.Medication.Source.v1` with
+the rest of the row. A CARLOS import of the copy stores the same dose text and currentness. It
+held the patient (`CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW`).
+
 **Imported prescriptions changed in CARLOS.** The Rx page never rewrites a prescription
 (`Prescription.Save` always inserts a row), but four actions update the imported row itself:
 Delete and Discontinue (`RxDeleteRx2Action`, `RxManagerImpl.discontinue`/`archiveDrug`: `archived`
@@ -5691,9 +5869,20 @@ is removed (the receipt lists its fields as replaced) and the typed text travels
 `CurrentSource` like any unstructured strength (`SOURCE_ONLY_STRENGTH_PROJECTION_CHANGED` is
 gone).
 
+An import made before the native baseline was recorded (2026.08.0-beta7 and earlier builds)
+keeps only its receipt's digest of the row it wrote. When that row changed since, or holds a
+floating-point value its digest cannot stand in for (`takemin`, `takemax`; and `row_version`,
+added after beta7, changes every such row's digest), no column can be shown unchanged: the whole
+prescription is decided from its current row by the rule of a never-imported one, and every
+retained source field of the unit is listed as replaced (it stays in the import's retained
+source). It held the patient (`CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED`).
+
 Still held on an imported prescription: an import projection the receipt cannot prove
-(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, the baseline and codec codes) and a physically
-deleted row. `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
+(`PREPARED_NATIVE_PROJECTION_NOT_PROVEN`, a baseline that does not match its receipt, the codec
+code) and a physically deleted row (`CDS_EXPORT_MEDICATION_DELETION_REQUIRES_REVIEW`; the Rx page
+never deletes a row, it archives it), and a row two import units claim
+(`CDS_EXPORT_MEDICATION_ALIAS_REQUIRES_REVIEW`; the importer inserts a new row for every
+prescription). `PREPARED_NATIVE_PROJECTION_NOT_PROVEN` is an integrity hold,
 not a data condition: the baseline row is authenticated by the receipt digest, and the unit's
 sealed preparation does not reproduce it, so the retained source fields of that unit cannot be
 shown to describe the row; neither they nor the current row alone would be a proven export of
@@ -5788,8 +5977,15 @@ Database-selected native prescriptions also capture an immutable public DrugRef 
 short scalar discovery transaction closes before any network call. Only the DIN and the public
 lookup option enter the existing native XML-RPC protocol; patient identity, names, dose, SIG and
 chart data are never sent. Capture compares the prepared scalar identities/code/catalogue keys
-with the actual patient snapshot. Changed inputs and malformed or mismatched reference products
-refuse qualification; network/protocol outages remain distinct I/O failures. Custom prescriptions
+with the actual patient snapshot. A prescription that changes during capture is a source change
+(`CDS_EXPORT_SOURCE_CHANGED`: the patient is read again). A reference answer the reference cannot
+describe (another DIN, no product name or ingredient list, an ingredient without its name, unit
+or strength, a negative or non-finite strength, text longer than the reference holds) is no
+usable reference: DrugRef's answer is reference data, not the chart, so the prescription is
+exported as an unqualified catalogue selection, like one whose DIN DrugRef does not know (below).
+It held the patient (`CDS_EXPORT_DRUG_REFERENCE_REQUIRES_REVIEW`). The reader's own invariants
+fail the job (`CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID`), and network or protocol outages remain
+distinct I/O failures. Custom prescriptions
 with no native catalogue selection keep unqualified identifiers as source context. A catalogue
 selection whose stored identifier is not an eight-digit DIN, or whose DIN DrugRef answers with no
 product (a product no longer in the installed dictionary; `RxDrugRef.getDrugByDIN` returns null,
