@@ -4691,6 +4691,16 @@
               "check": "java-cds-transfer-import"
             }
           ]
+        },
+        "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportResumeMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldAdoptOnlyUnchangedCharts_whenAStoppedExportIsResumed",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
         }
       },
       "runtimeConstraints": {
