@@ -100,11 +100,7 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
         // Legacy HL7 matching rejects null names before it can broaden a name-prefix query.
         java.util.Objects.requireNonNull(lastName, "HL7 patient surname");
         java.util.Objects.requireNonNull(firstName, "HL7 patient given name");
-        String health = hin;
-        if ("UNKNOWN".equalsIgnoreCase(health)) health = "";
-        if (health != null && health.length() == 12 && StringUtils.isNumeric(health.substring(0, 10))) {
-            health = health.substring(0, 10);
-        }
+        String health = hl7HealthNumber(hin);
         String year = "%", month = "%", day = "%";
         boolean hasDob = dob != null && !dob.isEmpty() && !dob.equalsIgnoreCase("UNKNOWN");
         if (hasDob) {
@@ -133,6 +129,27 @@ public class LabRoutingLookupDao extends AbstractDaoImpl<Demographic> {
             params.addAll(List.of(year, month, day, sex + "%"));
         }
         return patients(sql.toString(), params);
+    }
+
+    /**
+     * The health number {@link #findHl7Patients} compares with {@code demographic.hin}: empty for
+     * the {@code UNKNOWN} sentinel, and a 12-character number whose first ten characters are
+     * digits without its last two (the version code, which is ignored). The CDS export finds a
+     * chart's own part of a stored message that names several patients by the same rule
+     * ({@code CdsExportNativeLaboratoryParser}).
+     *
+     * @param hin the health number as the message sent it, possibly null
+     * @return the number compared, null or empty when there is none
+     */
+    // FindSecBugs IMPROPER_UNICODE: case-insensitive comparison of the internal UNKNOWN sentinel; it only removes a placeholder and never grants a patient match by itself.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "IMPROPER_UNICODE", justification = "case-insensitive comparison of the internal UNKNOWN sentinel; it only removes a placeholder and never grants a patient match by itself")
+    public static String hl7HealthNumber(String hin) {
+        String health = hin;
+        if ("UNKNOWN".equalsIgnoreCase(health)) health = "";
+        if (health != null && health.length() == 12 && StringUtils.isNumeric(health.substring(0, 10))) {
+            health = health.substring(0, 10);
+        }
+        return health;
     }
 
     /**

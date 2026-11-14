@@ -547,7 +547,7 @@ class CdsExportNativeLaboratoryMapperUnitTest {
     }
 
     @Test
-    void shouldExportAnyValueTypeAndAResultSentBeforeItsOrder_butHoldTwoPatientsInOneMessage()
+    void shouldExportAnyValueTypeAndAResultSentBeforeItsOrder_butNoOtherPatientsPart()
             throws Exception {
         var toronto = ZoneId.of("America/Toronto");
         var mapper = new CdsExportNativeLaboratoryMapper();
@@ -570,9 +570,13 @@ class CdsExportNativeLaboratoryMapperUnitTest {
         for (var value : values)
             CdsExportNativeHistoryMapperUnitTest.render(
                     CdsCategory.LABORATORY_RESULTS, xml -> mapper.write(value, xml));
-        // A message naming two patients would put another patient's results in this file.
-        assertThatThrownBy(() -> source(message() + "PID|2||ANOTHER\r"))
-                .hasMessage("CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS");
+        // A message naming two patients exports only this chart's part of it, never another
+        // patient's (CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS held the patient). Read for a chart
+        // neither PID names, nothing of it is exported
+        // (CdsExportNativeLaboratoryMultiPatientUnitTest has the other cases).
+        var batch = source(message() + "PID|2||ANOTHER\r");
+        assertThat(batch.foreign()).isTrue();
+        assertThat(batch.parsed().observations()).isEmpty();
         assertThatThrownBy(
                         () ->
                                 new CdsExportNativeLaboratoryParser()

@@ -346,6 +346,8 @@ public class CdsExportNewCategoryOccurrenceService implements CdsExportCategoryO
                             bounds,
                             control,
                             (nativeSource, nativeRoutes) -> {
+                        // No part of the message is this chart's: no record is written.
+                        if (nativeSource.foreign()) return;
                         var carried = CdsExportInboxReviewMapper.carried(nativeRoutes);
                         var assessments =
                                 new LinkedHashMap<

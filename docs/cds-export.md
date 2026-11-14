@@ -5008,11 +5008,54 @@ message it builds), so a receiving CARLOS has the exact text. These held the pat
 adds no observation, and a message with no order exports no result; one with no PID exports the
 results the chart routed to this patient; a result sent before any order is a result of no order,
 with empty order fields. These held the patient (`CDS_EXPORT_NATIVE_LAB_INCOMPLETE_MESSAGE`,
-`..._RESULT_WITHOUT_ORDER`). A message that names two patients still holds
-(`CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS`): exporting it would put another patient's results in
-this patient's file. `MessageUploader` routes a message to the patient of its first PID and
-`Utilities.separateMessages` splits every uploaded HL7 file at each PID, so only an XML upload of
-a batch message (the PATHL7 and Excelleris handlers take each message whole) could store one.
+`..._RESULT_WITHOUT_ORDER`). A stored message that names more than one patient exports only this
+patient's part (owner decision 2026-11-14; it held the patient with
+`CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS`, now gone). Such messages are ordinary CARLOS data:
+`Utilities.separateMessages` splits an uploaded file at each PID only for the upload handlers that
+call it; the others (among them PATHL7 and Excelleris Ontario, which take each message of an XML
+file whole) store a message as received, and `MessageUploader` routes it to the patient its first
+PID matches (or a user matches it to a chart later). The parser (`CdsExportNativeLaboratoryParser.select`) cuts the
+message into PID groups (a PID segment and every segment up to the next PID, line breaks read as
+below) before anything else is read, and a group is this patient's when its identity matches the
+chart's, compared as the CARLOS lab matcher compares them (`LabRoutingLookupDao.findHl7Patients`;
+its health number rule is shared, `LabRoutingLookupDao.hl7HealthNumber`):
+
+- a group that states a health number (the first component of any repetition of PID-2, PID-3,
+  PID-4 or PID-19, the fields CARLOS's lab handlers read it from) matches by it alone: one of its
+  numbers, with the version code ignored (a 12-character number whose first ten characters are
+  digits is compared by those ten; `UNKNOWN` is none), equals the chart's `demographic.hin`,
+  letter case and trailing spaces aside, as the column's collation compares them;
+- a group that states none matches by family name (PID-5.1), given name (PID-5.2) and birth date
+  (the first eight digits of PID-7), all three stated: the names equal the chart's ignoring letter
+  case and trailing spaces, the birth year, month and day equal the stored columns exactly. The
+  database collation also ignores accents; this comparison does not, so a name differing only by
+  an accent is not taken for this patient's (its report is then named in the ReadMe).
+
+What is exported is the MSH segment followed by the matched groups, in message order, each as its
+original text: as the LaboratoryResults elements (and embedded documents), and as the stored
+message in `CARLOS.NativeLaboratory.v1` (the `message` field holds this part, Base64 as the column
+holds a message, and the record gains a `part` entry naming the rule
+`THIS_PATIENTS_PART_OF_A_MESSAGE_NAMING_SEVERAL_PATIENTS`, the number of groups and the exported
+ones; the field is accounted `MAPPED` under that rule). This is the one place where the carried
+message is not the stored one (owner decision): another patient's results never leave the clinic.
+The values the upload stored for the report (`hl7TextInfo`: name, health number, sex, report date,
+accession, status, requesting provider, discipline, sending facility, label) were read by the
+handler from the message's first patient; when the first group is not this patient's, none of them
+is written or carried (`ANOTHER_PATIENTS_PART_OF_THE_MESSAGE_NOT_EXPORTED`, `OPERATIONAL`; only
+`id` and `lab_no` travel), and the elements come from this patient's part alone: AccessionNumber
+from the order's OBR-3, LaboratoryName from MSH-4, a missing collection time from MSH-7 or the day
+CARLOS stored the report. When no group matches, no part of the message is exported (no result, no
+document, no NewCategory record), every field of the report and of its inbox routes is accounted
+`OPERATIONAL` under `MESSAGE_NAMES_ONLY_OTHER_PATIENTS_NOT_EXPORTED`, and the ReadMe names the
+report in the patient's section: `Patient records not exported: Laboratory report naming several
+patients, none of them this patient (<date>, <laboratory>, accession <accession>): 1`, by the
+values CARLOS lists the report with in the chart (`CdsExportPatientInventoryService.otherPatientsReport`;
+"no date", "no laboratory named" or "no accession number" when none is stored), with an
+`OPERATIONAL` line in the reconciliation audit. A message with one PID is read whole, unchanged. A
+CARLOS import stores this patient's part: the importer builds its results from the elements, and
+keeps the carrier as source (`CdsExportNativeLaboratoryMultiPatientUnitTest`, which also covers this
+patient second, then first, and no match; `CdsExportLaboratoryWindowUnitTest` reads a report with no
+match whole and in windows).
 Every line break of the stored message is a segment
 break, as CARLOS's own lab handlers read it (`CdsExportNativeLaboratoryParser.segments`):
 HAPI ends a segment only at CR, but a report uploaded inside an XML file (Excelleris ON and

@@ -331,6 +331,14 @@ abstract class CdsExportLaboratoryWindowFixture {
                             Set.copyOf(plan.columns()), tables.get(plan.table()).size(), SOURCE));
         scopes.put("provider", new CdsExportCapturedTableDto(Set.of("provider_no"), 0, SOURCE));
         scopes.put("demographic_merged", new CdsExportCapturedTableDto(Set.of("id"), 0, SOURCE));
+        // The chart's own row, which a message that names several patients asks for.
+        if (tables.containsKey("demographic"))
+            scopes.put(
+                    "demographic",
+                    new CdsExportCapturedTableDto(
+                            tables.get("demographic").firstEntry().getValue().fields().keySet(),
+                            tables.get("demographic").size(),
+                            SOURCE));
         var generation = mock(CdsExportNativeCaptureDto.class, withSettings().stubOnly());
         when(generation.tables()).thenReturn(scopes);
         when(generation.values())

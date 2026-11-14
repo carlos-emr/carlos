@@ -340,8 +340,7 @@ public class CdsExportPatientDocumentService {
                                                         table.getKey(),
                                                         CdsExportFieldAssessmentDto.Outcome
                                                                 .OPERATIONAL,
-                                                        CdsExportDemographicSupportingMapper
-                                                                .NOT_SELECTED_RULE,
+                                                        expected.rule(withheld.getKey()),
                                                         table.getValue()));
                                 var coverage =
                                         new CdsExportCoverageValidator()

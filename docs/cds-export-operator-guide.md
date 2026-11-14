@@ -425,9 +425,14 @@ calendar time, or whose offset no date-time can hold, is stated in the result's 
 information as `Collection time sent by the laboratory: ...` or `Requisition time sent by the
 laboratory: ...`; and a report whose header names another message type (Spire sends `MDM^R01`),
 whose segments are indented or whose comments were broken across lines is read the way CARLOS's
-lab display reads it. Export patients held for those reasons again. Only a message that names
-two patients still holds (`CDS_EXPORT_NATIVE_LAB_MULTIPLE_PATIENTS`), since exporting it would
-put another patient's results in the file.
+lab display reads it. Export patients held for those reasons again. A stored lab message that
+names several patients (a batch some lab feeds send) no longer holds the patient: only this
+patient's part of it is exported, the part whose patient identity matches the chart by health
+number or, when the message gives none, by name and birth date, as the lab inbox matches a lab to
+a patient. Another patient's results never leave the clinic. When no part of such a message is
+the patient's, nothing of it is exported and the ReadMe names the report for that patient
+(`Patient records not exported: Laboratory report naming several patients, none of them this
+patient (2026-07-09, Example Lab, accession 123): 1`); check the lab's patient match.
 
 Vaccines export under Immunizations. A name, manufacturer, lot, route, site or dose typed
 longer than CDS allows (120 characters; 250 for instructions) is not cut and does not hold the
