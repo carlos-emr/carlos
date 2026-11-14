@@ -1681,6 +1681,19 @@ public class CdsExportClinicalPackageService {
                     CdsExportChartFingerprints.group(
                             group.charts().stream().map(CdsExportPatientCaptureDto::capture).toList());
             var source = group.charts().getFirst();
+            if (candidate != null) {
+                // A file an earlier attempt built from exactly these captures is adopted whole.
+                var adopted = resume.adopt(candidate, fingerprint, group, store);
+                if (adopted != null) {
+                    for (var member : captureMembers) {
+                        owned.remove(member);
+                        store.discardUnpublished(member);
+                    }
+                    owned.addAll(adopted.members());
+                    return new Captured(
+                            source, adopted.chart(), fingerprint, true, adopted.sourceEpoch());
+                }
+            }
             var chart =
                     buildGroup(
                             lease, head, tables, bounds, applicationVersion, control, owned, group, store);
