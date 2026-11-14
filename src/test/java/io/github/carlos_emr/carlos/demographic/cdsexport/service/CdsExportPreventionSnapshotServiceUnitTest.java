@@ -207,6 +207,35 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     @Test
+    void shouldPrepareTheNextChartsState_whenAMergedGroupReleasesTheFirstInOneSnapshot() {
+        when(vaccines.findCdsExportRowsAfter(eq(28), any(), eq(32))).thenReturn(List.of());
+        when(mappings.findCdsExportRowsAfter(eq(28), any(), eq(32))).thenReturn(List.of());
+        when(preventions.countCdsExportRows(28)).thenReturn(1L);
+        when(preventions.findCdsExportRowsAfter(eq(28), any(), eq(32)))
+                .thenReturn(List.of(raw(3, "PAP", null, null, 28)));
+        transaction(
+                () -> {
+                    var first = snapshots.prepare(27, () -> {});
+                    // Another chart's release, or the next chart before the first is released,
+                    // is refused: one chart's state at a time.
+                    assertThatThrownBy(() -> snapshots.release(28))
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    assertThatThrownBy(() -> snapshots.prepare(28, () -> {}))
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    snapshots.release(27);
+                    assertThatThrownBy(first::selection)
+                            .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+                    var next = snapshots.prepare(28, () -> {});
+                    assertThat(next.screeningIds()).containsExactly(3);
+                    assertThat(snapshots.current(28)).isSameAs(next);
+                    snapshots.release(28);
+                    // Nothing bound: a release is a no-op.
+                    snapshots.release(28);
+                    return null;
+                });
+    }
+
+    @Test
     void shouldVerifyNoStateCanBeCreatedOutsideAnOwningReadonlyRepeatableReadJpaTransaction_forPreventionSnapshotServiceContract() {
         assertThatThrownBy(() -> snapshots.prepare(27, () -> {}))
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
@@ -583,9 +612,14 @@ class CdsExportPreventionSnapshotServiceUnitTest {
     }
 
     private static CdsExportRawRowDto raw(int id, String type, String flag, String program) {
+        return raw(id, type, flag, program, 27);
+    }
+
+    private static CdsExportRawRowDto raw(
+            int id, String type, String flag, String program, int patient) {
         var values = new TreeMap<String, String>();
         values.put("id", Integer.toString(id));
-        values.put("demographic_no", "27");
+        values.put("demographic_no", Integer.toString(patient));
         values.put("prevention_type", type);
         values.put("programNo", program);
         values.put("restrictToProgram", flag);

@@ -503,8 +503,13 @@ public class CdsExportNativeCaptureService {
                         read.execute(
                                 status -> {
                                     try {
+                                        // One schema read for the whole transaction, read
+                                        // again after the last chart's last source read.
+                                        var schemaPass = schemaPass(tables);
+                                        if (schemaPass != null)
+                                            schemaPass.openSchemaPass(control.schemaProbes());
                                         var charts = new ArrayList<CdsExportNativeCaptureDto>();
-                                        for (int index = 0; index < scopes.size(); index++)
+                                        for (int index = 0; index < scopes.size(); index++) {
                                             charts.add(
                                                     captureSnapshot(
                                                             lease,
@@ -516,7 +521,14 @@ public class CdsExportNativeCaptureService {
                                                             probe,
                                                             store,
                                                             owned,
-                                                            held));
+                                                            held,
+                                                            false));
+                                            // The chart is read: what a reader bound to the
+                                            // transaction for it ends before the next chart.
+                                            for (var reader : selected.get(index))
+                                                reader.endChart(scopes.get(index).patient());
+                                        }
+                                        if (schemaPass != null) schemaPass.verifySchemaPass();
                                         return charts;
                                     } catch (IOException failure) {
                                         throw new UncheckedIOException(failure);
@@ -755,7 +767,8 @@ public class CdsExportNativeCaptureService {
                                                 probe,
                                                 store,
                                                 owned,
-                                                held);
+                                                held,
+                                                true);
                                     } catch (IOException failure) {
                                         throw new UncheckedIOException(failure);
                                     } catch (java.sql.SQLException failure) {
@@ -918,6 +931,19 @@ public class CdsExportNativeCaptureService {
     }
 
     /**
+     * The reader whose schema pass binds one complete schema read to the capture's transaction,
+     * or null when the capture does not read the source catalogue. A pass can be open only once
+     * per transaction.
+     */
+    private CdsExportSourceCatalogueReader schemaPass(Set<String> tables) {
+        return tables.contains("clinical_source_catalogue")
+                        && readers.get("clinical_source_catalogue")
+                                instanceof CdsExportSourceCatalogueReader catalogue
+                ? catalogue
+                : null;
+    }
+
+    /**
      * The capture's one read-only snapshot: every reader's schema and count, then every reader's
      * rows streamed to the two staged members.
      *
@@ -939,20 +965,17 @@ public class CdsExportNativeCaptureService {
             Runnable probe,
             CdsExportStagingService store,
             List<CdsExportStagedFileDto> owned,
-            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock held)
+            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock held,
+            boolean ownSchemaPass)
             throws IOException, java.sql.SQLException {
         int patient = patientScope.patient();
         control.captureCheckpoint();
         var started = clock.now();
         var scopes = new TreeMap<String, CdsExportCapturedTableDto>();
         // One complete schema read answers every reader's verification in this transaction; it
-        // is read again after the last source read, below.
-        var schemaPass =
-                tables.contains("clinical_source_catalogue")
-                                && readers.get("clinical_source_catalogue")
-                                        instanceof CdsExportSourceCatalogueReader catalogue
-                        ? catalogue
-                        : null;
+        // is read again after the last source read, below. A merged group's capture opens it
+        // once around all its charts instead (ownSchemaPass false).
+        var schemaPass = ownSchemaPass ? schemaPass(tables) : null;
         if (schemaPass != null) schemaPass.openSchemaPass(control.schemaProbes());
         for (var reader : selected) {
             control.captureCheckpoint();

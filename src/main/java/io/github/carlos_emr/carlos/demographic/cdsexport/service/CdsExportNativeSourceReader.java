@@ -138,6 +138,13 @@ public interface CdsExportNativeSourceReader {
         return count(patient);
     }
 
+    /**
+     * Ends whatever this reader bound to the capture's transaction for one chart, once that
+     * chart's rows are written, so the next chart of a merged group is read in the same
+     * snapshot. Most readers bind nothing; a single chart's capture never calls it.
+     */
+    default void endChart(int patient) {}
+
     /** Bounded source/file work can observe cancellation before a row is emitted. */
     default void capture(
             int patient, CdsExportNativeCaptureComposer.Writer output, Runnable checkpoint)

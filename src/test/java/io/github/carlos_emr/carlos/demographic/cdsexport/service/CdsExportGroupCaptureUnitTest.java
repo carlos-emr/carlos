@@ -202,9 +202,11 @@ class CdsExportGroupCaptureUnitTest {
                 service.captureGroup(
                         lease, head, Set.of("demographic"), 1000, 8L << 20, new Control());
 
-        // One snapshot read both charts, the head first.
+        // One snapshot read both charts, the head first; each chart's own transaction state
+        // ended once it was read, before the next chart.
         assertThat(counting.begun).isEqualTo(1);
         assertThat(source.captured).containsExactly(HEAD, MERGED);
+        assertThat(source.ended).containsExactly(HEAD, MERGED);
         assertThat(source.transactions).hasSize(1);
         assertThat(group.charts())
                 .extracting(chart -> chart.capture().patient())
@@ -304,6 +306,7 @@ class CdsExportGroupCaptureUnitTest {
     /** One demographic row per chart, read only inside a read-only repeatable-read snapshot. */
     private static final class GroupReader implements CdsExportNativeSourceReader {
         final List<Integer> captured = new ArrayList<>();
+        final List<Integer> ended = new ArrayList<>();
         final Set<Object> transactions = new java.util.HashSet<>();
         final java.util.Map<Integer, String> names =
                 new java.util.HashMap<>(java.util.Map.of(HEAD, "FAKE-CDS Head", MERGED, "FAKE-CDS Merged"));
@@ -355,6 +358,14 @@ class CdsExportGroupCaptureUnitTest {
             fields.put("demographic_no", Integer.toString(patient));
             fields.put("first_name", names.get(patient));
             writer.row(CdsExportPatientTableSourceReader.key(patient), fields);
+        }
+
+        @Override
+        public void endChart(int patient) {
+            inSnapshot();
+            // Ended right after its own rows, never before them or for another chart.
+            assertThat(captured).last().isEqualTo(patient);
+            ended.add(patient);
         }
 
         private void inSnapshot() {

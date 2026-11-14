@@ -140,6 +140,12 @@ public class CdsExportPreventionConfigurationSourceReader implements CdsExportNa
         return count(patient, () -> {});
     }
 
+    /** The chart's prevention snapshot ends with its capture, in a merged group's snapshot. */
+    @Override
+    public void endChart(int patient) {
+        snapshots.release(patient);
+    }
+
     @Override
     public long count(int patient, Runnable checkpoint) {
         try {
