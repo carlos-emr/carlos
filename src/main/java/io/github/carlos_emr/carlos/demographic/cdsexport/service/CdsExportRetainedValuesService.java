@@ -94,13 +94,27 @@ public class CdsExportRetainedValuesService {
                         maximumIndexBytes,
                         control);
         var fields = new TreeMap<String, CdsExportRetainedFieldDto>();
-        var mapper = new CdsExportRetainedFieldMapper();
+        // Every field of the chart is held for the section. The texts its fields repeat (run,
+        // patient key, unit key, namespace, value type, source path, payload location) are held
+        // once, so a field costs about its own values and digest: a long imported chart has
+        // some twenty fields a record.
+        var texts = new HashMap<String, String>();
+        var mapper =
+                new CdsExportRetainedFieldMapper(
+                        text -> {
+                            if (text == null) return null;
+                            String known = texts.putIfAbsent(text, text);
+                            return known == null ? text : known;
+                        });
         for (var row : index.tables().get("cds_import_field").values()) {
             control.checkpoint();
             var field = mapper.map(patient.patient(), lease.document().command().categories(), row);
             if (fields.putIfAbsent(field.id(), field) != null) invalid();
         }
+        // A value kept inline is never read from the payload member: only a payload-backed
+        // field keeps its descriptor. Every field is still described exactly once.
         var ranges = new HashMap<String, CdsExportCapturedFieldDto>();
+        var described = new HashSet<String>();
         var payload =
                 payloads.scan(
                         lease,
@@ -113,8 +127,7 @@ public class CdsExportRetainedValuesService {
                         control,
                         descriptor -> {
                             var field = fields.get(descriptor.recordKey());
-                            if (field == null || ranges.putIfAbsent(field.id(), descriptor) != null)
-                                invalid();
+                            if (field == null || !described.add(field.id())) invalid();
                             var original = field.originalPayload();
                             if (original == null) {
                                 if (descriptor.kind() != CdsExportCapturedFieldDto.Kind.SQL_NULL)
@@ -122,10 +135,12 @@ public class CdsExportRetainedValuesService {
                             } else if (descriptor.kind() != CdsExportCapturedFieldDto.Kind.BINARY
                                     || descriptor.bytes() != original.bytes()
                                     || !descriptor.sha256().equals(original.sha256())) invalid();
+                            else ranges.put(field.id(), descriptor);
                             return OutputStream.nullOutputStream();
                         });
-        if (payload.fields() != fields.size() || !ranges.keySet().equals(fields.keySet()))
-            invalid();
+        if (payload.fields() != fields.size() || described.size() != fields.size()) invalid();
+        texts.clear();
+        described.clear();
         var store =
                 stores.openExisting(
                         lease.runId(),

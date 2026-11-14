@@ -31,6 +31,23 @@ import java.util.Set;
 
 /** Decodes captured field metadata without current-row lookups, normalizing originals or conflating field/native units. */
 public final class CdsExportRetainedFieldMapper {
+    private final java.util.function.UnaryOperator<String> shared;
+
+    public CdsExportRetainedFieldMapper() {
+        this(java.util.function.UnaryOperator.identity());
+    }
+
+    /**
+     * A mapper whose fields share their repeated texts. Every field of a chart repeats its run,
+     * patient key, unit key, namespace, value type and, across records, its source path; a caller
+     * that keeps every field of a long imported chart passes one canonical instance of each
+     * through {@code shared} so a field costs its own values, not a copy of those. {@code shared}
+     * must return an equal string (or null for null); the field is the same value either way.
+     */
+    public CdsExportRetainedFieldMapper(java.util.function.UnaryOperator<String> shared) {
+        this.shared = java.util.Objects.requireNonNull(shared);
+    }
+
     public CdsExportRetainedFieldDto map(
             int patient, Set<CdsCategory> selected, CdsExportCapturedTextRowDto row)
             throws IOException {
@@ -62,22 +79,22 @@ public final class CdsExportRetainedFieldMapper {
             if (fields.get("payload_location") != null)
                 payload =
                         new CdsExportRetainedFieldDto.Payload(
-                                fields.get("payload_location"),
+                                shared.apply(fields.get("payload_location")),
                                 fields.get("payload_digest"),
                                 offset,
                                 bytes);
             else if (fields.get("payload_digest") != null || offset != 0 || bytes != 0) invalid();
             return new CdsExportRetainedFieldDto(
                     row.recordKey(),
-                    fields.get("run_id"),
-                    fields.get("patient_key"),
-                    fields.get("unit_key"),
+                    shared.apply(fields.get("run_id")),
+                    shared.apply(fields.get("patient_key")),
+                    shared.apply(fields.get("unit_key")),
                     category,
-                    fields.get("source_path"),
+                    shared.apply(fields.get("source_path")),
                     ordinal,
-                    fields.get("source_namespace"),
-                    fields.get("value_type"),
-                    fields.get("date_precision"),
+                    shared.apply(fields.get("source_namespace")),
+                    shared.apply(fields.get("value_type")),
+                    shared.apply(fields.get("date_precision")),
                     fields.get("original_value"),
                     fields.get("normalized_value"),
                     payload);
