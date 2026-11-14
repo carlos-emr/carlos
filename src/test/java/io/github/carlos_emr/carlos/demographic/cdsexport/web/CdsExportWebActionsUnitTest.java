@@ -407,7 +407,35 @@ class CdsExportWebActionsUnitTest {
                 .containsEntry("keptCharts", 0L)
                 .containsEntry("keptUntil", null)
                 .containsEntry("adoptedCharts", 0L)
-                .containsEntry("builtCharts", 0L);
+                .containsEntry("builtCharts", 0L)
+                .containsEntry("legacyLabReports", 0L);
+    }
+
+    @Test
+    void shouldPublishTheLegacyLabReportsWrittenInReports_asACountOnly() {
+        // A job that selected LaboratoryResults without Reports wrote its patients' legacy-format
+        // laboratory reports in Reports (owner decision 2026-11-14): the status says how many.
+        var ready =
+                new CdsExportJobDto(
+                        java.util.UUID.randomUUID().toString(),
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState.READY,
+                        5,
+                        2L,
+                        2,
+                        0,
+                        false,
+                        false,
+                        1,
+                        null,
+                        java.time.Instant.EPOCH,
+                        java.time.Instant.EPOCH,
+                        true,
+                        0,
+                        null,
+                        0,
+                        2,
+                        3);
+        assertThat(web.job(ready)).containsEntry("legacyLabReports", 3L);
     }
 
     @Test

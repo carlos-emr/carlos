@@ -95,9 +95,9 @@ class CdsExportSupportingFilesComposerUnitTest {
 
     @Test void shouldDistinguishNotSelectedFromKnownZero_forSelectedCategoryExports() throws Exception {
         var events = new ByteArrayOutputStream();
-        Set<CdsCategory> categories = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS);
+        Set<CdsCategory> categories = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.IMMUNIZATIONS);
         var patient = new CdsExportPatientSummaryDto(patient("C27", "First"),
-                Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.LABORATORY_RESULTS, 0L),
+                Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.IMMUNIZATIONS, 0L),
                 null, null, "a".repeat(64), 123);
         composer.compose(new ByteArrayOutputStream(), events, metadata(categories),
                 List.of(physician(1)).iterator(), List.of(patient).iterator(), () -> {});
@@ -207,6 +207,41 @@ class CdsExportSupportingFilesComposerUnitTest {
                 "Unlinked inbox tables not exported: \"2\"\nUnlinked inbox table: \"HRMDocument\"\n"
                         + "Unlinked inbox table rows: \"4\"\nUnlinked inbox table: \"providerLabRouting\"\n"
                         + "Unlinked inbox table rows: \"43\"\n");
+    }
+
+    @Test void shouldCountTheLegacyLabReportsWrittenInReports_forLaboratoryResultsWithoutReports()
+            throws Exception {
+        // Owner decision 2026-11-14: the patient file of such a job holds a Reports section with
+        // the legacy-format laboratory reports alone; the ReadMe says how many the job wrote.
+        var base = metadata(Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS));
+        var labs = new CdsExportPackageMetadataDto(base.exportRoot(), base.physicianGroup(),
+                base.groupContactInformation(), base.applicationVersion(), base.exportTime(),
+                base.clinicalZone(), base.profile(), base.categories(), base.auditAccessDescription(),
+                List.of(), List.of(), List.of(), List.of(), 2);
+        var summary = new CdsExportPatientSummaryDto(patient("C27", "First"),
+                Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.LABORATORY_RESULTS, 4L,
+                        CdsCategory.REPORTS, 2L), 0L, 2L, "a".repeat(64), 123);
+        var readMe = new ByteArrayOutputStream();
+        var events = new ByteArrayOutputStream();
+        composer.compose(readMe, events, labs, List.of(physician(1)).iterator(),
+                List.of(summary).iterator(), () -> {});
+        assertThat(readMe.toString(StandardCharsets.UTF_8)).contains(
+                "Selected categories: \"Demographics, LaboratoryResults\"\n",
+                "Legacy laboratory reports written in Reports (Reports not selected): \"2\"\n");
+        assertThat(events.toString(StandardCharsets.UTF_8))
+                .contains("\"4\",\"NOT_SELECTED\",\"NOT_SELECTED\",\"2\",\"NOT_SELECTED\"", "\"0\",\"2\"\n");
+        // Any other job writes no such line, and a file of a LaboratoryResults-only job without a
+        // Reports count is refused rather than taken as zero.
+        var plain = new ByteArrayOutputStream();
+        composer.compose(plain, new ByteArrayOutputStream(), metadata(Set.of(CdsCategory.DEMOGRAPHICS)),
+                List.of(physician(1)).iterator(), List.of(demographicSummary("C27", "First")).iterator(), () -> {});
+        assertThat(plain.toString(StandardCharsets.UTF_8)).doesNotContain("Legacy laboratory reports");
+        var missing = new CdsExportPatientSummaryDto(patient("C27", "First"),
+                Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.LABORATORY_RESULTS, 4L), null, null,
+                "a".repeat(64), 123);
+        assertThatThrownBy(() -> composer.compose(new ByteArrayOutputStream(), new ByteArrayOutputStream(), labs,
+                List.of(physician(1)).iterator(), List.of(missing).iterator(), () -> {}))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test void shouldStateNoHeldPatientsOrLocalTables_forACompletePackage() throws Exception {

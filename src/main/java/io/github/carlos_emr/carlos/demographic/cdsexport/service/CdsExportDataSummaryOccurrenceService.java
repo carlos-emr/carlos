@@ -505,7 +505,12 @@ public class CdsExportDataSummaryOccurrenceService {
             boolean withRenderings,
             boolean withRows)
             throws IOException {
-        if (!lease.document().command().categories().contains(CdsCategory.REPORTS)
+        // Reports' data summaries, or, in a job that selects LaboratoryResults without Reports,
+        // the legacy-format laboratory reports alone (CdsExportLegacyLaboratoryReports).
+        var command = lease.document().command();
+        if (!command.categories().contains(CdsCategory.REPORTS)
+                        && !CdsExportLegacyLaboratoryReports.onlyLegacy(
+                                command, CdsExportDataSummaryRowsReader.tables(tables))
                 || !tables.equals(source.capture().tables().keySet()))
             throw new IOException("CDS_EXPORT_DATA_SUMMARY_SCOPE_INVALID");
         var read =
@@ -768,10 +773,14 @@ public class CdsExportDataSummaryOccurrenceService {
         boolean complete = false;
         Throwable primary = null;
         long emitted = 0;
+        // Reports' right, or LaboratoryResults' (sensitive results included) for the legacy
+        // laboratory reports of a job without Reports.
+        var authority = CdsExportLegacyLaboratoryReports.authority(lease.document().command());
+        boolean sensitive = authority == CdsCategory.LABORATORY_RESULTS;
         try {
             for (var planned : plan.groups()) {
                 control.checkpoint();
-                control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
+                control.authorizeCategory(patient.patient(), authority, sensitive);
                 // One record (or one part of a divided record) is in memory at a time.
                 var group = plan.load(planned);
                 // The rendered and the printed form belong to the record: once, with its first part.
@@ -834,7 +843,7 @@ public class CdsExportDataSummaryOccurrenceService {
                 xml.emit(
                         new CdsExportXmlComposer.Section(
                                 identity, body -> write(group, relative, written, body)));
-                control.authorizeCategory(patient.patient(), CdsCategory.REPORTS, false);
+                control.authorizeCategory(patient.patient(), authority, sensitive);
                 output.accept(
                         new CdsExportClinicalOccurrenceService.Receipt(
                                 identity,

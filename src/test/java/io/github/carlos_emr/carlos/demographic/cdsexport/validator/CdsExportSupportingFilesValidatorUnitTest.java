@@ -63,7 +63,16 @@ class CdsExportSupportingFilesValidatorUnitTest {
                         "Fixture",
                         "C27",
                         LocalDate.of(1980, 1, 2));
-        var counts = Map.of(CdsCategory.DEMOGRAPHICS, 1L, CdsCategory.LABORATORY_RESULTS, 0L);
+        // LaboratoryResults without Reports: the patient file also holds a Reports section, for
+        // the legacy-format laboratory reports alone (CdsExportLegacyLaboratoryReports).
+        var counts =
+                Map.of(
+                        CdsCategory.DEMOGRAPHICS,
+                        1L,
+                        CdsCategory.LABORATORY_RESULTS,
+                        0L,
+                        CdsCategory.REPORTS,
+                        0L);
         var xml =
                 new CdsExportXmlValidationDto(
                         "C27",
@@ -99,8 +108,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         new CdsExportPatientSummaryDto(
                                                 name,
                                                 counts,
-                                                null,
-                                                null,
+                                                0L,
+                                                0L,
                                                 xml.xmlSha256(),
                                                 xml.xmlBytes()))
                                 .iterator(),
@@ -184,8 +193,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         new CdsExportPatientSummaryDto(
                                                 actual.getFirst().naming(),
                                                 actual.getFirst().xml().occurrences(),
-                                                null,
-                                                null,
+                                                0L,
+                                                0L,
                                                 actual.getFirst().xml().xmlSha256(),
                                                 actual.getFirst().xml().xmlBytes()))
                                 .iterator(),
@@ -247,8 +256,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         new CdsExportPatientSummaryDto(
                                                 plain.getFirst().naming(),
                                                 plain.getFirst().xml().occurrences(),
-                                                null,
-                                                null,
+                                                0L,
+                                                0L,
                                                 plain.getFirst().xml().xmlSha256(),
                                                 plain.getFirst().xml().xmlBytes(),
                                                 summaries,
@@ -304,8 +313,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         new CdsExportPatientSummaryDto(
                                                 plain.getFirst().naming(),
                                                 plain.getFirst().xml().occurrences(),
-                                                null,
-                                                null,
+                                                0L,
+                                                0L,
                                                 plain.getFirst().xml().xmlSha256(),
                                                 plain.getFirst().xml().xmlBytes(),
                                                 java.util.Map.of(),
@@ -365,8 +374,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                         new CdsExportPatientSummaryDto(
                                                 actual.getFirst().naming(),
                                                 actual.getFirst().xml().occurrences(),
-                                                null,
-                                                null,
+                                                0L,
+                                                0L,
                                                 actual.getFirst().xml().xmlSha256(),
                                                 actual.getFirst().xml().xmlBytes()))
                                 .iterator(),
@@ -723,8 +732,8 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                                 new CdsExportPatientSummaryDto(
                                                         p.naming(),
                                                         p.xml().occurrences(),
-                                                        null,
-                                                        null,
+                                                        0L,
+                                                        0L,
                                                         p.xml().xmlSha256(),
                                                         p.xml().xmlBytes()))
                                 .iterator(),
@@ -851,13 +860,15 @@ class CdsExportSupportingFilesValidatorUnitTest {
                                                 new CdsExportPatientSummaryDto(
                                                         p.naming(),
                                                         p.xml().occurrences(),
-                                                        metadata.categories()
-                                                                        .contains(
+                                                        // As the package does: the file's
+                                                        // Reports section, selected or not.
+                                                        p.xml().occurrences()
+                                                                        .containsKey(
                                                                                 CdsCategory.REPORTS)
                                                                 ? p.xml().textReports()
                                                                 : null,
-                                                        metadata.categories()
-                                                                        .contains(
+                                                        p.xml().occurrences()
+                                                                        .containsKey(
                                                                                 CdsCategory.REPORTS)
                                                                 ? p.xml().binaryReports()
                                                                 : null,

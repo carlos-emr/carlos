@@ -1747,26 +1747,6 @@ public final class CdsExportPatientTableReadSupport {
                 new Bindings(null, null));
     }
 
-    /**
-     * Whether the patient's chart has a legacy-format report: a route of exactly the type MDS,
-     * CML or BCP (BC PathNet). Such a report is exported only as a CARLOS data summary with
-     * Reports; {@code CdsExportIndirectPatientScopeReadSupport} scopes it through this route.
-     */
-    public static boolean legacyLaboratoryReports(EntityManager em, int patient) {
-        patient(patient);
-        return !query(
-                                em,
-                                """
-                                select 1,1 from patientLabRouting r where r.demographic_no=:patient
-                                and r.lab_type in ('MDS','CML','BCP')
-                                and CAST(r.lab_type AS BINARY) in (CAST('MDS' AS BINARY),CAST('CML' AS BINARY),CAST('BCP' AS BINARY))
-                                """)
-                        .setParameter("patient", patient)
-                        .setMaxResults(1)
-                        .getResultList()
-                        .isEmpty();
-    }
-
     /** Refuse unsupported routes and shared, dangling or duplicated HL7 ownership before any result body is read. */
     public static void requireLocalLaboratoryAssociations(EntityManager em, int patient) {
         patient(patient);
@@ -1775,9 +1755,9 @@ public final class CdsExportPatientTableReadSupport {
         // would bind an unrelated result body. A DOC route is the inbox's link to a document
         // (DocumentManagerImpl, ManageDocument2Action), written for every document assigned to a
         // patient; the document itself belongs to the Reports path. An MDS, CML or BCP route is a
-        // legacy-format report, exported whole as a data summary with Reports, never read here;
-        // a LaboratoryResults export without Reports holds its patient separately
-        // (legacyLaboratoryReports, CdsExportLaboratorySourceReader).
+        // legacy-format report, exported whole as a data summary in Reports, never read here;
+        // a LaboratoryResults export without Reports captures and writes those data summaries
+        // too (CdsExportLegacyLaboratoryReports).
         var unsupported =
                 query(
                                 em,

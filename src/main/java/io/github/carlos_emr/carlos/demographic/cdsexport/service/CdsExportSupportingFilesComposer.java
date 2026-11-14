@@ -82,6 +82,13 @@ public final class CdsExportSupportingFilesComposer {
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CdsExportPathComposer paths = new CdsExportPathComposer();
 
+    /**
+     * ReadMe label of the number of legacy-format laboratory reports written in Reports by a job
+     * that selected LaboratoryResults without Reports.
+     */
+    public static final String LEGACY_LAB_REPORTS =
+            "Legacy laboratory reports written in Reports (Reports not selected)";
+
     public record Totals(long physicians, long patientFiles) {}
 
     public Totals compose(
@@ -126,6 +133,10 @@ public final class CdsExportSupportingFilesComposer {
                 readMe,
                 SCREENINGS,
                 metadata.categories().contains(CdsCategory.PAST_HEALTH) ? "INCLUDED" : "NOT_SELECTED");
+        // Owner decision 2026-11-14: LaboratoryResults without Reports still writes the
+        // legacy-format laboratory reports (MDS, CML, BC PathNet) in Reports; say how many.
+        if (CdsExportLegacyLaboratoryReports.withoutReports(metadata.categories()))
+            line(readMe, LEGACY_LAB_REPORTS, Long.toString(metadata.legacyLaboratoryReports()));
         line(readMe, "Audit information access after migration", metadata.auditAccessDescription());
         // A partial transfer must say so inside the package itself, not only in the sender's ledger.
         line(readMe, "Held patients not in this package", Long.toString(metadata.heldPatients().size()));
@@ -263,7 +274,9 @@ public final class CdsExportSupportingFilesComposer {
 
     private static void validatePatient(
             CdsExportPatientSummaryDto patient, CdsExportPackageMetadataDto metadata) {
-        if (!patient.occurrences().keySet().equals(metadata.categories())
+        if (!patient.occurrences()
+                        .keySet()
+                        .equals(CdsExportLegacyLaboratoryReports.sections(metadata.categories()))
                 || !Long.valueOf(1).equals(patient.occurrences().get(CdsCategory.DEMOGRAPHICS))) {
             throw new IllegalArgumentException("CDS_EXPORT_CATEGORY_COUNTS_INCOMPLETE");
         }

@@ -306,6 +306,9 @@ public class CdsExportWebService {
         value.put("keptUntil", row.keptUntil() == null ? null : row.keptUntil().toString());
         value.put("adoptedCharts", row.adoptedCharts());
         value.put("builtCharts", row.builtCharts());
+        // A count only: the legacy-format laboratory reports written in Reports because the job
+        // selected LaboratoryResults without Reports.
+        value.put("legacyLabReports", row.legacyLabReports());
         return value;
     }
 }

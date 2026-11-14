@@ -33,21 +33,36 @@ import java.time.Instant;
  * {@code builtCharts} are what the job's latest attempt recorded in its checkpoint: charts adopted
  * unchanged from a stopped attempt and charts built from a new capture. They follow the attempt's
  * checkpoint, recorded at each lease heartbeat, and are final when the attempt ends.
+ *
+ * <p>{@code legacyLabReports} is the number of legacy-format laboratory reports (MDS, CML and BC
+ * PathNet routes) the latest attempt wrote in Reports because the job selected LaboratoryResults
+ * without Reports; 0 for any other job, and until the attempt has packaged its charts.
  */
 public record CdsExportJobDto(String id, CdsExportState state, long revision, Long totalPatients,
         long processedPatients, long blockedPatients, boolean cancelRequested, boolean workerOwned,
         long epoch, String safeCode, Instant createdAt, Instant updatedAt, boolean artifactAvailable,
-        long keptCharts, Instant keptUntil, long adoptedCharts, long builtCharts) {
+        long keptCharts, Instant keptUntil, long adoptedCharts, long builtCharts,
+        long legacyLabReports) {
     public CdsExportJobDto {
-        if (keptCharts < 0 || adoptedCharts < 0 || builtCharts < 0 || (keptCharts == 0) != (keptUntil == null))
+        if (keptCharts < 0 || adoptedCharts < 0 || builtCharts < 0 || legacyLabReports < 0
+                || (keptCharts == 0) != (keptUntil == null))
             throw new IllegalArgumentException("CDS_EXPORT_STATUS_INVALID");
+    }
+    /** An observation with resume evidence and no legacy laboratory report written in Reports. */
+    public CdsExportJobDto(String id, CdsExportState state, long revision, Long totalPatients,
+            long processedPatients, long blockedPatients, boolean cancelRequested, boolean workerOwned,
+            long epoch, String safeCode, Instant createdAt, Instant updatedAt, boolean artifactAvailable,
+            long keptCharts, Instant keptUntil, long adoptedCharts, long builtCharts) {
+        this(id, state, revision, totalPatients, processedPatients, blockedPatients, cancelRequested, workerOwned,
+                epoch, safeCode, createdAt, updatedAt, artifactAvailable, keptCharts, keptUntil, adoptedCharts,
+                builtCharts, 0);
     }
     /** An observation without resume evidence: nothing kept, adopted or built. */
     public CdsExportJobDto(String id, CdsExportState state, long revision, Long totalPatients,
             long processedPatients, long blockedPatients, boolean cancelRequested, boolean workerOwned,
             long epoch, String safeCode, Instant createdAt, Instant updatedAt, boolean artifactAvailable) {
         this(id, state, revision, totalPatients, processedPatients, blockedPatients, cancelRequested, workerOwned,
-                epoch, safeCode, createdAt, updatedAt, artifactAvailable, 0, null, 0, 0);
+                epoch, safeCode, createdAt, updatedAt, artifactAvailable, 0, null, 0, 0, 0);
     }
     /** A stopped/expired attempt can be waiting even if its last durable phase was capture. */
     public boolean waiting() { return !state.terminal() && !workerOwned; }

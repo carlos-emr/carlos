@@ -280,7 +280,10 @@ public final class CdsExportSourceCatalogue {
         var declaredScopes = new HashSet<String>();
         required.values().forEach(declaredScopes::addAll);
         // A data-summary table is read through the pinned physical contract itself, so it has no
-        // separate source-schema descriptor; it must be captured with Reports and only there.
+        // separate source-schema descriptor; it must be captured with Reports. The legacy-format
+        // laboratory report tables are also captured with LaboratoryResults, which writes those
+        // reports in Reports when Reports is not selected (owner decision 2026-11-14); no other
+        // category captures a data-summary table.
         var reports = required.get(CdsCategory.REPORTS.wireName());
         for (var entry : rulings.entrySet())
             if (entry.getValue() == Disposition.DOCUMENT && !reports.contains(entry.getKey()))
@@ -288,7 +291,9 @@ public final class CdsExportSourceCatalogue {
         for (var entry : required.entrySet())
             for (String name : entry.getValue())
                 if (rulings.get(name) == Disposition.DOCUMENT
-                        && !entry.getKey().equals(CdsCategory.REPORTS.wireName())) invalid();
+                        && !entry.getKey().equals(CdsCategory.REPORTS.wireName())
+                        && !entry.getKey().equals(CdsCategory.LABORATORY_RESULTS.wireName()))
+                    invalid();
         for (String name : declaredScopes) {
             if (rulings.get(name) == Disposition.DOCUMENT) continue;
             var descriptor =

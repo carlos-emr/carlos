@@ -556,9 +556,14 @@ public class CdsExportPatientInventoryService {
                     identity -> add(expected, identity));
         }
         // Data-summary records (registration point): one Reports occurrence per planned record.
+        // A job that selects LaboratoryResults without Reports captures, and writes in Reports,
+        // only the legacy-format laboratory reports (CdsExportLegacyLaboratoryReports).
         if (CdsExportDataSummaryOccurrenceService.captured(tables)) {
+            var command = lease.document().command();
             if (dataSummaries == null
-                    || !lease.document().command().categories().contains(CdsCategory.REPORTS))
+                    || !command.categories().contains(CdsCategory.REPORTS)
+                            && !CdsExportLegacyLaboratoryReports.onlyLegacy(
+                                    command, CdsExportDataSummaryRowsReader.tables(tables)))
                 invalid();
             for (var identity :
                     dataSummaries.identities(

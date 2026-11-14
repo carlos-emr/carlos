@@ -305,8 +305,8 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
     @org.junit.jupiter.params.ParameterizedTest
     @org.junit.jupiter.params.provider.ValueSource(strings = {"MDS", "CML", "BCP"})
     void shouldReadTheStructuredResults_besideALegacyFormatReportExportedWithReports(String type) {
-        // A legacy-format report is a data summary of Reports; the HL7 projection never reads it
-        // and no longer refuses the chart for it. The request projection without Reports asks.
+        // A legacy-format report is a data summary in Reports; the HL7 projection never reads it
+        // and never refuses the chart for it, whether or not Reports is selected.
         sql.update(
                 "insert into patientLabRouting(id,created,demographic_no,lab_no,lab_type) values(?,CURRENT_TIMESTAMP,?,?,?)",
                 patient + 2,
@@ -321,10 +321,6 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                                 context.getBean(PatientLabRoutingDao.class)
                                         .countCdsExportRows(patient));
         assertThat(routes).isEqualTo(1L);
-        Boolean legacy = read.execute(status -> results.hasCdsExportLegacyReports(patient));
-        assertThat(legacy).isTrue();
-        Boolean other = read.execute(status -> results.hasCdsExportLegacyReports(patient + 1));
-        assertThat(other).isFalse();
     }
 
     @org.junit.jupiter.params.ParameterizedTest
@@ -448,12 +444,10 @@ class CdsExportLaboratoryReadMariaDbIntegrationTest {
                 patient + 2,
                 patient,
                 patient);
-        // The MDS report is exported as a data summary with Reports; an export without Reports
-        // holds the chart in the request projection (CdsExportLaboratorySourceReader).
+        // The MDS report is exported as a data summary in Reports, also by an export without
+        // Reports (CdsExportLegacyLaboratoryReports); the structured inventory is empty.
         Long count = read.execute(status -> results.countCdsExportRows(patient));
         assertThat(count).isZero();
-        Boolean legacy = read.execute(status -> results.hasCdsExportLegacyReports(patient));
-        assertThat(legacy).isTrue();
     }
 
     @Test

@@ -223,9 +223,7 @@ public class CdsExportPatientDocumentService {
                                                                                 lease.document()
                                                                                         .command()
                                                                                         .profile(),
-                                                                                lease.document()
-                                                                                        .command()
-                                                                                        .categories(),
+                                                                                sections(lease),
                                                                                 emitter -> {
                                                                                     if (Collections
                                                                                             .disjoint(
@@ -348,7 +346,7 @@ public class CdsExportPatientDocumentService {
                                                         lease.document().senderNamespace(),
                                                         patient.patient())
                                                 .senderPatientId(),
-                                        lease.document().command().categories(),
+                                        sections(lease),
                                         applicationVersion,
                                         lease.document().command().profile(),
                                         references::add,
@@ -413,7 +411,7 @@ public class CdsExportPatientDocumentService {
             CdsExportHistoryOccurrenceService.Source history)
             throws IOException {
         for (var category : CdsCategory.values())
-            if (lease.document().command().categories().contains(category)) {
+            if (sections(lease).contains(category)) {
                 control.checkpoint();
                 if (category == CdsCategory.DEMOGRAPHICS)
                     demographics.append(
@@ -444,6 +442,15 @@ public class CdsExportPatientDocumentService {
                             xml,
                             sink);
             }
+    }
+
+    /**
+     * The categories the patient file holds: the selected ones, and Reports when the job selects
+     * LaboratoryResults without Reports, for the legacy-format laboratory reports alone
+     * (CdsExportLegacyLaboratoryReports).
+     */
+    private static Set<CdsCategory> sections(CdsExportLeaseDto lease) {
+        return CdsExportLegacyLaboratoryReports.sections(lease.document().command().categories());
     }
 
     /**

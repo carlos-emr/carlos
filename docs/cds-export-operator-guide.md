@@ -988,10 +988,13 @@ hold, travel the same way instead of holding the patient:
 
 A legacy laboratory report belongs to the chart its lab routing names, exactly the chart
 in which CARLOS lists it; a report not matched to any patient is in no chart and is not
-exported (its inbox routes are counted as unlinked, below). These reports travel only
-with Reports: a job that selects LaboratoryResults without Reports holds a patient who
-has one (`CDS_EXPORT_LEGACY_LAB_REPORTS_NEED_REPORTS`) rather than send an incomplete
-laboratory history; select Reports and export the patient again.
+exported (its inbox routes are counted as unlinked, below). These reports are written in
+Reports, as Lab Report entries, whenever LaboratoryResults or Reports is selected: a job that
+selects LaboratoryResults without Reports still exports them there (and nothing else of
+Reports), and never holds a patient for them. The job's status, the export page, the report
+and the ReadMe ("Legacy laboratory reports written in Reports (Reports not selected)") say how
+many it wrote that way; the ReadMe also counts each patient's records by kind. A job that
+selects neither category exports none of them.
 
 A program admission whose admission notes, discharge notes or discharge reason are
 filled in is exported as a "Program admission" data summary (program, dates, status

@@ -90,6 +90,66 @@ class CdsExportSourceRecipeUnitTest {
         verifyNoInteractions(stores);
     }
 
+    @Test
+    void shouldCaptureTheLegacyLabReportTablesUnderLaboratoryResults_whenReportsIsNotSelected() {
+        // Owner decision 2026-11-14: LaboratoryResults without Reports still exports the MDS, CML
+        // and BC PathNet reports, as Lab Report entries in Reports, and nothing else of Reports.
+        var readers =
+                new ArrayList<>(
+                        CdsExportDataSummarySourceReader.readers(
+                                mock(io.github.carlos_emr.carlos.commn.dao.CdsExportDataSummaryReadDao
+                                        .class)));
+        readers.add(reader("demographic", Set.of(CdsCategory.DEMOGRAPHICS), Set.of()));
+        var service = service(readers.toArray(new CdsExportNativeSourceReader[0]));
+        var legacy = CdsExportLegacyLaboratoryReports.tables();
+        assertThat(legacy)
+                .contains("mdsMSH", "mdsOBX", "labPatientPhysicianInfo", "labTestResults", "hl7_message", "hl7_obx")
+                .doesNotContain("labRequestReportLink", "tickler", "eform_data");
+        // The catalogue's laboratory tables are exactly the records of the three legacy kinds.
+        var kinds = new TreeSet<String>();
+        for (String table : CdsExportDataSummaryRegistry.tables())
+            if (CdsExportLegacyLaboratoryReports.KINDS.contains(
+                    CdsExportDataSummaryRegistry.rule(table).kind())) kinds.add(table);
+        assertThat(legacy).isEqualTo(kinds);
+        var labs = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS);
+        var selected = service.requiredTables(command(labs));
+        var expected = new HashSet<>(legacy);
+        expected.add("demographic");
+        assertThat(selected).isEqualTo(expected);
+        // Read under LaboratoryResults' right (with its sensitive results), never Reports'.
+        var control =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+                                .class);
+        service.authorizeScope(command(labs), 27, selected, control);
+        verify(control).authorizeCategory(27, CdsCategory.LABORATORY_RESULTS, true);
+        verify(control, never()).authorizeCategory(eq(27), eq(CdsCategory.REPORTS), anyBoolean());
+        assertThat(CdsExportLegacyLaboratoryReports.sections(labs))
+                .containsExactlyInAnyOrder(
+                        CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS, CdsCategory.REPORTS);
+        // Reports selected: every data-summary table, under Reports, as before.
+        var withReports =
+                Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.LABORATORY_RESULTS, CdsCategory.REPORTS);
+        assertThat(service.requiredTables(command(withReports)))
+                .containsAll(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportSourceCatalogue.current()
+                                .tables(
+                                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                                .CdsExportSourceCatalogue.Disposition.DOCUMENT));
+        var reportsControl =
+                mock(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl
+                                .class);
+        service.authorizeScope(
+                command(withReports), 27, service.requiredTables(command(withReports)), reportsControl);
+        verify(reportsControl).authorizeCategory(27, CdsCategory.REPORTS, false);
+        assertThat(CdsExportLegacyLaboratoryReports.sections(withReports)).isEqualTo(withReports);
+        // Neither LaboratoryResults nor Reports: none of them.
+        assertThat(service.requiredTables(command(Set.of(CdsCategory.DEMOGRAPHICS))))
+                .containsExactly("demographic");
+    }
+
     private CdsExportNativeCaptureService preventionService() {
         var snapshots = mock(CdsExportPreventionSnapshotService.class);
         var access = mock(CdsExportPreventionAccessService.class);

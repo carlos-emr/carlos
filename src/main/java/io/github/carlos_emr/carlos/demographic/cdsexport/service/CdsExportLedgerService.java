@@ -328,7 +328,8 @@ public class CdsExportLedgerService {
                             audit,
                             heldRows.size() > MAX_REPORTED_HELD,
                             held,
-                            unlinked);
+                            unlinked,
+                            row.legacyLabReports());
                 });
     }
 
@@ -1511,6 +1512,61 @@ public class CdsExportLedgerService {
                 });
     }
 
+    /** Ledger event type of the legacy laboratory reports an attempt wrote in Reports. */
+    static final String LEGACY_LABORATORY_REPORTS_EVENT = "LEGACY_LAB_REPORTS";
+
+    private static final String LEGACY_LABORATORY_REPORTS_CODE =
+            "CDS_EXPORT_LEGACY_LAB_REPORTS_IN_REPORTS_";
+
+    /**
+     * Records, once for the attempt, how many legacy-format laboratory reports a job that selected
+     * LaboratoryResults without Reports wrote in Reports (owner decision 2026-11-14): a count
+     * only, carried by the event's safe code so the job's status, page and diagnostic report show
+     * it without a schema change. Nothing is recorded for a count of 0.
+     */
+    public void recordLegacyLaboratoryReports(CdsExportLeaseDto lease, long reports) {
+        if (reports < 0) throw new IllegalArgumentException("CDS_EXPORT_LEGACY_LAB_REPORTS_INVALID");
+        if (reports == 0) return;
+        String code = LEGACY_LABORATORY_REPORTS_CODE + reports;
+        safeCode(code);
+        transaction(
+                write,
+                () -> {
+                    var run = owned(lease);
+                    if (run.isCancelRequested())
+                        throw new CancellationException("CDS_EXPORT_CANCELLED");
+                    if (state(run) != CdsExportState.RECONCILING)
+                        throw new IllegalStateException("CDS_EXPORT_PHASE_INVALID");
+                    var recorded =
+                            events.safeCodes(
+                                    run.getId(), lease.epoch(), LEGACY_LABORATORY_REPORTS_EVENT, 2);
+                    if (!recorded.isEmpty()) {
+                        if (!recorded.equals(List.of(code)))
+                            throw new IllegalStateException(
+                                    "CDS_EXPORT_LEGACY_LAB_REPORTS_CONFLICT");
+                        return null;
+                    }
+                    event(
+                            run,
+                            LEGACY_LABORATORY_REPORTS_EVENT,
+                            lease.document().actor().operatorKey(),
+                            code,
+                            runs.now());
+                    return null;
+                });
+    }
+
+    /** The legacy laboratory reports the attempt recorded ({@link #recordLegacyLaboratoryReports}), or 0. */
+    private long legacyLaboratoryReports(CdsExportRun run, long epoch) {
+        if (epoch < 1) return 0;
+        var codes = events.safeCodes(run.getId(), epoch, LEGACY_LABORATORY_REPORTS_EVENT, 2);
+        if (codes.isEmpty()) return 0;
+        if (codes.size() != 1
+                || !codes.getFirst().matches(LEGACY_LABORATORY_REPORTS_CODE + "[1-9][0-9]{0,17}"))
+            throw new IllegalStateException("CDS_EXPORT_STATUS_INVALID");
+        return Long.parseLong(codes.getFirst().substring(LEGACY_LABORATORY_REPORTS_CODE.length()));
+    }
+
     public void phase(CdsExportLeaseDto lease, CdsExportState next) {
         Objects.requireNonNull(next);
         transaction(
@@ -1895,7 +1951,8 @@ public class CdsExportLedgerService {
                 kept,
                 keptUntil,
                 adopted,
-                built);
+                built,
+                legacyLaboratoryReports(run, run.getOwnerEpoch()));
     }
 
     private static CdsExportState state(CdsExportRun run) {

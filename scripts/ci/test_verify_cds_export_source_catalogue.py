@@ -65,7 +65,17 @@ class OptimizedCatalogueGateTest(unittest.TestCase):
             self._mutate(tree, lambda c: c['requiredScopes']['Appointments'].append('tickler'))
             result = self._run(tree)
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn('tickler is a data summary of Reports only', result.stderr)
+            self.assertIn('tickler is a data summary of Reports (and of LaboratoryResults for legacy lab reports) only', result.stderr)
+
+    def test_accepts_the_legacy_lab_report_tables_in_the_laboratory_capture_under_python_optimize(self):
+        # A job selecting LaboratoryResults without Reports still writes the legacy-format lab
+        # reports in Reports (owner decision 2026-11-14), so LaboratoryResults captures them too.
+        with tempfile.TemporaryDirectory() as directory:
+            tree = self._tree(directory)
+            result = self._run(tree)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            catalogue = json.loads((tree / 'src/main/resources/cds-export/source-catalogue.json').read_text())
+            self.assertIn('mdsMSH', catalogue['requiredScopes']['LaboratoryResults'])
 
     def test_refuses_a_listed_table_without_its_ruling_note_under_python_optimize(self):
         with tempfile.TemporaryDirectory() as directory:

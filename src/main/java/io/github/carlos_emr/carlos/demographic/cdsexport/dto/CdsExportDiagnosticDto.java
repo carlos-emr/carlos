@@ -34,16 +34,32 @@ import java.util.List;
  * found linked to no patient (an unmatched lab or HRM report, an incoming document not yet
  * filed): they are in no chart, so they held no patient and were not exported. Table names and
  * counts only.
+ *
+ * <p>{@code legacyLabReports} counts the legacy-format laboratory reports (MDS, CML, BC PathNet)
+ * the current attempt wrote in Reports because the job selected LaboratoryResults without
+ * Reports; a count only.
  */
 public record CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
         Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
         boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
         boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
-        List<Held> heldPatients, List<Unlinked> unlinkedSourceRows) {
+        List<Held> heldPatients, List<Unlinked> unlinkedSourceRows, long legacyLabReports) {
     public CdsExportDiagnosticDto {
         recentEvents = List.copyOf(recentEvents);
         heldPatients = List.copyOf(heldPatients);
         unlinkedSourceRows = List.copyOf(unlinkedSourceRows);
+        if (legacyLabReports < 0) throw new IllegalArgumentException("CDS_EXPORT_DIAGNOSTIC_INVALID");
+    }
+
+    /** Report shape without legacy laboratory reports written in Reports. */
+    public CdsExportDiagnosticDto(int apiVersion, String event, String runId, String state, long epoch,
+            Long totalPatients, long processedPatients, long blockedPatients, boolean cancelRequested,
+            boolean complete, boolean artifactAvailable, String safeCode, String createdAt, String updatedAt,
+            boolean eventsTruncated, List<Audit> recentEvents, boolean heldPatientsTruncated,
+            List<Held> heldPatients, List<Unlinked> unlinkedSourceRows) {
+        this(apiVersion, event, runId, state, epoch, totalPatients, processedPatients, blockedPatients,
+                cancelRequested, complete, artifactAvailable, safeCode, createdAt, updatedAt, eventsTruncated,
+                recentEvents, heldPatientsTruncated, heldPatients, unlinkedSourceRows, 0);
     }
 
     /** Report shape without unlinked inbox counts, for attempts that recorded none. */
