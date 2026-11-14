@@ -332,6 +332,174 @@ class CdsExportLedgerIntegrationTest {
                                 .CdsExportOwnerFencedException.class);
     }
 
+    private String attemptState(String run, long epoch) {
+        return sql.queryForObject(
+                "select state from cds_export_attempt where run_id=? and epoch=?",
+                String.class,
+                run,
+                epoch);
+    }
+
+    private Instant attemptExpiry(String run, long epoch) {
+        return sql.queryForObject(
+                        "select expires_at from cds_export_attempt where run_id=? and epoch=?",
+                        Timestamp.class,
+                        run,
+                        epoch)
+                .toInstant();
+    }
+
+    private List<String> eventCodes(String run, String type) {
+        return sql.queryForList(
+                "select safe_code from cds_export_event where run_id=? and event_type=? order by"
+                        + " created_at,id",
+                String.class,
+                run,
+                type);
+    }
+
+    @Test
+    void shouldKeepAStoppedAttemptsFinishedCharts_forSevenDaysAfterItStopped() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(lease, pointer('1', 3), 0);
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_DATABASE_UNAVAILABLE");
+        assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("KEEPING");
+        // Seven days from the stop (the attempt ceiling), not due for the retention sweep now.
+        assertThat(attemptExpiry(job.id(), lease.epoch()))
+                .isBetween(
+                        Instant.now().plus(java.time.Duration.ofDays(7)).minusSeconds(120),
+                        Instant.now().plus(java.time.Duration.ofDays(7)).plusSeconds(120));
+        assertThat(ledger.expiredArtifacts(16)).doesNotContain(job.id());
+        assertThat(eventCodes(job.id(), "CHARTS_KEPT")).containsExactly("CDS_EXPORT_CHARTS_KEPT_3");
+        // A resume keeps them for the next attempt, which is a new generation of its own.
+        ledger.resume(job.id(), operatorKey(), COMPATIBLE);
+        var next = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(next.epoch()).isEqualTo(lease.epoch() + 1);
+        assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("KEEPING");
+    }
+
+    @Test
+    void shouldKeepNothing_whenAStoppedAttemptSealedNoCheckpoint() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("CAPTURING");
+        assertThat(ledger.artifactEpochs(job.id(), 0, 16)).containsExactly(lease.epoch());
+        assertThat(eventCodes(job.id(), "CHARTS_KEPT")).isEmpty();
+    }
+
+    @Test
+    void shouldEraseKeptCharts_whenTheJobIsCancelled() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(lease, pointer('1', 2), 0);
+        ledger.stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_UNMAPPED_DATA");
+        assertThat(ledger.expiredArtifacts(16)).doesNotContain(job.id());
+        ledger.cancel(job.id(), operatorKey());
+        // Cancelling a stopped job erases what it keeps and leaves its recorded outcome.
+        var cancelled = ledger.status(job.id());
+        assertThat(cancelled.state()).isEqualTo(CdsExportState.REVIEW_REQUIRED);
+        assertThat(cancelled.safeCode()).isEqualTo("CDS_EXPORT_UNMAPPED_DATA");
+        assertThat(cancelled.cancelRequested()).isTrue();
+        ledger.cancel(job.id(), operatorKey());
+        // Due for the next retention sweep at once, which erases the attempt whole.
+        assertThat(ledger.expiredArtifacts(16)).contains(job.id());
+        var cleanup = ledger.beginCleanup(job.id(), lease.epoch());
+        assertThat(cleanup).isNotNull();
+        ledger.finishCleanup(cleanup, true);
+        assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("PURGED");
+        assertThat(eventCodes(job.id(), "CHARTS_ERASED")).containsExactly("CDS_EXPORT_CHARTS_ERASED_2");
+        assertThat(
+                        sql.queryForObject(
+                                "select count(*) from cds_export_attempt where run_id=? and"
+                                        + " checkpoint_member is not null",
+                                Long.class,
+                                job.id()))
+                .isZero();
+    }
+
+    @Test
+    void shouldEraseKeptCharts_whenTheirSevenDaysHavePassed() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(lease, pointer('1', 4), 0);
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        assertThat(ledger.beginCleanup(job.id(), lease.epoch())).isNull();
+        // Seven days later.
+        sql.update(
+                "update cds_export_attempt set expires_at=? where run_id=?",
+                Timestamp.from(Instant.now().minusSeconds(1)),
+                job.id());
+        assertThat(ledger.expiredArtifacts(16)).contains(job.id());
+        assertThat(ledger.untrimmed(16)).extracting(CdsExportLedgerService.Untrimmed::runId)
+                .doesNotContain(job.id());
+        var cleanup = ledger.beginCleanup(job.id(), lease.epoch());
+        ledger.finishCleanup(cleanup, true);
+        assertThat(eventCodes(job.id(), "CHARTS_ERASED")).containsExactly("CDS_EXPORT_CHARTS_ERASED_4");
+    }
+
+    @Test
+    void shouldKeepAReleasedAttemptsCharts_forTheAttemptClaimedNext() {
+        var job = ledger.accept(document("recipient"));
+        var first = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(first, pointer('1', 1), 0);
+        ledger.release(first);
+        assertThat(attemptState(job.id(), first.epoch())).isEqualTo("KEEPING");
+        var second = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(second).isNotNull();
+        assertThat(attemptState(job.id(), first.epoch())).isEqualTo("KEEPING");
+        assertThat(ledger.expiredArtifacts(16)).doesNotContain(job.id());
+    }
+
+    @Test
+    void shouldKeepAnOrphanedAttemptsCharts_untilItsOwnCeiling_whenTheJobIsClaimedAgain() {
+        var job = ledger.accept(document("recipient"));
+        var orphan = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(orphan, pointer('1', 6), 0);
+        var ceiling = attemptExpiry(job.id(), orphan.epoch());
+        // The worker is lost: its lease runs out and nothing records an outcome.
+        sql.update(
+                "update cds_export_run set lease_until=? where id=?",
+                Timestamp.from(Instant.now().minusSeconds(1)),
+                job.id());
+        var next = ledger.claim(job.id(), COMPATIBLE);
+        assertThat(next.epoch()).isEqualTo(orphan.epoch() + 1);
+        assertThat(attemptState(job.id(), orphan.epoch())).isEqualTo("KEEPING");
+        assertThat(attemptExpiry(job.id(), orphan.epoch())).isEqualTo(ceiling);
+        assertThat(eventCodes(job.id(), "CHARTS_KEPT")).containsExactly("CDS_EXPORT_CHARTS_KEPT_6");
+    }
+
+    @Test
+    void shouldTrimAKeptAttemptOnce_andRejectOneWhoseCheckpointCannotBeTrusted() {
+        var job = ledger.accept(document("recipient"));
+        var lease = ledger.claim(job.id(), COMPATIBLE);
+        ledger.recordCheckpoint(lease, pointer('1', 2), 1);
+        ledger.stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        assertThat(ledger.untrimmed(16))
+                .contains(new CdsExportLedgerService.Untrimmed(job.id(), lease.epoch()));
+        var trim = ledger.beginTrim(job.id(), lease.epoch());
+        assertThat(trim.pointer()).isEqualTo(pointer('1', 2));
+        // A trim is exclusive with the attempt's erasure and with a second trim.
+        assertThat(ledger.beginTrim(job.id(), lease.epoch())).isNull();
+        ledger.trimCheckpoint(trim);
+        ledger.finishTrim(trim, CdsExportLedgerService.TrimOutcome.TRIMMED);
+        assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("KEPT");
+        assertThat(ledger.beginTrim(job.id(), lease.epoch())).isNull();
+        assertThatThrownBy(() -> ledger.finishTrim(trim, CdsExportLedgerService.TrimOutcome.TRIMMED))
+                .hasMessage("CDS_EXPORT_CLEANUP_FENCED");
+
+        var other = ledger.accept(document("recipient", "untrusted-checkpoint"));
+        var stopped = ledger.claim(other.id(), COMPATIBLE);
+        ledger.recordCheckpoint(stopped, pointer('2', 1), 0);
+        ledger.stop(stopped, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+        var rejected = ledger.beginTrim(other.id(), stopped.epoch());
+        ledger.finishTrim(rejected, CdsExportLedgerService.TrimOutcome.REJECTED);
+        assertThat(ledger.expiredArtifacts(100)).contains(other.id());
+        assertThat(eventCodes(other.id(), "CHECKPOINT_REJECTED"))
+                .containsExactly("CDS_EXPORT_CHART_CHECKPOINT_INVALID");
+    }
+
     @Test
     void shouldRollbackAttemptCreation_whenItsClaimAuditFails() {
         var job = ledger.accept(document("recipient"));
