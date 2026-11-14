@@ -222,6 +222,11 @@ final class CdsExportChartCheckpointPersister {
         return charts;
     }
 
+    /** The highest patient the sealed chain names; 0 before the first seal. */
+    int lastPatient() {
+        return lastPatient;
+    }
+
     /** True when the ledger has recorded the newest sealed member (or nothing was sealed). */
     boolean recorded() {
         return recorded;

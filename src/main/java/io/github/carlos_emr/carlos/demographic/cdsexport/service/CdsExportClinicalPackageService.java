@@ -628,6 +628,7 @@ public class CdsExportClinicalPackageService {
     private final CdsExportDisclosurePolicyService disclosure;
     private final CdsExportAuditPersister audit;
     private final CdsExportDataSummaryOccurrenceService dataSummaries;
+    private final CdsExportChartAdoptionService adoption;
 
     /** Without data summaries: a capture that holds data-summary tables is refused. */
     public CdsExportClinicalPackageService(
@@ -655,7 +656,7 @@ public class CdsExportClinicalPackageService {
                 null);
     }
 
-    @org.springframework.beans.factory.annotation.Autowired
+    /** Without adoption: every attempt keeps its checkpoint and builds every chart. */
     public CdsExportClinicalPackageService(
             CdsExportStagingFactory stores,
             CdsExportCohortService cohorts,
@@ -668,6 +669,36 @@ public class CdsExportClinicalPackageService {
             CdsExportDisclosurePolicyService disclosure,
             CdsExportAuditPersister audit,
             CdsExportDataSummaryOccurrenceService dataSummaries) {
+        this(
+                stores,
+                cohorts,
+                ledger,
+                captures,
+                payloads,
+                documents,
+                naming,
+                inventories,
+                disclosure,
+                audit,
+                dataSummaries,
+                null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CdsExportClinicalPackageService(
+            CdsExportStagingFactory stores,
+            CdsExportCohortService cohorts,
+            CdsExportLedgerService ledger,
+            CdsExportNativeCaptureService captures,
+            CdsExportRetainedPayloadService payloads,
+            CdsExportPatientDocumentService documents,
+            CdsExportPatientFileBindingService naming,
+            CdsExportPackageInventoryService inventories,
+            CdsExportDisclosurePolicyService disclosure,
+            CdsExportAuditPersister audit,
+            CdsExportDataSummaryOccurrenceService dataSummaries,
+            CdsExportChartAdoptionService adoption) {
+        this.adoption = adoption;
         this.dataSummaries = dataSummaries;
         this.stores = Objects.requireNonNull(stores);
         this.cohorts = Objects.requireNonNull(cohorts);
@@ -735,13 +766,19 @@ public class CdsExportClinicalPackageService {
         // Every finished chart and held patient is also sealed, as the roster goes, into this
         // attempt's checkpoint, so an attempt that stops leaves an exact, authenticated list of
         // what it finished; the ledger records the newest member on the attempt row.
-        var checkpoints =
-                new CdsExportChartCheckpointPersister(
-                        store,
-                        lease.runId(),
-                        lease.epoch(),
-                        CdsExportChartFingerprints.parameters(
-                                lease, applicationVersion, clinicalZone, bounds, xmlLimits, tables));
+        // A resumed attempt also reads the finished charts its job's earlier attempts kept, and
+        // adopts each one whose capture it finds unchanged (CdsExportChartAdoptionService).
+        var parameters =
+                CdsExportChartFingerprints.parameters(
+                        lease, applicationVersion, clinicalZone, bounds, xmlLimits, tables);
+        var resume =
+                adoption == null
+                        ? CdsExportChartAdoptionService.withoutPriors(
+                                lease, ledger, store, parameters)
+                        : adoption.open(lease, store, parameters, control);
+        var checkpoints = resume.checkpoints();
+        // Adopted charts not yet in the chart audit, by the attempt they were adopted from.
+        var adoptedAudit = new TreeMap<Long, List<Integer>>();
         // Inbox rows linked to no patient hold no chart and are never read. Count them once for
         // this generation, before any chart is captured, so their exclusion is recorded in the
         // run's event ledger, the diagnostic report and the ReadMe instead of being silent.
@@ -772,6 +809,9 @@ public class CdsExportClinicalPackageService {
                     // never silently omitted; infrastructure failures still stop the whole job.
                     Captured captured;
                     read.append(patient.patient());
+                    // A chart an earlier attempt kept for this patient, adopted below only if the
+                    // patient's new capture is exactly the one it was built from.
+                    var candidate = resume.candidate(patient.patient());
                     try {
                         // One authorization session per patient: every step's check is answered
                         // once, and endPatient re-runs every grant fresh after the last read and
@@ -785,7 +825,10 @@ public class CdsExportClinicalPackageService {
                                         bounds,
                                         applicationVersion,
                                         control,
-                                        inFlight);
+                                        inFlight,
+                                        resume,
+                                        candidate,
+                                        store);
                         control.endPatient(patient.patient());
                     } catch (CdsExportReviewException
                             | CdsExportMappingReviewException
@@ -800,48 +843,43 @@ public class CdsExportClinicalPackageService {
                         // disclosure manifest and the encrypted ReadMe, not in the log.
                         LOG.warn("CDS_EXPORT_PATIENT_HELD run={} code={}", lease.runId(), code);
                         if (control.checkpointDue() || checkpoints.full())
-                            pinned = checkpoint(lease, checkpoints, owned, 0, pinned);
+                            pinned = checkpoint(resume, owned, pinned, false, lease);
                         continue;
                     } finally {
                         // Never let a session outlive its patient, whatever ended it.
                         control.discardPatient();
                     }
-                    var source = captured.source();
-                    var document = captured.document();
-                    var name = captured.name();
+                    var chart = captured.chart();
+                    var name = chart.naming();
                     expectedMembers =
-                            Math.addExact(expectedMembers, 1L + document.attachments().size());
+                            Math.addExact(expectedMembers, 1L + chart.attachments().size());
                     var path = new CdsExportPathComposer().compose(name);
                     String relative = path.physicianFolder() + "/" + path.patientXmlFile();
-                    var noteScope = source.capture().tables().get("casemgmt_note");
-                    var notes =
-                            noteScope == null
-                                    ? List.<CdsExportNoteAccessDto>of()
-                                    : noteScope.noteAccess();
-                    if (document.patient() != patient.patient()) invalid();
+                    // An adopted chart's path is the one its naming record composes, as for a
+                    // built chart.
+                    if (chart.patient() != patient.patient() || !relative.equals(chart.relative()))
+                        invalid();
                     // The chart leaves memory here: later steps read it from the spool. Two
                     // charts under one archive path are found when the spool is sorted by path.
-                    var chart =
-                            new Chart(
-                                    document.patient(),
-                                    document.sourceManifestSha256(),
-                                    relative,
-                                    name,
-                                    document.xml(),
-                                    document.attachments(),
-                                    document.validation(),
-                                    captured.dataSummaries(),
-                                    captured.listed(),
-                                    captured.notExported(),
-                                    notes);
                     charts.append(relative, encode(chart));
                     for (var member : inFlight) own(owned, member);
                     inFlight.clear();
                     checkpoints.chart(
                             chart.patient(),
                             captured.reusable(),
-                            CdsExportChartFingerprints.capture(source.capture()),
+                            captured.fingerprint(),
                             checkpointRecord(chart));
+                    if (captured.adoptedFrom() > 0) {
+                        resume.accepted();
+                        var batch =
+                                adoptedAudit.computeIfAbsent(
+                                        captured.adoptedFrom(), ignored -> new ArrayList<>());
+                        batch.add(chart.patient());
+                        if (batch.size() == 100) {
+                            audit.adopted(lease, batch, captured.adoptedFrom());
+                            adoptedAudit.remove(captured.adoptedFrom());
+                        }
+                    }
                     // Two names for one billing number are ambiguous; physicians without a
                     // number (and the Unassigned folder) are told apart by name only.
                     if (name.physicianBillingNumber() != null
@@ -861,14 +899,24 @@ public class CdsExportClinicalPackageService {
                                     name.physicianBillingNumber(),
                                     prior == null ? 1 : Math.addExact(prior.patientFiles(), 1)));
                     if (control.checkpointDue() || checkpoints.full())
-                        pinned = checkpoint(lease, checkpoints, owned, 0, pinned);
+                        pinned = checkpoint(resume, owned, pinned, false, lease);
                 }
                 if (!cursor.complete()
                         || patients != initial.totalPatients()
                         || patients != charts.records() + held.size()) invalid();
             }
-            // The whole roster is in the checkpoint before packaging starts.
-            pinned = checkpoint(lease, checkpoints, owned, 0, pinned);
+            // The whole roster is in the checkpoint before packaging starts, and every earlier
+            // attempt's kept charts have been decided again: they are released.
+            pinned = checkpoint(resume, owned, pinned, true, lease);
+            auditAdopted(lease, adoptedAudit);
+            if (resume.adopted() > 0)
+                // Counts only.
+                LOG.info(
+                        "CDS_EXPORT_CHARTS_ADOPTED run={} epoch={} adopted={} built={}",
+                        lease.runId(),
+                        lease.epoch(),
+                        resume.adopted(),
+                        charts.records() - resume.adopted());
             long packaged = charts.records();
             auditReads(lease, held.patients, CdsExportAuditPersister.ReadOutcome.HELD, audited);
             // Every selected patient held back: there is no package to publish.
@@ -1122,12 +1170,18 @@ public class CdsExportClinicalPackageService {
                 // Seal what this attempt finished and has not sealed yet, so that it can be kept
                 // for a resumed attempt. Best effort: the lease may be gone, or the store may be
                 // what failed; the chain then ends at the last member the ledger recorded.
-                if (checkpoints.pending() || !checkpoints.recorded())
+                if (checkpoints.pending() || !resume.recorded())
                     try {
-                        pinned = checkpoint(lease, checkpoints, owned, 0, pinned);
+                        pinned = checkpoint(resume, owned, pinned, false, lease);
                     } catch (IOException | RuntimeException cleanup) {
                         if (primary != null && cleanup != primary) primary.addSuppressed(cleanup);
                     }
+                // Adopted charts are chart reads too, whether or not the job goes on.
+                try {
+                    auditAdopted(lease, adoptedAudit);
+                } catch (RuntimeException cleanup) {
+                    if (primary != null && cleanup != primary) primary.addSuppressed(cleanup);
+                }
                 // Erase what this attempt staged, except what the recorded checkpoint pins: the
                 // finished charts it names and its own members. The ledger keeps those for a
                 // resumed attempt when the job can be resumed, and the retention sweep erases
@@ -1159,6 +1213,7 @@ public class CdsExportClinicalPackageService {
                     if (cleanup != primary) primary.addSuppressed(cleanup);
                 }
             }
+            resume.close();
             // The spools are intermediates of this step, whether it finished or not.
             for (var spool : List.of(charts, owned))
                 try {
@@ -1184,26 +1239,28 @@ public class CdsExportClinicalPackageService {
                             .CdsExportChartCheckpointDto.PURPOSE);
 
     /**
-     * Seals the finished charts and held patients waiting in {@code checkpoints} as the next
-     * member of the attempt's checkpoint, owns the member, and records it on the attempt row.
+     * Seals the finished charts and held patients waiting in the attempt's checkpoint as its next
+     * member, owns the member, and records it on the attempt row, with the charts adopted so far
+     * and the earlier attempts this attempt has superseded ({@code complete} at the end of the
+     * roster, when every one is).
      *
      * @param pinned the owned members the checkpoint recorded so far pins
      * @return the owned members the recorded checkpoint pins now: every owned member so far, of
      *     which the finished charts' outputs and the checkpoint's members are kept if the attempt
-     *     stops; {@code pinned} when nothing was waiting
+     *     stops; {@code pinned} when nothing new was recorded
      */
     private long checkpoint(
-            CdsExportLeaseDto lease,
-            CdsExportChartCheckpointPersister checkpoints,
+            CdsExportChartAdoptionService.Session resume,
             CdsExportSpoolService owned,
-            long adopted,
-            long pinned)
+            long pinned,
+            boolean complete,
+            CdsExportLeaseDto lease)
             throws IOException {
-        var member = checkpoints.seal();
+        var member = resume.checkpoints().seal();
         if (member != null) own(owned, member);
-        if (checkpoints.recorded()) return pinned;
+        if (resume.recorded() && !complete) return pinned;
         try {
-            ledger.recordCheckpoint(lease, checkpoints.latest(), adopted);
+            resume.record(complete);
         } catch (RuntimeException failed) {
             // A database that failed for a moment records nothing now; the next seal records the
             // newest member, which pins everything sealed before it. Any other failure stops.
@@ -1214,8 +1271,16 @@ public class CdsExportClinicalPackageService {
                     failed.getClass().getSimpleName());
             return pinned;
         }
-        checkpoints.markRecorded();
         return owned.records();
+    }
+
+    /** Writes the chart audit of every adopted chart not yet in it. */
+    private void auditAdopted(CdsExportLeaseDto lease, Map<Long, List<Integer>> adopted) {
+        for (var iterator = adopted.entrySet().iterator(); iterator.hasNext(); ) {
+            var batch = iterator.next();
+            if (!batch.getValue().isEmpty()) audit.adopted(lease, batch.getValue(), batch.getKey());
+            iterator.remove();
+        }
     }
 
     /**
@@ -1275,19 +1340,24 @@ public class CdsExportClinicalPackageService {
     /**
      * One finished chart of this attempt.
      *
+     * @param fingerprint the SHA-256 fingerprint of the capture the chart was built from, or of
+     *     the new capture an adopted chart was found identical to
      * @param reusable false when the chart's build read an input its capture does not hold
      *     ({@link CdsExportChartInputs}), so no later attempt may adopt it
+     * @param adoptedFrom the earlier attempt the chart was adopted from; 0 for a built chart
      */
     private record Captured(
             CdsExportPatientCaptureDto source,
-            CdsExportPatientDocumentService.Document document,
-            CdsExportPatientFileDto name,
-            Map<String, Long> dataSummaries,
-            List<io.github.carlos_emr.carlos.commn.dto.CdsExportListedSourceDto> listed,
-            Map<String, Long> notExported,
-            boolean reusable) {}
+            Chart chart,
+            String fingerprint,
+            boolean reusable,
+            long adoptedFrom) {}
 
-    /** One selected patient's capture, retained payload, finished document and file binding. */
+    /**
+     * One selected patient's capture, then the chart: adopted from an earlier attempt when that
+     * attempt kept a reusable chart built from exactly this capture, built otherwise (retained
+     * payload, finished document and file binding).
+     */
     private Captured capturePatient(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
@@ -1295,12 +1365,37 @@ public class CdsExportClinicalPackageService {
             CdsExportClinicalOccurrenceService.Bounds bounds,
             String applicationVersion,
             CdsExportRunControl control,
-            List<CdsExportStagedFileDto> owned)
+            List<CdsExportStagedFileDto> owned,
+            CdsExportChartAdoptionService.Session resume,
+            CdsExportChartAdoptionService.Candidate candidate,
+            CdsExportStagingService store)
             throws IOException {
         // Whether the build reads anything its capture does not hold (a printed form's live
         // reference rows): such a chart is never adopted by a later attempt.
         try (var inputs = CdsExportChartInputs.open()) {
-            var built =
+            // The same capture, reads, authorization and audit whether the chart is adopted or
+            // built: adoption is decided on what the patient's rows are now.
+            var source =
+                    captures.capture(
+                            lease, patient, tables, bounds.fields(), bounds.bytes(), control);
+            var captureMembers =
+                    List.of(source.manifest(), source.capture().values(), source.capture().index());
+            owned.addAll(captureMembers);
+            String fingerprint = CdsExportChartFingerprints.capture(source.capture());
+            if (candidate != null) {
+                var adopted = resume.adopt(candidate, fingerprint, source, store);
+                if (adopted != null) {
+                    // Only the new capture's fingerprint was needed; the chart is adopted whole.
+                    for (var member : captureMembers) {
+                        owned.remove(member);
+                        store.discardUnpublished(member);
+                    }
+                    owned.addAll(adopted.members());
+                    return new Captured(
+                            source, adopted.chart(), fingerprint, true, adopted.sourceEpoch());
+                }
+            }
+            var chart =
                     buildPatient(
                             lease,
                             patient,
@@ -1309,19 +1404,14 @@ public class CdsExportClinicalPackageService {
                             applicationVersion,
                             xmlLimits,
                             control,
-                            owned);
-            return new Captured(
-                    built.source(),
-                    built.document(),
-                    built.name(),
-                    built.dataSummaries(),
-                    built.listed(),
-                    built.notExported(),
-                    inputs.reusable());
+                            owned,
+                            source);
+            return new Captured(source, chart, fingerprint, inputs.reusable(), 0);
         }
     }
 
-    private Captured buildPatient(
+    /** Builds one patient's chart from its capture: retained payload, document, file binding. */
+    private Chart buildPatient(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patient,
             Set<String> tables,
@@ -1329,12 +1419,9 @@ public class CdsExportClinicalPackageService {
             String applicationVersion,
             CdsExportXmlLimitsDto xmlLimits,
             CdsExportRunControl control,
-            List<CdsExportStagedFileDto> owned)
+            List<CdsExportStagedFileDto> owned,
+            CdsExportPatientCaptureDto source)
             throws IOException {
-        var source =
-                captures.capture(lease, patient, tables, bounds.fields(), bounds.bytes(), control);
-        owned.addAll(
-                List.of(source.manifest(), source.capture().values(), source.capture().index()));
         var retained =
                 payloads.freeze(
                         lease,
@@ -1380,14 +1467,21 @@ public class CdsExportClinicalPackageService {
             withheld.putAll(
                     dataSummaries.notExported(lease, patient, tables, source, bounds, control));
         document.notExported().forEach((label, count) -> withheld.merge(label, count, Long::sum));
-        return new Captured(
-                source,
-                document,
+        var path = new CdsExportPathComposer().compose(name);
+        var noteScope = source.capture().tables().get("casemgmt_note");
+        // The chart's patient is checked against the cohort once its session has closed.
+        return new Chart(
+                document.patient(),
+                document.sourceManifestSha256(),
+                path.physicianFolder() + "/" + path.patientXmlFile(),
                 name,
+                document.xml(),
+                document.attachments(),
+                document.validation(),
                 summaries,
                 listed(lease, patient, tables, source, bounds, control),
                 withheld,
-                true);
+                noteScope == null ? List.<CdsExportNoteAccessDto>of() : noteScope.noteAccess());
     }
 
     /** The captured listed-table counts of one patient, read back from the sealed capture. */
