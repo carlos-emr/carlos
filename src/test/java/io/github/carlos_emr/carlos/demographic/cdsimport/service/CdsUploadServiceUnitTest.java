@@ -61,6 +61,8 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     @TempDir Path temporary;
     private CdsUploadService service;
     private CdsUploadDao uploads;
+    private CdsImportAdmissionDao admission;
+    private PlatformTransactionManager manager;
     private CdsImportAdmission budget;
     private final Map<String, CdsUpload> stored = new HashMap<>();
     private static final String OWNER = "web-42";
@@ -70,7 +72,7 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     void prepare() {
         stored.clear();
         uploads = mock(CdsUploadDao.class);
-        CdsImportAdmissionDao admission = mock(CdsImportAdmissionDao.class);
+        admission = mock(CdsImportAdmissionDao.class);
         budget = new CdsImportAdmission();
         budget.setId("UPLOAD_BUDGET");
         when(admission.lock("UPLOAD_BUDGET")).thenReturn(budget);
@@ -105,8 +107,16 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
                         })
                 .when(uploads)
                 .merge(any());
-        PlatformTransactionManager manager = mock(PlatformTransactionManager.class);
+        manager = mock(PlatformTransactionManager.class);
         when(manager.getTransaction(any())).thenAnswer(call -> new SimpleTransactionStatus());
+        service = service(Map.of());
+    }
+
+    /**
+     * An upload service over the shared fixture. The deployment still sets the retired 4 MiB file
+     * and 8 MiB total budgets, which no longer refuse anything.
+     */
+    private CdsUploadService service(Map<String, String> overrides) {
         Properties properties = new Properties();
         properties.setProperty("cds.import.enabled", "true");
         properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
@@ -115,9 +125,9 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         properties.setProperty("cds.import.upload.maxFileBytes", Long.toString(4L << 20));
         properties.setProperty("cds.import.upload.maxTotalBytes", Long.toString(8L << 20));
         properties.setProperty("cds.import.minimumFreeDiskBytes", "1");
-        service =
-                new CdsUploadService(
-                        uploads, admission, new CdsImportConfigurationService(properties), manager);
+        overrides.forEach(properties::setProperty);
+        return new CdsUploadService(
+                uploads, admission, new CdsImportConfigurationService(properties), manager);
     }
 
     @Test
@@ -505,14 +515,78 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
-    void shouldAvoidInodeGrowth_whenCapacityRefusesNewUpload() throws Exception {
-        service.begin(OWNER, "source.xml", 100);
+    void shouldAcceptUploads_pastTheRetiredFileAndTotalByteBudgets() throws Exception {
+        // Already past the retired 8 MiB total, a 64 GiB upload begins and takes its chunks.
         budget.setReservedBytes(8L << 20);
+        var large = service.begin(OWNER, "large-export.zip", 64L << 30);
+        assertThat(large.expectedBytes()).isEqualTo(64L << 30);
+        byte[] first = new byte[CHUNK];
+        java.util.Arrays.fill(first, (byte) 3);
+        var after =
+                service.append(
+                        OWNER, large.id(), 0, CHUNK, hash(first), new ByteArrayInputStream(first));
+        assertThat(after.receivedBytes()).isEqualTo(CHUNK);
+        assertThat(budget.getReservedBytes()).isEqualTo((8L << 20) + (64L << 30));
+    }
+
+    @Test
+    void shouldRefuseAChunkAtTheDiskReserve_andResumeTheSameUploadOnceSpaceReturns()
+            throws Exception {
+        var upload = service.begin(OWNER, "source.xml", CHUNK + 7);
+        // No store has this much free space: the chunk is refused before a byte is written.
+        var full =
+                service(
+                        Map.of(
+                                "cds.import.minimumFreeDiskBytes",
+                                Long.toString(Long.MAX_VALUE / 2)));
+        byte[] first = new byte[CHUNK];
+        java.util.Arrays.fill(first, (byte) 5);
+        assertThatThrownBy(
+                        () ->
+                                full.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        CHUNK,
+                                        hash(first),
+                                        new ByteArrayInputStream(first)))
+                .hasMessage("UPLOAD_DISK_RESERVE_REFUSED");
+        assertThat(service.status(OWNER, upload.id()).receivedBytes()).isZero();
+        Path payload = temporary.resolve("uploads").resolve(upload.id()).resolve("source.xml");
+        assertThat(Files.exists(payload) ? Files.size(payload) : 0L).isZero();
+        var resumed =
+                service.append(
+                        OWNER, upload.id(), 0, CHUNK, hash(first), new ByteArrayInputStream(first));
+        assertThat(resumed.receivedBytes()).isEqualTo(CHUNK);
+    }
+
+    @Test
+    void shouldNameTheRetiredUploadBudgetsOnce_withoutTheirValues() throws Exception {
+        try (var log =
+                io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                        CdsImportConfigurationService.class)) {
+            service.begin(OWNER, "one.xml", 10);
+            service.begin(OWNER, "two.xml", 10);
+            assertThat(log.events()).hasSize(1);
+            assertThat(log.messages().getFirst())
+                    .contains(
+                            "CDS_IMPORT_RETIRED_SETTINGS_IGNORED",
+                            "cds.import.upload.maxFileBytes",
+                            "cds.import.upload.maxTotalBytes")
+                    .doesNotContain(Long.toString(4L << 20))
+                    .doesNotContain(Long.toString(8L << 20));
+        }
+    }
+
+    @Test
+    void shouldAvoidInodeGrowth_whenThePendingUploadCountRefusesANewUpload() throws Exception {
+        var counted = service(Map.of("cds.import.upload.maxFiles", "1"));
+        counted.begin(OWNER, "source.xml", 100);
         long before;
         try (var files = Files.list(temporary.resolve("uploads"))) {
             before = files.count();
         }
-        assertThatThrownBy(() -> service.begin(OWNER, "source.xml", 100))
+        assertThatThrownBy(() -> counted.begin(OWNER, "source.xml", 100))
                 .hasMessage("UPLOAD_CAPACITY_BUSY");
         try (var files = Files.list(temporary.resolve("uploads"))) {
             assertThat(files.count()).isEqualTo(before);

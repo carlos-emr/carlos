@@ -558,7 +558,9 @@
 
         async function transfer(file, resumeId) {
             if (!global.crypto?.subtle) throw new Error('UPLOAD_SECURE_CONTEXT_REQUIRED');
-            if (!Number.isSafeInteger(file.size) || file.size < 1 || file.size > Number(root.dataset.maxFileBytes)
+            // No upload size is refused: the server stores any file chunk by chunk until its
+            // store reaches the free-disk reserve.
+            if (!Number.isSafeInteger(file.size) || file.size < 1
                     || !/\.(xml|zip)$/i.test(file.name)) throw new Error('UPLOAD_FILE_SIZE_OR_TYPE_REFUSED');
             let receipt;
             if (resumeId) {
