@@ -163,6 +163,8 @@
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryNativeReconcilerUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryOccurrenceServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryRetainedSourceUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryWindowMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHistoryWindowUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationCaptureMariaDbIntegrationTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationCaptureValidatorUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportImmunizationDateProjectionUnitTest",

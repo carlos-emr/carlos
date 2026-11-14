@@ -123,6 +123,76 @@ class CdsExportSectionWindowPlannerUnitTest {
     }
 
     @Test
+    void shouldHalveTheWindow_whenEveryOwnerFittedAndOtherStatePassedTheLimit() throws Exception {
+        // The owners are counted first and all fit; what the window holds for them (here a
+        // later pass's witnesses, a hundred bytes an owner) then passes the limit. That says
+        // nothing about how many owners fit, so the window halves: it used to shrink by one
+        // owner a load, reading a 64-owner window fifty-four times before ten fitted.
+        var ids = ids(64);
+        var sizes = new ArrayList<Long>();
+        int[] loads = {0};
+        CdsExportSectionWindowPlanner.forEachWindow(
+                64,
+                new Limits(64, 1_000),
+                owners -> {
+                    for (String id : ids) owners.add(id);
+                },
+                (window, budget) -> {
+                    loads[0]++;
+                    for (String id : ids) if (window.contains(id)) budget.owner(1);
+                    if (!budget.add(1, window.size() * 100)) return false;
+                    sizes.add(window.size());
+                    return true;
+                });
+        assertThat(sizes).hasSize(8).containsOnly(8L);
+        // The whole chart, 32 and 16 owners abandoned, then eight windows of eight.
+        assertThat(loads[0]).isEqualTo(11);
+    }
+
+    @Test
+    void shouldLoadAPulledWindowAgainSmaller_whenItPassesTheByteLimit() throws Exception {
+        // A section that asks for its windows one at a time: forty owners of a hundred bytes,
+        // seven of which fit. A window of one owner is never abandoned, whatever it holds.
+        var sizes = new CdsExportSectionWindowPlanner.Sizes(new Limits(16, 700));
+        var lengths = new ArrayList<Integer>();
+        int[] loads = {0};
+        int remaining = 40;
+        while (remaining > 0) {
+            var loaded =
+                    CdsExportSectionWindowPlanner.loadNext(
+                            sizes,
+                            remaining,
+                            (length, budget) -> {
+                                loads[0]++;
+                                for (int i = 0; i < length; i++)
+                                    if (!budget.owner(100)) return null;
+                                return length;
+                            });
+            assertThat(loaded.value()).isEqualTo(loaded.length());
+            lengths.add(loaded.length());
+            remaining -= loaded.length();
+        }
+        assertThat(lengths).containsExactly(7, 7, 7, 7, 7, 5);
+        // Sixteen owners were too large once; no other window was read twice.
+        assertThat(loads[0]).isEqualTo(7);
+        var one =
+                CdsExportSectionWindowPlanner.loadNext(
+                        new CdsExportSectionWindowPlanner.Sizes(new Limits(1, 10)),
+                        3,
+                        (length, budget) -> budget.owner(1_000_000) ? "held" : null);
+        assertThat(one.value()).isEqualTo("held");
+        assertThat(one.length()).isEqualTo(1);
+        assertThatThrownBy(
+                        () ->
+                                CdsExportSectionWindowPlanner.loadNext(
+                                        new CdsExportSectionWindowPlanner.Sizes(
+                                                new Limits(4, 10)),
+                                        0,
+                                        (length, budget) -> "never"))
+                .hasMessage("CDS_EXPORT_SECTION_WINDOW_INVALID");
+    }
+
+    @Test
     void shouldCountEachKindOfStateApart_againstTheSameByteLimit() throws Exception {
         long windows =
                 CdsExportSectionWindowPlanner.forEachWindow(

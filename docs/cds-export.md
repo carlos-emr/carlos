@@ -1283,7 +1283,7 @@ the same table together. A section therefore reads its rows in windows
 | Printed prescriptions (`CdsExportPrescriptionOccurrenceService.forEachSource`) | streamed | one script at a time; the public provider rows. Every drug row is checked in a pass that keeps none |
 | Reports: imported reports and native documents (`CdsExportReportOccurrenceService`; through `CdsExportReportContextPlanner.forEachIdentity` the inventory's companion and supplementary records) | windowed | the document and link rows of the window's documents, their witnesses, their reviewer and inbox route rows and their captured file descriptors (the file bytes are streamed from the capture when an attachment is staged); every public provider row the chart names. Held for the chart: for a chart read in windows, the number of each native document (four bytes) and the number of each document an imported report used (a reference to an id the retained index holds) |
 | Hospital reports (`CdsExportHospitalReportOccurrenceService`, `forEachIdentity` for the inventory) | windowed | the rows, links, comments, subclasses, routes and file descriptors of the window's stored reports; one report's message parsed at a time. Held for the chart read in windows: the number of each stored report (four bytes) |
-| History and notes | not windowed | the section's rows with their witnesses (`CdsExportHistoryCurrentContext`) |
+| History: the seven note categories (`CdsExportHistoryOccurrenceService`, `CdsExportHistoryCurrentContext`; the history inventory plans from the same chart-wide facts) | windowed | the window's note chains, each with every revision, its extensions, issue links and attached records; the patient issues those links name with their catalogue entries; the patient issue of each standalone diagnosis; the rows the window's import units name; each with its witness. Held for a chart read in windows: each case-management row's key (16 bytes), each note's captured scope, a bit for each note that needs the native carrier, each patient issue's catalogue entry (8 bytes) and each catalogue entry's CPP tag (a byte); and for every chart, the planned occurrences (each chain's revision numbers) and the revision inventory (40 bytes a note) |
 | Demographics, the demographic NewCategory record and the patient alert (`CdsExportDemographicOccurrenceService`, `CdsExportDemographicSupportingReader`) | one occurrence, read whole | the patient's row, properties, contacts, pharmacies and roster states with their witnesses, and the public provider rows. They are one window of one owner (the element is built from all of them together), so no count of them refuses the chart; the former `CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_RESOURCE_LIMIT` at `maxNativeRows` rows a table and `maxIndexBytes` is gone. Each row costs about 2 KB plus its values |
 | The patient's file name (`CdsExportPatientFileBindingService`) | streamed | the patient's row and the selected physician's provider row; the other provider rows are read past (they were held, and counted against `maxLookupRows` and `maxIndexBytes`) |
 
@@ -1370,16 +1370,43 @@ to a value stream is compared with its row again. What an imported chart still h
 sections is the retained import index itself (`CdsExportRetainedIndexService`, for the patient's
 session) and the receipt comparison.
 
-One section is not windowed. **History** (the seven note categories) still reads
-`cds.export.maxNativeRows` (8,192) and `maxLookupRows` (131,072) from the plan and stops the job
-with `RESOURCE_LIMIT` when a chart has more than 8,192 rows in one of its note tables, or more
-than 131,072 `issue` rows (`CdsExportHistoryCurrentContext.read`): it holds every row of those
-tables with its witness while it reconciles them, so lifting the numbers without a window would
-hold the whole chart on the heap. It needs a window of notes: the revisions, issue links and
-note links of a run of notes, with the revision inventory and the imported history records fed
-by window. `cds.export.maxIndexBytes` is still passed to the note revision inventory;
-`cds.export.maxIndexRows` no longer refuses anything and is retired (accepted and ignored, see
-"What can still stop a large export").
+**History** (the seven note categories, `CdsExportHistoryOccurrenceService` with
+`CdsExportHistoryCurrentContext`). The owners are the section's occurrences in the order they are
+emitted: a note chain (every revision of one note, which is one occurrence) or a standalone
+diagnosis (a patient issue no CPP item links). A note's revisions, extensions, issue links and
+attached records (`casemgmt_note_link`) travel with it; the patient issues its links name and
+their catalogue entries are read by every window whose notes link them. A chart whose six
+case-management tables each hold at most 8,192 rows, and whose rows and witnesses count at most
+64 MiB, is read whole by the one witness pass and the one row pass that always read it. A larger
+chart is first proved complete in two passes that keep, for each row, its key and one SHA-256
+of every cell its witness froze (`CdsExportCaseManagementProjectionEvidence.reduce`, 48 bytes a
+row while the passes run and 16 after): the row pass checks each row against that digest and
+every rule the whole read applies (a note is the patient's under its captured scope; an
+extension, link or attached record names a captured note; a link joins a captured patient issue;
+a patient issue is the patient's and names a captured catalogue entry; no row has two witnesses
+and none has none), and keeps only what the plan needs: each note's scope, a bit for each note
+whose own columns or attached records need the native carrier, each link as two numbers, each
+patient issue's catalogue entry and each catalogue entry's CPP tag. Each category's occurrences
+are then read a window at a time (`CdsExportSectionWindowPlanner.loadNext`): one row pass that
+keeps the rows of the window's notes and the patient issues and catalogue entries they name,
+and one witness pass for those rows, every row checked against its whole witness before it is
+used. The window is dropped before the next one is read.
+
+The CPP grouping that spans notes is decided once, from the chart-wide facts, never from a
+window: a chain's section comes from the CPP tags its current revision links
+(`CdsExportHistoryCurrentContext.category`); whether a diagnosis stands alone comes from every
+revision of every chain that links it; and a catalogue entry no exported issue names holds the
+chart as it does when read whole. A standalone diagnosis is mapped with the program of each note
+revision that links it, which the note's verified scope carries
+(`CdsExportNativeHistoryMapper.mapLinkedIssue`), so the encounter notes that may link one
+diagnosis by the thousand are not loaded for it. The window of an imported item also reads every
+row its import unit names, whichever note that row now belongs to, so the field reconciler
+compares the same rows as when the chart is read whole; a note so named is never one of the
+window's owners. When all seven categories were emitted, the windows took every note, extension,
+issue link and attached record the capture holds, each once (`requireEveryRowTaken`).
+`cds.export.maxNativeRows` and `maxLookupRows` no longer refuse a chart here: a chart of 8,193
+notes, and one of 131,073 diagnoses, are exported (`CdsExportHistoryWindowUnitTest`). The plan
+of the history inventory (`CdsExportHistoryInventoryService`) reads the same chart-wide facts.
 
 
 #### What can still stop a large export
@@ -1701,7 +1728,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 65,536 archive rows, 65,536 providers and 64 MiB | `CdsExportEnrolmentHistory`, `CdsExportRetainedEnrolmentReconciler`, `CdsExportEnrolmentProjectionService`, `CdsExportEnrolmentXmlWriter` | the whole job | every archived roster state is read |
 | 8,192 enrolment entries, 65,536 fields, 16 MiB; 131,072 units; 128 fields and 1 MiB | `CdsExportRetainedEnrolmentSource`, `CdsExportRetainedContactBinding`, `CdsExportRetainedPharmacyBinding` (the retained source of an imported chart) | the whole job | read whole |
 | 16 uses of one provider row | `CdsExportDemographicRetainedCoreReconciler` | the whole job (`CDS_EXPORT_DEMOGRAPHIC_PROVIDER_USES_LIMIT`) | every use is recorded |
-| 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed here; the history occurrence service's own window still applies |
+| 8,192 revisions of a note, 8,192 note rows, chains or reviews per chart | `CdsExportNativeHistoryMapper`, `CdsExportNoteRevisionPlanner` | the job | removed; the history section reads its notes window by window (see "Section windows") |
 | 8,192 notes in the note scope read, in one note authorization call and in the revision inventory, and the inventory's estimate of its receipts against the caller's byte bound (about 3,500 notes at the default) | `CdsExportNoteAccessDao.readScopes`, `CdsExportNoteSourceReader`, `CdsExportAccessService.requireNotesRead`, `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionReader` | the patient (`CDS_EXPORT_RESOURCE_LIMIT`), or the job | removed: the scopes and the authorization are read 8,192 notes a statement; the inventory counts every note and holds its receipts in the worker's heap |
 | 4 MiB for one capture's manifest (about 40,000 notes) | `CdsExportNativeCaptureService` | the job (`CDS_EXPORT_CAPTURE_MANIFEST_LIMIT`) | removed: the manifest is written and read as a stream |
 | 8 MiB of retained import options for one chart | `CdsExportRetainedIndexService` | the job (`CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: each run's options are still verified, not added up |
@@ -1729,9 +1756,8 @@ What these mappers hold in memory is one chart's rows of the tables they map (it
 `demographicExt` properties, contacts, pharmacies, `demographicArchive` roster states, note
 revision numbers, prevention rows), each about 2 KB plus its values; nothing is shared between
 charts. The occurrence services that hand rows to these mappers are a separate matter: see
-"Section windows" for the ones that read a chart window by window and the one (History) that
-still stops at `cds.export.maxNativeRows` and `maxLookupRows`. The imported NewCategory
-records of a chart are no longer counted against `maxNativeRows`
+"Section windows" for the sections that read a chart window by window, History included. The
+imported NewCategory records of a chart are no longer counted against `maxNativeRows`
 (`CdsExportNewCategoryOccurrenceService.parents`).
 
 Required limits that no longer hold a patient (second pass):
@@ -4125,8 +4151,8 @@ last first, and is exact in the revision's extension facts in `CARLOS.NativeHist
 character XML cannot carry is written with U+FFFD in its place and its exact text travels in
 the revision details (`exactNarrative`). The mapper and the revision planner no longer refuse a note with
 more than 8,192 revisions or a chart with more than 8,192 note rows, and neither do the note
-scope read, the note authorization or the revision inventory; the occurrence service's
-own window still applies (see the capacity table).
+scope read, the note authorization, the revision inventory or the occurrence service, which
+reads a long chart's notes window by window (see "Section windows").
 
 PersonalHistory allows only `ResidualInfo`. Its narrative travels exactly in
 `CARLOS.History.Narrative.v1`, an escaped JSON string (`"Lives\u0020alone.\n..."`) that a CARLOS

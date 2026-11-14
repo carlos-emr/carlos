@@ -360,6 +360,7 @@ public class CdsExportHistoryOccurrenceService {
                                     if (session.failed || !session.emitted.equals(selected))
                                         throw new IOException(
                                                 "CDS_EXPORT_HISTORY_SOURCE_WORK_INCOMPLETE");
+                                    session.requireEveryRowTaken();
                                     streams.requireActive();
                                     captures.authorizeCapturedSources(
                                             lease, patient, tables, source.capture(), control);
@@ -386,7 +387,13 @@ public class CdsExportHistoryOccurrenceService {
         private final CdsExportScreeningOccurrenceService screenings;
         private final CdsExportProblemRegistryOccurrenceService registries;
         private final CdsExportNoteRevisionPlanner.Result inventory;
-        private final CdsExportHistoryCurrentContext context;
+        /** The chart: held whole, or its facts when its rows are read window by window. */
+        private final CdsExportHistoryCurrentContext chart;
+        /**
+         * Rows the windows of a chart read in windows took, over every category: notes,
+         * extensions, issue links and note links.
+         */
+        private final long[] taken = new long[4];
         private final CdsExportRetainedIndexDto index;
         private final CdsExportRetainedReceiptVerificationDto checked;
         private final List<CdsExportRetainedFieldDto> retained;
@@ -431,7 +438,7 @@ public class CdsExportHistoryOccurrenceService {
             this.screenings = screenings;
             this.registries = registries;
             this.inventory = inventory;
-            this.context = context;
+            this.chart = context;
             this.index = index;
             this.checked = checked;
             // The list is unmodifiable and decodes a field when it is read
@@ -461,10 +468,15 @@ public class CdsExportHistoryOccurrenceService {
                 control.checkpoint();
                 var used = new HashSet<String>();
                 long count = 0, fields = 0, nativeOnly = 0;
+                // A chart held whole hands every occurrence the one context it always had. A
+                // chart read in windows hands each run of consecutive occurrences the rows of
+                // those occurrences, loaded and verified before the first of them is emitted.
+                var windows = new Windows(category);
                 for (var occurrence : occurrences)
                     if (occurrence.category() == category) {
                         control.checkpoint();
                         streams.requireActive();
+                        var context = windows.rows(occurrence);
                         var access = context.scope(occurrence.noteId());
                         // Issue programs accepted by a fresh program check are checked again
                         // after emission, as note scopes are.
@@ -478,7 +490,7 @@ public class CdsExportHistoryOccurrenceService {
                                     return allowed;
                                 };
                         if (occurrence.sourceCategory() != null) {
-                            refiled(occurrence, category, readable, granted, output);
+                            refiled(occurrence, category, context, readable, granted, output);
                             count++;
                             fields =
                                     Math.addExact(
@@ -488,9 +500,16 @@ public class CdsExportHistoryOccurrenceService {
                         }
                         if (occurrence.address() == null) {
                             var current = new ArrayList<CdsExportHistoryFieldReconciler.Current>();
+                            // For an issue, what its rule reads of the note revisions linked to
+                            // it is their program, which each note's verified scope carries; the
+                            // notes themselves are not loaded for it.
+                            var linkedPrograms = new ArrayList<String>();
                             for (long id : occurrence.revisions()) {
-                                control.authorizeNote(category, context.scope(id));
-                                current.add(context.note(id));
+                                var scope = context.scope(id);
+                                if (scope == null) invalid();
+                                control.authorizeNote(category, scope);
+                                if (occurrence.issueId() == null) current.add(context.note(id));
+                                else linkedPrograms.add(scope.program());
                             }
                             CdsExportNativeHistoryMapper.Result mapped;
                             if (occurrence.issueId() == null) {
@@ -513,11 +532,11 @@ public class CdsExportHistoryOccurrenceService {
                                 // For an issue, revisions() are the note revisions linked to it.
                                 mapped =
                                         new CdsExportNativeHistoryMapper()
-                                                .mapIssue(
+                                                .mapLinkedIssue(
                                                         patient.patient(),
                                                         issue,
                                                         definition,
-                                                        current,
+                                                        linkedPrograms,
                                                         readable);
                             }
                             new CdsExportNativeFieldAssessmentValidator()
@@ -661,6 +680,7 @@ public class CdsExportHistoryOccurrenceService {
                         count++;
                         fields = Math.addExact(fields, accounted.size());
                     }
+                windows.finish();
                 if (category == CdsCategory.ALERTS_AND_SPECIAL_NEEDS && alert != null) {
                     var identity =
                             new CdsExportIdentityDto(
@@ -777,6 +797,7 @@ public class CdsExportHistoryOccurrenceService {
         private void refiled(
                 Occurrence occurrence,
                 CdsCategory category,
+                CdsExportHistoryCurrentContext context,
                 java.util.function.Predicate<String> readable,
                 Set<String> granted,
                 CdsExportClinicalOccurrenceService.Receipts output)
@@ -864,6 +885,111 @@ public class CdsExportHistoryOccurrenceService {
                             ids));
         }
 
+        /**
+         * The rows of one category's occurrences. For a chart read in windows, a window is a run
+         * of consecutive occurrences in the order they are emitted, and it holds whole owners:
+         * every revision of each note chain with its extensions, issue links and attached
+         * records, the patient issue of each standalone issue, the patient issues and catalogue
+         * entries their links name, and the rows the import unit of an imported item names. A
+         * window that passes the window's bytes is read again with fewer occurrences before any
+         * of them is emitted; one occurrence is never abandoned.
+         *
+         * <p>Nothing a window decides spans notes: which section a chain belongs to, and whether
+         * a diagnosis stands alone, were decided by {@code plan} from the chart-wide facts
+         * before the first window was read, so a chain or a diagnosis is emitted the same way
+         * whichever window holds it.
+         */
+        private final class Windows {
+            private final List<Occurrence> owners;
+            private final CdsExportSectionWindowPlanner.Sizes sizes;
+            private CdsExportHistoryCurrentContext loaded;
+            /** Occurrences handed out, and the end of the window that is loaded. */
+            private int next, end;
+
+            private Windows(CdsCategory category) {
+                if (!chart.windowed()) {
+                    owners = List.of();
+                    sizes = null;
+                    return;
+                }
+                var selected = new ArrayList<Occurrence>();
+                for (var occurrence : occurrences)
+                    if (occurrence.category() == category) selected.add(occurrence);
+                owners = selected;
+                sizes = new CdsExportSectionWindowPlanner.Sizes(bounds.window());
+            }
+
+            private CdsExportHistoryCurrentContext rows(Occurrence occurrence) throws IOException {
+                if (!chart.windowed()) return chart;
+                if (next >= owners.size() || owners.get(next) != occurrence) invalid();
+                if (next == end) {
+                    int from = end;
+                    // The emitted window is dropped before the next one is read, so a chart
+                    // never holds two windows of rows.
+                    loaded = null;
+                    var window =
+                            CdsExportSectionWindowPlanner.loadNext(
+                                    sizes,
+                                    owners.size() - from,
+                                    (length, budget) -> load(from, length, budget));
+                    loaded = window.value();
+                    end = from + window.length();
+                    long[] children = loaded.taken();
+                    for (int i = from; i < end; i++)
+                        if (owners.get(i).issueId() == null)
+                            taken[0] = Math.addExact(taken[0], owners.get(i).revisions().size());
+                    for (int i = 0; i < children.length; i++)
+                        taken[i + 1] = Math.addExact(taken[i + 1], children[i]);
+                }
+                next++;
+                return loaded;
+            }
+
+            private CdsExportHistoryCurrentContext load(
+                    int from, int length, CdsExportSectionWindowPlanner.Budget budget)
+                    throws IOException {
+                var notes = new HashSet<Long>();
+                var issues = new HashSet<String>();
+                var references = new ArrayList<CdsExportRetainedIndexDto.Reference>();
+                for (var owner : owners.subList(from, from + length)) {
+                    if (owner.issueId() != null) {
+                        issues.add(owner.issueId());
+                        continue;
+                    }
+                    // Each note belongs to one chain and each chain is one occurrence.
+                    for (long revision : owner.revisions()) if (!notes.add(revision)) invalid();
+                    if (owner.address() != null)
+                        references.addAll(
+                                index.references().getOrDefault(owner.address(), List.of()));
+                }
+                return chart.window(notes, issues, references, budget);
+            }
+
+            /** Every occurrence of the category was handed the window that holds its rows. */
+            private void finish() throws IOException {
+                if (chart.windowed() && (next != owners.size() || end != owners.size())) invalid();
+                loaded = null;
+            }
+        }
+
+        /**
+         * For a chart read in windows whose seven categories were all emitted: the windows took
+         * every note, extension, issue link and note link the capture holds, each once. A row
+         * whose note is in no window is taken by none and makes its count fall short.
+         */
+        private void requireEveryRowTaken() throws IOException {
+            if (!chart.windowed() || !expected.equals(CdsExportNoteSourceReader.CATEGORIES))
+                return;
+            var captured = source.capture().tables();
+            if (taken[0] != captured.get("casemgmt_note").rows()
+                    || taken[1] != captured.get("casemgmt_note_ext").rows()
+                    || taken[2] != captured.get("casemgmt_issue_notes").rows()
+                    || taken[3]
+                            != (captured.containsKey(CdsExportHistoryCurrentContext.NOTE_LINKS)
+                                    ? captured.get(CdsExportHistoryCurrentContext.NOTE_LINKS).rows()
+                                    : 0)) invalid();
+        }
+
         @Override
         public String toString() {
             return "CdsExportHistorySource[protected]";
@@ -930,7 +1056,7 @@ public class CdsExportHistoryOccurrenceService {
             }
             if (parents.size() > 1) ambiguous();
             var parent = parents.isEmpty() ? null : parents.getFirst();
-            var current = CdsExportNativeHistoryMapper.category(context.note(chain.currentNoteId()));
+            var current = context.category(chain.currentNoteId());
             // An imported item keeps its import's section unless a clinician re-filed it into
             // another CPP section (its category tag changed): it is then exported under its
             // current section, carrying the import's section elements (B5 re-filing).
@@ -945,28 +1071,25 @@ public class CdsExportHistoryOccurrenceService {
                                     ? null
                                     : parent.category());
             for (long revision : chain.revisions()) {
-                var note = context.note(revision);
-                for (var link : note.links()) {
-                    String id = link.fields().get("id");
+                for (String id : context.linkedIssues(revision)) {
                     linkedRevisions.computeIfAbsent(id, ignored -> new TreeSet<>()).add(revision);
                     linkedCategories
                             .computeIfAbsent(id, ignored -> EnumSet.noneOf(CdsCategory.class))
                             .add(occurrence.category());
-                    var issue = note.patientIssues().get(id);
+                    String issue = context.definitionOf(id);
                     if (issue == null) invalid();
-                    definitions.add(issue.value().fields().get("issue_id"));
+                    definitions.add(issue);
                 }
             }
             result.add(occurrence);
         }
         if (!byNote.isEmpty()) review();
         for (String id : context.patientIssueIds()) {
-            var issue = context.original("casemgmt_issue", id);
-            var definition = context.original("issue", issue.value().fields().get("issue_id"));
-            if (definition == null) invalid();
+            String definition = context.definitionOf(id);
+            if (definition == null || !context.hasDefinition(definition)) invalid();
             var categories =
                     linkedCategories.getOrDefault(id, EnumSet.noneOf(CdsCategory.class));
-            if (CdsExportNativeHistoryMapper.systemDefinition(definition)) {
+            if (context.systemDefinition(definition)) {
                 // A CPP tag or another system marker (OMeds, TicklerNote, eyeform*, PatientLog,
                 // CurrentHistory, ...) files notes; it is not a diagnosis. Each linked note
                 // carries it: as its CPP category, and with the complete issue and catalogue
@@ -985,16 +1108,16 @@ public class CdsExportHistoryOccurrenceService {
             // element, so it is exported once, as a ProblemList entry.
             if (categories.stream().anyMatch(category -> category != CdsCategory.CLINICAL_NOTES))
                 continue;
-            definitions.add(definition.value().fields().get("issue_id"));
+            definitions.add(definition);
             result.add(
                     new Occurrence(
-                            CdsExportNativeHistoryMapper.issueCategory(definition),
+                            context.issueCategory(definition),
                             null,
                             0,
                             List.copyOf(linkedRevisions.getOrDefault(id, new TreeSet<>())),
                             id));
         }
-        if (!definitions.equals(context.definitionIds())) review();
+        if (!context.definitionsAre(definitions)) review();
         result.sort(
                 Comparator.comparing(Occurrence::category)
                         .thenComparing(Occurrence::table)
@@ -1034,29 +1157,9 @@ public class CdsExportHistoryOccurrenceService {
         if (occurrence.address() == null
                 || occurrence.sourceCategory() != null
                 || occurrence.revisions().size() > 1) return true;
-        // The retained import source has no place for what a note is attached to; only the
-        // native revision context carries it. (The CARLOS importer writes no note links, so an
-        // imported note has one only if CARLOS attached it to a record later.)
-        if (!context.note(occurrence.noteId()).noteLinks().isEmpty()) return true;
-        // A single imported revision can acquire archive, signature or encounter context too.
-        // Route it through the same qualified native carrier used for complete revision chains.
-        var fields = context.note(occurrence.noteId()).note().value().fields();
-        for (String column :
-                List.of(
-                        "archived",
-                        "signed",
-                        "signing_provider_no",
-                        "history",
-                        "encounter_type",
-                        "billing_code",
-                        "appointmentNo",
-                        "hourOfEncounterTime",
-                        "minuteOfEncounterTime",
-                        "hourOfEncTransportationTime",
-                        "minuteOfEncTransportationTime")) {
-            String value = fields.get(column);
-            if (value != null && !value.isEmpty() && !value.equals("0")) return true;
-        }
+        // What the note's own row and attached records decide is the same whether the chart
+        // is held whole or read in windows (CdsExportHistoryCurrentContext.nativeContextNote).
+        if (context.nativeContextNote(occurrence.noteId())) return true;
         return occurrence.category() == CdsCategory.PERSONAL_HISTORY;
     }
 

@@ -296,12 +296,67 @@ final class CdsExportSectionWindowPlanner {
     }
 
     /**
+     * Loads one window of {@code length} owners for a section that pulls its windows. It returns
+     * null only when the {@link Budget} was exceeded, and then it has kept nothing.
+     */
+    @FunctionalInterface
+    interface WindowLoad<T> {
+        T load(int length, Budget budget) throws IOException;
+    }
+
+    /** The window size a section that pulls its windows carries from one window to the next. */
+    static final class Sizes {
+        private final Limits limits;
+        private int size;
+
+        Sizes(Limits limits) {
+            this.limits = Objects.requireNonNull(limits);
+            size = limits.rows();
+        }
+    }
+
+    /** What {@link #loadNext} loaded and how many owners it holds. */
+    record Loaded<T>(T value, int length) {}
+
+    /**
+     * Loads the next window of a section that asks for its windows one at a time, because its
+     * emission is a loop of its own and cannot be handed over as {@link WindowWork}: at most
+     * {@link Sizes}' current size of the {@code remaining} owners. A load that was too large is
+     * made again with fewer owners, and a load that used at most half the byte limit doubles the
+     * next window, exactly as {@link #forEachWindowOf} does; a window of one owner is never
+     * abandoned. The load completes before anything of the window is emitted.
+     */
+    static <T> Loaded<T> loadNext(Sizes sizes, int remaining, WindowLoad<T> load)
+            throws IOException {
+        Objects.requireNonNull(sizes);
+        Objects.requireNonNull(load);
+        if (remaining < 1) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+        while (true) {
+            int length = Math.min(sizes.size, remaining);
+            var budget = new Budget(sizes.limits, length > 1);
+            T loaded = load.load(length, budget);
+            if (loaded != null) {
+                if (budget.exceeded()) throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+                if (length == sizes.size && budget.halfEmpty())
+                    sizes.size = (int) Math.min(sizes.limits.rows(), length * 2L);
+                return new Loaded<>(loaded, length);
+            }
+            if (!budget.exceeded() || length == 1)
+                throw new IOException("CDS_EXPORT_SECTION_WINDOW_INVALID");
+            sizes.size = smaller(length, budget);
+        }
+    }
+
+    /**
      * The next window size after one of {@code length} owners was too large: as many owners as
-     * were counted before the limit, when the load counted them, otherwise half. Always fewer
-     * than before, so the loop ends at one owner.
+     * were counted before the limit, when the limit was met while the owners were being counted,
+     * otherwise half. A load that counted every owner of the window and then met the limit with
+     * other state (a child row, a witness read in a later pass) says nothing about how many
+     * owners fit: it halves, instead of trying one owner fewer each time. Always fewer than
+     * before, so the loop ends at one owner.
      */
     private static int smaller(int length, Budget budget) {
-        long hint = budget.fitted > 0 ? budget.fitted : length / 2;
+        long hint = budget.fitted > 0 && budget.fitted < length ? budget.fitted : length / 2;
         return (int) Math.max(1, Math.min(length - 1L, hint));
     }
 }
