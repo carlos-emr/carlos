@@ -170,10 +170,16 @@ class CdsExportAllergyFieldReconcilerUnitTest {
                                 .fields()
                                 .get("native_baseline"))
                 .isNull();
+        // An allergy imported before the native baseline was recorded (2026.08.0-beta7) and
+        // changed since: no column can be shown unchanged, so the whole allergy is the current
+        // row's and every group is current. It held the patient
+        // (CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED).
         var fields = baseline();
         fields.put("reaction", "Changed after legacy import");
-        assertThatThrownBy(() -> reconcile(fixture(fields, false, source()), List.of()))
-                .hasMessage("CDS_EXPORT_ALLERGY_FIELD_BASELINE_REQUIRED");
+        var changed = reconcile(fixture(fields, false, source()), List.of());
+        assertThat(changed.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(changed.mapping().value().reaction()).isEqualTo("Changed after legacy import");
+        assertThat(changed.currentPaths()).contains("OffendingAgentDescription", "Reaction");
     }
 
     @Test

@@ -60,14 +60,14 @@ public final class CdsExportDemographicCareAssembler {
         for (var row : concat(contacts.associations(), contacts.contacts())) {
             checkpoint.run(); var keys = new HashSet<CdsExportNativeFieldKeyDto>(); row.fields().keySet().forEach(column -> keys.add(new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column)));
             if (Collections.disjoint(keys, professional.deferredNativeFields())) continue;
-            if (!professional.deferredNativeFields().containsAll(keys)) throw new IOException("CDS_EXPORT_CONTACT_SHARED_ROLE_REQUIRES_REVIEW");
+            if (!professional.deferredNativeFields().containsAll(keys)) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_CONTACT_SHARED_ROLE_REQUIRES_REVIEW");
             remaining.addAll(keys); personalRows.add(row);
             contacts.witnesses().stream().filter(item -> item.table().equals(row.table()) && item.recordKey().equals(row.recordKey())).forEach(personalWitnesses::add);
         }
         if (!remaining.equals(professional.deferredNativeFields())) scope();
         var personalContactIds = new HashSet<String>(); personalRows.stream().filter(row -> row.table().equals("Contact")).forEach(row -> personalContactIds.add(row.fields().get("id")));
         for (var row : personalRows) if (row.table().equals("DemographicContact") && "2".equals(row.fields().get("type")) && !personalContactIds.contains(row.fields().get("contactId"))) {
-            throw new IOException("CDS_EXPORT_CONTACT_SHARED_ROLE_REQUIRES_REVIEW");
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_CONTACT_SHARED_ROLE_REQUIRES_REVIEW");
         }
         var personal = new CdsExportContactRetainedAssembler().prepare(patient, core.unitAddress(), index, checked, allFields,
                 personalRows.stream().filter(row -> row.table().equals("DemographicContact")).toList(), personalRows.stream().filter(row -> row.table().equals("Contact")).toList(),

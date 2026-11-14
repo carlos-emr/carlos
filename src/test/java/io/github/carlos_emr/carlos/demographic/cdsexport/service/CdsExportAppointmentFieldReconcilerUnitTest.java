@@ -125,11 +125,22 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRejectAnEditedLegacyRow_whenNoRecordedFieldBaselineCanProveThePriorValues() {
+    void shouldExportAnEditedLegacyRowFromItsCurrentColumns_withoutBackfillingAnOriginalValue()
+            throws Exception {
+        // An import made before the native baseline was recorded (2026.08.0-beta7): once the
+        // booking changed no column can be shown unchanged, so every element is the current
+        // row's and the imported ones are replaced. It held the patient
+        // (CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED). The edit is never taken for an
+        // original value.
         baseline = false;
         current.put("notes", "An edit cannot be backfilled as an original value");
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().notes())
+                .isEqualTo("An edit cannot be backfilled as an original value");
+        assertThat(result.mapping().value().status()).isEqualTo("Original imported status");
+        assertThat(result.currentPaths())
+                .contains("AppointmentNotes", "AppointmentPurpose", "AppointmentStatus");
     }
 
     @Test
@@ -141,11 +152,17 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldRejectAnUnknownLegacyShape_insteadOfDroppingAnotherCapturedColumn() {
+    void shouldExportALegacyRowOfAnotherShapeFromItsCurrentColumns_insteadOfHolding()
+            throws Exception {
+        // The receipt's digest was taken over another column set, so the witness cannot stand in
+        // for the row the import wrote, and no column is dropped to make it match: the booking
+        // is decided from its current columns. It held the patient
+        // (CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED).
         baseline = false;
         old.remove("billing");
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths()).doesNotContain("AppointmentNotes");
     }
 
     @Test
@@ -303,8 +320,8 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
         baseline = false;
         assertThat(reconcile().mapping().value()).isNotNull();
         current.put("notes", "Edited");
-        assertThatThrownBy(this::reconcile)
-                .hasMessage("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
+        // Edited since a legacy import: decided from the current columns, never held.
+        assertThat(reconcile().mapping().value().notes()).isEqualTo("Edited");
     }
 
     @Test

@@ -459,11 +459,20 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldNotInventExactHistoricalFloatEvidence_fromAnUnchangedLegacyDisplay()
+    void shouldDecideALegacyImportWithoutABaseline_fromItsCurrentRowInsteadOfHolding()
             throws Exception {
+        // An import made before the native baseline was recorded (2026.08.0-beta7) keeps only
+        // its receipt's digest, and the witness of an exact float column cannot stand in for the
+        // row the import wrote. No exact historical float is invented: the whole prescription is
+        // the current row's, by the rule of a never-imported one, and every element group is
+        // current. It held the patient (CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED).
         var f = fixture(baseline(), numbers(), false);
-        assertThatThrownBy(() -> reconcile(f))
-                .hasMessage("CDS_EXPORT_MEDICATION_FIELD_BASELINE_REQUIRED");
+        var result = reconcile(f);
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.preparedPaths())
+                .doesNotContain("Dosage", "DrugName", "PrescriptionStatus/PastMedications");
+        assertThat(result.currentPaths())
+                .contains("Dosage", "DrugName", "PrescriptionStatus/PastMedications");
     }
 
     @Test

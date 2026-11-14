@@ -238,16 +238,24 @@ public final class CdsExportContactFieldReconciler {
                         associationWitness,
                         "DemographicContact",
                         checkpoint);
-        if (!matches(oldContact, "id", contactWitness.id())
-                || !matches(oldAssociation, "id", associationWitness.id())
-                || !matches(oldAssociation, "demographicNo", Integer.toString(patient))
-                || !matches(oldAssociation, "contactId", contactWitness.id())
-                || !matches(oldAssociation, "type", "2")
-                || !matches(oldAssociation, "category", "personal")
-                || !matches(oldAssociation, "active", "1")
-                || !matches(oldAssociation, "deleted", "0")
-                || !matches(oldContact, "type", "Contact")
-                || !matches(oldContact, "deleted", "0")) scope();
+        // An import made before the native baseline was recorded (V1.0.59.40; 2026.08.0-beta7
+        // and earlier builds) keeps only its receipt's digest of the rows it wrote. Once either
+        // row changed (Manage Contacts, the contact editor) no column can be shown unchanged: the
+        // contact is decided from its current rows, as any contact added in CARLOS, and the
+        // imported element is replaced. It held the patient (CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED,
+        // a job failure until then).
+        boolean legacyCurrent = oldContact == null || oldAssociation == null;
+        if (!legacyCurrent
+                && (!matches(oldContact, "id", contactWitness.id())
+                        || !matches(oldAssociation, "id", associationWitness.id())
+                        || !matches(oldAssociation, "demographicNo", Integer.toString(patient))
+                        || !matches(oldAssociation, "contactId", contactWitness.id())
+                        || !matches(oldAssociation, "type", "2")
+                        || !matches(oldAssociation, "category", "personal")
+                        || !matches(oldAssociation, "active", "1")
+                        || !matches(oldAssociation, "deleted", "0")
+                        || !matches(oldContact, "type", "Contact")
+                        || !matches(oldContact, "deleted", "0"))) scope();
         if (!Integer.toString(patient).equals(association.fields().get("demographicNo"))
                 || !contactWitness.id().equals(association.fields().get("contactId"))) scope();
         var relative = new TreeMap<String, CdsExportRetainedFieldDto>();
@@ -379,6 +387,13 @@ public final class CdsExportContactFieldReconciler {
                                 sourceContact,
                                 "EDITED_IMPORTED_CONTACT_ASSOCIATION_STATE_REQUIRES_REVIEW"));
             }
+        if (legacyCurrent) {
+            new CdsExportNativeFieldAssessmentValidator()
+                    .validate(rows, decisions, checkpoint);
+            values.requireActive();
+            checkpoint.run();
+            return new Result(binding, decisions, Set.of(), Set.of(), List.of(), false, true);
+        }
         var changes = new ArrayList<CdsExportRetainedSectionWriter.Change>();
         var expected = projection(source);
         var nativeRows = Map.of("Contact", contact, "DemographicContact", association);
@@ -744,10 +759,14 @@ public final class CdsExportContactFieldReconciler {
                         associationWitness,
                         "DemographicContact",
                         checkpoint);
-        if (!matches(oldAssociation, "id", associationWitness.id())
-                || !matches(oldAssociation, "demographicNo", Integer.toString(patient))
-                || !matches(oldAssociation, "contactId", importedContactId)
-                || !matches(oldAssociation, "type", "2")
+        // A legacy import (no baseline document) proves the association only by its receipt,
+        // whose Contact reference names the imported contact; its old columns cannot be read.
+        if (oldAssociation != null
+                        && (!matches(oldAssociation, "id", associationWitness.id())
+                                || !matches(
+                                        oldAssociation, "demographicNo", Integer.toString(patient))
+                                || !matches(oldAssociation, "contactId", importedContactId)
+                                || !matches(oldAssociation, "type", "2"))
                 || !Integer.toString(patient).equals(association.fields().get("demographicNo"))
                 || importedContactId.equals(association.fields().get("contactId"))) scope();
         var ids = new HashSet<String>();
@@ -773,7 +792,7 @@ public final class CdsExportContactFieldReconciler {
                         .findFirst()
                         .orElseThrow();
         if (ref.reason() == Reason.ROW_NOT_IN_CAPTURE)
-            throw new IOException("CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW");
+            throw review("CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW");
         requireCapturedWitness(row, witness, checkpoint);
         if (ref.currentDigest() == null)
             throw new IOException("CDS_EXPORT_CONTACT_NATIVE_WITNESS_REQUIRED");
@@ -788,7 +807,7 @@ public final class CdsExportContactFieldReconciler {
                                     item ->
                                             item.table().equals(table)
                                                     && item.id().equals(witness.id())))
-                throw new IOException("CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
+                throw review("CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
         }
         var old =
                 baseline == null
@@ -800,13 +819,16 @@ public final class CdsExportContactFieldReconciler {
                                                         && item.id().equals(witness.id()))
                                 .findFirst()
                                 .orElse(null);
+        // A legacy import (no baseline document) whose row changed: the caller decides the
+        // contact from its current rows.
+        if (old == null && baseline == null) return null;
         if (old == null || !old.digest().equals(ref.expected().digest()))
-            throw new IOException("CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED");
+            throw review("CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED");
         var difference = CdsNativeRowComparison.compare(old, witness.state());
         var operational =
                 table.equals("Contact") ? Set.of("updateDate") : Set.of("created", "updateDate");
         if (difference.schemaChanged() || !operational.containsAll(difference.unqualifiedColumns()))
-            throw new IOException("CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW");
+            throw review("CDS_EXPORT_CONTACT_FIELD_CODEC_REQUIRES_REVIEW");
         return old;
     }
 
@@ -958,18 +980,28 @@ public final class CdsExportContactFieldReconciler {
             while ((count = input.read(buffer)) != -1) {
                 checkpoint.run();
                 if (count == 0 || result.length() + count > maximum * 2)
-                    throw new IOException("CDS_EXPORT_CONTACT_SOURCE_VALUE_REQUIRES_REVIEW");
+                    throw review("CDS_EXPORT_CONTACT_SOURCE_VALUE_REQUIRES_REVIEW");
                 result.append(buffer, 0, count);
             }
         } finally {
             Arrays.fill(buffer, '\0');
         }
         if (result.codePointCount(0, result.length()) > maximum)
-            throw new IOException("CDS_EXPORT_CONTACT_SOURCE_VALUE_REQUIRES_REVIEW");
+            throw review("CDS_EXPORT_CONTACT_SOURCE_VALUE_REQUIRES_REVIEW");
         return result.toString();
     }
 
     private static void scope() throws IOException {
         throw new IOException("CDS_EXPORT_CONTACT_RECONCILIATION_SCOPE_INVALID");
+    }
+
+    /**
+     * What only a damaged ledger reaches (a row deleted outside CARLOS, two import units
+     * claiming one row, a baseline or source value that does not match its receipt or schema):
+     * that one patient is held under the code, never the whole job, as it was.
+     */
+    private static IOException review(String code) {
+        return new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                .CdsExportMappingReviewException(code);
     }
 }

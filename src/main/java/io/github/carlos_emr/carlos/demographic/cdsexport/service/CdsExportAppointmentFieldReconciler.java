@@ -131,12 +131,29 @@ public final class CdsExportAppointmentFieldReconciler {
             baseline =
                     CdsExportAppointmentProjectionEvidence.legacyNullLocationBaseline(
                             witness.state(), ref.digest());
-        if (baseline == null
-                || !baseline.digest().equals(ref.digest())
-                || !baseline.table().equals("appointment")
-                || !baseline.id().equals(ref.id()))
+        // An import made before the native baseline was recorded (V1.0.59.40; 2026.08.0-beta7
+        // and earlier builds) keeps only the receipt's digest of the row it wrote. Once the
+        // booking changed (an edit, a status set on the day sheet) no column can be shown
+        // unchanged: every column counts as changed, so each element is the current row's by the
+        // rule of a never-imported booking and the unit's source fields are listed as replaced.
+        // It held the patient (CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED).
+        boolean legacyCurrent = baseline == null && unit.fields().get("native_baseline") == null;
+        if (!legacyCurrent
+                && (baseline == null
+                        || !baseline.digest().equals(ref.digest())
+                        || !baseline.table().equals("appointment")
+                        || !baseline.id().equals(ref.id())))
             review("CDS_EXPORT_APPOINTMENT_FIELD_BASELINE_REQUIRED");
-        var difference = CdsExportAppointmentProjectionEvidence.compare(baseline, witness.state());
+        var difference =
+                legacyCurrent
+                        ? new io.github.carlos_emr.carlos.demographic.cds.contract
+                                .CdsNativeRowComparison(
+                                witness.state().columns().stream()
+                                        .map(column -> column.name())
+                                        .collect(java.util.stream.Collectors.toSet()),
+                                Set.of(),
+                                false)
+                        : CdsExportAppointmentProjectionEvidence.compare(baseline, witness.state());
         if (difference.schemaChanged() || !difference.unqualifiedColumns().isEmpty())
             review("CDS_EXPORT_APPOINTMENT_FIELD_CODEC_REQUIRES_REVIEW");
         var expected = new LinkedHashMap<String, String>();
@@ -150,10 +167,11 @@ public final class CdsExportAppointmentFieldReconciler {
         expected.put("notes", prepared.notes());
         expected.put("imported_status", prepared.status());
         expected.put("status", "");
-        for (var entry : expected.entrySet())
-            if (!CdsExportAppointmentProjectionEvidence.matches(
-                    baseline, entry.getKey(), entry.getValue()))
-                review("CDS_EXPORT_APPOINTMENT_PREPARED_PROJECTION_NOT_PROVEN");
+        if (!legacyCurrent)
+            for (var entry : expected.entrySet())
+                if (!CdsExportAppointmentProjectionEvidence.matches(
+                        baseline, entry.getKey(), entry.getValue()))
+                    review("CDS_EXPORT_APPOINTMENT_PREPARED_PROJECTION_NOT_PROVEN");
         var original =
                 new CdsExportAppointmentOriginalValues()
                         .read(patient, address, index, checked, retained, values, checkpoint);
@@ -166,9 +184,16 @@ public final class CdsExportAppointmentFieldReconciler {
                                 clinicalZone,
                                 demographic,
                                 // An end edited in CARLOS, or restored by the import from the
-                                // sender's source record, is the scheduler's inclusive end.
-                                difference.changedColumns().contains("start_time")
-                                                || difference.changedColumns().contains("end_time")
+                                // sender's source record, is the scheduler's inclusive end. A
+                                // legacy import's row (no baseline) keeps the end the import
+                                // wrote, start plus Duration, unless the source record restored it.
+                                !legacyCurrent
+                                                        && (difference
+                                                                        .changedColumns()
+                                                                        .contains("start_time")
+                                                                || difference
+                                                                        .changedColumns()
+                                                                        .contains("end_time"))
                                                 || prepared.source() != null
                                                         && prepared.source().nativeEnd()
                                         ? CdsExportAppointmentTimingMapper.EndConvention

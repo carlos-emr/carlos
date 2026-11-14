@@ -603,9 +603,19 @@ class CdsExportContactFieldReconcilerUnitTest {
     }
 
     @Test
-    void shouldVerifyAMissingHistoricalBaselineIsNeverBackfilled_fromTodaysRows() {
+    void shouldDecideAContactOfALegacyImport_fromItsCurrentRowsOnceChanged() throws Exception {
+        // An import made before the native baseline was recorded (2026.08.0-beta7 and earlier
+        // builds) keeps only its receipt's digests; a missing baseline is never backfilled from
+        // today's rows. Once a row changed, the contact is decided from its current rows as any
+        // contact added in CARLOS (Result.current: the imported element is replaced). It held
+        // the patient (CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED).
         baseline = false;
-        assertThatThrownBy(this::invoke).hasMessage("CDS_EXPORT_CONTACT_FIELD_BASELINE_REQUIRED");
+        var result = invoke();
+        assertThat(result.representable()).isTrue();
+        assertThat(result.current()).isTrue();
+        assertThat(result.superseded()).isFalse();
+        assertThat(result.changes()).isEmpty();
+        assertThat(result.fields()).isNotEmpty();
     }
 
     @Test
@@ -649,6 +659,10 @@ class CdsExportContactFieldReconcilerUnitTest {
                                         null,
                                         row("DemographicContact", 9, association),
                                         witness("DemographicContact", 9, association)))
+                // Only a damaged ledger reaches it: that one patient is held, never the job.
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_CONTACT_DELETION_REQUIRES_REVIEW");
     }
 
@@ -681,6 +695,10 @@ class CdsExportContactFieldReconcilerUnitTest {
                                         witness("Contact", 7, contact),
                                         row("DemographicContact", 9, association),
                                         witness("DemographicContact", 9, association)))
+                // Only a damaged ledger reaches it: that one patient is held, never the job.
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportMappingReviewException.class)
                 .hasMessage("CDS_EXPORT_CONTACT_ALIAS_REQUIRES_REVIEW");
     }
 
