@@ -444,9 +444,27 @@ class CdsExportDataSummaryStoredRowsUnitTest {
             String xml,
             List<Object> receipts,
             List<String> attachments,
-            long count) {}
+            long count,
+            io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl control) {}
 
     private Emitted emit(CdsExportDataSummaryOccurrenceService.Plan plan) throws Exception {
+        return emit(
+                plan,
+                Set.of(
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS,
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS),
+                Set.of("demographic", "tickler"));
+    }
+
+    /**
+     * @param categories the categories the job selected; the file holds Reports either way
+     * @param tables the tables of the capture
+     */
+    private Emitted emit(
+            CdsExportDataSummaryOccurrenceService.Plan plan,
+            Set<io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory> categories,
+            Set<String> tables)
+            throws Exception {
         var blank = new java.io.ByteArrayOutputStream();
         try (var document = new org.apache.pdfbox.pdmodel.PDDocument()) {
             document.addPage(new org.apache.pdfbox.pdmodel.PDPage());
@@ -476,6 +494,7 @@ class CdsExportDataSummaryStoredRowsUnitTest {
                 org.mockito.Mockito.mock(
                         io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto.class,
                         org.mockito.Mockito.RETURNS_DEEP_STUBS);
+        org.mockito.Mockito.when(lease.document().command().categories()).thenReturn(categories);
         var source =
                 org.mockito.Mockito.mock(
                         io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientCaptureDto.class,
@@ -505,10 +524,7 @@ class CdsExportDataSummaryStoredRowsUnitTest {
                         .map(new io.github.carlos_emr.carlos.commn.dto.CdsExportDemographicRowDto(27, demographic));
         long[] count = {0};
         var output = new java.io.ByteArrayOutputStream();
-        var selected =
-                Set.of(
-                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS,
-                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS);
+        var selected = CdsExportLegacyLaboratoryReports.sections(categories);
         // The real composer: the entries are compared as the patient file's own bytes.
         new CdsExportXmlComposer()
                 .composeFromSource(
@@ -535,7 +551,7 @@ class CdsExportDataSummaryStoredRowsUnitTest {
                                             lease,
                                             patient,
                                             KEY,
-                                            Set.of("demographic", "tickler"),
+                                            tables,
                                             source,
                                             control,
                                             emitter,
@@ -568,7 +584,48 @@ class CdsExportDataSummaryStoredRowsUnitTest {
                         16L << 20,
                         () -> {});
         return new Emitted(
-                html, output.toString(StandardCharsets.UTF_8), receipts, attachments, count[0]);
+                html,
+                output.toString(StandardCharsets.UTF_8),
+                receipts,
+                attachments,
+                count[0],
+                control);
+    }
+
+    @Test
+    void shouldWriteALegacyLabReportInReports_underLaboratoryResultsRightWhenReportsIsNotSelected()
+            throws Exception {
+        // Owner decision 2026-11-14: a job that selects LaboratoryResults without Reports still
+        // writes an MDS, CML or BC PathNet report, as the Lab Report data summary Reports writes,
+        // read under LaboratoryResults' right with sensitive results; with Reports selected the
+        // same record is written under Reports' right, as before.
+        var rows = new TreeMap<String, List<Row>>();
+        rows.put(
+                "mdsMSH",
+                List.of(
+                        row("mdsMSH", key(41), "segmentID", "41", "dateTime", "2026-07-09 14:35:00",
+                                "messageConID", "MDS-1")));
+        rows.put(
+                "mdsPID",
+                List.of(
+                        row("mdsPID", "00000000000000000001", "segmentID", "41", "patientName",
+                                "Fixture^Synthetic")));
+        var labs = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.LABORATORY_RESULTS;
+        var reports = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.REPORTS;
+        var demographics = io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory.DEMOGRAPHICS;
+        for (var selected : List.of(Set.of(demographics, labs), Set.of(demographics, labs, reports))) {
+            try (var result = stored(rows);
+                    var plan = plan(CdsExportDataSummaryPlanner.plan(result.rows(), TORONTO), result)) {
+                var emitted = emit(plan, selected, Set.of("demographic", "mdsMSH", "mdsPID"));
+                assertThat(emitted.count()).as(selected.toString()).isEqualTo(1);
+                assertThat(emitted.xml()).contains("<Reports>").contains("<Class>Lab Report</Class>");
+                boolean withoutReports = !selected.contains(reports);
+                org.mockito.Mockito.verify(emitted.control(), org.mockito.Mockito.atLeastOnce())
+                        .authorizeCategory(27, withoutReports ? labs : reports, withoutReports);
+                org.mockito.Mockito.verify(emitted.control(), org.mockito.Mockito.never())
+                        .authorizeCategory(27, withoutReports ? reports : labs, !withoutReports);
+            }
+        }
     }
 
     @Test
