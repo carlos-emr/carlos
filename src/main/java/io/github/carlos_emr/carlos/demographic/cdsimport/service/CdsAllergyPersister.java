@@ -29,6 +29,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsAllergyDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsTemporalDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsClinicalTransactions;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
 import java.io.IOException;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -65,9 +66,18 @@ public class CdsAllergyPersister {
         Allergy allergy = candidate(demographicNo, source);
         allergies.persist(allergy);
         allergies.flush();
-        partial(allergy.getId(), PartialDate.ALLERGIES_STARTDATE, source.start());
-        partial(allergy.getId(), PartialDate.ALLERGIES_ENTRYDATE, source.recorded());
-        return Map.of("allergies", String.valueOf(allergy.getId()));
+        // Every row written is returned, so the unit's receipt names these rows and no other
+        // date row that happens to carry the same allergy id.
+        Map<String, String> written = new java.util.LinkedHashMap<>();
+        written.put("allergies", String.valueOf(allergy.getId()));
+        partial(allergy.getId(), PartialDate.ALLERGIES_STARTDATE, source.start(), "start", written);
+        partial(
+                allergy.getId(),
+                PartialDate.ALLERGIES_ENTRYDATE,
+                source.recorded(),
+                "recorded",
+                written);
+        return written;
     }
 
     Allergy candidate(int demographicNo, CdsAllergyDto source) {
@@ -108,10 +118,16 @@ public class CdsAllergyPersister {
         return allergy;
     }
 
-    private void partial(int id, int field, CdsTemporalDto value) {
+    private void partial(
+            int id, int field, CdsTemporalDto value, String name, Map<String, String> written) {
         if (value.legacyPartialFormat() != null) {
-            dates.persist(
-                    new PartialDate(PartialDate.ALLERGIES, id, field, value.legacyPartialFormat()));
+            PartialDate date =
+                    new PartialDate(PartialDate.ALLERGIES, id, field, value.legacyPartialFormat());
+            dates.persist(date);
+            // The id the database gave the row; a row without one is never receipted.
+            if (date.getId() == null || date.getId() < 1)
+                throw new CdsImportException("ALLERGY_NATIVE_DATE_ID_MISSING");
+            written.put("partial_date#" + name, date.getId().toString());
         }
     }
 }

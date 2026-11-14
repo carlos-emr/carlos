@@ -58,15 +58,30 @@ failure evidence (exception types, SQLState/vendor codes and bounded class/metho
 messages or values) is what authorized web status and the one-shot CLI's `CDS_TECHNICAL` line
 show for it.
 
-The sealed native-baseline witness is read back with limits derived from the witness the
-importer can write, not from a generic default: the envelope admits the Base64 text of the
-largest plaintext witness (`CdsNativeBaselineCodec.MAX_BYTES`, sized for 192 rows of the widest
-native table at the column and cell bounds) at nesting depth 1, and the decrypted document admits
-the six nesting levels and 128-character strings its row, column and cell records can contain.
-Anything larger or deeper is still refused.
+The sealed native-baseline witness is read back whole. It is authenticated under the
+installation key, so only the importer writes one that opens, and its size is what the importer
+wrote: one row for each row its receipt names (the codec checks them row for row), each of a
+table of up to MariaDB's own 4,096 columns (`CdsNativeRowDigest.MAXIMUM_COLUMNS`). A target table
+widened locally is therefore receipted and witnessed whole, and its digest statement is as long as
+its columns make it (the server's `max_allowed_packet` is the only limit on it). The stored columns
+are LONGTEXT; the codec's `MAX_BYTES` and `MAX_SEALED_BYTES` are the VM's own limits on one array
+and one string, not format bounds. The envelope is one flat object, and the decrypted document
+admits the six nesting levels and 128-character strings its row, column and cell records can
+contain; anything deeper is refused. Witnesses earlier builds sealed (within their former 8 MiB
+document and 12 MiB envelope, protocols 3 and 4) still open.
 
-A receipt names at most 192 rows (`CdsTargetReceiptService.MAXIMUM_REFERENCES`), and no source
-file reaches that. A unit is one CDS element or one page of at most 32 source fields, and each
+A receipt names exactly the rows its unit wrote. Each writer returns the id of every row it
+inserted, its date, extension and issue-link rows included (a prescription's or allergy's
+`partial_date` rows, a vaccine's `preventionsExt` and `partial_date` rows, a note's
+`casemgmt_issue_notes` link), and the receipt digests those rows and no others. Nothing is found by
+key: `partial_date` and `preventionsExt` have no foreign key, so a row another writer left for a
+reused id would otherwise be named as the import's own (and, past 64 such rows, used to stop the
+unit with `TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW`). A unit's file references are found by the
+run and unit that wrote them; their id is the hash of run, unit and file, so that lookup names
+exactly the unit's own.
+
+A receipt names at most 192 rows (`CdsTargetReceiptService.MAXIMUM_REFERENCES`), the importer's
+own stored format, and no source file reaches that. A unit is one CDS element or one page of at most 32 source fields, and each
 kind writes a fixed set of rows (a demographic record at most 12, a vaccine at most 16, a report
 at most two representations of four rows each). Elements the schema lets repeat without limit (a
 result's ResultReviewer, a report's ReportReviewed, a note's NoteReviewer and

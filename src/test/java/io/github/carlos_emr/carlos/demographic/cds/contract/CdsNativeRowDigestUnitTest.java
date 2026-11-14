@@ -75,4 +75,19 @@ class CdsNativeRowDigestUnitTest {
                                         List.of(COLUMNS.getFirst(), COLUMNS.getFirst())))
                 .hasMessage("CDS_NATIVE_ROW_COLUMNS_INVALID");
     }
+
+    @Test
+    void shouldHashARow_whenTableIsWidenedToMariaDbsColumnLimit() {
+        // A target table widened locally to MariaDB's own 4,096 columns hashes whole; earlier
+        // builds refused anything past 512.
+        var columns = new java.util.ArrayList<CdsNativeRowDigest.Column>();
+        for (int i = 0; i < CdsNativeRowDigest.MAXIMUM_COLUMNS; i++)
+            columns.add(new CdsNativeRowDigest.Column("local_" + i, "INT", 10, 0));
+        var hasher = CdsNativeRowDigest.hasher(columns);
+        for (int i = 0; i < columns.size(); i++) hasher.append(true, 0, null);
+        assertThat(hasher.finish()).matches("[0-9a-f]{64}");
+        columns.add(new CdsNativeRowDigest.Column("local_beyond", "INT", 10, 0));
+        assertThatThrownBy(() -> CdsNativeRowDigest.hasher(columns))
+                .hasMessage("CDS_NATIVE_ROW_COLUMNS_INVALID");
+    }
 }

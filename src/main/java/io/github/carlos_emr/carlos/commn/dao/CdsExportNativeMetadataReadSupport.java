@@ -110,7 +110,7 @@ public final class CdsExportNativeMetadataReadSupport {
             try (var result = statement.executeQuery()) {
                 var metadata = result.getMetaData();
                 if (metadata.getColumnCount() < 1
-                        || metadata.getColumnCount() > 512) {
+                        || metadata.getColumnCount() > 4096) {
                     throw new IllegalStateException(
                             "CDS_EXPORT_RECEIPT_COLUMNS_REQUIRES_REVIEW");
                 }

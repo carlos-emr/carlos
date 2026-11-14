@@ -130,5 +130,26 @@ class CdsHistoryProjectionIntegrationTest extends CaseManagementNoteDaoBaseInteg
                         "casemgmt_note_ext#cdsDatePrecision",
                         "casemgmt_note_ext#cdsDateOriginal",
                         "casemgmt_note_ext#cdsDateField");
+        // The note's issue link is returned with the rows the unit wrote, so the receipt names
+        // that row rather than every link carrying the note's id.
+        assertThat(receipt)
+                .containsEntry(
+                        "casemgmt_issue_notes",
+                        receipt.get("casemgmt_note") + "_" + receipt.get("casemgmt_issue"));
+        assertThat(
+                        ((Number)
+                                        entityManager
+                                                .createNativeQuery(
+                                                        "select count(*) from casemgmt_issue_notes"
+                                                                + " where note_id=?1 and id=?2")
+                                                .setParameter(
+                                                        1,
+                                                        Long.valueOf(receipt.get("casemgmt_note")))
+                                                .setParameter(
+                                                        2,
+                                                        Long.valueOf(receipt.get("casemgmt_issue")))
+                                                .getSingleResult())
+                                .longValue())
+                .isEqualTo(1);
     }
 }

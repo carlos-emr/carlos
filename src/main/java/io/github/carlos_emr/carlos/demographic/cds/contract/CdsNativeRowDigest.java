@@ -34,6 +34,12 @@ import java.util.Locale;
  * supplies a missing baseline or proves field-level equivalence after a mismatch.
  */
 public final class CdsNativeRowDigest {
+    /**
+     * MariaDB's own limit on the columns of one table. A target table widened locally up to it is
+     * receipted and witnessed whole; the importer and the exporter read receipts under it.
+     */
+    public static final int MAXIMUM_COLUMNS = 4096;
+
     public record Column(String name, String type, int precision, int scale) {
         public Column {
             if (name == null
@@ -83,7 +89,7 @@ public final class CdsNativeRowDigest {
             this.columns = List.copyOf(columns);
             var names = new HashSet<String>();
             if (columns.isEmpty()
-                    || columns.size() > 512
+                    || columns.size() > MAXIMUM_COLUMNS
                     || columns.stream().anyMatch(column -> !names.add(column.name()))) {
                 throw new IllegalArgumentException("CDS_NATIVE_ROW_COLUMNS_INVALID");
             }

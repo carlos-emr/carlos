@@ -388,6 +388,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceContextRestorationUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsSourceFieldCapacityUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptMariaDbIntegrationTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTargetReceiptServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalReadServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsTemporalUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUnwrittenRevisionReviewServiceUnitTest",

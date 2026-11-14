@@ -401,6 +401,165 @@ class CdsTargetReceiptMariaDbIntegrationTest {
      * Frozen pre-extraction protocol algorithm; temporary fixture only, with no shared row-codec
      * dependency.
      */
+    @Test
+    void shouldNameOnlyTheUnitsOwnDateRows_whenSixtyFiveOrphanedRowsCarryTheNextDrugId()
+            throws Exception {
+        // partial_date has no foreign key: 65 date rows left behind for the id the next drug
+        // will get (a deleted drug's, here seeded directly) once stopped the unit with
+        // TARGET_DEPENDENCY_COUNT_REQUIRES_REVIEW and would otherwise have entered its receipt.
+        try (Connection connection = connection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            statement.execute(
+                    "CREATE TEMPORARY TABLE drugs (drugid INT AUTO_INCREMENT PRIMARY KEY,"
+                            + " demographic_no INT NOT NULL, takemin FLOAT, takemax FLOAT,"
+                            + " special MEDIUMTEXT CHARACTER SET utf8mb4)");
+            statement.execute(
+                    "CREATE TEMPORARY TABLE partial_date (id INT AUTO_INCREMENT PRIMARY KEY,"
+                            + " table_name INT, table_id INT, field_name INT, format VARCHAR(10),"
+                            + " KEY lookup (table_name, field_name, table_id, id))");
+            statement.execute(
+                    "CREATE TEMPORARY TABLE cds_import_file_reference (id VARCHAR(64) PRIMARY"
+                            + " KEY, run_id VARCHAR(36), unit_key VARCHAR(64), file_id"
+                            + " VARCHAR(64))");
+            try {
+                for (int n = 0; n < 65; n++)
+                    statement.executeUpdate(
+                            "INSERT INTO partial_date (table_name,table_id,field_name,format)"
+                                    + " VALUES (1,1,1,'YYYY')");
+                // The unit: its drug (id 1, the id the orphans carry) and its own two date rows.
+                statement.executeUpdate(
+                        "INSERT INTO drugs (demographic_no,takemin,takemax,special) VALUES"
+                                + " (974235,1.1,2.2,'Synthetic instructions')");
+                statement.executeUpdate(
+                        "INSERT INTO partial_date (table_name,table_id,field_name,format) VALUES"
+                                + " (1,1,1,'YYYY-MM'),(1,1,2,'YYYY')");
+                var written = new java.util.LinkedHashMap<String, String>();
+                written.put("drugs", "1");
+                written.put("partial_date#written", "66");
+                written.put("partial_date#start", "67");
+                var service = service(connection);
+                var receipt =
+                        service.capture(
+                                written,
+                                "11111111-1111-4111-8111-111111111111",
+                                "c".repeat(64));
+                var refs =
+                        new com.fasterxml.jackson.databind.ObjectMapper()
+                                .readTree(receipt.targetReferences())
+                                .path("refs");
+                var named = new java.util.ArrayList<String>();
+                for (var ref : refs)
+                    named.add(ref.path("table").asText() + "/" + ref.path("id").asText());
+                assertThat(named).containsExactly("drugs/1", "partial_date/66", "partial_date/67");
+                assertThat(service.verify(receipt)).isTrue();
+                // A change to a row another writer left is not a change to the unit.
+                statement.executeUpdate("UPDATE partial_date SET format='YYYY-MM' WHERE id=7");
+                assertThat(service.verify(receipt)).isTrue();
+                statement.executeUpdate("UPDATE partial_date SET format='YYYY' WHERE id=66");
+                assertThat(service.verify(receipt)).isFalse();
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    @Test
+    void shouldReceiptAndWitnessADrugsRow_whenTheTableIsWidenedTo600Columns() throws Exception {
+        // A clinic that added columns to drugs: 600 in all, past the 512 earlier builds refused.
+        // The importer receipts and witnesses the row whole, and the exporter reads the same
+        // receipt recipe back.
+        try (Connection connection = connection();
+                var statement = connection.createStatement()) {
+            connection.setAutoCommit(false);
+            var create =
+                    new StringBuilder(
+                            "CREATE TEMPORARY TABLE drugs (drugid INT AUTO_INCREMENT PRIMARY KEY,"
+                                    + " demographic_no INT NOT NULL, takemin FLOAT, takemax FLOAT,"
+                                    + " special MEDIUMTEXT CHARACTER SET utf8mb4");
+            for (int n = 1; n <= 595; n++) create.append(", w").append(n).append(" TINYINT");
+            statement.execute(create.append(")").toString());
+            try {
+                statement.executeUpdate(
+                        "INSERT INTO drugs (demographic_no,takemin,takemax,special,w1,w595) VALUES"
+                                + " (974236,0.5,1.5,'Synthetic widened row',1,2)");
+                var service = service(connection);
+                var receipt = service.capture(java.util.Map.of("drugs", "1"));
+                var witness =
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                                .unseal(
+                                        receipt.nativeBaseline(),
+                                        receipt.targetReferences(),
+                                        receipt.targetDigest(),
+                                        io.github.carlos_emr.carlos.demographic.cds.security
+                                                .CdsNativeBaselineTestKeys.keys())
+                                .rows()
+                                .getFirst();
+                assertThat(witness.columns()).hasSize(600);
+                assertThat(witness.digest())
+                        .isEqualTo(CdsTargetReceiptService.rowDigest(connection, "drugs", "1"));
+                assertThat(service.verify(receipt)).isTrue();
+                // The exporter reads the imported table's receipt recipe under the same limit.
+                var recipe =
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.dto
+                                .CdsExportCapturedTableDto(
+                                java.util.Set.copyOf(
+                                        witness.columns().stream()
+                                                .map(
+                                                        io.github.carlos_emr.carlos.demographic.cds
+                                                                        .contract.CdsNativeRowDigest
+                                                                        .Column
+                                                                ::name)
+                                                .toList()),
+                                1,
+                                "0".repeat(64),
+                                witness.columns());
+                assertThat(recipe.receiptColumns()).hasSize(600);
+                // A later edit of one widened column is seen as exactly that change.
+                statement.executeUpdate("UPDATE drugs SET w300=7 WHERE drugid=1");
+                assertThat(service.verify(receipt)).isFalse();
+                var current = service.capture(java.util.Map.of("drugs", "1"));
+                var now =
+                        io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodec
+                                .unseal(
+                                        current.nativeBaseline(),
+                                        current.targetReferences(),
+                                        current.targetDigest(),
+                                        io.github.carlos_emr.carlos.demographic.cds.security
+                                                .CdsNativeBaselineTestKeys.keys())
+                                .rows()
+                                .getFirst();
+                assertThat(
+                                io.github.carlos_emr.carlos.demographic.cds.contract
+                                        .CdsNativeRowComparison.compare(witness, now)
+                                        .changedColumns())
+                        .containsExactly("w300");
+            } finally {
+                connection.rollback();
+            }
+        }
+    }
+
+    /** A receipt service whose owning transaction's connection is this one. */
+    private static CdsTargetReceiptService service(Connection connection) {
+        var entityManager = org.mockito.Mockito.mock(jakarta.persistence.EntityManager.class);
+        var session = org.mockito.Mockito.mock(org.hibernate.Session.class);
+        org.mockito.Mockito.when(entityManager.unwrap(org.hibernate.Session.class))
+                .thenReturn(session);
+        org.mockito.Mockito.when(session.doReturningWork(org.mockito.ArgumentMatchers.any()))
+                .thenAnswer(
+                        call ->
+                                ((org.hibernate.jdbc.ReturningWork<?>) call.getArgument(0))
+                                        .execute(connection));
+        var service =
+                new CdsTargetReceiptService(
+                        io.github.carlos_emr.carlos.demographic.cds.security
+                                .CdsNativeBaselineTestKeys.keys());
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                service, "entityManager", entityManager);
+        return service;
+    }
+
     private static String legacyTemporaryDemographicDigest(Connection connection) throws Exception {
         var hash = java.security.MessageDigest.getInstance("SHA-256");
         java.util.function.Consumer<String> add =

@@ -53,30 +53,36 @@ import io.github.carlos_emr.carlos.demographic.cds.security.CdsNativeBaselineKey
  * each row's column metadata, so an uncompressed witness averaged about 23 KB and took an
  * overflow page per copy; deflated it is about a quarter of that and usually stays in the row.
  * The compression is bound into the associated data, so a protocol number changed in storage
- * fails authentication, and inflation stops at {@link #MAX_BYTES}. Protocol-3 envelopes (the
- * same seal without compression) written by earlier builds remain readable.
+ * fails authentication. Protocol-3 envelopes (the same seal without compression) written by
+ * earlier builds remain readable.
+ *
+ * <p>No size of the importer's choosing bounds a witness. It is authenticated, so only the
+ * importer writes one that opens, and its size is what the importer wrote: one row for each row
+ * its receipt names (at most 192, the receipt's own bound, which {@link #decode} checks row for
+ * row), each of at most MariaDB's own 4,096 columns ({@link CdsNativeRowDigest#MAXIMUM_COLUMNS}).
+ * A target table widened locally is therefore witnessed whole. The stored columns are LONGTEXT;
+ * the only remaining limits are the VM's own ({@link #MAX_BYTES}, {@link #MAX_SEALED_BYTES}).
  */
 public final class CdsNativeBaselineCodec {
     /**
-     * The plaintext witness document bound. The importer's worst case is 192 referenced rows
-     * ({@code CdsTargetReceiptService}) of its widest target table ({@code drugs}, 65 columns),
-     * each column at the {@link CdsNativeRowDigest.Column} maxima (128-character name and type,
-     * ten-digit precision and scale) and each cell at the {@link CdsNativeRowState.Cell} maxima
-     * (19-digit length, digest): about 5.5 MiB. A larger document is refused when it is encoded.
+     * The longest witness document: the VM's own limit on one array, not a format bound. Any
+     * document the importer can build is far below it; it turns an impossible document into a
+     * refusal rather than an {@link OutOfMemoryError}.
      */
-    public static final int MAX_BYTES = 8 << 20;
-
-    /** Base64 of an at-most-8-MiB document plus its envelope fields. */
-    public static final int MAX_SEALED_BYTES = 12 << 20;
-
-    /** The AES-GCM authentication tag appended to every sealed document. */
-    private static final int GCM_TAG_BYTES = 16;
+    public static final int MAX_BYTES = Integer.MAX_VALUE - 8;
 
     /**
-     * The longest string of a stored envelope: the Base64 of a {@link #MAX_BYTES} document and its
-     * GCM tag. The envelope's other strings (key ID, nonce) are far shorter.
+     * The longest stored witness: one Java string, held with the other columns of its import-unit
+     * row (its receipt, digests and keys, well under 2 MiB) by a reader of that row. The VM's own
+     * limit, as {@link #MAX_BYTES}; earlier builds stored at most 12 MiB.
      */
-    static final int MAX_SEALED_TEXT = 4 * ((MAX_BYTES + GCM_TAG_BYTES + 2) / 3);
+    public static final int MAX_SEALED_BYTES = Integer.MAX_VALUE - 8 - (2 << 20);
+
+    /**
+     * The longest string of a stored envelope: its sealed document, which is no longer than the
+     * envelope itself. The envelope's other strings (key ID, nonce) are far shorter.
+     */
+    static final int MAX_SEALED_TEXT = MAX_SEALED_BYTES;
 
     /**
      * The longest string of a witness document or of the protocol-2 receipt it is bound to: a
@@ -138,14 +144,17 @@ public final class CdsNativeBaselineCodec {
                 .build();
     }
 
+    /**
+     * A witness document: one row state for each row its receipt names, no more and no fewer
+     * ({@link #verify}), so its row count follows the receipt's own bound.
+     */
     public record Document(int protocol, String targetDigest, List<CdsNativeRowState> rows) {
         public Document {
             rows = List.copyOf(rows);
             if (protocol != 1 && protocol != 2
                     || targetDigest == null
                     || !targetDigest.matches("[0-9a-f]{64}")
-                    || rows.isEmpty()
-                    || rows.size() > 192) invalid();
+                    || rows.isEmpty()) invalid();
         }
 
         @Override
@@ -161,18 +170,12 @@ public final class CdsNativeBaselineCodec {
             throws IOException {
         var document = new Document(2, targetDigest, rows);
         verify(document, references, targetDigest);
-        String encoded = JSON.writeValueAsString(document);
-        if (encoded.length() > MAX_BYTES
-                || encoded.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) invalid();
-        return encoded;
+        return JSON.writeValueAsString(document);
     }
 
     public static Document decode(String encoded, String references, String targetDigest)
             throws IOException {
-        if (encoded == null
-                || encoded.isEmpty()
-                || encoded.length() > MAX_BYTES
-                || encoded.getBytes(StandardCharsets.UTF_8).length > MAX_BYTES) invalid();
+        if (encoded == null || encoded.isEmpty()) invalid();
         JsonNode tree = JSON.readTree(encoded);
         if (tree != null
                 && tree.path("protocol").isIntegralNumber()
@@ -297,7 +300,6 @@ public final class CdsNativeBaselineCodec {
             throw new IOException("CDS_NATIVE_BASELINE_SEAL_FAILED");
         }
         if (deflated) plaintext = inflate(plaintext);
-        if (plaintext.length > MAX_BYTES) invalid();
         String text;
         try {
             text =
@@ -316,7 +318,7 @@ public final class CdsNativeBaselineCodec {
         return (domain + "\0" + keyId + "\0" + targetDigest).getBytes(StandardCharsets.UTF_8);
     }
 
-    /** A zlib stream of the document; a witness document is far below {@link #MAX_BYTES}. */
+    /** A zlib stream of the document. */
     private static byte[] deflate(byte[] document) {
         // Closing (Java 25: AutoCloseable) releases the native zlib state, as end() did.
         try (var deflater = new java.util.zip.Deflater(java.util.zip.Deflater.DEFAULT_COMPRESSION)) {
@@ -325,14 +327,14 @@ public final class CdsNativeBaselineCodec {
             var output = new java.io.ByteArrayOutputStream(Math.max(64, document.length / 3));
             byte[] buffer = new byte[16384];
             while (!deflater.finished()) output.write(buffer, 0, deflater.deflate(buffer));
-            if (output.size() > MAX_BYTES) invalid();
             return output.toByteArray();
         }
     }
 
     /**
      * The authenticated zlib stream of a protocol-4 witness, refused rather than truncated when it
-     * is malformed, ends early, carries trailing bytes or inflates past {@link #MAX_BYTES}.
+     * is malformed, ends early or carries trailing bytes. It was authenticated first, so it is
+     * the importer's own document, inflated whole whatever its size (up to the VM's own limit).
      */
     private static byte[] inflate(byte[] compressed) {
         try (var inflater = new java.util.zip.Inflater()) {
@@ -344,7 +346,7 @@ public final class CdsNativeBaselineCodec {
             while (!inflater.finished()) {
                 int count = inflater.inflate(buffer);
                 if (count == 0 && (inflater.needsInput() || inflater.needsDictionary())) invalid();
-                if (output.size() + count > MAX_BYTES) invalid();
+                if ((long) output.size() + count > MAX_BYTES) invalid();
                 output.write(buffer, 0, count);
             }
             if (inflater.getRemaining() != 0) invalid();
