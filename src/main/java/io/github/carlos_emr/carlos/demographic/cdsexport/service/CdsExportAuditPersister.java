@@ -21,34 +21,73 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport;
 import io.github.carlos_emr.carlos.commn.dao.OscarLogDao;
 import io.github.carlos_emr.carlos.commn.model.OscarLog;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 /**
  * Durable patient membership in the normal chart audit, independent of encrypted staging
  * retention. PREPARED records a validated private package candidate; actual publication and
  * delivery outcomes remain explicit, generation-bound events in cds_export_event. Partial
  * preparation or repeated attempts never falsely assert that a patient was delivered.
+ *
+ * <p>Each batch of audit rows is written in a new transaction of its own, which has no time limit:
+ * it runs as a write unit ({@link CdsExportStatementWaitReadSupport#writing}), so a slow database
+ * is waited for, and a sending the server ended before its commit is rolled back and written
+ * again whole, never twice. The rows are built anew for each sending.</p>
  */
 @Service
 public class CdsExportAuditPersister {
     private final OscarLogDao logs;
 
+    /** Where each batch's own transaction comes from; null for a caller that writes directly. */
+    private final ObjectProvider<PlatformTransactionManager> managers;
+
+    /**
+     * Writes each batch directly, in whatever transaction the caller holds: for a test that
+     * calls the persister without a container.
+     */
     public CdsExportAuditPersister(OscarLogDao logs) {
         this.logs = Objects.requireNonNull(logs);
+        this.managers = null;
     }
 
-    @Transactional(
-            propagation = Propagation.REQUIRES_NEW,
-            rollbackFor = Exception.class,
-            timeout = 15)
+    /** Writes each batch in a new transaction of its own (REQUIRES_NEW), as a write unit. */
+    @Autowired
+    public CdsExportAuditPersister(
+            OscarLogDao logs, ObjectProvider<PlatformTransactionManager> managers) {
+        this.logs = Objects.requireNonNull(logs);
+        this.managers = Objects.requireNonNull(managers);
+    }
+
+    /** One batch of audit rows, committed alone and waited for (see the class description). */
+    private void write(Runnable rows) {
+        if (managers == null) {
+            rows.run();
+            return;
+        }
+        // Resolved when a batch is written, so a context that only wires the persister needs no
+        // transaction manager; no timeout of its own.
+        var transactions = new TransactionTemplate(managers.getObject());
+        transactions.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        CdsExportStatementWaitReadSupport.writing(
+                transactions,
+                status -> {
+                    rows.run();
+                    return null;
+                });
+    }
+
     public void prepared(CdsExportLeaseDto lease, List<Integer> patients) {
         Objects.requireNonNull(lease);
         var batch = List.copyOf(patients);
@@ -66,19 +105,23 @@ public class CdsExportAuditPersister {
                         + " operator="
                         + actor.operatorKey()
                         + "; outcomes=cds_export_event";
-        for (int patient : batch) {
-            var entry = new OscarLog();
-            entry.setProviderNo(actor.providerNo());
-            entry.setSecurityId(actor.securityNo());
-            entry.setAction("EXPORT");
-            entry.setContent("demographic");
-            entry.setContentId(Integer.toString(patient));
-            entry.setDemographicId(patient);
-            entry.setData(data);
-            logs.persist(entry);
-        }
-        // No asynchronous or best-effort audit path may authorize a publishable package.
-        logs.flush();
+        write(
+                () -> {
+                    for (int patient : batch) {
+                        var entry = new OscarLog();
+                        entry.setProviderNo(actor.providerNo());
+                        entry.setSecurityId(actor.securityNo());
+                        entry.setAction("EXPORT");
+                        entry.setContent("demographic");
+                        entry.setContentId(Integer.toString(patient));
+                        entry.setDemographicId(patient);
+                        entry.setData(data);
+                        logs.persist(entry);
+                    }
+                    // No asynchronous or best-effort audit path may authorize a publishable
+                    // package.
+                    logs.flush();
+                });
     }
 
     /**
@@ -87,10 +130,6 @@ public class CdsExportAuditPersister {
      * One read row per patient, bound to the run, this generation and the generation adopted from;
      * a packaged chart still gets its {@link #prepared} row as well.
      */
-    @Transactional(
-            propagation = Propagation.REQUIRES_NEW,
-            rollbackFor = Exception.class,
-            timeout = 15)
     public void adopted(CdsExportLeaseDto lease, List<Integer> patients, long sourceEpoch) {
         Objects.requireNonNull(lease);
         var batch = List.copyOf(patients);
@@ -112,19 +151,22 @@ public class CdsExportAuditPersister {
                         + " operator="
                         + actor.operatorKey()
                         + "; outcomes=cds_export_event";
-        for (int patient : batch) {
-            var entry = new OscarLog();
-            entry.setProviderNo(actor.providerNo());
-            entry.setSecurityId(actor.securityNo());
-            // The chart was read again, as the chart's own read audit records a read.
-            entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
-            entry.setContent("demographic");
-            entry.setContentId(Integer.toString(patient));
-            entry.setDemographicId(patient);
-            entry.setData(data);
-            logs.persist(entry);
-        }
-        logs.flush();
+        write(
+                () -> {
+                    for (int patient : batch) {
+                        var entry = new OscarLog();
+                        entry.setProviderNo(actor.providerNo());
+                        entry.setSecurityId(actor.securityNo());
+                        // The chart was read again, as the chart's own read audit records a read.
+                        entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
+                        entry.setContent("demographic");
+                        entry.setContentId(Integer.toString(patient));
+                        entry.setDemographicId(patient);
+                        entry.setData(data);
+                        logs.persist(entry);
+                    }
+                    logs.flush();
+                });
     }
 
     /** Why a chart the export read is not in a prepared package. */
@@ -141,10 +183,6 @@ public class CdsExportAuditPersister {
      * disclosed. One read row per patient, bound to the run and generation; the job outcome
      * itself stays in cds_export_event.
      */
-    @Transactional(
-            propagation = Propagation.REQUIRES_NEW,
-            rollbackFor = Exception.class,
-            timeout = 15)
     public void read(CdsExportLeaseDto lease, List<Integer> patients, ReadOutcome outcome) {
         Objects.requireNonNull(lease);
         Objects.requireNonNull(outcome);
@@ -165,18 +203,21 @@ public class CdsExportAuditPersister {
                         + " outcome="
                         + outcome.name()
                         + "; outcomes=cds_export_event";
-        for (int patient : batch) {
-            var entry = new OscarLog();
-            entry.setProviderNo(actor.providerNo());
-            entry.setSecurityId(actor.securityNo());
-            // The same action the chart's own read audit uses.
-            entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
-            entry.setContent("demographic");
-            entry.setContentId(Integer.toString(patient));
-            entry.setDemographicId(patient);
-            entry.setData(data);
-            logs.persist(entry);
-        }
-        logs.flush();
+        write(
+                () -> {
+                    for (int patient : batch) {
+                        var entry = new OscarLog();
+                        entry.setProviderNo(actor.providerNo());
+                        entry.setSecurityId(actor.securityNo());
+                        // The same action the chart's own read audit uses.
+                        entry.setAction(io.github.carlos_emr.carlos.log.LogConst.READ);
+                        entry.setContent("demographic");
+                        entry.setContentId(Integer.toString(patient));
+                        entry.setDemographicId(patient);
+                        entry.setData(data);
+                        logs.persist(entry);
+                    }
+                    logs.flush();
+                });
     }
 }

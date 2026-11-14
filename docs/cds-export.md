@@ -1212,6 +1212,45 @@ socket timeout are put back; a connection that cannot be given its deadline back
 it never returns to the pool with the unit's. A connection without a socket timeout is not armed
 (nothing cuts a statement off), nor is one on a server that cannot count the statements it ended.
 
+**The export's own writes: sent again only before they commit.** Every metadata transaction of
+the export's ledger (`CdsExportLedgerService`: submission, claim, lease renewals and the capture's
+own checkpoint, selection seal, phases, finished-chart checkpoints and the kept charts' adoption
+and rejection, retention of the package, publication, stop, release, retirement of an expired
+lease, downloads, cancel and resume, the retention sweep's cleanups and trims, status and
+history) and every batch of the chart audit (`CdsExportAuditPersister`: prepared, adopted and
+read rows) used to carry a 15 s transaction timeout, so a slow but working database failed the
+export: a renewal after 100 s of such failures, any other write at once. None has a time limit
+now. Each runs as a write unit (`CdsExportStatementWaitReadSupport.writing`): its transaction is
+armed before its first statement, on every connection (without a socket timeout too, so that its
+waits reach the attempt), every statement gets the unit's deadline (first 30 s), the writes the
+persistence context still holds are sent before the commit under the same deadline, and the
+server's count of ended statements is read. Only a sending with none ended is committed, and its
+commit is sent with the connection's own deadline back (a commit is never given a deadline it
+could be ended by, and never sent twice). A sending the server ended at its deadline, or whose
+lock wait ran out (`innodb_lock_wait_timeout`, error 1205, or a metadata lock's), or that InnoDB
+chose to break a deadlock (1213), is rolled back and the work runs again in a new transaction
+with twice the wait. This is sound because the sending provably did not commit: MariaDB undoes a
+statement it ends at `max_statement_time` and leaves its transaction open with every earlier
+statement in place (verified on 11.8.8, `CdsExportStatementWaitMariaDbIntegrationTest`: the write
+sent before the ended statement is still there and commits, the ended statement changed
+nothing), a lock wait that runs out undoes the statement alone (with `innodb_rollback_on_timeout`
+off, the default; on, the whole transaction) and a deadlock the whole transaction; the unit then
+rolls the rest back itself, so the next sending starts from the committed rows. Each sending reads its rows again, the lease's fence
+included: `owned` locks the job's row and reads the database clock after the lock, so a sending
+that comes after the lease ran out is fenced and can never revive it, and nothing a rolled-back
+sending wrote survives to be written twice (a write unit on the real server writes once:
+`shouldWriteAUnitOnce_whenTheServerEndsItsLockedStatementAndItIsWrittenAgain`). A fence, a
+cancellation and every refusal of the work's own end it at once; so does a lost connection
+(`CDS_EXPORT_DATABASE_UNAVAILABLE`), and a failure of the commit itself is passed on as before
+(publication reads the outcome back, a renewal renews again). The waits end with the attempt: a
+renewal waits only for what the lease the last successful renewal granted has left, from its
+first sending on (below); the engine's other writes stop waiting, between two sendings, once the
+attempt has ended (a cancel, a fenced heartbeat, the stall detector), but a write that does not
+wait is still sent after its attempt ended, so the chart audit of a stopped job is written; an
+interrupt ends any wait; and a request or the retention sweep, which have no attempt, wait while
+the database answers. Their row-lock-free reads (status, history, the diagnostic report) can
+only wait for a metadata lock or a busy server.
+
 **Every read of an export.** From admission through cohort selection, authorization, capture,
 mapping and packaging:
 
@@ -1229,7 +1268,7 @@ mapping and packaging:
 | The eForm renderer's saved eForm and its `_eform` and `_measurement` checks | `EFormBrowserPdfService.renderSavedEformPdf(..., SavedEformReads)`, run by `CdsExportEformRenderService.reads` | one unit per read (new) |
 | A consultation letter's signature owner and image | `DigitalSignatureManager`, run by `CdsExportConsultationLetterComposer.signature` | one unit (new) |
 | The database clock of the capture and the selection (`SELECT UNIX_TIMESTAMP(CURRENT_TIMESTAMP(6))`) | `CdsExportRunDao.now` | not needed: it names no table, so no lock or metadata wait can hold it, and it serves the lease too |
-| Ledger, lease, held-patient and event rows; the chart audit rows | `CdsExportLedgerService` and its DAOs; `CdsExportAuditPersister` | not changed here: short metadata transactions of their own, each with a 15 s transaction timeout |
+| Ledger, lease, held-patient and event rows (reads and writes); the chart audit rows | `CdsExportLedgerService` and its DAOs; `CdsExportAuditPersister` | one write unit per transaction, sent again only before it commits (new; until this change, a 15 s transaction timeout that failed the export); a renewal waits only for what its lease has left |
 
 A connection the database loses during an armed unit is reported as the database's failure,
 `CDS_EXPORT_DATABASE_UNAVAILABLE`, whatever the shared code made of the lost read (the privilege
@@ -1488,16 +1527,23 @@ find it silent.
 
 **A renewal that fails for a moment.** The heartbeat, and the worker's own checkpoints, renew the
 attempt's 120-second lease. A renewal that fails for a transient database reason (no connection
-for a moment, a statement or lock wait that ran out, a transaction that could not be opened or
-committed: `CdsExportExecutionService.transientRenewalFailure`) does not end a healthy export:
-it is logged as `CDS_EXPORT_LEASE_RENEWAL_RETRY run=<id> epoch=<n> failure=<type>` and the next
-beat or checkpoint renews the lease again, as long as the lease the last successful renewal
-granted is still valid (its 120 seconds less one 20-second beat). Before this, one failed renewal
-ended the job. Only a lease that is actually lost ends this owner, as before and under the same
-codes: the ledger's fence (another owner, a cancellation, the lease already expired) ends it as
-an expired lease (`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`), and so do renewals that keep failing for
-the whole lease (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED` is logged first). The stall detector is
-unchanged. Recording the finished-chart checkpoint (below) follows the same rule: a transient
+for a moment, a transaction that could not be opened or committed:
+`CdsExportExecutionService.transientRenewalFailure`) does not end a healthy export: it is logged
+as `CDS_EXPORT_LEASE_RENEWAL_RETRY run=<id> epoch=<n> failure=<type>` and the next beat or
+checkpoint renews the lease again, as long as the lease the last successful renewal granted is
+still valid (its 120 seconds less one 20-second beat). Before this, one failed renewal ended the
+job. A renewal that is merely slow no longer fails at all: it is a write unit (see "The export's
+own writes"), whose statements wait, but only for what that lease has left: each wait is cut to
+it (30 s, 60 s, then whatever is left) and, when nothing is left, the renewal ends and the owner
+is fenced at once (`CdsExportExecutionService.Control.renewing`). The lease's own window is
+unchanged: 120 s, renewed every 20 s. The grant is counted from the start of the renewal's last
+sending, which the database answered after it, so the owner never counts on a lease longer than
+the one the database granted, however long the sending waited (`renewed`; the claim's grant is
+counted the same way). Only a lease that is actually lost ends this owner, as before and under
+the same codes: the ledger's fence (another owner, a cancellation, the lease already expired)
+ends it as an expired lease (`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`), and so do renewals that keep
+failing or waiting for the whole lease (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED` is logged first).
+The stall detector is unchanged. Recording the finished-chart checkpoint (below) follows the same rule: a transient
 failure records nothing now and the next seal records the newest member. A worker that keeps reaching checkpoints is never stopped, however long its
 roster takes. When it reaches none for the whole window the attempt is stalled, for good: the
 heartbeat logs `CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n>
@@ -1880,6 +1926,7 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 120 s for the cohort selection transaction, 30 s for the drug reference inputs transaction | `CdsExportSelectionService`, `CdsExportDrugReferenceProjectionService` | the job | removed: no transaction timeout |
 | The pool's socket timeout (60 s, at most 300 s) on every read not built through the wait support: the cohort selection's pages, the demographic row and its schema pin, the note authorization, program and role reads, the account, provider, facility, membership, role and privilege reads of every authorization, the eForm renderer's and the signature manager's own reads | `DemographicDaoImpl`, `CdsExportNoteAccessDao`, `CdsExportAccessService`, `CdsExportEformRenderService`, `CdsExportConsultationLetterComposer` | the job, as a lost connection (`CDS_EXPORT_DATABASE_UNAVAILABLE`) or, through a privilege read the shared check answered as a refusal, as changed access (`CDS_EXPORT_ACCESS_CHANGED`); the rendered eForm or the letter's signature, left out | removed: each such read waits statement by statement or as a unit that is made again whole ("Every read of an export"); a connection actually lost is `CDS_EXPORT_DATABASE_UNAVAILABLE` |
 | 120 s per statement and 4,096 applied copies of one import run for one chart | `CdsImportRunDao.readAppliedCdsExportCopyKeys` | the job (`CDS_EXPORT_APPLIED_COPY_LIMIT`) | removed: every applied copy is read, and the read waits like every other |
+| 15 s per metadata transaction and per chart audit batch | `CdsExportLedgerService` (every transaction it opens, the capture's own checkpoint included), `CdsExportAuditPersister` (`prepared`, `adopted`, `read`) | the job: a lease renewal after 100 s of them (`CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED`), a finished-chart checkpoint until the next seal, any other write at once (`CDS_EXPORT_EXECUTION_FAILED`), and an outcome being recorded made the supervisor stop (`CDS_EXPORT_CONTROL_OUTCOME_UNKNOWN`) | removed: each is a write unit that waits for the database and is sent again only when it provably did not commit ("The export's own writes"); a renewal waits only for what its lease has left |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
 | 10,000 prevention or vaccine-catalogue rows and 4 MiB of their scope columns; 10,000 selected preventions in one read; 1,000,000 Immunizations import units and 64 MiB of their witnesses | `CdsExportPreventionSnapshotService`, `CdsExportPatientTableReadSupport.requireSelected`, `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService`, `CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator` | the whole job (`CDS_EXPORT_PREVENTION_SNAPSHOT_INVALID`, `CDS_EXPORT_NATIVE_SOURCE_INVALID`, `CDS_EXPORT_PREVENTION_SCOPE_LIMIT`) | removed: every row is read a page of 32 at a time; a statement names at most 8,192 selected preventions (`PREVENTION_ID_BATCH`) and a chart with more is read in further statements whose rows are merged in key order |

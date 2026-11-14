@@ -39,7 +39,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * A statement's deadline on a real MariaDB: the server ends the statement, the connection and its
  * read-only snapshot stay as they were, the statement sent again reads the same snapshot, and the
- * transaction still commits. Works in an owned temporary database; it never touches another.
+ * transaction still commits. A write unit (the ledger's metadata transactions) whose statement the
+ * server ended, or whose lock wait ran out, is rolled back with every write before it and written
+ * again, and commits once. Works in an owned temporary database; it never touches another.
  */
 @Tag("integration")
 @Tag("cds-export")
@@ -76,6 +78,14 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
         created = true;
         sql.execute("create table `" + owned + "`.`chart` (id int primary key) engine=InnoDB");
         sql.execute("insert into `" + owned + "`.`chart` values (1),(2),(3)");
+        // A lease row and a journal, as the export's ledger writes them: InnoDB, row locks.
+        sql.execute(
+                "create table `" + owned + "`.`lease` (id int primary key, renewals int not null)"
+                        + " engine=InnoDB");
+        sql.execute("insert into `" + owned + "`.`lease` values (1,0)");
+        sql.execute(
+                "create table `" + owned + "`.`journal` (id varchar(64) primary key)"
+                        + " engine=InnoDB");
         sql.execute(
                 "create table `"
                         + owned
@@ -314,6 +324,152 @@ class CdsExportStatementWaitMariaDbIntegrationTest {
                 .isInstanceOf(RuntimeException.class);
         assertThat(sendings[0]).isEqualTo(1);
         assertThat(pooled()).containsExactly(1_500, 0.0d);
+    }
+
+    /** A new read-write read-committed transaction for each sending, as the ledger's are. */
+    private TransactionTemplate writes() {
+        var writes = new TransactionTemplate(snapshot.getTransactionManager());
+        writes.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        return writes;
+    }
+
+    /** Another session that holds the lease row's lock until {@code millis} have passed. */
+    private Thread holdLeaseRow(java.sql.Connection holder, long millis) throws Exception {
+        holder.setAutoCommit(false);
+        try (var lock = holder.createStatement();
+                var rows = lock.executeQuery("select renewals from `lease` where id = 1 for update")) {
+            assertThat(rows.next()).isTrue();
+        }
+        var releaser =
+                new Thread(
+                        () -> {
+                            try {
+                                Thread.sleep(millis);
+                                holder.commit();
+                            } catch (Exception failed) {
+                                throw new IllegalStateException(failed);
+                            }
+                        });
+        releaser.start();
+        return releaser;
+    }
+
+    private long count(String table) {
+        return sql.queryForObject("select count(*) from `" + owned + "`.`" + table + "`", Long.class);
+    }
+
+    private int renewals() {
+        return sql.queryForObject(
+                "select renewals from `" + owned + "`.`lease` where id = 1", Integer.class);
+    }
+
+    @Test
+    void shouldKeepItsTransactionAndEarlierWrites_whenTheServerEndsAStatementAtItsDeadline()
+            throws Exception {
+        String ownedUrl = url.replace("/cds_export_test", "/" + owned);
+        try (var holder = DriverManager.getConnection(ownedUrl, account, secret);
+                var writer = DriverManager.getConnection(ownedUrl, account, secret)) {
+            var releaser = holdLeaseRow(holder, 3_000);
+            writer.setAutoCommit(false);
+            try (var statement = writer.createStatement()) {
+                statement.execute("insert into `journal` values ('before')");
+                // Waits for the row lock and is ended by the server at its 1 s deadline.
+                assertThatThrownBy(
+                                () ->
+                                        statement.execute(
+                                                "set statement max_statement_time=1 for update"
+                                                        + " `lease` set renewals = renewals + 1"
+                                                        + " where id = 1"))
+                        .isInstanceOfSatisfying(
+                                java.sql.SQLException.class,
+                                ended -> assertThat(ended.getErrorCode()).isEqualTo(1969));
+                // The transaction is still open, and still holds the write sent before it.
+                try (var rows =
+                        statement.executeQuery(
+                                "select count(*), @@in_transaction from `journal`")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getLong(1)).isEqualTo(1);
+                    assertThat(rows.getInt(2)).isEqualTo(1);
+                }
+                writer.commit();
+            }
+            releaser.join();
+        }
+        // The write before it committed; the ended statement changed nothing.
+        assertThat(count("journal")).isEqualTo(1);
+        assertThat(renewals()).isZero();
+    }
+
+    @Test
+    void shouldWriteAUnitOnce_whenTheServerEndsItsLockedStatementAndItIsWrittenAgain()
+            throws Exception {
+        // The pool's one connection gives up on a silent socket after 1.5 s.
+        open(1_500);
+        String ownedUrl = url.replace("/cds_export_test", "/" + owned);
+        var sendings = new int[1];
+        try (var holder = DriverManager.getConnection(ownedUrl, account, secret)) {
+            var releaser = holdLeaseRow(holder, 2_500);
+            Integer renewed =
+                    CdsExportStatementWaitReadSupport.writing(
+                            writes(),
+                            1,
+                            status -> {
+                                sendings[0]++;
+                                // A write before the locked statement, under a key that a second
+                                // commit of it could not take.
+                                em.createNativeQuery("insert into `journal` values ('renewal')")
+                                        .executeUpdate();
+                                em.createNativeQuery(
+                                                "select renewals from `lease` where id = 1 for"
+                                                        + " update")
+                                        .getSingleResult();
+                                return em.createNativeQuery(
+                                                "update `lease` set renewals = renewals + 1"
+                                                        + " where id = 1")
+                                        .executeUpdate();
+                            });
+            releaser.join();
+            assertThat(renewed).isEqualTo(1);
+        }
+        // Ended at 1 s and rolled back with the write before it; written again with 2 s, when
+        // the lock was free at 2.5 s; committed once.
+        assertThat(sendings[0]).isEqualTo(2);
+        assertThat(count("journal")).isEqualTo(1);
+        assertThat(renewals()).isEqualTo(1);
+        // Back in its pool as it was: its own socket timeout and no deadline left behind.
+        assertThat(pooled()).containsExactly(1_500, 0.0d);
+    }
+
+    @Test
+    void shouldWriteAUnitAgain_whenItsLockWaitRunsOutBeforeItsDeadline() throws Exception {
+        open(60_000);
+        String ownedUrl = url.replace("/cds_export_test", "/" + owned);
+        var sendings = new int[1];
+        try (var holder = DriverManager.getConnection(ownedUrl, account, secret)) {
+            var releaser = holdLeaseRow(holder, 2_500);
+            CdsExportStatementWaitReadSupport.writing(
+                    writes(),
+                    status -> {
+                        sendings[0]++;
+                        em.createNativeQuery("insert into `journal` values ('stop')")
+                                .executeUpdate();
+                        // InnoDB gives up the lock wait after 1 s (error 1205), long before the
+                        // unit's 30 s deadline: the statement alone is undone.
+                        em.createNativeQuery(
+                                        "set statement innodb_lock_wait_timeout=1 for select"
+                                                + " renewals from `lease` where id = 1 for update")
+                                .getSingleResult();
+                        return em.createNativeQuery(
+                                        "update `lease` set renewals = renewals + 1 where id = 1")
+                                .executeUpdate();
+                    });
+            releaser.join();
+        }
+        // Lock waits that ran out had their sendings rolled back; a later one got the lock.
+        assertThat(sendings[0]).isGreaterThanOrEqualTo(2);
+        assertThat(count("journal")).isEqualTo(1);
+        assertThat(renewals()).isEqualTo(1);
+        assertThat(pooled()).containsExactly(60_000, 0.0d);
     }
 
     @Test

@@ -61,6 +61,19 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * ended at a deadline for each connection ({@code Max_statement_time_exceeded}), so the unit
  * knows even when the shared code swallowed the failure; the deadline and the socket timeout are
  * put back before the connection returns to its pool.</p>
+ *
+ * <p><b>The export's own writes.</b> The ledger's short metadata transactions (the job, its lease,
+ * its attempts, events and held charts) and the chart audit rows of an export run as {@link
+ * #writing write units}: every statement of the transaction, the writes the persistence context
+ * holds included, is sent with the unit's deadline before the transaction commits, and the
+ * commit is sent only when the server ended none of them. A sending the server did end (at its
+ * deadline, after a lock wait, or to break a deadlock) never reached its commit: InnoDB undid the
+ * ended statement and the transaction is rolled back whole, so nothing of it was committed, and
+ * the unit is sent again in a new transaction with twice the wait. Each sending reads its rows
+ * again, the lease's fence included, so a sending that comes late finds a lease lost meanwhile
+ * and is fenced; it can never revive one. A unit whose transaction committed is never sent again,
+ * and its commit is never sent with a deadline: an answer lost on the way back from a commit is
+ * left to the caller, as it always was.</p>
  */
 public final class CdsExportStatementWaitReadSupport {
     /** The first wait for a statement's answer; every later wait for the same statement doubles. */
@@ -74,6 +87,15 @@ public final class CdsExportStatementWaitReadSupport {
 
     /** MariaDB: the statement was ended by its own {@code max_statement_time}. */
     private static final int ER_STATEMENT_TIMEOUT = 1969;
+
+    /**
+     * InnoDB, or the metadata lock: the statement waited its lock wait timeout for a lock and was
+     * undone alone; the transaction stays open.
+     */
+    private static final int ER_LOCK_WAIT_TIMEOUT = 1205;
+
+    /** InnoDB: the transaction was chosen to break a deadlock and was rolled back whole. */
+    private static final int ER_LOCK_DEADLOCK = 1213;
 
     private static final Set<String> READS =
             Set.of("getResultList", "getSingleResult", "getSingleResultOrNull");
@@ -120,6 +142,21 @@ public final class CdsExportStatementWaitReadSupport {
          * @throws RuntimeException to end the wait because the attempt itself has ended
          */
         long waiting(long waitedMillis);
+
+        /**
+         * Asked before the first sending of a {@linkplain #writing write unit}, by an observer
+         * that bounds even that one: a lease renewal, which may only wait for what its lease has
+         * left. By default nothing is asked of an attempt before a unit has waited at all, so a
+         * unit sent after its attempt ended (the chart audit of a stopped job, say) is still
+         * sent.
+         *
+         * @return the longest the first sending may wait, in milliseconds, or zero for no bound
+         *     of the observer's own
+         * @throws RuntimeException to end the unit before anything is sent
+         */
+        default long before() {
+            return 0;
+        }
     }
 
     /** One statement, sent with the given deadline; it may be sent more than once. */
@@ -251,22 +288,35 @@ public final class CdsExportStatementWaitReadSupport {
             var network = network(em);
             if (network != null) network.resent++;
             waited += wait * 1000L;
-            seconds = next(seconds, firstSeconds, waited);
+            seconds = next(seconds, waited);
         }
     }
 
     /**
      * The wait after one that ended without an answer: twice as long, within the observer's
-     * window. The observer and an interrupt end the waiting here, between two sendings.
+     * window, however short that window has become (a lease that is running out), but never
+     * shorter than a second. The observer and an interrupt end the waiting here, between two
+     * sendings.
      */
-    private static long next(long seconds, int firstSeconds, long waitedMillis) {
+    private static long next(long seconds, long waitedMillis) {
         if (Thread.currentThread().isInterrupted())
             throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
         var observer = OBSERVER.get();
         long bound = observer == null ? 0 : observer.waiting(waitedMillis);
         long next = Math.min(seconds * 2, SERVER_MAXIMUM_SECONDS);
-        if (bound > 0) next = Math.max(firstSeconds, Math.min(next, bound / 1000));
+        if (bound > 0) next = Math.max(1, Math.min(next, bound / 1000));
         return next;
+    }
+
+    /**
+     * The wait of a write unit's first sending: {@code firstSeconds}, within what the observer
+     * allows before anything is sent ({@link Observer#before}): a renewal is sent only with the
+     * time its lease has left, and not at all once nothing is left.
+     */
+    private static long first(int firstSeconds) {
+        var observer = OBSERVER.get();
+        long bound = observer == null ? 0 : observer.before();
+        return bound > 0 ? Math.max(1, Math.min(firstSeconds, bound / 1000)) : firstSeconds;
     }
 
     /**
@@ -299,7 +349,7 @@ public final class CdsExportStatementWaitReadSupport {
         if (firstSeconds < 1) throw new IllegalArgumentException("CDS_EXPORT_STATEMENT_WAIT_INVALID");
         long seconds = firstSeconds, waited = 0;
         while (true) {
-            var unit = new Unit((int) seconds);
+            var unit = new Unit((int) seconds, false);
             var previous = UNIT.get();
             UNIT.set(unit);
             T result = null;
@@ -320,18 +370,137 @@ public final class CdsExportStatementWaitReadSupport {
                 return result;
             }
             waited += seconds * 1000L;
-            seconds = next(seconds, firstSeconds, waited);
+            seconds = next(seconds, waited);
         }
+    }
+
+    /**
+     * Runs {@code work} as one write unit in its own transaction of {@code transactions}: one of
+     * the export's own short metadata transactions (its ledger, lease, held-chart and event rows,
+     * its chart audit rows; see the class description). The transaction is {@linkplain #arm armed}
+     * before the work's first statement, even on a connection without a socket timeout, so every
+     * statement of it is sent with the unit's deadline, first {@link #FIRST_WAIT_SECONDS} (less
+     * where the observer bounds the first sending: {@link Observer#before}), then within the
+     * observer's window. When the work returns, the writes its persistence context still holds
+     * are sent, under the same deadline, and the server's count of the statements it ended is read:
+     * only a sending with none ended goes on to its commit, which is sent with the connection's own
+     * deadline back.
+     *
+     * <p>A sending is sent again, in a new transaction with twice the wait, only when it never
+     * reached its commit and its failure was the server's: a statement ended at its deadline (by
+     * the count, whatever the work made of it), a lock wait that ran out, or a deadlock. InnoDB
+     * undid the ended statement and the sending's transaction is rolled back, so nothing of it was
+     * committed; the next sending reads every row again, the lease's fence included. Every other
+     * failure is passed on at once: a fence, a cancellation, a refusal of the work's own. A sending
+     * that committed is the answer and is never sent again, and a failure of the commit itself is
+     * passed on as it was, never taken for a statement the server ended. A connection lost before
+     * the commit is the database's failure ({@code CDS_EXPORT_DATABASE_UNAVAILABLE}). The same
+     * things end the waiting as for one statement: a cancel, the {@link Observer} (a lost lease,
+     * the stall detector) and an interrupt.</p>
+     *
+     * @param transactions the unit's transaction; it must start a transaction of its own (a new
+     *     one, not one the caller already holds, which another sending could not replace)
+     * @return what the work returned in the sending that committed
+     */
+    public static <T> T writing(TransactionOperations transactions, TransactionCallback<T> work) {
+        return writing(transactions, FIRST_WAIT_SECONDS, work);
+    }
+
+    static <T> T writing(
+            TransactionOperations transactions, int firstSeconds, TransactionCallback<T> work) {
+        java.util.Objects.requireNonNull(transactions);
+        java.util.Objects.requireNonNull(work);
+        if (firstSeconds < 1) throw new IllegalArgumentException("CDS_EXPORT_STATEMENT_WAIT_INVALID");
+        long seconds = first(firstSeconds), waited = 0;
+        while (true) {
+            var unit = new Unit((int) seconds, true);
+            var previous = UNIT.get();
+            UNIT.set(unit);
+            try {
+                return transactions.execute(
+                        status -> {
+                            arm();
+                            T value = work.doInTransaction(status);
+                            settle(unit);
+                            return value;
+                        });
+            } catch (RuntimeException failed) {
+                if (unit.lost)
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportDatabaseUnavailableException(failed);
+                // Settled: the failure is the commit's own, whose outcome only the caller can
+                // establish. Otherwise only a failure the server made is a reason to send again.
+                if (unit.settled || !(unit.expired || expired(failed) || contended(failed)))
+                    throw failed;
+            } finally {
+                if (previous == null) UNIT.remove();
+                else UNIT.set(previous);
+            }
+            waited += seconds * 1000L;
+            seconds = next(seconds, waited);
+        }
+    }
+
+    /**
+     * The end of a write unit's work, inside its transaction and before its commit: the writes the
+     * persistence context still holds are sent now, under the unit's deadline, and, on an armed
+     * connection, the server's count decides whether this sending may commit ({@link
+     * Network#settle}).
+     */
+    private static void settle(Unit unit) {
+        var em = transactionEntityManager();
+        if (em != null && !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
+            try {
+                em.flush();
+            } catch (RuntimeException failed) {
+                // The same vocabulary a failure of these writes had when the commit sent them.
+                RuntimeException translated =
+                        org.springframework.orm.jpa.EntityManagerFactoryUtils
+                                .convertJpaAccessExceptionIfPossible(failed);
+                throw translated != null ? translated : failed;
+            }
+        }
+        var network = em == null ? null : network(em);
+        if (network != null && network.unit == unit)
+            em.unwrap(Session.class).doWork(network::settle);
+        unit.settled = true;
+    }
+
+    /** A sending of a write unit that must not reach its commit: it is rolled back, then sent again. */
+    private static final class Resend extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        private Resend() {
+            super("CDS_EXPORT_STATEMENT_WAIT_RESEND", null, false, false);
+        }
+    }
+
+    /**
+     * Whether InnoDB ended the statement after a lock wait that ran out ({@code
+     * innodb_lock_wait_timeout}, or {@code lock_wait_timeout} for a metadata lock), which undoes
+     * the statement alone, or ended the whole transaction to break a deadlock. Neither commits
+     * anything of the sending.
+     */
+    static boolean contended(Throwable failure) {
+        var seen = new java.util.HashSet<Throwable>();
+        for (Throwable cause = failure; cause != null && seen.add(cause); cause = cause.getCause()) {
+            if (cause instanceof SQLException sql
+                    && (sql.getErrorCode() == ER_LOCK_WAIT_TIMEOUT
+                            || sql.getErrorCode() == ER_LOCK_DEADLOCK
+                            || "40001".equals(sql.getSQLState()))) return true;
+        }
+        return false;
     }
 
     /**
      * Arms the transaction of the unit running on this thread: from here on every statement of
      * it has the unit's deadline, and the connection's socket timeout outlasts that deadline by
      * {@link #ANSWER_GRACE_SECONDS}. Called by the work of a unit before the shared reads it
-     * makes; the first call of a sending arms it and later calls change nothing. Outside a unit
-     * it does nothing, and so it does for a connection without a socket timeout, where nothing
-     * cuts a slow statement off, and for a server that cannot count the statements it ended (the
-     * unit then reads as every read did before).
+     * makes, and by every {@link #writing write unit} before its work; the first call of a sending
+     * arms it and later calls change nothing. Outside a unit it does nothing. A read unit is not
+     * armed on a connection without a socket timeout, where nothing cuts a slow read off; a write
+     * unit is, so that its waits reach its observer. No unit is armed on a server that cannot
+     * count the statements it ended (the unit then runs as it did before).
      */
     public static void arm() {
         var unit = UNIT.get();
@@ -363,6 +532,10 @@ public final class CdsExportStatementWaitReadSupport {
     /** One sending of a unit: its deadline, and what its armed connection found. */
     private static final class Unit {
         private final int seconds;
+
+        /** A write unit: armed even without a socket timeout, settled before its commit. */
+        private final boolean writes;
+
         private boolean armed;
 
         /** A statement of this sending was ended at a deadline and not sent again by its read. */
@@ -371,8 +544,12 @@ public final class CdsExportStatementWaitReadSupport {
         /** The connection was lost while this sending was armed on it. */
         private boolean lost;
 
-        private Unit(int seconds) {
+        /** A write unit's work returned and every statement of it was answered: only the commit is left. */
+        private boolean settled;
+
+        private Unit(int seconds, boolean writes) {
             this.seconds = seconds;
+            this.writes = writes;
         }
     }
 
@@ -438,8 +615,9 @@ public final class CdsExportStatementWaitReadSupport {
         /** Gives every later statement of the connection the unit's deadline; see {@link #arm()}. */
         private void arm(Connection connection, Unit armed) throws SQLException {
             int current = connection.getNetworkTimeout();
-            // No socket timeout: nothing cuts a slow statement off.
-            if (current <= 0) return;
+            // No socket timeout: nothing cuts a slow read off, so a read unit needs no deadline. A
+            // write unit is given one all the same: its waits are how its attempt hears of them.
+            if (current <= 0 && !armed.writes) return;
             try (var seen = connection.prepareStatement(SEEN);
                     var rows = seen.executeQuery()) {
                 if (!rows.next()) return;
@@ -478,12 +656,48 @@ public final class CdsExportStatementWaitReadSupport {
             } catch (SQLException | RuntimeException failed) {
                 if (io.github.carlos_emr.carlos.demographic.cdsexport.support
                         .CdsExportDatabaseUnavailableException.lost(failed)) unit.lost = true;
-                try {
-                    connection.abort(Runnable::run);
-                } catch (SQLException | RuntimeException ignored) {
-                    // Aborting is all that is left to do; a lost connection is not reused.
-                }
+                abort(connection);
             }
+        }
+
+        /**
+         * The end of a write unit, before its commit: whether the server ended a statement of it
+         * at its deadline that no read sent again, and the connection's own deadline put back, so
+         * the commit is never sent with the unit's. A sending that cannot be shown to have none
+         * ended is not committed: it is rolled back and sent again. A connection that cannot be
+         * given its deadline back is aborted and the sending is sent again on another.
+         */
+        private void settle(Connection connection) throws SQLException {
+            var settling = unit;
+            boolean ended;
+            try (var count = connection.prepareStatement(ENDED);
+                    var rows = count.executeQuery()) {
+                ended = !rows.next() || rows.getLong(1) - seenAtArm > resent - resentAtArm;
+            } catch (SQLException | RuntimeException failed) {
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed)) {
+                    settling.lost = true;
+                    throw failed;
+                }
+                // Unknown: before its commit, sending the unit again is always sound.
+                ended = true;
+            }
+            if (ended) {
+                settling.expired = true;
+                throw new Resend();
+            }
+            try (var set = connection.prepareStatement(DEADLINE)) {
+                set.setDouble(1, deadline);
+                set.execute();
+            } catch (SQLException | RuntimeException failed) {
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed)) settling.lost = true;
+                else settling.expired = true;
+                unit = null;
+                abort(connection);
+                throw new Resend();
+            }
+            unit = null;
         }
 
         @Override
@@ -578,6 +792,15 @@ public final class CdsExportStatementWaitReadSupport {
         TransactionSynchronizationManager.bindResource(NETWORK, state);
         TransactionSynchronizationManager.registerSynchronization(state);
         return state;
+    }
+
+    /** A connection that must never return to its pool as it is: aborted, so the pool drops it. */
+    private static void abort(Connection connection) {
+        try {
+            connection.abort(Runnable::run);
+        } catch (SQLException | RuntimeException ignored) {
+            // Aborting is all that is left to do; a lost connection is not reused.
+        }
     }
 
     private static void raise(Connection connection, long needed, Network state) {

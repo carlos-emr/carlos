@@ -129,11 +129,35 @@ public class CdsExportExecutionService {
         var engine = engines.find(document.command().profile());
         if (engine == null || !configuration.enabled()) return false;
         long maximumMillis = configuration.maxDurationMillis();
-        var lease = ledger.claim(runId, engine.compatibilityDigest());
+        // The lease is granted from the database clock the claim's last sending reads after it
+        // locked the job, so that sending's start is when, at the latest, the lease began here.
+        var claimed = new AtomicLong(System.nanoTime());
+        Runnable claiming =
+                io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.observe(
+                        new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport
+                                .Observer() {
+                            @Override
+                            public long waiting(long waitedMillis) {
+                                claimed.set(System.nanoTime());
+                                return 0;
+                            }
+
+                            @Override
+                            public long before() {
+                                claimed.set(System.nanoTime());
+                                return 0;
+                            }
+                        });
+        CdsExportLeaseDto lease;
+        try {
+            lease = ledger.claim(runId, engine.compatibilityDigest());
+        } finally {
+            claiming.run();
+        }
         if (lease == null) return false;
         stalledAttempt.set(null);
         stallSettled.set(null);
-        try (var control = new Control(lease, maximumMillis)) {
+        try (var control = new Control(lease, maximumMillis, claimed.get())) {
             control.startHeartbeat();
             access.requireScope(lease.document().actor(), lease.document().command());
             engine.execute(lease, control);
@@ -414,8 +438,13 @@ public class CdsExportExecutionService {
         /** Set by each heartbeat; the engine thread seals its finished-chart checkpoint then. */
         private final AtomicBoolean checkpointDue = new AtomicBoolean();
 
-        /** When this attempt's lease was last granted: its claim, then each successful renewal. */
-        private final AtomicLong renewed = new AtomicLong(started);
+        /**
+         * When this attempt's lease was last granted, by this process's clock: the start of the
+         * sending that claimed it, then of each renewal that committed. The database granted the
+         * lease from its own clock after that start, so the lease counted from here never outlasts
+         * the database's, however long a sending waited.
+         */
+        private final AtomicLong renewed;
         private final java.util.concurrent.atomic.AtomicReference<RuntimeException>
                 heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.ScheduledExecutorService heartbeat;
@@ -423,9 +452,10 @@ public class CdsExportExecutionService {
         /** Restores the thread's previous wait observer when this attempt closes. */
         private final Runnable waits;
 
-        Control(CdsExportLeaseDto lease, long maximumMillis) {
+        Control(CdsExportLeaseDto lease, long maximumMillis, long granted) {
             this.lease = lease;
             maximumNanos = maximumMillis * 1_000_000L;
+            renewed = new AtomicLong(granted);
             heartbeat = schedulers.get();
             waits =
                     io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport
@@ -502,33 +532,78 @@ public class CdsExportExecutionService {
         }
 
         /**
-         * Renews the lease. A renewal that fails for a transient database reason does not end a
-         * healthy export while the lease the last successful renewal granted is still valid: the
-         * next heartbeat or checkpoint renews it again. Only a lease that is actually lost ends
-         * this owner, as before: the ledger's fence (another owner, a cancellation, our own
-         * expiry), or, when renewals keep failing for the whole lease, its expiry, which ends
-         * the attempt as an expired lease under that code.
+         * Renews the lease. A renewal waits for a slow database (its statements are sent again,
+         * each time with twice the wait, see {@link
+         * io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport#writing}), but
+         * only while the lease the last successful renewal granted is still valid: each wait is
+         * cut to what that lease has left, and when nothing is left the renewal ends and so does
+         * this owner ({@link #renewing}). A renewal that fails for a transient database reason
+         * does not end a healthy export either while that lease is valid: the next heartbeat or
+         * checkpoint renews it again. Only a lease that is actually lost ends this owner, as
+         * before: the ledger's fence (another owner, a cancellation, our own expiry), or, when
+         * renewals keep failing or waiting for the whole lease, its expiry, which ends the
+         * attempt as an expired lease under that code.
          */
         private void renew(Runnable renewal) {
+            // The start of the renewal's last sending: the lease it grants begins after it.
+            var sending = new AtomicLong(System.nanoTime());
+            Runnable restore =
+                    io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.observe(
+                            new io.github.carlos_emr.carlos.commn.dao
+                                    .CdsExportStatementWaitReadSupport.Observer() {
+                                @Override
+                                public long waiting(long waitedMillis) {
+                                    return renewing(waitedMillis, sending);
+                                }
+
+                                // Bounded from its first sending: the lease may have little left.
+                                @Override
+                                public long before() {
+                                    return renewing(0, sending);
+                                }
+                            });
             try {
                 renewal.run();
-                renewed.set(System.nanoTime());
+                // The heartbeat and the engine thread both renew; the later grant counts.
+                renewed.accumulateAndGet(sending.get(), Math::max);
             } catch (RuntimeException failed) {
                 if (!transientRenewalFailure(failed)) throw failed;
-                if (System.nanoTime() - renewed.get() >= renewalWindowNanos) {
-                    LOG.warn(
-                            "CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED run={} epoch={}",
-                            lease.runId(),
-                            lease.epoch());
-                    throw new CdsExportOwnerFencedException();
-                }
+                if (System.nanoTime() - renewed.get() >= renewalWindowNanos) throw exhausted();
                 // The run and the failure's type only; never its text.
                 LOG.warn(
                         "CDS_EXPORT_LEASE_RENEWAL_RETRY run={} epoch={} failure={}",
                         lease.runId(),
                         lease.epoch(),
                         failed.getClass().getSimpleName());
+            } finally {
+                restore.run();
             }
+        }
+
+        /**
+         * A renewal's sending is about to be sent, first or again: the attempt's own checks
+         * ({@link #waiting}), then the lease. The wait is cut to what the lease the last
+         * successful renewal granted has left (its 120 s less one beat); when nothing is left
+         * the renewal ends here, the owner is fenced at once and the attempt ends as an expired
+         * lease, as when renewals fail for the whole lease.
+         *
+         * @return the longest the sending may wait, in milliseconds
+         */
+        private long renewing(long waitedMillis, AtomicLong sending) {
+            long window = waiting(waitedMillis);
+            long left = renewalWindowNanos - (System.nanoTime() - renewed.get());
+            if (left <= 0) throw exhausted();
+            sending.set(System.nanoTime());
+            return Math.min(window, Math.max(1, left / 1_000_000L));
+        }
+
+        /** The lease the last renewal granted has run out: this owner is fenced. */
+        private CdsExportOwnerFencedException exhausted() {
+            LOG.warn(
+                    "CDS_EXPORT_LEASE_RENEWAL_EXHAUSTED run={} epoch={}",
+                    lease.runId(),
+                    lease.epoch());
+            return new CdsExportOwnerFencedException();
         }
 
         @Override
