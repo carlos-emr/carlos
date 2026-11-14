@@ -58,7 +58,7 @@
         jobAccessDenied: 'You cannot view this export job.',
         submissionNotFound: 'No job uses submission key {0}. Submitting with this key is safe: the server accepts it only once.',
         downloadStarted: 'The transfer opened in a new window. Check the browser\'s downloads; this button is available again in a few seconds.',
-        confirmCancel: 'Cancel this export? It cannot be resumed, and a ready package is withdrawn.'
+        confirmCancel: 'Cancel this export? Work stops and a ready package is withdrawn. The job can be started again later with Resume export.'
     };
     /** Replaces known keys with page text; unknown keys and non-text values are ignored. */
     function useMessages(messages) {

@@ -142,7 +142,10 @@ public final class CdsExportScalingFixture {
             }
         } catch (Exception failure) {
             // Operational evidence only: never print exception messages, SQL, paths or values.
+            // The frames are read to name this fixture's own method and line, nothing else; the
+            // fixture runs only in the CI runtime and is never packaged.
             String location = "unknown";
+            // nosemgrep: java.lang.security.audit.active-debug-code-getstacktrace.active-debug-code-getstacktrace
             for (StackTraceElement frame : failure.getStackTrace()) {
                 if (frame.getClassName().equals(CdsExportScalingFixture.class.getName())) {
                     location = frame.getMethodName() + ":" + frame.getLineNumber();
