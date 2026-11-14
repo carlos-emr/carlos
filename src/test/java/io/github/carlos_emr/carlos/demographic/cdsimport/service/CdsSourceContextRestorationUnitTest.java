@@ -332,6 +332,36 @@ class CdsSourceContextRestorationUnitTest {
     }
 
     @Test
+    void shouldRestoreTheSendersPreventionType_insteadOfFilingAnUntypedEntryAsTheCatchAll()
+            throws Exception {
+        // A CARLOS sender exports a type its configuration does not define (OSCAR 19 data), an
+        // Rh injection or a type outside CT-020 without ImmunizationType; the importer filed it
+        // under OtherA. The sender's own type is restored from CARLOS.Prevention.Source.v1.
+        var row = prevention(null, null, "0");
+        row.put("prevention_type", "Pertussis (O19)");
+        var value = normalization.immunization(immunization("N", preventionCarrier(row)));
+        assertThat(value.nativeType()).isEqualTo("Pertussis (O19)");
+        var writer =
+                new CdsImmunizationPersister(
+                        mock(PreventionDao.class),
+                        mock(PreventionExtDao.class),
+                        mock(PartialDateDao.class),
+                        normalization,
+                        "");
+        assertThat(writer.candidate(42, "999998", value).getPreventionType())
+                .isEqualTo("Pertussis (O19)");
+        // Any other sender files the untyped entry under the catch-all, as before.
+        var plain = normalization.immunization(immunization("N"));
+        assertThat(plain.nativeType()).isNull();
+        assertThat(writer.candidate(42, "999998", plain).getPreventionType()).isEqualTo("OtherA");
+        // A type longer than the receiving column is not restored.
+        row.put("prevention_type", "x".repeat(CdsImmunizationDto.NATIVE_TYPE_CAPACITY + 1));
+        var longer = normalization.immunization(immunization("N", preventionCarrier(row)));
+        assertThat(longer.nativeType()).isNull();
+        assertThat(writer.candidate(42, "999998", longer).getPreventionType()).isEqualTo("OtherA");
+    }
+
+    @Test
     void shouldNotRestoreTheSendersProviderNumberOrHiddenName_forAChosenCarlosProvider()
             throws Exception {
         // A CARLOS provider number belongs to the sender; the name box is hidden and unused for a
@@ -443,7 +473,10 @@ class CdsSourceContextRestorationUnitTest {
                                         "RefusedFlag/ynIndicatorsimple",
                                         "N")));
         String legacy = mapper.writeValueAsString(plain);
-        assertThat(legacy).doesNotContain("providerName").doesNotContain("reminderDate");
+        assertThat(legacy)
+                .doesNotContain("providerName")
+                .doesNotContain("reminderDate")
+                .doesNotContain("nativeType");
         var decoded =
                 mapper.treeToValue(
                         CdsPreparedImmunizationDefaults.apply(mapper.readTree(legacy)),

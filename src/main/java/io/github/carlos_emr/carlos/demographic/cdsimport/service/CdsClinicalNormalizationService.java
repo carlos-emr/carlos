@@ -510,7 +510,7 @@ public class CdsClinicalNormalizationService {
         dose = exact.get("Dose");
         instructions = exact.get("Instructions");
         notes = exact.get("Notes");
-        String providerName = null, reminderDate = null;
+        String providerName = null, reminderDate = null, nativeType = null;
         if (carried != null) {
             // The carrier must describe this event: its native status is the RefusedFlag the
             // exporter wrote from it (given and completed externally N; refused and ineligible Y).
@@ -536,6 +536,16 @@ public class CdsClinicalNormalizationService {
                 providerName = carried.providerNames().getFirst();
             }
             reminderDate = reminderDate(carried.nextDate(), command);
+            // The sender's own prevention type, which ImmunizationType does not always name: an
+            // untyped entry (a type outside CT-020, an Rh injection, a type the sender's
+            // configuration does not define) would otherwise become the catch-all type. A type
+            // longer than the receiving column is not restored; the configuration maps the
+            // element as for any sender.
+            String sent = carried.preventionType();
+            if (sent != null
+                    && !sent.isEmpty()
+                    && sent.codePointCount(0, sent.length())
+                            <= CdsImmunizationDto.NATIVE_TYPE_CAPACITY) nativeType = sent;
         }
         return new CdsImmunizationDto(
                 name,
@@ -553,7 +563,8 @@ public class CdsClinicalNormalizationService {
                 date,
                 providerName,
                 reminderDate,
-                restoreWarnings);
+                restoreWarnings,
+                nativeType);
     }
 
     /**

@@ -28,9 +28,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
  * Transient immunization defaults, applied only after the original payload seal is verified.
  *
  * <p>Preparations sealed before the CARLOS {@code Prevention.Source.v1} carrier was restored
- * (#6198) omit {@code providerName} and {@code reminderDate}; both mean "not restored" (null)
- * there. The stored bytes and seal are never rewritten; only the decoded tree is translated. A
- * present value that is not text or null is refused rather than guessed.
+ * (#6198) omit {@code providerName} and {@code reminderDate}, and those sealed before the native
+ * prevention type was restored omit {@code nativeType}; each means "not restored" (null) there.
+ * The stored bytes and seal are never rewritten; only the decoded tree is translated. A present
+ * value that is not text or null is refused rather than guessed.
  */
 public final class CdsPreparedImmunizationDefaults {
     private CdsPreparedImmunizationDefaults() {}
@@ -39,7 +40,7 @@ public final class CdsPreparedImmunizationDefaults {
         if (value == null || !value.isObject())
             throw new IllegalArgumentException("CDS_PREPARED_IMMUNIZATION_DEFAULTS_INVALID");
         ObjectNode result = ((ObjectNode) value).deepCopy();
-        for (String optional : java.util.List.of("providerName", "reminderDate")) {
+        for (String optional : java.util.List.of("providerName", "reminderDate", "nativeType")) {
             if (!result.has(optional)) result.putNull(optional);
             else if (!result.get(optional).isNull() && !result.get(optional).isTextual())
                 throw new IllegalArgumentException("CDS_PREPARED_IMMUNIZATION_DEFAULTS_INVALID");

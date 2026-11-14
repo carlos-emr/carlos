@@ -68,6 +68,8 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
     private String sourceType = "Td", nativeType = "Td";
     // #6198: the free-text provider and reminder date restored from a CARLOS sender's carrier.
     private String restoredProvider, restoredReminder;
+    // The sender's own prevention type, restored from its carrier.
+    private String restoredType;
     private String importedNotes = "Original notes";
     private static final String CONFIGURATION =
             "<preventions><item name='Td' layout='injection' healthCanadaType='Td'/><item name='HB' layout='injection' healthCanadaType='HB'/></preventions>";
@@ -97,7 +99,9 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
                         importedNotes,
                         date,
                         restoredProvider,
-                        restoredReminder);
+                        restoredReminder,
+                        List.of(),
+                        restoredType);
         definitions =
                 CdsExportPreventionClassifier.fromCaptured(
                         SOURCE, configuration.getBytes(StandardCharsets.UTF_8), List.of());
@@ -478,6 +482,25 @@ class CdsExportImmunizationFieldReconcilerUnitTest {
         assertThat(reconcile().mapping().value()).isNull();
         currentRoot.put("provider_name", null);
         currentRoot.put("refused", "3");
+        assertThat(reconcile().mapping().value()).isNull();
+    }
+
+    @Test
+    void shouldReexportAnUnchangedVaccineWhoseTypeTheImportRestored_withoutHolding()
+            throws Exception {
+        // The import restored a CARLOS sender's own type, which no item here configures and the
+        // untyped source element does not name. The sealed preparation proves it; today's
+        // configuration has no declaration to compare.
+        sourceType = null;
+        nativeType = "Pertussis (O19)";
+        restoredType = "Pertussis (O19)";
+        prepare(CdsTemporal.parse(null, null, "2024-02-29", null, "Date"));
+        var result = reconcile();
+        assertThat(result.mapping().nativeRowRepresentable()).isTrue();
+        assertThat(result.mapping().value().type()).isNull();
+        assertThat(result.preparedPaths()).contains("ImmunizationType", "ImmunizationName");
+        // A type changed in place after the import is not the restored one.
+        currentRoot.put("prevention_type", "Td");
         assertThat(reconcile().mapping().value()).isNull();
     }
 

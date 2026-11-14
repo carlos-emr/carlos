@@ -41,9 +41,10 @@ import java.util.Set;
  * {@code CARLOS.Prevention.Source.v1} beside an Immunizations entry (#6198). Only the columns the
  * importer restores are read: the free-text administering provider (the prevention form's
  * {@code providerName} extension, shown only for the "Other" provider {@code -1}), the reminder
- * date ({@code next_date}) and the native status that binds the carrier to this record's
- * RefusedFlag. A malformed or duplicated carrier requires review; it never falls back to a
- * default. Every other residual value stays opaque protected source.
+ * date ({@code next_date}), the native prevention type ({@code prevention_type}) and the native
+ * status that binds the carrier to this record's RefusedFlag. A malformed or duplicated carrier
+ * requires review; it never falls back to a default. Every other residual value stays opaque
+ * protected source.
  */
 final class CdsImmunizationResidualReader {
     private final CdsFieldParser fields;
@@ -61,9 +62,15 @@ final class CdsImmunizationResidualReader {
      * @param nextDate {@code preventions.next_date} as captured ({@code yyyy-MM-dd})
      * @param refused {@code preventions.refused}: 0 given, 1 refused, 2 ineligible, 3 completed
      *     externally
+     * @param preventionType {@code preventions.prevention_type}, the sender's own type, which a
+     *     CDS ImmunizationType does not always name (an untyped entry, a type outside CT-020)
      */
     record SourceContext(
-            String providerNo, List<String> providerNames, String nextDate, String refused) {
+            String providerNo,
+            List<String> providerNames,
+            String nextDate,
+            String refused,
+            String preventionType) {
         SourceContext {
             providerNames = List.copyOf(providerNames);
         }
@@ -185,7 +192,8 @@ final class CdsImmunizationResidualReader {
                         Set.of(
                                 "prevention/provider_no",
                                 "prevention/next_date",
-                                "prevention/refused"),
+                                "prevention/refused",
+                                "prevention/prevention_type"),
                         Map.of("extensions", Set.of("keyval", "val")),
                         (array, extension) -> {
                             var row = CdsSourceContextParser.element(extension, "keyval", "val");
@@ -207,7 +215,12 @@ final class CdsImmunizationResidualReader {
                 CdsSourceContextParser.text(parent, "provider_no"),
                 providerNames,
                 CdsSourceContextParser.text(parent, "next_date"),
-                CdsSourceContextParser.text(parent, "refused"));
+                CdsSourceContextParser.text(parent, "refused"),
+                // Every CARLOS exporter writes the type with the row; a carrier without it
+                // restores no type, and the configuration maps the element as for any sender.
+                parent.has("prevention_type")
+                        ? CdsSourceContextParser.text(parent, "prevention_type")
+                        : null);
     }
 
     private static IllegalArgumentException malformed() {
