@@ -334,6 +334,33 @@ class CdsExportNativeHistoryMapperUnitTest {
     }
 
     @Test
+    void shouldWriteALifeStageOutsideTheList_labelledInNotesInsteadOfHoldingThePatient()
+            throws Exception {
+        // The REST notes service stores the life stage it is sent; one outside N, I, C, T and A
+        // held the chart (CDS_EXPORT_NATIVE_HISTORY_LIFE_STAGE_REQUIRES_REVIEW).
+        for (var stage : List.of(Map.entry("C", true), Map.entry("Adolescent", false))) {
+            var ext =
+                    row(
+                            Plan.CASE_NOTE_EXT,
+                            101,
+                            Map.of("note_id", "91", "key_val", "Life Stage", "value", stage.getKey()));
+            var result =
+                    map(
+                            CdsCategory.FAMILY_HISTORY,
+                            List.of(note(91, "Narrative", "FamHistory", List.of(ext))));
+            if (stage.getValue())
+                assertThat(result.value().text()).containsEntry("LifeStage", stage.getKey());
+            else
+                assertThat(result.value().text())
+                        .doesNotContainKey("LifeStage")
+                        .hasEntrySatisfying(
+                                "Notes", notes -> assertThat(notes).contains("Life Stage:\nAdolescent"));
+            String xml = new String(render(result.value()), StandardCharsets.UTF_8);
+            assertThat(xml).contains("Adolescent".equals(stage.getKey()) ? "Life Stage:" : "<LifeStage>C</LifeStage>");
+        }
+    }
+
+    @Test
     void shouldRefuseConflictingDuplicateExtensions_insteadOfSelectingAnArbitraryValue() {
         var one =
                 row(

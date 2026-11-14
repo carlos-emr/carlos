@@ -4475,7 +4475,10 @@ carries it. No narrative length holds the patient, and neither do the item's own
 (values such as Treatment or Exposure Details that their element cannot hold): Notes holds
 whole parts only, statements first; one that does not fit with the others is left out whole,
 last first, and is exact in the revision's extension facts in `CARLOS.NativeHistory.v1`
-(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A note or a CPP field pasted with a
+(`CDS_EXPORT_NATIVE_HISTORY_NARRATIVE_CAPACITY` is gone). A life stage outside the editor's
+list (N, I, C, T, A), which the REST notes service stores as sent, follows the same rule: no
+LifeStage, a labelled `Life Stage:` line in Notes and the exact value in the extension facts
+(`CDS_EXPORT_NATIVE_HISTORY_LIFE_STAGE_REQUIRES_REVIEW` held the patient). A note or a CPP field pasted with a
 character XML cannot carry is written with U+FFFD in its place and its exact text travels in
 the revision details (`exactNarrative`); a CARLOS importer restores it once the element proves
 to be its U+FFFD form (see `docs/cds-import.md`). An encounter note's type (`encounter_type`,
