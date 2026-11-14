@@ -3775,7 +3775,7 @@
               "check": "java-cds-transfer-export"
             },
             {
-              "name": "shouldVerifyUnknownInjectionCategoryNeverTurnsIntoAnEmptyOrAutomaticallyIncludedClinicalSelection_forImmunizationCaptureContract",
+              "name": "shouldPlaceAnUnconfiguredType_asAnImmunizationOfTheClinicalSelection",
               "container": "",
               "check": "java-cds-transfer-export"
             },
