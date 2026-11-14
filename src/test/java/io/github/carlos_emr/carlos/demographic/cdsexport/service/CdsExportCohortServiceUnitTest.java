@@ -440,6 +440,77 @@ class CdsExportCohortServiceUnitTest {
     }
 
     @Test
+    void shouldSealAnExplicitSelectionFarPastTheOldManifestCap_inTwoVerifiedLines()
+            throws Exception {
+        // A short selection's manifest is one line of JSON, byte for byte as before.
+        var small = cohorts.prepare(lease, selection(row(27, "100") + row(28, null), 2), control);
+        try (var input = store.open(small.member())) {
+            assertThat(new String(input.readAllBytes(), StandardCharsets.UTF_8))
+                    .doesNotContain("\n");
+        }
+        // The manifest binding an explicit selection was refused past 512 KiB
+        // (CDS_EXPORT_COHORT_MANIFEST_LIMIT). 300,000 patients make one of about 2.4 MB: it is
+        // stored in two lines, as the ledger stores the job document, with no size limit.
+        store =
+                new CdsExportStagingService(
+                        root, run, 1, new SecretKeySpec(new byte[32], "AES"), 0, () -> {});
+        int count = 300_000;
+        var patients = new java.util.ArrayList<Integer>(count);
+        var rows = new StringBuilder();
+        for (int i = 0; i < count; i++) {
+            patients.add(1_000_000 + i);
+            rows.append(row(1_000_000 + i, null));
+        }
+        lease = lease(CdsExportCommand.Selection.SELECTED_PATIENTS, List.of(), patients);
+        var sealed = cohorts.prepare(lease, selection(rows.toString(), count), control);
+        assertThat(sealed.patients()).isEqualTo(count);
+        assertThat(sealed.member().plaintextBytes()).isGreaterThan(4L * 524_288);
+        String stored;
+        try (var input = store.open(sealed.member())) {
+            stored = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        int newline = stored.indexOf('\n');
+        assertThat(newline).isPositive().isLessThan(524_288);
+        assertThat(stored.substring(0, newline))
+                .contains("\"patientNos\":[]")
+                .contains("\"lists\":{\"patients\":300000,\"physicians\":0,\"sha256\":");
+        assertThat(stored.substring(newline + 1))
+                .startsWith("{\"patientNos\":[1000000,1000001,")
+                .endsWith(",1299999],\"physicianNos\":[]}");
+        // A recovering attempt reads the whole manifest back and finds the exact intent.
+        when(ledger.cohort(lease)).thenReturn(sealed.member());
+        long seen = 0;
+        try (var restored = cohorts.open(lease, control)) {
+            for (var patient = restored.next(); patient != null; patient = restored.next()) seen++;
+            assertThat(restored.complete()).isTrue();
+        }
+        assertThat(seen).isEqualTo(count);
+        assertThat(
+                        cohorts.readRetained(
+                                store,
+                                run,
+                                1,
+                                lease.document(),
+                                sealed.member(),
+                                count,
+                                () -> {},
+                                patient -> {}))
+                .isEqualTo(count);
+        // A second line other than the one the first line names is never used: one patient
+        // number changed in an authenticated member of the same attempt is refused.
+        String forged =
+                stored.substring(0, newline + 1)
+                        + stored.substring(newline + 1).replace("[1000000,", "[1000007,");
+        var tampered =
+                store.stage(
+                        "COHORT_MANIFEST",
+                        output -> output.write(forged.getBytes(StandardCharsets.UTF_8)));
+        when(ledger.cohort(lease)).thenReturn(tampered);
+        assertThatThrownBy(() -> cohorts.open(lease, control))
+                .hasMessage("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+    }
+
+    @Test
     void shouldPropagateRetainedPermissionFailure_withoutReturningACompletionReceipt()
             throws Exception {
         var sealed = cohorts.prepare(lease, selection(row(27, null) + row(28, null), 2), control);

@@ -36,9 +36,19 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportSelectionDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportStagedFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
+import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.DigestInputStream;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -50,10 +60,20 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  * the caller passes Sealed to ledger.sealSelection(). A lost DB acknowledgement retains private
  * files and retries that exact proof; it never deletes a possibly committed selection or silently
  * reruns discovery. No clinical completeness, output validation or READY is implied by a seal.
+ *
+ * <p>No selection is refused for its size. The manifest binds the exact job document, whose
+ * explicit patient list can be as long as the request; a long one is stored in two lines, as the
+ * ledger stores the job document itself ({@link #write}).
  */
 @Service
 public class CdsExportCohortService {
-    private static final int MAX_MANIFEST = 524_288;
+    /**
+     * A manifest of at most this many bytes is stored as its JSON, byte for byte as before; a
+     * longer one, which only a long explicit selection makes, is stored in two lines ({@link
+     * #write}). It decides how a manifest is stored, never whether. A first line longer than this
+     * was not written here: everything left on it has a fixed greatest length.
+     */
+    private static final int ONE_LINE = 524_288;
     private static final JsonMapper JSON =
             JsonMapper.builder(
                             com.fasterxml.jackson.core.JsonFactory.builder()
@@ -106,10 +126,7 @@ public class CdsExportCohortService {
         boolean complete = false;
         Throwable primary = null;
         try {
-            byte[] bytes = JSON.writeValueAsBytes(manifest);
-            if (bytes.length > MAX_MANIFEST)
-                throw new IOException("CDS_EXPORT_COHORT_MANIFEST_LIMIT");
-            member = store.stage("COHORT_MANIFEST", output -> output.write(bytes));
+            member = store.stage("COHORT_MANIFEST", output -> write(manifest, output));
             var readback = manifest(store, member);
             if (!readback.equals(manifest)) invalid();
             control.checkpoint();
@@ -216,15 +233,200 @@ public class CdsExportCohortService {
         return count;
     }
 
+    /**
+     * The stored form of a manifest. One of at most {@link #ONE_LINE} bytes is its JSON, byte for
+     * byte as before. A longer one is two lines, as {@code CdsExportLedgerService} stores a long
+     * job document: the same JSON with the command's two selection lists empty and a {@code lists}
+     * member giving the count of each list and the SHA-256 of the second line; then the second
+     * line, {@code {"patientNos":[...],"physicianNos":[...]}} in the command's own sorted order.
+     * The second line is written from the command as it streams, never held as text. The file's
+     * own digest, which the ledger records and every patient scope names, covers both lines.
+     */
+    private static void write(CdsExportCohortManifestDto manifest, OutputStream output)
+            throws IOException {
+        var counted = new Counted(OutputStream.nullOutputStream());
+        JSON.writeValue(counted, manifest);
+        if (counted.count <= ONE_LINE) {
+            output.write(JSON.writeValueAsBytes(manifest));
+            return;
+        }
+        var command = manifest.intent().command();
+        var digest = sha256();
+        var length = new Counted(new DigestOutputStream(OutputStream.nullOutputStream(), digest));
+        lists(command, length);
+        com.fasterxml.jackson.databind.node.ObjectNode head = JSON.valueToTree(manifest);
+        var intent = (com.fasterxml.jackson.databind.node.ObjectNode) head.get("intent");
+        var named = (com.fasterxml.jackson.databind.node.ObjectNode) intent.get("command");
+        named.putArray("patientNos");
+        named.putArray("physicianNos");
+        head.putObject("lists")
+                .put("patients", command.patientNos().size())
+                .put("physicians", command.physicianNos().size())
+                .put("sha256", HexFormat.of().formatHex(digest.digest()));
+        byte[] first = JSON.writeValueAsBytes(head);
+        // Everything left on the first line has a fixed greatest length; this cannot happen.
+        boolean newline = false;
+        for (byte value : first) newline |= value == '\n';
+        if (newline || first.length > ONE_LINE)
+            throw new IOException("CDS_EXPORT_COHORT_ENCODING_FAILED");
+        output.write(first);
+        output.write('\n');
+        lists(command, output);
+    }
+
+    /** The second line: the command's lists, as the ledger writes them. */
+    private static void lists(CdsExportCommand command, OutputStream output) throws IOException {
+        var text = new ByteArrayOutputStream(8192);
+        text.writeBytes("{\"patientNos\":[".getBytes(StandardCharsets.US_ASCII));
+        String separator = "";
+        for (Integer patient : command.patientNos()) {
+            text.writeBytes((separator + patient.intValue()).getBytes(StandardCharsets.US_ASCII));
+            separator = ",";
+            if (text.size() >= 8192) {
+                text.writeTo(output);
+                text.reset();
+            }
+        }
+        text.writeBytes("],\"physicianNos\":[".getBytes(StandardCharsets.US_ASCII));
+        separator = "";
+        // A provider number is letters, digits, "_" and "-" (CdsExportCommand): no escape.
+        for (String physician : command.physicianNos()) {
+            text.writeBytes(
+                    (separator + '"' + physician + '"').getBytes(StandardCharsets.US_ASCII));
+            separator = ",";
+            if (text.size() >= 8192) {
+                text.writeTo(output);
+                text.reset();
+            }
+        }
+        text.writeBytes("]}".getBytes(StandardCharsets.US_ASCII));
+        text.writeTo(output);
+    }
+
+    /**
+     * Reads a manifest back in either stored form. A two-line one is used only once its second
+     * line is exactly the selection the first line names: its SHA-256, both counts and an
+     * authenticated end of file.
+     */
     private static CdsExportCohortManifestDto manifest(
             CdsExportStagingService store, CdsExportStagedFileDto file) throws IOException {
-        if (!file.purpose().equals("COHORT_MANIFEST")
-                || file.plaintextBytes() < 1
-                || file.plaintextBytes() > MAX_MANIFEST) invalid();
-        try (var input = store.open(file)) {
-            byte[] bytes = input.readNBytes(MAX_MANIFEST + 1);
-            if (bytes.length > MAX_MANIFEST || input.read() != -1) invalid();
-            return JSON.readValue(bytes, CdsExportCohortManifestDto.class);
+        if (!file.purpose().equals("COHORT_MANIFEST") || file.plaintextBytes() < 1) invalid();
+        try (var input = new BufferedInputStream(store.open(file))) {
+            var first = new ByteArrayOutputStream();
+            int value;
+            while ((value = input.read()) != -1 && value != '\n') {
+                if (first.size() >= ONE_LINE) invalid();
+                first.write(value);
+            }
+            if (value == -1)
+                return JSON.readValue(first.toByteArray(), CdsExportCohortManifestDto.class);
+            var head = JSON.readTree(first.toByteArray());
+            if (!(head instanceof com.fasterxml.jackson.databind.node.ObjectNode document)
+                    || !(document.remove("lists")
+                            instanceof com.fasterxml.jackson.databind.node.ObjectNode named)
+                    || !(document.path("intent").get("command")
+                            instanceof com.fasterxml.jackson.databind.node.ObjectNode command)
+                    || named.size() != 3
+                    || !named.path("patients").isInt()
+                    || !named.path("physicians").isInt()
+                    || !named.path("sha256").isTextual()
+                    || !command.path("patientNos").isArray()
+                    || !command.path("patientNos").isEmpty()
+                    || !command.path("physicianNos").isArray()
+                    || !command.path("physicianNos").isEmpty())
+                throw new IOException("CDS_EXPORT_COHORT_INVENTORY_INVALID");
+            var digest = sha256();
+            var patients = JSON.getNodeFactory().arrayNode();
+            var physicians = JSON.getNodeFactory().arrayNode();
+            var rest = new DigestInputStream(input, digest);
+            try (var parser =
+                    JSON.getFactory()
+                            .createParser(
+                                    new FilterInputStream(rest) {
+                                        @Override
+                                        public void close() {
+                                            // The authenticated file is closed by its owner.
+                                        }
+                                    })) {
+                expect(parser, com.fasterxml.jackson.core.JsonToken.START_OBJECT);
+                field(parser, "patientNos");
+                expect(parser, com.fasterxml.jackson.core.JsonToken.START_ARRAY);
+                for (var token = parser.nextToken();
+                        token != com.fasterxml.jackson.core.JsonToken.END_ARRAY;
+                        token = parser.nextToken()) {
+                    if (token != com.fasterxml.jackson.core.JsonToken.VALUE_NUMBER_INT
+                            || parser.getNumberType()
+                                    != com.fasterxml.jackson.core.JsonParser.NumberType.INT)
+                        invalid();
+                    patients.add(parser.getIntValue());
+                }
+                field(parser, "physicianNos");
+                expect(parser, com.fasterxml.jackson.core.JsonToken.START_ARRAY);
+                for (var token = parser.nextToken();
+                        token != com.fasterxml.jackson.core.JsonToken.END_ARRAY;
+                        token = parser.nextToken()) {
+                    if (token != com.fasterxml.jackson.core.JsonToken.VALUE_STRING) invalid();
+                    physicians.add(parser.getText());
+                }
+                expect(parser, com.fasterxml.jackson.core.JsonToken.END_OBJECT);
+                if (parser.nextToken() != null) invalid();
+            } catch (com.fasterxml.jackson.core.JsonProcessingException malformed) {
+                invalid();
+            }
+            // Every byte after the first line is the second line, to the authenticated end.
+            rest.transferTo(OutputStream.nullOutputStream());
+            if (!HexFormat.of().formatHex(digest.digest()).equals(named.get("sha256").textValue())
+                    || patients.size() != named.get("patients").intValue()
+                    || physicians.size() != named.get("physicians").intValue()) invalid();
+            command.set("patientNos", patients);
+            command.set("physicianNos", physicians);
+            return JSON.treeToValue(document, CdsExportCohortManifestDto.class);
+        }
+    }
+
+    private static void expect(
+            com.fasterxml.jackson.core.JsonParser parser, com.fasterxml.jackson.core.JsonToken token)
+            throws IOException {
+        if (parser.nextToken() != token) invalid();
+    }
+
+    private static void field(com.fasterxml.jackson.core.JsonParser parser, String name)
+            throws IOException {
+        if (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.FIELD_NAME
+                || !name.equals(parser.currentName())) invalid();
+    }
+
+    private static MessageDigest sha256() {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+    }
+
+    /** Counts what passes through, so a manifest's length is known before it is stored. */
+    private static final class Counted extends java.io.FilterOutputStream {
+        private long count;
+
+        Counted(OutputStream output) {
+            super(output);
+        }
+
+        @Override
+        public void write(int value) throws IOException {
+            out.write(value);
+            count++;
+        }
+
+        @Override
+        public void write(byte[] bytes, int offset, int length) throws IOException {
+            out.write(bytes, offset, length);
+            count += length;
+        }
+
+        @Override
+        public void close() {
+            // The counted stream is only measured; nothing is closed through it.
         }
     }
 
