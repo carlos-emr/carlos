@@ -97,9 +97,9 @@ public class CdsClinicalSourceService {
         this.admission = admission;
         this.configuration = configuration;
         this.corrections = corrections;
+        // No clock: a slow but working database never fails a source-field read.
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
-        transaction.setTimeout(15);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
     }
 

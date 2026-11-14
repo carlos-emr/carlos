@@ -443,7 +443,8 @@ class CdsImportObservationServiceUnitTest {
         @Override protected void doBegin(Object transaction, TransactionDefinition definition) {
             assertTrue(definition.isReadOnly());
             assertEquals(expectedIsolation, definition.getIsolationLevel());
-            assertEquals(120, definition.getTimeout());
+            // No clock: a slow but working database never fails an observation.
+            assertEquals(TransactionDefinition.TIMEOUT_DEFAULT, definition.getTimeout());
             begins++;
         }
 

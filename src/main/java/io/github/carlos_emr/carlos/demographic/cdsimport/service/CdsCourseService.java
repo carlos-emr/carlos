@@ -52,9 +52,9 @@ public class CdsCourseService {
             CdsProgramContextService programs) {
         this.configuration = configuration;
         this.programs = programs;
+        // No clock: a slow but working database never fails the course's reads.
         read = new TransactionTemplate(manager);
         read.setReadOnly(true);
-        read.setTimeout(30);
     }
 
     public void forEachCopy(

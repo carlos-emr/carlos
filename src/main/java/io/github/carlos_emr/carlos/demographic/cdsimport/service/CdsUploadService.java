@@ -61,9 +61,13 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Durable owner-scoped, raw-body uploads. Body reads and hashing run outside database transactions;
- * a short row-locked transaction seals each bounded append and its fixed-size chunk receipt.
- * Orphan file/journal tails are truncated to the last known database checkpoint on the next append.
+ * Durable owner-scoped, raw-body uploads. Body reads, hashing and every file write and fsync run
+ * outside database transactions, under the upload's body lock; a short row-locked transaction then
+ * seals each bounded append and its fixed-size chunk receipt, after the bytes are durable. Orphan
+ * file/journal tails are truncated to the last known database checkpoint on the next append.
+ *
+ * <p>No transaction here carries a clock: a slow but working database never fails an upload. A
+ * lost connection fails the request (HTTP 503), and the page sends the same chunk again.
  *
  * <p>No size refuses an upload. A file of any size is sent as chunks of the configured transfer
  * size, and each chunk is checked against the upload store's free-disk reserve before it is
@@ -125,7 +129,6 @@ public class CdsUploadService {
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        transaction.setTimeout(30);
     }
 
     public CdsUploadDto begin(String operator, String name, long bytes) throws IOException {
@@ -251,16 +254,29 @@ public class CdsUploadService {
                 }
                 out.force(true);
             }
-            return write(
-                    () ->
-                            appendSealed(
-                                    operator,
-                                    id,
-                                    offset,
-                                    declaredBytes,
-                                    expectedHash,
-                                    directory,
-                                    attempt));
+            Checkpoint current = checkpoint(operator, id);
+            if (offset < current.receivedBytes() && offset % chunkBytes() == 0) {
+                // A committed chunk is never rewritten: its retry is answered from its receipt.
+                CdsUploadChunkDto previous;
+                try {
+                    previous = readChunk(child(directory, "chunks.bin"), offset / chunkBytes());
+                } catch (IOException failure) {
+                    throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+                }
+                if (previous.offset() == offset
+                        && previous.bytes() == declaredBytes
+                        && CdsImportKeys.sameDigest(previous.sha256(), expectedHash))
+                    return current.receipt();
+                throw problem("UPLOAD_RETRY_CONTENT_CONFLICT", 409);
+            }
+            if (!"OPEN".equals(current.state()) || offset != current.receivedBytes()) {
+                throw problem("UPLOAD_OFFSET_CONFLICT", 409);
+            }
+            if (declaredBytes != Math.min(chunkBytes(), current.expectedBytes() - offset)) {
+                throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
+            }
+            writeChunk(directory, current, offset, declaredBytes, expectedHash, attempt);
+            return write(() -> seal(operator, id, offset, declaredBytes, current.chunkCount()));
         } finally {
             incoming.release();
             // Only this attempt's fresh, never-published spool is eligible here.
@@ -273,43 +289,60 @@ public class CdsUploadService {
         }
     }
 
-    private CdsUploadDto appendSealed(
-            String operator,
-            String id,
+    /**
+     * The row's facts an append is planned against, read with the body lock already held, so no
+     * other append of this upload can move them; abandonment and expiry can, which the seal
+     * rechecks under the row lock.
+     */
+    private record Checkpoint(
+            CdsUploadDto receipt,
+            String state,
+            long receivedBytes,
+            long chunkCount,
+            long expectedBytes,
+            String payload) {}
+
+    private Checkpoint checkpoint(String operator, String id) {
+        return write(
+                () -> {
+                    CdsUpload row = owned(uploads.get(id), operator);
+                    return new Checkpoint(
+                            dto(row),
+                            row.getState(),
+                            row.getReceivedBytes(),
+                            row.getChunkCount(),
+                            row.getExpectedBytes(),
+                            payloadName(row));
+                });
+    }
+
+    /**
+     * Appends one verified chunk and its receipt to the durable files, outside any database
+     * transaction: under the body lock, after the tails past the database checkpoint are
+     * truncated, and fsynced before the seal records them.
+     */
+    private void writeChunk(
+            Path directory,
+            Checkpoint current,
             long offset,
             int bytes,
             String hash,
-            Path directory,
             Path attempt) {
-        CdsUpload row = owned(uploads.lock(id), operator);
+        Path payload = child(directory, current.payload());
         Path journal = child(directory, "chunks.bin");
         try {
-            if (offset < row.getReceivedBytes() && offset % chunkBytes() == 0) {
-                CdsUploadChunkDto previous = readChunk(journal, offset / chunkBytes());
-                if (previous.offset() == offset
-                        && previous.bytes() == bytes
-                        && CdsImportKeys.sameDigest(previous.sha256(), hash)) return dto(row);
-                throw problem("UPLOAD_RETRY_CONTENT_CONFLICT", 409);
-            }
-            if (!"OPEN".equals(row.getState()) || offset != row.getReceivedBytes()) {
-                throw problem("UPLOAD_OFFSET_CONFLICT", 409);
-            }
-            if (bytes != Math.min(chunkBytes(), row.getExpectedBytes() - offset)) {
-                throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
-            }
-            Path payload = child(directory, payloadName(row));
             try (FileChannel target = openPrivate(payload);
                     FileChannel receipts = openPrivate(journal);
                     FileChannel input =
                             FileChannel.open(
                                     attempt, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
                 if (target.size() < offset
-                        || receipts.size() < row.getChunkCount() * JOURNAL_BYTES) {
+                        || receipts.size() < current.chunkCount() * JOURNAL_BYTES) {
                     throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
                 }
                 target.truncate(offset);
                 target.position(offset);
-                receipts.truncate(row.getChunkCount() * JOURNAL_BYTES);
+                receipts.truncate(current.chunkCount() * JOURNAL_BYTES);
                 receipts.position(receipts.size());
                 long copied = 0;
                 while (copied < bytes) {
@@ -320,7 +353,7 @@ public class CdsUploadService {
                 target.force(true);
                 ByteBuffer entry =
                         ByteBuffer.allocate(JOURNAL_BYTES)
-                                .putLong(row.getChunkCount())
+                                .putLong(current.chunkCount())
                                 .putLong(offset)
                                 .putInt(bytes)
                                 .put(HexFormat.of().parseHex(hash));
@@ -329,15 +362,29 @@ public class CdsUploadService {
                 receipts.force(true);
             }
             syncDirectory(directory);
-            row.setReceivedBytes(Math.addExact(offset, bytes));
-            row.setChunkCount(row.getChunkCount() + 1);
-            row.setUpdatedAt(Instant.now());
-            uploads.merge(row);
-            uploads.flush();
-            return dto(row);
         } catch (IOException failure) {
             throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
         }
+    }
+
+    /**
+     * Records a durable append. The files were written for exactly this checkpoint; if the row
+     * moved meanwhile (the upload was abandoned or expired), nothing is recorded and the appended
+     * tail is an orphan the next append truncates.
+     */
+    private CdsUploadDto seal(String operator, String id, long offset, int bytes, long chunkCount) {
+        CdsUpload row = owned(uploads.lock(id), operator);
+        if (!"OPEN".equals(row.getState())
+                || row.getReceivedBytes() != offset
+                || row.getChunkCount() != chunkCount) {
+            throw problem("UPLOAD_OFFSET_CONFLICT", 409);
+        }
+        row.setReceivedBytes(Math.addExact(offset, bytes));
+        row.setChunkCount(row.getChunkCount() + 1);
+        row.setUpdatedAt(Instant.now());
+        uploads.merge(row);
+        uploads.flush();
+        return dto(row);
     }
 
     /** Owner-only paged receipts let the browser verify every old prefix chunk before resume. */
@@ -359,9 +406,9 @@ public class CdsUploadService {
     /** Seal the ordered verified chunk inventory; the core independently hashes the complete source before clinical writes. */
     public CdsUploadDto finish(String operator, String id) throws IOException {
         configuration.requireEnabled();
-        CdsUploadDto before = status(operator, id);
-        if (IMMUTABLE_STATES.contains(before.state())) return before;
-        if (before.receivedBytes() != before.expectedBytes())
+        Checkpoint before = checkpoint(operator, requireId(id));
+        if (IMMUTABLE_STATES.contains(before.state())) return before.receipt();
+        if (!"OPEN".equals(before.state()) || before.receivedBytes() != before.expectedBytes())
             throw problem("UPLOAD_INCOMPLETE", 409);
         Path directory = directory(id, false);
         String manifest;
@@ -373,23 +420,26 @@ public class CdsUploadService {
             while ((n = input.read(buffer)) != -1) digest.update(buffer, 0, n);
             manifest = HexFormat.of().formatHex(digest.digest());
         }
+        // A fully received upload takes no further appends, so its files are checked and made
+        // durable before the transaction, which only rechecks that the row did not move.
+        try {
+            if (Files.size(child(directory, before.payload())) != before.expectedBytes()
+                    || Files.size(child(directory, "chunks.bin"))
+                            != before.chunkCount() * JOURNAL_BYTES) {
+                throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
+            }
+            syncDirectory(directory);
+        } catch (IOException failure) {
+            throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
+        }
         return write(
                 () -> {
                     CdsUpload row = owned(uploads.lock(id), operator);
                     if (IMMUTABLE_STATES.contains(row.getState())) return dto(row);
                     if (!"OPEN".equals(row.getState())
-                            || row.getReceivedBytes() != row.getExpectedBytes()) {
+                            || row.getReceivedBytes() != row.getExpectedBytes()
+                            || row.getChunkCount() != before.chunkCount()) {
                         throw problem("UPLOAD_INCOMPLETE", 409);
-                    }
-                    try {
-                        if (Files.size(child(directory, payloadName(row))) != row.getExpectedBytes()
-                                || Files.size(child(directory, "chunks.bin"))
-                                        != row.getChunkCount() * JOURNAL_BYTES) {
-                            throw problem("UPLOAD_STORAGE_INCOMPLETE", 409);
-                        }
-                        syncDirectory(directory);
-                    } catch (IOException failure) {
-                        throw problem("UPLOAD_STORAGE_UNAVAILABLE", 503);
                     }
                     row.setManifestDigest(manifest);
                     row.setState("COMPLETE");

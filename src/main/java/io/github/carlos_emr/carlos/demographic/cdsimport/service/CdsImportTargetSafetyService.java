@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportExcept
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.StreamReadFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsJdbcAdmissionGuard;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -91,13 +92,14 @@ public class CdsImportTargetSafetyService {
         owner.verifyTargets(this);
     }
 
-    /** Only the maintenance owner can supply its private physical connection. */
+    /**
+     * Only the maintenance owner can supply its private physical connection. Every statement here
+     * waits for the database rather than failing on a clock ({@link CdsImportStatementWaits}): a
+     * read the server ends at its deadline is sent again on the owner's connection, in the same
+     * transaction, so the metadata pins already taken are kept.
+     */
     // Identifiers come from the resolved native catalogue and quote() escapes every backtick.
     // This SELECT pins metadata only; no source value or patient SQL is interpolated.
-    @SuppressWarnings("java:S2077")
-    // FindSecBugs SQL_INJECTION_JDBC: Every identifier is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text.
-    // FindSecBugs SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: The text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE"}, justification = "SQL_INJECTION_JDBC: every identifier is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text; SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: the text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound")
     void verifyAndPin(Connection connection) {
         try {
             connection.setAutoCommit(false);
@@ -117,12 +119,9 @@ public class CdsImportTargetSafetyService {
                             .append(quote("cds_pin_" + (index - offset)));
                 }
                 sql.append(" LIMIT 0");
-                try (var statement = connection.createStatement()) {
-                    statement.setQueryTimeout(10);
-                    try (var ignored = statement.executeQuery(sql.toString())) {
-                        // Transaction-duration metadata lock; no patient rows or row locks.
-                    }
-                }
+                String pins = sql.toString();
+                CdsImportStatementWaits.awaitOwned(
+                        connection, seconds -> pin(connection, pins, seconds));
             }
             // Re-read engines after metadata pins, rather than trusting a pre-pin DDL snapshot.
             catalogue = tables(connection);
@@ -143,18 +142,42 @@ public class CdsImportTargetSafetyService {
         }
     }
 
-    private Map<String, String> tables(Connection connection) throws SQLException {
-        Map<String, String> found = new HashMap<>();
-        try (var query =
-                connection.prepareStatement(
-                        "SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES "
-                                + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")) {
-            query.setQueryTimeout(10);
-            try (var rows = query.executeQuery()) {
-                while (rows.next()) found.put(rows.getString(1), rows.getString(2));
+    /**
+     * Pins one batch of target tables for the owner's transaction. A batch the server ends at its
+     * deadline (a metadata lock held by DDL) gave up the locks it was waiting for and is sent again
+     * by the caller; the pins of earlier batches stay held.
+     */
+    // A named method, not a lambda: SpotBugs does not apply a method annotation to a lambda body.
+    @SuppressWarnings("java:S2077")
+    // FindSecBugs SQL_INJECTION_JDBC: Every identifier verifyAndPin() puts in the text is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text.
+    // FindSecBugs SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: The text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE"}, justification = "SQL_INJECTION_JDBC: every identifier verifyAndPin() puts in the text is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text; SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: the text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound")
+    private static Void pin(Connection connection, String pins, int seconds) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            statement.setQueryTimeout(seconds);
+            try (var ignored = statement.executeQuery(pins)) {
+                // Transaction-duration metadata lock; no patient rows or row locks.
             }
         }
-        return found;
+        return null;
+    }
+
+    private Map<String, String> tables(Connection connection) throws SQLException {
+        return CdsImportStatementWaits.awaitOwned(
+                connection,
+                seconds -> {
+                    Map<String, String> found = new HashMap<>();
+                    try (var query =
+                            connection.prepareStatement(
+                                    "SELECT TABLE_NAME,ENGINE FROM information_schema.TABLES "
+                                            + "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'")) {
+                        query.setQueryTimeout(seconds);
+                        try (var rows = query.executeQuery()) {
+                            while (rows.next()) found.put(rows.getString(1), rows.getString(2));
+                        }
+                    }
+                    return found;
+                });
     }
 
     // FindSecBugs IMPROPER_UNICODE: Matches the fixed native table names against the table names MariaDB's own catalogue reports, to pin and verify those tables; schema names, not user input, and a wider match only adds a table to verification.
@@ -182,32 +205,39 @@ public class CdsImportTargetSafetyService {
 
     private void verifyTriggers(Connection connection, Set<String> targets) throws SQLException {
         requireTriggerVisibility(connection, targets);
-        List<Trigger> triggers = new ArrayList<>();
-        try (var query =
-                connection.prepareStatement(
-                        """
+        // Read whole on every sending: a read ended at its deadline part-way through its rows is
+        // started again from an empty list.
+        List<Trigger> triggers =
+                CdsImportStatementWaits.awaitOwned(
+                        connection,
+                        seconds -> {
+                            List<Trigger> found = new ArrayList<>();
+                            try (var query =
+                                    connection.prepareStatement(
+                                            """
                 SELECT TRIGGER_SCHEMA,TRIGGER_NAME,EVENT_OBJECT_TABLE,EVENT_MANIPULATION,ACTION_TIMING,
                     ACTION_STATEMENT,SQL_MODE,DEFINER,CHARACTER_SET_CLIENT,COLLATION_CONNECTION,
                     DATABASE_COLLATION,ACTION_ORDER
                 FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()
                 """)) {
-            query.setQueryTimeout(10);
-            query.setFetchSize(
-                    Integer
-                            .MIN_VALUE); // Connector/J streams definitions instead of buffering a
-                                         // catalogue of bodies.
-            try (var rows = query.executeQuery()) {
-                while (rows.next()) {
-                    if (!targets.contains(rows.getString(3))) continue;
-                    if (triggers.size() >= MAXIMUM_TRIGGERS)
-                        throw problem("IMPORT_TARGET_TRIGGER_REQUIRES_REVIEW");
-                    triggers.add(
-                            new Trigger(
-                                    rows.getString(1) + "." + rows.getString(2),
-                                    triggerDigest(rows)));
-                }
-            }
-        }
+                                query.setQueryTimeout(seconds);
+                                // Connector/J streams definitions instead of buffering a
+                                // catalogue of bodies.
+                                query.setFetchSize(Integer.MIN_VALUE);
+                                try (var rows = query.executeQuery()) {
+                                    while (rows.next()) {
+                                        if (!targets.contains(rows.getString(3))) continue;
+                                        if (found.size() >= MAXIMUM_TRIGGERS)
+                                            throw problem("IMPORT_TARGET_TRIGGER_REQUIRES_REVIEW");
+                                        found.add(
+                                                new Trigger(
+                                                        rows.getString(1) + "." + rows.getString(2),
+                                                        triggerDigest(rows)));
+                                    }
+                                }
+                            }
+                            return found;
+                        });
         if (triggers.isEmpty()) return;
         Map<String, String> approved = approvals();
         for (Trigger trigger : triggers) {
@@ -224,14 +254,19 @@ public class CdsImportTargetSafetyService {
     /** An empty TRIGGERS result is proof only when this account can see every target's triggers. */
     private void requireTriggerVisibility(Connection connection, Set<String> targets)
             throws SQLException {
-        String account;
-        try (var query = connection.createStatement()) {
-            query.setQueryTimeout(10);
-            try (var rows = query.executeQuery("SELECT CURRENT_USER()")) {
-                if (!rows.next()) throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
-                account = rows.getString(1);
-            }
-        }
+        String account =
+                CdsImportStatementWaits.awaitOwned(
+                        connection,
+                        seconds -> {
+                            try (var query = connection.createStatement()) {
+                                query.setQueryTimeout(seconds);
+                                try (var rows = query.executeQuery("SELECT CURRENT_USER()")) {
+                                    if (!rows.next())
+                                        throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
+                                    return rows.getString(1);
+                                }
+                            }
+                        });
         int separator = account.lastIndexOf('@');
         if (separator < 0) throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
         String grantee =
@@ -240,32 +275,44 @@ public class CdsImportTargetSafetyService {
                         + "'@'"
                         + account.substring(separator + 1)
                         + "'";
-        try (var query =
-                connection.prepareStatement(
-                        """
+        boolean granted =
+                CdsImportStatementWaits.awaitOwned(
+                        connection,
+                        seconds -> {
+                            try (var query =
+                                    connection.prepareStatement(
+                                            """
                 SELECT 1 FROM information_schema.USER_PRIVILEGES WHERE GRANTEE=? AND PRIVILEGE_TYPE='TRIGGER'
                 UNION ALL SELECT 1 FROM information_schema.SCHEMA_PRIVILEGES
                 WHERE GRANTEE=? AND DATABASE() LIKE TABLE_SCHEMA ESCAPE ? AND PRIVILEGE_TYPE='TRIGGER'
                 """)) {
-            query.setQueryTimeout(10);
-            query.setString(1, grantee);
-            query.setString(2, grantee);
-            query.setString(3, "\\");
-            try (var rows = query.executeQuery()) {
-                if (rows.next()) return;
-            }
-        }
-        Set<String> visible = new java.util.HashSet<>();
-        try (var query =
-                connection.prepareStatement(
-                        "SELECT TABLE_NAME FROM information_schema.TABLE_PRIVILEGES "
-                                + "WHERE GRANTEE=? AND TABLE_SCHEMA=DATABASE() AND PRIVILEGE_TYPE='TRIGGER'")) {
-            query.setQueryTimeout(10);
-            query.setString(1, grantee);
-            try (var rows = query.executeQuery()) {
-                while (rows.next()) visible.add(rows.getString(1));
-            }
-        }
+                                query.setQueryTimeout(seconds);
+                                query.setString(1, grantee);
+                                query.setString(2, grantee);
+                                query.setString(3, "\\");
+                                try (var rows = query.executeQuery()) {
+                                    return rows.next();
+                                }
+                            }
+                        });
+        if (granted) return;
+        Set<String> visible =
+                CdsImportStatementWaits.awaitOwned(
+                        connection,
+                        seconds -> {
+                            Set<String> found = new java.util.HashSet<>();
+                            try (var query =
+                                    connection.prepareStatement(
+                                            "SELECT TABLE_NAME FROM information_schema.TABLE_PRIVILEGES "
+                                                    + "WHERE GRANTEE=? AND TABLE_SCHEMA=DATABASE() AND PRIVILEGE_TYPE='TRIGGER'")) {
+                                query.setQueryTimeout(seconds);
+                                query.setString(1, grantee);
+                                try (var rows = query.executeQuery()) {
+                                    while (rows.next()) found.add(rows.getString(1));
+                                }
+                            }
+                            return found;
+                        });
         if (!visible.containsAll(targets))
             throw problem("IMPORT_TARGET_TRIGGER_VISIBILITY_REQUIRED");
     }
