@@ -58,11 +58,12 @@ public final class CdsExportStatementWaitTestServer {
     private final Connection connection = mock(Connection.class);
     private final EntityManager em = mock(EntityManager.class);
     private final List<Object> deadlines = new ArrayList<>();
+    private final List<String> outcomes = new ArrayList<>();
     private int socket;
     private long ended;
     private double deadline;
-    private boolean lost, unrestorable;
-    private int transactions;
+    private boolean lost, unrestorable, commitAnswerLost;
+    private int transactions, refusalsLeft;
 
     public CdsExportStatementWaitTestServer(int socketMillis) throws SQLException {
         socket = socketMillis;
@@ -86,6 +87,15 @@ public final class CdsExportStatementWaitTestServer {
                         });
         when(connection.prepareStatement(CdsExportStatementWaitReadSupport.DEADLINE))
                 .thenAnswer(call -> deadlineStatement());
+        // An aborted connection is dropped by its pool: the next transaction has a new one, with
+        // the server's own deadline.
+        doAnswer(
+                        call -> {
+                            deadline = 0;
+                            return null;
+                        })
+                .when(connection)
+                .abort(any());
         var session = mock(org.hibernate.Session.class);
         doAnswer(
                         call -> {
@@ -120,6 +130,24 @@ public final class CdsExportStatementWaitTestServer {
     /** The connection refuses its own deadline back. */
     public void refuseDeadlineBack() {
         unrestorable = true;
+    }
+
+    /** The connection refuses its own deadline back once, then takes it. */
+    public void refuseDeadlineBackOnce() {
+        refusalsLeft = 1;
+    }
+
+    /** The next commit is made, and its answer never comes back. */
+    public void loseNextCommitAnswer() {
+        commitAnswerLost = true;
+    }
+
+    /**
+     * How each transaction ended, in order: {@code COMMITTED} with the connection's own deadline
+     * at that moment, or {@code ROLLED_BACK}.
+     */
+    public List<String> outcomes() {
+        return List.copyOf(outcomes);
     }
 
     /** Every deadline the connection was given, in order: a unit's, then its own put back. */
@@ -161,7 +189,16 @@ public final class CdsExportStatementWaitTestServer {
 
             @Override
             public void commit(TransactionStatus status) {
-                complete(status.isRollbackOnly() ? 1 : 0);
+                if (status.isRollbackOnly()) {
+                    complete(1);
+                    return;
+                }
+                complete(0);
+                if (commitAnswerLost) {
+                    commitAnswerLost = false;
+                    throw new org.springframework.transaction.TransactionSystemException(
+                            "SYNTHETIC_LOST_COMMIT_ANSWER");
+                }
             }
 
             @Override
@@ -172,6 +209,8 @@ public final class CdsExportStatementWaitTestServer {
             private void complete(int outcome) {
                 var synchronizations = TransactionSynchronizationManager.getSynchronizations();
                 synchronizations.forEach(TransactionSynchronization::beforeCompletion);
+                // The commit (or rollback) itself, after everything before completion.
+                outcomes.add(outcome == 0 ? "COMMITTED@" + deadline : "ROLLED_BACK");
                 for (var synchronization : synchronizations)
                     synchronization.afterCompletion(outcome);
                 TransactionSynchronizationManager.unbindResource(key);
@@ -201,8 +240,11 @@ public final class CdsExportStatementWaitTestServer {
         when(statement.execute())
                 .thenAnswer(
                         call -> {
-                            if (unrestorable && value[0] instanceof Double)
+                            if (value[0] instanceof Double
+                                    && (unrestorable || refusalsLeft > 0)) {
+                                if (refusalsLeft > 0) refusalsLeft--;
                                 throw new SQLException("refused", "HY000", 1105);
+                            }
                             deadlines.add(value[0]);
                             deadline = ((Number) value[0]).doubleValue();
                             return false;

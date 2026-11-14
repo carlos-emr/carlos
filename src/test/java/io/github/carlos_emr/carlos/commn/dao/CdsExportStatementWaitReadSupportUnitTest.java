@@ -473,4 +473,234 @@ class CdsExportStatementWaitReadSupportUnitTest {
         assertThat(server.transactions()).isEqualTo(1);
         assertThat(server.deadline()).isZero();
     }
+
+    /** A write unit's transactions: one new read-write transaction for each sending. */
+    private static org.springframework.transaction.support.TransactionTemplate writes(
+            CdsExportStatementWaitTestServer server) {
+        return new org.springframework.transaction.support.TransactionTemplate(server.manager());
+    }
+
+    @Test
+    void shouldWriteTheUnitAgainWhole_whenTheServerEndedOneOfItsStatementsBeforeItsCommit()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        String answer =
+                CdsExportStatementWaitReadSupport.writing(
+                        writes(server),
+                        status -> {
+                            // The lease row's lock, waited for past the deadline once.
+                            if (server.transactions() == 1) {
+                                server.endStatement();
+                                throw new jakarta.persistence.LockTimeoutException(
+                                        "ended", ended());
+                            }
+                            return "renewed";
+                        });
+        assertThat(answer).isEqualTo("renewed");
+        // The first sending never reached its commit: it was rolled back, then written again
+        // with twice the wait, and committed once, with the connection's own deadline back.
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK", "COMMITTED@0.0");
+        assertThat(server.deadlines()).containsExactly(30, 0.0d, 60, 0.0d);
+        verify(server.connection()).setNetworkTimeout(any(), eq(90_000));
+        assertThat(server.socket()).isEqualTo(60_000);
+    }
+
+    @Test
+    void shouldNeverCommitASending_whoseEndedStatementTheWorkSwallowed() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var sendings = new int[1];
+        CdsExportStatementWaitReadSupport.writing(
+                writes(server),
+                status -> {
+                    // A statement ended at its deadline, and the failure lost on the way.
+                    if (++sendings[0] == 1) server.endStatement();
+                    return null;
+                });
+        // Ended by the count, whatever the work made of it: rolled back, never committed.
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK", "COMMITTED@0.0");
+        assertThat(sendings[0]).isEqualTo(2);
+    }
+
+    @Test
+    void shouldSendTheWritesItHoldsBeforeItsCommit_underTheUnitsDeadline() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var deadlinesAtFlush = new ArrayList<Double>();
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            deadlinesAtFlush.add(server.deadline());
+                            if (deadlinesAtFlush.size() == 1) {
+                                // The attempt row's update, ended at the deadline.
+                                server.endStatement();
+                                throw new jakarta.persistence.PersistenceException(
+                                        "ended", ended());
+                            }
+                            return null;
+                        })
+                .when(server.em())
+                .flush();
+        CdsExportStatementWaitReadSupport.writing(writes(server), status -> "recorded");
+        // Sent under the unit's deadline, before the commit; ended, rolled back, sent again.
+        assertThat(deadlinesAtFlush).containsExactly(30.0d, 60.0d);
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK", "COMMITTED@0.0");
+    }
+
+    @Test
+    void shouldWriteTheUnitAgain_whenALockWaitRanOutOrADeadlockEndedItsTransaction()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var failures =
+                new java.util.ArrayDeque<RuntimeException>(
+                        List.of(
+                                new jakarta.persistence.PessimisticLockException(
+                                        new SQLException(
+                                                "Lock wait timeout exceeded", "HY000", 1205)),
+                                new IllegalStateException(
+                                        new java.sql.SQLTransactionRollbackException(
+                                                "Deadlock found", "40001", 1213))));
+        String answer =
+                CdsExportStatementWaitReadSupport.writing(
+                        writes(server),
+                        status -> {
+                            var failure = failures.poll();
+                            if (failure != null) throw failure;
+                            return "stopped";
+                        });
+        assertThat(answer).isEqualTo("stopped");
+        assertThat(server.outcomes())
+                .containsExactly("ROLLED_BACK", "ROLLED_BACK", "COMMITTED@0.0");
+    }
+
+    @Test
+    void shouldPassAFenceOrARefusalOn_atOnceWithoutWritingTheUnitAgain() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var fenced =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportOwnerFencedException();
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.writing(
+                                        writes(server),
+                                        status -> {
+                                            throw fenced;
+                                        }))
+                .isSameAs(fenced);
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK");
+        assertThat(server.deadline()).isZero();
+    }
+
+    @Test
+    void shouldNeverWriteTheUnitAgain_onceItsCommitWasSent() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        server.loseNextCommitAnswer();
+        var sendings = new int[1];
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.writing(
+                                        writes(server),
+                                        status -> ++sendings[0]))
+                .isInstanceOf(org.springframework.transaction.TransactionSystemException.class);
+        // The commit's outcome is the caller's to establish (publication reads it back); the
+        // unit is never sent a second time, even had the server ended something before.
+        assertThat(sendings[0]).isEqualTo(1);
+        assertThat(server.outcomes()).containsExactly("COMMITTED@0.0");
+    }
+
+    @Test
+    void shouldGiveAWriteUnitItsDeadline_evenOnAConnectionWithoutASocketTimeout()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(0);
+        CdsExportStatementWaitReadSupport.writing(writes(server), status -> null);
+        assertThat(server.deadlines()).containsExactly(30, 0.0d);
+        verify(server.connection(), never()).setNetworkTimeout(any(), anyInt());
+        assertThat(server.outcomes()).containsExactly("COMMITTED@0.0");
+    }
+
+    @Test
+    void shouldCutAWriteUnitsWaitsToItsObserversWindow_andEndThemWhenTheWindowIsGone()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        var told = new ArrayList<String>();
+        // A renewal's observer: 10 s of lease left before the first sending, 3.5 s after it,
+        // then none.
+        restore =
+                CdsExportStatementWaitReadSupport.observe(
+                        new CdsExportStatementWaitReadSupport.Observer() {
+                            @Override
+                            public long before() {
+                                told.add("before");
+                                return 10_000;
+                            }
+
+                            @Override
+                            public long waiting(long waited) {
+                                told.add("waited " + waited);
+                                if (waited < 13_000) return 3_500;
+                                throw new io.github.carlos_emr.carlos.demographic.cdsexport
+                                        .support.CdsExportOwnerFencedException();
+                            }
+                        });
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.writing(
+                                        writes(server),
+                                        status -> {
+                                            server.endStatement();
+                                            throw new jakarta.persistence.QueryTimeoutException(
+                                                    "ended", ended());
+                                        }))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportOwnerFencedException.class);
+        // Asked before the first sending too: 10 s of window, then 3.5 s, then none.
+        assertThat(told).containsExactly("before", "waited 10000", "waited 13000");
+        assertThat(server.deadlines()).containsExactly(10, 0.0d, 3, 0.0d);
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK", "ROLLED_BACK");
+    }
+
+    @Test
+    void shouldStillWriteAUnit_whoseAttemptEndedBeforeItWaitedAtAll() throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        // The attempt has ended (a fence, a cancel): its observer ends every wait.
+        restore =
+                CdsExportStatementWaitReadSupport.observe(
+                        waited -> {
+                            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportOwnerFencedException();
+                        });
+        // The chart audit of the stopped job is not asked about before it is sent, and is
+        // written.
+        String answer =
+                CdsExportStatementWaitReadSupport.writing(writes(server), status -> "audited");
+        assertThat(answer).isEqualTo("audited");
+        assertThat(server.outcomes()).containsExactly("COMMITTED@0.0");
+    }
+
+    @Test
+    void shouldReportTheDatabase_whenTheConnectionIsLostBeforeAWriteUnitCommits()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        assertThatThrownBy(
+                        () ->
+                                CdsExportStatementWaitReadSupport.writing(
+                                        writes(server),
+                                        status -> {
+                                            server.lose();
+                                            return "written";
+                                        }))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportDatabaseUnavailableException.class);
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK");
+    }
+
+    @Test
+    void shouldAbortTheConnectionAndWriteTheUnitAgain_whenItsOwnDeadlineCannotBePutBack()
+            throws Exception {
+        var server = new CdsExportStatementWaitTestServer(60_000);
+        server.refuseDeadlineBackOnce();
+        CdsExportStatementWaitReadSupport.writing(writes(server), status -> "checkpointed");
+        // That connection never reaches its pool, or its commit, with the unit's deadline.
+        verify(server.connection()).abort(any());
+        assertThat(server.outcomes()).containsExactly("ROLLED_BACK", "COMMITTED@0.0");
+    }
 }

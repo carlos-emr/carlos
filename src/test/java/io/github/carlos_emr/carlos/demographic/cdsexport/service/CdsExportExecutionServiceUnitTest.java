@@ -479,6 +479,122 @@ class CdsExportExecutionServiceUnitTest {
         verify(ledger, never()).stop(any(), any(), anyString());
     }
 
+    /**
+     * The ledger's renewal as it runs: one write unit on the given server, whose work ends a
+     * statement at its deadline while {@code ended} says so, after {@code pause} of waiting.
+     */
+    private void renewals(
+            io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer server,
+            java.util.function.IntPredicate ended,
+            long pauseMillis) {
+        var sendings = new int[1];
+        doAnswer(
+                        call ->
+                                io.github.carlos_emr.carlos.commn.dao
+                                        .CdsExportStatementWaitReadSupport.writing(
+                                        new org.springframework.transaction.support
+                                                .TransactionTemplate(server.manager()),
+                                        status -> {
+                                            if (!ended.test(++sendings[0])) return null;
+                                            try {
+                                                Thread.sleep(pauseMillis);
+                                            } catch (InterruptedException interrupted) {
+                                                Thread.currentThread().interrupt();
+                                            }
+                                            server.endStatement();
+                                            throw new jakarta.persistence.LockTimeoutException(
+                                                    "ended",
+                                                    new java.sql.SQLTimeoutException(
+                                                            "ended", "70100", 1969));
+                                        }))
+                .when(ledger)
+                .checkpoint(lease);
+    }
+
+    @Test
+    void shouldWaitForASlowRenewal_withoutEndingAHealthyExport() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(600_000, beat);
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        // The lease row is locked by someone else for longer than two deadlines.
+        renewals(server, sending -> sending <= 2, 0);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            assertThat(control.checkpointDue()).isTrue();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // The renewal waited 30 s, then 60 s, then what the lease still had left (less than its
+        // 100 s, not 120 s), and was answered: the export went on.
+        assertThat(server.deadlines()).startsWith(30, 0.0d, 60, 0.0d);
+        assertThat(((Number) server.deadlines().get(4)).intValue()).isBetween(61, 100);
+        assertThat(server.outcomes()).startsWith("ROLLED_BACK", "ROLLED_BACK", "COMMITTED@0.0");
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
+        verify(ledger, never()).retireExpiredLease(any());
+    }
+
+    @Test
+    void shouldFenceTheOwnerAtOnce_whenARenewalStillWaitsAsItsLeaseRunsOut() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(600_000, beat);
+        // A lease of 0.3 s less its beat; the lease row never answers in time.
+        limited.renewalWindowNanos = java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(300);
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        renewals(server, sending -> true, 40);
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        long started = System.nanoTime();
+        limited.execute(RUN);
+
+        // Each wait was cut to what the lease had left, and the renewal ended with it.
+        assertThat(server.deadlines()).isNotEmpty().allMatch(value -> ((Number) value).intValue() <= 1);
+        assertThat(server.outcomes()).isNotEmpty().allMatch("ROLLED_BACK"::equals);
+        assertThat((System.nanoTime() - started) / 1_000_000L).isLessThan(30_000L);
+        verify(ledger).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
+    @Test
+    void shouldSendNothing_whenTheLeaseTheLastRenewalGrantedHasRunOut() throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(600_000, beat);
+        limited.renewalWindowNanos = 0;
+        var server = new io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitTestServer(60_000);
+        renewals(server, sending -> false, 0);
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            beat.getValue().run();
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // Fenced before anything was sent: no lease is renewed after it has run out here.
+        assertThat(server.transactions()).isZero();
+        verify(ledger).retireExpiredLease(lease);
+    }
+
     @Test
     void shouldTreatOnlyPassingDatabaseFailures_asTransientRenewalFailures() {
         assertThat(

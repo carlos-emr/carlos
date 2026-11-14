@@ -62,7 +62,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * serialization occurs inside them. Authorization belongs to the application boundary; saved
  * identity and lease ownership do not grant disclosure rights. Operator arguments use
  * CdsExportActorDto.operatorKey(), never an ambiguous display login. No API here can mark an
- * unvalidated package READY. The package publication service owns that separate proof.
+ * unvalidated package READY. The package publication service owns that separate proof. No
+ * transaction here has a time limit of its own: each is a write unit ({@link
+ * io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport#writing}), so a slow
+ * database is waited for, statement by statement, and a transaction is run again only when it
+ * provably did not commit.
  */
 @Service
 public class CdsExportLedgerService {
@@ -133,21 +137,39 @@ public class CdsExportLedgerService {
         reportRead.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
     }
 
+    /**
+     * A metadata transaction with no timeout of its own: a slow database is waited for, never
+     * failed. Each runs as a write unit ({@link #transaction(TransactionTemplate, Supplier)}).
+     */
     private static TransactionTemplate transaction(
             PlatformTransactionManager manager, boolean readOnly) {
         TransactionTemplate value = new TransactionTemplate(manager);
         value.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         value.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        value.setTimeout(15);
         value.setReadOnly(readOnly);
         return value;
     }
 
+    /**
+     * One metadata transaction as a write unit ({@link
+     * io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport#writing}): every
+     * statement of it, its writes included, waits for the database with a server-side deadline
+     * that is sent again, twice as long, until it is answered, and the commit is sent only when
+     * no statement of it was ended. A sending the server ended (its deadline, a lock wait, a
+     * deadlock) never reached its commit, so it is rolled back and the work runs again from its
+     * first read: the fence ({@link #owned}) is decided again on the row it locks, against the
+     * database clock read after that lock, so a sending that comes late finds a lease lost
+     * meanwhile and is fenced, and nothing a rolled-back sending wrote survives to be written
+     * twice. A fence, a cancellation and every refusal of the work's own end it at once. The waits
+     * end with the caller's attempt (its observer: the lease a renewal has left, a cancel, the
+     * stall detector) or with an interrupt; nothing else ends them.
+     */
     private <T> T transaction(TransactionTemplate selected, Supplier<T> work) {
         if (TransactionSynchronizationManager.isActualTransactionActive()) {
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         }
-        return selected.execute(status -> work.get());
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.writing(
+                selected, status -> work.get());
     }
 
     /**
@@ -475,7 +497,9 @@ public class CdsExportLedgerService {
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
         }
-        captureControl.execute(
+        // A write unit of its own, like every other metadata transaction of the ledger.
+        io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.writing(
+                captureControl,
                 status -> {
                     renew(lease);
                     return null;
