@@ -440,6 +440,9 @@ public class CdsTargetReceiptService {
             return columns.get(table);
         }
 
+        // FindSecBugs SQL_INJECTION_JDBC: The table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound.
+        // FindSecBugs SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: The text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound.
+        @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING"}, justification = "SQL_INJECTION_JDBC: the table and key come from the fixed PRIMARY_KEYS map or the two fixed link tables (columns() refuses any other table), column names come from JDBC metadata of that table with backticks doubled, and the row id is checked against [A-Za-z0-9_-]{1,64} and bound; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the text varies only by those allow-listed table and key names and the escaped metadata column names; identifiers cannot be bound")
         private String digest(String table, String id) throws java.sql.SQLException {
             String key = PRIMARY_KEYS.get(table);
             boolean documentLink = "ctl_document".equals(table),

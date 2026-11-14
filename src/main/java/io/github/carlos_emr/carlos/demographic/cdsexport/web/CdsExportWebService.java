@@ -150,6 +150,8 @@ public class CdsExportWebService {
      * the diagnostic report): a short page in the viewer's language, because a person reads it,
      * where the API's JSON would show as raw text. A script caller still receives the JSON.
      */
+    // FindSecBugs XSS_SERVLET: The page is built from resource-bundle messages and a fixed refusal code, each written through SafeEncode.forHtmlContent or forHtmlAttribute, as text/html UTF-8 with nosniff; no request value is written.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "XSS_SERVLET", justification = "the page is built from resource-bundle messages and a fixed refusal code, each written through SafeEncode.forHtmlContent or forHtmlAttribute, as text/html UTF-8 with nosniff; no request value is written")
     public void navigationFailure(
             HttpServletRequest request, HttpServletResponse response, Exception failure)
             throws IOException {

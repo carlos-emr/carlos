@@ -593,6 +593,8 @@ public class CdsClinicalNormalizationService {
         return false;
     }
 
+    // FindSecBugs MODIFICATION_AFTER_VALIDATION: The matcher parses the strength grammar, it is not a security check; the whitespace-stripped text only becomes a comparison key and reaches no sink.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "MODIFICATION_AFTER_VALIDATION", justification = "the matcher parses the strength grammar, it is not a security check; the whitespace-stripped text only becomes a comparison key and reaches no sink")
     private static String standardStrengthKey(String amount, String unit) {
         var parsed = STRENGTH_UNIT_TEXT.matcher(unit);
         if (parsed.matches())

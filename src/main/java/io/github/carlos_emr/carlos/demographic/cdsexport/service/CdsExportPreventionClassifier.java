@@ -126,6 +126,8 @@ public final class CdsExportPreventionClassifier {
         return new CdsExportPreventionClassifier(null, configuration, catalogue);
     }
 
+    // FindSecBugs XXE_XMLREADER: The reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "XXE_XMLREADER", justification = "the reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses")
     private CdsExportPreventionClassifier(
             String source, byte[] configuration, Iterable<CdsExportCapturedTextRowDto> catalogue)
             throws IOException {

@@ -149,6 +149,8 @@ public class CdsExportImplementationIdentityService {
      * change on every build of the same source, and binding them made a rebuild of identical
      * code look like a different exporter, ending every pending job as RUNTIME_CHANGED.
      */
+    // FindSecBugs URLCONNECTION_SSRF_FD: The URL is the class loader's own carlos-build.properties, required to resolve under the file:, jar:file: or war:file: origin of the CARLOS anchor class; never operator or request input.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "the URL is the class loader's own carlos-build.properties, required to resolve under the file:, jar:file: or war:file: origin of the CARLOS anchor class; never operator or request input")
     private static void buildVersion(Map<String, String> entries, String name, URL resource)
             throws IOException {
         var properties = new java.util.Properties();
@@ -163,6 +165,8 @@ public class CdsExportImplementationIdentityService {
         if (previous != null) unavailable();
     }
 
+    // FindSecBugs URLCONNECTION_SSRF_FD: Every URL is a class-path resource that resolves under the file:, jar:file: or war:file: origin of the CARLOS anchor class, or the file: code source of a named BouncyCastle class; never operator or request input.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "URLCONNECTION_SSRF_FD", justification = "every URL is a class-path resource that resolves under the file:, jar:file: or war:file: origin of the CARLOS anchor class, or the file: code source of a named BouncyCastle class; never operator or request input")
     private static void add(
             Map<String, String> entries, String name, URL resource, byte[] buffer, long[] total)
             throws IOException {

@@ -95,6 +95,9 @@ public class CdsImportTargetSafetyService {
     // Identifiers come from the resolved native catalogue and quote() escapes every backtick.
     // This SELECT pins metadata only; no source value or patient SQL is interpolated.
     @SuppressWarnings("java:S2077")
+    // FindSecBugs SQL_INJECTION_JDBC: Every identifier is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text.
+    // FindSecBugs SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: The text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE"}, justification = "SQL_INJECTION_JDBC: every identifier is a physical table name read from information_schema.TABLES of the current schema that matched the fixed native writer catalogue (or the cds_import_ prefix), or a generated cds_pin_N alias, and quote() doubles every backtick; no request, file or row value reaches the SQL text; SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE: the text varies only by those catalogue-matched, backtick-quoted table names; identifiers cannot be bound")
     void verifyAndPin(Connection connection) {
         try {
             connection.setAutoCommit(false);

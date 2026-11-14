@@ -203,6 +203,8 @@ final class CdsExportDataSummaryHtmlComposer {
         html.append("</div>");
     }
 
+    // FindSecBugs POTENTIAL_XML_INJECTION: The appended value is Base64 text ([A-Za-z0-9+/=]) inside a double-quoted data: URI, so it cannot close the attribute; the media type is one of three fixed strings and is attribute-encoded, and decoded text goes through SafeEncode.forHtmlContent.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "the appended value is Base64 text ([A-Za-z0-9+/=]) inside a double-quoted data: URI, so it cannot close the attribute; the media type is one of three fixed strings and is attribute-encoded, and decoded text goes through SafeEncode.forHtmlContent")
     private static void binary(
             StringBuilder html,
             byte[] content,
@@ -256,6 +258,8 @@ final class CdsExportDataSummaryHtmlComposer {
      * decrypted image is embedded and labelled as decrypted; a legacy row stored unencrypted is
      * shown as stored and labelled so; a value that cannot be decrypted is named, not shown.
      */
+    // FindSecBugs POTENTIAL_XML_INJECTION: The appended values are Base64 text ([A-Za-z0-9+/=]) inside a double-quoted data: URI, so they cannot close the attribute; the media type is one of three fixed strings and is attribute-encoded.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "POTENTIAL_XML_INJECTION", justification = "the appended values are Base64 text ([A-Za-z0-9+/=]) inside a double-quoted data: URI, so they cannot close the attribute; the media type is one of three fixed strings and is attribute-encoded")
     private static void signature(StringBuilder html, byte[] content) {
         var read =
                 io.github.carlos_emr.carlos.managers.DigitalSignatureManagerImpl.readStoredImage(
