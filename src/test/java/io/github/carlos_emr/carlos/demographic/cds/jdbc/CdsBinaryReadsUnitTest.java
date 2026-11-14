@@ -38,6 +38,40 @@ class CdsBinaryReadsUnitTest {
     }
 
     @Test
+    void shouldPrepareASelect_whenItIsLongerThan65536Characters() throws Exception {
+        // A SELECT over 65,536 characters (a wide table's column list) was once refused; the
+        // server's max_allowed_packet is the only bound on its text. Only a SELECT is prepared.
+        String sql =
+                "SELECT "
+                        + java.util.stream.IntStream.range(0, 7_000)
+                                .mapToObj(column -> "column_" + column)
+                                .collect(java.util.stream.Collectors.joining(", "))
+                        + " FROM wide_table WHERE id = ?";
+        assertThat(sql.length()).isGreaterThan(65_536);
+        var owner = mock(Connection.class);
+        var driver = mock(org.mariadb.jdbc.Connection.class);
+        var raw = mock(ServerPreparedStatement.class);
+        var metadata = mock(ParameterMetaData.class);
+        when(owner.unwrap(org.mariadb.jdbc.Connection.class)).thenReturn(driver);
+        when(driver.prepareInternal(
+                        sql,
+                        Statement.NO_GENERATED_KEYS,
+                        ResultSet.TYPE_FORWARD_ONLY,
+                        ResultSet.CONCUR_READ_ONLY,
+                        true))
+                .thenReturn(raw);
+        when(raw.getParameterMetaData()).thenReturn(metadata);
+        when(metadata.getParameterCount()).thenReturn(1);
+        try (var query = CdsBinaryReads.prepareDriver(owner, sql)) {
+            query.setLong(1, 17);
+        }
+        verify(raw).setLong(1, 17);
+        assertThatThrownBy(() -> CdsBinaryReads.prepareDriver(owner, "UPDATE" + sql.substring(6)))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("CDS_BINARY_SELECT_REQUIRED");
+    }
+
+    @Test
     void shouldRejectATextOrUnverifiableResult_beforeAnyClinicalValueCanEscape() throws Exception {
         var f = fixture();
         var text = mock(ResultSet.class);
