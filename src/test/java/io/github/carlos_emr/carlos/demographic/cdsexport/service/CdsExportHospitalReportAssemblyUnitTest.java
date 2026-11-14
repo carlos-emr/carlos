@@ -97,7 +97,7 @@ class CdsExportHospitalReportAssemblyUnitTest {
         Arrays.fill(key, (byte) 43);
         store =
                 new CdsExportStagingService(
-                        root, RUN, 1, new SecretKeySpec(key, "AES"), 64L << 20, 0, () -> {});
+                        root, RUN, 1, new SecretKeySpec(key, "AES"), 0, () -> {});
         when(stores.openExisting(any(), anyLong(), any(), any())).thenReturn(store);
         when(patient.patient()).thenReturn(PATIENT);
         var command =

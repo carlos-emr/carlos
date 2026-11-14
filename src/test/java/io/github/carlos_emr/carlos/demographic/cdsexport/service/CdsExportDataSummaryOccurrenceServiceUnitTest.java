@@ -196,7 +196,7 @@ class CdsExportDataSummaryOccurrenceServiceUnitTest {
                                 "CARLOS_DATA_SUMMARY_EXACT_VALUE"));
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        List.of(row.assessed()), assessments, 1_000, () -> {});
+                        List.of(row.assessed()), assessments, () -> {});
     }
 
     @Test
@@ -228,7 +228,7 @@ class CdsExportDataSummaryOccurrenceServiceUnitTest {
                         });
         var result =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(group.rows().stream().map(Row::assessed).toList(), assessments, 1000, () -> {});
+                        .validate(group.rows().stream().map(Row::assessed).toList(), assessments, () -> {});
         assertThat(result.representable()).isTrue();
         assertThat(result.sqlNulls()).isEqualTo(1);
         assertThat(result.empty()).isEqualTo(1);

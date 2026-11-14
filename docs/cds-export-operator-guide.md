@@ -690,12 +690,11 @@ fix the storage and resume the job:
 | `CDS_EXPORT_IO_FAILED` | Any other read or write failure of the store (a device error, a file that no longer authenticates). The application log has the technical detail. | Repair the storage, then resume. |
 | `CDS_EXPORT_DATABASE_UNAVAILABLE` | The database connection was lost while the export read from it, and again on every retry (for a chart: four readings in a row). | Check that the database is running and reachable from the application, then resume. |
 
-The codes `CDS_EXPORT_RESOURCE_LIMIT` (for the size of a whole export),
-`CDS_EXPORT_PACKAGE_VOLUME_LIMIT`, `CDS_EXPORT_PACKAGE_ENTRY_LIMIT`,
-`CDS_EXPORT_PACKAGE_INVENTORY_LIMIT`, `CDS_EXPORT_DELIVERY_BYTE_LIMIT`,
-`CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW` and `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` no
-longer exist. `CDS_EXPORT_RESOURCE_LIMIT` is still used for one chart that exceeds a per-chart
-limit described elsewhere in this guide.
+The codes `CDS_EXPORT_RESOURCE_LIMIT`, `CDS_EXPORT_PACKAGE_VOLUME_LIMIT`,
+`CDS_EXPORT_PACKAGE_ENTRY_LIMIT`, `CDS_EXPORT_PACKAGE_INVENTORY_LIMIT`,
+`CDS_EXPORT_DELIVERY_BYTE_LIMIT`, `CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW` and
+`CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` no longer exist: no size of an export or of one
+chart stops it.
 
 A download of a finished package re-checks every chart's current authorization several times.
 That check now costs one short pass per chart, so it no longer dominates a large download.

@@ -262,7 +262,7 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                         "\"observations\":[\"1:1:0\"");
         var assessments = CdsExportNativeLaboratoryMapper.assessments(source);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(source.rows(), assessments, 100000, () -> {});
+                .requireRepresentable(source.rows(), assessments, () -> {});
         assertThat(
                         assessments.get(
                                 new io.github.carlos_emr.carlos.demographic.cdsexport.dto
@@ -325,7 +325,6 @@ class CdsExportNativeLaboratoryFeedUnitTest {
                 .requireRepresentable(
                         received.rows(),
                         CdsExportNativeLaboratoryMapper.assessments(received),
-                        100000,
                         () -> {});
     }
 

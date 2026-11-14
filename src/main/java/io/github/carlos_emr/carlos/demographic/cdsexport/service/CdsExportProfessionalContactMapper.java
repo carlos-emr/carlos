@@ -379,7 +379,7 @@ public final class CdsExportProfessionalContactMapper {
                     if (present(row.fields().get(column)))
                         state.operational(column, "CONTACT_OF_A_REMOVED_ASSOCIATION_NOT_IN_CURRENT_CHART");
         }
-        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
+        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, checkpoint);
         checkpoint.run();
         return new Result(patient, associations.size(), contacts.size(), physicians, fields, uses);
     }

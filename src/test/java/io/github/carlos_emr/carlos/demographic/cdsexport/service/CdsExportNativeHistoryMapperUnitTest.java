@@ -145,7 +145,7 @@ class CdsExportNativeHistoryMapperUnitTest {
             throws Exception {
         var result = mapper.map(27, category, notes, providers(), ZONE);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(result.rows(), result.fields(), 10000, () -> {});
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
         return result;
     }
 
@@ -568,7 +568,7 @@ class CdsExportNativeHistoryMapperUnitTest {
                                 "Diabetes mellitus"));
         var result = mapper.mapIssue(27, issue, definition);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(result.rows(), result.fields(), 10000, () -> {});
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
         String xml = new String(render(result.value()), StandardCharsets.UTF_8);
         assertThat(xml).contains("Diabetes mellitus", "250.00", "ICD-9", "Resolved");
     }
@@ -700,7 +700,7 @@ class CdsExportNativeHistoryMapperUnitTest {
                             throw new AssertionError("linked note program already qualifies");
                         });
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(result.rows(), result.fields(), 10000, () -> {});
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
         assertThat(new String(render(result.value()), StandardCharsets.UTF_8))
                 .contains("DIABETES MELLITUS", "250", "Active");
         // The same issue, linked to a note of another program: a program the exporter works in
@@ -712,7 +712,7 @@ class CdsExportNativeHistoryMapperUnitTest {
                 .isNotNull();
         var followed = mapper.mapIssue(27, issue, definition, List.of(foreign), p -> false);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(followed.rows(), followed.fields(), 10000, () -> {});
+                .requireRepresentable(followed.rows(), followed.fields(), () -> {});
         assertThat(followed.value().code().value()).isEqualTo("250");
         assertThat(programDecision(followed, issue))
                 .isEqualTo(
@@ -778,7 +778,7 @@ class CdsExportNativeHistoryMapperUnitTest {
                         ZONE,
                         program -> false);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(followed.rows(), followed.fields(), 10000, () -> {});
+                .requireRepresentable(followed.rows(), followed.fields(), () -> {});
         assertThat(programDecision(followed, concerns).outcome())
                 .isEqualTo(CdsExportFieldAssessmentDto.Outcome.MAPPED);
         assertThat(programDecision(followed, concerns).rule())
@@ -793,7 +793,7 @@ class CdsExportNativeHistoryMapperUnitTest {
                         ZONE,
                         program -> program.equals("10034"));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         assertThat(new String(render(mapped.value()), StandardCharsets.UTF_8))
                 .contains("Hypertension");
     }

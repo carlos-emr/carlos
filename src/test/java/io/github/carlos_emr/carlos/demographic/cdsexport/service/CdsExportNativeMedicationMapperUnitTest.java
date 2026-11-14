@@ -180,7 +180,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.value().strengthUnit()).isEqualTo("mg");
         var assessed = List.of(medication(fields), publicReference(fields));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(assessed, result.fields(), 1000, () -> {});
+                .requireRepresentable(assessed, result.fields(), () -> {});
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
     }
 
@@ -412,7 +412,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         }
         assertThat(json.path("regionalIdentifierAuthority").textValue()).isEqualTo("UNQUALIFIED");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(fields)), result.fields(), () -> {});
         String xml =
                 new String(
                         render(
@@ -457,7 +457,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         var all = new ArrayList<CdsExportCapturedTextRowDto>(rows);
         all.add(medication(fields));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(all, result.fields(), 1000, () -> {});
+                .requireRepresentable(all, result.fields(), () -> {});
         String xml =
                 new String(
                         render(
@@ -981,7 +981,7 @@ class CdsExportNativeMedicationMapperUnitTest {
             assertThat(result.metadata()).contains("\"past_med\":\"" + pair.get("past_med"));
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
         }
     }
@@ -1050,7 +1050,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                     .contains("\"duration\":\"0\"", "\"durunit\":null", "\"freqcode\":null");
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             assertThat(
                             new String(
                                     render(
@@ -1067,7 +1067,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                 .containsEntry(Field.Frequency, "PRN")
                 .doesNotContainKey(Field.Duration);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(asNeeded)), puffs.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(asNeeded)), puffs.fields(), () -> {});
         var received = receive(puffs);
         assertThat(received.frequency()).isEqualTo("PRN");
         assertThat(received.asNeeded()).isTrue();
@@ -1088,7 +1088,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(amount.value().fields()).doesNotContainKey(Field.Duration);
         assertThat(amount.metadata()).contains("\"duration\":\"7\"", "\"durunit\":null");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(typed)), amount.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(typed)), amount.fields(), () -> {});
     }
 
     @Test
@@ -1119,7 +1119,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                     .contains("\"duration\":\"7\"", "\"durunit\":\"" + unit.get(0) + "\"");
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             var received = receive(result);
             assertThat(received.duration()).as(unit.get(0)).isEqualTo(unit.get(0).matches("[Ww]") ? "49" : "7");
             assertThat(received.durationUnit()).as(unit.get(0)).isEqualTo(unit.get(2));
@@ -1165,7 +1165,7 @@ class CdsExportNativeMedicationMapperUnitTest {
             else assertThat(carried.get("freqcode").asText()).isEqualTo(stored.get(2));
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             assertThat(
                             new String(
                                     render(
@@ -1202,7 +1202,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                 .doesNotContainKey(Field.DrugIdentificationNumber);
         assertThat(result.metadata()).contains("\"custom_note\":\"1\"", "\"BN\":null");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(fields)), result.fields(), () -> {});
         var received = receive(result);
         assertThat(received.name()).isEqualTo(CdsExportNativeMedicationMapper.NOTE_NAME);
         // A migrated row that names no drug and is no note says so too; a blank name is no name.
@@ -1243,7 +1243,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                     .isEqualTo(entry.getKey().get(column));
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
         }
         // A SIG that fits alone is written without the pharmacy instructions that overflow it.
@@ -1280,7 +1280,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                     .contains("\"" + column + "\":\"" + stored.get(column) + "\"");
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
         }
     }
 
@@ -1298,7 +1298,7 @@ class CdsExportNativeMedicationMapperUnitTest {
                         Field.Notes,
                         CdsExportNativeMedicationMapper.LONG_NAME_LABEL + name + "\nProvider note");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(fields)), result.fields(), () -> {});
     }
 
     @Test
@@ -1317,7 +1317,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.metadata())
                 .contains("every 2 weeks", "Protocol identifier text", "Prior protocol identifier");
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+                .requireRepresentable(List.of(medication(fields)), result.fields(), () -> {});
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
     }
 
@@ -1343,7 +1343,7 @@ class CdsExportNativeMedicationMapperUnitTest {
             if (din != null) assertThat(result.metadata()).contains(din);
             new CdsExportNativeFieldAssessmentValidator()
                     .requireRepresentable(
-                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+                            List.of(medication(fields)), result.fields(), () -> {});
             render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
         }
     }
@@ -1365,7 +1365,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.value().prescriber().ohipNumber()).isNull();
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        List.of(medication(fields), row), result.fields(), 1000, () -> {});
+                        List.of(medication(fields), row), result.fields(), () -> {});
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
     }
 
@@ -1384,7 +1384,7 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(result.metadata()).contains("Dr. Outside Writer", "\"outside_provider_ohip\":\"0\"");
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        List.of(medication(fields), row), result.fields(), 1000, () -> {});
+                        List.of(medication(fields), row), result.fields(), () -> {});
         render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
         // The recorder's own name and number in the boxes still name the recorder.
         fields.put("outside_provider_name", "Zoë😀 D’Arcy");

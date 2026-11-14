@@ -348,7 +348,7 @@ public final class CdsExportContactFieldReconciler {
             var ids = new HashSet<String>();
             for (var field : binding.fields()) if (!ids.add(field.id())) scope();
             new CdsExportNativeFieldAssessmentValidator()
-                    .validate(List.of(contact, association), decisions, 1000, checkpoint);
+                    .validate(List.of(contact, association), decisions, checkpoint);
             values.requireActive();
             checkpoint.run();
             return new Result(
@@ -664,7 +664,7 @@ public final class CdsExportContactFieldReconciler {
             current.add(group.path);
         }
         new CdsExportNativeFieldAssessmentValidator()
-                .validate(rows, decisions, 1_000_000, checkpoint);
+                .validate(rows, decisions, checkpoint);
         values.requireActive();
         checkpoint.run();
         return new Result(binding, decisions, retained, current, changes, false, decideAsCurrent);

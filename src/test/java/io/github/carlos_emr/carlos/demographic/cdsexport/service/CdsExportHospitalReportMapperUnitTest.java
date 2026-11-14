@@ -191,7 +191,7 @@ class CdsExportHospitalReportMapperUnitTest {
         var result =
                 new CdsExportHospitalReportMapper().map(source, parsed, content, providers(), ZONE);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(result.rows(), result.fields(), 1_000_000, () -> {});
+                .requireRepresentable(result.rows(), result.fields(), () -> {});
         return result;
     }
 

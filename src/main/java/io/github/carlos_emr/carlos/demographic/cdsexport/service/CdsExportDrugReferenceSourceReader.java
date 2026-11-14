@@ -151,7 +151,7 @@ public class CdsExportDrugReferenceSourceReader implements CdsExportNativeSource
         if (this.patient == 0
                 || this.patient != patient
                 || !inputs.equals(
-                        drugs.readCdsExportDrugReferenceInputs(patient, Integer.MAX_VALUE)))
+                        drugs.readCdsExportDrugReferenceInputs(patient)))
             invalid();
     }
 

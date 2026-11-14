@@ -276,7 +276,7 @@ public final class CdsExportPharmacyMapper {
             else if (additional.contains(entry.getKey()))
                 state.carryRemaining(Set.of("recordID", "addDate", "uid"));
         }
-        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
+        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, checkpoint);
         checkpoint.run();
         return new Result(patient, links.size(), pharmacies.size(), preferred, fields);
     }

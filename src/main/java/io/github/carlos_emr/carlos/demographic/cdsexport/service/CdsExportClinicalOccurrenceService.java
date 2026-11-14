@@ -701,7 +701,6 @@ public class CdsExportClinicalOccurrenceService {
                                                 .requireRepresentable(
                                                         assessedRows,
                                                         fields,
-                                                        1_000_000,
                                                         control::checkpoint);
                                         for (String field : kept)
                                             if (!usedFields.add(field)) scope();

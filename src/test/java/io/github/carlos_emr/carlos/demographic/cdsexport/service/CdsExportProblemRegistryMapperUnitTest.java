@@ -119,7 +119,7 @@ class CdsExportProblemRegistryMapperUnitTest {
             throws IOException {
         var checked =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(result.rows(), result.fields(), 1000, () -> {});
+                        .validate(result.rows(), result.fields(), () -> {});
         assertThat(checked.representable()).isTrue();
         assertThat(result.fields().values())
                 .noneMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);

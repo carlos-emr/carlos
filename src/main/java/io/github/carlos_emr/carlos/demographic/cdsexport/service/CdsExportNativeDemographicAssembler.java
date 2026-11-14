@@ -225,7 +225,7 @@ public final class CdsExportNativeDemographicAssembler {
         rows.values().forEach(expected::addAll);
         var closure =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(expected, fields, 1_000_000, checkpoint);
+                        .validate(expected, fields, checkpoint);
         if (!closure.representable()) review();
         checkpoint.run();
         return new Result(

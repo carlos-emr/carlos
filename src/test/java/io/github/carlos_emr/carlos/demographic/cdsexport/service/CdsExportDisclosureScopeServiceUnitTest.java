@@ -96,7 +96,6 @@ class CdsExportDisclosureScopeServiceUnitTest {
                         run,
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        8L << 20,
                         0,
                         () -> {});
         when(stores.openExisting(eq(run), eq(1L), eq(storage), any())).thenReturn(store);

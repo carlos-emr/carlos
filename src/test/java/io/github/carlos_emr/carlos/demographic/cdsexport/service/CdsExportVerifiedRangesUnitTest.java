@@ -60,7 +60,7 @@ class CdsExportVerifiedRangesUnitTest {
 
     private CdsExportStagingService store(Runnable checkpoint) {
         return new CdsExportStagingService(
-                root, RUN, 1, new SecretKeySpec(key, "AES"), 16L << 20, 0, checkpoint);
+                root, RUN, 1, new SecretKeySpec(key, "AES"), 0, checkpoint);
     }
 
     private byte[] bytes(int length) {
@@ -299,7 +299,7 @@ class CdsExportVerifiedRangesUnitTest {
                 .hasMessage("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
         var wrongEpoch =
                 new CdsExportStagingService(
-                        root, RUN, 2, new SecretKeySpec(key, "AES"), 16L << 20, 0, () -> {});
+                        root, RUN, 2, new SecretKeySpec(key, "AES"), 0, () -> {});
         assertThatThrownBy(() -> wrongEpoch.verifiedRanges(file))
                 .hasMessage("CDS_EXPORT_STAGED_SCOPE_MISMATCH");
         var wrongKey =
@@ -308,7 +308,6 @@ class CdsExportVerifiedRangesUnitTest {
                         RUN,
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        16L << 20,
                         0,
                         () -> {});
         assertThatThrownBy(() -> wrongKey.verifiedRanges(file))

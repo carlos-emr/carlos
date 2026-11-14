@@ -78,7 +78,7 @@ class CdsExportAppointmentSourceMapperUnitTest {
                 .isEqualTo(fields.get("provider_no"));
         // Every column of every carried row is decided, and decided as carried here.
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(source.rows(), source.fields(), 1_000_000, () -> {});
+                .requireRepresentable(source.rows(), source.fields(), () -> {});
         assertThat(source.rows()).hasSize(3);
         assertThat(source.fields().values())
                 .allMatch(

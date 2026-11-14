@@ -153,7 +153,7 @@ class CdsExportDataSummaryEformUnitTest {
                         });
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        removed.rows().stream().map(Row::assessed).toList(), assessments, 1000, () -> {});
+                        removed.rows().stream().map(Row::assessed).toList(), assessments, () -> {});
     }
 
     @Test
@@ -163,7 +163,7 @@ class CdsExportDataSummaryEformUnitTest {
         var entry = CdsExportDataSummaryOccurrenceService.rendered(group, rendering);
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(
-                        List.of(group.root().assessed(), rendering.row()), entry.fields(), 1000, () -> {});
+                        List.of(group.root().assessed(), rendering.row()), entry.fields(), () -> {});
         assertThat(entry.subClass()).isEqualTo("Rich Text Letter");
         assertThat(entry.fields().values())
                 .extracting(CdsExportFieldAssessmentDto::destination)
@@ -262,7 +262,7 @@ class CdsExportDataSummaryEformUnitTest {
         for (var row : group.rows()) rows.add(row.assessed());
         rows.add(rendering.row());
 
-        new CdsExportNativeFieldAssessmentValidator().requireRepresentable(rows, assessments, 1000, () -> {});
+        new CdsExportNativeFieldAssessmentValidator().requireRepresentable(rows, assessments, () -> {});
 
         String note = CdsExportDataSummaryOccurrenceService.unavailableNote(Reason.INCOMPLETE);
         assertThat(note)

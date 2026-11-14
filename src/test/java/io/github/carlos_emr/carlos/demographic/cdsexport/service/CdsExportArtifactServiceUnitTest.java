@@ -89,7 +89,6 @@ class CdsExportArtifactServiceUnitTest {
                         run,
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        1L << 20,
                         0,
                         () -> {});
         expected = new byte[130_001];

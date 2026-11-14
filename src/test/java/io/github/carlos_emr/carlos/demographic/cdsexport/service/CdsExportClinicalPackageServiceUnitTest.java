@@ -773,8 +773,8 @@ class CdsExportClinicalPackageServiceUnitTest {
         when(fixture.captures.capture(any(), eq(second), anySet(), anyLong(), anyLong(), any()))
                 .thenThrow(
                         new CdsExportReviewException(
-                                CdsExportReviewException.Reason.RESOURCE_LIMIT));
-        assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
+                                CdsExportReviewException.Reason.RECIPIENT_UNAVAILABLE));
+        assertThatThrownBy(this::compose).hasMessage("CDS_EXPORT_RECIPIENT_UNAVAILABLE");
         assertOnlyKeptRemain(Set.of(fixture.cohort.memberId() + ".stage"));
     }
 

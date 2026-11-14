@@ -588,7 +588,6 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                     .requireRepresentable(
                             group.rows().stream().map(Row::assessed).toList(),
                             CdsExportDataSummaryOccurrenceService.assessments(group),
-                            1_000_000,
                             () -> {});
             sections.add(
                     new CdsExportXmlComposer.Section(

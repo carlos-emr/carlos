@@ -40,12 +40,11 @@ public interface DrugDao extends AbstractDao<Drug>, CdsExportPatientTableReadDao
 
     /**
      * Scalar discovery for authorized export; callers own a short read-only transaction. One row
-     * is a prescription's id, its drug catalogue id and its DIN. {@code maximum} is the most rows
-     * the caller accepts; the export passes {@link Integer#MAX_VALUE}, every prescription of the
-     * chart, because no count of prescriptions holds a patient.
+     * is a prescription's id, its drug catalogue id and its DIN, for every prescription of the
+     * chart: no count of prescriptions holds a patient or stops an export.
      */
     java.util.List<io.github.carlos_emr.carlos.commn.dto.CdsExportDrugReferenceInputDto>
-            readCdsExportDrugReferenceInputs(int patient, int maximum);
+            readCdsExportDrugReferenceInputs(int patient);
 
     public boolean addNewDrug(Drug d);
 

@@ -351,7 +351,7 @@ public final class CdsExportPersonalContactMapper {
                             email,
                             note));
         }
-        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, 1_000_000, checkpoint);
+        new CdsExportNativeFieldAssessmentValidator().validate(all, fields, checkpoint);
         checkpoint.run();
         return new Result(patient, associations.size(), contacts.size(), mapped, fields);
     }

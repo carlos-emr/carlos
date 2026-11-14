@@ -420,7 +420,7 @@ class CdsExportMedicationReasonReadMariaDbIntegrationTest {
         var assessed = new ArrayList<CdsExportCapturedTextRowDto>(reasonRows.get(Integer.toString(drug)));
         assessed.add(first);
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(assessed, mapped.fields(), 1000, () -> {});
+                .requireRepresentable(assessed, mapped.fields(), () -> {});
         String xml =
                 new String(
                         CdsExportNativeHistoryMapperUnitTest.render(

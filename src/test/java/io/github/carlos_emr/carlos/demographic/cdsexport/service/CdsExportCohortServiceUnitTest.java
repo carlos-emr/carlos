@@ -91,7 +91,6 @@ class CdsExportCohortServiceUnitTest {
                         run,
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        8L << 20,
                         0,
                         () -> {});
         var factory =

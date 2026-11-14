@@ -68,7 +68,6 @@ public final class CdsExportStagingService {
     private final Path root;
     private final String scope;
     private final SecretKey master;
-    private final long maxBytes;
     private final long minimumFreeBytes;
     private final Runnable checkpoint;
     private final SecureRandom random = new SecureRandom();
@@ -89,26 +88,9 @@ public final class CdsExportStagingService {
             SecretKey master,
             long minimumFreeBytes,
             Runnable checkpoint) {
-        this(root, runId, epoch, master, Long.MAX_VALUE, minimumFreeBytes, checkpoint);
-    }
-
-    /**
-     * A store whose members are bounded to {@code maxBytes}. No export attempt is built this way
-     * ({@code cds.export.maxStagedFileBytes} is retired): the bound remains only for callers that
-     * read a member whose size they already know to be small, and for tests of the refusal itself.
-     */
-    public CdsExportStagingService(
-            Path root,
-            String runId,
-            long epoch,
-            SecretKey master,
-            long maxBytes,
-            long minimumFreeBytes,
-            Runnable checkpoint) {
         if (runId == null
                 || !runId.matches("[0-9a-f-]{36}")
                 || epoch < 1
-                || maxBytes < 1
                 || minimumFreeBytes < 0) {
             throw new IllegalArgumentException("CDS_EXPORT_STAGING_SCOPE_INVALID");
         }
@@ -121,7 +103,6 @@ public final class CdsExportStagingService {
         Arrays.fill(encoded, (byte) 0);
         this.root = Objects.requireNonNull(root);
         scope = runId + "/" + epoch;
-        this.maxBytes = maxBytes;
         this.minimumFreeBytes = minimumFreeBytes;
         this.checkpoint = Objects.requireNonNull(checkpoint);
     }
@@ -217,7 +198,6 @@ public final class CdsExportStagingService {
     public VerifiedRanges verifiedRanges(CdsExportStagedFileDto file) throws IOException {
         Objects.requireNonNull(file);
         checkpoint.run();
-        if (file.plaintextBytes() > maxBytes) throw new IOException("CDS_EXPORT_STAGED_BYTE_LIMIT");
         var channel =
                 FileChannel.open(
                         memberPath(file.memberId()),
@@ -665,10 +645,8 @@ public final class CdsExportStagingService {
                 if (failed) throw new IOException("CDS_EXPORT_STAGED_WRITE_FAILED");
                 Objects.checkFromIndexSize(offset, length, bytes.length);
                 if (finished) throw new IOException("CDS_EXPORT_STAGED_WRITE_CLOSED");
-                if (length > maxBytes - total)
-                    throw new IOException("CDS_EXPORT_STAGED_BYTE_LIMIT");
                 digest.update(bytes, offset, length);
-                total += length;
+                total = Math.addExact(total, length);
                 while (length > 0) {
                     int n = Math.min(length, CHUNK - buffered);
                     System.arraycopy(bytes, offset, buffer, buffered, n);
@@ -791,7 +769,8 @@ public final class CdsExportStagingService {
             } catch (EOFException truncated) {
                 throw new IOException("CDS_EXPORT_STAGED_TRUNCATED");
             }
-            if (length < 0 || length > CHUNK || length > maxBytes - total)
+            // The chunk format's own bound: a longer chunk is not one this store wrote.
+            if (length < 0 || length > CHUNK)
                 throw new IOException("CDS_EXPORT_STAGED_BYTE_LIMIT");
             if (canonical && length != (int) Math.min(CHUNK, expected.plaintextBytes() - total))
                 throw new IOException("CDS_EXPORT_STAGED_IDENTITY_MISMATCH");

@@ -340,7 +340,6 @@ public class CdsExportProblemRegistryOccurrenceService {
                                     .requireRepresentable(
                                             mapping.rows(),
                                             mapping.fields(),
-                                            1_000_000,
                                             control::checkpoint);
                             if (mapping.exported() == removed) scope();
                             if (removed) {

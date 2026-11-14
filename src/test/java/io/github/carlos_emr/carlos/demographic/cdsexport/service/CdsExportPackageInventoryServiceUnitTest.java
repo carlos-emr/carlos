@@ -52,7 +52,6 @@ class CdsExportPackageInventoryServiceUnitTest {
                         UUID.randomUUID().toString(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        128L << 20,
                         0,
                         () -> {});
         payload = store.stage("PATIENT_XML", output -> output.write(new byte[] {1, 2, 3}));

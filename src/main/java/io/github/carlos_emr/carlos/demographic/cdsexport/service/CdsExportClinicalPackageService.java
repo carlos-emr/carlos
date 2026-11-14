@@ -1562,7 +1562,6 @@ public class CdsExportClinicalPackageService {
                         CLINICAL_SOURCE_UNREVIEWED -> review.reason().code();
                 case AUDIT_ACCESS_UNAVAILABLE,
                         RECIPIENT_UNAVAILABLE,
-                        RESOURCE_LIMIT,
                         RUNTIME_CHANGED,
                         NO_PATIENTS_SELECTED,
                         PATIENTS_HELD,

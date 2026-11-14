@@ -504,7 +504,6 @@ public class CdsExportImmunizationOccurrenceService
                                                     .requireRepresentable(
                                                             current,
                                                             retired,
-                                                            1_000_000,
                                                             control::checkpoint);
                                             if (retired.size()
                                                     != 16
@@ -594,7 +593,6 @@ public class CdsExportImmunizationOccurrenceService
                                                 .requireRepresentable(
                                                         current,
                                                         fields,
-                                                        1_000_000,
                                                         control::checkpoint);
                                         if (fields.size()
                                                 != 16 + 4L * child.size() + 5L * dates.size())

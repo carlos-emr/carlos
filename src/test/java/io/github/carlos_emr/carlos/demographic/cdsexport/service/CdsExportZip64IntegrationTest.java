@@ -49,7 +49,6 @@ class CdsExportZip64IntegrationTest {
                         UUID.randomUUID().toString(),
                         1,
                         new SecretKeySpec(new byte[32], "AES"),
-                        32L << 20,
                         0,
                         () -> {});
         var empty = store.stage("TEST_INPUT", out -> {});

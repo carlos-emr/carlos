@@ -76,7 +76,7 @@ class CdsExportNativeCareMapperUnitTest {
                         .value();
         var mapped = mapper.map(27, observation, List.of(), List.of(definition));
         new CdsExportNativeFieldAssessmentValidator()
-                .requireRepresentable(mapped.rows(), mapped.fields(), 10000, () -> {});
+                .requireRepresentable(mapped.rows(), mapped.fields(), () -> {});
         return mapped;
     }
 
@@ -313,7 +313,7 @@ class CdsExportNativeCareMapperUnitTest {
         var rows = List.of(deleted, unit, comment);
         var result =
                 new CdsExportNativeFieldAssessmentValidator()
-                        .validate(rows, retired, 10000, () -> {});
+                        .validate(rows, retired, () -> {});
         assertThat(result.representable()).isTrue();
         assertThat(result.mapped()).isZero();
         assertThat(retired.values())

@@ -65,17 +65,18 @@ public final class CdsExportNativeFieldAssessmentValidator {
         }
     }
 
+    /**
+     * Checks every field of the supplied rows against its recorded decision. No count of fields
+     * refuses an occurrence: its rows are already held together by the caller.
+     */
     public Result validate(
             List<CdsExportCapturedTextRowDto> rows,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
-            long maximumFields,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(rows);
         Objects.requireNonNull(assessments);
         Objects.requireNonNull(checkpoint);
-        if (maximumFields < 1 || maximumFields > 1_000_000)
-            throw new IllegalArgumentException("CDS_EXPORT_FIELD_ASSESSMENT_LIMIT_INVALID");
         long expected = 0;
         var rowKeys = new HashSet<String>();
         var presence = new long[Presence.values().length];
@@ -85,8 +86,6 @@ public final class CdsExportNativeFieldAssessmentValidator {
             if (row == null || !rowKeys.add(row.table() + "/" + row.recordKey())) scope();
             for (var field : row.fields().entrySet()) {
                 checkpoint.run();
-                // No count of fields refuses an occurrence: its rows are held together by the
-                // caller already. maximumFields is the caller's former bound.
                 expected++;
                 var key =
                         new CdsExportNativeFieldKeyDto(
@@ -121,13 +120,30 @@ public final class CdsExportNativeFieldAssessmentValidator {
                 outcomes[Outcome.REQUIRES_REVIEW.ordinal()]);
     }
 
+    /**
+     * The former form, whose field count nothing checks any more.
+     *
+     * @deprecated {@code ignoredMaximumFields} has no effect. Use {@link #validate(List, Map,
+     *     Runnable)}; this remains only until the last demographic callers
+     *     ({@code CdsExportDemographicPhonesMapper}, {@code CdsExportDemographicClosureValidator})
+     *     move to it.
+     */
+    @Deprecated(forRemoval = true)
+    public Result validate(
+            List<CdsExportCapturedTextRowDto> rows,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            long ignoredMaximumFields,
+            Runnable checkpoint)
+            throws IOException {
+        return validate(rows, assessments, checkpoint);
+    }
+
     public void requireRepresentable(
             List<CdsExportCapturedTextRowDto> rows,
             Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
-            long maximumFields,
             Runnable checkpoint)
             throws IOException {
-        if (!validate(rows, assessments, maximumFields, checkpoint).representable())
+        if (!validate(rows, assessments, checkpoint).representable())
             throw new IOException("CDS_EXPORT_FIELD_ASSESSMENT_REQUIRES_REVIEW");
     }
 
