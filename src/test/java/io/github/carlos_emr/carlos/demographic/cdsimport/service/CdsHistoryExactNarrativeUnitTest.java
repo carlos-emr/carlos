@@ -162,6 +162,65 @@ class CdsHistoryExactNarrativeUnitTest {
     }
 
     @Test
+    void shouldRestoreTheExactDescriptionOfADiagnosisListedOnItsOwn_fromTheExportersDocument()
+            throws Exception {
+        // A patient issue no CPP item files is exported as a ProblemList entry whose text is the
+        // catalogue description. One pasted with a character XML cannot carry held the patient;
+        // it is written with U+FFFD and its details carry it exactly. Longer than the element's
+        // 250 characters (the column holds 255) it travels in the narrative carrier.
+        String pasted = "Asthma\u0007 in  childhood \u000b \uffff";
+        for (String description : List.of(pasted, pasted + " " + "x".repeat(228))) {
+            var record =
+                    record(
+                            CdsExportNativeHistoryFixture.diagnosisDocument(
+                                    "493", "icd9", description),
+                            "ProblemList");
+            var state = new CdsHistoryResidualReader(fields).read(record);
+            assertThat(state.revisionDetails()).isNotNull();
+            var element = field(record, "ProblemDiagnosisDescription");
+            String shown =
+                    element != null
+                            ? fields.readLogicalText(record, element, 1000)
+                            : CdsNativeExtensionContract.decodeNarrative(
+                                    fields.readLogicalText(record, state.narrative(), 2_000_000));
+            assertThat(element == null).isEqualTo(description.length() > 250);
+            assertThat(shown).isEqualTo(CdsNativeExtensionContract.xmlElementText(description));
+            var notices = new ArrayList<CdsClinicalDiagnosticDto>();
+
+            assertThat(
+                            persister()
+                                    .exactItemText(
+                                            record,
+                                            state.revisionDetails(),
+                                            shown,
+                                            LIMIT,
+                                            notices::add))
+                    .isEqualTo(description);
+            assertThat(notices).isEmpty();
+        }
+        // The description proves itself against the element: another text is never restored.
+        var record =
+                record(
+                        CdsExportNativeHistoryFixture.diagnosisDocument("493", "icd9", pasted),
+                        "ProblemList");
+        var notices = new ArrayList<CdsClinicalDiagnosticDto>();
+        assertThat(
+                        persister()
+                                .exactItemText(
+                                        record,
+                                        new CdsHistoryResidualReader(fields)
+                                                .read(record)
+                                                .revisionDetails(),
+                                        "Eczema�",
+                                        LIMIT,
+                                        notices::add))
+                .isEqualTo("Eczema�");
+        assertThat(notices)
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .containsExactly(CdsHistoryPersister.EXACT_NARRATIVE_NOT_APPLIED);
+    }
+
+    @Test
     void shouldRestoreTheCurrentText_whateverTheLengthOfAnEarlierRevision() throws Exception {
         // Every earlier revision's narrative travels in the details too. Only the current one is
         // read: an earlier one longer than any note the receiver stores does not stop it.

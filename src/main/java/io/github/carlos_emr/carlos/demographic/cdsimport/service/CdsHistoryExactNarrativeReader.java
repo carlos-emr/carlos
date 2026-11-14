@@ -44,16 +44,25 @@ import java.util.function.IntPredicate;
  * CdsNativeExtensionContract#NOTE_BODY_LENGTH}. An imported item the sender edited wraps the
  * details as {@code nativeHistory} in a document of its own.
  *
+ * <p>A diagnosis the sender exported on its own, without a note (a patient issue its chart lists
+ * with no CPP item), has no revisions: its ProblemList text is the catalogue description, which
+ * its details carry exactly as {@code patientIssue.issue.description}. For a CPP item that one
+ * value is read as the item's only (current) text.
+ *
  * <p>This reader only finds those values. It restores nothing: the caller must prove each against
  * the element text ({@link CdsHistoryPersister}). It walks the document as a stream and keeps
  * nothing but the values it is asked for; every other value, of any size, is skipped where it
  * stands. It refuses anything that is not exactly one version 1 object with one {@code
- * revisions} array of objects, nested at most 16 deep, with nothing after it, and a kept text
- * longer than a note the importer can store (never cut).
+ * revisions} array of objects (or, for a CPP item, one {@code patientIssue} object), nested at
+ * most 16 deep, with nothing after it, and a kept text longer than a note the importer can store
+ * (never cut).
  */
 final class CdsHistoryExactNarrativeReader {
     private static final String EXACT = "exactNarrative";
     private static final String NARRATIVE = "narrative";
+    private static final String PATIENT_ISSUE = "patientIssue";
+    private static final String ISSUE = "issue";
+    private static final String DESCRIPTION = "description";
 
     private CdsHistoryExactNarrativeReader() {}
 
@@ -96,8 +105,9 @@ final class CdsHistoryExactNarrativeReader {
 
     /**
      * The exact text a CPP item's details carry for its current revision (the last one): its
-     * {@code exactNarrative}, else its {@code narrative}, or null when it carries neither. The
-     * document is read twice, so the text of no earlier revision is ever held, whatever its size.
+     * {@code exactNarrative}, else its {@code narrative}, or null when it carries neither. For a
+     * diagnosis exported on its own it is {@code patientIssue.issue.description}. The document
+     * is read twice, so the text of no earlier revision is ever held, whatever its size.
      *
      * @param content opens the details document
      * @param maximumUnits UTF-16 units of the longest note the importer stores
@@ -198,9 +208,62 @@ final class CdsHistoryExactNarrativeReader {
                     if (revisions) throw malformed();
                     revisions = true;
                     document(false);
+                } else if (root
+                        && narrative
+                        && name.equals(PATIENT_ISSUE)
+                        && value == JsonToken.START_OBJECT) {
+                    // A diagnosis exported on its own: one text, its catalogue description.
+                    if (revisions) throw malformed();
+                    revisions = true;
+                    patientIssue();
                 } else parser.skipChildren(); // A value of any size: skipped, never held.
             }
             if (version == null || version != 1 || !revisions) throw malformed();
+        }
+
+        /**
+         * The members of a {@code patientIssue} object just opened: one entry, whose text is the
+         * {@code description} of its {@code issue} (the catalogue row), or null when it has none.
+         */
+        private void patientIssue() throws IOException {
+            boolean wanted = keep.test(texts.size());
+            String description = null;
+            boolean issueSeen = false;
+            for (JsonToken token = parser.nextToken();
+                    token != JsonToken.END_OBJECT;
+                    token = parser.nextToken()) {
+                if (token != JsonToken.FIELD_NAME) throw malformed();
+                String name = parser.currentName();
+                JsonToken value = parser.nextToken();
+                if (value == null) throw malformed();
+                if (wanted && name.equals(ISSUE) && value == JsonToken.START_OBJECT) {
+                    if (issueSeen) throw malformed();
+                    issueSeen = true;
+                    description = description();
+                } else parser.skipChildren(); // Not read: skipped where it stands.
+            }
+            if (description != null && (kept += description.length()) > maximumUnits)
+                throw malformed();
+            texts.add(description);
+            lengths.add(null);
+        }
+
+        /** The {@code description} member of the catalogue object just opened, or null. */
+        private String description() throws IOException {
+            String description = null;
+            for (JsonToken token = parser.nextToken();
+                    token != JsonToken.END_OBJECT;
+                    token = parser.nextToken()) {
+                if (token != JsonToken.FIELD_NAME) throw malformed();
+                String name = parser.currentName();
+                JsonToken value = parser.nextToken();
+                if (value == null) throw malformed();
+                if (name.equals(DESCRIPTION)) {
+                    if (description != null || value != JsonToken.VALUE_STRING) throw malformed();
+                    description = parser.getText();
+                } else parser.skipChildren();
+            }
+            return description;
         }
 
         private void revisions() throws IOException {

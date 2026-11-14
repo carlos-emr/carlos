@@ -173,7 +173,7 @@ it is said here.
 | Carrier | What it holds beside the element | On import |
 | --- | --- | --- |
 | `CARLOS.History.Narrative.v1` | A CPP narrative too long for its description element (which is then left out), or a PersonalHistory narrative | Restored (the note body), as before. |
-| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
+| `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative`, `patientIssue.issue.description` | The exact body of a CPP item or note that holds a character XML cannot carry, or the exact description of a diagnosis sent on its own; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
 | `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones, chart number, e-mail, SIN, languages, address parts) and `properties` | The stored value of a Demographics element the sender could not write exactly or that this importer would store in another form, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
@@ -203,8 +203,12 @@ code below. Text from a sender that is not CARLOS is unaffected, whatever it con
   `CARLOS.NativeHistory.v1` (an edited imported item's sender writes its own after the one it
   received) carries `exactNarrative`, or `narrative` for a PersonalHistory item. The details are
   read twice as a stream and only the current revision's text is kept, so an earlier revision of
-  any length is never held. Not proven: `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED` (path
-  `ResidualInfo`).
+  any length is never held. A diagnosis the sender exported on its own (a patient issue no CPP
+  item files, sent as a ProblemList item) has no revisions: its details are one `patientIssue`
+  object, and the catalogue row's `issue.description` is the item's text, which its
+  ProblemDiagnosisDescription (or, past 250 characters, `CARLOS.History.Narrative.v1`) shows with
+  U+FFFD (`CdsHistoryExactNarrativeReader`). Not proven: `CDS_HISTORY_EXACT_NARRATIVE_NOT_APPLIED`
+  (path `ResidualInfo`).
 - **Encounter notes** (`CdsHistoryPersister.exactNoteText`). ClinicalNotes has no ResidualInfo:
   the text ends with `[CARLOS source note details]` and the revision details. A revision whose
   body was written with U+FFFD carries `exactNarrative`, and every revision then states
