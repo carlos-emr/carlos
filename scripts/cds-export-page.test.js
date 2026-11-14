@@ -2,7 +2,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay} = require('../src/main/webapp/js/demographic/cds-export.js');
+const {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay, cancelQuestion} = require('../src/main/webapp/js/demographic/cds-export.js');
 const id = 'a8fe0033-468d-468c-ae0e-b11d372b533a';
 function job(values = {}) {
     return {id, state: 'ACCEPTED', revision: 0, epoch: 0, totalPatients: null, processedPatients: 0, blockedPatients: 0,
@@ -277,4 +277,88 @@ test('a failed submission lookup leaves the shown job refreshing', async () => {
     assert.equal([...page.timers.values()].filter(value => value.delay === 5000).length, 1);
     assert.equal(page.node('reportExport').disabled, false);
     assert.match(page.node('exportNotice').textContent, /No job uses submission key never-used-key/);
+});
+
+test('a stopped job that keeps finished charts says how many, until when, and that cancel erases them', () => {
+    const until = '2026-11-21T15:04:05.123456Z';
+    const stopped = job({state: 'REVIEW_REQUIRED', waiting: false, epoch: 1, totalPatients: 6,
+        safeCode: 'CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED', keptCharts: 4, keptUntil: until, adoptedCharts: 0, builtCharts: 4});
+    const shown = presentation(stopped);
+    assert.match(shown.kept, /^This stopped job keeps 4 finished chart\(s\), encrypted, until .+\. Resume export adopts/);
+    assert.ok(shown.kept.includes(new Date(until).toLocaleString()));
+    assert.equal(shown.adopted, '');
+    // Cancelling a stopped job is offered only while it keeps charts, and says they are erased.
+    assert.equal(shown.canCancel, true);
+    assert.equal(shown.canResume, true);
+    assert.match(cancelQuestion(stopped), /The 4 finished chart\(s\) it keeps are erased now/);
+    const nothingKept = job({state: 'REVIEW_REQUIRED', waiting: false, keptCharts: 0, keptUntil: null});
+    assert.equal(presentation(nothingKept).canCancel, false);
+    assert.equal(presentation(nothingKept).kept, '');
+    assert.match(cancelQuestion(job({state: 'CAPTURING', workerOwned: true, waiting: false})), /Work stops/);
+    // An older server sends no resume evidence: nothing is shown and nothing is refused.
+    assert.equal(presentation(job({state: 'FAILED', waiting: false})).kept, '');
+});
+
+test('a resumed attempt reports the charts it adopted and the charts it built', () => {
+    const ready = job({state: 'READY', artifactAvailable: true, complete: true, waiting: false, epoch: 2,
+        totalPatients: 6, processedPatients: 6, keptCharts: 0, keptUntil: null, adoptedCharts: 5, builtCharts: 1});
+    assert.equal(presentation(ready).adopted, '5 chart(s) adopted unchanged from a stopped attempt; 1 built from current records.');
+    assert.equal(presentation(ready).kept, '');
+    assert.equal(presentation(job({adoptedCharts: 0, builtCharts: 3})).adopted, '');
+    // A later attempt that adopted nothing still says so.
+    assert.equal(presentation(job({epoch: 2, adoptedCharts: 0, builtCharts: 3})).adopted,
+        '0 chart(s) adopted unchanged from a stopped attempt; 3 built from current records.');
+});
+
+test('malformed resume evidence refuses the status', () => {
+    for (const changed of [{keptCharts: -1, keptUntil: '2026-11-21T00:00:00Z'}, {keptCharts: 2, keptUntil: null},
+        {keptCharts: 0, keptUntil: '2026-11-21T00:00:00Z'}, {keptCharts: 1, keptUntil: 'next week'},
+        {keptCharts: '1', keptUntil: '2026-11-21T00:00:00Z'}, {adoptedCharts: 1.5}, {builtCharts: -2}, {keptUntil: 7}])
+        assert.throws(() => checkedJob(job(changed)), /STATUS_INVALID/);
+});
+
+for (const operation of ['cancel', 'resume']) {
+    test('the ' + operation + ' notice of a stopped job that keeps charts names what happens to them', async () => {
+        const page = pageHarness('?runId=' + id);
+        page.initialize();
+        page.answer(page.pending.shift(), {jobs: [], nextAfter: '', mayHaveMore: false});
+        const stopped = job({state: 'FAILED', waiting: false, epoch: 1, revision: 4, totalPatients: 6,
+            keptCharts: 3, keptUntil: '2026-11-21T00:00:00Z', adoptedCharts: 0, builtCharts: 3});
+        page.answer(page.pending.shift(), {job: stopped});
+        await page.settle();
+        assert.match(page.node('exportCounts').textContent, /keeps 3 finished chart\(s\)/);
+        assert.equal(page.node('cancelExport').disabled, false);
+        const control = page.node(operation === 'cancel' ? 'cancelExport' : 'resumeExport').events.click();
+        await page.settle();
+        const command = page.pending.shift();
+        assert.match(command.url, /cdsExportControl/);
+        page.answer(command, {job: operation === 'cancel'
+            ? job({state: 'FAILED', waiting: false, epoch: 1, revision: 5, totalPatients: 6, cancelRequested: true,
+                keptCharts: 0, keptUntil: null, adoptedCharts: 0, builtCharts: 3})
+            : job({state: 'ACCEPTED', epoch: 1, revision: 5, totalPatients: 6,
+                keptCharts: 3, keptUntil: '2026-11-21T00:00:00Z', adoptedCharts: 0, builtCharts: 3})});
+        await page.settle();
+        assert.equal(page.node('exportNotice').textContent, operation === 'cancel'
+            ? 'Cancellation recorded. The kept charts were erased.'
+            : 'Resume requested. Each of the 3 kept chart(s) is adopted only if its records are unchanged; the others are built again. Processing may still be waiting.');
+        page.answer(page.pending.shift(), {job: job({state: 'FAILED', waiting: false, epoch: 1, revision: 5, totalPatients: 6})});
+        await control;
+    });
+}
+
+test('every page text is published by the page and translated in both bundles', () => {
+    const fs = require('node:fs'), path = require('node:path');
+    const root = path.join(__dirname, '..');
+    const jsp = fs.readFileSync(path.join(root, 'src/main/webapp/WEB-INF/jsp/demographic/demographicCdsExport.jsp'), 'utf8');
+    const tokens = /<c:forTokens items="([^"]+)"/.exec(jsp)[1].split(',');
+    const script = fs.readFileSync(path.join(root, 'src/main/webapp/js/demographic/cds-export.js'), 'utf8');
+    for (const key of ['keptCharts', 'chartsAdopted', 'confirmCancelKept', 'cancelErased', 'resumeKept'])
+        assert.ok(tokens.includes(key), key);
+    for (const bundle of ['cdsExportMessages.properties', 'cdsExportMessages_fr.properties']) {
+        const text = fs.readFileSync(path.join(root, 'src/main/resources', bundle), 'utf8');
+        for (const key of tokens) {
+            assert.match(text, new RegExp('^js\\.' + key + '=.+$', 'm'), bundle + ' ' + key);
+            assert.match(script, new RegExp('\\b' + key + ': \''), key);
+        }
+    }
 });

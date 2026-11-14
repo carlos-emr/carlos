@@ -505,6 +505,61 @@ class CdsExportCliUnitTest {
         }
     }
 
+    /** A job stopped for review that keeps {@code kept} finished charts for a resume. */
+    private static CdsExportJobDto stopped(long kept, long adopted, long built) {
+        return new CdsExportJobDto(
+                RUN,
+                CdsExportState.REVIEW_REQUIRED,
+                3,
+                6L,
+                0,
+                0,
+                false,
+                false,
+                2,
+                "CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED",
+                Instant.EPOCH,
+                Instant.EPOCH,
+                false,
+                kept,
+                kept == 0 ? null : Instant.parse("2026-11-21T15:00:00Z"),
+                adopted,
+                built);
+    }
+
+    @Test
+    void shouldSayWhatIsKept_whenAResumedJobStopsAgain() throws Exception {
+        when(runtime.execute(RUN)).thenReturn(stopped(5, 2, 3));
+        when(runtime.status(RUN)).thenReturn(stopped(5, 2, 3));
+        assertThat(run(new String[] {"--operation", "resume", "--provider", "100", "--run", RUN}))
+                .isEqualTo(4);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "\"keptCharts\":5",
+                        "\"keptUntil\":\"2026-11-21T15:00:00Z\"",
+                        "\"adoptedCharts\":2",
+                        "\"builtCharts\":3");
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_CHARTS_KEPT: 5 finished chart(s) are kept, encrypted, until"
+                                + " 2026-11-21T15:00:00Z; resume adopts each one whose records are"
+                                + " unchanged, cancel erases them");
+    }
+
+    @Test
+    void shouldSayTheKeptChartsWereErased_whenAStoppedJobIsCancelled() throws Exception {
+        when(runtime.status(RUN)).thenReturn(stopped(4, 0, 4), stopped(0, 0, 4));
+        assertThat(run(new String[] {"--operation", "cancel", "--provider", "100", "--run", RUN}))
+                .isZero();
+        verify(runtime).cancel(RUN);
+        assertThat(output.toString(StandardCharsets.UTF_8))
+                .contains("\"keptCharts\":0", "\"keptUntil\":null");
+        assertThat(error.toString(StandardCharsets.UTF_8))
+                .contains(
+                        "CDS_EXPORT_CHARTS_ERASED: the 4 finished chart(s) the stopped job kept"
+                                + " were erased; a resume builds every chart again");
+    }
+
     private int run(String[] arguments) {
         return CdsExportCli.runAuthorized(
                 configuration,

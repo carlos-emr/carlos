@@ -301,6 +301,11 @@ public class CdsExportWebService {
         value.put("waiting", row.waiting());
         value.put("complete", row.complete());
         value.put("heldBack", row.heldBack());
+        // Resume evidence: counts and a time only (CdsExportJobDto).
+        value.put("keptCharts", row.keptCharts());
+        value.put("keptUntil", row.keptUntil() == null ? null : row.keptUntil().toString());
+        value.put("adoptedCharts", row.adoptedCharts());
+        value.put("builtCharts", row.builtCharts());
         return value;
     }
 }

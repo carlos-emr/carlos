@@ -169,7 +169,13 @@ public final class CdsExportCli {
                 line(out, Map.of("event", "ACCEPTED", "runId", run));
             }
             if (arguments.operation().equals("resume")) runtime.resume(run);
-            if (arguments.operation().equals("cancel")) runtime.cancel(run);
+            // A stopped job may keep finished charts for a resume: cancelling it erases them, and
+            // the command says so.
+            long keptBeforeCancel = 0;
+            if (arguments.operation().equals("cancel")) {
+                keptBeforeCancel = runtime.status(run).keptCharts();
+                runtime.cancel(run);
+            }
             if (arguments.operation().equals("report"))
                 line(out, java.util.Objects.requireNonNull(runtime.report(run)));
             if (arguments.operation().equals("download")) runtime.download(run);
@@ -180,6 +186,12 @@ public final class CdsExportCli {
             if (work && !arguments.detach()) state = foreground(runtime, run, out, err, retired);
             else state = runtime.status(run);
             line(out, summary(state, "RESULT"));
+            if (keptBeforeCancel > 0 && state.keptCharts() == 0)
+                err.println(
+                        "CDS_EXPORT_CHARTS_ERASED: the "
+                                + keptBeforeCancel
+                                + " finished chart(s) the stopped job kept were erased; a resume"
+                                + " builds every chart again");
             if (out.checkError() || err.checkError()) {
                 err.println(
                         "CDS_EXPORT_DELIVERY: console delivery failed; reconcile the original durable job");
@@ -192,7 +204,17 @@ public final class CdsExportCli {
                                 + state.blockedPatients()
                                 + " held patient(s); they are listed in the package ReadMe and the report");
                 outcome = 5;
-            } else outcome = 4;
+            } else {
+                if (state.keptCharts() > 0)
+                    err.println(
+                            "CDS_EXPORT_CHARTS_KEPT: "
+                                    + state.keptCharts()
+                                    + " finished chart(s) are kept, encrypted, until "
+                                    + state.keptUntil()
+                                    + "; resume adopts each one whose records are unchanged,"
+                                    + " cancel erases them");
+                outcome = 4;
+            }
         } catch (SecurityException denied) {
             String missing =
                     io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportAccessService
@@ -422,6 +444,12 @@ public final class CdsExportCli {
         result.put("waiting", job.waiting());
         result.put("complete", job.complete());
         result.put("heldBack", job.heldBack());
+        // Resume evidence: what stopped attempts keep, and what the latest attempt adopted and
+        // built (CdsExportJobDto); counts and a time only.
+        result.put("keptCharts", job.keptCharts());
+        result.put("keptUntil", job.keptUntil() == null ? null : job.keptUntil().toString());
+        result.put("adoptedCharts", job.adoptedCharts());
+        result.put("builtCharts", job.builtCharts());
         return result;
     }
 
