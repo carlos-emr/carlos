@@ -20,7 +20,12 @@ prevention classification puts in the non-immunization partition) are exported a
 procedures when PastHealth is selected, as the legacy exporter wrote them. The description is
 the prevention type, its Refused, Ineligible or Completed externally status and the
 `Result:`/`Reason:` extension lines; a description longer than 250 characters keeps the type
-and status and moves those lines whole to Notes. ProcedureDate is the recorded calendar date at
+and status and moves those lines whole to Notes. A type and status that do not fit the
+description themselves open Notes behind the fixed description `Screening (type and status in
+Notes)`, and Notes beyond their own limit are left out whole; in both cases the values are exact
+in the residual (`OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY`) and no length of text holds a
+screening (`SCREENING_DESCRIPTION_CAPACITY_REQUIRES_REVIEW` and
+`SCREENING_NOTES_CAPACITY_REQUIRES_REVIEW` are gone). ProcedureDate is the recorded calendar date at
 its recorded year, year-month or full-date precision (a native clock time stays in the
 residual), and Notes are the comments. The complete parent, extension and precision rows travel
 in the `CARLOS.Prevention.Source.v1` residual as JSON with SQL NULL and empty text distinct and
@@ -296,9 +301,13 @@ of that element and moves whole to Notes as a labelled line (`Name: `, `Manufact
 the comments, and stays exact in the residual (`OVERLONG_NATIVE_TEXT_MOVED_WHOLE_TO_NOTES`,
 destination `Notes;ResidualInfo`). A name moved this way is replaced by the configured prevention
 type, as a blank name is (the catch-all and Rh labels below apply the same way); it is never
-clipped. Only Notes that would exceed their 32,000 characters still hold
-(`IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW`). Census chart A31a (a 160-character Td name)
-was held as `CDS_EXPORT_UNMAPPED_DATA` before this rule. "Completed externally" exports as given
+clipped. Notes holds 32,000 characters. When the status line, the moved values and the comments
+do not all fit, whole parts are left out of Notes, last first (the comments, then the moved
+values), and comments longer than Notes on their own are left out the same way; nothing is
+clipped, the status line stays, and each left-out value is exact in the residual
+(`OVERLONG_NATIVE_TEXT_EXACT_IN_RESIDUAL_ONLY`, destination `ResidualInfo`). No length of text
+holds a vaccine; `IMMUNIZATION_NOTES_CAPACITY_REQUIRES_REVIEW` is gone. Census chart A31a (a
+160-character Td name) was held as `CDS_EXPORT_UNMAPPED_DATA` before the first rule. "Completed externally" exports as given
 (RefusedFlag N) and "Ineligible" as not given (RefusedFlag Y), with the status as the first line
 of Notes. The complete parent, extension and precision rows travel in the same
 `CARLOS.Prevention.Source.v1` residual as screenings, so the recording provider, reminder date
@@ -1936,8 +1945,37 @@ for `CARLOS.History.Narrative.v1`), with no Reaction element (A22,
 (`CdsAllergyResidualReader`, `CdsClinicalNormalizationService`) and refuses it beside a standard
 Reaction, so an export and import round-trips the exact text. On re-export of such an imported
 allergy the carrier is kept while the reaction is unchanged (`CdsExportPreparedAllergyMapper`,
-`CdsExportAllergyRetainedAssembler`). Only a reaction that would not fit Notes' text32K holds the
-patient (`LONG_REACTION_NOTES_CAPACITY_REQUIRES_REVIEW`). A brand allergen saved after
+`CdsExportAllergyRetainedAssembler`). A reaction that would not fit Notes' text32K either has no
+Reaction, no Notes copy and no reaction carrier: it travels exactly in `CARLOS.Allergy.Source.v1`
+(below) and no longer holds the patient.
+
+A never-imported allergy with a stored value that CDS 5.2 and the carriers above have no place
+for is exported, not held. The complete captured row and its date-precision rows travel in one
+more residual element, `CARLOS.Allergy.Source.v1` (`string`: a JSON object `version`, `fields`,
+`precision` in a fixed key order, SQL NULL and empty text distinct, every space escaped), written
+only for such an allergy, and the column's decision is `EXACT_NATIVE_ALLERGY_SOURCE_CONTEXT`
+(`CdsExportAllergyMapper.CARRIED_RULES`). It covers:
+
+- `providerNo` and the First Databank identifiers `HICL_SEQNO`, `HIC_SEQNO`, `AGCSP` and `AGCCS`.
+  No CARLOS screen writes them (`RxAddAllergy2Action`, `RxPatientData.addAllergy` and the CDS
+  importer leave them NULL), but the OSCAR 19 migration copies all five
+  (`debian/assets/o19-manifest/o19map_schema.json`, table `allergies`, class `copy`), so a
+  migrated chart carries them. CDS 5.2 allergies have no author element.
+- a catalogue type outside the DrugRef categories, an identifier on a row that is not a brand
+  search result, and an ATC value that is not one valid code (no Code or ATC marker is written);
+- a severity, onset, life-stage or reaction-type code outside its list and a drug flag other than
+  0 or 1 (the element or marker is left out, never guessed);
+- an age of onset with leading, trailing or doubled whitespace;
+- a date whose precision rows disagree, whose format is unknown or whose anchor is not a calendar
+  date (OSCAR's zero date): no date element is written;
+- a row that names no agent and has no exportable code: OffendingAgentDescription is the fixed
+  label `Offending agent not recorded`, because every CDS reader, the CARLOS importer included,
+  needs a description or a code.
+
+A CARLOS importer keeps the carrier as protected source (it is not one of the markers it
+restores). Still held: text no XML document can hold, and an archive flag that is neither 0 nor
+1. An imported allergy is unaffected: the importer writes none of these columns, and CARLOS
+amends an allergy by archiving it and adding a row. A brand allergen saved after
 the DrugRef lookup returned no DIN (`TYPECODE` 13 without a DIN, which `RxAddAllergy2Action` keeps)
 is named by its description, with its product ATC class in `CARLOS.Allergy.Atc.v1` when DrugRef gave
 one (A23, `DRUGREF_BRAND_WITHOUT_RESOLVED_DIN`). An allergen picked under the allergy search's
@@ -2015,12 +2053,13 @@ What an appointment exports, and what stays in CARLOS:
 | date, start and end time | `AppointmentDate`, `AppointmentTime`, `Duration` (end is inclusive) |
 | `status` | `AppointmentStatus`: the captured status definition's description. Signing or verifying the encounter appends `S` or `V` to the status (`H` becomes `HS`); the chart shows the first letter's description with `/Signed` or `/Verified` (`ApptStatusData`), and so does the export, from that first letter's captured definition. Any other code needs its own exact definition. |
 | `provider_no` | `Provider`: public name and OHIP number |
-| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. A labelled purpose over 250 characters, or an item without a label, requires review. |
+| `reasonCode` and `reason` | `AppointmentPurpose`: what the day sheet shows, the trimmed reason-list label, a space and the trimmed reason (`appointmentprovideradminday.jsp`). When the code names no captured item (the add form's `-1` placeholder when no list exists, or an id outside the `reasonCode` list) or the label is blank, the schedule shows the reason alone and the exact reason is sent; `reasonCode` is then operational. When the label and the reason exceed 250 characters together, neither is cut: the reason is the purpose and the label is the first line of `AppointmentNotes`, `Reason: <label>` (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`), as for an imported purpose. An item without a label requires review. |
 | `notes` | `AppointmentNotes` |
 | `style`, `billing`, `location`, `resources`, `urgency`, `type`, `bookingSource` | Operational: scheduler display, booking site, billing workflow, the appointment template name and booking provenance have no CDS Appointments field. The template's reason and notes already reach the purpose and notes. |
-| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text requires review. |
-| `remarks` | Review when populated. The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and older data can fill it, and the patient's appointment history shows it. |
-| `program_id`, `imported_status` | Unchanged review rules (program affiliation; retained status reconciliation). |
+| `name` | Operational when it is the current patient's name in a form CARLOS stores (`Last,First` from the add form; `Last, First` or `Last, First (alias)` from the edit form's patient search and the booking web service), or the same form of a name from the patient's own captured `demographicArchive` snapshot (a booking made before a rename). Any other text is what the user left in the booking's name box (the Edit Appointment form stores its `keyword` field as typed, `AppointmentUpdateRecord2Action`): it is exported as a labelled line after the notes, `Booking name: <name>` (`BOOKING_NAME_NOT_THE_PATIENT_DISPLAY_AS_LABELLED_NOTES_LINE`), and no longer holds the patient (`CDS_EXPORT_APPOINTMENT_PATIENT_DISPLAY_REQUIRES_REVIEW` is gone). |
+| `remarks` | A labelled line after the notes, `Remarks: <remarks>` (`APPOINTMENT_REMARKS_AS_LABELLED_NOTES_LINE`). The add and edit forms only write an empty value or keep the stored one; the SOAP schedule service and OSCAR 19 data (its reminder mailer's `Emailed:` marks) fill it, and the patient's appointment history shows it. Appointments has no `ResidualInfo`, so the notes are the carrier; it used to hold the patient. |
+| `program_id` | Operational: the program a booking was made under (OSCAR 19 with its program view on; CARLOS always stores 0) is scheduler context like the booking site (`BOOKING_PROGRAM_NOT_A_CDS_APPOINTMENT_FIELD`). It used to hold the patient. |
+| `imported_status` | Unchanged review rule (retained status reconciliation). |
 | storage audit and identity columns | Operational. |
 
 The separate owning archive DAO captures every `appointmentArchive` version, including repeated
@@ -2442,7 +2481,12 @@ imported purpose do not fit the 250 characters CDS allows together, the imported
 exactly and the label opens AppointmentNotes as a first line `Reason: <label>`
 (`SCHEDULE_REASON_LABEL_IN_NOTES_BEYOND_PURPOSE_CAPACITY`); only notes that would then pass the
 32,000 characters an imported note may use (an imported note within the label's length, at most
-263 characters, of that bound) still hold (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`). All original field IDs are accounted for and the last callback cannot
+263 characters, of that bound) still hold (`CDS_EXPORT_APPOINTMENT_LABELLED_PURPOSE_CAPACITY`).
+A booking name that is not the patient's and remarks stored on an imported appointment are
+appended to its notes as on a never-imported one (`Booking name: `, `Remarks: `), which makes
+the notes current; notes they would take past 32,000 characters hold with
+`CDS_EXPORT_APPOINTMENT_NOTES_CAPACITY_REQUIRES_REVIEW`, because the category has no residual to
+carry them. All original field IDs are accounted for and the last callback cannot
 bypass live authority. The 126-case isolated suite and 14 installed checks passed before
 integration. The native-only installed path uses real services and captured metadata; historical
 reconciliation metadata is explicitly simulated. Expanded coordinated verification is pending.
@@ -3151,7 +3195,16 @@ and `CARLOS.NativeLaboratory.v1` gains a `collection` entry (rule, source field,
 ordinals) after `rows`; a report that sent its collection times keeps its residual bytes. Only
 an empty or unreadable stored date still holds (`CDS_EXPORT_NATIVE_LAB_COLLECTION_REQUIRED`). An "ORU" message without its R01 trigger cannot be
 parsed by HAPI (`Can't determine message structure`), so no CARLOS handler stored one; the
-parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`). Focused verification passed
+parser refuses it the same way (`CDS_EXPORT_NATIVE_LAB_MESSAGE_REQUIRES_REVIEW`).
+No laboratory value holds a chart for its length. A result of any type longer than ResultValue's
+120 characters is written whole in `TestResultsInformationReportedByTheLab` as `Result text
+(complete):`, as a long text result already was; abnormal flags longer than their element are
+written whole there as `Abnormal flags (complete):` with the flag element Unknown; any other
+value longer than its element (a unit, a reference range over 1,024 characters, a status) is
+left out of that element, never clipped. The complete message and rows travel in the report's
+`CARLOS.Laboratory.v1` record. `CDS_EXPORT_NATIVE_LAB_RESULT_VALUE_CAPACITY`,
+`..._FLAG_CAPACITY` and `..._WIRE_CAPACITY` are gone; text no XML document can hold is
+`CDS_EXPORT_NATIVE_LAB_WIRE_TEXT_REQUIRES_REVIEW`. Focused verification passed
 156 checks plus 13 real MariaDB/CLI-startup checks; final packaging and genuine
 installed laboratory import/export qualification are pending. This component does
 not qualify the remaining native laboratory catalogue or clinical publication.
@@ -3609,11 +3662,47 @@ Rx directions parser (`RxUtil`) stores `0` whenever the directions name none ("u
 a frequency (`D` for BID) or no unit at all (`Drug.setDurUnit` stores the empty unit as NULL), so
 that `0` is never written as a 0-day course nor holds the patient (the shared candidate assesses
 it `NATIVE_DURATION_NOT_STATED`, `CdsExportMedicationMapper.NOT_STATED`, so neither the native nor
-the reconciled path holds it). An amount saved without a unit (typed into the Rx card's duration box when
-the directions named none) is not written either, since a bare number reads as days; the native
-mapper carries it (`DURATION_IS_NOT_KNOWN_DAYS`, a `CONTEXT_RULES` entry). Both travel exactly in
-`CARLOS.Medication.Source.v1`. Only a unit CARLOS never writes (anything but `D`, `W`, `M` or `Y`)
-still requires review (`CdsExportMedicationMapper.unknownDurationUnit`). Unknown status and a false past-medication flag do not establish
+the reconciled path holds it).
+
+No stored duration holds a patient. `drugs.durunit` is `CHAR(1)` and `drugs.duration`
+`VARCHAR(1024)`. CARLOS itself writes the units `D`, `W` and `M` (the directions parser, a Mitte
+quantity such as "3 mo", the legacy form's select) and `Y` (the CDS importer, from `Duration`
+text such as `1 year`), but the Rx card's duration and duration-unit boxes are free text
+(`prescribe.jsp` `duration_<id>`/`durationUnit_<id>`, `RxWriteScript2Action.updateProperty`), the
+REST prescription service takes any string, and the OSCAR 19 migration copies both columns. On an
+installation whose database truncates (the packaged `sql_mode`), "days", "wk" or "mo" typed into
+the unit box are stored as `d`, `w` and `m`. The rule (`CdsExportMedicationMapper.duration`):
+
+- The unit is the one stored character read without regard to case, as every CARLOS reader of the
+  column reads it (`Prescription.calcEndDate`, `RxUtil.findNDays` and the legacy exporter compare
+  it ignoring case): `D`/`d` days, `W`/`w` weeks, `M`/`m` months, `Y`/`y` years. A whole amount
+  with one of them is the Duration as above.
+- A whole amount with no unit (`DURATION_IS_NOT_KNOWN_DAYS`; a bare number would read as days), a
+  unit that is none of the four (`DURATION_UNIT_IS_NOT_A_KNOWN_UNIT`: `h`, `x`, a digit...) and a
+  duration typed as text (`DURATION_IS_NOT_A_WHOLE_NUMBER`: "10 days", "2-4") have no Duration.
+  The exact `duration`, `durunit` and `freqcode` travel in `CARLOS.Medication.Source.v1`.
+- An imported prescription whose duration was changed in CARLOS follows the same rule; its
+  values travel in `CARLOS.Medication.CurrentSource.v1` (below).
+- Only text no XML document can hold still requires review.
+
+The same residual carries, instead of holding the patient (`CdsExportNativeMedicationMapper
+.CONTEXT_RULES`): a quantity that is not a plain number ("30 tabs", "1 bottle": the legacy Rx
+form, favourites, the REST service and OSCAR 19 data store free text; Quantity is left out
+because the guide and the CARLOS importer read it as a number); a negative refill count,
+quantity or duration; a flag other than 0 or 1; a treatment type outside the CDS list; OSCAR's
+"no date" defaults (`rx_date` or `written_date` `0001-01-01`, the zero date) and a date whose
+precision rows disagree (no date element is written, and the precision rows travel in the
+residual's `precision` list); and a precision row for another field.
+
+A prescription written with the Rx page's Note button (`newCustomNote`: `custom_note` 1, no
+brand, no custom name, no drug code; the typed text is the whole prescription) used to hold the
+patient. It is exported with DrugName `Prescription note (no drug named)` and the note as
+PrescriptionInstructions; any other row that names no drug (an empty or blank name) is
+`Unnamed prescription`. CDS readers, the CARLOS importer included, need a name or a DIN, so the
+entry says what it is; the row is exact in the residual. A stored name longer than DrugName's 120
+characters (BN holds 255) with no DrugRef DIN to identify the product is never clipped: DrugName
+is `Drug name longer than 120 characters (see Notes)` and the name is the first line of Notes,
+`Drug name: <name>`. Unknown status and a false past-medication flag do not establish
 current treatment. Unbound import-provenance markers require review.
 
 The Rx page saves several values independently, and the exporter no longer holds a patient when
@@ -3625,12 +3714,48 @@ PRN frequency or treatment with the as-needed box unticked (`CONFLICTING_NATIVE_
 writes them as chosen, and the as-needed box with no frequency at all writes the CT-024 frequency
 `PRN`, which another receiver reads as as-needed. The CARLOS importer restores the exact flag from
 `CARLOS.Medication.Source.v1`, an unticked box beside a PRN frequency included. A dispense interval longer than
-DispenseInterval's 10 characters, or a protocol or prior protocol longer than 20, leaves that
-element out (`RESIDUAL_ONLY_WHEN_OVERLONG`); never truncated. A prescription recorded with the
+DispenseInterval's 10 characters, a protocol or prior protocol longer than 20, a comment longer
+than Notes' 32,000, a strength longer than DrugDescription's 2,000 and any other value longer
+than its element leave that element out; never truncated. A SIG and pharmacy instructions that
+exceed PrescriptionInstructions together write the SIG alone, a quantity that no longer fits with
+its unit is left out, and a frequency that already fills its element is written without the
+`PRN` suffix. A prescription recorded with the
 "outside provider" box (`CONFLICTING_PRESCRIBER_NAME`/`CONFLICTING_PRESCRIBER_IDENTIFIER`: the
 outside name and number differ from the recording CARLOS provider) has no PrescribedBy, since the
 recorder did not write it and the outside name is one string a personNameSimple cannot hold
 without splitting it. In every case the exact columns travel in `CARLOS.Medication.Source.v1`.
+
+A value of one prescription that the medication writer refuses is a patient hold
+(`CDS_EXPORT_NATIVE_MEDICATION_REQUIRES_REVIEW`); it used to fail the whole job as an I/O error.
+
+**Imported prescriptions changed in CARLOS.** The Rx page never rewrites a prescription
+(`Prescription.Save` always inserts a row), but four actions update the imported row itself:
+Delete and Discontinue (`RxDeleteRx2Action`, `RxManagerImpl.discontinue`/`archiveDrug`: `archived`
+1 with its reason and date), Hide from CPP (`RxHideCpp2Action`: `hide_cpp`), the drug-form
+correction (`ViewUpdateForm2Action`) and a REST prescribe's script link (`script_no`). The first
+two and the last held the chart with `CDS_EXPORT_UNMAPPED_DATA`. `CdsExportMedicationFieldReconciler`
+now decides them as on a never-imported row:
+
+- an archived row writes the PrescriptionStatus its archive reason gives (Obsolete, Nullified or
+  Aborted, below) and PastMedications Y, replacing the imported elements (the receipt lists their
+  source fields as replaced); an archive the import itself wrote (reason `cds:...`) keeps its
+  status. The occurrence's `CARLOS.Medication.Archived.v1` is corrected when a CARLOS sender
+  wrote one, or added, so it never states a stale archive state.
+- every current column CDS 5.2 has no element for (`CARRIED_RULES`: the archive reason and date,
+  `hide_cpp`, `script_no`, a duration with no CDS meaning, ...) travels in one more residual
+  element, `CARLOS.Medication.CurrentSource.v1`: the complete current row in the shape of
+  `CARLOS.Medication.Source.v1`, written only when such a column exists
+  (`CURRENT_NATIVE_VALUE_IN_EDITED_SOURCE_CONTEXT`). A sender's own `CARLOS.Medication.Source.v1`
+  and every other residual element stay untouched; a later export of the same chart replaces the
+  content of its earlier `CurrentSource` element. An importer treats it as opaque source.
+- everything the change did not touch is still the import's own projection (DIN, strength,
+  prescriber, dates, ProblemCode, vendor residuals).
+
+Still held on an imported prescription: an import projection the receipt cannot prove, a changed
+quantity unit or as-needed flag that a CARLOS sender's carrier would restate
+(`RESTORED_SOURCE_CONTEXT_CHANGED_REQUIRES_REVIEW`), a changed dose or SIG dependency, a changed
+date behind a source clock or offset, and a physically deleted row. No CARLOS screen produces
+these; they need a direct REST or database change.
 
 `CARLOS.Medication.Archived.v1` carries the exact archive state. Because other vendors ignore
 CARLOS extensions and an archived row keeps the status it was copied with (re-prescribing copies

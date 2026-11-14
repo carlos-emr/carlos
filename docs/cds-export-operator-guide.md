@@ -479,14 +479,23 @@ values a CDS element cannot hold: "Past medication" Yes beside status Active (bo
 saved); a treatment type that disagrees with the short-term box; the as-needed box without a
 frequency (sent as frequency `PRN`, as for "2 puffs prn"); directions that name no duration ("use
 as directed", "apply thin layer", "2 puffs prn", or "1 tab BID" with no length: the Rx page stores
-duration `0`, which is sent as no Duration, never as a 0-day course) and a duration typed without
-a unit (sent as no Duration; the exact values are in the CARLOS residual; a unit other than days,
-weeks, months or years still holds the patient); a dispense interval
-over 10 or a protocol over 20 characters
-(left out of its element, kept in the CARLOS residual); a prescription recorded for an outside
+duration `0`, which is sent as no Duration, never as a 0-day course); a duration typed without
+a unit, with a unit that is not days, weeks, months or years, or as text such as "10 days" in
+the duration box (sent as no Duration; the exact values are in the CARLOS residual; a unit box
+that kept only the first letter of "days", "weeks", "months" or "years", in either case, is read
+as that unit, as CARLOS itself reads it); a prescription written with the Note button (sent with
+the drug name "Prescription note (no drug named)" and the note as its instructions); a quantity
+typed as text such as "30 tabs" (left out of Quantity, kept in the CARLOS residual); a
+prescription with OSCAR's "no date" default (sent without that date); a dispense interval
+over 10 or a protocol over 20 characters, or any other value longer than its CDS element
+(left out of its element, kept in the CARLOS residual; a drug name over 120 characters is sent
+whole as the first line of the prescription's Notes); a prescription recorded for an outside
 provider (sent without a prescriber; the outside name and number are in the CARLOS residual); an
 allergy reaction over 120 characters
-(sent in full in the allergy's Notes); a brand allergy saved without a DIN; an allergen picked
+(sent in full in the allergy's Notes); an allergy from an OSCAR 19 database that records the
+entering provider or First Databank identifiers, or carries a code CARLOS does not list (the
+whole stored row is sent in the CARLOS residual `CARLOS.Allergy.Source.v1`); a brand allergy
+saved without a DIN; an allergen picked
 under the allergy search's "ATC Class" heading (named by its description, as the other search
 headings are); a CPP item with two
 or more assigned diagnoses (all listed in its Notes, none in the single code element); a
@@ -558,6 +567,20 @@ cancellation. Resume is subject to the original binding and current authorizatio
 | 130 | Waiting interrupted (Ctrl-C); durable cancellation was not requested. The lease is released before the process exits, so the job can be resumed at once. A SIGTERM-stopped wait exits 143 with the same meaning. |
 
 ### Held patients
+
+The following ordinary charts are exported and are not held:
+
+- an imported prescription that was deleted, discontinued or hidden from the CPP in CARLOS: it
+  is sent as no longer current (Nullified, Aborted or Obsolete, past medication Yes), and the
+  reason, date and the rest of its current row travel in the CARLOS residual
+  `CARLOS.Medication.CurrentSource.v1`;
+- an appointment whose name box holds something other than the patient's name, or that has
+  remarks (OSCAR 19 reminder marks such as "Emailed:"): each is sent as a labelled line after
+  the appointment's notes (`Booking name: `, `Remarks: `); a reason-list label too long to
+  stand before the reason opens the notes as `Reason: `;
+- a vaccine or screening whose text is longer than Notes can hold: whole parts are left out of
+  Notes, never cut, and stay exact in the CARLOS residual;
+- a laboratory result, flag or other value longer than its CDS element.
 
 A selected patient whose chart this release cannot represent completely (an
 unmapped value, a chart that changed during capture, access restricted for that
