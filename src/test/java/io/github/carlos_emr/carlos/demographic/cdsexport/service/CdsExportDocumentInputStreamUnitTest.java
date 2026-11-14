@@ -187,6 +187,20 @@ class CdsExportDocumentInputStreamUnitTest {
     }
 
     @Test
+    void shouldReadADocumentStoredAnyNumberOfLevelsDeep_insteadOfHoldingThePatient()
+            throws Exception {
+        // Before: a stored name deeper than 16 levels held the patient as unsupported.
+        var name = new StringBuilder();
+        for (int level = 0; level < 20; level++) name.append("d").append(level).append('/');
+        Files.createDirectories(root.resolve(name.toString()));
+        name.append("report.bin");
+        Files.write(root.resolve(name.toString()), body);
+        try (var input = open(name.toString())) {
+            assertThat(input.readAllBytes()).isEqualTo(body);
+        }
+    }
+
+    @Test
     void shouldSupportSafeNestedNativeFiles_forDocumentInputStreamContract() throws Exception {
         Files.createDirectory(root.resolve("nested"));
         Files.write(root.resolve("nested/report.bin"), body);

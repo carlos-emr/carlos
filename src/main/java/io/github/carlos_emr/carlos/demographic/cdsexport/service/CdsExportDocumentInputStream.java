@@ -145,7 +145,8 @@ final class CdsExportDocumentInputStream extends InputStream {
             if (relative.isAbsolute()
                     || !relative.equals(relative.normalize())
                     || !relative.toString().equals(filename)
-                    || relative.getNameCount() > 16
+                    // No depth is refused (more than 16 levels held the patient): each level is
+                    // opened and checked through its own no-follow handle.
                     || relative.startsWith("..")) unsupported();
             for (Path part : relative)
                 if (part.toString().isEmpty()
