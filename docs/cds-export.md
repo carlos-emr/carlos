@@ -3072,8 +3072,9 @@ additional prefix/suffix content requires review. Nurse, resident and midwife as
 remain separate unresolved fields; selected alerts are explicitly delegated to their category.
 The note reader buffers at most one wire-sized value. Larger values stream to discard and
 produce a review decision only after the complete encrypted capture and live authority check
-succeed. The guide's 64,000-character limit is enforced before serialization; no note is
-shortened. This projection still requires retained-source reconciliation, historical/related
+succeed. The guide's 64,000-character limit is enforced before serialization: a longer note
+is written as its first characters and the shortened mark, and travels whole in
+`CARLOS.Demographic.v1` (`CdsNativeExtensionContract.patientNoteElement`). This projection still requires retained-source reconciliation, historical/related
 source coverage and the remaining demographic writers before it can establish completeness.
 
 The demographics-only `demographiccust` capture now retains actual driver metadata for its

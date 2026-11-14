@@ -302,8 +302,11 @@ control character from a word processor, for example) does not hold the patient 
 exported text shows the replacement character (U+FFFD) where it stood and the exact text travels
 in the record's CARLOS residual; the same rule applies to the master record note, to stored
 HTML documents and to inbox comments. A master record note longer than the 64,000 characters
-CDS allows is not cut: it travels whole in the CARLOS demographic record (NewCategory) and the
-note element is left out. Personal history, which CDS allows only as
+CDS allows is written as its first characters followed by the line "[CARLOS: shortened to the
+CDS limit of 64,000 characters]"; the whole note travels in the CARLOS demographic record
+(NewCategory), from which a receiving CARLOS restores it. A receiving CARLOS also restores the
+exact text of a note, CPP item, patient note, prescription, allergy or vaccine value shown with
+U+FFFD (see `docs/cds-import.md`). Personal history, which CDS allows only as
 residual data, travels in the same carrier, so a CARLOS importer restores it exactly, line
 breaks included. That carrier is an escaped JSON string (quotes, `\u0020` for each space,
 `\n` for each line break), which another EMR shows literally, so the same text is also
