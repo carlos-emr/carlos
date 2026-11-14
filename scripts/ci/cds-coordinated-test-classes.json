@@ -69,6 +69,7 @@
   "io.github.carlos_emr.carlos.demographic.cds.cli.CdsProcessProtocolUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsContractUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsHealthCardAuthorityUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cds.contract.CdsMergedChartContractUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeBaselineCodecUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeRowDigestUnitTest",
   "io.github.carlos_emr.carlos.demographic.cds.contract.CdsPreparationSealUnitTest",
