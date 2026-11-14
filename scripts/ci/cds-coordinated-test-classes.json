@@ -375,6 +375,7 @@
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsMedicationDoseUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsMedicationRenewalActionUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsMedicationResidualReaderUnitTest",
+  "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsMergedChartReaderUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsNativePreparationServiceUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsPatientNoteCarrierUnitTest",
   "io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsPreacceptServiceUnitTest",

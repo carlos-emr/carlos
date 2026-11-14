@@ -521,6 +521,48 @@ public class CdsImportPlanningService {
                             state.blocked = true;
                             return;
                         }
+                        // A CARLOS sender's merged-chart records are checked before anything of
+                        // the patient is planned. One that fails refuses only this patient, for
+                        // review; valid ones are kept as source and named in the report.
+                        CdsMergedChartReader.Carriers merged;
+                        try {
+                            merged =
+                                    new CdsMergedChartReader(fields)
+                                            .read(parsed.recordsManifestFile(), source.sourceId());
+                        } catch (CdsMergedChartReader.InvalidCarrier invalid) {
+                            ledger.refusePlannedPatient(
+                                    state.runId, state.epoch, patientKey, "REFUSED");
+                            ledger.diagnostic(
+                                    state.runId,
+                                    state.epoch,
+                                    patientKey,
+                                    null,
+                                    "WARNING",
+                                    CdsMergedChartReader.INVALID,
+                                    "PREFLIGHT",
+                                    "NewCategory",
+                                    "A merged-chart record from the sending CARLOS failed its check;"
+                                            + " nothing of this patient was imported and the file"
+                                            + " needs review",
+                                    parseResult.toString(),
+                                    false);
+                            return;
+                        }
+                        if (merged.merged() > 0)
+                            ledger.diagnostic(
+                                    state.runId,
+                                    state.epoch,
+                                    patientKey,
+                                    null,
+                                    "INFO",
+                                    CdsMergedChartReader.IMPORTED,
+                                    "PREFLIGHT",
+                                    "NewCategory",
+                                    merged.merged()
+                                            + " merged charts from the sending CARLOS imported into"
+                                            + " this chart",
+                                    parseResult.toString(),
+                                    false);
                         boolean canonicalReplay = patient.targetDemographicNo() != null;
                         if (canonicalReplay) {
                             if (!identity.matchesCanonical(
