@@ -134,7 +134,11 @@ public class CdsExportActivePlanService {
                     "maxStagedFileBytes",
                     // The per-chart capture bounds: a chart of any size is captured.
                     "maxCapturedFields",
-                    "maxCapturedBytes");
+                    "maxCapturedBytes",
+                    // The capture's former time budget: a capture has no deadline, and the legacy
+                    // table's READ lock lasts only while that table is read. A worker that stops
+                    // is ended by the stall detector (cds.export.maxDurationMillis).
+                    "captureTimeoutSeconds");
 
     private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
             new java.util.concurrent.atomic.AtomicBoolean();

@@ -2016,34 +2016,43 @@ class CdsExportNativeCaptureServiceUnitTest {
     }
 
     @Test
-    void shouldApplyTheConfiguredFiniteCaptureTimeout_toTheActualPatientTransaction()
+    void shouldGiveTheCaptureTransactionNoDeadline_whateverTheRetiredTimeoutSays()
             throws Exception {
-        @SuppressWarnings("unchecked")
-        var installed =
-                (org.springframework.beans.factory.ObjectProvider<CdsExportNativeSourceReader>)
-                        mock(org.springframework.beans.factory.ObjectProvider.class);
-        when(installed.orderedStream()).thenAnswer(ignored -> java.util.stream.Stream.of(source));
-        var settings = new java.util.Properties();
-        settings.setProperty("cds.export.captureTimeoutSeconds", "600");
-        var manager = spy(transactions);
-        var observed = new java.util.concurrent.atomic.AtomicInteger();
-        doAnswer(
-                        call -> {
-                            observed.set(
-                                    ((org.springframework.transaction.TransactionDefinition)
-                                                    call.getArgument(0))
-                                            .getTimeout());
-                            return call.callRealMethod();
-                        })
-                .when(manager)
-                .getTransaction(any());
-        var service =
-                new CdsExportNativeCaptureService(
-                        installed, factory, clock, manager, null, settings);
-        service.capture(lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
-        assertThat(observed.get()).isEqualTo(600);
-        assertThat(transactions.getDefaultTimeout())
-                .isEqualTo(org.springframework.transaction.TransactionDefinition.TIMEOUT_DEFAULT);
+        // cds.export.captureTimeoutSeconds used to be the capture transaction's timeout, so a
+        // chart whose capture took longer failed its job. It is retired: any value, valid or
+        // not, leaves the transaction without a deadline.
+        for (String value : new String[] {null, "1", "600", "0", "invalid"}) {
+            @SuppressWarnings("unchecked")
+            var installed =
+                    (org.springframework.beans.factory.ObjectProvider<CdsExportNativeSourceReader>)
+                            mock(org.springframework.beans.factory.ObjectProvider.class);
+            when(installed.orderedStream())
+                    .thenAnswer(ignored -> java.util.stream.Stream.of(source));
+            var settings = new java.util.Properties();
+            if (value != null) settings.setProperty("cds.export.captureTimeoutSeconds", value);
+            var manager = spy(transactions);
+            var observed = new java.util.ArrayList<Integer>();
+            doAnswer(
+                            call -> {
+                                observed.add(
+                                        ((org.springframework.transaction.TransactionDefinition)
+                                                        call.getArgument(0))
+                                                .getTimeout());
+                                return call.callRealMethod();
+                            })
+                    .when(manager)
+                    .getTransaction(any());
+            var service =
+                    new CdsExportNativeCaptureService(
+                            installed, factory, clock, manager, null, settings);
+            service.capture(
+                    lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+            assertThat(observed)
+                    .isNotEmpty()
+                    .containsOnly(
+                            org.springframework.transaction.TransactionDefinition.TIMEOUT_DEFAULT);
+        }
+        assertThat(CdsExportActivePlanService.RETIRED).contains("captureTimeoutSeconds");
     }
 
     private void assertNoPatientMembers() {

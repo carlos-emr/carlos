@@ -173,6 +173,9 @@ public class CdsExportSourceCatalogueDao {
                         .getResultList();
                 if (probes != null) probes.probed(table);
             }
+            // The probe was this table's only statement here: its pin ends with it.
+            if (!entry.getValue().engine().equals("InnoDB"))
+                CdsExportSourceReadLock.releasePinned();
             var fields = columns.get(key);
             if (fields == null) review();
             fields.sort(Comparator.comparing(CdsExportTableSchemaDto.Column::name));
@@ -218,6 +221,9 @@ public class CdsExportSourceCatalogueDao {
                         .profile();
         for (String table : new TreeSet<>(profile.tables().keySet())) {
             checkpoint.run();
+            // The previous table's statement is done: a pin taken for it ends here, so the
+            // non-transactional table is locked for its own presence check only.
+            CdsExportSourceReadLock.releasePinned();
             if (!profile.tables().get(table).engine().equals("InnoDB"))
                 CdsExportSourceReadLock.requirePinned();
             var disposition = catalogue.tables().get(table);
@@ -281,6 +287,7 @@ public class CdsExportSourceCatalogueDao {
                 }
             }
         }
+        CdsExportSourceReadLock.releasePinned();
         checkpoint.run();
     }
 

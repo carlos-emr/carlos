@@ -27,21 +27,16 @@ import java.sql.SQLException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-/** Holds the existing nontransactional legacy form stable only for the bounded patient source transaction. */
+/**
+ * Opens the guard of one capture's legacy source ({@link CdsExportSourceReadLock}). The guard
+ * takes no lock here and has no deadline: the non-transactional table is locked only while a
+ * reader reads it, so neither the table nor the capture is held to a time limit.
+ */
 @Service
 public class CdsExportSourceSnapshotService {
     private final OscarTrackingBasicDataSource source;
-    private final java.util.Properties settings = new java.util.Properties();
 
     @org.springframework.beans.factory.annotation.Autowired
-    public CdsExportSourceSnapshotService(
-            OscarTrackingBasicDataSource source,
-            @org.springframework.beans.factory.annotation.Qualifier("cdsExportProperties")
-                    java.util.Properties settings) {
-        this(source);
-        this.settings.putAll(java.util.Objects.requireNonNull(settings));
-    }
-
     public CdsExportSourceSnapshotService(OscarTrackingBasicDataSource source) {
         this.source = source;
     }
@@ -50,18 +45,13 @@ public class CdsExportSourceSnapshotService {
         if (TransactionSynchronizationManager.isActualTransactionActive())
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         checkpoint.run();
-        long captureSeconds =
-                CdsExportActivePlanService.number(settings, "captureTimeoutSeconds", 120, 1, 7200);
-        var lease =
-                CdsExportSourceReadLock.acquireUnpooled(
-                        source.openUnpooledCdsMaintenanceConnection(),
-                        (captureSeconds + 30) * 1000L);
+        var guard = CdsExportSourceReadLock.guard(source::openUnpooledCdsMaintenanceConnection);
         try {
             checkpoint.run();
-            return lease;
+            return guard;
         } catch (RuntimeException | Error failed) {
             try {
-                lease.close();
+                guard.close();
             } catch (SQLException cleanup) {
                 failed.addSuppressed(cleanup);
             }

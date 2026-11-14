@@ -318,12 +318,19 @@ class CdsExportDataSummaryMariaDbIntegrationTest {
                 "synthetic-" + patient);
     }
 
+    /**
+     * The capture's own guard: nothing is locked until a reader reads the non-transactional
+     * table, which pins it for that read.
+     */
     private void stableLegacy(Runnable work) {
         try (var held =
                 io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
-                        .acquireUnpooled(
-                                java.sql.DriverManager.getConnection(
-                                        source.getUrl(), source.getUsername(), source.getPassword()))) {
+                        .guard(
+                                () ->
+                                        java.sql.DriverManager.getConnection(
+                                                source.getUrl(),
+                                                source.getUsername(),
+                                                source.getPassword()))) {
             work.run();
         } catch (java.sql.SQLException failed) {
             throw new IllegalStateException("OWNED_SOURCE_SNAPSHOT_LOCK_FAILED", failed);

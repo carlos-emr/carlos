@@ -1187,29 +1187,70 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
         }
     }
 
+    /** One writer's update of the legacy row, given one second to get the table. */
+    private int legacyWrite(String created) throws java.sql.SQLException {
+        try (var connection =
+                        java.sql.DriverManager.getConnection(
+                                source.getUrl(), source.getUsername(), source.getPassword());
+                var statement =
+                        connection.prepareStatement(
+                                "update formRourke2009 set formCreated=? where ID=? and"
+                                        + " demographic_no=?")) {
+            statement.setQueryTimeout(1);
+            statement.setString(1, created);
+            statement.setInt(2, patient);
+            statement.setInt(3, patient);
+            return statement.executeUpdate();
+        }
+    }
+
     @Test
-    void shouldAcceptALongerFiniteLegacySnapshotBudget_andStillRefuseAnUnboundedBudget()
+    void shouldLockTheLegacyTableOnlyWhileItIsRead_andLetWritersThroughBetweenReads()
             throws Exception {
+        sql.update(
+                "insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')",
+                patient,
+                patient);
+        var opened = new java.util.concurrent.atomic.AtomicInteger();
         try (var held =
                 io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
-                        .acquireUnpooled(
-                                java.sql.DriverManager.getConnection(
-                                        source.getUrl(),
-                                        source.getUsername(),
-                                        source.getPassword()),
-                                600_000)) {
+                        .guard(
+                                () -> {
+                                    opened.incrementAndGet();
+                                    return java.sql.DriverManager.getConnection(
+                                            source.getUrl(),
+                                            source.getUsername(),
+                                            source.getPassword());
+                                })) {
+            // The guard of a capture locks nothing until a reader reads the table, and it has
+            // no deadline: a writer is not held for the length of a capture.
             held.verify();
+            assertThat(legacyWrite("2000-01-01")).isEqualTo(1);
+            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
+                    .requirePinned();
+            assertThatThrownBy(() -> legacyWrite("2000-01-02"))
+                    .isInstanceOf(java.sql.SQLException.class);
+            held.verify();
+            // The reader's turn ends: the same writer goes through.
+            held.release();
+            assertThat(legacyWrite("2000-01-03")).isEqualTo(1);
+            // A later read pins again, through the same dedicated connection.
+            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
+                    .requirePinned();
+            assertThatThrownBy(() -> legacyWrite("2000-01-04"))
+                    .isInstanceOf(java.sql.SQLException.class);
+            io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
+                    .releasePinned();
+            assertThat(legacyWrite("2000-01-05")).isEqualTo(1);
+            assertThat(opened).hasValue(1);
         }
-        var connection =
-                java.sql.DriverManager.getConnection(
-                        source.getUrl(), source.getUsername(), source.getPassword());
+        assertThat(legacyWrite("2000-01-06")).isEqualTo(1);
+        // Outside a guarded capture the table is still not read.
         assertThatThrownBy(
-                        () ->
-                                io.github.carlos_emr.carlos.demographic.cdsexport.support
-                                        .CdsExportSourceReadLock.acquireUnpooled(
-                                        connection, 7_230_001))
-                .hasMessage("CDS_EXPORT_SOURCE_READ_LOCK_BUDGET_INVALID");
-        assertThat(connection.isClosed()).isTrue();
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                        .CdsExportSourceReadLock
+                                ::requirePinned)
+                .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
     }
 
     @Test
@@ -1313,45 +1354,6 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
                                             .CdsExportSourceReadLock
                                     ::requirePinned)
                     .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
-            assertThatThrownBy(held::close).isInstanceOf(java.sql.SQLException.class);
-        } finally {
-            try {
-                held.close();
-            } catch (java.sql.SQLException ignored) {
-            }
-            connection.close();
-        }
-    }
-
-    @Test
-    void shouldReleaseTheLegacyTableAtItsIndependentDeadline_evenWithoutAnotherCaptureCheckpoint()
-            throws Exception {
-        sql.update(
-                "insert into formRourke2009(ID,demographic_no,provider_no) values(?,?,'989879')",
-                patient,
-                patient);
-        var connection =
-                java.sql.DriverManager.getConnection(
-                        source.getUrl(), source.getUsername(), source.getPassword());
-        var held =
-                io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportSourceReadLock
-                        .acquireUnpooled(connection, 3000);
-        try (var writer = java.util.concurrent.Executors.newSingleThreadExecutor()) {
-            var started = new java.util.concurrent.CountDownLatch(1);
-            var pending =
-                    writer.submit(
-                            () -> {
-                                started.countDown();
-                                return sql.update(
-                                        "update formRourke2009 set formCreated='2000-01-01' where"
-                                                + " ID=? and demographic_no=?",
-                                        patient,
-                                        patient);
-                            });
-            assertThat(started.await(1, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
-            assertThat(pending.get(6, java.util.concurrent.TimeUnit.SECONDS)).isEqualTo(1);
-            assertThat(connection.isClosed()).isTrue();
-            assertThatThrownBy(held::verify).isInstanceOf(java.sql.SQLException.class);
             assertThatThrownBy(held::close).isInstanceOf(java.sql.SQLException.class);
         } finally {
             try {
