@@ -76,6 +76,19 @@ final class CdsImmunizationResidualReader {
 
     /** @return the carrier's restorable values, or null when the record carries none */
     SourceContext read(CdsRecordDto record) throws IOException {
+        return state(record).source;
+    }
+
+    /**
+     * The content of the record's {@code CARLOS.Prevention.Source.v1}, or null when it carries
+     * none: the stored rows an element written with U+FFFD is proven against before its text is
+     * restored ({@link CdsCarriedTextResolver}).
+     */
+    CdsFieldDto sourceRow(CdsRecordDto record) throws IOException {
+        return state(record).content;
+    }
+
+    private State state(CdsRecordDto record) throws IOException {
         if (!record.section().equals("Immunizations"))
             throw new IllegalArgumentException("CDS_IMMUNIZATION_SECTION_REQUIRED");
         var state = new State(record);
@@ -90,7 +103,7 @@ final class CdsImmunizationResidualReader {
                         }
                     });
             state.finish();
-            return state.source;
+            return state;
         } catch (UncheckedIOException failure) {
             throw failure.getCause();
         }
@@ -102,6 +115,7 @@ final class CdsImmunizationResidualReader {
         private final Set<String> seen = new HashSet<>();
         private String group;
         private SourceContext source;
+        private CdsFieldDto content;
 
         State(CdsRecordDto record) {
             this.record = record;
@@ -139,6 +153,7 @@ final class CdsImmunizationResidualReader {
                 invalid();
             if (!CdsNativeExtensionContract.STRING_TYPE.equals(token(values.get("DataType"), 7)))
                 invalid();
+            content = values.get("Content");
             try {
                 source = sourceContext(fields.openToken(record, values.get("Content")));
             } catch (IllegalArgumentException malformed) {

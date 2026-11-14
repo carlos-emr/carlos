@@ -56,8 +56,14 @@ public record CdsAllergyDto(
         // has no CDS 5.2 Severity value; when present the standard Severity is absent.
         @com.fasterxml.jackson.annotation.JsonInclude(
                         com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
-                String nativeSeverity) {
+                String nativeSeverity,
+        // Warnings about the restore of text a CARLOS sender wrote with U+FFFD; empty, and then
+        // omitted, for every payload sealed before they existed (CdsPreparedAllergyDefaults).
+        @com.fasterxml.jackson.annotation.JsonInclude(
+                        com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY)
+                java.util.List<CdsClinicalDiagnosticDto> diagnostics) {
     public CdsAllergyDto {
+        diagnostics = diagnostics == null ? java.util.List.of() : java.util.List.copyOf(diagnostics);
         if (atcResidual
                 && (!"ATC".equals(codeSystem)
                         || !io.github.carlos_emr.carlos.demographic.cds.contract
@@ -71,6 +77,46 @@ public record CdsAllergyDto(
                                 .CdsNativeExtensionContract.ALLERGY_SEVERITY_VALUES
                                 .containsKey(nativeSeverity)))
             throw new IllegalArgumentException("CDS_ALLERGY_NATIVE_SEVERITY_INVALID");
+    }
+
+    /** Every value but the restore warnings: none. */
+    public CdsAllergyDto(
+            String description,
+            String property,
+            String code,
+            String codeSystem,
+            String reactionType,
+            String reaction,
+            String severity,
+            String lifeStage,
+            String notes,
+            CdsTemporalDto start,
+            CdsTemporalDto recorded,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            boolean atcResidual,
+            boolean archivedNotRestored,
+            String nativeSeverity) {
+        this(
+                description,
+                property,
+                code,
+                codeSystem,
+                reactionType,
+                reaction,
+                severity,
+                lifeStage,
+                notes,
+                start,
+                recorded,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                atcResidual,
+                archivedNotRestored,
+                nativeSeverity,
+                java.util.List.of());
     }
 
     /** The marker and ATC provenance shape used before the archive option and severity carrier. */
@@ -134,7 +180,8 @@ public record CdsAllergyDto(
                 onsetOfReaction,
                 atcResidual,
                 archived && !restore,
-                nativeSeverity);
+                nativeSeverity,
+                diagnostics);
     }
 
     /** The optional marker provenance must not change old sealed native projections. */

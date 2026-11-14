@@ -29,8 +29,14 @@ import java.io.IOException;
 public final class CdsExportPreparedImmunizationMapper {
     public CdsExportImmunizationDto map(CdsImmunizationDto source) throws IOException {
         java.util.Objects.requireNonNull(source);
-        return new CdsExportImmunizationDto(source.name(), source.type(), source.manufacturer(), source.lot(), source.route(),
-                source.site(), source.dose(), source.code(), source.codeSystem(), new CdsExportPreparedTemporalMapper().map(source.date(), true),
-                source.refused(), source.instructions(), source.notes());
+        // A CARLOS import restores text its sender wrote with U+FFFD (CdsCarriedTextResolver):
+        // the element of such a value is its U+FFFD form, by the rule every element follows.
+        return new CdsExportImmunizationDto(element(source.name()), source.type(), element(source.manufacturer()), element(source.lot()), element(source.route()),
+                element(source.site()), element(source.dose()), source.code(), source.codeSystem(), new CdsExportPreparedTemporalMapper().map(source.date(), true),
+                source.refused(), element(source.instructions()), element(source.notes()));
+    }
+
+    private static String element(String value) {
+        return value == null ? null : CdsExportXmlText.element(value);
     }
 }

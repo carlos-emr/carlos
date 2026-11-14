@@ -88,8 +88,10 @@ public final class CdsExportImmunizationMapper {
      * vaccine completed elsewhere was administered; an ineligible one was not, so it is never
      * exported as given. The native label opens Notes and the exact code is in the residual.
      */
+    /** One rule for both sides: a CARLOS importer composes Notes with the same labels. */
     private static final Map<String, String> STATUS_NOTE =
-            Map.of("2", "Ineligible", "3", "Completed externally");
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsNativeExtensionContract
+                    .PREVENTION_STATUS_NOTES;
 
     /** CdsImmunizationPersister date provenance; meaningful only through the reconciler. */
     private static final Set<String> STALE_IMPORT_HINTS =
