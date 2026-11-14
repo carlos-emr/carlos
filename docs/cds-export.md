@@ -1003,109 +1003,173 @@ comment without NewCategory selected requests review. Every route is owned by ex
 captured report.
 
 Finite operator settings include `cds.export.captureTimeoutSeconds` (default 120,
-range 1–7200), `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400),
-and `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). A download re-verifies
-the whole cohort's current authorization when it opens, during streaming, after the last
-byte and at completion. The download timeout is for the transfer itself: each download also
-earns three times its measured opening pass (never past 24 hours in total), and while
-streaming a new pass starts no sooner than 30 seconds, or the previous pass's own duration,
-after the last one, so a large roster's re-verification cannot consume the transfer time.
+range 1–7200) and `cds.export.downloadTimeoutSeconds` (default 900, range 1–86400). A download
+re-verifies the whole cohort's current authorization when it opens, during streaming, after the
+last byte and at completion. The download timeout is an inactivity window, not a budget for the
+transfer: it bounds the time since the download thread last made progress (a block written, a
+verification step), plus three times the measured opening pass, and only the lease heartbeat
+can find the thread silent (`CdsExportArtifactService.Download`). A download that keeps moving
+is never ended for how long a package takes to send. While streaming, a new verification pass
+starts no sooner than 30 seconds, or the previous pass's own duration, after the last one.
 Patient capture
 holds the legacy Rourke table's READ lock for at most the capture timeout plus
 30 seconds; its independent deadline defaults to 150 seconds. Raising the capture
 timeout can therefore block writes to that legacy form for longer, up to 7,230
-seconds at the maximum setting. Raising metadata
-limits requires enough JVM heap for retained patient/file/note indexes and normal
-application work.
+seconds at the maximum setting.
 Native clinical clocks use the same explicit `cds.export.clinicalZone` as the accepted
 plan; a configured import zone must agree. No JVM default zone is inferred.
 
 #### What can still stop a large export
 
-No setting ends an export for how long it runs or how many charts it holds. What remains is
-listed here with what it protects, where it is enforced and how the job ends.
+No count, size or time setting refuses, holds or fails a whole export. Memory is bounded by
+writing to protected storage, never by refusing work. The only thing that ends an export for its
+size is a genuine storage failure, which is loud, has its own code and can be resumed. What
+follows says how each former ceiling was removed, what each remaining threshold does when it is
+crossed, and what is still fixed and why.
 
 **Time.** `cds.export.maxDurationMillis` (default 86,400,000, range 1 to 31 days) is a stall
 window, not a budget. Every checkpoint the engine thread passes is its proof of life
 (`CdsExportExecutionService.Control`); the 20-second lease heartbeat is the only thing that can
 find it silent. A worker that keeps reaching checkpoints is never stopped, however long its
-roster takes. When it reaches none for the whole window, the heartbeat stops renewing the lease
-(`CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n> attemptMillis=<n>` in the log),
-the lease expires within two minutes and another worker may claim the job; the stalled thread,
-if it ever returns, retires its own expired generation
-(`CDS_EXPORT_EXECUTION_LEASE_EXPIRED`) and never publishes. Before this the same setting was a
-budget for the whole attempt: at 24 hours the attempt stopped as `CDS_EXPORT_RESOURCE_LIMIT`,
-every staged capture was discarded, and a resumed job captured every chart again under the same
-limit.
+roster takes. When it reaches none for the whole window the attempt is stalled, for good: the
+heartbeat logs `CDS_EXPORT_WORKER_STALLED run=<id> epoch=<n> silentMillis=<n>
+attemptMillis=<n>`, stops renewing the lease and records the attempt as `FAILED` with the code
+`CDS_EXPORT_WORKER_STALLED` (`recordStall`), retrying on every beat until the ledger has it. The
+outcome does not depend on when, or whether, the engine thread returns: a lease that is still
+live is stopped (`CdsExportLedgerService.stop`), one that has expired is retired under the same
+code (`retireExpiredLease(lease, FAILED, code)`), and the returning thread is fenced at its next
+checkpoint, finds the outcome recorded and changes nothing. A stalled attempt can never publish:
+the ledger has cleared its ownership. `FAILED` is terminal, so the dispatcher does not claim the
+job again by itself and a step that always outlasts the window cannot loop; the operator resumes
+it. (Before this, the heartbeat only stopped renewing: a thread that returned before the lease
+expired left the run in an executing state to be claimed and restarted silently, and one that
+returned after it ended `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`.) The one window left is a ledger
+that cannot be reached from the moment the stall is seen until the lease expires and another
+worker claims the job; that successor is then authoritative.
 
-An attempt still cannot be continued. Staging belongs to one attempt (its epoch): when an
-attempt ends without publishing, for any reason, its captures become eligible for the retention
-sweep, and the next claim or `--resume` starts a new attempt that captures every chart again.
-A long export is therefore protected by not stopping it, not by resuming it.
+**Roster, member count, inventory, supporting files, archive, delivery and staging members.**
+`cds.export.maxPatients`, `maxPackageMembers`, `maxPackageIndexBytes`, `maxSupportingBytes`,
+`maxMetadataBytes`, `maxZipBytes`, `maxCiphertextBytes` and `maxStagedFileBytes` are no longer
+read (`CdsExportActivePlanService.RETIRED`). An installation that still sets one gets one log
+line naming the settings (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`, names only) and no refusal,
+whatever the value. The fixed "format" ceilings that stood behind them (2,000,000 charts,
+2,000,000 members, 64 GiB of inventory, 64 GiB of supporting files, 512 GiB of member bytes) are
+removed as well: none was a width of a format. Counts are 64-bit throughout, the archive is
+ZIP64 (`CdsExportPackageComposer`, `CdsExportPackageValidator`), and the cleanup of an attempt
+no longer refuses a directory of more than 4,000,000 members
+(`CdsExportStagingFactory.purgeAttempt`).
 
-**Roster, member count, inventory and supporting files.** `cds.export.maxPatients`,
-`maxPackageMembers`, `maxPackageIndexBytes` and `maxSupportingBytes` are no longer read
-(`CdsExportActivePlanService`). They counted things that are streamed to protected storage (the
-selection and cohort manifests, the externally sorted package inventory, the ReadMe and event
-log), so nothing in memory grows with them. An installation that still sets one gets one log
-line naming the settings (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`) and no refusal, whatever the
-value. What remains are the sizes the package formats themselves accept, which are fixed, not
-configurable:
+| Former ceiling | Why it existed | What replaced it |
+| --- | --- | --- |
+| `maxPatients`, 2,000,000 charts (`CdsExportSelectionService`, `CdsExportSelectionDto`, `CdsExportCohortService`, `CdsExportDisclosureScopeService`, `CdsExportArtifactContextDto`, `CdsExportClinicalPackageService`) | A budget. The selection and cohort are streamed to staged members. | Nothing; the count is a `long`. |
+| `maxPackageMembers`, 2,000,000 members (`CdsExportPackageInventoryService`, `CdsExportPackageComposer`, `CdsExportPackageDto`) | A budget. The inventory is an encrypted external sort and ZIP64 counts entries in 64 bits. | Nothing. The sort now merges a full level of 32 runs into one run of the next level as members arrive, so the run descriptors it holds grow with the logarithm of the member count. |
+| `maxPackageIndexBytes`, 64 GiB of inventory | A budget. | Nothing. |
+| `maxSupportingBytes`, 64 GiB of ReadMe and event log; 64 MiB of sender identifiers in `CdsExportSupportingFilesValidator` (about 250,000 charts) | The first a budget; the second bounded an in-memory set of every chart's sender identifier. | The validator keeps no set. It hands every identifier to the caller's `Identities`; the packaging step spools them to protected storage and proves uniqueness by sorting them (`SpooledIdentities`). |
+| `maxMetadataBytes`, 256 MiB to 4 GiB (`CdsExportClinicalPackageService.compose`) | It bounded, by estimate, what `compose` kept in the heap for every chart: its record (names, validation counts, note scopes, attachments) and a descriptor for each staged member. | `compose` keeps none of that. See "What the packaging step keeps in memory". |
+| `maxZipBytes`, 64 GiB (`CdsExportPackageComposer`, `CdsExportPackageDto`) | Not the archive: the delivery. One AES-GCM message carries at most 2^36 - 32 bytes, so a larger ZIP could not be encrypted as one CMS object. | A ZIP of any size is composed (ZIP64). A ZIP larger than 32 GiB is delivered in parts; see "Delivery of a package of any size". |
+| `maxCiphertextBytes`, 128 GiB (`CdsExportDeliveryComposer`, `CdsExportDeliveryService`) | A budget above the same cipher limit. | Nothing. |
+| `maxStagedFileBytes`, 128 GiB to 1 TiB for any one staged member (`CdsExportStagingFactory`) | A budget; it also capped the archive and its delivery. | An attempt's store has no member size bound (`CdsExportStagingService`, six-argument constructor). |
+| 2^32 chunks (256 TiB) per staged member, `CDS_EXPORT_STAGING_CHUNK_LIMIT` | A field width: the 32-bit chunk index in the 96-bit GCM nonce. | The high 32 bits of the 64-bit index are folded into the four nonce bytes before the low ones (`CdsExportStagingService.nonce`). The mapping is one-to-one and each member has its own key, so no nonce repeats; a member below 2^32 chunks is byte for byte what it was. |
+| 4,000,000 members per attempt directory at cleanup (`CDS_EXPORT_CLEANUP_UNKNOWN_MEMBER`) | A budget. A larger attempt could never be erased. | Nothing. |
+| `CdsExportExecutionService.PACKAGE_CEILINGS`: six codes that ended a job `REVIEW_REQUIRED` | The last commit's handling of the ceilings above. | Removed with them. |
 
-| Ceiling | Value | Enforced in | Outcome when reached |
-| --- | --- | --- | --- |
-| Charts in one job | 2,000,000 | `CdsExportSelectionService`, `CdsExportSelectionDto`, `CdsExportCohortService`, `CdsExportDisclosureScopeService`, `CdsExportArtifactContextDto` | `REVIEW_REQUIRED`, `CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW` (at selection) |
-| Members in one package (one per chart, one per document or report file, plus two) | 2,000,000 | `CdsExportClinicalPackageService` (while charts are captured), `CdsExportPackageInventoryService`, `CdsExportPackageComposer`, `CdsExportPackageDto` | `REVIEW_REQUIRED`, `CDS_EXPORT_RESOURCE_LIMIT` (during capture) or `CDS_EXPORT_PACKAGE_ENTRY_LIMIT` |
-| Package inventory on disk | 64 GiB | `CdsExportPackageInventoryService` | `REVIEW_REQUIRED`, `CDS_EXPORT_PACKAGE_INVENTORY_LIMIT` |
-| ReadMe and event log together | 64 GiB | `CdsExportClinicalPackageService`, `CdsExportSupportingFilesValidator` | `REVIEW_REQUIRED`, `CDS_EXPORT_RESOURCE_LIMIT` or `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` |
+**What the packaging step keeps in memory.** `CdsExportClinicalPackageService.compose` appends
+each finished chart's record to a protected spool (`CdsExportSpoolService`, staged members of
+the attempt's own store, purpose `PACKAGE_CHART_SPOOL`) and each staged member it owns to a
+second one (`PACKAGE_OWNED_SPOOL`). The cohort is sealed in ascending patient order, so the
+chart spool is in cohort order: the three re-authorization passes and the disclosure manifest
+read it front to back, the supporting files read it through an external sort by archive path
+(which is also where two charts under one path are found, `CDS_EXPORT_AMBIGUOUS_SOURCE`), the
+inventory reads it in any order, and the ownership manifest reads the owned spool sorted by
+member identifier. A spool holds at most 4 MiB of records waiting to be written, one record per
+open cursor and 32 heads during a merge; its segment descriptors never exceed 32 per level. The
+spools are erased when the step ends, whether it finished or not. What remains in memory for the
+roster is:
 
-The member ceiling is the one a real clinic can meet: 20,000 charts with 100 stored documents
-each is 2,000,000 members.
+- four bytes for each chart read and one bit for each chart audited (`Patients`, `Audited`);
+- four bytes and one shared reference for each held patient (`Held`), and one
+  `CdsExportHeldPatientDto` (about 32 bytes) for each held patient in the package metadata, which
+  the ReadMe and the ledger's held-patient rows are written from;
+- one entry for each physician folder (`physicians`, `billingNames`), which grows with the
+  clinic's physicians, not its patients;
+- for the length of each re-authorization pass only, one two-word handle and one map entry
+  (about 85 bytes together) for each packaged chart. `authorizeCohort` builds that map itself;
+  the handles it receives carry no notes (the notes are read from the spool when the pass
+  reaches the patient). Removing the map means reading the cohort and the chart spool in step
+  inside `authorizeCohort`, which was not changed here.
 
-**The per-chart index held in memory.** `cds.export.maxMetadataBytes` (default 256 MiB, maximum
-4 GiB) is not a plain counter. `CdsExportClinicalPackageService.compose` keeps, for every chart
-it has captured, that chart's file names, validation counts, its note scopes and one
-descriptor for each staged member, in the JVM heap, until the package is sealed: the three
-cohort re-authorizations, the disclosure manifest, the supporting files and the archive order
-are all produced from that index. The setting bounds it by estimate: 4,096 bytes for each
-chart plus 8 for each character of its path, 512 for each of its notes and 512 for each staged
-member (eight for every chart plus one for each document or report file). At the default that
-is about 31,000 charts with no notes and no documents, about 3,800 charts of 100 notes and 20
-documents, and about 1,400 charts of 300 notes and 50 documents; at the maximum, sixteen times
-as many, with a heap sized for it. A job that exceeds it stops as `REVIEW_REQUIRED`,
-`CDS_EXPORT_RESOURCE_LIMIT`, after the charts captured so far, and nothing is kept. Removing
-this limit safely means not holding the index in memory: spooling each chart's record to an
-encrypted staged member as it is captured and reading it back, in cohort order for the
-re-authorizations and the disclosure manifest and through the existing external sort for the
-archive order. That is a redesign of `compose` and is not done.
+At 100,000 charts that is under 10 MiB, against about 2 GiB before; it is no longer a function
+of how many notes or documents a chart has. One line of the disclosure manifest carries at most
+8,192 of a patient's notes and the rest follow on `NOTES` lines, so a chart is not refused for
+how many notes it has; a manifest written before those lines existed has none and reads as it
+did.
 
-**The size of one package.** `cds.export.maxZipBytes` (default and maximum 64 GiB;
-`CdsExportPackageComposer`, and `CdsExportPackageDto` also refuses more than 512 GiB of member
-bytes) and `cds.export.maxCiphertextBytes` (default and maximum 128 GiB;
-`CdsExportDeliveryComposer`) bound a single archive and its encrypted delivery. An export is
-one package: there is no continuation into a second file. An export that reaches either stops
-as `REVIEW_REQUIRED` with `CDS_EXPORT_PACKAGE_VOLUME_LIMIT` or
-`CDS_EXPORT_DELIVERY_BYTE_LIMIT` (they used to end `FAILED` as `CDS_EXPORT_IO_FAILED`); no
-package is published and nothing is truncated. The same is true of the fixed ceilings in the
-table. `CdsExportExecutionService.PACKAGE_CEILINGS` lists the six codes; any other I/O refusal
-is still a failure. Resuming such a job runs the whole export again and reaches the same
-ceiling: until an export can be split into several package files (multi-volume packaging,
-issue #6187), the only way through is a smaller selection, for example one job per physician
-or per list of patients. Multi-volume packaging would need a volume boundary rule in
-`CdsExportPackageComposer` (close an archive before a member that would cross the size or
-member ceiling, never splitting one chart's XML from its files), a numbered volume set in the
-package proof, the disclosure manifest, the artifact context and the ledger (which hold one
-archive and one ciphertext per attempt today), one encrypted delivery and one download per
-volume with the whole set verified together, a ReadMe and event log that say which volume
-holds which chart, and a receiving importer that accepts a set and refuses an incomplete one.
+**Delivery of a package of any size.** `CdsExportDeliveryComposer` writes one CMS
+AuthEnvelopedData object (`cms-aes256gcm-rsa-oaep-sha256-v1`) when the ZIP is at most 32 GiB,
+exactly as before. Above that it writes a POSIX tar archive
+(`tar-cms-aes256gcm-rsa-oaep-sha256-v2`) of objects of that same profile,
+`part-000000000001.cms` onward, each carrying the next 16 MiB of the ZIP under a fresh
+content-encryption key to the same pinned recipient, followed by `manifest.json` (profile, part
+count, part size, ZIP length and SHA-256). Crossing the threshold changes how the package is
+delivered, never whether. The delivery is still one staged member and one download whose length
+and SHA-256 the ledger pins; `CdsExportArtifactContextDto` accepts either profile and
+`CdsExportDownload2Action` names the download `cds-export-parts.tar`. The operator guide gives
+the recipient's commands. A recipient that only accepts a single CMS object cannot read a
+delivery larger than one AES-GCM message in any format.
 
-**Not covered here.** The per-capture limits (`maxCapturedFields`, `maxCapturedBytes` and the
-index and row bounds beside them) and the per-table mapper limits hold one chart or stop the
-job on their own rules. The XML validator allows two hours for one chart's document
-(`CdsExportXmlLimitsDto`, `CDS_EXPORT_XML_DEADLINE`). A download of a finished package is
-bounded by `cds.export.downloadTimeoutSeconds` plus three times its first cohort verification,
-never more than 24 hours; with one re-authorization pass per chart that verification is now a
-small part of what it was.
+**Storage failures.** A staged write that fails ends the job `FAILED`, publishes nothing and
+leaves nothing truncated (every staged member is written whole, fsynced and read back by digest
+before it is used, and a failed one is deleted). `CdsExportExecutionService.storageFailure`
+records `CDS_EXPORT_DISK_RESERVE` when the store's free space fell below
+`cds.export.minimumFreeBytes`, `CDS_EXPORT_DISK_FULL` when the file system reported no space or
+a quota, and `CDS_EXPORT_IO_FAILED` otherwise; only these fixed codes, never an exception's
+text. The job can be resumed.
+
+**Thresholds that remain, and what crossing each one does.**
+
+| Threshold | Where | Crossing it |
+| --- | --- | --- |
+| 4 MiB of records in a spool batch | `CdsExportSpoolService.BATCH_BYTES` | The batch is written to protected storage. A single record larger than the batch is written alone. |
+| 32 segments or runs per level | `CdsExportSpoolService.FAN_IN`, `CdsExportPackageInventoryService` | The level is combined into one segment of the next level. |
+| 4,096 members or 8 MiB per inventory sort batch | `CdsExportPackageInventoryService` | The batch is written as a sorted run. |
+| 8,192 notes on one disclosure line and in one authorization call | `CdsExportClinicalPackageService.NOTE_BATCH` | The rest follow on `NOTES` lines and in further calls. |
+| 32 GiB of ZIP in one CMS object | `CdsExportDeliveryComposer.SINGLE_MESSAGE_BYTES` | The delivery is written in 16 MiB parts (`PART_BYTES`). |
+| 4 GiB member size, 65,535 members, 4 GiB of central directory | `CdsExportPackageComposer` | ZIP64 records are written. |
+| `cds.export.minimumFreeBytes` (default 512 MiB) | `CdsExportStagingService.checkDisk` | This one stops the job: it is the store reporting that it is nearly full, `CDS_EXPORT_DISK_RESERVE`. |
+| 1 MiB for one line of a manifest this step writes | `CdsExportClinicalPackageService.line`, `CdsExportJsonLines` | Cannot be reached: the only line that grew with a chart is split at 8,192 notes. A longer line is a defect (`CDS_EXPORT_CLINICAL_PACKAGE_INVALID`). |
+| 65,536 characters in one ReadMe line | `CdsExportSupportingFilesValidator` | Cannot be reached by a line the composer wrote (each is one bounded field); a longer one fails validation as not this exporter's. |
+
+**Still fixed, and why.**
+
+- A request names at most 100 physicians or 10,000 selected patients (`CdsExportCommand`). The
+  request is stored whole in the job document, a ledger column the status and every claim read
+  (`CdsExportLedgerService.MAX_DOCUMENT`, 262,144 characters). A roster selected by physician has
+  no bound; a longer explicit list needs the selection moved out of the job document.
+- An attempt's staged members live in one directory and each is fsynced; neither is a limit.
+- The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
+  sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
+  anything, so a directory too large to list in 15 minutes would not be erased. That holds disk,
+  not an export.
+- The per-chart limits (`maxCapturedFields`, `maxCapturedBytes`, the index and row bounds beside
+  them, the per-table mapper limits and `CdsExportXmlLimitsDto`) hold one chart or stop the job
+  on their own rules and are described where they apply.
+- The receiving CARLOS import has its own admission settings; see "Importing a large CARLOS
+  export" below.
+
+**Importing a large CARLOS export.** The import reads a CARLOS package like any CDS archive: the
+package carries nothing the import could verify to tell a genuine CARLOS export from a crafted
+archive, so the import's hostile-input protections apply to it unchanged. They are settings with
+no upper bound, not fixed numbers, and a package larger than their defaults needs them raised on
+the receiving server before the import (`docs/cds-import-configuration.md`):
+`cds.import.maxSourceBytes` (default 64 GiB; the archive and any one member),
+`cds.import.maxExpandedBytes` (default 512 GiB; all members together),
+`cds.import.maxEntries` (default 2,000,000), `cds.import.maxBinaryBytes` (default 64 GiB; one
+decoded report), `cds.import.maxDurationMillis` (default 24 hours for one attempt) and, for a
+browser upload, `cds.import.upload.maxFileBytes`, `maxTotalBytes` and `maxFiles`. The
+compression-ratio refusal (`cds.import.maxCompressionRatio`) never applies to a CARLOS package,
+whose members are stored uncompressed. Lifting these for a genuine export without weakening
+them for a crafted archive needs a package the import can verify (a manifest of member count
+and bytes sealed by the exporter and checked before extraction); that is not built.
 
 This change targets `release/2026.08`, integrating through
 `9ba62cab4b5538dcbfaa9377a3090dc79cc4a562` (#6167), including the release lab and package/test qualification fixes.
@@ -2327,8 +2391,8 @@ contains `<keyId>.key`; `cds.export.masterKey.active` chooses the active immutab
 Keys contain exactly 32 raw random bytes and must be root owned and read-only to the
 service (for example root:carlos 0640 below a root-owned 0750 directory). Writable
 service-owned secrets are refused. Key bytes and filesystem paths never enter a job
-response or accepted document. Bounds are `cds.export.maxStagedFileBytes` (default 128GiB,
-maximum 1TiB) and `cds.export.minimumFreeBytes` (default 512MiB, maximum 1TiB).
+response or accepted document. A staged member has no size bound (`cds.export.maxStagedFileBytes` is retired and
+ignored); the store's free-space reserve is `cds.export.minimumFreeBytes` (default 512MiB, maximum 1TiB).
 
 Version-two accepted documents bind the root/key IDs and the key SHA-256. Exact legacy
 version-one JSON bytes remain compatible for metadata recovery; a version-one job cannot
@@ -2952,7 +3016,7 @@ The accepted `auditPlanDigest` binds the entire approved arrangement: manifest, 
 
 ### Independent supporting-file readback
 
-`CdsExportSupportingFilesValidator` reads the completed ReadMe and event CSV against the sealed physician inventory, actual ZIP entry paths and independently validated patient XML receipts. It checks recipient audit text, selected scope, identities, hashes, physician totals and category/report counts, requires complete UTF-8 input and EOF, and propagates cancellation. Exact byte and line limits and a bounded duplicate patient-identifier index prevent silent truncation. Caller-owned streams remain open. Thirty focused validator/composer checks, the 2,983-check coordinated package and 67 checks against the exact packaged implementation using genuine retained importer data pass. This consistency gate does not establish source completeness or authorize publication.
+`CdsExportSupportingFilesValidator` reads the completed ReadMe and event CSV against the sealed physician inventory, actual ZIP entry paths and independently validated patient XML receipts. It checks recipient audit text, selected scope, identities, hashes, physician totals and category/report counts, requires complete UTF-8 input and EOF, and propagates cancellation. Both files are read to their exact end, and the proof that no two patients share a sender identifier is the caller's `Identities` index, which the packaging step keeps on protected storage, so no patient count is refused. Caller-owned streams remain open. Thirty focused validator/composer checks, the 2,983-check coordinated package and 67 checks against the exact packaged implementation using genuine retained importer data pass. This consistency gate does not establish source completeness or authorize publication.
 
 
 ### Coordinated demographic assembly and ancillary hand-offs

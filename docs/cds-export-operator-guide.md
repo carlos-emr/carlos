@@ -576,36 +576,52 @@ chart cost about 7,100 statements and 4 to 4.5 seconds, so 10,000 charts took ab
 The time grows with the roster, not faster: each chart is authorized, verified and captured on
 its own.
 
-No setting stops an export for how long it runs or how many charts it holds.
+No setting stops an export for how long it runs, how many charts it holds or how large its
+package is. There is no count, size or time limit on a whole export: a roster, the package's
+file list, the per-chart packaging records, the ReadMe and event log and the archive are written
+to protected storage as the export goes, so the application's memory does not grow with the
+roster, and a package of any size is delivered (see "Receive and decrypt the package" for a
+package larger than 32 GiB).
 
 - `cds.export.maxDurationMillis` (default 24 hours) is not a time limit for the job. It is how
   long the export worker may show no sign of life before it is treated as dead. A worker that is
-  still working is never stopped. A worker that hangs for that long loses its ownership: the log
-  shows `CDS_EXPORT_WORKER_STALLED`, the job becomes available to another worker within two
-  minutes, and if the hung worker returns the job is recorded as
-  `CDS_EXPORT_EXECUTION_LEASE_EXPIRED`. Resume it.
-- `cds.export.maxPatients`, `cds.export.maxPackageMembers`, `cds.export.maxPackageIndexBytes`
-  and `cds.export.maxSupportingBytes` are no longer used. If your configuration still sets one,
-  the application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and
-  carries on; remove them when convenient.
+  still working is never stopped. A worker that hangs for that long ends its attempt: the log
+  shows `CDS_EXPORT_WORKER_STALLED`, and the job becomes `FAILED` with the code
+  `CDS_EXPORT_WORKER_STALLED` whether or not the hung worker ever returns. Nothing is published.
+  The job is not restarted on its own, so a step that always hangs cannot loop: find the cause
+  (the database, the storage, the renderer), then resume the job.
+- `cds.export.downloadTimeoutSeconds` (default 900) is not a time limit for a download either.
+  It is how long a download may make no progress before it is ended
+  (`CDS_EXPORT_DOWNLOAD_STOPPED`); a download that keeps moving is never ended for how long a
+  large package takes to send. Before this release it bounded the whole transfer.
+- These settings are no longer used: `cds.export.maxPatients`, `cds.export.maxPackageMembers`,
+  `cds.export.maxPackageIndexBytes`, `cds.export.maxSupportingBytes`,
+  `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes` and
+  `cds.export.maxStagedFileBytes`. If your configuration still sets one, whatever its value, the
+  application logs `CDS_EXPORT_RETIRED_SETTINGS_IGNORED` once with the setting names and carries
+  on; remove them when convenient.
 
 An export still cannot be continued from where it stopped. If a job stops before it is READY
-(a cancellation, a restart of the application or the command, a review code), `--resume` runs
-the whole export again from the first chart. Leave a large export running; do not stop it to
-"continue later".
+(a cancellation, a restart of the application or the command, a failure, a review code),
+`--resume` runs the whole export again from the first chart. Leave a large export running; do
+not stop it to "continue later".
 
-Three things can still end a large export before it is READY. Each stops the job for review
-(exit 4) with its own code, publishes nothing and truncates nothing:
+The only thing that ends a large export for its size is a real storage failure. It ends the job
+as `FAILED` (not for review) with one of these codes, publishes nothing and truncates nothing;
+fix the storage and resume the job:
 
 | Code | Meaning | What to do |
 | --- | --- | --- |
-| `CDS_EXPORT_RESOURCE_LIMIT` during capture | The index the export keeps in memory for every captured chart reached `cds.export.maxMetadataBytes` (default 256 MiB, maximum 4 GiB). It grows with the number of charts, notes and stored documents: the default holds about 31,000 charts with no notes or documents, about 3,800 charts of 100 notes and 20 documents each, and about 1,400 charts of 300 notes and 50 documents each. | Raise `cds.export.maxMetadataBytes` together with the Java heap of the process that runs the export (the setting is an estimate of heap in use), or export in several jobs, for example one per physician. |
-| `CDS_EXPORT_PACKAGE_VOLUME_LIMIT`, `CDS_EXPORT_DELIVERY_BYTE_LIMIT` | The package would be larger than one archive (64 GiB) or its encrypted delivery (128 GiB) can be. Stored documents are what make a package large. | Export in several jobs. A package cannot yet be split into volumes. |
-| `CDS_EXPORT_PACKAGE_ENTRY_LIMIT`, `CDS_EXPORT_PACKAGE_INVENTORY_LIMIT`, `CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW`, `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` | The export holds more than one package's format can: 2,000,000 files (one per chart and one per stored document or report), 2,000,000 charts, or 64 GiB of inventory or of ReadMe and event log. | Export in several jobs. |
+| `CDS_EXPORT_DISK_RESERVE` | Free space in the export store fell below `cds.export.minimumFreeBytes` (default 512 MiB). The export stops before the disk is full so the rest of the server keeps working. | Free or add space in the store named by `cds.export.store.<id>.root`. Plan for about three times the size of the finished package while the job runs (the charts' files, the archive, its encrypted delivery). Then resume. |
+| `CDS_EXPORT_DISK_FULL` | The file system refused a write: no space left, or a quota was reached. | The same. |
+| `CDS_EXPORT_IO_FAILED` | Any other read or write failure of the store (a device error, a file that no longer authenticates). The application log has the technical detail. | Repair the storage, then resume. |
 
-Resuming a job that stopped with one of these codes runs it again and reaches the same point,
-unless you raised `cds.export.maxMetadataBytes` first. Start new jobs with smaller selections
-instead.
+The codes `CDS_EXPORT_RESOURCE_LIMIT` (for the size of a whole export),
+`CDS_EXPORT_PACKAGE_VOLUME_LIMIT`, `CDS_EXPORT_PACKAGE_ENTRY_LIMIT`,
+`CDS_EXPORT_PACKAGE_INVENTORY_LIMIT`, `CDS_EXPORT_DELIVERY_BYTE_LIMIT`,
+`CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW` and `CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT` no
+longer exist. `CDS_EXPORT_RESOURCE_LIMIT` is still used for one chart that exceeds a per-chart
+limit described elsewhere in this guide.
 
 A download of a finished package re-checks every chart's current authorization several times.
 That check now costs one short pass per chart, so it no longer dominates a large download.
@@ -876,7 +892,8 @@ so repetitive clinical text does not violate receiving archive-ratio safeguards.
 The private staging store is separately encrypted; no plaintext fallback is used
 when recipient/key verification fails.
 
-A compatible OpenSSL recipient command is:
+A package whose ZIP is at most 32 GiB is delivered as one CMS file (the download is named
+`cds-export.p7m`). A compatible OpenSSL recipient command is:
 
 ```sh
 openssl cms -decrypt -inform DER -in transfer.cms \
@@ -895,6 +912,38 @@ checks actual completed job downloads. For large packages, choose a recipient
 with a streaming CMS parser and verify its resource budget. The large-byte
 qualification uses a separate streaming recipient; OpenSSL interoperability
 uses a bounded fixture.
+
+### A package larger than 32 GiB
+
+One AES-GCM message cannot carry more than about 64 GiB, so a larger package cannot be one CMS
+file. No package is refused for that. When the ZIP is larger than 32 GiB the delivery is a tar
+archive instead (the download is named `cds-export-parts.tar`; with the command line, the file
+you name with `--output`). It holds:
+
+- `part-000000000001.cms`, `part-000000000002.cms`, and so on: each is a CMS file exactly like
+  the single one above, encrypted to the same recipient certificate under its own key, carrying
+  the next 16 MiB of the ZIP;
+- `manifest.json`, last: the number of parts, the part size, and the length and SHA-256 of the
+  ZIP.
+
+The recipient decrypts the parts in name order and joins the results:
+
+```sh
+mkdir recipient-private-work/parts
+tar -xf cds-export-parts.tar -C recipient-private-work/parts
+: > recipient-private-work/transfer.pending.zip
+for part in recipient-private-work/parts/part-*.cms; do
+  openssl cms -decrypt -inform DER -in "$part" \
+    -recip recipient-certificate.pem -inkey recipient-private-key.pem \
+    >> recipient-private-work/transfer.pending.zip || exit 1
+done
+sha256sum recipient-private-work/transfer.pending.zip
+```
+
+The file names sort in part order. Any failed part means the whole transfer failed: discard the
+partial ZIP. Compare the ZIP's length and SHA-256 with `zipBytes` and `zipSha256` in
+`manifest.json` before passing it to an importer; a missing, repeated or reordered part changes
+both. The SHA-256 CARLOS reports for the delivery is of the tar file as downloaded.
 
 Validate the ReadMe's full paths, sender/group contact, software/schema identity,
 physician/patient totals and audit access instructions. Reconcile event/category
