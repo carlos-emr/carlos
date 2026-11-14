@@ -51,15 +51,17 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
         long previous = 0;
         while (true) {
             List<Object[]> rows =
-                    entityManager()
-                            .createNativeQuery(
-                                    "SELECT note_id, program_no, reporter_caisi_role, locked FROM"
-                                        + " casemgmt_note WHERE demographic_no = :patient AND"
-                                        + " note_id > :after ORDER BY note_id",
-                                    Object[].class)
+                    waiting(
+                                    entityManager()
+                                            .createNativeQuery(
+                                                    "SELECT note_id, program_no,"
+                                                        + " reporter_caisi_role, locked FROM"
+                                                        + " casemgmt_note WHERE demographic_no ="
+                                                        + " :patient AND note_id > :after ORDER BY"
+                                                        + " note_id",
+                                                    Object[].class))
                             .setParameter("patient", patient)
                             .setParameter("after", previous)
-                            .setHint("jakarta.persistence.query.timeout", 30_000)
                             .setMaxResults(page)
                             .getResultList();
             for (Object[] row : rows) {
@@ -124,8 +126,9 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                 || new java.util.HashSet<>(ids).size() != ids.size()
                 || ids.stream().anyMatch(id -> id < 1)) deny();
         List<Object[]> rows =
-                entityManager()
-                        .createNativeQuery(
+                waiting(
+                                entityManager()
+                                        .createNativeQuery(
                                 """
                                 SELECT n.note_id,n.program_no,n.reporter_caisi_role,n.locked,
                                 EXISTS (SELECT 1 FROM casemgmt_note other
@@ -134,10 +137,9 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                                 FROM casemgmt_note n WHERE n.demographic_no=:patient AND n.note_id IN (:notes)
                                 ORDER BY n.note_id
                                 """,
-                                Object[].class)
+                                Object[].class))
                         .setParameter("patient", patient)
                         .setParameter("notes", ids)
-                        .setHint("jakarta.persistence.query.timeout", 30_000)
                         .setMaxResults(ids.size() + 1)
                         .getResultList();
         if (rows.size() != ids.size()) deny();
@@ -337,6 +339,16 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
     }
 
     /**
+     * A read that waits for its answer: a statement the server ends at its deadline is sent
+     * again in the same transaction, so a long chart's note scopes never fail for the time one
+     * statement takes ({@link io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport}).
+     */
+    private jakarta.persistence.Query waiting(jakarta.persistence.Query query) {
+        return io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport.waiting(
+                entityManager(), query);
+    }
+
+    /**
      * The chart groups revisions globally by UUID. A UUID shared with another patient's
      * row is an unresolved chart-ownership conflict, not a patient-local revision chain.
      * The existence projection never reads the other patient's body or identifiers.
@@ -347,12 +359,9 @@ public class CdsExportNoteAccessDao extends AbstractJpaDao {
                     + " WHERE n.demographic_no = :patient AND n.uuid IS NOT NULL AND n.uuid <> ''"
                     + " AND (other.demographic_no IS NULL OR other.demographic_no <> :patient)";
         if (note != null) sql += " AND n.note_id = :note";
-        var query = entityManager().createNativeQuery(sql).setParameter("patient", patient);
+        var query = waiting(entityManager().createNativeQuery(sql)).setParameter("patient", patient);
         if (note != null) query.setParameter("note", note);
-        return !query.setHint("jakarta.persistence.query.timeout", 30_000)
-                .setMaxResults(1)
-                .getResultList()
-                .isEmpty();
+        return !query.setMaxResults(1).getResultList().isEmpty();
     }
 
     /** Active chart domain gate independent of whether any note exists; metadata only. */

@@ -1152,15 +1152,59 @@ the table at a moment during the capture rather than at the snapshot's instant. 
 lost by that: the engine has no transactions, so no writer could change this table atomically
 with another, and the whole-capture lock only chose an earlier moment. A lock lost while pinned
 refuses the capture, and a structural change between pins is caught by the capture's second
-schema read. The lock waits for a writer as long as the server's `lock_wait_timeout` allows.
+schema read. The lock waits for a writer as long as the writer takes (below).
 
-What still bounds one statement: each read of the capture carries a 30 s statement timeout
-(`CdsExportPatientTableReadSupport.queryTimeoutMillis`; the source catalogue's presence and
-count statements 120 s), and the connection pool's socket timeout (default 60 s, at most 300 s,
-`CdsJdbcConnectionTimeouts`) ends a statement that returns nothing for that long. A statement
-that passes either fails the job (`CDS_EXPORT_EXECUTION_FAILED`). These bound one statement,
-not the capture: with keys read ahead of rows (below) a statement's work is a page of rows, a
-count, or one read of up to 65,536 keys.
+**A statement's deadline is a wait, not a limit.** No statement of an export fails for how long
+the database takes to answer it (`CdsExportStatementWaitReadSupport`). Each read is sent with a
+server-side deadline (`max_statement_time`), first 30 s. When the server ends the statement at
+that deadline, because it is busy or because someone else holds a metadata or table lock, the
+same statement is sent again on the same connection with twice the wait (60 s, 120 s, ...), until
+it is answered. This covers every read built by `CdsExportPatientTableReadSupport.query`, the
+source catalogue's presence checks and counts (formerly 120 s), the note scope reads (formerly
+30 s), the exact-numeric and receipt-metadata reads, the prescription inputs of the drug
+reference lookup and the legacy table's lock statements (below). The only things that end a
+wait are the ones that end the attempt: a cancel, a failed lease heartbeat, and the stall
+detector. A wait is not a checkpoint, so an attempt that only ever waits is still ended as
+`CDS_EXPORT_WORKER_STALLED` after `cds.export.maxDurationMillis` without progress, and no single
+wait is longer than that window (`CdsExportExecutionService.Control.waiting`).
+
+Sending the statement again is sound because the statement is a read and the server ended it:
+it changed nothing, the connection is intact and the transaction is still open, so inside the
+capture's read-only repeatable-read snapshot the second sending reads exactly the rows the
+first would have returned (`CdsExportStatementWaitMariaDbIntegrationTest`: a row committed by
+another session between the two sendings is not seen, and the transaction commits). It is never
+moved to another connection, because another connection is another snapshot.
+
+The deadline is kept, rather than removed, because it makes a dead connection visible: a live
+server always answers within the deadline, with rows or with the timeout, so silence for 30 s
+beyond it means the connection or the server is gone. The connection's socket timeout says so.
+Where the pool has one (60 s by default and at most 300 s under the CDS network policy,
+`CdsJdbcConnectionTimeouts`, which the importer shares and which is unchanged), the export
+raises it on its own connection, for its own transaction, to the statement's deadline plus
+30 s, and puts it back before the connection returns to the pool; a connection without a
+socket timeout is given none. The socket timeout therefore no longer ends a statement that is
+merely slow.
+
+**A lost connection restarts the chart, not the job.** When the connection that holds the
+capture's snapshot is lost (closed, reset, or silent past the deadline and its grace), nothing
+read so far can be continued elsewhere. The capture of one chart is an idempotent unit, so
+`CdsExportNativeCaptureService.capture` discards everything that reading staged and reads the
+chart again from its authorization on, in a new snapshot, after 1 s, 2 s and 4 s. The same
+happens when the legacy table's lock is lost while pinned (before, that held the patient as
+`CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED`). A chart whose connection is lost on four readings in
+a row ends the job `FAILED` under `CDS_EXPORT_DATABASE_UNAVAILABLE`: the database, not the
+export, has failed, nothing is published, and the job can be resumed. The same code is
+recorded whenever a job ends on a lost database connection (`CdsExportExecutionService`,
+`CdsExportDatabaseUnavailableException.lost`: JDBC connection exceptions and SQLState class 08
+only, never a statement the server answered with an error).
+
+The transactions that select the cohort (`CdsExportSelectionService`, formerly 120 s) and read
+a chart's prescription identities for the drug reference (`CdsExportDrugReferenceProjectionService`,
+formerly 30 s) have no timeout either.
+
+The legacy table's lock (`LOCK TABLES ... READ`) waits for a writer the same way, in waits that
+are sent again; its housekeeping statements (formerly 5 s each) do too. Its dedicated
+connection's socket timeout is raised as the waits grow and is discarded with the connection.
 
 **Keys before rows.** Every captured table is read a page of 32 rows at a time. A page used to
 be one statement that ordered every remaining row of the patient to return thirty-two, so a
@@ -1444,7 +1488,9 @@ before it is used, and a failed one is deleted). `CdsExportExecutionService.stor
 records `CDS_EXPORT_DISK_RESERVE` when the store's free space fell below
 `cds.export.minimumFreeBytes`, `CDS_EXPORT_DISK_FULL` when the file system reported no space or
 a quota, and `CDS_EXPORT_IO_FAILED` otherwise; only these fixed codes, never an exception's
-text. The job can be resumed.
+text. The job can be resumed. A job that ends on a lost database connection is recorded as
+`CDS_EXPORT_DATABASE_UNAVAILABLE` instead, whether the failure arrived as an I/O or a runtime
+failure (see "A lost connection restarts the chart, not the job").
 
 **Thresholds that remain, and what crossing each one does.**
 
@@ -1457,6 +1503,11 @@ text. The job can be resumed.
 | 8,192 notes in one statement of the note scope read and of the note authorization | `CdsExportNoteAccessDao.readScopes`, `CdsExportAccessService.requireNotesRead` | The next statement continues after the last note; any number of notes is read and every one authorized. |
 | 8,192 program-restricted documents or preventions in one statement | `CdsExportPatientTableReadSupport.restrictions` | The next statement continues after the last key; every restriction is authorized. |
 | 65,536 keys read ahead for one captured table | `CdsExportPatientTableReadSupport.KEY_WINDOW` | A larger table is read in further windows. |
+| 8,192 selected preventions named by one statement | `CdsExportPatientTableReadSupport.PREVENTION_ID_BATCH` | The read is sent once for each further 8,192 selected preventions; counts are added and keys and rows merged in key order. |
+| 30 s first wait for a statement's answer, doubling | `CdsExportStatementWaitReadSupport.FIRST_WAIT_SECONDS` | The statement is sent again in the same transaction with twice the wait. Nothing fails. |
+| 30 s of silence past a statement's own deadline | `CdsExportStatementWaitReadSupport.ANSWER_GRACE_SECONDS` | The connection counts as lost (its socket timeout fires); inside a capture the chart is read again. |
+| 3 further readings of one chart after its snapshot's connection was lost | `CdsExportNativeCaptureService.SNAPSHOT_RESTARTS` | This one stops the job: the database was lost on four readings in a row, `CDS_EXPORT_DATABASE_UNAVAILABLE`. |
+| 40 bytes for each note of a chart in the revision inventory | `CdsExportNoteRevisionPlanner.Witnesses.BYTES_PER_NOTE` | Not a threshold: what the inventory keeps of a note's receipt. Its result still names every note (one chain and its revision ids), and the capture keeps one scope entry for each note. |
 | 32 GiB of ZIP in one CMS object | `CdsExportDeliveryComposer.SINGLE_MESSAGE_BYTES` | The delivery is written in 16 MiB parts (`PART_BYTES`). |
 | 4 GiB member size, 65,535 members, 4 GiB of central directory | `CdsExportPackageComposer` | ZIP64 records are written. |
 | `cds.export.minimumFreeBytes` (default 512 MiB) | `CdsExportStagingService.checkDisk` | This one stops the job: it is the store reporting that it is nearly full, `CDS_EXPORT_DISK_RESERVE`. |
@@ -1506,6 +1557,19 @@ chosen by physician stores only the physicians.
 **Still fixed, and why.**
 
 - Nothing about the size of a request (see "Request size" above).
+- The import ledger's own stored format stays an integrity check, because the importer could
+  not have written anything larger: one line of a course-copy plan (1,024 bytes, for a copy key,
+  a provider number of at most six characters and two integers), the job document of an import
+  run (65,536 bytes of fixed scalar options), a sealed witness (`MAX_SEALED_BYTES`), and a
+  prevention scope cell (4,096 bytes for an integer, a flag or a `VARCHAR(255)`).
+- The prevention configuration file is read whole and may be at most 1 MiB
+  (`CdsExportPreventionConfigurationLoader.MAX_XML`); a larger file fails every job of that
+  installation. It is the installation's own configuration, not a chart.
+- MariaDB's own limits stay as integrity checks of what the schema read returns: 4,096 columns
+  in a table and 16 columns in a key.
+- A program's access rows of one access type are read up to 4,096; more denies the note
+  (`CdsExportNoteAccessDao`). It is an authorization decision that fails closed, and nothing
+  about what is authorized was changed here.
 - An attempt's staged members live in one directory and each is fsynced; neither is a limit.
 - The cleanup of one attempt directory gives up after 15 minutes and is retried by the next
   sweep (`CdsExportRetentionService.retire`). It validates the whole directory before deleting
@@ -1643,8 +1707,16 @@ the record's CARLOS residual. These numbers were CARLOS's own and are gone:
 | 8 MiB of retained import options for one chart | `CdsExportRetainedIndexService` | the job (`CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: each run's options are still verified, not added up |
 | 100,000 program-restricted documents or preventions | `CdsExportPatientTableReadSupport` | the patient (`CDS_EXPORT_DOCUMENT_PROGRAM_SCOPE`, `CDS_EXPORT_PREVENTION_PROGRAM_SCOPE`) | removed: every restriction is read and authorized |
 | `cds.export.captureTimeoutSeconds` (120 s) on the capture transaction and the legacy table's guard | `CdsExportNativeCaptureService`, `CdsExportSourceSnapshotService`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`) | removed: a capture has no deadline; the setting is retired |
+| 30 s per capture statement, 120 s per source-catalogue statement, 30 s per note scope statement, 5 s per lock housekeeping statement; the pool's socket timeout (60 s) on any of them | `CdsExportPatientTableReadSupport`, `CdsExportSourceCatalogueDao`, `CdsExportNoteAccessDao`, `CdsExportExactNumericReadSupport`, `CdsExportNativeMetadataReadSupport`, `CdsExportSourceReadLock` | the job (`CDS_EXPORT_EXECUTION_FAILED`, `CDS_EXPORT_IO_FAILED`) or, for the lock, the patient | a deadline is a wait that is sent again in the same snapshot; the socket timeout is raised past it for the export's own transaction; a lost connection reads the chart again |
+| 120 s for the cohort selection transaction, 30 s for the drug reference inputs transaction | `CdsExportSelectionService`, `CdsExportDrugReferenceProjectionService` | the job | removed: no transaction timeout |
 | 4,096 import runs naming one chart | `CdsExportImportOptionsSourceReader` | the whole job (`CDS_EXPORT_IMPORT_OPTIONS_RUN_LIMIT`) | every run is read |
 | 10,000 prevention rows | `CdsExportPreventionScopePlanner` | the whole job | every row is planned |
+| 10,000 prevention or vaccine-catalogue rows and 4 MiB of their scope columns; 10,000 selected preventions in one read; 1,000,000 Immunizations import units and 64 MiB of their witnesses | `CdsExportPreventionSnapshotService`, `CdsExportPatientTableReadSupport.requireSelected`, `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService`, `CdsExportPreventionClassificationService`, `CdsExportImmunizationCaptureValidator` | the whole job (`CDS_EXPORT_PREVENTION_SNAPSHOT_INVALID`, `CDS_EXPORT_NATIVE_SOURCE_INVALID`, `CDS_EXPORT_PREVENTION_SCOPE_LIMIT`) | removed: every row is read a page of 32 at a time; a statement names at most 8,192 selected preventions (`PREVENTION_ID_BATCH`) and a chart with more is read in further statements whose rows are merged in key order |
+| 4,096 copies and 4 MiB of an import run's course-copy plan; 2 MiB of one run's captured options | `CdsExportRetainedImportOptionsReader`, `CdsExportRetainedIndexService` | the whole job (`CDS_EXPORT_RETAINED_COPY_PLAN_INVALID`, `CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT`) | removed: these were not the importer's stored format (the importer writes as many copies as `cds.import.maxEntries` and `cds.import.maxExpandedBytes` allow); the plan is authenticated by its seal and read as a stream |
+| One whole receipt (several kilobytes) and one metadata row held for every note of a chart | `CdsExportNoteRevisionInventoryService`, `CdsExportNoteRevisionPlanner` | the worker, as an out-of-memory failure on a very long chart | each receipt is reduced as it is read to 40 bytes (`CdsExportNoteRevisionPlanner.Witnesses`) and each metadata row is compared as it is read |
+| 1,025 base tables, 65,536 columns or 16,384 primary-key columns in the clinic's database | `CdsExportSourceCatalogueDao`, `CdsExportPhysicalSchemaReadSupport` | every job of that clinic (`CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`) | removed: the schema's metadata is read whole; extra local tables are listed as before |
+| 8,192 problem-registry entries and episodes of one chart, 64 code-table rows for one code | `CdsExportDiagnosisCodeReadSupport` | the whole job (`CDS_EXPORT_RESOURCE_LIMIT`) | removed: every code the chart names is looked up |
+| 100,000 current eForms of one chart | `CdsExportEformRenderReadDao` | the whole job (`CDS_EXPORT_EFORM_RENDER_LIMIT`) | removed |
 | 10,000 rows or 4 MiB of the clinic's vaccine catalogue (`CVCImmunization`, `CVCMapping`), 10,000 items of the prevention configuration | `CdsExportPreventionClassifier`, `CdsExportPreventionConfigurationService` | every patient of the job (`CDS_EXPORT_PREVENTION_CLASSIFICATION_INVALID`, `CDS_EXPORT_PREVENTION_CONFIG_INVALID`) | removed when a capture is read: the catalogue is the clinic's vocabulary, held while the classifier is built from it (about 2 KB a row). The capture of the catalogue (`CdsExportPreventionSnapshotService`) still stops at 10,000 rows, and the configuration file at 1 MiB |
 | 65,536 retained fields, 131,072 nodes, 16 MiB of source paths or 4,096 changes in one imported record | `CdsExportRetainedOccurrenceFields`, `CdsExportRetainedSectionWriter` | the job (`..._SOURCE_FIELDS_REQUIRED`, `CDS_EXPORT_RETAINED_STRUCTURE_REQUIRES_REVIEW`) | removed: `cds_import_field` stores any number of fields for one unit, and one record is rebuilt together whatever its size |
 | 1,000,000 captured fields in the rows of one occurrence | `CdsExportNativeFieldAssessmentValidator` | the job (`CDS_EXPORT_FIELD_ASSESSMENT_RESOURCE_LIMIT`) | removed: the caller already holds those rows together |

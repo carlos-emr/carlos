@@ -388,6 +388,65 @@ class CdsExportRetainedImportOptionsReaderUnitTest {
     }
 
     @Test
+    void shouldVerifyAndCaptureACopyPlan_pastTheFormerLimitsOfItsCopiesAndSize() throws Exception {
+        setDocument(true, 365, RULES);
+        // 5,000 copies: above the former 4,096 copies of a plan and, captured for one chart,
+        // above the former 2 MiB estimate of its options (CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT).
+        var plan = new java.io.ByteArrayOutputStream();
+        for (int copy = 1; copy <= 5_000; copy++) {
+            String student = "s" + copy;
+            plan.write(copyPlan("course-7-student-" + student + "-program-" + copy, student, copy, 2));
+        }
+        var options = verifyCopies(plan.toByteArray());
+        assertThat(options.copyOptionsSha256()).hasSize(5_000);
+
+        String captured = CdsExportRetainedImportOptionsReader.encodeCaptured(options);
+        assertThat(CdsExportRetainedImportOptionsReader.decodeCaptured(row(), captured))
+                .isEqualTo(options);
+    }
+
+    @Test
+    void shouldAuthenticateTheWholeCopyPlan_beforeParsingALineOfIt() throws Exception {
+        setDocument(true, 365, RULES);
+        byte[] plan = copyPlan("course-7-student-123456-program-11", "123456", 11, 2);
+        byte[] seal = (sha(plan) + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        // Bytes the seal does not cover are refused as a hash mismatch, not parsed: here they
+        // are not even a copy.
+        byte[] other = "not a copy plan\n".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportRetainedImportOptionsReader()
+                                        .verifyCopies(row(), bytes, other, seal, () -> {}))
+                .hasMessage("CDS_EXPORT_RETAINED_COPY_PLAN_HASH_MISMATCH");
+        // A plan that changes between its authentication and its reading is refused as well.
+        var opened = new AtomicInteger();
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportRetainedImportOptionsReader()
+                                        .verifyCopies(
+                                                row(),
+                                                bytes,
+                                                () ->
+                                                        new java.io.ByteArrayInputStream(
+                                                                opened.getAndIncrement() == 0
+                                                                        ? plan
+                                                                        : copyPlanUnchecked()),
+                                                seal,
+                                                () -> {}))
+                .hasMessage("CDS_EXPORT_RETAINED_COPY_PLAN_HASH_MISMATCH");
+        assertThat(opened).hasValue(2);
+    }
+
+    /** Another valid plan of the same course: valid lines, but not the sealed bytes. */
+    private byte[] copyPlanUnchecked() {
+        try {
+            return copyPlan("course-7-student-123457-program-12", "123457", 12, 2);
+        } catch (Exception failed) {
+            throw new IllegalStateException(failed);
+        }
+    }
+
+    @Test
     void shouldKeepClinicalImportsIndependent_fromCourseCopyFiles() throws Exception {
         byte[] plan = copyPlan("course-7-student-123456-program-11", "123456", 11, 2);
         assertThatThrownBy(() -> verifyCopies(plan))

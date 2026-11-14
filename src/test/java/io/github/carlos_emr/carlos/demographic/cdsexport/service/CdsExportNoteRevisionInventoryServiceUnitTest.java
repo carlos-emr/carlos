@@ -60,6 +60,9 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         chart(1);
     }
 
+    /** Runs when the second scan (the revision metadata) starts. */
+    private Runnable beforeMetadataScan = () -> {};
+
     private static LinkedHashMap<String, String> fields(long note) {
         var fields = new LinkedHashMap<String, String>();
         for (String name :
@@ -84,6 +87,33 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         return fields;
     }
 
+    /** The whole-row receipt of one synthetic note, as the receipt scan delivers it. */
+    private static CdsExportNativeRowReceiptDto receipt(
+            long note, List<CdsNativeRowDigest.Column> columns) {
+        var cells = new ArrayList<CdsNativeRowState.Cell>();
+        for (String text : fields(note).values()) {
+            byte[] bytes = text == null ? null : text.getBytes(StandardCharsets.UTF_8);
+            cells.add(
+                    new CdsNativeRowState.Cell(
+                            text == null,
+                            text == null ? 0 : bytes.length,
+                            text == null
+                                    ? null
+                                    : HexFormat.of()
+                                            .formatHex(
+                                                    io.github.carlos_emr.carlos.utility
+                                                            .CdsImportKeys.digest()
+                                                            .digest(bytes))));
+        }
+        var state = new CdsNativeRowState("casemgmt_note", Long.toString(note), columns, cells);
+        return new CdsExportNativeRowReceiptDto(
+                "casemgmt_note",
+                Long.toString(note),
+                CdsExportPatientTableSourceReader.key(note),
+                state.digest(),
+                state);
+    }
+
     /** One synthetic chart of {@code count} notes, numbered from 91, as both scans see it. */
     private void chart(int count) throws Exception {
         var columns = new ArrayList<CdsNativeRowDigest.Column>();
@@ -92,30 +122,7 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         var witnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
         var scopes = new ArrayList<CdsExportNoteAccessDto>();
         for (long note = 91; note < 91 + count; note++) {
-            var cells = new ArrayList<CdsNativeRowState.Cell>();
-            for (String text : fields(note).values()) {
-                byte[] bytes = text == null ? null : text.getBytes(StandardCharsets.UTF_8);
-                cells.add(
-                        new CdsNativeRowState.Cell(
-                                text == null,
-                                text == null ? 0 : bytes.length,
-                                text == null
-                                        ? null
-                                        : HexFormat.of()
-                                                .formatHex(
-                                                        io.github.carlos_emr.carlos.utility
-                                                                .CdsImportKeys.digest()
-                                                                .digest(bytes))));
-            }
-            var state =
-                    new CdsNativeRowState("casemgmt_note", Long.toString(note), columns, cells);
-            witnesses.add(
-                    new CdsExportNativeRowReceiptDto(
-                            "casemgmt_note",
-                            Long.toString(note),
-                            CdsExportPatientTableSourceReader.key(note),
-                            state.digest(),
-                            state));
+            witnesses.add(receipt(note, columns));
             scopes.add(new CdsExportNoteAccessDto(note, 27, "", "1"));
         }
         witness = witnesses.getFirst();
@@ -163,6 +170,7 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         when(captures.scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any()))
                 .thenAnswer(
                         call -> {
+                            beforeMetadataScan.run();
                             new CdsExportNativeCaptureReader()
                                     .scan(
                                             new ByteArrayInputStream(values.toByteArray()),
@@ -246,6 +254,64 @@ class CdsExportNoteRevisionInventoryServiceUnitTest {
         }
         verify(captures, times(6))
                 .authorizeCapturedSources(lease, patient, tables, capture, control);
+    }
+
+    /**
+     * The memory of the inventory must not grow with what a note's receipt holds. Every receipt
+     * is delivered once and never referenced by the test again; when the second scan starts, the
+     * inventory must hold none of them. An inventory that keeps one receipt for each note until
+     * it plans (as it did, several kilobytes a note) fails here.
+     */
+    @Test
+    void shouldKeepNoReceiptOfAnyNote_onceTheReceiptScanIsDone() throws Exception {
+        // Enough notes to tell "none kept" from "some kept"; the check does not depend on how
+        // many there are, and the fixture itself holds a second copy of every receipt.
+        int count = 4_000;
+        chart(count);
+        var columns = new ArrayList<CdsNativeRowDigest.Column>();
+        for (String name : fields(91).keySet())
+            columns.add(new CdsNativeRowDigest.Column(name, "VARCHAR", 255, 0));
+        var delivered = new ArrayList<java.lang.ref.WeakReference<CdsExportNativeRowReceiptDto>>();
+        // Replaces the fixture's scan, which hands out receipts the fixture itself keeps.
+        org.mockito.Mockito.doAnswer(
+                        call -> {
+                            for (long note = 91; note < 91 + count; note++) {
+                                var each = receipt(note, columns);
+                                delivered.add(new java.lang.ref.WeakReference<>(each));
+                                call.<CdsExportNativeRowReceiptReader.Receipts>getArgument(7)
+                                        .accept(each);
+                            }
+                            return new CdsExportNativeRowReceiptsDto(
+                                    HASH, Map.of("casemgmt_note", (long) count), count, 0, Set.of());
+                        })
+                .when(receipts)
+                .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        var held = new long[] {-1};
+        beforeMetadataScan =
+                () -> {
+                    // Between the two scans: which of the receipts is still reachable?
+                    for (int attempt = 0; attempt < 50; attempt++) {
+                        System.gc();
+                        held[0] =
+                                delivered.stream()
+                                        .filter(reference -> reference.get() != null)
+                                        .count();
+                        if (held[0] == 0) return;
+                        try {
+                            Thread.sleep(100);
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    }
+                };
+
+        var result = run(1);
+
+        assertThat(result.rows()).isEqualTo(count);
+        assertThat(result.chains()).hasSize(count);
+        assertThat(delivered).hasSize(count);
+        assertThat(held[0]).isZero();
     }
 
     @Test

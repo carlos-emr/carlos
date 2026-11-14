@@ -26,6 +26,7 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportLeaseDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState;
 import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunControl;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportControlOutcomeUnknownException;
+import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportDatabaseUnavailableException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportOwnerFencedException;
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.LogSafe;
@@ -207,10 +208,17 @@ public class CdsExportExecutionService {
             if (Thread.currentThread().isInterrupted())
                 finishUninterrupted(() -> ledger.release(lease));
             else {
-                stop(lease, CdsExportState.FAILED, "CDS_EXPORT_EXECUTION_FAILED");
+                // A database that stayed unreachable is a failure of that resource, under its
+                // own code; nothing was published, and the job can be resumed.
+                String code =
+                        CdsExportDatabaseUnavailableException.lost(failed)
+                                ? DATABASE_UNAVAILABLE
+                                : "CDS_EXPORT_EXECUTION_FAILED";
+                stop(lease, CdsExportState.FAILED, code);
                 technicalFailure(failed);
                 LOG.error(
-                        "CDS_EXPORT_EXECUTION_FAILED run={} epoch={} {}",
+                        "{} run={} epoch={} {}",
+                        code,
                         runId,
                         lease.epoch(),
                         LogSafe.exceptionTrace(failed));
@@ -234,6 +242,9 @@ public class CdsExportExecutionService {
     /** The worker reached no checkpoint for the whole stall window. */
     static final String WORKER_STALLED = "CDS_EXPORT_WORKER_STALLED";
 
+    /** The database stayed unreachable for a read and for every restart the read is allowed. */
+    static final String DATABASE_UNAVAILABLE = CdsExportDatabaseUnavailableException.CODE;
+
     /**
      * The code of a storage failure: the store's own reserve refusal by its exact fixed code, the
      * operating system's out-of-space or quota refusal wherever it sits in the cause chain, and
@@ -242,6 +253,9 @@ public class CdsExportExecutionService {
      */
     static String storageFailure(IOException failed) {
         if (DISK_RESERVE.equals(failed.getMessage())) return DISK_RESERVE;
+        // An I/O failure that carries a lost database connection is the database's, not the
+        // storage's.
+        if (CdsExportDatabaseUnavailableException.lost(failed)) return DATABASE_UNAVAILABLE;
         var seen = new java.util.HashSet<Throwable>();
         for (Throwable cause = failed; cause != null && seen.add(cause); cause = cause.getCause()) {
             String text =
@@ -367,10 +381,33 @@ public class CdsExportExecutionService {
                 heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.ScheduledExecutorService heartbeat;
 
+        /** Restores the thread's previous wait observer when this attempt closes. */
+        private final Runnable waits;
+
         Control(CdsExportLeaseDto lease, long maximumMillis) {
             this.lease = lease;
             maximumNanos = maximumMillis * 1_000_000L;
             heartbeat = schedulers.get();
+            waits =
+                    io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport
+                            .observe(this::waiting);
+        }
+
+        /**
+         * A statement of this attempt waited its deadline without an answer and is about to be
+         * sent again. A wait is not a checkpoint: it proves nothing about the worker, so the
+         * stall window keeps running and ends an attempt that only ever waits. The wait itself
+         * ends here as soon as the attempt has ended (a cancel, a failed heartbeat, the stall).
+         *
+         * @return the stall window in milliseconds: no single wait needs to outlast it
+         */
+        private long waiting(long waitedMillis) {
+            if (Thread.currentThread().isInterrupted())
+                throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
+            if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
+            var failed = heartbeatFailure.get();
+            if (failed != null) throw failed;
+            return maximumNanos / 1_000_000L;
         }
 
         void startHeartbeat() {
@@ -413,6 +450,7 @@ public class CdsExportExecutionService {
         @Override
         public void close() {
             heartbeat.shutdownNow();
+            waits.run();
             closeVerified();
         }
 

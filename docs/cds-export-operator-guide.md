@@ -630,6 +630,17 @@ package larger than 32 GiB).
   The stock Rourke 2009 form table is locked against changes only while one chart's Rourke rows
   are read, not for as long as the chart takes; staff saving a Rourke form during an export
   wait at most that long.
+- No single database statement has a time limit that fails an export. When the database is
+  busy, or another session holds a lock the export needs, the export waits and asks again (30
+  seconds, then 60, 120 and so on) until it is answered; before, a statement that took longer
+  than 30 or 120 seconds, or a connection silent for the 60-second socket timeout, failed the
+  job. An export that only ever waits is still ended by `cds.export.maxDurationMillis` above.
+  The socket timeout of the database connection settings is unchanged for everything else; the
+  export raises it for its own reads and puts it back.
+- If the database connection is lost while a chart is being read, the export reads that chart
+  again from the start, up to three more times. Only when the connection is lost every time
+  does the job become `FAILED` with `CDS_EXPORT_DATABASE_UNAVAILABLE`: check that the database
+  is running and reachable, then resume the job. Nothing is published by a failed job.
 - These settings are no longer used: `cds.export.maxPatients`, `cds.export.maxPackageMembers`,
   `cds.export.maxPackageIndexBytes`, `cds.export.maxSupportingBytes`,
   `cds.export.maxMetadataBytes`, `cds.export.maxZipBytes`, `cds.export.maxCiphertextBytes`,
@@ -651,6 +662,7 @@ fix the storage and resume the job:
 | `CDS_EXPORT_DISK_RESERVE` | Free space in the export store fell below `cds.export.minimumFreeBytes` (default 512 MiB). The export stops before the disk is full so the rest of the server keeps working. | Free or add space in the store named by `cds.export.store.<id>.root`. Plan for about three times the size of the finished package while the job runs (the charts' files, the archive, its encrypted delivery). Then resume. |
 | `CDS_EXPORT_DISK_FULL` | The file system refused a write: no space left, or a quota was reached. | The same. |
 | `CDS_EXPORT_IO_FAILED` | Any other read or write failure of the store (a device error, a file that no longer authenticates). The application log has the technical detail. | Repair the storage, then resume. |
+| `CDS_EXPORT_DATABASE_UNAVAILABLE` | The database connection was lost while the export read from it, and again on every retry (for a chart: four readings in a row). | Check that the database is running and reachable from the application, then resume. |
 
 The codes `CDS_EXPORT_RESOURCE_LIMIT` (for the size of a whole export),
 `CDS_EXPORT_PACKAGE_VOLUME_LIMIT`, `CDS_EXPORT_PACKAGE_ENTRY_LIMIT`,
@@ -754,6 +766,14 @@ still set the export starts as before, ignores them and names them once in the l
 area and read back from it, so a long chart needs staging disk, about 105 KiB for each
 record of a chart that came from an earlier CDS import (430 MiB for 4,096 records), and a full
 disk stops the job as a storage failure.
+
+These counts no longer stop a job either: more than 10,000 preventions on one chart or rows in
+the vaccine catalogue, more than 8,192 problem-list entries and episodes on one chart, more
+than 100,000 current eForms on one chart, a course import of more than 4,096 copies, and a
+database of more than 1,025 tables (a clinic with many local tables used to end every export
+with `CDS_EXPORT_CLINIC_SOURCE_UNREVIEWED`). A chart with a very long note history also needs
+much less memory to check its note revisions than before (40 bytes for each note instead of
+several kilobytes).
 
 A long chart that came from an earlier CDS import still needs memory and time, because the
 export checks every imported record against its import receipts and several of those steps

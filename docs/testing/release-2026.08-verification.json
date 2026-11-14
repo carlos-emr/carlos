@@ -4417,6 +4417,41 @@
             }
           ]
         },
+        "io.github.carlos_emr.carlos.commn.dao.CdsExportSelectedPreventionBatchMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldReadEverySelectedPreventionOnceInKeyOrder_whenTheChartHasMoreThanOneBatch",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldReadOnlyTheRowsOfSelectedPreventions_whenTheirOwnersSpanBatches",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
+        "io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitMariaDbIntegrationTest": {
+          "check": "java-cds-transfer-export",
+          "cases": [
+            {
+              "name": "shouldReadTheSameSnapshotAndCommit_whenAStatementIsEndedAtItsDeadlineAndSentAgain",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldOutlastAShorterSocketTimeout_andPutItBackBeforeTheConnectionReturnsToItsPool",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            },
+            {
+              "name": "shouldWaitForAWriterOfTheLegacyTable_andPinItOnceTheWriterIsDone",
+              "container": "",
+              "check": "java-cds-transfer-export"
+            }
+          ]
+        },
         "io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportDataSummaryMariaDbIntegrationTest": {
           "check": "java-cds-transfer-export",
           "cases": [

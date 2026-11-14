@@ -131,8 +131,7 @@ public class CdsExportSourceCatalogueDao {
                     rows(
                             "select"
                                 + " TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
-                                + " from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE()",
-                            65537)) {
+                                + " from information_schema.COLUMNS where TABLE_SCHEMA=DATABASE()")) {
                 String table = tableKey((String) row[0], caseMode);
                 if (!engines.containsKey(table)) continue;
                 columns.computeIfAbsent(table, ignored -> new ArrayList<>())
@@ -149,8 +148,7 @@ public class CdsExportSourceCatalogueDao {
                     rows(
                             "select TABLE_NAME,COLUMN_NAME,ORDINAL_POSITION from"
                                 + " information_schema.KEY_COLUMN_USAGE where TABLE_SCHEMA=DATABASE()"
-                                + " and CONSTRAINT_NAME='PRIMARY' order by TABLE_NAME,ORDINAL_POSITION",
-                            16385)) {
+                                + " and CONSTRAINT_NAME='PRIMARY' order by TABLE_NAME,ORDINAL_POSITION")) {
                 String table = tableKey((String) row[0], caseMode);
                 if (engines.containsKey(table))
                     primary.computeIfAbsent(table, ignored -> new ArrayList<>())
@@ -167,9 +165,7 @@ public class CdsExportSourceCatalogueDao {
                 // returning any values, including account secrets. Inside a schema pass this
                 // runs once per attempt and table; the pass's second read keeps the structure
                 // stable instead (verifySchemaPass).
-                entityManager
-                        .createNativeQuery("select d.* from `" + table + "` d limit 0")
-                        .setHint("org.hibernate.timeout", 120)
+                waiting(entityManager.createNativeQuery("select d.* from `" + table + "` d limit 0"))
                         .getResultList();
                 if (probes != null) probes.probed(table);
             }
@@ -237,14 +233,11 @@ public class CdsExportSourceCatalogueDao {
                 // schema-qualified catalogue and compiled parent scopes. Patient data is bound
                 // below.
                 // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
-                var query = entityManager.createNativeQuery(statement);
+                var query = waiting(entityManager.createNativeQuery(statement));
                 if (catalogue.patientScopes().containsKey(table)
                         || CdsExportIndirectPatientScopeReadSupport.supports(table))
                     query.setParameter("patient", patient);
-                if (!query.setMaxResults(1)
-                        .setHint("org.hibernate.timeout", 120)
-                        .getResultList()
-                        .isEmpty()) {
+                if (!query.setMaxResults(1).getResultList().isEmpty()) {
                     // A row in a patient-linked table holds only this patient; a populated
                     // table with no patient link blocks every patient and stops the job.
                     boolean patientLinked =
@@ -273,10 +266,8 @@ public class CdsExportSourceCatalogueDao {
                                         table, profile);
                 // Identifiers only from the pinned catalogue and the compiled parent scopes.
                 // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
-                if (!entityManager
-                        .createNativeQuery(statement)
+                if (!waiting(entityManager.createNativeQuery(statement))
                         .setMaxResults(1)
-                        .setHint("org.hibernate.timeout", 120)
                         .getResultList()
                         .isEmpty()) {
                     sourceNotice(
@@ -311,14 +302,13 @@ public class CdsExportSourceCatalogueDao {
             if (!profile.tables().get(table).engine().equals("InnoDB")) review();
             // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
             Object value =
-                    entityManager
-                            .createNativeQuery(
-                                    "select count(*) from `"
-                                            + table
-                                            + "` d where "
-                                            + CdsExportIndirectPatientScopeReadSupport.unlinked(
-                                                    table, profile))
-                            .setHint("org.hibernate.timeout", 120)
+                    waiting(
+                                    entityManager.createNativeQuery(
+                                            "select count(*) from `"
+                                                    + table
+                                                    + "` d where "
+                                                    + CdsExportIndirectPatientScopeReadSupport
+                                                            .unlinked(table, profile)))
                             .getSingleResult();
             if (!(value instanceof Number number)) {
                 review();
@@ -416,8 +406,7 @@ public class CdsExportSourceCatalogueDao {
         for (var row :
                 rows(
                         "select TABLE_NAME,ENGINE from information_schema.TABLES where"
-                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
-                        1026)) {
+                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'")) {
             String table = tableKey((String) row[0], caseMode);
             if (table.equals("flyway_schema_history")) continue;
             if (result.putIfAbsent(table, (String) row[1]) != null) review();
@@ -442,8 +431,7 @@ public class CdsExportSourceCatalogueDao {
         for (var row :
                 rows(
                         "select TABLE_NAME,TABLE_ROWS from information_schema.TABLES where"
-                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
-                        1026)) {
+                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'")) {
             String table = tableKey((String) row[0], caseMode);
             if (extras.contains(table))
                 estimates.put((String) row[0], row[1] == null ? 0L : ((Number) row[1]).longValue());
@@ -455,9 +443,7 @@ public class CdsExportSourceCatalogueDao {
             // The name comes from information_schema and matched the ASCII identifier pattern above.
             // nosemgrep: java.lang.security.audit.formatted-sql-string.formatted-sql-string
             boolean populated =
-                    !entityManager
-                            .createNativeQuery("select 1 from `" + table + "` limit 1")
-                            .setHint("org.hibernate.timeout", 120)
+                    !waiting(entityManager.createNativeQuery("select 1 from `" + table + "` limit 1"))
                             .getResultList()
                             .isEmpty();
             if (populated)
@@ -525,17 +511,35 @@ public class CdsExportSourceCatalogueDao {
         return best;
     }
 
+    /**
+     * A whole read of the schema's own metadata. No number of tables, columns or key columns is
+     * refused: a clinic's database is as large as it is, and its extra tables are listed, not
+     * a reason for review.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Object[]> rows(String statement) {
+        return (List<Object[]>) waiting(entityManager.createNativeQuery(statement)).getResultList();
+    }
+
+    /** A read that must return fewer than {@code limit} rows to be unambiguous. */
     @SuppressWarnings("unchecked")
     private List<Object[]> rows(String statement, int limit) {
         var values =
                 (List<Object[]>)
-                        entityManager
-                                .createNativeQuery(statement)
+                        waiting(entityManager.createNativeQuery(statement))
                                 .setMaxResults(limit)
-                                .setHint("org.hibernate.timeout", 120)
                                 .getResultList();
         if (values.size() >= limit) review();
         return values;
+    }
+
+    /**
+     * A read that waits for its answer: a statement the server ends at its deadline is sent
+     * again in the same snapshot, so no table of the catalogue fails a job for how long its
+     * presence check or its count takes ({@link CdsExportStatementWaitReadSupport}).
+     */
+    private jakarta.persistence.Query waiting(jakarta.persistence.Query query) {
+        return CdsExportStatementWaitReadSupport.waiting(entityManager, query);
     }
 
     private static void snapshot() {

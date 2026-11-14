@@ -30,9 +30,11 @@ import org.springframework.stereotype.Service;
 /**
  * Owns both authenticated scans for a complete current/revision inventory. It emits no clinical
  * content. A chart of any number of notes is inventoried: no count and no size estimate refuses
- * or holds one. The inventory holds one receipt and one metadata row for each note in the
- * worker's heap, so a chart too long for that heap fails as an out-of-memory error of the
- * worker, never as a hold of the patient.
+ * or holds one, and neither a note's receipt nor its metadata row is kept: each receipt is
+ * reduced as it is read to the note id and one digest of the compared cells
+ * ({@link CdsExportNoteRevisionPlanner.Witnesses}, 40 bytes a note), and each metadata row is
+ * compared and placed as it is read. What remains for each note is that witness, two bits and
+ * its place in the result.
  */
 @Service
 public class CdsExportNoteRevisionInventoryService {
@@ -64,8 +66,7 @@ public class CdsExportNoteRevisionInventoryService {
         if (!source.capture().tables().keySet().equals(requiredTables)
                 || !requiredTables.contains("casemgmt_note")) invalid();
         var scope = source.capture().tables().get("casemgmt_note");
-        var witnesses = new HashMap<Long, CdsExportNativeRowReceiptDto>();
-        var metadata = new ArrayList<CdsExportNoteRevisionDto>();
+        var witnesses = new CdsExportNoteRevisionPlanner.Witnesses();
         var scanned =
                 receipts.scan(
                         lease,
@@ -78,24 +79,23 @@ public class CdsExportNoteRevisionInventoryService {
                         row -> {
                             if (!row.table().equals("casemgmt_note")) return;
                             control.checkpoint();
-                            long id;
-                            try {
-                                id = Long.parseLong(row.id());
-                            } catch (NumberFormatException malformed) {
-                                invalid();
-                                return;
-                            }
-                            if (id < 1
-                                    || !Long.toString(id).equals(row.id())
-                                    || row.state() == null
-                                    || row.partial()
-                                    || row.digest() == null
-                                    || witnesses.putIfAbsent(id, row) != null) invalid();
+                            // Reduced here; the receipt itself is not kept.
+                            witnesses.add(row);
                         });
         if (!scanned.sourceManifestSha256().equals(source.manifest().plaintextSha256())
                 || witnesses.size() != scope.rows()
                 || !Objects.equals(scanned.rows().get("casemgmt_note"), scope.rows())
                 || scanned.unavailableTables().contains("casemgmt_note")) invalid();
+        // A note with two witnesses, or a witnessed note outside the authorized scopes, is
+        // refused when the inventory opens.
+        var inventory =
+                new CdsExportNoteRevisionPlanner()
+                        .open(
+                                patient.patient(),
+                                source.manifest().plaintextSha256(),
+                                scope.noteAccess(),
+                                witnesses,
+                                control::checkpoint);
         var actual =
                 new CdsExportNoteRevisionReader(captures)
                         .forEach(
@@ -106,17 +106,9 @@ public class CdsExportNoteRevisionInventoryService {
                                 maximumFields,
                                 maximumBytes,
                                 control,
-                                metadata::add);
+                                inventory::accept);
         if (!actual.equals(source.capture())) invalid();
-        var result =
-                new CdsExportNoteRevisionPlanner()
-                        .plan(
-                                patient.patient(),
-                                source.manifest().plaintextSha256(),
-                                scope.noteAccess(),
-                                metadata,
-                                witnesses,
-                                control::checkpoint);
+        var result = inventory.finish();
         captures.authorizeCapturedSources(lease, patient, requiredTables, actual, control);
         patient.require(lease);
         control.checkpoint();

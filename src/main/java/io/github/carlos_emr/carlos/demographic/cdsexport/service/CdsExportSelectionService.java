@@ -70,7 +70,7 @@ public class CdsExportSelectionService {
         read.setReadOnly(true);
         read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         read.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
-        read.setTimeout(120);
+        // No transaction timeout: a selection of any number of patients is read to the end.
     }
 
     /** Timestamp bounds describe the source read; patient membership is bound by the exact inventory digest. */

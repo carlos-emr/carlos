@@ -88,9 +88,11 @@ public class DrugDaoImpl extends AbstractDaoImpl<Drug> implements DrugDao {
         if (patient < 1 || maximum < 1)
             throw new IllegalArgumentException("CDS_EXPORT_DRUG_REFERENCE_SCOPE_INVALID");
         @SuppressWarnings("unchecked")
-        java.util.List<Object[]> rows = entityManager.createNativeQuery(
-                "SELECT drugid, GCN_SEQNO, regional_identifier FROM drugs WHERE demographic_no=:patient ORDER BY drugid", Object[].class)
-                .setParameter("patient", patient).setHint("jakarta.persistence.query.timeout", 30_000)
+        // The read waits for its answer; a statement the server ends at its deadline is sent again
+        // in the same transaction (CdsExportStatementWaitReadSupport), never failed for its time.
+        java.util.List<Object[]> rows = CdsExportStatementWaitReadSupport.waiting(entityManager, entityManager.createNativeQuery(
+                "SELECT drugid, GCN_SEQNO, regional_identifier FROM drugs WHERE demographic_no=:patient ORDER BY drugid", Object[].class))
+                .setParameter("patient", patient)
                 .setMaxResults(maximum == Integer.MAX_VALUE ? maximum : maximum + 1).getResultList();
         if (rows.size() > maximum) throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException(
                 io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException.Reason.RESOURCE_LIMIT);

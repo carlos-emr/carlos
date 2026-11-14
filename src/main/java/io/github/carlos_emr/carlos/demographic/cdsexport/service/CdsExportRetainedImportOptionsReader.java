@@ -102,7 +102,6 @@ public final class CdsExportRetainedImportOptionsReader {
                     || sourceProfile.length() > 32
                     || !synthetic && timeshiftDays != 0
                     || copyOptionsSha256 == null
-                    || copyOptionsSha256.size() > 4096
                     || copiesSha256 != null && !copiesSha256.matches("[0-9a-f]{64}")
                     || !synthetic
                             && (!copyOptionsSha256.equals(Map.of("clinical", optionsSha256))
@@ -159,7 +158,7 @@ public final class CdsExportRetainedImportOptionsReader {
             throws IOException {
         Objects.requireNonNull(checkpoint);
         checkpoint.run();
-        byte[] bytes = null, copies = null, seal = null;
+        byte[] bytes = null, seal = null;
         try {
             try {
                 if (run == null
@@ -182,12 +181,41 @@ public final class CdsExportRetainedImportOptionsReader {
             var options = verify(run, bytes, checkpoint);
             if (!options.synthetic()) return options;
             Path folder = Path.of(run.fields().get("snapshot_location")).getParent();
-            copies = privateFile(folder.resolve("copies.jsonl"), 4 << 20);
             seal = privateFile(folder.resolve("copies.sha256"), 65);
-            return verifyCopies(run, bytes, copies, seal, checkpoint);
+            // The copy plan is read as a stream: the importer writes as many copies as its own
+            // configured limits allow (cds.import.maxEntries, cds.import.maxExpandedBytes), so
+            // no size of ours refuses a plan it wrote.
+            Path plan = folder.resolve("copies.jsonl");
+            var before = privateAttributes(plan);
+            Options verified =
+                    verifyCopies(
+                            run,
+                            bytes,
+                            () ->
+                                    new java.io.BufferedInputStream(
+                                            java.nio.channels.Channels.newInputStream(
+                                                    Files.newByteChannel(
+                                                            plan,
+                                                            Set.of(
+                                                                    java.nio.file.StandardOpenOption
+                                                                            .READ,
+                                                                    LinkOption.NOFOLLOW_LINKS))),
+                                            65536),
+                            seal,
+                            checkpoint);
+            var after =
+                    Files.readAttributes(
+                            plan,
+                            java.nio.file.attribute.BasicFileAttributes.class,
+                            LinkOption.NOFOLLOW_LINKS);
+            if (before.fileKey() == null
+                    || !before.fileKey().equals(after.fileKey())
+                    || before.size() != after.size()
+                    || !before.lastModifiedTime().equals(after.lastModifiedTime()))
+                throw new IOException("CDS_CONTROL_FILE_CHANGED");
+            return verified;
         } finally {
             if (bytes != null) Arrays.fill(bytes, (byte) 0);
-            if (copies != null) Arrays.fill(copies, (byte) 0);
             if (seal != null) Arrays.fill(seal, (byte) 0);
         }
     }
@@ -200,37 +228,77 @@ public final class CdsExportRetainedImportOptionsReader {
             byte[] seal,
             Runnable checkpoint)
             throws IOException {
+        if (copies == null) throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
+        return verifyCopies(
+                run, documentBytes, () -> new java.io.ByteArrayInputStream(copies), seal, checkpoint);
+    }
+
+    /** The copy plan's bytes, opened once to authenticate them and once to read them. */
+    @FunctionalInterface
+    interface CopyPlan {
+        java.io.InputStream open() throws IOException;
+    }
+
+    /**
+     * The same verification over a stream: a plan of any number of copies and any size is
+     * verified. The plan is authenticated whole by the importer's seal before a line of it is
+     * parsed, then read a line at a time and authenticated again as it is read, so a plan that
+     * changed between the two readings is refused. What is kept of a copy is its key and its
+     * options digest. One line is at most 1,024 bytes, which no copy the importer writes reaches
+     * (a course copy key, a provider number of at most six characters and two integers): that is
+     * an integrity check of the stored format, not a limit on the plan.
+     */
+    Options verifyCopies(
+            CdsExportCapturedTextRowDto run,
+            byte[] documentBytes,
+            CopyPlan plan,
+            byte[] seal,
+            Runnable checkpoint)
+            throws IOException {
         var original = verify(run, documentBytes, checkpoint);
-        if (!original.synthetic()
-                || copies == null
-                || copies.length < 1
-                || copies.length > 4 << 20
-                || seal == null
-                || seal.length != 65)
+        if (!original.synthetic() || plan == null || seal == null || seal.length != 65)
             throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
-        String digest = HexFormat.of().formatHex(CdsImportKeys.digest().digest(copies));
+        var hash = CdsImportKeys.digest();
+        long size = 0;
+        try (var sealed = plan.open()) {
+            byte[] block = new byte[65536];
+            for (int read = sealed.read(block); read >= 0; read = sealed.read(block)) {
+                checkpoint.run();
+                hash.update(block, 0, read);
+                size += read;
+            }
+        }
+        if (size < 1) throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
         if (!Arrays.equals(
-                (digest + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII), seal))
-            throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_HASH_MISMATCH");
+                (HexFormat.of().formatHex(hash.digest()) + "\n")
+                        .getBytes(java.nio.charset.StandardCharsets.US_ASCII),
+                seal)) throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_HASH_MISMATCH");
         var command = JSON.readValue(documentBytes, CdsImportJobDocumentDto.class).command();
         var derived = new TreeMap<String, String>();
         var students = new HashSet<String>();
         var programs = new HashSet<Integer>();
-        int offset = 0;
-        try {
-            for (int cursor = 0; cursor < copies.length; cursor++)
-                if (copies[cursor] == '\n') {
-                    checkpoint.run();
-                    if (cursor == offset || cursor - offset > 1024 || derived.size() >= 4096)
+        byte[] line = new byte[1024];
+        int length = 0;
+        try (var copies = plan.open()) {
+            for (int next = copies.read(); next >= 0; next = copies.read()) {
+                hash.update((byte) next);
+                if (next != '\n') {
+                    if (length == line.length)
                         throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
+                    line[length++] = (byte) next;
+                    continue;
+                }
+                {
+                    checkpoint.run();
+                    if (length == 0) throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
                     var copy =
                             JSON.readValue(
-                                    copies,
-                                    offset,
-                                    cursor - offset,
+                                    line,
+                                    0,
+                                    length,
                                     io.github.carlos_emr.carlos.demographic.cdsimport.dto
                                             .CdsCourseCopyDto.class);
-                    offset = cursor + 1;
+                    length = 0;
                     if (copy == null
                             || copy.studentProviderNo() == null
                             || !copy.studentProviderNo().matches("[A-Za-z0-9_-]{1,6}")
@@ -271,12 +339,21 @@ public final class CdsExportRetainedImportOptionsReader {
                                     copy.copyKey(), CdsImportJobService.optionsDigest(effective))
                             != null) throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
                 }
-            if (offset != copies.length || derived.isEmpty())
+            }
+            // Every line ends with its newline, and a plan names at least one copy.
+            if (length != 0 || derived.isEmpty())
                 throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
         } catch (com.fasterxml.jackson.core.JsonProcessingException
                 | IllegalArgumentException malformed) {
             throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_INVALID");
+        } finally {
+            Arrays.fill(line, (byte) 0);
         }
+        // The bytes that were parsed are the bytes that were authenticated.
+        String digest = HexFormat.of().formatHex(hash.digest());
+        if (!Arrays.equals(
+                (digest + "\n").getBytes(java.nio.charset.StandardCharsets.US_ASCII), seal))
+            throw new IOException("CDS_EXPORT_RETAINED_COPY_PLAN_HASH_MISMATCH");
         checkpoint.run();
         return new Options(
                 original.importRunId(),
@@ -329,15 +406,18 @@ public final class CdsExportRetainedImportOptionsReader {
                 original.copiesSha256());
     }
 
+    /**
+     * The captured options of one import run for one chart: the run's fixed scalars and the
+     * digests of the chart's own copies. No size refuses them; the importer's own configured
+     * limits decided how many copies a run may have.
+     */
     static String encodeCaptured(Options options) throws IOException {
-        if (retainedWeight(options) > 2L << 20)
-            throw new IOException("CDS_EXPORT_IMPORT_OPTIONS_BYTE_LIMIT");
         return JSON.writeValueAsString(options);
     }
 
     static Options decodeCaptured(CdsExportCapturedTextRowDto run, String encoded)
             throws IOException {
-        if (encoded == null || encoded.length() < 2 || encoded.length() > 2 << 20)
+        if (encoded == null || encoded.length() < 2)
             throw new IOException("CDS_EXPORT_RETAINED_IMPORT_OPTIONS_INVALID");
         try {
             var options = JSON.readValue(encoded, Options.class);
@@ -366,14 +446,14 @@ public final class CdsExportRetainedImportOptionsReader {
                 row.fields().get("options"));
     }
 
-    static long retainedWeight(Options options) {
-        long bytes = 1024L + options.sourceProfile().length() * 4L;
-        for (String copy : options.copyOptionsSha256().keySet())
-            bytes = Math.addExact(bytes, 256L + copy.length() * 4L);
-        return bytes;
+    private static byte[] privateFile(Path file, int maximum) throws IOException {
+        privateAttributes(file);
+        return CdsProcessConfiguration.readBounded(file, maximum);
     }
 
-    private static byte[] privateFile(Path file, int maximum) throws IOException {
+    /** The file is this account's own private regular file; its attributes before it is read. */
+    private static java.nio.file.attribute.BasicFileAttributes privateAttributes(Path file)
+            throws IOException {
         CdsExportProtectedFiles.dataDirectory(file.getParent());
         long uid =
                 ((Number) Files.getAttribute(file, "unix:uid", LinkOption.NOFOLLOW_LINKS))
@@ -385,7 +465,8 @@ public final class CdsExportRetainedImportOptionsReader {
                 || uid != new UnixSystem().getUid()
                 || (mode & 07777) != 0600)
             throw new IOException("CDS_EXPORT_RETAINED_IMPORT_DOCUMENT_NOT_PRIVATE");
-        return CdsProcessConfiguration.readBounded(file, maximum);
+        return Files.readAttributes(
+                file, java.nio.file.attribute.BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
     }
 
     private static Options parse(CdsExportCapturedTextRowDto run, byte[] bytes) throws IOException {

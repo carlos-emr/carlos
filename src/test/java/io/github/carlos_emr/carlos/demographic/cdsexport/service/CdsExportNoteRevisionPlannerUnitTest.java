@@ -194,6 +194,72 @@ class CdsExportNoteRevisionPlannerUnitTest {
                 .isInstanceOf(java.util.concurrent.CancellationException.class);
     }
 
+    @Test
+    void shouldHoldFortyBytesANote_inWhateverOrderItsReceiptsArrive() throws Exception {
+        int count = 5_000;
+        var rows = new ArrayList<CdsExportNoteRevisionDto>();
+        for (long id = 1; id <= count; id++)
+            rows.add(
+                    row(
+                            id,
+                            String.format(Locale.ROOT, "%08x-aaaa-4aaa-8aaa-aaaaaaaaaaaa", id),
+                            "2020-01-01 01:02:03"));
+        var receipts = witnesses(rows);
+        var reduced = new CdsExportNoteRevisionPlanner.Witnesses();
+        // Descending: the order of the receipts is not the order of the inventory.
+        for (long id = count; id >= 1; id--) reduced.add(receipts.get(id));
+
+        // A note id and one digest for each note, and the room the arrays grew ahead: never
+        // the receipt, which holds every column of the note row.
+        assertThat(CdsExportNoteRevisionPlanner.Witnesses.BYTES_PER_NOTE).isEqualTo(40);
+        assertThat(reduced.size()).isEqualTo(count);
+        assertThat(reduced.heldBytes()).isBetween(40L * count, 60L * count + 256 * 40);
+
+        var session =
+                new CdsExportNoteRevisionPlanner().open(27, HASH, scopes(rows), reduced, () -> {});
+        for (var row : rows) session.accept(row);
+        var result = session.finish();
+        assertThat(result.rows()).isEqualTo(count);
+        assertThat(result.chains()).hasSize(count);
+        assertThat(result.qualifiedLineages()).isTrue();
+    }
+
+    @Test
+    void shouldRefuseSubstitutedMetadataAndRepeatedWitnesses_fromTheReducedWitnessesToo()
+            throws Exception {
+        var rows =
+                List.of(
+                        row(91, UUID_A, "2020-01-01 01:02:03"),
+                        row(92, UUID_B, "2020-01-01 01:02:03"));
+        var receipts = witnesses(rows);
+        var reduced = new CdsExportNoteRevisionPlanner.Witnesses();
+        reduced.add(receipts.get(91L));
+        reduced.add(receipts.get(92L));
+        var session =
+                new CdsExportNoteRevisionPlanner().open(27, HASH, scopes(rows), reduced, () -> {});
+        session.accept(rows.getFirst());
+        // One changed compared field of note 92, and a row sent twice.
+        assertThatThrownBy(() -> session.accept(row(92, UUID_B, "2020-01-01 01:02:04")))
+                .hasMessage(ERROR);
+        assertThatThrownBy(() -> session.accept(rows.getFirst())).hasMessage(ERROR);
+        // A note that never had its metadata row leaves the inventory unfinished.
+        var unfinished =
+                new CdsExportNoteRevisionPlanner().open(27, HASH, scopes(rows), reduced, () -> {});
+        unfinished.accept(rows.getFirst());
+        assertThatThrownBy(unfinished::finish).hasMessage(ERROR);
+
+        // Two witnesses of one note are refused when the inventory opens.
+        var repeated = new CdsExportNoteRevisionPlanner.Witnesses();
+        repeated.add(receipts.get(91L));
+        repeated.add(receipts.get(92L));
+        repeated.add(receipts.get(91L));
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportNoteRevisionPlanner()
+                                        .open(27, HASH, scopes(rows), repeated, () -> {}))
+                .hasMessage(ERROR);
+    }
+
     private CdsExportNoteRevisionPlanner.Result plan(List<CdsExportNoteRevisionDto> rows)
             throws Exception {
         return new CdsExportNoteRevisionPlanner()

@@ -38,7 +38,7 @@ final class CdsExportExactNumericReadSupport {
 
     static List<CdsExportRawRowDto> drugs(
             EntityManager em, int patient, List<CdsExportRawRowDto> page) {
-        int timeout = CdsExportPatientTableReadSupport.queryTimeoutMillis();
+        CdsExportPatientTableReadSupport.requireReadTransaction();
         if (patient < 1 || page.size() > 32) invalid();
         if (page.isEmpty()) return page;
         return em.unwrap(Session.class)
@@ -52,43 +52,20 @@ final class CdsExportExactNumericReadSupport {
                                                     ",",
                                                     java.util.Collections.nCopies(page.size(), "?"))
                                             + ") ORDER BY drugid";
+                            // A wait that ends unanswered sends the same read again, on this
+                            // connection and in this snapshot; each sending starts empty.
                             var actual =
-                                    new TreeMap<Long, java.util.Map<String, CdsExactNumeric>>();
-                            try (var query = CdsBinaryReads.prepare(connection, sql)) {
-                                query.setInt(1, patient);
-                                int parameter = 2;
-                                for (var row : page) query.setLong(parameter++, row.id());
-                                query.setMaxRows(33);
-                                query.setQueryTimeout((timeout + 999) / 1000);
-                                try (var rows = query.executeQuery()) {
-                                    var metadata = rows.getMetaData();
-                                    if (metadata.getColumnCount() != 3
-                                            || CdsExactNumeric.codec(metadata.getColumnTypeName(2))
-                                                    != CdsExactNumeric.Codec.IEEE754_BINARY32_V1
-                                            || CdsExactNumeric.codec(metadata.getColumnTypeName(3))
-                                                    != CdsExactNumeric.Codec.IEEE754_BINARY32_V1)
-                                        invalid();
-                                    while (rows.next()) {
-                                        long id = rows.getLong(1);
-                                        var values = new TreeMap<String, CdsExactNumeric>();
-                                        values.put(
-                                                "takemin",
-                                                CdsExactNumeric.readBinary(
-                                                        rows,
-                                                        2,
-                                                        CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
-                                        values.put(
-                                                "takemax",
-                                                CdsExactNumeric.readBinary(
-                                                        rows,
-                                                        3,
-                                                        CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
-                                        if (!expected.contains(id)
-                                                || actual.putIfAbsent(id, values) != null)
-                                            invalid();
-                                    }
-                                }
-                            }
+                                    CdsExportStatementWaitReadSupport.await(
+                                            em,
+                                            connection,
+                                            seconds ->
+                                                    read(
+                                                            connection,
+                                                            sql,
+                                                            patient,
+                                                            page,
+                                                            expected,
+                                                            seconds));
                             if (!actual.keySet().equals(expected)) invalid();
                             var result = new ArrayList<CdsExportRawRowDto>();
                             for (var row : page) {
@@ -112,6 +89,53 @@ final class CdsExportExactNumericReadSupport {
                             }
                             return List.copyOf(result);
                         });
+    }
+
+    private static TreeMap<Long, java.util.Map<String, CdsExactNumeric>> read(
+            java.sql.Connection connection,
+            String sql,
+            int patient,
+            List<CdsExportRawRowDto> page,
+            java.util.Set<Long> expected,
+            int seconds)
+            throws java.sql.SQLException {
+        var actual = new TreeMap<Long, java.util.Map<String, CdsExactNumeric>>();
+        try (var query = CdsBinaryReads.prepare(connection, sql)) {
+            query.setInt(1, patient);
+            int parameter = 2;
+            for (var row : page) query.setLong(parameter++, row.id());
+            query.setMaxRows(33);
+            query.setQueryTimeout(seconds);
+            try (var rows = query.executeQuery()) {
+                var metadata = rows.getMetaData();
+                if (metadata.getColumnCount() != 3
+                        || CdsExactNumeric.codec(metadata.getColumnTypeName(2))
+                                != CdsExactNumeric.Codec.IEEE754_BINARY32_V1
+                        || CdsExactNumeric.codec(metadata.getColumnTypeName(3))
+                                != CdsExactNumeric.Codec.IEEE754_BINARY32_V1)
+                    invalid();
+                while (rows.next()) {
+                    long id = rows.getLong(1);
+                    var values = new TreeMap<String, CdsExactNumeric>();
+                    values.put(
+                            "takemin",
+                            CdsExactNumeric.readBinary(
+                                    rows,
+                                    2,
+                                    CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
+                    values.put(
+                            "takemax",
+                            CdsExactNumeric.readBinary(
+                                    rows,
+                                    3,
+                                    CdsExactNumeric.Codec.IEEE754_BINARY32_V1));
+                    if (!expected.contains(id)
+                            || actual.putIfAbsent(id, values) != null)
+                        invalid();
+                }
+            }
+        }
+        return actual;
     }
 
     private static void invalid() {

@@ -179,7 +179,7 @@ public final class CdsExportPhysicalSchemaReadSupport {
     public static Pass open(EntityManager em, Set<String> probes) {
         if (current() != null) throw new IllegalStateException("CDS_EXPORT_SCHEMA_PASS_ACTIVE");
         // Also refuses anything but a read-only transaction.
-        CdsExportPatientTableReadSupport.queryTimeoutMillis();
+        CdsExportPatientTableReadSupport.requireReadTransaction();
         if (!TransactionSynchronizationManager.isSynchronizationActive()) return null;
         Pass pass = read(em, probes);
         if (pass == null) return null;
@@ -235,9 +235,9 @@ public final class CdsExportPhysicalSchemaReadSupport {
                 rows(
                         em,
                         "select TABLE_NAME,ENGINE from information_schema.TABLES where"
-                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'",
-                        1026);
-        if (base.isEmpty() || base.size() >= 1026) return null;
+                                + " TABLE_SCHEMA=DATABASE() and TABLE_TYPE='BASE TABLE'");
+        // Any number of tables, columns and key columns: the schema is as large as it is.
+        if (base.isEmpty()) return null;
         for (Object[] row : base) {
             if (row.length != 2
                     || !(row[0] instanceof String name)
@@ -252,9 +252,7 @@ public final class CdsExportPhysicalSchemaReadSupport {
                         "select"
                                 + " TABLE_NAME,COLUMN_NAME,COLUMN_TYPE,IS_NULLABLE,CHARACTER_SET_NAME,COLLATION_NAME,NULLIF(GENERATION_EXPRESSION,'')"
                                 + " from information_schema.COLUMNS where"
-                                + " TABLE_SCHEMA=DATABASE()",
-                        65537);
-        if (all.size() >= 65537) return null;
+                                + " TABLE_SCHEMA=DATABASE()");
         for (Object[] row : all) {
             if (row.length != 7 || !(row[0] instanceof String table)) return null;
             // Views and temporary tables have columns too; only base tables are kept.
@@ -276,9 +274,7 @@ public final class CdsExportPhysicalSchemaReadSupport {
                         "select TABLE_NAME,COLUMN_NAME,ORDINAL_POSITION from"
                                 + " information_schema.KEY_COLUMN_USAGE where"
                                 + " TABLE_SCHEMA=DATABASE() and CONSTRAINT_NAME='PRIMARY'"
-                                + " order by TABLE_NAME,ORDINAL_POSITION",
-                        16385);
-        if (keys.size() >= 16385) return null;
+                                + " order by TABLE_NAME,ORDINAL_POSITION");
         for (Object[] row : keys) {
             if (row.length != 3 || !(row[0] instanceof String table)) return null;
             if (engines.containsKey(table))
@@ -324,10 +320,8 @@ public final class CdsExportPhysicalSchemaReadSupport {
     }
 
     @SuppressWarnings("unchecked")
-    private static List<Object[]> rows(EntityManager em, String statement, int limit) {
-        return CdsExportPatientTableReadSupport.query(em, statement)
-                .setMaxResults(limit)
-                .getResultList();
+    private static List<Object[]> rows(EntityManager em, String statement) {
+        return CdsExportPatientTableReadSupport.query(em, statement).getResultList();
     }
 
     // Table names here are ASCII SQL identifiers (checked when read); information_schema compares

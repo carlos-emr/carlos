@@ -51,8 +51,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 @Transactional(readOnly = true)
 public class CdsExportEformRenderReadDao {
-    /** More current eForms than this on one chart is not an eForm list a clinic keeps. */
-    public static final int MAXIMUM = 100_000;
 
     private static final String CURRENT =
             "select cast(e.fdid as char), cast(e.fid as char), e.form_name, e.subject,"
@@ -103,10 +101,9 @@ public class CdsExportEformRenderReadDao {
         requirePatient(patient);
         List<Object[]> rows =
                 rows(
+                        // Every current eForm of the chart: no count fails the job.
                         CdsExportPatientTableReadSupport.query(entityManager, CURRENT)
-                                .setParameter("patient", patient)
-                                .setMaxResults(MAXIMUM + 1));
-        if (rows.size() > MAXIMUM) throw new IllegalStateException("CDS_EXPORT_EFORM_RENDER_LIMIT");
+                                .setParameter("patient", patient));
         var providers = new HashMap<String, String[]>();
         var result = new ArrayList<Current>(rows.size());
         int previous = 0;

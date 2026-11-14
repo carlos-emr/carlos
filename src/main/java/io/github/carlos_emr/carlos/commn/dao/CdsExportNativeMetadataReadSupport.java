@@ -86,7 +86,11 @@ public final class CdsExportNativeMetadataReadSupport {
         // Reuse the transaction/deadline checks without reading a single protected value.
         CdsExportPatientTableReadSupport.query(em, "select d.* from `" + table.name + "` d limit 0")
                 .getResultList();
-        return em.unwrap(Session.class).doReturningWork(connection -> columns(connection, table));
+        return em.unwrap(Session.class)
+                .doReturningWork(
+                        connection ->
+                                CdsExportStatementWaitReadSupport.await(
+                                        em, connection, seconds -> columns(connection, table, seconds)));
     }
 
     // A named method, not the lambda it was: SpotBugs does not apply a method annotation to a
@@ -96,16 +100,13 @@ public final class CdsExportNativeMetadataReadSupport {
     // FindSecBugs IMPROPER_UNICODE: Matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = {"SQL_INJECTION_JDBC", "SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING", "IMPROPER_UNICODE"}, justification = "SQL_INJECTION_JDBC: the only interpolated identifier is the name of a fixed Table enum constant; no request, file or row value reaches the SQL text; SQL_PREPARED_STATEMENT_GENERATED_FROM_NONCONSTANT_STRING: the statement text varies only by the name of a fixed Table enum constant; IMPROPER_UNICODE: matches the fixed ASCII column name verified_epoch in JDBC metadata of a CARLOS table; not an authorization decision")
     @SuppressWarnings("java:S2077")
-    private static List<Column> columns(java.sql.Connection connection, Table table)
+    private static List<Column> columns(java.sql.Connection connection, Table table, int seconds)
             throws java.sql.SQLException {
         var columns = new ArrayList<Column>();
         try (var statement =
                 connection.prepareStatement(
                         "SELECT * FROM `" + table.name + "` WHERE 1=0")) {
-            statement.setQueryTimeout(
-                    (CdsExportPatientTableReadSupport.queryTimeoutMillis()
-                                    + 999)
-                            / 1000);
+            statement.setQueryTimeout(seconds);
             try (var result = statement.executeQuery()) {
                 var metadata = result.getMetaData();
                 if (metadata.getColumnCount() < 1

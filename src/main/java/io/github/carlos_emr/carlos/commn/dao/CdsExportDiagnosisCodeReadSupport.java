@@ -22,7 +22,6 @@
 package io.github.carlos_emr.carlos.commn.dao;
 
 import io.github.carlos_emr.carlos.commn.dto.CdsExportDiagnosisCodeReferenceDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import jakarta.persistence.EntityManager;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -50,11 +49,9 @@ import java.util.TreeSet;
  * @since 2026-11-13
  */
 public final class CdsExportDiagnosisCodeReadSupport {
-    /** Patient rows (registry entries plus episodes) one capture may name. */
-    public static final int MAXIMUM_ROWS = 8192;
-
-    /** Code-table rows one code may match before the capture refuses the chart's size. */
-    static final int MAXIMUM_MATCHES = 64;
+    // No number of registry entries or episodes, and no number of code-table rows a code
+    // matches, refuses a chart: every code the chart names is looked up, and a code the table
+    // holds more than once is reported with every row it has.
 
     /** The only code tables a stored coding system can select; identifiers are compile-time constants. */
     public enum Reference {
@@ -128,10 +125,7 @@ public final class CdsExportDiagnosisCodeReadSupport {
                                         + " and (e.`status` is null or CAST(e.`status` AS"
                                         + " BINARY)<>'Deleted')")
                         .setParameter("patient", patient)
-                        .setMaxResults(MAXIMUM_ROWS + 1)
                         .getResultList();
-        if (rows.size() > MAXIMUM_ROWS)
-            throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
         var pairs = new TreeSet<Pair>();
         for (var row : rows) {
             if (row.length != 2) invalid();
@@ -157,10 +151,7 @@ public final class CdsExportDiagnosisCodeReadSupport {
                                             + reference.key
                                             + "`")
                             .setParameter("code", pair.code())
-                            .setMaxResults(MAXIMUM_MATCHES + 1)
                             .getResultList();
-            if (matches.size() > MAXIMUM_MATCHES)
-                throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
             for (var match : matches) {
                 if (match.length != 3) invalid();
                 String id = text(match[0]), code = text(match[1]);

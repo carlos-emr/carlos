@@ -218,7 +218,9 @@ public class CdsExportRetainedIndexService {
                     manifest,
                     maximumFields,
                     maximumBytes,
-                    2_097_152,
+                    // One run's captured options are one text row: the row reader's own largest
+                    // row, not a size of the options (formerly 2 MiB here).
+                    67_108_864,
                     control,
                     row -> {
                         if (!"retained_import_options".equals(row.table())

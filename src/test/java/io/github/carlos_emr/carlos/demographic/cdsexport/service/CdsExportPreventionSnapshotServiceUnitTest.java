@@ -43,6 +43,8 @@ import org.springframework.transaction.*;
 import org.springframework.transaction.support.*;
 
 /** Actual transaction lifecycle/config bytes with bounded DAO projections; no MariaDB or clinical authorization is mocked as a permission proof. */
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportPreventionSnapshotServiceUnitTest {
     @TempDir Path root;
     private final EntityManagerFactory factory = mock(EntityManagerFactory.class);
@@ -349,6 +351,33 @@ class CdsExportPreventionSnapshotServiceUnitTest {
                 .hasMessage("CANCELLED_DISCOVERY");
         assertThatThrownBy(() -> snapshots.current(27))
                 .hasMessage("CDS_EXPORT_PREVENTION_SNAPSHOT_REQUIRED");
+    }
+
+    @Test
+    void shouldSelectEveryPrevention_whenTheChartHasMoreThanTheFormerTenThousandRows() {
+        // 12,345 rows: above the former 10,000-row and 4 MiB refusals of this read.
+        int rows = 12_345;
+        when(preventions.countCdsExportRows(27)).thenReturn((long) rows);
+        when(preventions.findCdsExportRowsAfter(eq(27), any(), eq(32)))
+                .thenAnswer(
+                        call -> {
+                            Long after = call.getArgument(1);
+                            var page = new ArrayList<CdsExportRawRowDto>();
+                            for (long id = after == null ? 1 : after + 1;
+                                    id <= rows && page.size() < 32;
+                                    id++)
+                                page.add(raw((int) id, id % 2 == 0 ? "PAP" : "Td"));
+                            return page;
+                        });
+        transaction(
+                () -> {
+                    var state = snapshots.prepare(27, () -> {});
+                    // Every row is read and placed; none is refused for how many there are.
+                    assertThat(state.selection().rows()).isEqualTo(rows);
+                    assertThat(state.clinicalIds()).hasSize((rows + 1) / 2).contains(1, 12_345);
+                    assertThat(state.screeningIds()).hasSize(rows / 2).contains(2, 12_344);
+                    return null;
+                });
     }
 
     @Test

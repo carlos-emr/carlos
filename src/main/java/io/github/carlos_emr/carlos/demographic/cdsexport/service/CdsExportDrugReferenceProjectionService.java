@@ -28,13 +28,17 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.*;
 
-/** Scalar identities only, before network work; no database transaction remains open during a lookup. */
+/**
+ * Scalar identities only, before network work; no database transaction remains open during a
+ * lookup. The transaction has no timeout: a chart's prescriptions are read however long the
+ * database takes, and the statement waits for its answer ({@code
+ * CdsExportStatementWaitReadSupport}).
+ */
 @Service
 @Transactional(
         readOnly = true,
         propagation = Propagation.REQUIRES_NEW,
-        isolation = Isolation.READ_COMMITTED,
-        timeout = 30)
+        isolation = Isolation.READ_COMMITTED)
 public class CdsExportDrugReferenceProjectionService {
     private final DrugDao drugs;
 

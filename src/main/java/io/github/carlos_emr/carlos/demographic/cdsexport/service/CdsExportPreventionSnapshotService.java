@@ -412,22 +412,26 @@ public class CdsExportPreventionSnapshotService {
             Set<String> columns,
             Runnable checkpoint)
             throws IOException {
+        // Any number of rows: a chart's preventions and the clinic's vaccine catalogue are read
+        // a page of 32 at a time to the end, and no count or total size refuses them. What is
+        // kept of a row is its few short scope columns.
         long count = source.countCdsExportRows(patient);
-        if (count < 0 || count > 10_000) invalid();
+        if (count < 0) invalid();
         var result = new ArrayList<CdsExportCapturedTextRowDto>();
         Long after = null;
-        long bytes = 0;
         while (true) {
             checkpoint.run();
             var page = source.findCdsExportRowsAfter(patient, after, 32);
             if (page.size() > 32) invalid();
             for (var row : page) {
                 if (after != null && row.id() <= after
-                        || !row.cells().keySet().equals(columns)
-                        || result.size() >= 10_000) invalid();
+                        || !row.cells().keySet().equals(columns)) invalid();
                 var fields = new TreeMap<String, String>();
                 for (var entry : row.cells().entrySet()) {
                     var cell = entry.getValue();
+                    // Integrity, not a limit: every scope column is an integer, a flag or a
+                    // VARCHAR(255) in the verified schema, so no stored value reaches 4,096
+                    // bytes.
                     if (cell.exactNumeric() != null || cell.bytes() > 4096) invalid();
                     if (cell.sqlNull()) {
                         fields.put(entry.getKey(), null);
@@ -445,8 +449,6 @@ public class CdsExportPreventionSnapshotService {
                         value = input.readNBytes(4097);
                         if (value.length != cell.bytes() || input.read() != -1) invalid();
                     }
-                    bytes += value.length;
-                    if (bytes > 4_194_304) invalid();
                     try {
                         fields.put(
                                 entry.getKey(),
@@ -482,15 +484,17 @@ public class CdsExportPreventionSnapshotService {
         var categories = Set.of(io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory
                 .IMMUNIZATIONS.wireName());
         String after = null;
-        long rows = 0, bytes = 0;
+        // Every Immunizations unit of the chart, a page at a time: no number of units and no
+        // total of their witnesses refuses the chart. One sealed witness is held at a time, and
+        // its own size is the import ledger's stored format (MAX_SEALED_BYTES).
         while (true) {
             checkpoint.run();
             var page = units.findCdsExportRetainedRowsAfter(patient, categories, after, 32);
             if (page.size() > 32) invalid();
             for (var row : page) {
                 if (after != null && row.id().compareTo(after) <= 0
-                        || !row.cells().keySet().equals(CdsExportImmunizationImportReceipts.COLUMNS)
-                        || ++rows > 1_000_000) invalid();
+                        || !row.cells().keySet().equals(CdsExportImmunizationImportReceipts.COLUMNS))
+                    invalid();
                 String references =
                         text(
                                 patient,
@@ -515,10 +519,6 @@ public class CdsExportPreventionSnapshotService {
                                     "native_baseline",
                                     io.github.carlos_emr.carlos.demographic.cds.contract
                                             .CdsNativeBaselineCodec.MAX_SEALED_BYTES);
-                    if (sealed != null) {
-                        bytes += sealed.length();
-                        if (bytes > 64L << 20) invalid();
-                    }
                     proof.witness(id, references, targetDigest, sealed);
                 }
                 after = row.id();

@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeMap;
-import org.springframework.transaction.support.ResourceHolderSupport;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
@@ -1397,13 +1396,46 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     private static Set<Integer> requireSelected(Plan plan, int patient, Set<Integer> ids) {
-        queryTimeoutMillis();
+        requireReadTransaction();
         patient(patient);
+        // Any number of selected rows: no count refuses a chart. A statement names at most
+        // PREVENTION_ID_BATCH of them, and a chart with more is read in further statements.
         if (!selectedPreventions(plan)
                 || ids == null
-                || ids.size() > 10_000
                 || ids.stream().anyMatch(java.util.Objects::isNull)) invalid();
         return Set.copyOf(ids);
+    }
+
+    /**
+     * The most selected prevention rows one statement names. It changes how a chart's selected
+     * preventions are read, never whether: a chart with more is read in further statements,
+     * whose rows are put back in key order here.
+     */
+    static final int PREVENTION_ID_BATCH = 8_192;
+
+    /**
+     * The bindings each statement of a read is sent with: the selected prevention ids in
+     * ascending batches of {@link #PREVENTION_ID_BATCH}, and the bindings as they are for every
+     * other plan. A prevention, an extension row and a precision row each belong to exactly one
+     * prevention id, so the batches partition the rows: no row is read twice and none is missed.
+     */
+    private static List<Bindings> batches(Plan plan, Bindings bindings) {
+        if (!selectedPreventions(plan)) return List.of(bindings);
+        if (bindings.preventionIds() == null || bindings.preventionIds().isEmpty()) invalid();
+        if (bindings.preventionIds().size() <= PREVENTION_ID_BATCH) return List.of(bindings);
+        var sorted = bindings.preventionIds().stream().sorted().toList();
+        var result = new ArrayList<Bindings>();
+        for (int from = 0; from < sorted.size(); from += PREVENTION_ID_BATCH)
+            result.add(
+                    new Bindings(
+                            bindings.categories(),
+                            Set.copyOf(
+                                    sorted.subList(
+                                            from,
+                                            Math.min(
+                                                    sorted.size(),
+                                                    from + PREVENTION_ID_BATCH)))));
+        return result;
     }
 
     public static long preventionCount(EntityManager em, Plan plan, int patient, Set<Integer> ids) {
@@ -2063,20 +2095,24 @@ public final class CdsExportPatientTableReadSupport {
 
     private static long countBound(EntityManager em, Plan plan, int patient, Bindings bindings) {
         patient(patient);
-        var found =
-                rows(
-                        query(
-                                        em,
-                                        "select count(*),1 from `"
-                                                + plan.table
-                                                + "` d where "
-                                                + plan.patientPredicate())
-                                .setParameter("patient", patient),
-                        plan,
-                        bindings);
-        if (found.size() != 1) invalid();
-        long count = number(found.getFirst()[0]);
-        if (count < 0) invalid();
+        long count = 0;
+        for (var batch : batches(plan, bindings)) {
+            var found =
+                    rows(
+                            query(
+                                            em,
+                                            "select count(*),1 from `"
+                                                    + plan.table
+                                                    + "` d where "
+                                                    + plan.patientPredicate())
+                                    .setParameter("patient", patient),
+                            plan,
+                            batch);
+            if (found.size() != 1) invalid();
+            long part = number(found.getFirst()[0]);
+            if (part < 0) invalid();
+            count = Math.addExact(count, part);
+        }
         return count;
     }
 
@@ -2304,26 +2340,37 @@ public final class CdsExportPatientTableReadSupport {
                 for (Object[] row : rows(query)) found.add(textKey(plan, row[0]));
             }
             default -> {
-                var query =
-                        query(
-                                        em,
-                                        "select d.`"
-                                                + plan.key
-                                                + "`,1 from `"
-                                                + plan.table
-                                                + "` d where "
-                                                + plan.patientPredicate()
-                                                + (after == null
-                                                        ? ""
-                                                        : " and d.`" + plan.key + "`>:after")
-                                                + " order by d.`"
-                                                + plan.key
-                                                + '`')
-                                .setParameter("patient", patient)
-                                .setMaxResults(limit);
-                if (after != null) query.setParameter("after", after);
-                for (Object[] row : rows(query, plan, bindings))
-                    found.add(text ? textKey(plan, row[0]) : (Object) number(row[0]));
+                var batches = batches(plan, bindings);
+                // More than one batch only for a chart's selected preventions, whose keys are
+                // numbers: the next keys of each batch are merged and the first kept.
+                var merged = batches.size() > 1 ? new java.util.TreeSet<Long>() : null;
+                for (var batch : batches) {
+                    var query =
+                            query(
+                                            em,
+                                            "select d.`"
+                                                    + plan.key
+                                                    + "`,1 from `"
+                                                    + plan.table
+                                                    + "` d where "
+                                                    + plan.patientPredicate()
+                                                    + (after == null
+                                                            ? ""
+                                                            : " and d.`" + plan.key + "`>:after")
+                                                    + " order by d.`"
+                                                    + plan.key
+                                                    + '`')
+                                    .setParameter("patient", patient)
+                                    .setMaxResults(limit);
+                    if (after != null) query.setParameter("after", after);
+                    for (Object[] row : rows(query, plan, batch)) {
+                        if (merged == null)
+                            found.add(text ? textKey(plan, row[0]) : (Object) number(row[0]));
+                        else if (!merged.add(number(row[0]))) invalid();
+                    }
+                    while (merged != null && merged.size() > limit) merged.pollLast();
+                }
+                if (merged != null) found.addAll(merged);
             }
         }
         // Strictly ascending and after the caller's position, whichever statement read them.
@@ -2395,15 +2442,23 @@ public final class CdsExportPatientTableReadSupport {
                 .append("` in (:keys) order by d.`")
                 .append(plan.key)
                 .append('`');
-        var query =
-                query(em, projection.toString())
-                        .setParameter("patient", patient)
-                        .setParameter("inline", inline)
-                        .setParameter("keys", keys)
-                        .setMaxResults(keys.size() + 1);
+        var read = new ArrayList<Object[]>();
+        var batches = batches(plan, bindings);
+        for (var batch : batches) {
+            var query =
+                    query(em, projection.toString())
+                            .setParameter("patient", patient)
+                            .setParameter("inline", inline)
+                            .setParameter("keys", keys)
+                            .setMaxResults(keys.size() + 1);
+            read.addAll(rows(query, plan, batch));
+            if (read.size() > keys.size()) invalid();
+        }
+        // Each batch returned its rows in key order; the page is in key order.
+        if (batches.size() > 1) read.sort(java.util.Comparator.comparingLong(row -> number(row[0])));
         var result = new ArrayList<CdsExportRawKeyRowDto>();
         Object previous = after;
-        for (var row : rows(query, plan, bindings)) {
+        for (var row : read) {
             if (row.length != 1 + 4 * plan.columns.size()) invalid();
             String id;
             if (plan.retained() || plan == Plan.LABORATORY_RESULTS) {
@@ -2504,28 +2559,34 @@ public final class CdsExportPatientTableReadSupport {
                 || offset == Long.MAX_VALUE
                 || length < 1
                 || length > 65_536) invalid();
-        var found =
-                rows(
-                        query(
-                                        em,
-                                        "select d.`"
-                                                + plan.key
-                                                + "`,SUBSTRING("
-                                                + plan.value(column)
-                                                + ",:position,:length) from `"
-                                                + plan.table
-                                                + "` d where "
-                                                + plan.patientPredicate()
-                                                + " and d.`"
-                                                + plan.key
-                                                + "`=:row")
-                                .setParameter("position", offset + 1)
-                                .setParameter("length", length)
-                                .setParameter("patient", patient)
-                                .setParameter("row", rowId)
-                                .setMaxResults(2),
-                        plan,
-                        bindings);
+        var found = new ArrayList<Object[]>();
+        // The row belongs to one batch of a chart's selected preventions; every other plan has
+        // one batch.
+        for (var batch : batches(plan, bindings)) {
+            found.addAll(
+                    rows(
+                            query(
+                                            em,
+                                            "select d.`"
+                                                    + plan.key
+                                                    + "`,SUBSTRING("
+                                                    + plan.value(column)
+                                                    + ",:position,:length) from `"
+                                                    + plan.table
+                                                    + "` d where "
+                                                    + plan.patientPredicate()
+                                                    + " and d.`"
+                                                    + plan.key
+                                                    + "`=:row")
+                                    .setParameter("position", offset + 1)
+                                    .setParameter("length", length)
+                                    .setParameter("patient", patient)
+                                    .setParameter("row", rowId)
+                                    .setMaxResults(2),
+                            plan,
+                            batch));
+            if (found.size() > 1) invalid();
+        }
         if (found.size() != 1
                 || (plan.retained() || plan == Plan.LABORATORY_RESULTS
                         ? !rowId.equals(found.getFirst()[0])
@@ -2536,27 +2597,23 @@ public final class CdsExportPatientTableReadSupport {
     }
 
     static Query query(EntityManager em, String sql) {
-        int timeout = queryTimeoutMillis();
+        requireReadTransaction();
         // Package-owned callers use finite enum identifier plans; patient, keys, offsets and
         // lengths are bound values. No client SQL enters this boundary.
+        // A read waits for its answer and is sent again when the server ends it at its
+        // deadline: no statement of an export fails for how long the database takes.
         // nosemgrep:java.lang.security.audit.formatted-sql-string.formatted-sql-string,java.lang.security.audit.sqli.jpa-sqli.jpa-sqli
-        return em.createNativeQuery(sql, Object[].class)
-                .setFlushMode(FlushModeType.COMMIT)
-                .setHint("jakarta.persistence.query.timeout", timeout);
+        return CdsExportStatementWaitReadSupport.waiting(
+                em,
+                em.createNativeQuery(sql, Object[].class).setFlushMode(FlushModeType.COMMIT));
     }
 
-    /** Shared read-only/deadline boundary for ORM projections and value-free JDBC metadata. */
-    static int queryTimeoutMillis() {
+    /** Every export read runs inside an explicit read-only transaction. */
+    static void requireReadTransaction() {
         if (!TransactionSynchronizationManager.isActualTransactionActive()
                 || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
             throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
         }
-        long milliseconds = 30_000;
-        for (var value : TransactionSynchronizationManager.getResourceMap().values()) {
-            if (value instanceof ResourceHolderSupport resource && resource.hasTimeout())
-                milliseconds = Math.min(milliseconds, resource.getTimeToLiveInMillis());
-        }
-        return Math.max(1, Math.toIntExact(milliseconds));
     }
 
     @SuppressWarnings("unchecked")

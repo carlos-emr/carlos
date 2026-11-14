@@ -927,6 +927,85 @@ class CdsExportNativeCaptureServiceUnitTest {
         assertNoPatientMembers();
     }
 
+    /** A transaction manager whose first {@code losses} commits lose the connection. */
+    private DataSourceTransactionManager losingConnection(int losses, int[] begun) {
+        return new DataSourceTransactionManager(transactions.getDataSource()) {
+            @Override
+            protected void doCommit(DefaultTransactionStatus status) {
+                super.doCommit(status);
+                if (begun[0]++ < losses)
+                    throw new TransactionSystemException(
+                            "SOURCE_CONNECTION_LOST",
+                            new java.sql.SQLNonTransientConnectionException(
+                                    "Socket timout error", "08000"));
+            }
+        };
+    }
+
+    @Test
+    void shouldReadTheChartAgain_whenTheSnapshotsConnectionIsLost() throws Exception {
+        var begun = new int[1];
+        var service =
+                new CdsExportNativeCaptureService(
+                        List.of(source), factory, clock, losingConnection(2, begun));
+        var waited = new java.util.ArrayList<Long>();
+        service.pause = waited::add;
+
+        var captured =
+                service.capture(
+                        lease, patientScope, Set.of("demographic"), 1000, 8L << 20, new Control());
+
+        // Two readings lost their connection; the third is the capture, complete and readable,
+        // and nothing of the lost readings is left beside it.
+        assertThat(begun[0]).isEqualTo(3);
+        assertThat(waited).containsExactly(1_000L, 2_000L);
+        var delivery = new Delivery();
+        assertThat(
+                        service.scan(
+                                lease,
+                                patientScope,
+                                Set.of("demographic"),
+                                captured.manifest(),
+                                1000,
+                                8L << 20,
+                                new Control(),
+                                delivery))
+                .isEqualTo(captured.capture());
+        assertThat(delivery.delivered).hasSize(60);
+    }
+
+    @Test
+    void shouldEndAsDatabaseUnavailable_whenEveryReadingOfTheChartLosesItsConnection() {
+        var begun = new int[1];
+        var service =
+                new CdsExportNativeCaptureService(
+                        List.of(source),
+                        factory,
+                        clock,
+                        losingConnection(Integer.MAX_VALUE, begun));
+        var waited = new java.util.ArrayList<Long>();
+        service.pause = waited::add;
+
+        assertThatThrownBy(
+                        () ->
+                                service.capture(
+                                        lease,
+                                        patientScope,
+                                        Set.of("demographic"),
+                                        1000,
+                                        8L << 20,
+                                        new Control()))
+                .isInstanceOf(
+                        io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportDatabaseUnavailableException.class)
+                .hasMessage("CDS_EXPORT_DATABASE_UNAVAILABLE");
+
+        // The first reading and three more, then the database's own failure; no member is left.
+        assertThat(begun[0]).isEqualTo(1 + CdsExportNativeCaptureService.SNAPSHOT_RESTARTS);
+        assertThat(waited).containsExactly(1_000L, 2_000L, 4_000L);
+        assertNoPatientMembers();
+    }
+
     @Test
     void shouldEraseNestedPartialFiles_whenAReaderFailsOrOmitsItsCountedRow() {
         source.fail = true;

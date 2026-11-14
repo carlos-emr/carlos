@@ -1349,11 +1349,17 @@ class CdsExportDocumentReadMariaDbIntegrationTest {
             held.verify();
             connection.close();
             assertThatThrownBy(held::verify).isInstanceOf(java.sql.SQLException.class);
+            // The lost lock still refuses the read: it can qualify nothing. It is the
+            // database's failure, not a finding about the chart, so the capture reads the chart
+            // again instead of holding the patient for review.
             assertThatThrownBy(
                             io.github.carlos_emr.carlos.demographic.cdsexport.support
                                             .CdsExportSourceReadLock
                                     ::requirePinned)
-                    .hasMessage("CDS_EXPORT_CLINICAL_SOURCE_UNREVIEWED");
+                    .isInstanceOf(
+                            io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                    .CdsExportDatabaseUnavailableException.class)
+                    .hasMessage("CDS_EXPORT_DATABASE_UNAVAILABLE");
             assertThatThrownBy(held::close).isInstanceOf(java.sql.SQLException.class);
         } finally {
             try {

@@ -638,6 +638,75 @@ class CdsExportExecutionServiceUnitTest {
     }
 
     @Test
+    void shouldFailUnderTheDatabasesOwnCode_whenItStayedUnreachable() throws Exception {
+        var gone = new java.sql.SQLNonTransientConnectionException("Socket timout error", "08000");
+        // As the capture ends once every reading of a chart lost its connection.
+        doThrow(
+                        new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                                .CdsExportDatabaseUnavailableException(gone))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        // A lost connection anywhere in the cause chain, of a runtime or an I/O failure.
+        doThrow(new IllegalStateException("CDS_EXPORT_LEDGER_READ_FAILED", gone))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        doThrow(new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED", gone))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger, times(3))
+                .stop(lease, CdsExportState.FAILED, "CDS_EXPORT_DATABASE_UNAVAILABLE");
+        // A statement the server answered with an error is not a lost connection.
+        doThrow(new IllegalStateException(new java.sql.SQLException("syntax", "42000", 1064)))
+                .when(engine)
+                .execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_EXECUTION_FAILED");
+        verify(ledger, never()).stop(any(), eq(CdsExportState.REVIEW_REQUIRED), anyString());
+    }
+
+    @Test
+    void shouldNotCountAStatementsWaitAsProofOfLife_soAnAttemptThatOnlyWaitsIsStalled()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        var windows = new java.util.ArrayList<Long>();
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.checkpoint();
+                            // A statement that is ended at its deadline again and again: each
+                            // wait is reported, none is a checkpoint.
+                            io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport
+                                    .awaitOwned(
+                                            mock(java.sql.Connection.class),
+                                            seconds -> {
+                                                try {
+                                                    Thread.sleep(60);
+                                                } catch (InterruptedException interrupted) {
+                                                    Thread.currentThread().interrupt();
+                                                }
+                                                beat.getValue().run();
+                                                windows.add((long) seconds);
+                                                throw new java.sql.SQLTimeoutException(
+                                                        "ended", "70100", 1969);
+                                            });
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // The waits did not keep the attempt alive: the stall window ended it, and the wait
+        // itself stopped as soon as the attempt had ended.
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_WORKER_STALLED");
+        assertThat(windows).isNotEmpty().hasSizeLessThan(8);
+    }
+
+    @Test
     void shouldRelinquishAStoppedForegroundWait_withoutRequestingDurableCancellation()
             throws Exception {
         doAnswer(

@@ -59,6 +59,9 @@ import org.springframework.transaction.support.TransactionTemplate;
  */
 @Service
 public class CdsExportNativeCaptureService {
+    private static final org.apache.logging.log4j.Logger LOG =
+            org.apache.logging.log4j.LogManager.getLogger(CdsExportNativeCaptureService.class);
+
     /**
      * The longest one string of a manifest may be when it is read back. A manifest holds names,
      * digests and note scopes, none of them long; the manifest itself has no size limit and is
@@ -189,8 +192,8 @@ public class CdsExportNativeCaptureService {
         read.setReadOnly(true);
         read.setIsolationLevel(TransactionDefinition.ISOLATION_REPEATABLE_READ);
         // No transaction timeout: reading a large chart, or counting a large clinic's listed
-        // tables, takes as long as it takes. Each statement keeps its own bound
-        // (CdsExportPatientTableReadSupport.queryTimeoutMillis).
+        // tables, takes as long as it takes. A statement's own deadline is a wait that is sent
+        // again, never a failure (CdsExportStatementWaitReadSupport).
     }
 
     /**
@@ -258,9 +261,6 @@ public class CdsExportNativeCaptureService {
         return Set.copyOf(selected.keySet());
     }
 
-    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
-    // failure.
-    @SuppressWarnings("java:S1143")
     public CdsExportPatientCaptureDto capture(
             CdsExportLeaseDto lease,
             CdsExportCohortService.Patient patientScope,
@@ -287,6 +287,66 @@ public class CdsExportNativeCaptureService {
             throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
         if (lease.document().protocol() != 2 || lease.document().storage() == null)
             throw new IOException("CDS_EXPORT_STORAGE_BINDING_REQUIRED");
+        // The whole capture is one idempotent unit: when the connection holding its snapshot
+        // is lost, nothing read so far can be continued on another connection (another
+        // connection is another snapshot), so everything this attempt staged is discarded and
+        // the chart is read again from its authorization on. Only a database that is lost on
+        // every one of these readings ends the job, as CDS_EXPORT_DATABASE_UNAVAILABLE.
+        for (int restarts = 0; ; restarts++) {
+            try {
+                return captureOnce(
+                        lease, patientScope, tables, maximumFields, maximumValueBytes, control);
+            } catch (SnapshotLostException lost) {
+                if (restarts == SNAPSHOT_RESTARTS)
+                    throw new io.github.carlos_emr.carlos.demographic.cdsexport.support
+                            .CdsExportDatabaseUnavailableException(lost.getCause());
+                LOG.warn(
+                        "CDS_EXPORT_CAPTURE_SNAPSHOT_LOST run={} epoch={} restart={}",
+                        lease.runId(),
+                        lease.epoch(),
+                        restarts + 1);
+                pause.accept(Math.min(30_000L, 1_000L << restarts));
+                control.checkpoint();
+            }
+        }
+    }
+
+    /** How many times one chart is read again after its snapshot's connection was lost. */
+    static final int SNAPSHOT_RESTARTS = 3;
+
+    /** The wait before a chart is read again; replaced in tests. */
+    java.util.function.LongConsumer pause =
+            milliseconds -> {
+                try {
+                    Thread.sleep(milliseconds);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new java.util.concurrent.CancellationException(
+                            "CDS_EXPORT_WAIT_INTERRUPTED");
+                }
+            };
+
+    /** The capture's snapshot was lost with its connection; nothing of the attempt is kept. */
+    private static final class SnapshotLostException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        private SnapshotLostException(Throwable cause) {
+            super("CDS_EXPORT_CAPTURE_SNAPSHOT_LOST", cause, false, false);
+        }
+    }
+
+    // Cleanup only throws without a primary failure; otherwise its error is suppressed on that
+    // failure.
+    @SuppressWarnings("java:S1143")
+    private CdsExportPatientCaptureDto captureOnce(
+            CdsExportLeaseDto lease,
+            CdsExportCohortService.Patient patientScope,
+            Set<String> tables,
+            long maximumFields,
+            long maximumValueBytes,
+            CdsExportRunControl control)
+            throws IOException {
+        int patient = patientScope.patient();
         var available = selected(lease, tables);
         authorizeCategories(patient, available, control);
         Runnable probe =
@@ -404,7 +464,17 @@ public class CdsExportNativeCaptureService {
                                 });
                 held.verify();
             } catch (java.sql.SQLException failed) {
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed))
+                    throw new SnapshotLostException(failed);
                 throw new IOException("CDS_EXPORT_SOURCE_SNAPSHOT_GUARD_FAILED", failed);
+            } catch (RuntimeException failed) {
+                // Lost inside the snapshot (a statement, the snapshot's own begin or end, or
+                // the legacy table's lock): the caller reads the chart again.
+                if (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportDatabaseUnavailableException.lost(failed))
+                    throw new SnapshotLostException(failed);
+                throw failed;
             }
             Objects.requireNonNull(captured);
             patientScope.require(lease);

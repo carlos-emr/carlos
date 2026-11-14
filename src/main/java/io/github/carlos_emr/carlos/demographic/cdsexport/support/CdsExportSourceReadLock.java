@@ -18,6 +18,7 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.support;
 
+import io.github.carlos_emr.carlos.commn.dao.CdsExportStatementWaitReadSupport;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Objects;
@@ -136,7 +137,9 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
 
     /**
      * Takes the table's READ lock, or proves it is still held. The lock waits for a writer as
-     * long as the server lets a lock wait ({@code lock_wait_timeout}); no limit of ours ends it.
+     * long as the writer takes: the LOCK is sent with a statement deadline and sent again when
+     * the server ends it there ({@link CdsExportStatementWaitReadSupport}); no limit of ours
+     * refuses it, and only the attempt's own end (a cancel, the stall detector) stops the wait.
      */
     public void pin() throws SQLException {
         if (Thread.currentThread() != owner || closed)
@@ -152,9 +155,18 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
             if (connection != null && (connection.isClosed() || !connection.isValid(5))) discard();
             if (connection == null) connect();
             engine(connection);
-            try (var statement = connection.createStatement()) {
-                statement.execute("LOCK TABLES `" + TABLE + "` READ");
-            }
+            var held = connection;
+            // The lock waits for a writer in waits that are sent again, never to a deadline:
+            // a LOCK the server ends at its statement deadline granted nothing.
+            CdsExportStatementWaitReadSupport.awaitOwned(
+                    held,
+                    seconds -> {
+                        try (var statement = held.createStatement()) {
+                            statement.setQueryTimeout(seconds);
+                            statement.execute("LOCK TABLES `" + TABLE + "` READ");
+                        }
+                        return null;
+                    });
             pinned = true;
         } catch (SQLException | RuntimeException | Error failed) {
             discard();
@@ -172,10 +184,16 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
         if (!pinned) return;
         try {
             verify();
-            try (var statement = connection.createStatement()) {
-                statement.setQueryTimeout(5);
-                statement.execute("UNLOCK TABLES");
-            }
+            var held = connection;
+            CdsExportStatementWaitReadSupport.awaitOwned(
+                    held,
+                    seconds -> {
+                        try (var statement = held.createStatement()) {
+                            statement.setQueryTimeout(seconds);
+                            statement.execute("UNLOCK TABLES");
+                        }
+                        return null;
+                    });
             pinned = false;
         } catch (SQLException | RuntimeException | Error failed) {
             discard();
@@ -206,6 +224,10 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
         try {
             guard.pin();
         } catch (SQLException failed) {
+            // A lost connection is the database's failure, not a finding about the chart: the
+            // capture reads the chart again instead of holding the patient for review.
+            if (CdsExportDatabaseUnavailableException.lost(failed))
+                throw new CdsExportDatabaseUnavailableException(failed);
             throw new CdsExportReviewException(
                     CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
         }
@@ -221,6 +243,9 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
         try {
             guard.release();
         } catch (SQLException failed) {
+            // As in requirePinned: a lock lost with its connection restarts the capture.
+            if (CdsExportDatabaseUnavailableException.lost(failed))
+                throw new CdsExportDatabaseUnavailableException(failed);
             throw new CdsExportReviewException(
                     CdsExportReviewException.Reason.CLINICAL_SOURCE_UNREVIEWED);
         }
@@ -255,19 +280,29 @@ public final class CdsExportSourceReadLock implements AutoCloseable {
     }
 
     private static long connectionId(Connection connection) throws SQLException {
-        try (var statement = connection.createStatement()) {
-            statement.setQueryTimeout(5);
-            try (var rows = statement.executeQuery("select CONNECTION_ID()")) {
-                if (!rows.next())
-                    throw new SQLException("CDS_EXPORT_SOURCE_READ_LOCK_CONNECTION_MISSING");
-                return rows.getLong(1);
-            }
-        }
+        return CdsExportStatementWaitReadSupport.awaitOwned(
+                connection,
+                seconds -> {
+                    try (var statement = connection.createStatement()) {
+                        statement.setQueryTimeout(seconds);
+                        try (var rows = statement.executeQuery("select CONNECTION_ID()")) {
+                            if (!rows.next())
+                                throw new SQLException(
+                                        "CDS_EXPORT_SOURCE_READ_LOCK_CONNECTION_MISSING");
+                            return rows.getLong(1);
+                        }
+                    }
+                });
     }
 
     private static String engine(Connection connection) throws SQLException {
+        return CdsExportStatementWaitReadSupport.awaitOwned(
+                connection, seconds -> engine(connection, seconds));
+    }
+
+    private static String engine(Connection connection, int seconds) throws SQLException {
         try (var statement = connection.createStatement()) {
-            statement.setQueryTimeout(5);
+            statement.setQueryTimeout(seconds);
             try (var rows =
                     statement.executeQuery(
                             "select ENGINE from information_schema.TABLES where"
