@@ -1286,6 +1286,56 @@ class CdsExportNativeReportAssemblyUnitTest {
     }
 
     @Test
+    void shouldHoldThePatient_forALinkOfNoDocumentInAChartReadWhole() throws Exception {
+        mixedChart();
+        withoutDocument.add(83);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    /**
+     * A linked document the chart no longer holds (its row deleted outside CARLOS, its link and
+     * its reviews left behind): the reviews are captured through the link. Read whole, the
+     * review used to refuse the job as an invalid capture while the same chart read in windows
+     * held the patient. Both now hold the patient, as for the link alone: one dangling link,
+     * reviewed or not, is the chart's to review, and nothing about it stops the other patients.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldHoldThePatient_forAReviewedLinkOfNoDocumentReadWholeOrInWindows(boolean windows)
+            throws Exception {
+        mixedChart();
+        review(802, 83, "103", "2026-03-09 09:00:00");
+        route(693, 83, "103", "A", "2026-03-08 11:45:00", "On a deleted document");
+        withoutDocument.add(83);
+        if (windows) bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(CdsExportReviewException.class)
+                .hasMessage("CDS_EXPORT_UNMAPPED_DATA");
+    }
+
+    /**
+     * A captured file whose document row the capture does not hold. A file is read from its
+     * document row (Plan.DOCUMENT_FILES selects document rows the DOCUMENTS plan also selects) in
+     * the same snapshot, so no chart can produce this: the capture contradicts itself. Read whole
+     * it was refused as invalid, while read in windows it held the patient as if the chart were at
+     * fault. Both now refuse it as invalid, as they refuse a document without its link.
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(booleans = {false, true})
+    void shouldRefuseAFileOfNoDocumentAlike_whenTheChartIsReadWholeOrInWindows(boolean windows)
+            throws Exception {
+        mixedChart();
+        add(120, uploaded(120, "20260308101400scan.pdf", "application/pdf"), "A", PDF);
+        withoutDocument.add(120);
+        if (windows) bounds = window(2, 64L << 20);
+        assertThatThrownBy(this::assemble)
+                .isInstanceOf(IOException.class)
+                .hasMessage("CDS_EXPORT_REPORT_OCCURRENCE_INVALID");
+    }
+
+    @Test
     void shouldRefuseADocumentWithoutALink_whenAChartIsReadInWindows() throws Exception {
         mixedChart();
         withoutLink.add(112);
