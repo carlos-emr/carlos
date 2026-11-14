@@ -187,9 +187,20 @@ stored until the upload store reaches its free-disk reserve, when the chunk is r
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `cds.import.upload.maxChunkBytes` | 4 MiB | Transfer unit, 64 KiB to 16 MiB, also advertised to the browser. Each chunk must arrive within two minutes; on a slow link lower this rather than abandon the upload. |
+| `cds.import.upload.maxChunkBytes` | 4 MiB | Transfer unit, 64 KiB to 16 MiB, also advertised to the browser. A chunk is never failed for the time it takes (see below), so a slow link needs no smaller chunk. |
 | `cds.import.upload.maxFiles` | `20000` | Uploads that may hold a reservation at once (begun and not yet abandoned or retired by their run's snapshot). It keeps a client that begins uploads in a loop from exhausting inodes; one import needs one upload. |
 | `cds.import.upload.ttlHours` | `24` | Hours an unsubmitted upload may stay idle before cleanup abandons it; every stored chunk restarts the interval. |
+
+A chunk is given up only when it stops moving, never for its total time. The server fails a chunk
+(`UPLOAD_CHUNK_STALLED`, HTTP 408) only when two minutes pass without one of its bytes arriving.
+The page sends each chunk with `XMLHttpRequest`, restarts the same two-minute wait on every upload
+progress event and every part of the reply, and aborts only when the wait runs out. Either way the
+page sends the same offset and hash again, up to three attempts; after that the upload is resumed
+from the page's upload list. The window is fixed in `CdsUploadService.CHUNK_STALL_MILLIS`, not a
+setting, and the page is given the server's value. Behind the packaged proxy a request body that
+stops for 15 seconds is ended sooner by nginx (`client_body_timeout`, time between two reads,
+not the whole transfer) and retried the same way. The page's other requests carry small JSON
+replies and are abandoned after 30 seconds in which no part of the reply arrived.
 
 Ordinary database, document-store and application settings remain necessary. Credentials retain
 their exact configured values and must never appear in public evidence. See

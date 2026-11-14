@@ -35,6 +35,7 @@ import io.github.carlos_emr.carlos.commn.model.CdsUpload;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsUploadException;
 import io.github.carlos_emr.carlos.test.unit.CarlosUnitTestBase;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,6 +48,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -117,6 +121,11 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
      * and 8 MiB total budgets, which no longer refuse anything.
      */
     private CdsUploadService service(Map<String, String> overrides) {
+        return service(overrides, System::nanoTime);
+    }
+
+    /** As above, with {@code nanoTime} as the clock that times the gap between received bytes. */
+    private CdsUploadService service(Map<String, String> overrides, LongSupplier nanoTime) {
         Properties properties = new Properties();
         properties.setProperty("cds.import.enabled", "true");
         properties.setProperty("cds.import.clinicalZone", java.time.ZoneId.systemDefault().getId());
@@ -127,7 +136,11 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
         properties.setProperty("cds.import.minimumFreeDiskBytes", "1");
         overrides.forEach(properties::setProperty);
         return new CdsUploadService(
-                uploads, admission, new CdsImportConfigurationService(properties), manager);
+                uploads,
+                admission,
+                new CdsImportConfigurationService(properties),
+                manager,
+                nanoTime);
     }
 
     @Test
@@ -625,7 +638,110 @@ class CdsUploadServiceUnitTest extends CarlosUnitTestBase {
                 .isEqualTo(1);
     }
 
+    @Test
+    void shouldStoreAChunk_whileItsBytesKeepArrivingFarPastTheWindow() throws Exception {
+        AtomicLong clock = new AtomicLong();
+        var timed = service(Map.of(), clock::get);
+        var upload = timed.begin(OWNER, "source.xml", CHUNK);
+        byte[] bytes = new byte[CHUNK];
+        java.util.Arrays.fill(bytes, (byte) 9);
+        // Ten reads, the first and every later one arriving a whole window after the last: the
+        // chunk takes twenty minutes, ten times the old fixed two-minute deadline.
+        var stored =
+                timed.append(
+                        OWNER,
+                        upload.id(),
+                        0,
+                        CHUNK,
+                        hash(bytes),
+                        new Trickle(
+                                bytes, CHUNK / 10 + 1, clock, CdsUploadService.CHUNK_STALL_MILLIS));
+        assertThat(stored.receivedBytes()).isEqualTo(CHUNK);
+        assertThat(clock.get()).isEqualTo(TimeUnit.MINUTES.toNanos(20));
+        assertThat(timed.finish(OWNER, upload.id()).state()).isEqualTo("COMPLETE");
+    }
+
+    @Test
+    void shouldRefuseAStalledChunk_andAcceptTheSameOffsetWhenItIsSentAgain() throws Exception {
+        AtomicLong clock = new AtomicLong();
+        var timed = service(Map.of(), clock::get);
+        var upload = timed.begin(OWNER, "source.xml", CHUNK);
+        byte[] bytes = new byte[CHUNK];
+        java.util.Arrays.fill(bytes, (byte) 4);
+        // The first read is immediate; the next arrives one millisecond after the window.
+        assertThatThrownBy(
+                        () ->
+                                timed.append(
+                                        OWNER,
+                                        upload.id(),
+                                        0,
+                                        CHUNK,
+                                        hash(bytes),
+                                        new Trickle(
+                                                bytes,
+                                                4096,
+                                                clock,
+                                                0,
+                                                CdsUploadService.CHUNK_STALL_MILLIS + 1)))
+                .isInstanceOfSatisfying(
+                        CdsUploadException.class,
+                        failure -> {
+                            assertThat(failure.code()).isEqualTo("UPLOAD_CHUNK_STALLED");
+                            assertThat(failure.status()).isEqualTo(408);
+                        });
+        Path directory = temporary.resolve("uploads").resolve(upload.id());
+        Path payload = directory.resolve("source.xml");
+        assertThat(timed.status(OWNER, upload.id()).receivedBytes()).isZero();
+        assertThat(Files.exists(payload) ? Files.size(payload) : 0L).isZero();
+        try (var files = Files.list(directory)) {
+            assertThat(files.map(path -> path.getFileName().toString()))
+                    .noneMatch(name -> name.startsWith("attempt-"));
+        }
+        var resent =
+                timed.append(
+                        OWNER, upload.id(), 0, CHUNK, hash(bytes), new ByteArrayInputStream(bytes));
+        assertThat(resent.receivedBytes()).isEqualTo(CHUNK);
+    }
+
     private static String hash(byte[] bytes) throws Exception {
         return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
+    }
+
+    /**
+     * A request body that arrives {@code piece} bytes at a time, the clock moving before each read:
+     * by {@code gapsMillis[n]} before read {@code n}, and by the last gap for every later read.
+     */
+    private static final class Trickle extends InputStream {
+        private final byte[] bytes;
+        private final int piece;
+        private final AtomicLong clock;
+        private final long[] gapsMillis;
+        private int position;
+        private int reads;
+
+        Trickle(byte[] bytes, int piece, AtomicLong clock, long... gapsMillis) {
+            this.bytes = bytes;
+            this.piece = piece;
+            this.clock = clock;
+            this.gapsMillis = gapsMillis;
+        }
+
+        @Override
+        public int read(byte[] target, int offset, int length) {
+            if (position >= bytes.length) return -1;
+            clock.addAndGet(
+                    TimeUnit.MILLISECONDS.toNanos(
+                            gapsMillis[Math.min(reads++, gapsMillis.length - 1)]));
+            int count = Math.min(Math.min(length, piece), bytes.length - position);
+            System.arraycopy(bytes, position, target, offset, count);
+            position += count;
+            return count;
+        }
+
+        @Override
+        public int read() {
+            byte[] one = new byte[1];
+            return read(one, 0, 1) == -1 ? -1 : one[0] & 0xff;
+        }
     }
 }
