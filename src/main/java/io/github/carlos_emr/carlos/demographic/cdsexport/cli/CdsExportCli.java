@@ -149,6 +149,27 @@ public final class CdsExportCli {
             PrintStream out,
             PrintStream err,
             RuntimeFactory factory) {
+        return runAuthorized(
+                configuration, arguments, delegation, out, err, factory, Progress.CONSOLE);
+    }
+
+    /**
+     * How a foreground export reports progress: the first status line after {@code firstMillis},
+     * then one every {@code everyMillis}, and how long its thread is waited for once the command
+     * is done ({@code retireNanos}). A test shortens them.
+     */
+    record Progress(long firstMillis, long everyMillis, long retireNanos) {
+        static final Progress CONSOLE = new Progress(5_000, 15_000, TimeUnit.SECONDS.toNanos(30));
+    }
+
+    static int runAuthorized(
+            CdsProcessConfiguration configuration,
+            CdsExportCliArguments arguments,
+            CdsProcessDelegationVerifier.Delegation delegation,
+            PrintStream out,
+            PrintStream err,
+            RuntimeFactory factory,
+            Progress reporting) {
         CdsExportCliRuntime runtime = null;
         int outcome = 2;
         // A durable job can exist once a submission was attempted or an existing job is addressed.
@@ -183,7 +204,8 @@ public final class CdsExportCli {
             boolean work =
                     arguments.operation().equals("export")
                             || arguments.operation().equals("resume");
-            if (work && !arguments.detach()) state = foreground(runtime, run, out, err, retired);
+            if (work && !arguments.detach())
+                state = foreground(runtime, run, out, err, retired, reporting);
             else state = runtime.status(run);
             line(out, summary(state, "RESULT"));
             if (keptBeforeCancel > 0 && state.keptCharts() == 0)
@@ -293,9 +315,22 @@ public final class CdsExportCli {
         return null;
     }
 
-    /** Progress must retire before its owning Spring runtime closes, including interrupted waits. */
+    /** One console line of progress; the JSON it writes can fail. */
+    @FunctionalInterface
+    interface ProgressLine {
+        void write() throws IOException;
+    }
+
+    /**
+     * The progress thread of a foreground export. It is asked to stop when the command is done
+     * and waited for, but its outcome never replaces the job's: a thread still busy (a status
+     * read the database has not answered) is left to end with the process, as a daemon, and
+     * prints nothing more ({@link #print}). Waiting for it is bounded by {@code closeWaitNanos}.
+     */
     static final class ProgressExecutor extends ScheduledThreadPoolExecutor {
         private final long closeWaitNanos;
+        /** Set under the console lock: once closed, no progress line is printed. */
+        private boolean closed;
 
         ProgressExecutor() {
             this(TimeUnit.SECONDS.toNanos(30));
@@ -314,28 +349,47 @@ public final class CdsExportCli {
             this.closeWaitNanos = closeWaitNanos;
         }
 
-        @Override
-        public void close() {
+        /** Writes the line unless the executor has closed, so nothing follows the result. */
+        void print(ProgressLine line) throws IOException {
+            synchronized (CdsExportCli.class) {
+                if (!closed) line.write();
+            }
+        }
+
+        /**
+         * Stops the progress thread and waits for it, at most {@code closeWaitNanos}, keeping the
+         * caller's interrupt.
+         *
+         * @return whether the thread ended; false when it is still running and is left to the
+         *     process
+         */
+        boolean retire() {
+            synchronized (CdsExportCli.class) {
+                closed = true;
+            }
             boolean interrupted = Thread.interrupted();
             long deadline = System.nanoTime() + closeWaitNanos;
             try {
                 shutdownNow();
                 while (!isTerminated()) {
                     long remaining = deadline - System.nanoTime();
-                    if (remaining <= 0)
-                        throw new IllegalStateException("CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+                    if (remaining <= 0) return false;
                     try {
-                        if (!awaitTermination(remaining, TimeUnit.NANOSECONDS))
-                            throw new IllegalStateException(
-                                    "CDS_EXPORT_PROGRESS_CLEANUP_INCOMPLETE");
+                        if (!awaitTermination(remaining, TimeUnit.NANOSECONDS)) return false;
                     } catch (InterruptedException stop) {
                         interrupted = true;
                         shutdownNow();
                     }
                 }
+                return true;
             } finally {
                 if (interrupted) Thread.currentThread().interrupt();
             }
+        }
+
+        @Override
+        public void close() {
+            retire();
         }
     }
 
@@ -344,7 +398,8 @@ public final class CdsExportCli {
             String run,
             PrintStream out,
             PrintStream err,
-            java.util.concurrent.CountDownLatch retired)
+            java.util.concurrent.CountDownLatch retired,
+            Progress reporting)
             throws Exception {
         Thread owner = Thread.currentThread();
         Thread hook =
@@ -366,19 +421,27 @@ public final class CdsExportCli {
                         },
                         "cds-export-wait-stop");
         Runtime.getRuntime().addShutdownHook(hook);
-        try (var progress = new ProgressExecutor()) {
+        var progress = new ProgressExecutor(reporting.retireNanos());
+        try {
             progress.scheduleWithFixedDelay(
                     () -> {
                         try {
-                            line(out, summary(runtime.status(run), "PROGRESS"));
+                            var observed = runtime.status(run);
+                            progress.print(() -> line(out, summary(observed, "PROGRESS")));
                         } catch (Exception unavailable) {
-                            err.println(
-                                    "CDS_EXPORT_PROGRESS: current authorized status is temporarily unavailable");
+                            try {
+                                progress.print(
+                                        () ->
+                                                err.println(
+                                                        "CDS_EXPORT_PROGRESS: current authorized status is temporarily unavailable"));
+                            } catch (IOException impossible) {
+                                // err.println does not throw.
+                            }
                         }
                     },
-                    5,
-                    15,
-                    TimeUnit.SECONDS);
+                    reporting.firstMillis(),
+                    reporting.everyMillis(),
+                    TimeUnit.MILLISECONDS);
             // Hand-off (plan item 2.5): this process cannot render eForms, so a job that selects
             // Reports is first left to the online web worker, which claims queued jobs every few
             // seconds and renders them. This command then only watches. If no worker claims the
@@ -419,6 +482,15 @@ public final class CdsExportCli {
                 Thread.sleep(1000);
             }
         } finally {
+            // The job's durable outcome, or the failure that ended the wait, decides the exit
+            // code. A progress thread that has not stopped (a status read the database has not
+            // answered) is noted and left to end with the process; it prints nothing more.
+            if (!progress.retire())
+                err.println(
+                        "CDS_EXPORT_PROGRESS_LINGERING: progress reporting had not stopped after "
+                                + TimeUnit.NANOSECONDS.toSeconds(reporting.retireNanos())
+                                + " seconds and is left to end with the process; it does not"
+                                + " change the job's outcome");
             try {
                 Runtime.getRuntime().removeShutdownHook(hook);
             } catch (IllegalStateException shuttingDown) {
