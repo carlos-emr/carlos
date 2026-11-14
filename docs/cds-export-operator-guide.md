@@ -917,10 +917,10 @@ Chromium renderer that prints and faxes eForms. The data summary stays: it is th
 record of every stored value. A render never holds a patient. When the form cannot be
 rendered completely, its data summary carries a short note saying so and why (the
 renderer could not show all of the form's content, rendering timed out, the rendering
-browser failed or was unavailable, the eForm changed while the export ran, the
-rendered form was too large, or the export ran outside the web application); the
-export never approves an incomplete form the way a clinician can when printing. eForms
-the chart no longer lists (deleted, or replaced by an edit) and patient-independent
+browser failed or was unavailable, the renderer stayed busy, the eForm changed while
+the export ran, or the export ran outside the web application); the export never
+approves an incomplete form the way a clinician can when printing. eForms the chart no
+longer lists (deleted, or replaced by an edit) and patient-independent
 eForms are not exported; the ReadMe counts them per patient as "Patient records not
 exported".
 
