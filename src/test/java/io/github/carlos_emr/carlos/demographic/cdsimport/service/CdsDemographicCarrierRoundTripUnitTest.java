@@ -126,7 +126,11 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
 
     private Imported transfer(Map<String, String> row, List<CdsExportCapturedTextRowDto> rows)
             throws Exception {
-        var record = demographics(CdsExportDemographicDocumentFixture.document(row, rows));
+        return transfer(CdsExportDemographicDocumentFixture.document(row, rows));
+    }
+
+    private Imported transfer(byte[] document) throws Exception {
+        var record = demographics(document);
         org.mockito.Mockito.clearInvocations(preparation, demographicDao, extensionsDao);
         var stored = new AtomicReference<CdsDemographicNativeDto>();
         doAnswer(
@@ -279,6 +283,97 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
     }
 
     @Test
+    void shouldRestoreOptionalValuesTheExporterLeftOutOrNormalized_fromTheDocumentTheExporterWrites()
+            throws Exception {
+        String street = "1 Long Street Name Beyond The Fifty Character Line1 X";
+        assertThat(street.length()).isBetween(51, 60);
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("chart_no", "C\u0000");
+        row.put("email", "synthetic+tag@example.ca");
+        row.put("sin", "123 456 789");
+        row.put("official_lang", "ENG");
+        row.put("spoken_lang", "Not a language");
+        row.put("address", street);
+        row.put("city", "Toronto  West");
+        row.put("province", "ON");
+        row.put("postal", "M5V 2T6");
+        row.put("residentialProvince", "OT");
+        row.put("residentialPostal", "12345");
+        var patient = transfer(row, List.of()).patient();
+        assertThat(patient.getChartNo()).isEqualTo("C\u0000");
+        assertThat(patient.getEmail()).isEqualTo("synthetic+tag@example.ca");
+        assertThat(patient.getSin()).isEqualTo("123 456 789");
+        assertThat(patient.getOfficialLanguage()).isEqualTo("ENG");
+        assertThat(patient.getSpokenLanguage()).isEqualTo("Not a language");
+        assertThat(patient.getAddress()).isEqualTo(street);
+        assertThat(patient.getCity()).isEqualTo("Toronto  West");
+        assertThat(patient.getProvince()).isEqualTo("ON");
+        assertThat(patient.getPostal()).isEqualTo("M5V 2T6");
+        assertThat(patient.getResidentialProvince()).isEqualTo("OT");
+        assertThat(patient.getResidentialPostal()).isEqualTo("12345");
+        // A language stored as its code is written as that code; the importer would store the
+        // language's name, so the code travels too.
+        for (String spoken : List.of("eng", "fre", "fra")) {
+            row.put("spoken_lang", spoken);
+            assertThat(transfer(row, List.of()).patient().getSpokenLanguage()).isEqualTo(spoken);
+        }
+    }
+
+    @Test
+    void shouldRestoreValuesAnImportWouldStoreInAnotherForm_fromTheDocumentTheExporterWrites()
+            throws Exception {
+        // The element holds each value as before; without the record the receiving chart would
+        // hold 1234567890, ON, A, 905 555 0100, ON and MO.
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("hin", "1234 567 890");
+        row.put("hc_type", "CA-ON");
+        row.put("ver", " A");
+        row.put("phone", "905  555 0100");
+        row.put("address", "1 Main St");
+        row.put("province", "CA-ON");
+        row.put("patient_status", "Moved");
+        var imported = transfer(row, List.of());
+        var patient = imported.patient();
+        assertThat(patient.getHin()).isEqualTo("1234 567 890");
+        assertThat(patient.getHcType()).isEqualTo("CA-ON");
+        assertThat(patient.getVer()).isEqualTo(" A");
+        assertThat(patient.getPhone()).isEqualTo("905  555 0100");
+        assertThat(patient.getProvince()).isEqualTo("CA-ON");
+        assertThat(patient.getPatientStatus()).isEqualTo("Moved");
+        assertThat(imported.notices())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain(CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+    }
+
+    @Test
+    void shouldKeepAnElementChangedAfterTheExport_andReportTheCarriedValueNotRestored()
+            throws Exception {
+        // A carried value is restored only over the element the exporter wrote from it. When the
+        // document's element was changed afterwards, the element's value stands.
+        var row = CdsExportDemographicDocumentFixture.row();
+        row.put("official_lang", "ENG");
+        row.put("chart_no", "  C1");
+        String document =
+                new String(
+                        CdsExportDemographicDocumentFixture.document(row, List.of()),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(document).containsOnlyOnce(">ENG<").containsOnlyOnce(">C1<");
+        var imported =
+                transfer(
+                        document.replace(">ENG<", ">FRE<")
+                                .replace(">C1<", ">C2<")
+                                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(imported.patient().getOfficialLanguage()).isEqualTo("French");
+        assertThat(imported.patient().getChartNo()).isEqualTo("C2");
+        assertThat(imported.notices())
+                .filteredOn(
+                        notice ->
+                                notice.code().equals(CdsDemographicCarriedValuesResolver.NOT_RESTORED))
+                .extracting(CdsClinicalDiagnosticDto::field)
+                .containsExactlyInAnyOrder("PreferredOfficialLanguage", "ChartNumber");
+    }
+
+    @Test
     void shouldRestoreHiddenKeylessAndCarriedPropertyRows_asTheSenderStoredThem()
             throws Exception {
         // Before: a hidden row or a value without a key held the chart
@@ -322,6 +417,33 @@ class CdsDemographicCarrierRoundTripUnitTest extends CarlosUnitTestBase {
         assertThat(imported.notices())
                 .extracting(CdsClinicalDiagnosticDto::code)
                 .contains(CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+    }
+
+    @Test
+    void shouldRestoreNothingFromAnEarlierSendersRecord_whenTheExportingChartCarriesNothing()
+            throws Exception {
+        // A chart imported from another CARLOS re-exports that sender's native demographic record
+        // and then its own, which carries nothing here (the name was edited after the import).
+        // The earlier record's "Synthetic " would prove itself against the element; the
+        // receiving chart holds the name the exporting chart holds.
+        var earlier = CdsExportDemographicDocumentFixture.row();
+        earlier.put("first_name", "Synthetic ");
+        String document =
+                new String(
+                        CdsExportDemographicDocumentFixture.document(
+                                CdsExportDemographicDocumentFixture.row(), List.of(), earlier),
+                        java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(document.split("CARLOS.NativeDemographic.v1", -1)).hasSize(3);
+        var imported = transfer(document.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(imported.patient().getFirstName()).isEqualTo("Synthetic");
+        assertThat(imported.prepared().carried()).isEmpty();
+        assertThat(imported.notices())
+                .extracting(CdsClinicalDiagnosticDto::code)
+                .doesNotContain(
+                        CdsDemographicCarriedValuesResolver.RESTORED,
+                        CdsDemographicCarriedValuesResolver.NOT_RESTORED);
+        // As the exporting chart's own record, the same value is restored.
+        assertThat(transfer(earlier, List.of()).patient().getFirstName()).isEqualTo("Synthetic ");
     }
 
     @Test

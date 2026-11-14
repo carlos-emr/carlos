@@ -51,8 +51,10 @@ import java.util.Set;
  * ({@link CdsDemographicCarrierContract}): a required element (a legal name part, DateOfBirth,
  * Gender, PersonStatusCode) gets the value the rule gives, an optional element is left out, and
  * the exact stored column travels in the native demographic NewCategory record
- * ({@link CdsExportDemographicSupportingMapper}), where the CARLOS importer restores it. Nothing
- * is discarded or concatenated into clinical notes.
+ * ({@link CdsExportDemographicSupportingMapper}), where the CARLOS importer restores it. A value
+ * the element holds that a CARLOS import would store in another form (a code, a postal code
+ * without its space, a health number without its spaces) is carried the same way. Nothing is
+ * discarded or concatenated into clinical notes.
  */
 public final class CdsExportDemographicMapper {
     /** Rule of a missing or blank legal name part, written as the empty Part. */
@@ -77,6 +79,21 @@ public final class CdsExportDemographicMapper {
     /** Rule of a missing patient status, written as an empty PersonStatusAsPlainText. */
     static final String MISSING_STATUS =
             "MISSING_PATIENT_STATUS_WRITTEN_AS_EMPTY_PLAIN_TEXT_EXACT_VALUE_CARRIED";
+
+    /**
+     * Rule of a code the element holds in its schema form, which a CARLOS import would store
+     * instead of the stored one (a title in capitals, a language, issuer or subdivision code):
+     * the stored code is carried.
+     */
+    static final String READ_BACK_IN_ANOTHER_FORM = "REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED";
+
+    /** Rule of a health number stored with spaces, which a CARLOS import stores without them. */
+    static final String HEALTH_NUMBER_WITH_SPACES =
+            "HEALTH_NUMBER_WITH_SPACES_EXACT_VALUE_CARRIED";
+
+    /** Rule of a clinic status spelled as a CARLOS status label (Moved, Fired). */
+    static final String STATUS_SPELLED_AS_A_LABEL =
+            "STATUS_SPELLED_AS_A_CARLOS_LABEL_EXACT_VALUE_CARRIED";
 
     public CdsExportDemographicMappingDto map(CdsExportDemographicRowDto row) {
         var state = new State(row.fields());
@@ -106,6 +123,10 @@ public final class CdsExportDemographicMapper {
                         "official_lang",
                         "PreferredOfficialLanguage",
                         Map.of("English", "ENG", "French", "FRE", "ENG", "ENG", "FRE", "FRE"));
+        // A stored code (ENG, FRE) is imported back as English or French; it is carried.
+        if (official != null && official.equals(state.value("official_lang")))
+            state.alsoCarried(
+                    "official_lang", "PreferredOfficialLanguage", READ_BACK_IN_ANOTHER_FORM);
         String spoken = spoken(state);
         String email = state.optionalToken("email", "Email", 50);
         // The forms' e-mail box is free text (several addresses, "+" tags, apostrophes, up to 100
@@ -311,9 +332,7 @@ public final class CdsExportDemographicMapper {
         String code = CdsDemographicCarrierContract.title(stored);
         if (code == null) state.carry("title");
         else if (code.equals(stored)) state.mapped("title", "Names/NamePrefix", "REVIEWED_NATIVE_CODE");
-        else
-            state.alsoCarried(
-                    "title", "Names/NamePrefix", "REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED");
+        else state.alsoCarried("title", "Names/NamePrefix", READ_BACK_IN_ANOTHER_FORM);
         return code;
     }
 
@@ -355,8 +374,13 @@ public final class CdsExportDemographicMapper {
         String label =
                 io.github.carlos_emr.carlos.demographic.cds.contract.CdsPatientStatusLabels.LABELS
                         .getOrDefault(stored, stored);
-        if (status.text().equals(label)) state.mapped("patient_status", path, "EXACT_NATIVE_TEXT");
-        else state.alsoCarried("patient_status", path, CdsExportNativeFieldAssessments.REPLACED);
+        if (!status.text().equals(label))
+            state.alsoCarried("patient_status", path, CdsExportNativeFieldAssessments.REPLACED);
+        // A clinic status spelled as one of those labels would be imported back as its code.
+        else if (io.github.carlos_emr.carlos.demographic.cds.contract.CdsPatientStatusLabels.CODES
+                .containsKey(stored))
+            state.alsoCarried("patient_status", path, STATUS_SPELLED_AS_A_LABEL);
+        else state.mapped("patient_status", path, "EXACT_NATIVE_TEXT");
     }
 
     /**
@@ -414,9 +438,18 @@ public final class CdsExportDemographicMapper {
                 if (state.present(column)) state.carry(column);
             return null;
         }
-        state.token("hin", "HealthCard/Number", number);
+        // A CARLOS import matches and stores a health number without its spaces
+        // (CdsPatientIdentityResolver), so a number stored with spaces is also carried.
+        if (number.equals(state.value("hin")) && number.indexOf(' ') >= 0)
+            state.alsoCarried("hin", "HealthCard/Number", HEALTH_NUMBER_WITH_SPACES);
+        else state.token("hin", "HealthCard/Number", number);
         String version = state.optionalToken("ver", "HealthCard/Version", 2);
-        state.mapped("hc_type", "HealthCard/ProvinceCode", "PINNED_HEALTH_CARD_AUTHORITY");
+        // A CARLOS import stores the issuer without "CA-" (CdsHealthCardAuthority.normalize), so
+        // a stored CA-ON is also carried.
+        if (state.value("hc_type").equals(CdsHealthCardAuthority.normalize(province)))
+            state.mapped("hc_type", "HealthCard/ProvinceCode", "PINNED_HEALTH_CARD_AUTHORITY");
+        else
+            state.alsoCarried("hc_type", "HealthCard/ProvinceCode", READ_BACK_IN_ANOTHER_FORM);
         LocalDate expiry = state.date("hc_renew_date", "HealthCard/Expirydate");
         return new HealthCard(number, version, expiry, province);
     }
@@ -457,12 +490,10 @@ public final class CdsExportDemographicMapper {
             if (subdivision != null
                     && subdivision.startsWith("CA-")
                     && postal.matches("[A-Za-z][0-9][A-Za-z] [0-9][A-Za-z][0-9]")) {
-                boolean collapsed = !postal.equals(state.value(postalColumn));
+                // The element has no display space; the stored form travels in the record so a
+                // CARLOS import keeps it.
                 postal = postal.substring(0, 3) + postal.substring(4);
-                if (collapsed)
-                    state.alsoCarried(
-                            postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
-                else state.mapped(postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
+                state.alsoCarried(postalColumn, postalPath, "CANADIAN_POSTAL_DISPLAY_SEPARATOR");
             }
             if (!postal.matches(zip ? "[0-9-]*" : "[a-zA-Z0-9-]*")) {
                 state.carry(postalColumn);
@@ -480,8 +511,12 @@ public final class CdsExportDemographicMapper {
             state.mapped(column, path, "CANADIAN_SUBDIVISION_CODE");
             return "CA-" + value;
         }
-        if (value.startsWith("CA-") && CdsHealthCardAuthority.CANADIAN.contains(value.substring(3))
-                || CdsHealthCardAuthority.PINNED_US.contains(value)) {
+        if (value.startsWith("CA-") && CdsHealthCardAuthority.CANADIAN.contains(value.substring(3))) {
+            // A CARLOS import stores a Canadian code without "CA-"; the stored form is carried.
+            state.alsoCarried(column, path, READ_BACK_IN_ANOTHER_FORM);
+            return value;
+        }
+        if (CdsHealthCardAuthority.PINNED_US.contains(value)) {
             state.mapped(column, path, "EXACT_SUBDIVISION_CODE");
             return value;
         }
@@ -506,7 +541,11 @@ public final class CdsExportDemographicMapper {
                 Map.of("English", "eng", "French", "fre", "eng", "eng", "fre", "fre", "fra", "fra")
                         .get(value);
         if (reviewed != null) {
-            state.mapped("spoken_lang", "PreferredSpokenLanguage", "REVIEWED_NATIVE_CODE");
+            // A stored code (eng, fre, fra) is imported back as the display name; it is carried.
+            if (reviewed.equals(value))
+                state.alsoCarried(
+                        "spoken_lang", "PreferredSpokenLanguage", READ_BACK_IN_ANOTHER_FORM);
+            else state.mapped("spoken_lang", "PreferredSpokenLanguage", "REVIEWED_NATIVE_CODE");
             return reviewed;
         }
         String code =

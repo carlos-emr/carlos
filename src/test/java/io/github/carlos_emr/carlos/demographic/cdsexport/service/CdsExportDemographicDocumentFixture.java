@@ -68,34 +68,53 @@ public final class CdsExportDemographicDocumentFixture {
     public static byte[] document(
             Map<String, String> demographic, List<CdsExportCapturedTextRowDto> properties)
             throws Exception {
+        return document(demographic, properties, null);
+    }
+
+    /**
+     * The document of a chart imported from another CARLOS that re-exports the earlier sender's
+     * native demographic record before its own, as {@link CdsExportNewCategoryOccurrenceService}
+     * does: the chart's own record follows it, the record of a chart that carries nothing
+     * included ({@link CdsExportDemographicSupportingMapper#nothingCarried}).
+     *
+     * @param earlierSender the stored row of the earlier sender's chart, or null for a chart that
+     *     re-exports no retained record
+     */
+    public static byte[] document(
+            Map<String, String> demographic,
+            List<CdsExportCapturedTextRowDto> properties,
+            Map<String, String> earlierSender)
+            throws Exception {
         var row = new CdsExportDemographicRowDto(27, demographic);
         var base = new CdsExportDemographicMapper().map(row);
         var mapping =
                 new CdsExportDemographicPhonesMapper().map(base, row, properties, () -> {});
-        var captured = new LinkedHashMap<>(demographic);
-        captured.put("demographic_no", "27");
         var sections = new ArrayList<CdsExportXmlComposer.Section>();
         sections.add(
                 new CdsExportXmlComposer.Section(
                         new CdsExportIdentityDto(
                                 "a".repeat(64), CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
                         xml -> new CdsExportDemographicXmlWriter().write(mapping, xml)));
-        var record =
-                CdsExportDemographicSupportingMapper.map(
-                        new CdsExportDemographicSupportingMapper.Rows(
-                                27,
-                                new CdsExportCapturedTextRowDto(
-                                        "demographic", "0000000027", captured),
-                                null,
-                                properties,
-                                Map.of()),
-                        () -> {});
-        if (record != null)
+        var record = record(demographic, properties);
+        if (earlierSender != null) {
+            var earlier = record(earlierSender, List.of());
+            if (earlier == null)
+                throw new IllegalArgumentException("the earlier row carries nothing");
+            sections.add(
+                    new CdsExportXmlComposer.Section(
+                            new CdsExportIdentityDto(
+                                    "a".repeat(64), CdsCategory.NEW_CATEGORY, "e".repeat(64)),
+                            xml -> CdsExportDemographicSupportingMapper.write(earlier.json(), xml)));
+            if (record == null) record = CdsExportDemographicSupportingMapper.nothingCarried();
+        }
+        if (record != null) {
+            var own = record;
             sections.add(
                     new CdsExportXmlComposer.Section(
                             new CdsExportIdentityDto(
                                     "a".repeat(64), CdsCategory.NEW_CATEGORY, "d".repeat(64)),
-                            xml -> CdsExportDemographicSupportingMapper.write(record.json(), xml)));
+                            xml -> CdsExportDemographicSupportingMapper.write(own.json(), xml)));
+        }
         var output = new ByteArrayOutputStream();
         new CdsExportXmlComposer()
                 .compose(
@@ -120,5 +139,21 @@ public final class CdsExportDemographicDocumentFixture {
                         ignored -> {},
                         () -> {});
         return bytes;
+    }
+
+    /** The native demographic record the exporter writes for a chart, or null when none. */
+    private static CdsExportDemographicSupportingMapper.Record record(
+            Map<String, String> demographic, List<CdsExportCapturedTextRowDto> properties)
+            throws Exception {
+        var captured = new LinkedHashMap<>(demographic);
+        captured.put("demographic_no", "27");
+        return CdsExportDemographicSupportingMapper.map(
+                new CdsExportDemographicSupportingMapper.Rows(
+                        27,
+                        new CdsExportCapturedTextRowDto("demographic", "0000000027", captured),
+                        null,
+                        properties,
+                        Map.of()),
+                () -> {});
     }
 }

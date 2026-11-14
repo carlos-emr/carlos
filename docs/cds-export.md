@@ -54,14 +54,17 @@ base-row columns `alias`, `anonymous`, `children`, `citizenship`, `consentToUseE
 `previousAddress`, `pronoun`, `pronounId` and `sourceOfIncome`; the nurse, resident and midwife
 (`cust1`, `cust2`, `cust4`) with the stored provider number and, when the captured public
 provider row matches it exactly, that row's six public lookup columns (as the printed-prescription
-record carries its author); and every visible `demographicExt` property other than the mapped
-phone values (ethnicity, consents, paper-chart status, First Nations details, a site's configured
-keys, and an extension or mobile number the CDS phone element cannot hold), by row id, key and
-value, with `hidden` for a row whose flag is set. Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
+record carries its author); and every `demographicExt` property other than the mapped phone
+values (ethnicity, consents, paper-chart status, First Nations details, a site's configured keys,
+and an extension or mobile number the CDS phone element cannot hold), by row id, key and value,
+with `hidden` for a row whose flag is set. The `demographic` object also holds each column a
+Demographics element does not hold exactly ("Demographics values no element holds exactly"
+below). Demographics has no ResidualInfo, and NewCategory is where this exporter already carries
 native supporting context, so the record goes there; Names/OtherNames is not used for `alias` or
 `pref_name` because the pinned schema lists the name-purpose codes without their meanings, parts
 must be typed FAMC or GIV, and the CARLOS importer keeps OtherNames source-only. The importer
-keeps the record as protected source fields. A value is in the record only when populated; SQL
+keeps the record as protected source fields and restores the values `docs/cds-import.md` lists
+("CARLOS demographic values"). An ancillary value is in the record only when populated; SQL
 NULL and empty values stay ABSENT with their presence, and the form placeholders (newsletter
 "Unknown", country of origin "-1", the empty referral-doctor wrapper, interaction warning level
 "0") are accounted for as operational. When the job does not select NewCategory these values are
@@ -142,8 +145,10 @@ The demographic forms check what they save, but the REST demographic service
 no Demographics element holds. None of these holds the chart. Each required element gets the
 value of a documented rule, an optional one is left out, and the stored column travels exactly in
 the `demographic` object of `CARLOS.Demographic.v1` (SQL NULL as `null`) whenever the element is
-not the stored value. The rules are in `CdsDemographicCarrierContract`, which the CARLOS importer
-uses to prove and restore the stored value (`docs/cds-import.md`, "CARLOS demographic values").
+not the stored value. A value the element holds that a CARLOS import would store in another form
+(a code, a postal code without its space, a health number without its spaces) travels the same
+way. The rules are in `CdsDemographicCarrierContract`, which the CARLOS importer uses to prove and
+restore the stored value (`docs/cds-import.md`, "CARLOS demographic values").
 
 | Stored value | Element written | Rule | Before |
 | --- | --- | --- | --- |
@@ -153,6 +158,12 @@ uses to prove and restore the stored value (`docs/cds-import.md`, "CARLOS demogr
 | Middle names longer than one part | One `OtherName` GIV part per space-separated name, as before; the stored value is now also carried whenever the joined parts differ from it (doubled spaces) | `SPACE_SEPARATED_MIDDLE_NAMES_AS_ORDERED_PARTS` or one of the rules above | The exact form was dropped |
 | A title outside the NamePrefix list | `NamePrefix` left out | `NO_CDS_ELEMENT_CARRIED_IN_NATIVE_DEMOGRAPHIC_RECORD` | `CODE_REQUIRES_REVIEW` |
 | A form title code in capitals (DR, MRS, RT_HON) | The schema's spelling (Dr, Mrs, RtHon) | `REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED` | Imported back as Dr |
+| An official or spoken language stored as its code (ENG, FRE; eng, fre, fra), a health card issuer or address subdivision stored with "CA-" (CA-ON) | The code, as before | `REVIEWED_NATIVE_CODE_EXACT_VALUE_CARRIED` | Imported back as English, French or ON |
+| A plain-text status spelled as a CARLOS label (Moved, Fired) | `PersonStatusAsPlainText` as stored, as before | `STATUS_SPELLED_AS_A_CARLOS_LABEL_EXACT_VALUE_CARRIED` | Imported back as MO or FI |
+| A health number stored with spaces (1234 567 890) | `Number` as stored, as before | `HEALTH_NUMBER_WITH_SPACES_EXACT_VALUE_CARRIED` | Imported back without its spaces |
+| A Canadian postal code stored with its display space (K1A 0B1) | `PostalCode` without the space, as before | `CANADIAN_POSTAL_DISPLAY_SEPARATOR` | Imported back as K1A0B1 |
+| A SIN typed with spaces or hyphens (123 456 789) | The nine digits, as before | `SIN_SEPARATORS_REMOVED_EXACT_VALUE_CARRIED` | Carried, but imported back as 123456789 |
+| A name, health number, version code, phone number, chart number, e-mail or address part with leading, trailing or doubled white space | Its `xs:token` form, as every schema reader sees it, as before | `XS_TOKEN_WHITESPACE_COLLAPSED_EXACT_VALUE_CARRIED` | Carried, but imported back collapsed (a blank value held the chart: `TOKEN_WHITESPACE_REQUIRES_REVIEW`) |
 | Year, month and day that are not one calendar date (none, part, February 30: the REST service checks with a lenient calendar) | `DateOfBirth` `0001-01-01`, the earliest `xs:date`, which OSCAR and the legacy CDS export use for "no date" and nobody can take for a birth date | `BIRTH_DATE_NOT_A_CALENDAR_DATE_WRITTEN_AS_0001_01_01_EXACT_VALUE_CARRIED` | `EXACT_BIRTH_DATE_REQUIRED` |
 | A real date stored without a leading zero ("2") | The date in full | `BIRTH_DATE_WRITTEN_IN_FULL_EXACT_VALUE_CARRIED` | Imported back as "02" |
 | Sex missing, or a code other than M, F, O, U, X | `Gender` `U`, the schema's unknown gender (X is still O) | `UNKNOWN_OR_MISSING_SEX_WRITTEN_AS_U_EXACT_VALUE_CARRIED` | `REQUIRED_VALUE_MISSING`, `CODE_REQUIRES_REVIEW` |

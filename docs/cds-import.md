@@ -176,7 +176,7 @@ it is said here.
 | `CARLOS.NativeHistory.v1` `exactNarrative` / `narrative` | The exact body of a CPP item or note that holds a character XML cannot carry; the element and the narrative carrier show U+FFFD | Restored, see "Exact text a CARLOS sender carries" below. |
 | `CARLOS.NativeHistory.v1` `importedNotes`, `revisions`, extension facts | Imported Notes left out of Notes on an edited imported item; every revision | Source only. No native value is changed: Notes was never a native column. |
 | `CARLOS.NativeDemographic.v1` (`CARLOS.Demographic.v1`) `note` | A patient note longer than NoteAboutPatient (64,000), with a character XML cannot carry, or in a legacy frame | Restored, see "Exact text a CARLOS sender carries" below. A legacy frame needs nothing: the element already holds the note as the sender's chart shows it. |
-| `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones) and `properties` | The stored value of a Demographics element the sender could not write exactly, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
+| `CARLOS.NativeDemographic.v1` `demographic` (names, title, birth columns, sex, status, status date, health card, phones, chart number, e-mail, SIN, languages, address parts) and `properties` | The stored value of a Demographics element the sender could not write exactly or that this importer would store in another form, and the `demographicExt` rows | Restored, see "CARLOS demographic values" below. |
 | `CARLOS.NativeDemographic.v1` other `demographic` columns, `roster`, `careTeam`, `related` | Demographic, enrolment, contact, health care team and pharmacy values with no element (preferred name, pronoun, Date Joined, the nurse, a second pharmacy...) | Source only; the standard elements are imported as from any sender. |
 | `CARLOS.Medication.Source.v1`, `CARLOS.Medication.CurrentSource.v1`, `CARLOS.Allergy.Source.v1`, `CARLOS.Prevention.Source.v1` | The complete native row, including text an element shows with U+FFFD | The fields listed above are restored (quantity unit, as-needed, strength text, "Other" provider, reminder date), and the exact text of an element shown with U+FFFD (see "Exact text a CARLOS sender carries" below). The other columns stay source only. |
 | `CARLOS.Laboratory.v1`, `CARLOS.NativeLaboratory.v1`, `CARLOS.Observation.v1`, `CARLOS.NativeObservation.v1`, `CARLOS.Prescription.v1`, `CARLOS.ImportedLaboratoryReview.v1` | The stored message, measurement, script or comment | Source only. A laboratory time the sender could not write as sent (no calendar time, or an offset no date-time holds) is not lost: the sender states it in `TestResultsInformationReportedByTheLab` (`Collection time sent by the laboratory: ...`, `Requisition time sent by the laboratory: ...`), which the importer writes, as for any sender, into the laboratory information (NTE) of the result it builds. An empty `LaboratoryName` (the report named no laboratory) leaves the result's laboratory unnamed. |
@@ -265,7 +265,12 @@ record whenever the element is not that value: an empty or blank name is an empt
 character XML cannot carry is U+FFFD, a name longer than a part is its first 50 characters, a
 missing or unlisted sex is `U`, a missing status an empty `PersonStatusAsPlainText`, birth
 columns that are not one calendar date `0001-01-01`, an unlisted title, a health card without a
-usable number, a three-character version and a phone no element holds are left out. Its
+usable number, a three-character version and a phone no element holds are left out. Optional text
+(chart number, e-mail, address parts, phones, version, health number) is left out when no element
+holds it and written as its `xs:token` form otherwise, a SIN typed with spaces or hyphens as its
+nine digits, and a value this importer would store in another form (a language, issuer or
+subdivision code, a postal display space, a health number with spaces, a status spelled as Moved
+or Fired) is written as before and carried too. Its
 `properties` list holds the `demographicExt` rows no element states (a hidden row with its
 `hidden` flag, a value without a key, a second row of one phone key, every property with no
 Demographics element).
@@ -279,14 +284,19 @@ written (`CdsDemographicPersister.write`):
 - **Base-row columns.** A carried column is stored exactly, over the element's value, when the
   element is exactly what the rules write from it (`namePart`, `middleNameParts` joined with
   single spaces, `title`, `gender`, `personStatus`, `0001-01-01` for birth columns that state no
-  date) or, for an element the rules leave out (health card, version, expiry, status date,
-  phones), when the element is absent; and when the receiving column can hold it (its length, a
-  calendar date for a DATE column, NOT NULL for names and sex, and the record's own trimming of
-  the birth columns). Otherwise the element's value stands and the report names
-  `CDS_DEMOGRAPHIC_CARRIED_VALUE_NOT_RESTORED` with the element. A replay of an imported patient
-  compares the chart with the restored identity values (names, sex, status, birth columns, health
-  card number and issuer; `CdsPatientIdentityResolver.matchesCanonical`), and an empty name
-  `Part` a CARLOS sender carries no longer refuses the patient
+  date; the `xs:token` form of a chart number, e-mail, phone, version, health number or address
+  part; the nine digits of a SIN; a postal code without its display space; the issuer's
+  `CdsHealthCardAuthority.wire` code; a language or subdivision code as stored) or, for an
+  element the rules leave out (health card, version, expiry, status date, phones, chart number,
+  e-mail, SIN, languages, address parts), when the element is absent; and when the receiving
+  column can hold it (its length, a calendar date for a DATE column, NOT NULL for names and sex,
+  and the record's own trimming of the birth columns and of the mailing province). A document
+  whose element was changed after the export (another value, a second phone or address of the
+  type, a street in other lines) proves nothing. Otherwise the element's value stands and the
+  report names `CDS_DEMOGRAPHIC_CARRIED_VALUE_NOT_RESTORED` with the element. A replay of an
+  imported patient compares the chart with the restored identity values (names, sex, status,
+  birth columns, health card number and issuer; `CdsPatientIdentityResolver.matchesCanonical`),
+  and an empty name `Part` a CARLOS sender carries no longer refuses the patient
   (`DEMOGRAPHIC_REQUIRED_VALUE_MISSING`).
 - **Extension rows.** Each carried row is written as stored: key (none for a row without one),
   value and hidden flag. CARLOS keeps one row per key (`uk_demo_ext_single_value`, except the
@@ -295,8 +305,10 @@ written (`CdsDemographicPersister.write`):
   1. The rows are part of the import's written references, so abandoning the import removes them.
 - **Not restored, by decision.** A primary-physician number is local to the sending CARLOS; the
   physician is matched from `PrimaryPhysician` as for any sender. A zero date cannot be written
-  through the patient record. The other `demographic` columns, `roster`, `careTeam` and
-  `related` stay source only.
+  through the patient record. The `demographic` columns no Demographics element states (alias,
+  preferred name, pronoun, gender identity, the practice-administrative dates and the other
+  ancillary columns), `roster`, `careTeam` and `related` stay source only: they travel in the
+  retained record, and re-exporting the chart writes them again.
 
 What was restored is part of the sealed preparation (`CdsDemographicNativeDto.carried` and
 `properties`; a preparation sealed before them decodes them empty,
