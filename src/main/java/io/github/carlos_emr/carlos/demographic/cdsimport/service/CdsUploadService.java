@@ -50,7 +50,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -67,9 +70,22 @@ import org.springframework.transaction.support.TransactionTemplate;
  * written ({@code UPLOAD_DISK_RESERVE_REFUSED}, HTTP 507), after which the same upload resumes once
  * space is freed. The only count is of uploads still holding a reservation, which keeps a client
  * that begins uploads in a loop from exhausting inodes; one import needs one upload.
+ *
+ * <p>No clock refuses a chunk either. A chunk fails only when no byte of it arrives for {@link
+ * #CHUNK_STALL_MILLIS} ({@code UPLOAD_CHUNK_STALLED}, HTTP 408), and the page then sends the same
+ * offset again; a slow link that keeps delivering bytes is never cut off, however long the chunk
+ * takes.
  */
 @Service
 public class CdsUploadService {
+    /**
+     * The no-progress window of one chunk: the longest gap allowed between two reads that return
+     * bytes. The import page is given the same value and restarts its own wait on every upload and
+     * response progress event, so both sides give up only on silence.
+     */
+    public static final long CHUNK_STALL_MILLIS = 120_000L;
+
+    private static final long CHUNK_STALL_NANOS = TimeUnit.MILLISECONDS.toNanos(CHUNK_STALL_MILLIS);
     private static final int JOURNAL_BYTES = Long.BYTES * 2 + Integer.BYTES + 32;
     private static final Set<String> IMMUTABLE_STATES =
             Set.of(
@@ -84,15 +100,28 @@ public class CdsUploadService {
     private final CdsImportConfigurationService configuration;
     private final TransactionTemplate transaction;
     private final Semaphore incoming = new Semaphore(8);
+    private final LongSupplier nanoTime;
 
+    @Autowired
     public CdsUploadService(
             CdsUploadDao uploads,
             CdsImportAdmissionDao admission,
             CdsImportConfigurationService configuration,
             PlatformTransactionManager manager) {
+        this(uploads, admission, configuration, manager, System::nanoTime);
+    }
+
+    /** Test seam: {@code nanoTime} is the clock that measures the gap between received bytes. */
+    CdsUploadService(
+            CdsUploadDao uploads,
+            CdsImportAdmissionDao admission,
+            CdsImportConfigurationService configuration,
+            PlatformTransactionManager manager,
+            LongSupplier nanoTime) {
         this.uploads = uploads;
         this.admission = admission;
         this.configuration = configuration;
+        this.nanoTime = nanoTime;
         transaction = new TransactionTemplate(manager);
         transaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
         transaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
@@ -187,7 +216,7 @@ public class CdsUploadService {
             reserveDisk(directory, declaredBytes);
             MessageDigest digest = sha256();
             long read = 0;
-            long deadline = System.nanoTime() + 120_000_000_000L;
+            long lastBytes = nanoTime.getAsLong();
             try (FileChannel out =
                     FileChannel.open(
                             attempt,
@@ -200,9 +229,16 @@ public class CdsUploadService {
                 byte[] buffer = new byte[8192];
                 int n;
                 while ((n = source.read(buffer)) != -1) {
-                    if (Thread.currentThread().isInterrupted() || System.nanoTime() > deadline) {
-                        throw problem("UPLOAD_CHUNK_TIMEOUT", 408);
+                    // Only silence fails a chunk: every read that returns bytes restarts the
+                    // window, so the chunk's total time is never measured. A read that blocks is
+                    // ended by the container's own socket read timeout (an I/O failure the page
+                    // retries), which in the packaged install is shorter than this window.
+                    long now = nanoTime.getAsLong();
+                    if (Thread.currentThread().isInterrupted()
+                            || now - lastBytes > CHUNK_STALL_NANOS) {
+                        throw problem("UPLOAD_CHUNK_STALLED", 408);
                     }
+                    lastBytes = now;
                     read = Math.addExact(read, n);
                     if (read > declaredBytes) throw problem("UPLOAD_CHUNK_SIZE_MISMATCH", 400);
                     digest.update(buffer, 0, n);

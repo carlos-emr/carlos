@@ -49,7 +49,8 @@
 <main id="cdsImport" class="container-fluid p-3"
       data-context="${carlos:forHtmlAttribute(pageContext.request.contextPath)}"
       data-owner="${carlos:forHtmlAttribute(model.operatorKey)}"
-      data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}">
+      data-chunk-bytes="${carlos:forHtmlAttribute(model.chunkBytes)}"
+      data-chunk-stall-millis="${carlos:forHtmlAttribute(model.chunkStallMillis)}">
     <h1 class="h3"><fmt:message key="title" bundle="${cds}"/></h1>
     <p><fmt:message key="intro" bundle="${cds}"/></p>
 <% if (io.github.carlos_emr.carlos.demographic.cdsexport.web.CdsExportWebService.mayOpen(

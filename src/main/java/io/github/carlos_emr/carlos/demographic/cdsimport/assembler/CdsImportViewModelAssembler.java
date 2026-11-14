@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.assembler;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsImportConfigurationService;
 import io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel.CdsImportViewModel;
 import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsProgramContextService;
+import io.github.carlos_emr.carlos.demographic.cdsimport.service.CdsUploadService;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -90,6 +91,7 @@ public class CdsImportViewModelAssembler {
                 program,
                 facility,
                 Math.toIntExact(configuration.number("cds.import.upload.maxChunkBytes", 4L << 20)),
+                CdsUploadService.CHUNK_STALL_MILLIS,
                 sources);
     }
 }

@@ -23,9 +23,13 @@ package io.github.carlos_emr.carlos.demographic.cdsimport.viewmodel;
 
 import java.util.List;
 
-/** Immutable bounded presentation for the existing demographic import JSP. */
+/**
+ * Immutable bounded presentation for the existing demographic import JSP. {@code chunkStallMillis}
+ * is the upload's no-progress window, the server's own value, so that the page gives up on a chunk
+ * after exactly the silence the server would.
+ */
 public record CdsImportViewModel(boolean enabled, boolean learningEnabled, String operatorKey, String providerNo,
-        String programId, String facilityId, int chunkBytes, List<Source> sources) {
+        String programId, String facilityId, int chunkBytes, long chunkStallMillis, List<Source> sources) {
     public CdsImportViewModel { sources = List.copyOf(sources); }
     public boolean isEnabled() { return enabled; }
     public boolean isLearningEnabled() { return learningEnabled; }
@@ -34,6 +38,7 @@ public record CdsImportViewModel(boolean enabled, boolean learningEnabled, Strin
     public String getProgramId() { return programId; }
     public String getFacilityId() { return facilityId; }
     public int getChunkBytes() { return chunkBytes; }
+    public long getChunkStallMillis() { return chunkStallMillis; }
     public List<Source> getSources() { return sources; }
 
     public record Source(String namespace, String profile, String label) {
