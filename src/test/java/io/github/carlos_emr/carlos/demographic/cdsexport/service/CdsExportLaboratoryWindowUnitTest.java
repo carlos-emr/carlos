@@ -429,8 +429,10 @@ class CdsExportLaboratoryWindowUnitTest extends CdsExportLaboratoryWindowFixture
         route(2, 3_002, "102", "A", "2026-07-12 11:00:00", null);
         route(3, 3_009, "102", "A", "2026-07-13 11:00:00", "Call patient");
         route(4, 3_011, "101", "A", "2026-07-13 12:00:00", null);
+        // A status CARLOS does not write travels whole like a comment (it held the chart).
+        route(5, 3_011, "101", "Z", "2026-07-13 12:30:00", null);
         var whole = comments();
-        assertThat(whole).containsExactly("00000002/3002/1", "00000009/3009/1");
+        assertThat(whole).containsExactly("00000002/3002/1", "00000009/3009/1", "0000000b/3011/1");
         assertThat(routePasses).isEqualTo(1);
         bounds = bounds.withWindow(3, 64L << 20);
         assertThat(comments()).isEqualTo(whole);

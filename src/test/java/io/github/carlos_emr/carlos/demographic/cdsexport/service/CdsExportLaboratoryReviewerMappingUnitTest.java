@@ -216,10 +216,29 @@ class CdsExportLaboratoryReviewerMappingUnitTest {
     }
 
     @Test
-    void shouldHoldOnlyThePatient_forAnUnknownStatusOrAnUnknownReviewer() throws Exception {
-        assertThatThrownBy(
-                        () -> reviews(List.of(route(9, "101", "Z", "2026-07-10 16:45:00", null))))
-                .hasMessage("CDS_EXPORT_INBOX_ROUTING_STATUS_REQUIRES_REVIEW");
+    void shouldCarryARouteWhole_whenItsStatusIsNoneCarlosWrites() throws Exception {
+        // Before: CDS_EXPORT_INBOX_ROUTING_STATUS_REQUIRES_REVIEW held the chart. Only a request
+        // no screen sends stores such a status; it is no acknowledgement and travels exactly.
+        var unknown = route(9, "101", "Z", "2026-07-10 16:45:00", null);
+        var plain = route(12, "101", "N", "2026-07-10 16:50:00", null);
+        var reviews = reviews(List.of(unknown, plain));
+        assertThat(reviews.reviewers()).isEmpty();
+        assertThat(reviews.carried()).containsExactly(unknown);
+        assertThat(CdsExportInboxReviewMapper.carried(List.of(plain, unknown)))
+                .containsExactly(unknown);
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(unknown)).isTrue();
+        assertThat(CdsExportInboxReviewMapper.carriedByReport(plain)).isFalse();
+        for (String column : List.of("id", "lab_no", "lab_type", "provider_no", "status", "timestamp", "mrpDemographicNo"))
+            assertThat(rule(reviews, unknown, column))
+                    .isEqualTo(CdsExportInboxReviewMapper.UNKNOWN_STATUS_RULE);
+        assertThat(rule(reviews, plain, "status")).isEqualTo("UNACKNOWLEDGED_INBOX_ROUTING_WORKFLOW");
+        var carried = CdsExportInboxReviewMapper.carriedFields(reviews.carried(), "NewCategory/ResidualInfo");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(reviews.carried(), carried, () -> {});
+    }
+
+    @Test
+    void shouldHoldOnlyThePatient_forAnUnknownReviewer() throws Exception {
         assertThatThrownBy(
                         () -> reviews(List.of(route(10, "999", "A", "2026-07-10 16:45:00", null))))
                 .hasMessage("CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED");

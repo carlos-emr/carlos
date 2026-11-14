@@ -985,7 +985,8 @@ review after the first) and each acknowledged route becomes one more `Reports/Re
 (unbounded in the XSD), decided by `CdsExportInboxReviewMapper.report()` with the routing
 rules the laboratory path uses. DateTimeReportReviewed is a date, so a review naming the same
 provider on the same date as an earlier element is not written again, and every review row,
-acknowledged route and commented route travels whole in the report's Notes source context
+acknowledged route, commented route and route of a status CARLOS does not write travels whole
+in the report's Notes source context
 (`reviews`, with the public names of the reviewers in `reviewers`), which keeps the exact
 times and the comments. A document without such rows has unchanged Notes. An undated review
 record stays in Notes only. The reviewers and routes of a removed document get the same
@@ -1225,8 +1226,16 @@ element. `N` (new), `F` (filed), `X` (removed from an inbox) and a blank legacy 
 `UNACKNOWLEDGED_INBOX_ROUTING_WORKFLOW`, provider `0` or blank is
 `UNCLAIMED_INBOX_ROUTING_PLACEHOLDER`, the identity and report link columns are
 `LOCAL_INBOX_ROUTING_IDENTITY_AND_REPORT_LINK` and `mrpDemographicNo` is
-`MRP_RULE_ROUTING_PROVENANCE`, all operational. Any other status, or an acknowledgement whose
-provider has no provider row, holds the patient. A comment (on any route) is clinical text
+`MRP_RULE_ROUTING_PROVENANCE`, all operational. Any other status is none CARLOS writes: the
+inbox screens write `A`, `N`, `F` and `X`, routing rules and the lab feeds `N` or `F`, and only a
+request no screen sends can make `ReportStatusUpdate2Action` store another first character. Such
+a route is no acknowledgement; it travels whole, its status exact, as a commented route does
+(`INBOX_ROUTE_OF_A_STATUS_CARLOS_DOES_NOT_WRITE_CARRIED_WHOLE`), in the laboratory residual or
+the document's Notes, and holds nothing (`CDS_EXPORT_INBOX_ROUTING_STATUS_REQUIRES_REVIEW` is
+gone). An acknowledgement whose provider has no provider row holds the patient
+(`CDS_EXPORT_NATIVE_REPORT_REVIEWER_REQUIRED`; see
+[Holds that remain in reports, laboratory results and HRM](#holds-that-remain-in-reports-laboratory-results-and-hrm)).
+A comment (on any route) is clinical text
 about the report: the route travels whole, as one more `providerLabRouting` row, in the
 report's `CARLOS.NativeLaboratory.v1` residual, which is per report rather than per result, so
 the comment is neither repeated on every result nor squeezed into PhysiciansNotes; its fields
