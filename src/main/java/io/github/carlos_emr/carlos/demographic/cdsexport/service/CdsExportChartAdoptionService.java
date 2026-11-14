@@ -353,6 +353,91 @@ public class CdsExportChartAdoptionService {
             return new Adopted(chart, List.copyOf(copies), candidate.prior.epoch);
         }
 
+        /**
+         * {@link #adopt(Candidate, String, CdsExportPatientCaptureDto, CdsExportStagingService)} for
+         * a patient file of charts linked by Merge Records: the candidate must be the file of the
+         * same head with the same merged charts, built from captures whose group fingerprint is
+         * {@code fingerprint} ({@link CdsExportChartFingerprints#group}). A merge, an unmerge, a
+         * privilege change or another head changes that fingerprint, so the file is built again;
+         * a kept file whose head is now a merged chart is never asked for, because candidates are
+         * asked by head.
+         */
+        Adopted adopt(
+                Candidate candidate,
+                String fingerprint,
+                CdsExportNativeCaptureService.Group group,
+                CdsExportStagingService store)
+                throws IOException {
+            Objects.requireNonNull(candidate);
+            Objects.requireNonNull(group);
+            var head = group.charts().getFirst();
+            if (disabled
+                    || candidate.patient() != head.capture().patient()
+                    || !candidate.entry.fingerprint().equals(fingerprint)) return null;
+            CdsExportClinicalPackageService.Chart prior;
+            try {
+                prior =
+                        CdsExportClinicalPackageService.checkpointChart(
+                                candidate.entry.chart(), candidate.patient());
+            } catch (IOException malformed) {
+                unusable(candidate.prior, malformed);
+                return null;
+            }
+            // The same charts, in the same order: the fingerprint names them, this checks it.
+            var charts = new ArrayList<Integer>();
+            for (var chart : group.charts()) charts.add(chart.capture().patient());
+            if (!prior.charts().equals(charts)) return null;
+            var copies = new ArrayList<CdsExportStagedFileDto>();
+            try {
+                for (var member : CdsExportClinicalPackageService.chartMembers(prior))
+                    copies.add(copy(candidate.prior.chain.store(), member, store));
+            } catch (PriorUnreadable unreadable) {
+                discard(store, copies, unreadable);
+                unusable(candidate.prior, (IOException) unreadable.getCause());
+                return null;
+            } catch (IOException | RuntimeException | Error failure) {
+                discard(store, copies, failure);
+                throw failure;
+            }
+            var attachments = new ArrayList<CdsExportPackageMemberDto>();
+            for (int index = 0; index < prior.attachments().size(); index++)
+                attachments.add(
+                        new CdsExportPackageMemberDto(
+                                prior.attachments().get(index).relativePath(),
+                                copies.get(index + 1)));
+            // Each chart's notes and manifest come from its new capture.
+            var members = new ArrayList<CdsExportClinicalPackageService.ChartMember>();
+            for (int index = 1; index < group.charts().size(); index++) {
+                var chart = group.charts().get(index);
+                members.add(
+                        new CdsExportClinicalPackageService.ChartMember(
+                                chart.capture().patient(),
+                                chart.manifest().plaintextSha256(),
+                                notes(chart)));
+            }
+            var chart =
+                    new CdsExportClinicalPackageService.Chart(
+                            prior.patient(),
+                            head.manifest().plaintextSha256(),
+                            prior.relative(),
+                            prior.naming(),
+                            copies.getFirst(),
+                            List.copyOf(attachments),
+                            prior.validation(),
+                            prior.dataSummaries(),
+                            prior.listed(),
+                            prior.notExported(),
+                            notes(head),
+                            members,
+                            prior.merge());
+            return new Adopted(chart, List.copyOf(copies), candidate.prior.epoch);
+        }
+
+        private static List<CdsExportNoteAccessDto> notes(CdsExportPatientCaptureDto source) {
+            var noteScope = source.capture().tables().get("casemgmt_note");
+            return noteScope == null ? List.of() : noteScope.noteAccess();
+        }
+
         /** The adopted chart was accepted into this attempt (its patient's session closed). */
         void accepted() {
             adopted++;

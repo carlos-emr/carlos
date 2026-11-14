@@ -270,6 +270,70 @@ class CdsExportChartAdoptionUnitTest {
     }
 
     @Test
+    void shouldAdoptAnUnchangedMergedFile_andBuildItAgainWhenItsGroupChanged() throws Exception {
+        // 5 is the head of a file that holds merged chart 9.
+        var head = capture(5, "1".repeat(64));
+        var merged = capture(9, "2".repeat(64));
+        String fingerprint =
+                CdsExportChartFingerprints.group(List.of(head.capture(), merged.capture()));
+        var prior = new Kept(1, PARAMETERS);
+        var single = chart(attempts.get(1L), 5);
+        var file =
+                new CdsExportClinicalPackageService.Chart(
+                        single.patient(),
+                        single.sourceManifestSha256(),
+                        single.relative(),
+                        single.naming(),
+                        single.xml(),
+                        single.attachments(),
+                        single.validation(),
+                        single.dataSummaries(),
+                        single.listed(),
+                        single.notExported(),
+                        List.of(),
+                        List.of(
+                                new CdsExportClinicalPackageService.ChartMember(
+                                        9, "6".repeat(64), List.of())),
+                        null);
+        prior.persister.chart(
+                5, true, fingerprint, CdsExportClinicalPackageService.checkpointRecord(file));
+        var kept = prior.seal();
+        var group =
+                new CdsExportNativeCaptureService.Group(
+                        List.of(head, merged),
+                        new CdsExportStagedFileDto(random(), "GROUP_MANIFEST", "5".repeat(64), 9));
+        try (var session = open(PARAMETERS, kept)) {
+            var candidate = session.candidate(5);
+            assertThat(candidate).isNotNull();
+            // A merge, an unmerge, a privilege change or another head changes the fingerprint.
+            var changed =
+                    CdsExportChartFingerprints.group(
+                            List.of(head.capture(), capture(9, "3".repeat(64)).capture()));
+            assertThat(session.adopt(candidate, changed, group, current)).isNull();
+            // A single chart's fingerprint never adopts a group's file.
+            assertThat(
+                            session.adopt(
+                                    candidate,
+                                    CdsExportChartFingerprints.capture(head.capture()),
+                                    head,
+                                    current))
+                    .isNull();
+            var adopted = session.adopt(candidate, fingerprint, group, current);
+            assertThat(adopted).isNotNull();
+            assertThat(adopted.chart().charts()).containsExactly(5, 9);
+            // Each chart's notes and manifest are its new capture's.
+            var member = adopted.chart().members().getFirst();
+            assertThat(member.sourceManifestSha256())
+                    .isEqualTo(merged.manifest().plaintextSha256());
+            assertThat(member.notes()).hasSize(1);
+            assertThat(member.notes().getFirst().patient()).isEqualTo(9);
+            assertThat(adopted.chart().notes().getFirst().patient()).isEqualTo(5);
+            assertThat(read(current, adopted.chart().xml()))
+                    .isEqualTo(read(attempts.get(1L), file.xml()));
+        }
+    }
+
+    @Test
     void shouldAdoptAnUnchangedChart_byCopyingItIntoThisAttemptsOwnStore() throws Exception {
         var capture = capture(5, "1".repeat(64));
         String fingerprint = CdsExportChartFingerprints.capture(capture.capture());
