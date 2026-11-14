@@ -94,15 +94,11 @@ public class CdsExportActivePlanService {
             throw new IOException("CDS_EXPORT_BUILD_VERSION_UNAVAILABLE");
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        // A chart's capture is streamed to staging and has no size limit.
+                        // A chart's capture is streamed to staging and has no size limit, and
+                        // no count of rows or size refuses a chart: a long one is read in
+                        // windows (Bounds.WINDOW_ROWS, Bounds.WINDOW_BYTES).
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        // No count of rows refuses a chart any more: the component is what
-                        // the readers that still take it are told, and the setting is retired.
-                        1_000_000,
-                        number("maxIndexBytes", 64L << 20, 1, 64L << 20),
-                        (int) number("maxNativeRows", 8192, 1, 8192),
-                        (int) number("maxLookupRows", 131_072, 1, 131_072));
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
         retired();
         return new Plan(
                 build,
@@ -143,7 +139,13 @@ public class CdsExportActivePlanService {
                     "captureTimeoutSeconds",
                     // The count of one chart's rows and occurrences: hospital reports, its last
                     // reader, are read window by window (CdsExportSectionWindowPlanner).
-                    "maxIndexRows");
+                    "maxIndexRows",
+                    // The rows of one table of a chart, the size of what a section held for it
+                    // and the rows of its lookup tables: every section, History last, reads a
+                    // long chart window by window, and nothing else read them.
+                    "maxNativeRows",
+                    "maxLookupRows",
+                    "maxIndexBytes");
 
     private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
             new java.util.concurrent.atomic.AtomicBoolean();

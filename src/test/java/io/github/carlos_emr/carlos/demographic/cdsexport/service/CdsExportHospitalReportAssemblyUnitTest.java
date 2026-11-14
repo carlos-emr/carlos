@@ -84,11 +84,7 @@ class CdsExportHospitalReportAssemblyUnitTest {
     private CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
                     CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    1000,
-                    32L << 20,
-                    100,
-                    1000);
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
     private CdsExportStagingService store;
     private CdsExportLeaseDto lease;
     private CdsExportClinicalOccurrenceService.Result result;

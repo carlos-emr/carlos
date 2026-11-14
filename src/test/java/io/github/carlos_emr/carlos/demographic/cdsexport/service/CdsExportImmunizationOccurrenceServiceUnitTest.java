@@ -642,11 +642,7 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        1_000_000,
-                        64L << 20,
-                        8192,
-                        131_072);
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
         compose(f, false);
         // Every seventh added row is a superseded version: accounted, not exported.
         assertThat(f.receipts).hasSize(8193 - 1171);
@@ -735,7 +731,7 @@ class CdsExportImmunizationOccurrenceServiceUnitTest {
         CdsExportClinicalOccurrenceService.Result result;
         CdsExportClinicalOccurrenceService.Bounds bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
+                        100000, 8L << 20);
     }
 
     private Fixture fixture(boolean imported, String notes) throws Exception {

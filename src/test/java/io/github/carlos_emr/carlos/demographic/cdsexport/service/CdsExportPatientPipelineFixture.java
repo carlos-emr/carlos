@@ -58,7 +58,7 @@ final class CdsExportPatientPipelineFixture {
             mock(CdsExportClinicalOccurrenceService.class);
     final CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
-                    10000, 8L << 20, 1000, 8L << 20, 100, 100);
+                    10000, 8L << 20);
     final CdsExportStagingService store;
     final CdsExportLeaseDto lease;
     final CdsExportPatientCaptureDto source;

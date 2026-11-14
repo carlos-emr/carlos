@@ -278,7 +278,7 @@ final class CdsExportCareCaptureFixture {
     static CdsExportClinicalOccurrenceService.Bounds bounds(int nativeRows) {
         // The care assembly's window; the four middle components belong to other sections.
         return new CdsExportClinicalOccurrenceService.Bounds(
-                        100_000_000, 2L << 30, 1_000_000, 64L << 20, 8192, 131_072)
+                        100_000_000, 2L << 30)
                 .withWindow(nativeRows, 64L << 20);
     }
 

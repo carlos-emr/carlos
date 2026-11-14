@@ -66,7 +66,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
     @Test void shouldRejectMissingNativeDomains_beforeOpeningAnySourceOrRetainedValues() throws Exception {
         var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, source.capture().tables().keySet(), source,
-                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
@@ -74,7 +74,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
     @Test void shouldRejectInvalidPatientIdentity_beforeEmittingAnyXml() throws Exception {
         var source = source(Map.of("demographic", new CdsExportCapturedTableDto(Set.of("demographic_no"), 1, HASH)));
         assertThatThrownBy(() -> service.append(lease(), patient, "bad", source.capture().tables().keySet(), source,
-                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
@@ -89,7 +89,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
             tables.put(table, new CdsExportCapturedTableDto(Set.of("id"), table.equals("Contact") ? 11 : 0, HASH));
         var source = source(tables);
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
-                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {}))
                 .hasMessage("CDS_EXPORT_MERGE_SCOPE_INVALID");
     }
@@ -101,7 +101,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
                 Set.of(CdsCategory.DEMOGRAPHICS), xml -> {
                     try {
                         service.append(lease(), patient, HASH, source.capture().tables().keySet(), source,
-                                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                                 mock(CdsExportRunControl.class), xml, receipt -> {});
                     } catch (java.io.IOException refused) { /* The composer must remain poisoned. */ }
                 }, ignored -> {}, 1L << 20, () -> {})).hasMessage("CDS_EXPORT_SECTION_WRITE_FAILED");
@@ -112,7 +112,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
             tables.put(table, new CdsExportCapturedTableDto(Set.of("id"), 0, HASH));
         var source = source(tables); when(source.capture().patient()).thenReturn(28);
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
-                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {})).hasMessage("CDS_EXPORT_DEMOGRAPHIC_OCCURRENCE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses, captures, rows);
     }
@@ -123,7 +123,7 @@ class CdsExportDemographicOccurrenceServiceUnitTest {
         var source = source(tables); when(rows.forEach(any(), any(), any(), eq("demographic_merged"), any(), anyLong(), anyLong(), anyInt(), any(), any()))
                 .thenReturn(mock(CdsExportNativeCaptureDto.class));
         assertThatThrownBy(() -> service.append(lease(), patient, HASH, tables.keySet(), source,
-                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100, 100, 100, 10, 10),
+                new CdsExportStagedFileDto("4".repeat(64), "RETAINED_MANIFEST", HASH, 1), new CdsExportClinicalOccurrenceService.Bounds(100, 100),
                 mock(CdsExportRunControl.class), emitter(), receipt -> {})).hasMessage("CDS_EXPORT_MERGE_SCOPE_INVALID");
         verifyNoInteractions(values, verification, witnesses);
     }

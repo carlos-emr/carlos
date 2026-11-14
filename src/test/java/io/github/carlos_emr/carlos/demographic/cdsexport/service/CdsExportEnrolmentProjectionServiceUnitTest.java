@@ -74,7 +74,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     private CdsExportEnrolmentProjectionService service;
     private CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
-                    100000, 8L << 20, 1000, 1L << 20, 100, 100);
+                    100000, 8L << 20);
 
     @BeforeEach
     void fixture() throws Exception {
@@ -271,7 +271,7 @@ class CdsExportEnrolmentProjectionServiceUnitTest {
     void shouldProjectEnrolment_pastTheFormerLookupByteBudget() throws Exception {
         bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 1024, 100, 100);
+                        100000, 8L << 20);
         // Before: provider lookups past 1,024 bytes stopped the job
         // (CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT) before the note was read.
         assertThat(project()).isNotNull();

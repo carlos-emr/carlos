@@ -565,7 +565,7 @@ class CdsExportNoteLinkMariaDbIntegrationTest {
                                     new CdsExportStagedFileDto(
                                             "4".repeat(64), "PAYLOAD_MANIFEST", MANIFEST, 1),
                                     new CdsExportClinicalOccurrenceService.Bounds(
-                                            100_000, 64L << 20, 1000, 8L << 20, 100, 1000),
+                                            100_000, 64L << 20),
                                     control,
                                     emitter,
                                     session -> {

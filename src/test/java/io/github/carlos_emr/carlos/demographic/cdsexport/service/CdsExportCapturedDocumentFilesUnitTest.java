@@ -113,7 +113,7 @@ class CdsExportCapturedDocumentFilesUnitTest {
                         patient,
                         Set.of(TABLE),
                         source,
-                        new CdsExportClinicalOccurrenceService.Bounds(10, 4096, 10, 4096, 10, 10),
+                        new CdsExportClinicalOccurrenceService.Bounds(10, 4096),
                         control);
     }
 

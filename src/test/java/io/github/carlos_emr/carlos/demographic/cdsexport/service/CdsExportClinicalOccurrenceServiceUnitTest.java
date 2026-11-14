@@ -77,7 +77,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         var output = mock(CdsExportClinicalOccurrenceService.Receipts.class);
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        1000, 1L << 20, 100, 1L << 20, 100, 100);
+                        1000, 1L << 20);
         doAnswer(
                         call -> {
                             call.<CdsExportXmlComposer.Sections>getArgument(0).write(xml);
@@ -146,7 +146,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         var output = mock(CdsExportClinicalOccurrenceService.Receipts.class);
         var bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        1000, 1L << 20, 100, 1L << 20, 100, 100);
+                        1000, 1L << 20);
         doAnswer(
                         call -> {
                             call.<CdsExportXmlComposer.Sections>getArgument(0).write(xml);
@@ -934,11 +934,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        1_000_000,
-                        64L << 20,
-                        8192,
-                        131_072);
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
         compose(f, false);
         assertThat(f.receipts).hasSize(8193);
         assertThat(f.result.nativeRows()).isEqualTo(8193);
@@ -980,11 +976,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         f.bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
                         CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                        1_000_000,
-                        64L << 20,
-                        8192,
-                        131_072);
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
         compose(f, false);
         assertThat(f.receipts).hasSize(3543);
         // The whole chart did not fit 64 MiB, so it was read in two windows after that attempt.
@@ -1050,7 +1042,7 @@ class CdsExportClinicalOccurrenceServiceUnitTest {
         CdsExportClinicalOccurrenceService.Result result;
         CdsExportClinicalOccurrenceService.Bounds bounds =
                 new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
+                        100000, 8L << 20);
         // Each lookup scan may hand out fresh rows, so a test can see which ones stay reachable.
         java.util.function.Supplier<List<CdsExportCapturedTextRowDto>> lookupSource;
         long documentBytes = 8L << 20;

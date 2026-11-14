@@ -1397,8 +1397,8 @@ row its import unit names, whichever note that row now belongs to, so the field 
 compares the same rows as when the chart is read whole; a note so named is never one of the
 window's owners. When all seven categories were emitted, the windows took every note, extension,
 issue link and attached record the capture holds, each once (`requireEveryRowTaken`).
-`cds.export.maxNativeRows` and `maxLookupRows` no longer refuse a chart here: a chart of 8,193
-notes, and one of 131,073 diagnoses, are exported (`CdsExportHistoryWindowUnitTest`). The plan
+`cds.export.maxNativeRows` and `maxLookupRows`, which stopped the job here, are retired: a chart
+of 8,193 notes, and one of 131,073 diagnoses, are exported (`CdsExportHistoryWindowUnitTest`). The plan
 of the history inventory (`CdsExportHistoryInventoryService`) reads the same chart-wide facts.
 
 
@@ -1435,7 +1435,14 @@ worker claims the job; that successor is then authoritative.
 `maxMetadataBytes`, `maxZipBytes`, `maxCiphertextBytes` and `maxStagedFileBytes` are no longer
 read (`CdsExportActivePlanService.RETIRED`); neither is `maxIndexRows`, the count of one
 chart's rows and occurrences, whose last reader (hospital reports) reads a chart window by
-window. An installation that still sets one gets one log
+window, nor are `maxNativeRows` (the rows of one table of a chart), `maxLookupRows` (the rows
+of its lookup tables) and `maxIndexBytes` (what a section held for it): their last reader,
+History, reads a chart window by window, and every other reader only passed them on to code
+that no longer applied them. `CdsExportClinicalOccurrenceService.Bounds` keeps only what every
+read of a capture states (`fields`, `bytes`, unlimited in the installed plan) and the window
+size (`windowRows`, `windowBytes`); an invalid `maxIndexBytes`, which used to stop every export
+with `CDS_EXPORT_CONFIGURATION_INVALID`, is ignored like the others. An installation that still
+sets one gets one log
 line naming the settings (`CDS_EXPORT_RETIRED_SETTINGS_IGNORED`, names only) and no refusal,
 whatever the value. The fixed "format" ceilings that stood behind them (2,000,000 charts,
 2,000,000 members, 64 GiB of inventory, 64 GiB of supporting files, 512 GiB of member bytes) are
@@ -4075,8 +4082,8 @@ shared, its values one UTF-8 byte array) and each unit's native-baseline witness
 it on each read, and `CdsExportRetainedReceiptVerificationService` decodes a unit's witness when
 its rows are compared instead of holding every unit's decoded rows at once. Nothing refuses the
 index, the receipt comparison or the history section's rows for their size: `maxIndexRows` and
-`maxIndexBytes` are not applied to them, the comparison's reference count is not bounded, and
-no heap budget stands in their place.
+`maxIndexBytes` are retired, the comparison's reference count is not bounded, the history
+section reads a long chart window by window, and no heap budget stands in their place.
 
 What is left is the heap itself. The index and the sections that reconcile an imported chart
 (the retained field values, the history and laboratory contexts) still hold the chart as Java

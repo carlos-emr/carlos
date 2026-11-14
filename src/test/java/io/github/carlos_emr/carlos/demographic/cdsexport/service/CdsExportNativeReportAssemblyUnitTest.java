@@ -89,11 +89,7 @@ class CdsExportNativeReportAssemblyUnitTest {
     private CdsExportClinicalOccurrenceService.Bounds bounds =
             new CdsExportClinicalOccurrenceService.Bounds(
                     CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
-                    1000,
-                    32L << 20,
-                    100,
-                    1000);
+                    CdsExportClinicalOccurrenceService.Bounds.UNLIMITED);
     /** Documents captured without their row, without their link, or without a witness. */
     private final Set<Integer> withoutDocument = new HashSet<>(),
             withoutLink = new HashSet<>(),

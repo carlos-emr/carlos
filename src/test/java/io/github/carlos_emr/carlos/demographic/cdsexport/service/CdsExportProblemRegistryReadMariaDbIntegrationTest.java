@@ -410,8 +410,7 @@ class CdsExportProblemRegistryReadMariaDbIntegrationTest {
                                                     source,
                                                     retained,
                                                     new CdsExportClinicalOccurrenceService.Bounds(
-                                                            100_000, 64L << 20, 1000, 8L << 20,
-                                                            100, 1000),
+                                                            100_000, 64L << 20),
                                                     mock(CdsExportRunControl.class),
                                                     emitter,
                                                     receipts::add);
