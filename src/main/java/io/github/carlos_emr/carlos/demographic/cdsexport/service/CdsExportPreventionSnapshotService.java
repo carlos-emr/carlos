@@ -244,6 +244,21 @@ public class CdsExportPreventionSnapshotService {
         }
     }
 
+    /**
+     * Ends the chart's state in this transaction once its capture has read every row, so the
+     * next chart of a merged group prepares its own state in the same snapshot. Only the chart's
+     * own state, on its own thread and transaction, can be ended; nothing bound is a no-op.
+     */
+    void release(int patient) {
+        var value = TransactionSynchronizationManager.getResource(key);
+        if (value == null) return;
+        if (!(value instanceof State state))
+            throw new IllegalStateException("CDS_EXPORT_PREVENTION_SNAPSHOT_SCOPE_INVALID");
+        state.require(patient);
+        TransactionSynchronizationManager.unbindResource(key);
+        state.close();
+    }
+
     State current(int patient) {
         var value = TransactionSynchronizationManager.getResource(key);
         if (!(value instanceof State))
