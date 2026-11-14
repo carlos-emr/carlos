@@ -235,6 +235,116 @@ class CdsExportArtifactServiceUnitTest {
     }
 
     @Test
+    void shouldNeverEndADownloadThatKeepsMoving_howeverLongThePackageTakesToSend()
+            throws Exception {
+        // The recipient takes 700 ms for each block: 1.4 s for the two blocks of this delivery,
+        // longer than the one-second setting. The setting bounds silence, not the transfer.
+        var settings = new Properties();
+        settings.setProperty("cds.export.downloadTimeoutSeconds", "1");
+        service = new CdsExportArtifactService(ledger, stores, scopes, disclosure, access, settings);
+        var received = new ByteArrayOutputStream();
+        var slow =
+                new java.io.OutputStream() {
+                    @Override
+                    public void write(int value) {
+                        received.write(value);
+                    }
+
+                    @Override
+                    public void write(byte[] bytes, int offset, int length) {
+                        try {
+                            Thread.sleep(700);
+                        } catch (InterruptedException stopped) {
+                            Thread.currentThread().interrupt();
+                        }
+                        received.write(bytes, offset, length);
+                    }
+                };
+        long began = System.nanoTime();
+        try (var download = service.open(actor, lease.runId(), "package")) {
+            download.writeTo(slow);
+            download.complete();
+            assertThat(download.parts()).isFalse();
+        }
+        assertThat(System.nanoTime() - began)
+                .isGreaterThan(java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(1300));
+        assertThat(received.toByteArray()).isEqualTo(expected);
+        verify(ledger).finishDownload(lease, true);
+    }
+
+    @Test
+    void shouldServeADeliveryInParts_asTheTarArchiveItsProfileNames() throws Exception {
+        var c = lease.context();
+        var parted =
+                new CdsExportArtifactContextDto(
+                        c.protocol(),
+                        c.runId(),
+                        c.epoch(),
+                        c.patients(),
+                        c.compatibilityDigest(),
+                        c.recipientFingerprint(),
+                        c.auditPlanDigest(),
+                        c.cohort(),
+                        c.authorization(),
+                        c.ownership(),
+                        c.readMe(),
+                        c.eventLog(),
+                        c.archive(),
+                        c.ciphertext(),
+                        new CdsExportDeliveryDto(
+                                CdsExportDeliveryComposer.PARTS_PROFILE,
+                                c.delivery().recipientFingerprint(),
+                                c.delivery().zipSha256(),
+                                c.delivery().zipBytes(),
+                                c.delivery().ciphertextSha256(),
+                                c.delivery().ciphertextBytes()));
+        var partedLease =
+                new CdsExportLedgerService.Download(
+                        lease.runId(),
+                        1,
+                        UUID.randomUUID().toString(),
+                        actor.operatorKey(),
+                        lease.document(),
+                        parted);
+        when(ledger.beginDownload(lease.runId(), actor.operatorKey())).thenReturn(partedLease);
+        try (var download = service.open(actor, lease.runId(), "package")) {
+            assertThat(download.parts()).isTrue();
+            var output = new ByteArrayOutputStream();
+            download.writeTo(output);
+            download.complete();
+            // One download of the whole archive, pinned by the same length and digest.
+            assertThat(output.toByteArray()).isEqualTo(expected);
+            assertThat(download.bytes()).isEqualTo(expected.length);
+        }
+        // An unknown profile is still refused.
+        assertThatThrownBy(
+                        () ->
+                                new CdsExportArtifactContextDto(
+                                        c.protocol(),
+                                        c.runId(),
+                                        c.epoch(),
+                                        c.patients(),
+                                        c.compatibilityDigest(),
+                                        c.recipientFingerprint(),
+                                        c.auditPlanDigest(),
+                                        c.cohort(),
+                                        c.authorization(),
+                                        c.ownership(),
+                                        c.readMe(),
+                                        c.eventLog(),
+                                        c.archive(),
+                                        c.ciphertext(),
+                                        new CdsExportDeliveryDto(
+                                                "tar-cms-aes256gcm-rsa-oaep-sha256-v3",
+                                                c.delivery().recipientFingerprint(),
+                                                c.delivery().zipSha256(),
+                                                c.delivery().zipBytes(),
+                                                c.delivery().ciphertextSha256(),
+                                                c.delivery().ciphertextBytes())))
+                .hasMessage("CDS_EXPORT_ARTIFACT_CONTEXT_INVALID");
+    }
+
+    @Test
     void shouldRejectAnUnboundedDownloadBudget_beforeTakingAnArtifactLease() {
         var settings = new Properties();
         settings.setProperty("cds.export.downloadTimeoutSeconds", "86401");
