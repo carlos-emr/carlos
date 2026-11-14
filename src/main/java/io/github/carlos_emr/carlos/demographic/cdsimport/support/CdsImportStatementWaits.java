@@ -152,8 +152,10 @@ public final class CdsImportStatementWaits {
     }
 
     /**
-     * A JPA read, in the caller's transaction when it has one. The query is built again for every
-     * sending, so it does not matter whether the entity manager outlives one execution.
+     * A JPA read, in the caller's transaction when it has one ({@code em} names that transaction's
+     * entity manager), or outside any transaction ({@code em} null: there is then no connection
+     * whose socket timeout the wait could put back, so none is raised). The query is built again
+     * for every sending, so it does not matter whether the entity manager outlives one execution.
      */
     public static <T> T query(EntityManager em, Query<T> query) {
         Objects.requireNonNull(query);

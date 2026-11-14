@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 
 import io.github.carlos_emr.carlos.commn.dao.*;
 import io.github.carlos_emr.carlos.commn.model.*;
@@ -398,7 +399,7 @@ class CdsImportLedgerControlUnitTest {
         var expected =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportJobBindingDto(
                         CdsImportLedgerService.dto(run), run.getSnapshotLocation());
-        when(runs.readJobBinding("run"))
+        when(runs.readJobBinding(eq("run"), anyInt()))
                 .thenAnswer(
                         call -> {
                             assertThat(
@@ -409,7 +410,7 @@ class CdsImportLedgerControlUnitTest {
                         });
         assertThat(ledger.jobBinding("run")).isEqualTo(expected);
         assertThat(expected.toString()).doesNotContain("private-job-document");
-        verify(runs).readJobBinding("run");
+        verify(runs).readJobBinding("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         verify(runs, never()).get(anyString());
         verifyNoInteractions(manager);
     }
@@ -424,7 +425,7 @@ class CdsImportLedgerControlUnitTest {
         assertThatThrownBy(() -> ledger.jobBinding("missing"))
                 .isInstanceOf(CdsImportException.class)
                 .hasMessage("RUN_NOT_FOUND");
-        verify(runs).readJobBinding("missing");
+        verify(runs).readJobBinding("missing", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         verify(runs, never()).get(anyString());
         verifyNoInteractions(manager);
     }
@@ -456,7 +457,7 @@ class CdsImportLedgerControlUnitTest {
         run.setReportGeneration(3);
         run.setReportLocation("/opaque/report-manifest");
         run.setReportDigest("e".repeat(64));
-        when(runs.readJobBinding("run"))
+        when(runs.readJobBinding(eq("run"), anyInt()))
                 .thenAnswer(
                         call -> {
                             assertThat(
@@ -502,7 +503,7 @@ class CdsImportLedgerControlUnitTest {
         assertThat(first.cancelRequested()).isTrue();
         assertThat(first.state()).isEqualTo("RUNNING");
         assertThat(first.reportGeneration()).isEqualTo(3);
-        verify(runs, times(4)).readJobBinding("run");
+        verify(runs, times(4)).readJobBinding("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         verify(runs, never()).get(anyString());
         verifyNoInteractions(manager, patients, unitRows, diagnosticRows);
     }
@@ -518,7 +519,7 @@ class CdsImportLedgerControlUnitTest {
         assertThatThrownBy(() -> standaloneRead(location, "missing"))
                 .isInstanceOf(CdsImportException.class)
                 .hasMessage("RUN_NOT_FOUND");
-        verify(runs).readJobBinding("missing");
+        verify(runs).readJobBinding("missing", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         verify(runs, never()).get(anyString());
         verifyNoInteractions(manager);
         clearInvocations(runs);
@@ -543,7 +544,7 @@ class CdsImportLedgerControlUnitTest {
         var expected =
                 new io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsImportReportEntryDto(
                         true, false, true, false, "/opaque/private-job-document");
-        when(runs.readReportEntry("run"))
+        when(runs.readReportEntry(eq("run"), anyInt()))
                 .thenAnswer(
                         call -> {
                             assertThat(
@@ -556,9 +557,81 @@ class CdsImportLedgerControlUnitTest {
                         });
         assertThat(ledger.reportEntry("run")).isEqualTo(expected);
         assertThat(expected.toString()).isEqualTo("CdsImportReportEntryDto[protected]");
-        verify(runs).readReportEntry("run");
+        verify(runs).readReportEntry("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         verify(runs, never()).get(anyString());
         verifyNoInteractions(manager, patients, unitRows, diagnosticRows);
+    }
+
+    @Test
+    void shouldSendBindingReadAgain_whenServerEndsItAtDeadline() {
+        run.setSnapshotLocation("/opaque/private-job-document");
+        when(runs.readJobBinding(eq("run"), anyInt()))
+                .thenThrow(serverDeadline())
+                .thenReturn(bindingRow(run));
+        assertThat(ledger.jobBinding("run").job()).isEqualTo(CdsImportLedgerService.dto(run));
+        var order = inOrder(runs);
+        order.verify(runs).readJobBinding("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
+        order.verify(runs).readJobBinding("run", 2 * CdsImportStatementWaits.FIRST_WAIT_SECONDS);
+        verifyNoMoreInteractions(runs);
+        verifyNoInteractions(manager);
+    }
+
+    @Test
+    void shouldEndEntryReadAsImportCancel_whenThreadIsInterruptedDuringWait() {
+        when(runs.readReportEntry(eq("run"), anyInt()))
+                .thenAnswer(
+                        call -> {
+                            Thread.currentThread().interrupt();
+                            throw serverDeadline();
+                        });
+        try {
+            assertThatThrownBy(() -> ledger.reportEntry("run"))
+                    .isInstanceOf(CdsImportException.class)
+                    .hasMessage("IMPORT_CANCELLED");
+        } finally {
+            assertThat(Thread.interrupted()).isTrue();
+        }
+        verify(runs).readReportEntry("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
+        verifyNoMoreInteractions(runs);
+    }
+
+    @Test
+    void shouldPassOtherFailuresOn_withoutSendingBindingReadAgain() {
+        var lockWait =
+                new jakarta.persistence.LockTimeoutException(
+                        "lock wait", new java.sql.SQLException("lock wait", "HY000", 1205));
+        when(runs.readJobBinding(eq("run"), anyInt())).thenThrow(lockWait);
+        assertThatThrownBy(() -> ledger.jobBinding("run")).isSameAs(lockWait);
+        verify(runs).readJobBinding("run", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
+        verifyNoMoreInteractions(runs);
+    }
+
+    @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void shouldSendRunReadsOnce_withDeadlineTheCallerGives() {
+        var em = mock(jakarta.persistence.EntityManager.class);
+        var query = mock(jakarta.persistence.TypedQuery.class, org.mockito.Answers.RETURNS_SELF);
+        when(em.createQuery(anyString(), any(Class.class))).thenReturn(query);
+        when(query.getResultList()).thenReturn(List.of());
+        var dao = new CdsImportRunDao();
+        org.springframework.test.util.ReflectionTestUtils.setField(dao, "entityManager", em);
+        assertThat(dao.readJobBinding("run", 45)).isNull();
+        verify(query).setHint("jakarta.persistence.query.timeout", 45_000);
+        assertThat(dao.readReportEntry("run", Integer.MAX_VALUE)).isNull();
+        verify(query).setHint("jakarta.persistence.query.timeout", Integer.MAX_VALUE);
+        verify(query, times(2)).getResultList();
+        for (int none : new int[] {0, -1})
+            assertThatThrownBy(() -> dao.readJobBinding("run", none))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("CDS_IMPORT_STATEMENT_WAIT_INVALID");
+        verify(query, times(2)).getResultList();
+    }
+
+    /** What Hibernate raises when MariaDB ends a statement at its own max_statement_time. */
+    private static jakarta.persistence.QueryTimeoutException serverDeadline() {
+        return new jakarta.persistence.QueryTimeoutException(
+                "statement deadline",
+                new java.sql.SQLTimeoutException("max_statement_time", "70100", 1969));
     }
 
     @Test
@@ -591,7 +664,7 @@ class CdsImportLedgerControlUnitTest {
         assertThatThrownBy(() -> ledger.reportEntry("missing"))
                 .isInstanceOf(CdsImportException.class)
                 .hasMessage("RUN_NOT_FOUND");
-        verify(runs).readReportEntry("missing");
+        verify(runs).readReportEntry("missing", CdsImportStatementWaits.FIRST_WAIT_SECONDS);
         TransactionSynchronizationManager.setActualTransactionActive(true);
         try {
             assertThatThrownBy(() -> ledger.reportEntry(null))
@@ -657,7 +730,7 @@ class CdsImportLedgerControlUnitTest {
                 actual.getTransaction().commit();
                 actual.clear();
                 factory.getStatistics().clear();
-                var binding = dao.readJobBinding(persisted.getId());
+                var binding = dao.readJobBinding(persisted.getId(), CdsImportStatementWaits.FIRST_WAIT_SECONDS);
                 assertThat(CdsImportProjections.toDto(binding).job())
                         .isEqualTo(CdsImportLedgerService.dto(persisted));
                 assertThat(binding.documentLocation()).isEqualTo(persisted.getSnapshotLocation());
@@ -666,7 +739,7 @@ class CdsImportLedgerControlUnitTest {
                 assertThat(factory.getStatistics().getPrepareStatementCount()).isEqualTo(1);
                 assertThat(factory.getStatistics().getEntityLoadCount()).isZero();
                 factory.getStatistics().clear();
-                var entry = dao.readReportEntry(persisted.getId());
+                var entry = dao.readReportEntry(persisted.getId(), CdsImportStatementWaits.FIRST_WAIT_SECONDS);
                 assertThat(CdsImportProjections.toDto(entry))
                         .isEqualTo(
                                 new io.github.carlos_emr.carlos.demographic.cdsimport.dto
@@ -691,14 +764,14 @@ class CdsImportLedgerControlUnitTest {
                     actual.clear();
                     assertThat(
                                     CdsImportProjections.toDto(
-                                                    dao.readReportEntry(persisted.getId()))
+                                                    dao.readReportEntry(persisted.getId(), CdsImportStatementWaits.FIRST_WAIT_SECONDS))
                                             .reportsDelivered())
                             .as("Fresh scalar delivery check for %s", reportState)
                             .isEqualTo("DELIVERED".equals(reportState));
                 }
             }
-            assertThat(dao.readJobBinding(java.util.UUID.randomUUID().toString())).isNull();
-            assertThat(dao.readReportEntry(java.util.UUID.randomUUID().toString())).isNull();
+            assertThat(dao.readJobBinding(java.util.UUID.randomUUID().toString(), CdsImportStatementWaits.FIRST_WAIT_SECONDS)).isNull();
+            assertThat(dao.readReportEntry(java.util.UUID.randomUUID().toString(), CdsImportStatementWaits.FIRST_WAIT_SECONDS)).isNull();
         }
     }
 

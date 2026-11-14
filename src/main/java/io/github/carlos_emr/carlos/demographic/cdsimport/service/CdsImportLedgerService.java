@@ -22,6 +22,7 @@
 package io.github.carlos_emr.carlos.demographic.cdsimport.service;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportException;
+import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportUnitContext;
 
 import io.github.carlos_emr.carlos.commn.dao.CdsImportAdmissionDao;
@@ -152,9 +153,8 @@ public class CdsImportLedgerService {
     /**
      * The import's read-committed transaction. It carries no clock: a slow but working database
      * never fails an import transaction. Reads that can wait long send their own server-side
-     * deadline and send it again when the server ends them there ({@link
-     * io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits}); the
-     * attempt's stall window, a cancel or a lost connection are what end a transaction that does
+     * deadline and send it again when the server ends them there ({@link CdsImportStatementWaits});
+     * the attempt's stall window, a cancel or a lost connection are what end a transaction that does
      * not finish.
      */
     static TransactionTemplate template(PlatformTransactionManager manager) {
@@ -1640,20 +1640,33 @@ public class CdsImportLedgerService {
         return jobBinding(runId).documentLocation();
     }
 
-    /** Protected internal request binding; the application facade authorizes before private-path access. */
+    /**
+     * Protected internal request binding; the application facade authorizes before private-path
+     * access. The read waits for the database rather than failing on a clock: the run DAO sends one
+     * statement with the deadline it is given, and a deadline the server reaches is sent again with
+     * twice the wait ({@link CdsImportStatementWaits}). No transaction is open here (refused
+     * above), so the wait has no transaction connection whose socket timeout it would raise.
+     */
     public CdsImportJobBindingDto jobBinding(String runId) {
         requireNoTransaction();
         CdsImportKeys.required(runId, "run id", 36);
-        CdsImportJobBindingDto binding = CdsImportProjections.toDto(runs.readJobBinding(runId));
+        io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto row =
+                CdsImportStatementWaits.query(null, seconds -> runs.readJobBinding(runId, seconds));
+        CdsImportJobBindingDto binding = CdsImportProjections.toDto(row);
         if (binding == null) throw new CdsImportException("RUN_NOT_FOUND");
         return binding;
     }
 
-    /** Entry-only report facts; no persistence scope or transaction may span report file I/O. */
+    /**
+     * Entry-only report facts; no persistence scope or transaction may span report file I/O. The
+     * read waits for the database as {@link #jobBinding(String)} does.
+     */
     CdsImportReportEntryDto reportEntry(String runId) {
         requireNoTransaction();
         CdsImportKeys.required(runId, "run id", 36);
-        CdsImportReportEntryDto entry = CdsImportProjections.toDto(runs.readReportEntry(runId));
+        io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto row =
+                CdsImportStatementWaits.query(null, seconds -> runs.readReportEntry(runId, seconds));
+        CdsImportReportEntryDto entry = CdsImportProjections.toDto(row);
         if (entry == null) throw new CdsImportException("RUN_NOT_FOUND");
         return entry;
     }

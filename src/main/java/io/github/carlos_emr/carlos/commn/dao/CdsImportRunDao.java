@@ -24,7 +24,6 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.model.CdsImportRun;
 import io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto;
 import io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto;
-import io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsImportStatementWaits;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import org.springframework.stereotype.Repository;
@@ -35,6 +34,9 @@ import org.springframework.transaction.annotation.Transactional;
 @Repository
 public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
         implements CdsExportRetainedTableReadDao {
+    /** The JPA hint that carries a statement's deadline, in milliseconds. */
+    static final String QUERY_TIMEOUT_HINT = "jakarta.persistence.query.timeout";
+
     @Override
     @org.springframework.transaction.annotation.Transactional(
             readOnly = true,
@@ -163,18 +165,24 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
 
     /**
      * One current scalar statement; no entity or persistence scope escapes before private file
-     * I/O. It waits for the database rather than failing on a clock: a deadline the server reaches
-     * is sent again ({@link CdsImportStatementWaits}).
+     * I/O. It is sent once, with a server-side deadline of {@code seconds} (the JDBC query timeout,
+     * which MariaDB Connector/J sends as {@code max_statement_time}). Whether a statement the server
+     * ended at that deadline is sent again is the caller's decision: the import's ledger waits for
+     * the database rather than failing on a clock. The waiting is not done here because this
+     * common DAO must not depend on the import's packages, whose cancel and stall window end a
+     * wait.
+     *
+     * @param seconds the statement's deadline, at least one second
+     * @throws IllegalArgumentException if {@code seconds} is below one, which the JDBC query
+     *     timeout would read as no deadline at all
      */
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
-    public CdsImportJobBindingDto readJobBinding(String runId) {
+    public CdsImportJobBindingDto readJobBinding(String runId, int seconds) {
+        int deadline = deadlineMillis(seconds);
         var rows =
-                CdsImportStatementWaits.query(
-                        entityManager,
-                        seconds ->
-                                entityManager
-                                        .createQuery(
-                                                """
+                entityManager
+                        .createQuery(
+                                """
                 select new io.github.carlos_emr.carlos.commn.dto.CdsImportJobBindingDto(
                     r.id,r.operator,r.providerNo,r.sourceNamespace,r.profile,r.state,
                     r.sourceDigest,r.optionsDigest,r.rulesetDigest,r.manifestDigest,
@@ -182,41 +190,41 @@ public class CdsImportRunDao extends AbstractDaoImpl<CdsImportRun>
                     r.createdAt,r.updatedAt,r.reportGeneration,r.reportLocation,r.reportDigest,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """,
-                                                CdsImportJobBindingDto.class)
-                                        .setParameter("run", runId)
-                                        .setMaxResults(1)
-                                        .setHint(
-                                                CdsImportStatementWaits.TIMEOUT_HINT,
-                                                CdsImportStatementWaits.hintMillis(seconds))
-                                        .getResultList());
+                                CdsImportJobBindingDto.class)
+                        .setParameter("run", runId)
+                        .setMaxResults(1)
+                        .setHint(QUERY_TIMEOUT_HINT, deadline)
+                        .getResultList();
         return rows.isEmpty() ? null : rows.getFirst();
     }
 
     /**
      * Fixed run-row facts only; no patient, unit or diagnostic aggregates precede report I/O. It
-     * waits for the database as {@link #readJobBinding(String)} does.
+     * is sent once with a deadline of {@code seconds}, as {@link #readJobBinding(String, int)} is.
      */
     @Transactional(propagation = Propagation.SUPPORTS, readOnly = true)
-    public CdsImportReportEntryDto readReportEntry(String runId) {
+    public CdsImportReportEntryDto readReportEntry(String runId, int seconds) {
+        int deadline = deadlineMillis(seconds);
         var rows =
-                CdsImportStatementWaits.query(
-                        entityManager,
-                        seconds ->
-                                entityManager
-                                        .createQuery(
-                                                """
+                entityManager
+                        .createQuery(
+                                """
                 select new io.github.carlos_emr.carlos.commn.dto.CdsImportReportEntryDto(
                     r.reportState,r.discoveryComplete,r.dryRun,r.executionDigest is not null,r.snapshotLocation)
                 from CdsImportRun r where r.id=:run
                 """,
-                                                CdsImportReportEntryDto.class)
-                                        .setParameter("run", runId)
-                                        .setMaxResults(1)
-                                        .setHint(
-                                                CdsImportStatementWaits.TIMEOUT_HINT,
-                                                CdsImportStatementWaits.hintMillis(seconds))
-                                        .getResultList());
+                                CdsImportReportEntryDto.class)
+                        .setParameter("run", runId)
+                        .setMaxResults(1)
+                        .setHint(QUERY_TIMEOUT_HINT, deadline)
+                        .getResultList();
         return rows.isEmpty() ? null : rows.getFirst();
+    }
+
+    /** A deadline of zero would mean none, so a statement is never sent without one. */
+    static int deadlineMillis(int seconds) {
+        if (seconds < 1) throw new IllegalArgumentException("CDS_IMPORT_STATEMENT_WAIT_INVALID");
+        return Math.toIntExact(Math.min(Integer.MAX_VALUE, seconds * 1000L));
     }
 
     /** Rechecked under the run lock before any preparation epoch can replace a stopped review. */
