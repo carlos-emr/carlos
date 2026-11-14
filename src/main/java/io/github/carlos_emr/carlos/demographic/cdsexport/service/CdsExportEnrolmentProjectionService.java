@@ -172,8 +172,6 @@ public class CdsExportEnrolmentProjectionService {
         var history =
                 new CdsExportEnrolmentHistory(
                         patient.patient(),
-                        bounds.nativeRows(),
-                        bounds.indexBytes(),
                         control::checkpoint);
         var archives =
                 rows.forEach(

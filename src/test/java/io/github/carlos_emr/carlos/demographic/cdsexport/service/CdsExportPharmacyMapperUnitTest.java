@@ -415,16 +415,14 @@ class CdsExportPharmacyMapperUnitTest {
 
     @Test
     void shouldMapPharmacies_pastTheFormerRowAndByteBoundsAndStillHonourCancellation() throws Exception {
-        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), 1, 1L << 20, () -> {})).isNotNull();
-        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), 100, 64, () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(link(-1, 9)), List.of(pharmacy(9)), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(
                                         27,
                                         List.of(link(-1, 9)),
                                         List.of(pharmacy(9)),
-                                        100,
-                                        1L << 20,
                                         () -> {
                                             throw new IllegalStateException("CANCELLED");
                                         }))
@@ -534,7 +532,7 @@ class CdsExportPharmacyMapperUnitTest {
     private CdsExportPharmacyMapper.Result map(
             List<CdsExportCapturedTextRowDto> links, List<CdsExportCapturedTextRowDto> pharmacies)
             throws Exception {
-        return mapper.map(27, links, pharmacies, 100, 1L << 20, () -> {});
+        return mapper.map(27, links, pharmacies, () -> {});
     }
 
     private CdsRecordDto parse(CdsExportPharmacyMapper.Result pharmacy, String sourceHash)

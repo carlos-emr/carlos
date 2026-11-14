@@ -60,10 +60,10 @@ public final class CdsExportRetainedPharmacyReconciler {
      */
     public Result reconcile(int patient, String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto demographic, CdsExportNativeRowReceiptDto demographicWitness,
-            NativeRows current, int maximumRows, long maximumBytes, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
+            NativeRows current, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
         Objects.requireNonNull(current); Objects.requireNonNull(values); Objects.requireNonNull(checkpoint); values.requireActive(); checkpoint.run();
         if (!index.sourceManifestSha256().equals(current.sourceManifestSha256())) throw new IOException("CDS_EXPORT_PHARMACY_NATIVE_GENERATION_INVALID");
-        var mapping = new CdsExportPharmacyMapper().map(patient, current.links(), current.pharmacies(), maximumRows, maximumBytes, checkpoint);
+        var mapping = new CdsExportPharmacyMapper().map(patient, current.links(), current.pharmacies(), checkpoint);
         var all = new ArrayList<>(current.links()); all.addAll(current.pharmacies());
         var receipts = new HashMap<String, CdsExportNativeRowReceiptDto>(); var rows = new HashMap<String, CdsExportCapturedTextRowDto>();
         for (var receipt : current.witnesses()) if (receipts.putIfAbsent(receipt.table() + "/" + receipt.recordKey(), receipt) != null) scope();

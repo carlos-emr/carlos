@@ -48,13 +48,13 @@ public final class CdsExportDemographicCareAssembler {
             CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked, List<CdsExportRetainedFieldDto> allFields,
             CdsExportCapturedTextRowDto demographic, CdsExportNativeRowReceiptDto demographicWitness,
             CdsExportRetainedProfessionalContactReconciler.NativeRows contacts, CdsExportRetainedPharmacyReconciler.NativeRows pharmacies,
-            int maximumRows, long maximumBytes, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
+            CdsExportRetainedSectionWriter.Values values, Runnable checkpoint) throws IOException {
         Objects.requireNonNull(core); Objects.requireNonNull(contacts); Objects.requireNonNull(pharmacies); Objects.requireNonNull(values); Objects.requireNonNull(checkpoint);
         values.requireActive(); checkpoint.run();
         if (!core.sourceManifestSha256().equals(index.sourceManifestSha256()) || !core.sourceManifestSha256().equals(contacts.sourceManifestSha256())
                 || !core.sourceManifestSha256().equals(pharmacies.sourceManifestSha256())) scope();
         var professional = new CdsExportRetainedProfessionalContactReconciler().reconcile(patient, core.unitAddress(), index, checked, allFields,
-                demographic, demographicWitness, contacts, maximumRows, maximumBytes, values, checkpoint);
+                demographic, demographicWitness, contacts, values, checkpoint);
         var personalRows = new ArrayList<CdsExportCapturedTextRowDto>(); var personalWitnesses = new ArrayList<CdsExportNativeRowReceiptDto>();
         var remaining = new HashSet<CdsExportNativeFieldKeyDto>();
         for (var row : concat(contacts.associations(), contacts.contacts())) {
@@ -71,10 +71,10 @@ public final class CdsExportDemographicCareAssembler {
         }
         var personal = new CdsExportContactRetainedAssembler().prepare(patient, core.unitAddress(), index, checked, allFields,
                 personalRows.stream().filter(row -> row.table().equals("DemographicContact")).toList(), personalRows.stream().filter(row -> row.table().equals("Contact")).toList(),
-                personalWitnesses, maximumRows, maximumBytes, values, checkpoint);
+                personalWitnesses, values, checkpoint);
         if (!personal.fields().keySet().equals(remaining)) scope();
         var pharmacy = new CdsExportRetainedPharmacyReconciler().reconcile(patient, core.unitAddress(), index, checked, allFields,
-                demographic, demographicWitness, pharmacies, maximumRows, maximumBytes, values, checkpoint);
+                demographic, demographicWitness, pharmacies, values, checkpoint);
         var result = combine(core, professional, personal, pharmacy);
         values.requireActive(); checkpoint.run(); return result;
     }

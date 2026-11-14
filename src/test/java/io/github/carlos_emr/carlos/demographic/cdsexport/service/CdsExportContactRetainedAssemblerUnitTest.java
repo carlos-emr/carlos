@@ -384,7 +384,7 @@ class CdsExportContactRetainedAssemblerUnitTest {
 
     @Test
     void shouldPrepareChanges_pastTheFormerRowBoundAndStillHonourCancellation() throws Exception {
-        assertThat(new CdsExportContactRetainedAssembler() .prepare( 27, parent(), graph.index(), graph.checked(), graph.fields(), associations, contacts, witnesses, 1, 4L << 20, values(), () -> {})).isNotNull();
+        assertThat(new CdsExportContactRetainedAssembler() .prepare( 27, parent(), graph.index(), graph.checked(), graph.fields(), associations, contacts, witnesses, values(), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 new CdsExportContactRetainedAssembler()
@@ -397,8 +397,6 @@ class CdsExportContactRetainedAssemblerUnitTest {
                                                 associations,
                                                 contacts,
                                                 witnesses,
-                                                8192,
-                                                4L << 20,
                                                 values(),
                                                 () -> {
                                                     throw new IllegalStateException("CANCELLED");
@@ -516,8 +514,6 @@ class CdsExportContactRetainedAssemblerUnitTest {
                         associations,
                         contacts,
                         witnesses,
-                        8192,
-                        4L << 20,
                         values(),
                         () -> {});
     }

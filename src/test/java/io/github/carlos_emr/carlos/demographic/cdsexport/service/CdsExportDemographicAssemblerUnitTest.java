@@ -118,8 +118,6 @@ class CdsExportDemographicAssemblerUnitTest {
                                                 null,
                                                 List.of(),
                                                 rows(List.of(), List.of(), null, null),
-                                                100,
-                                                1L << 20,
                                                 values,
                                                 () -> {}))
                 .hasMessage("CDS_EXPORT_DEMOGRAPHIC_ASSEMBLY_SCOPE_INVALID");

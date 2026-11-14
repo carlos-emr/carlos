@@ -59,7 +59,7 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
     }
     private CdsExportRetainedPharmacyReconciler.Result reconcile(CdsExportDemographicProjectionEvidenceUnitTest.Graph graph,
             CdsExportRetainedPharmacyReconciler.NativeRows nativeRows, CdsExportRetainedReceiptVerificationDto checked, Runnable checkpoint) throws Exception {
-        return new CdsExportRetainedPharmacyReconciler().reconcile(27, graph.index().nativeParents().values().iterator().next(), graph.index(), checked, graph.fields(), graph.current(), graph.witness(), nativeRows, 100, 1L << 20, CdsExportRetainedPharmacyBindingUnitTest.values(), checkpoint);
+        return new CdsExportRetainedPharmacyReconciler().reconcile(27, graph.index().nativeParents().values().iterator().next(), graph.index(), checked, graph.fields(), graph.current(), graph.witness(), nativeRows, CdsExportRetainedPharmacyBindingUnitTest.values(), checkpoint);
     }
     private void change(String table, String column, String value) {
         for (int n = 0; n < rows.size(); n++) if (rows.get(n).table().equals(table)) { rows.set(n, CdsExportRetainedPharmacyBindingUnitTest.changed(rows.get(n), column, value)); return; } throw new AssertionError();

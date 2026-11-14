@@ -78,9 +78,6 @@ public final class CdsExportContactRetainedAssembler {
             List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts,
             List<CdsExportNativeRowReceiptDto> witnesses,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -140,7 +137,7 @@ public final class CdsExportContactRetainedAssembler {
         // This pass validates every raw identity, patient relationship, field and resource bound,
         // including imported rows whose native mapping is intentionally reconciled below.
         new CdsExportPersonalContactMapper()
-                .map(patient, associations, contacts, maximumRows, maximumBytes, checkpoint);
+                .map(patient, associations, contacts, checkpoint);
         var nativeRows = new HashMap<String, CdsExportCapturedTextRowDto>();
         var remaining = new LinkedHashMap<String, CdsExportCapturedTextRowDto>();
         for (var row : concat(associations, contacts)) {
@@ -369,8 +366,6 @@ public final class CdsExportContactRetainedAssembler {
                                 patient,
                                 newAssociations,
                                 newContacts,
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
         if (!added.nativeRepresentable())
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException(

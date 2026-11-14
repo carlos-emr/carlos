@@ -607,16 +607,14 @@ class CdsExportPersonalContactMapperUnitTest {
     void
             shouldMapContacts_pastTheFormerBoundsButNeverWithSwappedFieldIdentities()
                     throws Exception {
-        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), 1, 1L << 20, () -> {})).isNotNull();
-        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), 100, 64, () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), () -> {})).isNotNull();
+        assertThat(mapper.map( 27, List.of(association(-1, 9)), List.of(contact(9)), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(
                                         27,
                                         List.of(association(-1, 9)),
                                         List.of(contact(9)),
-                                        100,
-                                        1L << 20,
                                         () -> {
                                             throw new IllegalStateException("CANCELLED");
                                         }))
@@ -723,7 +721,7 @@ class CdsExportPersonalContactMapperUnitTest {
     private CdsExportPersonalContactMapper.Result map(
             List<CdsExportCapturedTextRowDto> links, List<CdsExportCapturedTextRowDto> contacts)
             throws Exception {
-        return mapper.map(27, links, contacts, 100, 1L << 20, () -> {});
+        return mapper.map(27, links, contacts, () -> {});
     }
 
     private CdsRecordDto parse(CdsExportPersonalContactMapper.Result contacts, String sourceHash)
@@ -739,8 +737,6 @@ class CdsExportPersonalContactMapperUnitTest {
                                 27,
                                 List.of(CdsExportPharmacyMapperUnitTest.link(-1, 9)),
                                 List.of(CdsExportPharmacyMapperUnitTest.pharmacy(9)),
-                                100,
-                                1L << 20,
                                 () -> {});
         var section =
                 new CdsExportXmlComposer.Section(

@@ -259,10 +259,6 @@ public class CdsExportDemographicOccurrenceService {
                                                                         .categories(),
                                                                 index.sourceManifestSha256(),
                                                                 demographicRows(collected),
-                                                                bounds.nativeRows(),
-                                                                Math.min(
-                                                                        bounds.indexBytes(),
-                                                                        64L << 20),
                                                                 control::checkpoint);
                                         var identity =
                                                 new CdsExportIdentityDto(
@@ -394,9 +390,6 @@ public class CdsExportDemographicOccurrenceService {
                                                             checked,
                                                             retained,
                                                             nativeRows,
-                                                            bounds.nativeRows(),
-                                                            Math.min(
-                                                                    bounds.indexBytes(), 64L << 20),
                                                             streams,
                                                             control::checkpoint);
                                     var result =

@@ -232,8 +232,6 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
                         witnesses,
                         new CdsExportPublicProviderLookupsDto(
                                 g.index().sourceManifestSha256(), providers),
-                        1000,
-                        16L << 20,
                         values(),
                         checkpoint);
     }
@@ -760,8 +758,6 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
                                                 archives,
                                                 witnesses,
                                                 stale,
-                                                1000,
-                                                16L << 20,
                                                 values(),
                                                 () -> {}))
                 .hasMessage("CDS_EXPORT_PUBLIC_PROVIDER_LOOKUPS_GENERATION_INVALID");
@@ -786,8 +782,6 @@ class CdsExportRetainedEnrolmentReconcilerUnitTest {
                                 witnesses,
                                 new CdsExportPublicProviderLookupsDto(
                                         g.index().sourceManifestSha256(), Map.of()),
-                                1000,
-                                16L << 20,
                                 values(),
                                 () -> {});
         assertThat(result.representable()).isTrue();

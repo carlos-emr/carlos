@@ -160,9 +160,6 @@ public final class CdsExportRetainedEnrolmentReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {

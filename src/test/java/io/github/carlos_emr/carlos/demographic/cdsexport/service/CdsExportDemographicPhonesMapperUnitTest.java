@@ -218,8 +218,6 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         base,
                         current,
                         List.of(property(1, "hPhoneExt", "12")),
-                        100,
-                        1L << 20,
                         () -> {});
         // The extension left after its number was cleared is carried, never a phone of its own.
         assertThat(result.baseRowRepresentable()).isTrue();
@@ -234,8 +232,6 @@ class CdsExportDemographicPhonesMapperUnitTest {
                                             base,
                                             current,
                                             List.of(property(1, "hPhoneExt", missing)),
-                                            100,
-                                            1L << 20,
                                             () -> {})
                                     .baseRowRepresentable())
                     .isTrue();
@@ -321,7 +317,7 @@ class CdsExportDemographicPhonesMapperUnitTest {
         var rows = new java.util.ArrayList<CdsExportCapturedTextRowDto>();
         rows.add(property(1, "hPhoneExt", "12"));
         for (int id = 2; id <= 8193; id++) rows.add(property(id, "clinicNote" + id, "value " + id));
-        var mapped = mapper.map(base, current, rows, 8192, 64L << 20, () -> {});
+        var mapped = mapper.map(base, current, rows, () -> {});
         assertThat(mapped.phones()).anySatisfy(phone -> assertThat(phone.extension()).isEqualTo("12"));
         assertThat(mapped.relatedFields().keySet().stream().map(key -> key.recordKey()).distinct())
                 .hasSize(8193);
@@ -332,16 +328,14 @@ class CdsExportDemographicPhonesMapperUnitTest {
         var current = raw();
         var base = new CdsExportDemographicMapper().map(current);
         var rows = List.of(property(1, "hPhoneExt", "12"), property(2, "wPhoneExt", "5"));
-        assertThat(mapper.map(base, current, rows, 1, 1L << 20, () -> {})).isNotNull();
-        assertThat(mapper.map(base, current, rows, 100, 32, () -> {})).isNotNull();
+        assertThat(mapper.map(base, current, rows, () -> {})).isNotNull();
+        assertThat(mapper.map(base, current, rows, () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 mapper.map(
                                         base,
                                         current,
                                         rows,
-                                        100,
-                                        1L << 20,
                                         () -> {
                                             throw new IllegalStateException("CANCELLED");
                                         }))
@@ -365,8 +359,6 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         base,
                         nativeRow,
                         List.of(property(1, "unmapped", "Extra\uFFFF")),
-                        100,
-                        1L << 20,
                         () -> {});
         assertThat(result.primaryPhysician()).isEqualTo(base.primaryPhysician());
         // The property is carried in the native demographic record; it holds nothing.
@@ -397,8 +389,6 @@ class CdsExportDemographicPhonesMapperUnitTest {
                         List.of(
                                 property(1, "hPhoneExt", "12"),
                                 property(2, "demo_cell", "613-555-0103")),
-                        100,
-                        1L << 20,
                         () -> {});
         var joined =
                 mapped.withPrimaryPhysician(
@@ -502,8 +492,6 @@ class CdsExportDemographicPhonesMapperUnitTest {
                 new CdsExportDemographicMapper().map(current),
                 current,
                 rows,
-                100,
-                1L << 20,
                 () -> {});
     }
 
