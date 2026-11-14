@@ -467,8 +467,11 @@ public class CdsExportPatientDocumentService {
     /**
      * The field decisions of one receipt that share a source table and an assessment: each row
      * (record key) with the columns so decided. One line per group, instead of one per field,
-     * keeps the per-patient audit within {@code maxIndexBytes} for long form histories (a data
-     * summary assesses every column of every revision) while recording the same decisions.
+     * keeps the per-patient audit compact for long form histories (a data summary assesses every
+     * column of every revision) while recording the same decisions. No size of the audit refuses
+     * or holds anything: it is streamed to its staged file, and the former bound on it
+     ({@code maxIndexBytes} plus an allowance per occurrence, which stopped the job) and the data
+     * summaries' hold below that bound ({@code CDS_EXPORT_DATA_SUMMARY_AUDIT_LIMIT}) are gone.
      */
     record FieldDecisions(
             CdsExportIdentityDto identity,
