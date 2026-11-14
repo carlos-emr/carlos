@@ -453,13 +453,18 @@ public class CdsImportNativeService {
         return receipts.verify(receipt);
     }
 
+    /**
+     * Derives a record's native child occurrences (demographic contacts, care elements) into the
+     * source's shared child spool. The spool is checked against the installation's configured
+     * free-disk reserve, like every other import spool, not against the built-in default.
+     */
     public void forEachNativeChild(
             CdsRecordDto record, String suffix, Consumer<CdsRecordDto> children)
             throws IOException {
         if ("_CONTACT".equals(suffix) && "Demographics".equals(record.section()))
-            fields.forEachSubrecord(record, "Contact", children);
+            fields.forEachSubrecord(record, "Contact", configuration.limits(), children);
         else if ("_CARE".equals(suffix) && "CareElements".equals(record.section()))
-            fields.forEachSubrecord(record, "*", children);
+            fields.forEachSubrecord(record, "*", configuration.limits(), children);
         else throw new CdsImportException("NATIVE_CHILD_KIND_INVALID");
     }
 

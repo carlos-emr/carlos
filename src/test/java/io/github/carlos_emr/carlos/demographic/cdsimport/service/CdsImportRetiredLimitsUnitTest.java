@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
@@ -224,6 +225,63 @@ class CdsImportRetiredLimitsUnitTest {
         }
     }
 
+    @Test
+    void shouldDeriveNativeChildren_underTheConfiguredReserveRatherThanTheDefault()
+            throws Exception {
+        Path xml =
+                Files.writeString(
+                        temp.resolve("patient.xml"),
+                        fixture("/demographic/cds-import-all-categories.xml"));
+        List<CdsRecordDto> records = new ArrayList<>();
+        new CdsXmlParser()
+                .parse(
+                        xml,
+                        temp.resolve("spool"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        records::add);
+        CdsRecordDto demographics =
+                records.stream()
+                        .filter(record -> record.section().equals("Demographics"))
+                        .findFirst()
+                        .orElseThrow();
+        // No store has this much free space. With the built-in 512 MiB default the contact would
+        // be derived; the installation's reserve stops its spool at the first row instead.
+        CdsInputException stopped =
+                assertThrows(
+                        CdsInputException.class,
+                        () ->
+                                nativeService(Long.toString(Long.MAX_VALUE / 2))
+                                        .forEachNativeChild(demographics, "_CONTACT", child -> {}));
+        assertEquals("CDS_INPUT_DISK_RESERVE", stopped.code());
+        List<CdsRecordDto> contacts = new ArrayList<>();
+        nativeService("1").forEachNativeChild(demographics, "_CONTACT", contacts::add);
+        assertEquals(1, contacts.size(), "The fixture's one contact, under a 1-byte reserve");
+    }
+
+    /** The native service of an installation whose free-disk reserve is {@code reserveBytes}. */
+    private static CdsImportNativeService nativeService(String reserveBytes) {
+        Properties settings = new Properties();
+        settings.setProperty("cds.import.minimumFreeDiskBytes", reserveBytes);
+        return new CdsImportNativeService(
+                new CdsFieldParser(),
+                mock(CdsClinicalNormalizationService.class),
+                mock(CdsMedicationPersister.class),
+                mock(CdsAllergyPersister.class),
+                mock(CdsImmunizationPersister.class),
+                mock(CdsDemographicPersister.class),
+                mock(CdsHistoryPersister.class),
+                mock(CdsAppointmentPersister.class),
+                mock(CdsNativePreparationService.class),
+                mock(CdsProviderResolver.class),
+                mock(CdsSourceFieldService.class),
+                mock(CdsImportAccessService.class),
+                mock(CdsImportLedgerService.class),
+                mock(CdsTargetReceiptService.class),
+                List.of(),
+                new CdsImportConfigurationService(settings));
+    }
+
     /** A deployment that still sets every retired ceiling to a tiny value. */
     static CdsImportConfigurationService retiredTiny() {
         Properties settings = new Properties();
@@ -237,9 +295,12 @@ class CdsImportRetiredLimitsUnitTest {
     }
 
     static String fixture() throws IOException {
+        return fixture("/demographic/cds-import-summary.xml");
+    }
+
+    static String fixture(String resource) throws IOException {
         try (InputStream input =
-                CdsImportRetiredLimitsUnitTest.class.getResourceAsStream(
-                        "/demographic/cds-import-summary.xml")) {
+                CdsImportRetiredLimitsUnitTest.class.getResourceAsStream(resource)) {
             return new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
