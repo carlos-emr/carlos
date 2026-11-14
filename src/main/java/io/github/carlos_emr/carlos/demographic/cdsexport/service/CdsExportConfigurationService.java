@@ -96,8 +96,10 @@ public class CdsExportConfigurationService {
     }
 
     /**
-     * A finite attempt wall budget is independent of lease liveness; exhaustion never truncates a
-     * package.
+     * The stall window: how long the engine thread of an attempt may pass no checkpoint before the
+     * attempt is treated as dead and its lease is allowed to expire. It is not a budget for the
+     * attempt: an export that keeps working is never stopped for how long its roster takes, and
+     * nothing is truncated.
      */
     public long maxDurationMillis() {
         String value = properties.getProperty("cds.export.maxDurationMillis", "86400000").strip();

@@ -374,6 +374,98 @@ class CdsExportExecutionServiceUnitTest {
         verify(access).recheckPatient(any(), any(), any());
     }
 
+    /** A stall window of {@code millis}, with the heartbeat run by hand through {@code beat}. */
+    private CdsExportExecutionService stallWindow(
+            long millis, org.mockito.ArgumentCaptor<Runnable> beat) {
+        var scheduler = mock(java.util.concurrent.ScheduledExecutorService.class);
+        when(scheduler.scheduleWithFixedDelay(
+                        beat.capture(),
+                        eq(20L),
+                        eq(20L),
+                        eq(java.util.concurrent.TimeUnit.SECONDS)))
+                .thenReturn(null);
+        Properties properties = new Properties();
+        properties.setProperty("cds.export.enabled", "true");
+        properties.setProperty("cds.export.maxDurationMillis", Long.toString(millis));
+        return new CdsExportExecutionService(
+                ledger,
+                access,
+                new CdsExportConfigurationService(properties),
+                new CdsExportEngineRegistry(List.of(engine)),
+                () -> scheduler);
+    }
+
+    @Test
+    void shouldNeverStopAWorkerThatKeepsReachingCheckpoints_howeverLongTheRosterTakes()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(300, beat);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            // 1.2 s of work under a 300 ms window: four times the configured time,
+                            // but never silent for as long as the window.
+                            for (int step = 0; step < 24; step++) {
+                                Thread.sleep(50);
+                                control.checkpoint();
+                                beat.getValue().run();
+                            }
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // The engine returned normally; no time limit ended the attempt.
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_ENGINE_DID_NOT_PUBLISH");
+        verify(ledger, never()).stop(any(), eq(CdsExportState.REVIEW_REQUIRED), anyString());
+        verify(ledger, never()).retireExpiredLease(any());
+        verify(ledger, atLeast(24)).checkpoint(lease);
+    }
+
+    @Test
+    void shouldLetTheLeaseOfAStalledWorkerExpire_andRetireItsGenerationIfItReturns()
+            throws Exception {
+        var beat = org.mockito.ArgumentCaptor.forClass(Runnable.class);
+        var limited = stallWindow(100, beat);
+        when(ledger.retireExpiredLease(lease)).thenReturn(true);
+        doAnswer(
+                        call -> {
+                            CdsExportRunControl control = call.getArgument(1);
+                            control.checkpoint();
+                            beat.getValue().run();
+                            int renewed =
+                                    org.mockito.Mockito.mockingDetails(ledger).getInvocations()
+                                            .stream()
+                                            .filter(
+                                                    invocation ->
+                                                            invocation
+                                                                    .getMethod()
+                                                                    .getName()
+                                                                    .equals("checkpoint"))
+                                            .toList()
+                                            .size();
+                            // The engine thread reaches no checkpoint for longer than the window.
+                            Thread.sleep(300);
+                            beat.getValue().run();
+                            beat.getValue().run();
+                            // The heartbeat stopped renewing the lease ...
+                            verify(ledger, times(renewed)).checkpoint(lease);
+                            // ... and the returning worker may not continue.
+                            control.checkpoint();
+                            return null;
+                        })
+                .when(engine)
+                .execute(any(), any());
+
+        limited.execute(RUN);
+
+        // It retires its own expired generation; it is never reported as a resource limit.
+        verify(ledger).retireExpiredLease(lease);
+        verify(ledger, never()).stop(any(), any(), anyString());
+    }
+
     @Test
     void shouldObserveSourceCaptureControlSeparately_andRefuseAuthorizationInsideThatSnapshot()
             throws Exception {
@@ -426,6 +518,26 @@ class CdsExportExecutionServiceUnitTest {
         execution.execute(RUN);
         verify(ledger).stop(lease, CdsExportState.REVIEW_REQUIRED, "CDS_EXPORT_MISSING_ATTACHMENT");
         doThrow(new IOException("PHI-SYNTHETIC-PATIENT-NAME")).when(engine).execute(any(), any());
+        execution.execute(RUN);
+        verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
+    }
+
+    @Test
+    void shouldStopForReviewUnderTheCeilingsOwnName_whenTheExportDoesNotFitOnePackage()
+            throws Exception {
+        for (String ceiling : CdsExportExecutionService.PACKAGE_CEILINGS) {
+            doThrow(new IOException(ceiling)).when(engine).execute(any(), any());
+
+            execution.execute(RUN);
+
+            // Never the generic I/O failure: the work is intact, it only exceeds one package.
+            verify(ledger).stop(lease, CdsExportState.REVIEW_REQUIRED, ceiling);
+        }
+        verify(ledger, never()).stop(any(), eq(CdsExportState.FAILED), anyString());
+        // Any other I/O refusal, however it is worded, is still a failure.
+        doThrow(new IOException("CDS_EXPORT_PACKAGE_VOLUME_LIMIT and more"))
+                .when(engine)
+                .execute(any(), any());
         execution.execute(RUN);
         verify(ledger).stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
     }

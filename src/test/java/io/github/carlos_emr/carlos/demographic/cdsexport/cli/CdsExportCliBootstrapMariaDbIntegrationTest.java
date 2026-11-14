@@ -78,7 +78,7 @@ class CdsExportCliBootstrapMariaDbIntegrationTest {
         settings.setProperty("cds.import.worker.enabled", "false");
         settings.setProperty("cds.export.operator.bootstrap-fixture.providers", "989876");
         // Metadata recovery must survive invalid active settings with a registered engine.
-        settings.setProperty("cds.export.maxPatients", "invalid");
+        settings.setProperty("cds.export.maxMetadataBytes", "invalid");
         try (var context = new AnnotationConfigApplicationContext()) {
             context.getEnvironment().setActiveProfiles("cds-export-cli");
             context.getEnvironment()

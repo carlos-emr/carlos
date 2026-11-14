@@ -179,9 +179,20 @@ public class CdsExportExecutionService {
                     lease.epoch(),
                     LogSafe.exceptionTrace(review));
         } catch (IOException failed) {
+            String ceiling = packageCeiling(failed);
             if (Thread.currentThread().isInterrupted())
                 finishUninterrupted(() -> ledger.release(lease));
-            else {
+            else if (ceiling != null) {
+                // The export is larger than one package can hold. Nothing was truncated and no
+                // package was published; the job waits for review under the ceiling's own name.
+                stop(lease, CdsExportState.REVIEW_REQUIRED, ceiling);
+                technicalFailure(failed);
+                LOG.warn(
+                        "CDS_EXPORT_REVIEW_REQUIRED run={} epoch={} code={}",
+                        runId,
+                        lease.epoch(),
+                        ceiling);
+            } else {
                 stop(lease, CdsExportState.FAILED, "CDS_EXPORT_IO_FAILED");
                 technicalFailure(failed);
                 LOG.error(
@@ -207,6 +218,29 @@ public class CdsExportExecutionService {
             throw failed;
         }
         return true;
+    }
+
+    /**
+     * The structural ceilings of a single package, by the fixed code the component that enforces
+     * each one raises: the archive's size and member count, its on-disk inventory, the encrypted
+     * delivery's size, the roster a selection manifest can list and the supporting files. An
+     * export that reaches one is not a failed export: it is complete work that does not fit one
+     * package (splitting a package into volumes is not implemented), so it stops for review under
+     * that exact code instead of as a generic I/O failure.
+     */
+    static final java.util.Set<String> PACKAGE_CEILINGS =
+            java.util.Set.of(
+                    "CDS_EXPORT_PACKAGE_VOLUME_LIMIT",
+                    "CDS_EXPORT_PACKAGE_ENTRY_LIMIT",
+                    "CDS_EXPORT_PACKAGE_INVENTORY_LIMIT",
+                    "CDS_EXPORT_DELIVERY_BYTE_LIMIT",
+                    "CDS_EXPORT_COHORT_LIMIT_REQUIRES_REVIEW",
+                    "CDS_EXPORT_SUPPORTING_FILES_RESOURCE_LIMIT");
+
+    /** The ceiling an I/O refusal names, or null; only these exact fixed codes, never other text. */
+    private static String packageCeiling(IOException failed) {
+        String message = failed.getMessage();
+        return message != null && PACKAGE_CEILINGS.contains(message) ? message : null;
     }
 
     /** The CLI disables framework logging; this channel accepts only the bounded metadata projection. */
@@ -260,6 +294,18 @@ public class CdsExportExecutionService {
         private final CdsExportLeaseDto lease;
         private final long started = System.nanoTime(), maximumNanos;
         private final AtomicLong lastProbe = new AtomicLong(started - 1_000_000_000L);
+
+        /**
+         * When the engine thread last passed a checkpoint. {@code cds.export.maxDurationMillis}
+         * bounds the time since then and nothing else: it is a stall detector, not a budget. A
+         * worker that keeps reaching checkpoints is alive and is never stopped for how long its
+         * roster takes; a worker that reaches none for that long is treated as dead. Only the
+         * heartbeat thread can observe that, because the engine thread's own checkpoint is the
+         * proof of life.
+         */
+        private final AtomicLong alive = new AtomicLong(started);
+
+        private final AtomicBoolean stalled = new AtomicBoolean();
         private final java.util.concurrent.atomic.AtomicReference<RuntimeException>
                 heartbeatFailure = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.ScheduledExecutorService heartbeat;
@@ -272,11 +318,12 @@ public class CdsExportExecutionService {
 
         void startHeartbeat() {
             // Metadata only: this thread never joins a clinical snapshot or carries a
-            // captured authorization grant. The same deadline bounds blocked work.
+            // captured authorization grant. It is also the stall detector: when the engine
+            // thread has passed no checkpoint for the configured time, it stops renewing.
             heartbeat.scheduleWithFixedDelay(
                     () -> {
                         try {
-                            local();
+                            local(false);
                             ledger.checkpoint(lease);
                         } catch (RuntimeException failed) {
                             heartbeatFailure.compareAndSet(null, failed);
@@ -315,13 +362,19 @@ public class CdsExportExecutionService {
         }
 
         private boolean probe() {
-            local();
+            local(true);
             long now = System.nanoTime();
             long previous = lastProbe.get();
             return now - previous >= 1_000_000_000L && lastProbe.compareAndSet(previous, now);
         }
 
-        private void local() {
+        /**
+         * The cheap local checks of every checkpoint.
+         *
+         * @param engine true on the engine thread, whose checkpoint is the proof of life; false
+         *     on the heartbeat thread, which is the one that can see the engine has stalled
+         */
+        private void local(boolean engine) {
             if (Thread.currentThread().isInterrupted())
                 throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
             if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
@@ -329,8 +382,25 @@ public class CdsExportExecutionService {
             if (failed != null) throw failed;
             configuration.requireEnabled();
             long now = System.nanoTime();
-            if (now - started > maximumNanos)
-                throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
+            if (engine) {
+                alive.set(now);
+                return;
+            }
+            if (now - alive.get() > maximumNanos) {
+                // Once per attempt; the run and times only, never a patient.
+                if (stalled.compareAndSet(false, true))
+                    LOG.warn(
+                            "CDS_EXPORT_WORKER_STALLED run={} epoch={} silentMillis={}"
+                                    + " attemptMillis={}",
+                            lease.runId(),
+                            lease.epoch(),
+                            (now - alive.get()) / 1_000_000L,
+                            (now - started) / 1_000_000L);
+                // The stalled worker gives its ownership up: this heartbeat stops renewing the
+                // lease, so another worker can claim the job, and the engine thread, if it ever
+                // returns, retires its own expired generation instead of publishing.
+                throw new CdsExportOwnerFencedException();
+            }
         }
 
         /**

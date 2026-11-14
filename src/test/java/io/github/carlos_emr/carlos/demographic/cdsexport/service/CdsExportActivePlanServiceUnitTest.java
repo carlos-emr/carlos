@@ -39,7 +39,9 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var plan = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test").resolve();
         assertThat(plan.clinicalZone().getId()).isEqualTo("America/Toronto");
-        assertThat(plan.archive().patients()).isEqualTo(100_000);
+        // The roster and member counts are what the package formats hold, not an operator budget.
+        assertThat(plan.archive().patients()).isEqualTo(2_000_000);
+        assertThat(plan.archive().members()).isEqualTo(2_000_000);
         assertThat(plan.source().nativeRows()).isEqualTo(8192);
         assertThat(plan.ciphertextBytes()).isEqualTo(128L << 30);
         assertThat(plan.retentionSeconds()).isEqualTo(604800);
@@ -71,14 +73,45 @@ class CdsExportActivePlanServiceUnitTest {
 
     @Test
     void shouldRefuseAnUnboundedOrOverflowingBudget_insteadOfClampingIt() {
-        for (String value : new String[] {"0", "-1", "2000001", "999999999999999999999", "1.5"}) {
+        for (String value :
+                new String[] {"0", "-1", "4294967297", "999999999999999999999", "1.5"}) {
             var settings = settings();
-            settings.setProperty("cds.export.maxPatients", value);
+            settings.setProperty("cds.export.maxMetadataBytes", value);
             assertThatThrownBy(
                             () ->
                                     new CdsExportActivePlanService(settings, () -> "2026.09.0-test")
                                             .resolve())
                     .hasMessage("CDS_EXPORT_CONFIGURATION_INVALID");
+        }
+    }
+
+    @Test
+    void shouldIgnoreARetiredRosterOrPackageCountSetting_whateverItsValue() throws Exception {
+        for (String value : new String[] {"1", "0", "-1", "100000", "invalid", ""}) {
+            var settings = settings();
+            for (String retired : CdsExportActivePlanService.RETIRED)
+                settings.setProperty("cds.export." + retired, value);
+            try (var log =
+                    io.github.carlos_emr.carlos.test.logging.LogCapture.forLogger(
+                            CdsExportActivePlanService.class)) {
+                var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
+                var archive = service.resolve().archive();
+                service.resolve();
+
+                // No setting can make a roster, a member count, the inventory or the supporting
+                // files too large to export.
+                assertThat(archive.patients()).isEqualTo(2_000_000);
+                assertThat(archive.members()).isEqualTo(2_000_000);
+                assertThat(archive.indexBytes()).isEqualTo(64L << 30);
+                assertThat(archive.supportingBytes()).isEqualTo(64L << 30);
+                // Said once, by name only.
+                assertThat(log.messages())
+                        .containsExactly(
+                                "CDS_EXPORT_RETIRED_SETTINGS_IGNORED settings=[cds.export.maxPatients,"
+                                        + " cds.export.maxPackageMembers,"
+                                        + " cds.export.maxPackageIndexBytes,"
+                                        + " cds.export.maxSupportingBytes]");
+            }
         }
     }
 
@@ -107,8 +140,8 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var settings = settings();
         var service = new CdsExportActivePlanService(settings, () -> "2026.09.0-test");
-        settings.setProperty("cds.export.maxPatients", "0");
-        assertThat(service.resolve().archive().patients()).isEqualTo(100_000);
+        settings.setProperty("cds.export.maxMetadataBytes", "0");
+        assertThat(service.resolve().archive().metadataBytes()).isEqualTo(256L << 20);
     }
 
     @Test
@@ -137,7 +170,7 @@ class CdsExportActivePlanServiceUnitTest {
             throws Exception {
         var valid = new CdsExportActivePlanService(settings(), () -> "2026.09.0-test");
         var broken = settings();
-        broken.setProperty("cds.export.maxPatients", "invalid");
+        broken.setProperty("cds.export.maxMetadataBytes", "invalid");
         var service =
                 new CdsExportActivePlanService(
                         broken,

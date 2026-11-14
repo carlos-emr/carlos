@@ -102,13 +102,14 @@ public class CdsExportActivePlanService {
                         number("maxIndexBytes", 64L << 20, 1, 64L << 20),
                         (int) number("maxNativeRows", 8192, 1, 8192),
                         (int) number("maxLookupRows", 131_072, 1, 131_072));
+        retired();
         var archive =
                 new CdsExportClinicalPackageService.Limits(
-                        number("maxPatients", 100_000, 1, 2_000_000),
-                        number("maxPackageMembers", 2_000_000, 3, 2_000_000),
-                        number("maxPackageIndexBytes", 1L << 30, 12, 64L << 30),
+                        PATIENTS,
+                        PACKAGE_MEMBERS,
+                        PACKAGE_INDEX_BYTES,
                         number("maxMetadataBytes", 256L << 20, 1, 4L << 30),
-                        number("maxSupportingBytes", 64L << 20, 1, 64L << 30),
+                        SUPPORTING_BYTES,
                         number("maxZipBytes", 64L << 30, 1, 64L << 30));
         return new Plan(
                 build,
@@ -119,6 +120,44 @@ public class CdsExportActivePlanService {
                 archive,
                 number("maxCiphertextBytes", 128L << 30, 1, 128L << 30),
                 number("retentionSeconds", 7 * 86_400L, 60, 30 * 86_400L));
+    }
+
+    /**
+     * What the package formats themselves can hold: the patient and member counts their sealed
+     * manifests accept, and the largest inventory and supporting files their readers accept.
+     * These are not operator budgets. A roster, a member count, the on-disk inventory and the
+     * ReadMe and event log are streamed to protected storage, so nothing in memory grows with
+     * them and no setting may refuse an export for their size.
+     */
+    static final long PATIENTS = 2_000_000,
+            PACKAGE_MEMBERS = 2_000_000,
+            PACKAGE_INDEX_BYTES = 64L << 30,
+            SUPPORTING_BYTES = 64L << 30;
+
+    /**
+     * Settings that used to cap those counts and sizes. An installation may still carry them, so
+     * they are accepted and ignored, whatever their value, instead of failing an export or
+     * start-up.
+     */
+    static final List<String> RETIRED =
+            List.of(
+                    "maxPatients",
+                    "maxPackageMembers",
+                    "maxPackageIndexBytes",
+                    "maxSupportingBytes");
+
+    private final java.util.concurrent.atomic.AtomicBoolean retiredReported =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+    /** Names the ignored settings once per process; setting names only, never a value. */
+    private void retired() {
+        var present = new ArrayList<String>();
+        for (String suffix : RETIRED)
+            if (settings.getProperty("cds.export." + suffix) != null)
+                present.add("cds.export." + suffix);
+        if (!present.isEmpty() && retiredReported.compareAndSet(false, true))
+            org.apache.logging.log4j.LogManager.getLogger(CdsExportActivePlanService.class)
+                    .warn("CDS_EXPORT_RETIRED_SETTINGS_IGNORED settings={}", present);
     }
 
     private long number(String suffix, long fallback, long minimum, long maximum) {
