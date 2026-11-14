@@ -71,10 +71,13 @@ public record CdsProcessConfiguration(Path path, Properties properties, int heap
         properties.load(new ByteArrayInputStream(bytes));
         int heap;
         try {
+            // At least 128 MiB, which the CLI needs to start; no maximum of ours: a long imported
+            // chart may need more heap than any number we could choose. The value is a Java int
+            // (Integer.parseInt refuses a larger one).
             String configured = properties.getProperty(java.util.Objects.requireNonNull(scope).heapProperty(), "512").trim();
-            if (!configured.matches("[0-9]{1,5}")) throw new NumberFormatException();
+            if (!configured.matches("[0-9]{1,10}")) throw new NumberFormatException();
             heap = Integer.parseInt(configured);
-            if (heap < 128 || heap > 16384) throw new NumberFormatException();
+            if (heap < 128) throw new NumberFormatException();
         } catch (NumberFormatException failure) { throw new IOException("CDS_HEAP_CONFIGURATION_INVALID"); }
         return new CdsProcessConfiguration(path, properties, heap);
     }

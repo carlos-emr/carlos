@@ -75,13 +75,26 @@ class CdsProcessProtocolUnitTest {
                                 .heapMiB())
                 .isEqualTo(512);
         for (String value :
-                new String[] {"127", "16385", "0", "-1", "2m", "512 #comment", "", "999999"}) {
+                new String[] {"127", "0", "-1", "2m", "512 #comment", "", "2147483648"}) {
             byte[] bytes = ("cds.export.cliHeapMiB=" + value).getBytes(StandardCharsets.ISO_8859_1);
             assertThatThrownBy(
                             () ->
                                     CdsProcessConfiguration.parse(
                                             Path.of("/synthetic"), bytes, CdsProcessScope.EXPORT))
                     .hasMessage("CDS_HEAP_CONFIGURATION_INVALID");
+        }
+    }
+
+    @Test
+    void shouldAcceptAHeapLargerThan16384MiB_forALongImportedChart() throws Exception {
+        // The heap was once capped at 16,384 MiB, which a chart needing more could not pass.
+        for (int heap : new int[] {16_385, 32_768, 1_048_576}) {
+            byte[] bytes = ("cds.export.cliHeapMiB=" + heap).getBytes(StandardCharsets.ISO_8859_1);
+            assertThat(
+                            CdsProcessConfiguration.parse(
+                                            Path.of("/synthetic"), bytes, CdsProcessScope.EXPORT)
+                                    .heapMiB())
+                    .isEqualTo(heap);
         }
     }
 
