@@ -52,6 +52,23 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CdsTargetReceiptService {
     private static final ObjectMapper JSON = new ObjectMapper();
+
+    /**
+     * The rows one unit's receipt names: a bound on the importer's own records, which no source
+     * file reaches. A unit is one CDS element or one page of at most
+     * {@link CdsSourceFieldService#PAGE_SIZE} source fields, and each kind writes a fixed set of
+     * rows: a demographic record at most 12 (with its two physicians and pharmacy), a
+     * prescription or allergy its row and at most two date rows, a vaccine its row, at most 14
+     * extension rows and a date row, a care element its row and at most ten extension rows, a
+     * note at most six, a laboratory result four, a report at most two representations of four
+     * rows each, a contact two. Elements the schema lets repeat without limit (ResultReviewer,
+     * ReportReviewed, NoteReviewer, ParticipatingProviders, ContactPurpose, any repeated child)
+     * add no row to a unit: their values are source fields, 32 to a unit. The largest unit is a
+     * field page whose every field carries an audited correction: 32 field rows (one reference
+     * each) and 34 file rows (the reference and its file), 100 references in all. The exporter
+     * reads receipts back under the same bound (CdsExportRetainedReceiptVerificationDto,
+     * CdsNativeBaselineCodec), so the two stay in step.
+     */
     private static final int MAXIMUM_REFERENCES = 192;
     private static final Map<String, String> PRIMARY_KEYS =
             Map.ofEntries(
