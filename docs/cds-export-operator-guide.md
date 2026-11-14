@@ -927,7 +927,9 @@ exception is the password and password hint of an encrypted e-mail: the summary
 says a value is held but never prints it. Each saved
 encounter form is one record, labelled "revision n of m" (Notes and the summary
 title add "saved <time>" when the revision stores its save time). The ReadMe counts each
-patient's data summaries by kind.
+patient's data summaries by kind. A record whose summary cannot be made into a PDF at all (not
+even a one-page notice, tried twice) is not held either: its summary is exported as HTML text,
+beside a second text report holding the exact record, and the Notes of both say why.
 
 Two kinds of record also travel as the clinician prints them, as a second Reports
 entry beside their data summary (which stays the complete record):

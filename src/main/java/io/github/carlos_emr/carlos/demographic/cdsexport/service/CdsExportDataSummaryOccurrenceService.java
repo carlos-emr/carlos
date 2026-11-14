@@ -105,10 +105,26 @@ public class CdsExportDataSummaryOccurrenceService {
             return new Rendered(render(group, patient), null);
         }
 
-        /** A rendered record; {@code notice} is null when the pages show all of it. */
-        record Rendered(byte[] pdf, String notice) {
+        /**
+         * A rendered record: its PDF, with {@code notice} null when the pages show all of it; or,
+         * when no PDF could be made of it at all, its data summary as {@code html} and its exact
+         * record as {@code record} (JSON text), each written as a Reports entry of Format Text,
+         * and {@code notice} says why ({@link CdsExportDataSummaryPdfService#html}).
+         */
+        record Rendered(byte[] pdf, String notice, String html, String record) {
             public Rendered {
-                Objects.requireNonNull(pdf);
+                if (pdf == null ? html == null || record == null || notice == null
+                        : html != null || record != null)
+                    throw new IllegalArgumentException("CDS_EXPORT_DATA_SUMMARY_RENDERING_INVALID");
+            }
+
+            public Rendered(byte[] pdf, String notice) {
+                this(Objects.requireNonNull(pdf), notice, null, null);
+            }
+
+            /** The summary as HTML and the exact record, when no PDF could be made. */
+            static Rendered html(String html, String record, String notice) {
+                return new Rendered(null, notice, html, record);
             }
 
             // Records compare arrays by identity; a rendering is equal by its bytes.
@@ -116,12 +132,14 @@ public class CdsExportDataSummaryOccurrenceService {
             public boolean equals(Object other) {
                 return other instanceof Rendered that
                         && java.util.Arrays.equals(pdf, that.pdf)
-                        && Objects.equals(notice, that.notice);
+                        && Objects.equals(notice, that.notice)
+                        && Objects.equals(html, that.html)
+                        && Objects.equals(record, that.record);
             }
 
             @Override
             public int hashCode() {
-                return Objects.hash(java.util.Arrays.hashCode(pdf), notice);
+                return Objects.hash(java.util.Arrays.hashCode(pdf), notice, html, record);
             }
 
             @Override
@@ -809,51 +827,43 @@ public class CdsExportDataSummaryOccurrenceService {
                 var summary = notice == null ? group : group.withNotice(notice);
                 new CdsExportNativeFieldAssessmentValidator()
                         .requireRepresentable(rows, assessments, control::checkpoint);
-                var rendered =
-                        renderings
-                                .getOrDefault(group.kind(), summaries)
-                                .document(summary, plan.patient());
-                byte[] pdf = rendered.pdf();
-                CdsExportDataSummaryPdfService.requirePdf(pdf);
-                // The pages cannot show all of the record: Notes say where the exact one is.
+                var rendered = render(group.kind(), summary, plan.patient());
+                // The pages cannot show all of the record, or no PDF could be made of it: Notes
+                // say where the exact one is.
                 if (rendered.notice() != null) notes = notes + " " + rendered.notice();
-                var staged = store.stage("REPORT_ATTACHMENT", outputBytes -> outputBytes.write(pdf));
-                attachments.add(staged);
-                java.util.Arrays.fill(pdf, (byte) 0);
                 var identity = identity(patientKey, group);
-                String relative =
-                        "Reports/"
-                                + (group.first()
-                                        ? CdsImportKeys.hash(
-                                                "cds-export-data-summary-file-v1",
-                                                patientKey,
-                                                group.table(),
-                                                group.id())
-                                        : CdsImportKeys.hash(
-                                                "cds-export-data-summary-file-v1",
-                                                patientKey,
-                                                group.table(),
-                                                group.id(),
-                                                "part",
-                                                Integer.toString(group.part())))
-                                + ".pdf";
-                output.attachment(identity, new CdsExportPackageMemberDto(relative, staged));
-                String written = notes;
-                xml.emit(
-                        new CdsExportXmlComposer.Section(
-                                identity, body -> write(group, relative, written, body)));
-                control.authorizeCategory(patient.patient(), authority, sensitive);
-                output.accept(
-                        new CdsExportClinicalOccurrenceService.Receipt(
-                                identity,
-                                source.manifest().plaintextSha256(),
-                                group.table(),
-                                group.id(),
-                                null,
-                                assessments,
-                                Set.of(),
-                                Set.of()));
-                emitted++;
+                // Re-checks the right between the entry and its receipt, as every entry does.
+                Runnable authorize =
+                        () -> control.authorizeCategory(patient.patient(), authority, sensitive);
+                if (rendered.pdf() == null) {
+                    appendHtml(
+                            group,
+                            rendered,
+                            notes,
+                            patientKey,
+                            identity,
+                            assessments,
+                            source,
+                            xml,
+                            output,
+                            authorize);
+                    emitted += 2;
+                } else {
+                    appendPdf(
+                            group,
+                            rendered.pdf(),
+                            notes,
+                            patientKey,
+                            identity,
+                            assessments,
+                            source,
+                            store,
+                            attachments,
+                            xml,
+                            output,
+                            authorize);
+                    emitted++;
+                }
                 if (rendering != null && rendering.rendered()) {
                     appendRendered(
                             group,
@@ -900,6 +910,218 @@ public class CdsExportDataSummaryOccurrenceService {
                     }
             }
         }
+    }
+
+    /**
+     * The record's document: from the kind's rendering or the data summary. A rendering that is
+     * not a loadable PDF is replaced by the data summary, and a data summary whose PDF is still
+     * not one by the HTML summary ({@link CdsExportDataSummaryPdfService#html}), so no render
+     * outcome holds the patient.
+     */
+    Renderer.Rendered render(
+            CdsExportDataSummaryRegistry.Kind kind,
+            CdsExportDataSummaryPlanner.Group summary,
+            CdsExportDataSummaryHtmlComposer.Patient patient)
+            throws IOException {
+        var renderer = renderings.getOrDefault(kind, summaries);
+        var rendered = renderer.document(summary, patient);
+        if (rendered.pdf() == null || CdsExportDataSummaryPdfService.isPdf(rendered.pdf()))
+            return rendered;
+        if (renderer != summaries) {
+            rendered = summaries.document(summary, patient);
+            if (rendered.pdf() == null || CdsExportDataSummaryPdfService.isPdf(rendered.pdf()))
+                return rendered;
+        }
+        return CdsExportDataSummaryPdfService.html(summary, patient);
+    }
+
+    /** The data summary as its PDF attachment: one Reports entry and its receipt. */
+    private static void appendPdf(
+            CdsExportDataSummaryPlanner.Group group,
+            byte[] pdf,
+            String notes,
+            String patientKey,
+            CdsExportIdentityDto identity,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            CdsExportPatientCaptureDto source,
+            CdsExportStagingService store,
+            List<CdsExportStagedFileDto> attachments,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output,
+            Runnable authorize)
+            throws IOException {
+        var staged = store.stage("REPORT_ATTACHMENT", outputBytes -> outputBytes.write(pdf));
+        attachments.add(staged);
+        java.util.Arrays.fill(pdf, (byte) 0);
+        String relative =
+                "Reports/"
+                        + (group.first()
+                                ? CdsImportKeys.hash(
+                                        "cds-export-data-summary-file-v1",
+                                        patientKey,
+                                        group.table(),
+                                        group.id())
+                                : CdsImportKeys.hash(
+                                        "cds-export-data-summary-file-v1",
+                                        patientKey,
+                                        group.table(),
+                                        group.id(),
+                                        "part",
+                                        Integer.toString(group.part())))
+                        + ".pdf";
+        output.attachment(identity, new CdsExportPackageMemberDto(relative, staged));
+        xml.emit(
+                new CdsExportXmlComposer.Section(
+                        identity, body -> write(group, relative, notes, body)));
+        authorize.run();
+        output.accept(
+                new CdsExportClinicalOccurrenceService.Receipt(
+                        identity,
+                        source.manifest().plaintextSha256(),
+                        group.table(),
+                        group.id(),
+                        null,
+                        assessments,
+                        Set.of(),
+                        Set.of()));
+    }
+
+    /**
+     * The data summary of a record no PDF could be made of: the HTML summary as a Reports entry of
+     * Format Text under the record's own identity, followed by its exact record as a second text
+     * entry. The second entry is the record's companion: the inventory expects one entry per
+     * record, since it does not render, so the entry is declared beside the expected one before
+     * it is written ({@link CdsExportClinicalOccurrenceService.Receipts#companion}). The summary's
+     * receipt accounts every field (each value is in the summary's text and exactly in the
+     * record); the record's adds none.
+     */
+    private static void appendHtml(
+            CdsExportDataSummaryPlanner.Group group,
+            Renderer.Rendered rendered,
+            String notes,
+            String patientKey,
+            CdsExportIdentityDto identity,
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments,
+            CdsExportPatientCaptureDto source,
+            CdsExportXmlComposer.SectionEmitter xml,
+            CdsExportClinicalOccurrenceService.Receipts output,
+            Runnable authorize)
+            throws IOException {
+        var record = recordIdentity(patientKey, group);
+        output.companion(identity, record);
+        xml.emit(
+                new CdsExportXmlComposer.Section(
+                        identity, body -> writeHtml(group, rendered.html(), notes, body)));
+        authorize.run();
+        output.accept(
+                new CdsExportClinicalOccurrenceService.Receipt(
+                        identity,
+                        source.manifest().plaintextSha256(),
+                        group.table(),
+                        group.id(),
+                        null,
+                        htmlAssessments(assessments),
+                        Set.of(),
+                        Set.of()));
+        xml.emit(
+                new CdsExportXmlComposer.Section(
+                        record, body -> writeRecord(group, rendered.record(), body)));
+        authorize.run();
+        output.accept(
+                new CdsExportClinicalOccurrenceService.Receipt(
+                        record,
+                        source.manifest().plaintextSha256(),
+                        group.table(),
+                        group.id(),
+                        null,
+                        Map.of(),
+                        Set.of(),
+                        Set.of()));
+    }
+
+    /** The rule of a field of a data summary exported as HTML beside its exact record. */
+    static final String HTML_RULE = "CARLOS_DATA_SUMMARY_HTML_AND_EXACT_RECORD";
+
+    /** The summary's decisions with each value the PDF would have held in the HTML text instead. */
+    static Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> htmlAssessments(
+            Map<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto> assessments) {
+        var result = new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
+        assessments.forEach(
+                (key, value) ->
+                        result.put(
+                                key,
+                                "Reports/FilePath".equals(value.destination())
+                                        ? new CdsExportFieldAssessmentDto(
+                                                value.presence(),
+                                                value.outcome(),
+                                                "Reports/Content",
+                                                HTML_RULE)
+                                        : value));
+        return java.util.Collections.unmodifiableMap(result);
+    }
+
+    /**
+     * The identity of the exact record of a data summary exported as HTML; a part of a divided
+     * record has its own.
+     */
+    static CdsExportIdentityDto recordIdentity(
+            String patientKey, CdsExportDataSummaryPlanner.Group group) {
+        return new CdsExportIdentityDto(
+                patientKey,
+                CdsCategory.REPORTS,
+                group.first()
+                        ? CdsImportKeys.hash("carlos-data-summary-record-v1", group.table(), group.id())
+                        : CdsImportKeys.hash(
+                                "carlos-data-summary-record-v1",
+                                group.table(),
+                                group.id(),
+                                "part",
+                                Integer.toString(group.part())));
+    }
+
+    /** The HTML data summary's Reports content in CDS 5.2 schema order. */
+    static void writeHtml(
+            CdsExportDataSummaryPlanner.Group group,
+            String html,
+            String notes,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.element("cds", "Media", "Download");
+        xml.element("cds", "Format", "Text");
+        xml.element("cds", "FileExtensionAndVersion", "html");
+        xml.start("cds", "Content");
+        xml.element("cds_dt", "TextContent", html);
+        xml.end();
+        xml.element("cds", "Class", group.kind().reportClass());
+        xml.element("cds", "SubClass", group.subClass());
+        if (group.event() != null) {
+            xml.start("cds", "EventDateTime");
+            CdsExportNativeHistoryXmlWriter.dateContents(xml, group.event());
+            xml.end();
+        }
+        xml.element("cds", "Notes", notes);
+    }
+
+    /** The exact record's Reports content in CDS 5.2 schema order. */
+    static void writeRecord(
+            CdsExportDataSummaryPlanner.Group group,
+            String record,
+            CdsExportXmlComposer.ContentWriter xml)
+            throws IOException {
+        xml.element("cds", "Media", "Download");
+        xml.element("cds", "Format", "Text");
+        xml.element("cds", "FileExtensionAndVersion", "json");
+        xml.start("cds", "Content");
+        xml.element("cds_dt", "TextContent", record);
+        xml.end();
+        xml.element("cds", "Class", group.kind().reportClass());
+        xml.element("cds", "SubClass", CdsExportDataSummaryPdfService.RECORD_SUBCLASS);
+        if (group.event() != null) {
+            xml.start("cds", "EventDateTime");
+            CdsExportNativeHistoryXmlWriter.dateContents(xml, group.event());
+            xml.end();
+        }
+        xml.element("cds", "Notes", CdsExportDataSummaryPdfService.RECORD_NOTES);
     }
 
     /**

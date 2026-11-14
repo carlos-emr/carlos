@@ -234,4 +234,139 @@ class CdsExportDataSummaryOccurrenceServiceUnitTest {
         assertThat(result.empty()).isEqualTo(1);
         assertThat(result.mapped()).isEqualTo(6);
     }
+
+    private static final CdsExportDataSummaryHtmlComposer.Patient SUMMARY_PATIENT =
+            CdsExportDataSummaryHtmlComposer.Patient.of(
+                    Map.of("demographic_no", "27", "last_name", "FAKE-Fixture", "first_name", "Synthetic"));
+
+    private static Group tickler(String message) {
+        var values = new LinkedHashMap<String, Value>();
+        values.put("message", Value.text(message));
+        values.put("priority", Value.sqlNull());
+        values.put("tickler_no", Value.text("7"));
+        return new Group(
+                Kind.TICKLER,
+                "tickler",
+                "7",
+                List.of(new Row("tickler", CdsExportPatientTableSourceReader.key(7), values)),
+                0,
+                0,
+                new CdsExportDateDto(CdsExportDateDto.Precision.DATE, "2024-03-10"),
+                false);
+    }
+
+    @Test
+    void shouldExportTheSummaryAsHtml_whenTheRenderingIsNoPdf() throws Exception {
+        // Neither the kind's rendering nor the data summary gives a loadable PDF: the summary is
+        // exported as HTML, never held.
+        CdsExportDataSummaryOccurrenceService.Renderer broken =
+                (group, patient) -> "%PDF-1.7 truncated".getBytes(StandardCharsets.US_ASCII);
+        var service =
+                new CdsExportDataSummaryOccurrenceService(
+                        org.mockito.Mockito.mock(CdsExportNativeCaptureService.class),
+                        org.mockito.Mockito.mock(CdsExportStagingFactory.class),
+                        broken,
+                        Map.of(Kind.TICKLER, broken));
+
+        var rendered = service.render(Kind.TICKLER, tickler("Call back"), SUMMARY_PATIENT);
+
+        assertThat(rendered.pdf()).isNull();
+        assertThat(rendered.notice()).isEqualTo(CdsExportDataSummaryPdfService.HTML_NOTICE);
+        assertThat(rendered.html()).contains("Call back");
+        assertThat(rendered.record()).contains("\"text\":\"Call back\"");
+    }
+
+    @Test
+    void shouldWriteTheHtmlSummaryAndItsRecord_asTwoSchemaValidTextReports() throws Exception {
+        var group = tickler("Recall in 6 months — café, 語");
+        var rendered = CdsExportDataSummaryPdfService.html(group, SUMMARY_PATIENT);
+        var patient = new LinkedHashMap<String, String>();
+        CdsExportDemographicRowDto.COLUMNS.forEach(column -> patient.put(column, null));
+        patient.putAll(
+                Map.of(
+                        "first_name", "Synthetic",
+                        "last_name", "Fixture",
+                        "year_of_birth", "1980",
+                        "month_of_birth", "01",
+                        "date_of_birth", "01",
+                        "patient_status", "AC",
+                        "sex", "U"));
+        var demographics =
+                new CdsExportDemographicMapper().map(new CdsExportDemographicRowDto(27, patient));
+        String notes = CdsExportDataSummaryOccurrenceService.NOTES + " " + rendered.notice();
+        var summary = CdsExportDataSummaryOccurrenceService.identity(KEY, group);
+        var record = CdsExportDataSummaryOccurrenceService.recordIdentity(KEY, group);
+        assertThat(record).isNotEqualTo(summary);
+        var sections =
+                List.of(
+                        new CdsExportXmlComposer.Section(
+                                new CdsExportIdentityDto(KEY, CdsCategory.DEMOGRAPHICS, "b".repeat(64)),
+                                writer -> new CdsExportDemographicXmlWriter().write(demographics, writer)),
+                        new CdsExportXmlComposer.Section(
+                                summary,
+                                writer ->
+                                        CdsExportDataSummaryOccurrenceService.writeHtml(
+                                                group, rendered.html(), notes, writer)),
+                        new CdsExportXmlComposer.Section(
+                                record,
+                                writer ->
+                                        CdsExportDataSummaryOccurrenceService.writeRecord(
+                                                group, rendered.record(), writer)));
+        var output = new ByteArrayOutputStream();
+        var selected = Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS);
+        new CdsExportXmlComposer()
+                .compose(
+                        output,
+                        "d".repeat(64),
+                        KEY,
+                        "2026.08.0-test",
+                        CdsLogicalProfile.ONTARIO_MD_5_2,
+                        selected,
+                        sections.iterator(),
+                        ignored -> {},
+                        1L << 22,
+                        () -> {});
+        var references = new ArrayList<CdsExportReportReferenceDto>();
+        var checked =
+                new CdsExportXmlValidator()
+                        .validate(
+                                new ByteArrayInputStream(output.toByteArray()),
+                                "27",
+                                selected,
+                                "2026.08.0-test",
+                                CdsLogicalProfile.ONTARIO_MD_5_2,
+                                references::add,
+                                () -> {});
+        assertThat(checked.occurrences().get(CdsCategory.REPORTS)).isEqualTo(2L);
+        assertThat(checked.textReports()).isEqualTo(2);
+        assertThat(checked.binaryReports()).isZero();
+        assertThat(references).isEmpty();
+        String xml = output.toString(StandardCharsets.UTF_8);
+        assertThat(xml)
+                .containsSubsequence(
+                        "<Format>Text</Format>",
+                        "<FileExtensionAndVersion>html</FileExtensionAndVersion>",
+                        "&lt;!DOCTYPE html&gt;",
+                        "<SubClass>" + group.subClass() + "</SubClass>",
+                        "could not make this record",
+                        "<Format>Text</Format>",
+                        "<FileExtensionAndVersion>json</FileExtensionAndVersion>",
+                        "CARLOS.DataSummary.Record.v1",
+                        "<SubClass>" + CdsExportDataSummaryPdfService.RECORD_SUBCLASS + "</SubClass>");
+        assertThat(xml).contains("Recall in 6 months — café, 語");
+        // Every field of the record is accounted by the HTML summary's receipt.
+        var html =
+                CdsExportDataSummaryOccurrenceService.htmlAssessments(
+                        CdsExportDataSummaryOccurrenceService.assessments(group));
+        assertThat(html.values())
+                .allSatisfy(
+                        assessment -> {
+                            assertThat(assessment.destination()).isEqualTo("Reports/Content");
+                            assertThat(assessment.rule())
+                                    .isEqualTo(CdsExportDataSummaryOccurrenceService.HTML_RULE);
+                        });
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(
+                        group.rows().stream().map(Row::assessed).toList(), html, () -> {});
+    }
 }

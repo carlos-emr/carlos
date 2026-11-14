@@ -177,6 +177,53 @@ class CdsExportOccurrenceIndexUnitTest {
     }
 
     @Test
+    void shouldExpectADeclaredCompanion_beforeItIsEmittedAndInIdentityOrder() {
+        var index = new CdsExportOccurrenceIndex(PATIENT);
+        var summaries = new ArrayList<CdsExportIdentityDto>();
+        for (int number = 0; number < 6; number++) {
+            summaries.add(identity(CdsCategory.REPORTS, number));
+            index.expect(summaries.getLast());
+        }
+        index.expect(identity(CdsCategory.DEMOGRAPHICS, 1));
+        assertThat(index.seal()).isTrue();
+        var parent = summaries.get(2);
+        var companion = identity(CdsCategory.REPORTS, 99);
+        // Not expected until it is declared, and never beside a stranger, in another category, as
+        // an occurrence already expected or twice.
+        assertThat(index.expects(companion)).isFalse();
+        assertThat(index.dispose(emitted(companion))).isFalse();
+        assertThat(index.companion(identity(CdsCategory.REPORTS, 50), companion)).isFalse();
+        assertThat(index.companion(parent, identity(CdsCategory.NEW_CATEGORY, 99))).isFalse();
+        assertThat(index.companion(parent, summaries.get(3))).isFalse();
+        assertThat(index.companion(parent, companion)).isTrue();
+        assertThat(index.companion(parent, companion)).isFalse();
+        assertThat(index.companion(companion, identity(CdsCategory.REPORTS, 98))).isFalse();
+        assertThat(index.expects(companion)).isTrue();
+        // Disposed of, received and reconciled like any expected occurrence.
+        var all = new ArrayList<CdsExportIdentityDto>(index.identities());
+        assertThat(all).hasSize(8).isSorted().contains(companion);
+        assertThat(index.identities()).hasSize(8);
+        for (var identity : all) assertThat(index.dispose(emitted(identity))).isTrue();
+        assertThat(index.dispose(emitted(companion))).isFalse();
+        assertThat(index.reconciled()).isFalse();
+        for (var identity : all) assertThat(index.receive(identity)).isTrue();
+        assertThat(index.received(companion)).isTrue();
+        assertThat(index.reconciled()).isTrue();
+        var dispositions = new ArrayList<CdsExportDispositionDto>();
+        index.dispositions(CAPTURE).forEachRemaining(dispositions::add);
+        assertThat(dispositions).extracting(CdsExportDispositionDto::identity).isEqualTo(all);
+        assertThat(dispositions)
+                .filteredOn(disposition -> disposition.identity().equals(companion))
+                .singleElement()
+                .isEqualTo(emitted(companion));
+        var coverage =
+                new io.github.carlos_emr.carlos.demographic.cdsexport.validator
+                                .CdsExportCoverageValidator()
+                        .validate(CAPTURE, index.identities().iterator(), index.dispositions(CAPTURE), () -> {});
+        assertThat(coverage.sourceCoverageComplete()).isTrue();
+    }
+
+    @Test
     void shouldRefuseAnotherPatientsOccurrence_orAnAdditionAfterTheIndexIsSealed() {
         var index = new CdsExportOccurrenceIndex(PATIENT);
         assertThatThrownBy(

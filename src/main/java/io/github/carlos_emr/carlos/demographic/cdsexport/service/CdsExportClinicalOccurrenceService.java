@@ -116,6 +116,17 @@ public class CdsExportClinicalOccurrenceService {
                 throws IOException {
             throw new IOException("CDS_EXPORT_REPORT_ATTACHMENT_SINK_REQUIRED");
         }
+
+        /**
+         * Declares one occurrence the inventory could not predict, beside the expected occurrence
+         * {@code parent}, before it is emitted: today the exact record of a data summary that
+         * could not be made into a PDF (CdsExportDataSummaryPdfService). It is then expected like
+         * any other occurrence and needs its own disposition and receipt.
+         */
+        default void companion(CdsExportIdentityDto parent, CdsExportIdentityDto companion)
+                throws IOException {
+            throw new IOException("CDS_EXPORT_COMPANION_SINK_REQUIRED");
+        }
     }
 
     public record Result(
