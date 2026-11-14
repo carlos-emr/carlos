@@ -2235,7 +2235,8 @@ holds are gone. What happens, exactly:
 | A character with no glyph in the bundled fonts | The HTML-to-PDF module draws DejaVu Sans, then the bundled CJK and symbol faces, then U+FFFD (`FallbackFontRuns`). Hindi, Punjabi, Tamil and Thai are among the scripts no bundled face draws (`docs/html-pdf-rendering.md`). The module reported this only when a fallback face failed to load, so with the fonts installed such text printed as U+FFFD with no hold and no notice: the stored text was lost from the export. | The page prints U+FFFD for each such character, carries the notice below, and the exact record is attached inside the PDF. |
 | A character the summary's HTML cannot carry, or that draws nothing | A control character other than tab and the line breaks, a lone surrogate or a non-character is written as a space by the HTML encoder; a format character (a zero-width joiner, a soft hyphen), a variation selector, a private-use or unassigned code point has no glyph of its own. Pasted text reaches all of these. | The same: notice and attached exact record. |
 | An image | The module found no render slot within its wait (two renders at a time for the whole server; it then prints raster images as boxes, `IMAGES_OMITTED_FOR_MEMORY`), could not decode the image (`IMAGE_UNAVAILABLE`), or printed text only because the document was over its size limit or its layout failed (`TEXT_ONLY`; that mode draws no image, and until this change lost a photo with no hold). | A record with an image is rendered up to six times while the module reports no free slot (`SLOT_ATTEMPTS`). If its image still did not print, the page shows the box, carries the notice, and the image itself is attached inside the PDF as its own file. |
-| Anything: no PDF could be made | Every rung of the module's ladder failed for this record, or its output is not a loadable PDF. | A one-page PDF holding only a notice, written with PDFBox and the bundled DejaVu Sans (not the module that failed), with the same attachments. An interrupted wait is the one exception: it is the job being cancelled. |
+| Anything: no PDF could be made | Every rung of the module's ladder failed for this record, its output is not a loadable PDF, or its pages would not take the attachments. | A one-page PDF holding only a notice, written with PDFBox and the bundled DejaVu Sans (not the module that failed), with the same attachments. When that page cannot be made or will not take the attachments, it is made once more (`NOTICE_ATTEMPTS`). An interrupted wait is the one exception: it is the job being cancelled. |
+| Not even the notice page | The notice page failed twice (owner decision 2026-11-14). | The summary is exported as HTML instead of a PDF, as two Reports entries of Format Text, both under Media `Download`, the record's Class and its EventDateTime: the data summary itself (FileExtensionAndVersion `html`, TextContent the composer's HTML, which shows every value and each image from its own bytes, SubClass as for the PDF, under the record's own identity), followed by its exact record (FileExtensionAndVersion `json`, TextContent the `carlos-data-summary-record.json` text described below, without image file names, SubClass "CARLOS data summary record", Notes `RECORD_NOTES`). The summary's Notes end with `HTML_NOTICE`, which the HTML also shows. The record entry is the one occurrence the inventory cannot predict (it does not render): the occurrence service declares it beside the summary's expected identity before writing it (`Receipts.companion`, `CdsExportOccurrenceIndex.companion`), after which it is disposed of, received and reconciled like any other; its receipt adds no field decision, and the summary's receipt maps every field to `Reports/Content` (`CARLOS_DATA_SUMMARY_HTML_AND_EXACT_RECORD`). A rendering of another kind that is not a loadable PDF is replaced by the data summary first. |
 
 **The attachments** are PDF embedded files, which every PDF reader lists as attachments and
 `pdfdetach` extracts:
@@ -2255,15 +2256,29 @@ The notice is printed under the summary's statement and written in the Reports e
 attached inside this PDF. ..." (`ATTACHED_NOTICE`), or "CARLOS EMR could not print this record as
 a PDF, so this PDF holds only this notice. ..." (`UNPRINTED_NOTICE`). The Reports entry, its
 identity, its one FilePath and its receipt are unchanged: the attachments travel inside the one
-member the inventory already predicts, so nothing about a render outcome has to be predicted.
+member the inventory already predicts, so nothing about a render outcome has to be predicted. A
+summary exported as HTML says so on the page and in Notes: "CARLOS EMR could not make this
+record's data summary into a PDF, so it is exported as HTML: this report's text is the data
+summary, which shows every stored value, and the exact record (carlos-data-summary-record.json) is
+exported as a separate text report beside this one, subclass "CARLOS data summary record"."
+(`HTML_NOTICE`); the record entry's Notes are `RECORD_NOTES`. `CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED`
+no longer exists: a PDF the exporter's own check refuses (`CDS_EXPORT_DATA_SUMMARY_PDF_INVALID`) is
+answered by the next rung, and a printed form it refuses is recorded as not produced
+(`RENDER_FAILED`), never a hold.
 
 **On import.** A CARLOS import files the Reports entry as a document and stores the PDF's bytes
 unchanged, so the attachments stay inside the stored document and open from it. No importer reads
 a data summary back into tables (that was already so for every data summary), so the attached
-record is for the reader and for a later conversion, not a restore.
+record is for the reader and for a later conversion, not a restore. An HTML summary and its record
+are two text reports: the importer keeps each as a text document of the chart requiring review
+(`CDS_REPORT_HTML_RETAINED_AS_TEXT`, `CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED`), the HTML shown as
+its text and never run (`CdsExportReportMediaRoundTripUnitTest`).
 
 A record without an image that the module printed in safe mode or as text only still shows every
-character and is accepted as it is. Tests: `CdsExportDataSummaryPdfServiceUnitTest`.
+character and is accepted as it is. Tests: `CdsExportDataSummaryPdfServiceUnitTest` (each rung
+forced to fail: the module, the module page that will not take the record, the first notice page,
+both notice pages), `CdsExportDataSummaryOccurrenceServiceUnitTest` (a rendering that is no PDF;
+both text entries schema-valid), `CdsExportOccurrenceIndexUnitTest` (a declared companion).
 
 ### Data summaries and last holds
 

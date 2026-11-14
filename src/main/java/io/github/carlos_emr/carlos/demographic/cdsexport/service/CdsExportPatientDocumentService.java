@@ -170,6 +170,28 @@ public class CdsExportPatientDocumentService {
                                             }
 
                                             @Override
+                                            public void companion(
+                                                    CdsExportIdentityDto parent,
+                                                    CdsExportIdentityDto companion)
+                                                    throws IOException {
+                                                try {
+                                                    if (!active.get()
+                                                            || Thread.currentThread()
+                                                                    != ownerThread) invalid();
+                                                    control.checkpoint();
+                                                    // Beside an expected occurrence only, and
+                                                    // never one already expected.
+                                                    if (!index.companion(parent, companion))
+                                                        invalid();
+                                                } catch (IOException
+                                                        | RuntimeException
+                                                        | Error failure) {
+                                                    failed.set(true);
+                                                    throw failure;
+                                                }
+                                            }
+
+                                            @Override
                                             public void attachment(
                                                     CdsExportIdentityDto report,
                                                     CdsExportPackageMemberDto member)

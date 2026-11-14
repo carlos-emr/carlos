@@ -177,6 +177,53 @@ class CdsExportReportMediaRoundTripUnitTest {
         assertThatCode(imported::bind).doesNotThrowAnyException();
     }
 
+    @Test
+    void shouldKeepAnHtmlDataSummaryAndItsExactRecord_asTheTextReportsTheyAre() throws Exception {
+        // A data summary no PDF could be made of is two text reports: the summary as HTML and
+        // the exact record as JSON. CARLOS imports each as a text document of the chart, kept
+        // as the plain text it is, for review.
+        var values = new LinkedHashMap<String, CdsExportDataSummaryPlanner.Value>();
+        values.put("message", CdsExportDataSummaryPlanner.Value.text("Call back <b>today</b> — 語"));
+        values.put("tickler_no", CdsExportDataSummaryPlanner.Value.text("7"));
+        var group =
+                new CdsExportDataSummaryPlanner.Group(
+                        CdsExportDataSummaryRegistry.Kind.TICKLER,
+                        "tickler",
+                        "7",
+                        List.of(
+                                new CdsExportDataSummaryPlanner.Row(
+                                        "tickler", CdsExportPatientTableSourceReader.key(7), values)),
+                        0,
+                        0,
+                        null,
+                        false);
+        var rendered =
+                CdsExportDataSummaryPdfService.html(
+                        group,
+                        CdsExportDataSummaryHtmlComposer.Patient.of(
+                                Map.of("demographic_no", "27", "last_name", "FAKE-Fixture")));
+        for (String[] entry :
+                new String[][] {
+                    {"html", rendered.html(), "CDS_REPORT_HTML_RETAINED_AS_TEXT"},
+                    {"json", rendered.record(), "CDS_REPORT_TEXT_MEDIA_DECLARATION_RETAINED"}
+                }) {
+            var fields = new LinkedHashMap<String, String>();
+            fields.put("Media", "Download");
+            fields.put("Format", "Text");
+            fields.put("FileExtensionAndVersion", entry[0]);
+            fields.put("Content/TextContent", entry[1]);
+            fields.put("Class", group.kind().reportClass());
+            fields.put("Notes", CdsExportDataSummaryPdfService.HTML_NOTICE);
+
+            var imported = importRecord(CdsClinicalFixture.record(temp, "Reports", fields), null);
+
+            assertThat(imported.variant().mime()).isEqualTo("text/plain;charset=UTF-8");
+            assertThat(imported.variant().mediaReviewRequired()).isTrue();
+            assertThat(imported.variant().diagnostics()).extracting("code").containsExactly(entry[2]);
+            assertThat(imported.document().getContenttype()).isEqualTo("text/plain;charset=UTF-8");
+        }
+    }
+
     /** One imported representation: the row the import wrote and what the re-export binds. */
     private record Imported(Document document, CdsReportNativeDto prepared) {
         CdsReportNativeDto.Variant variant() {

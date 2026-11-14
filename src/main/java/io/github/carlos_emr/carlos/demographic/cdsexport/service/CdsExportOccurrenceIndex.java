@@ -49,10 +49,27 @@ import java.util.Set;
  * category's wire name, then the occurrence key. Identities and dispositions are rebuilt from the
  * packed form when they are read; none is kept as an object.
  *
+ * <p>One kind of occurrence is added after the inventory is sealed: a companion the composer
+ * declares beside an expected occurrence whose own form could not be made ({@link #companion}),
+ * today the exact record of a data summary that could not be made into a PDF. A companion is
+ * accepted only beside an expected occurrence that is not a companion, never in place of one, and
+ * from then on it is expected like any other: it must be disposed of, received and reconciled.
+ * Companions are rare (none in an ordinary export), so they are kept as objects beside the packed
+ * keys and merged into every ordered view.
+ *
  * @since 2026-11-14
  */
 final class CdsExportOccurrenceIndex {
     private static final int DISPOSED = 1, RECEIVED = 2, BLOCKED = 4, BLOCKER_SHIFT = 3;
+
+    /** A companion's state and, once it is emitted, its output digest. */
+    private static final class Companion {
+        int state;
+        byte[] digest;
+    }
+
+    private final java.util.TreeMap<CdsExportIdentityDto, Companion> companions =
+            new java.util.TreeMap<>();
 
     /** The categories in the order of their wire names: an occurrence's first key byte. */
     private static final CdsCategory[] BY_WIRE_NAME = byWireName();
@@ -155,7 +172,26 @@ final class CdsExportOccurrenceIndex {
     }
 
     boolean expects(CdsExportIdentityDto identity) {
-        return find(identity) >= 0;
+        return find(identity) >= 0 || companions.containsKey(identity);
+    }
+
+    /**
+     * Expects one more occurrence beside {@code parent}, after the inventory was sealed: the
+     * composer's own companion of an expected occurrence (see the class comment).
+     *
+     * @return false when {@code parent} is not an expected occurrence, the companion is already
+     *     expected (as an occurrence or a companion), belongs to another patient or another
+     *     category than its parent
+     */
+    boolean companion(CdsExportIdentityDto parent, CdsExportIdentityDto companion) {
+        requireSealed();
+        if (find(parent) < 0
+                || key(companion) == null
+                || companion.category() != parent.category()
+                || find(companion) >= 0
+                || companions.containsKey(companion)) return false;
+        companions.put(companion, new Companion());
+        return true;
     }
 
     /**
@@ -165,7 +201,18 @@ final class CdsExportOccurrenceIndex {
      */
     boolean dispose(CdsExportDispositionDto disposition) {
         int at = find(disposition.identity());
-        if (at < 0 || (occurrences.state(at) & DISPOSED) != 0) return false;
+        if (at < 0) {
+            var companion = companions.get(disposition.identity());
+            if (companion == null || (companion.state & DISPOSED) != 0) return false;
+            int state = DISPOSED;
+            if (disposition.disposition() == CdsExportDispositionDto.Disposition.BLOCKED)
+                state |= BLOCKED | disposition.blocker().ordinal() << BLOCKER_SHIFT;
+            else companion.digest = HexFormat.of().parseHex(disposition.outputDigest());
+            companion.state = state;
+            disposed++;
+            return true;
+        }
+        if ((occurrences.state(at) & DISPOSED) != 0) return false;
         int state = DISPOSED;
         if (disposition.disposition() == CdsExportDispositionDto.Disposition.BLOCKED)
             state |= BLOCKED | disposition.blocker().ordinal() << BLOCKER_SHIFT;
@@ -185,7 +232,15 @@ final class CdsExportOccurrenceIndex {
      */
     boolean receive(CdsExportIdentityDto identity) {
         int at = find(identity);
-        if (at < 0) return false;
+        if (at < 0) {
+            var companion = companions.get(identity);
+            if (companion == null
+                    || (companion.state & DISPOSED) == 0
+                    || (companion.state & RECEIVED) != 0) return false;
+            companion.state |= RECEIVED;
+            received++;
+            return true;
+        }
         int state = occurrences.state(at);
         if ((state & DISPOSED) == 0 || (state & RECEIVED) != 0) return false;
         occurrences.state(at, (byte) (state | RECEIVED));
@@ -195,7 +250,11 @@ final class CdsExportOccurrenceIndex {
 
     boolean received(CdsExportIdentityDto identity) {
         int at = find(identity);
-        return at >= 0 && (occurrences.state(at) & RECEIVED) != 0;
+        if (at < 0) {
+            var companion = companions.get(identity);
+            return companion != null && (companion.state & RECEIVED) != 0;
+        }
+        return (occurrences.state(at) & RECEIVED) != 0;
     }
 
     /**
@@ -236,25 +295,27 @@ final class CdsExportOccurrenceIndex {
         return new AbstractSet<>() {
             @Override
             public Iterator<CdsExportIdentityDto> iterator() {
-                return new Iterator<>() {
-                    private int next;
+                var packed =
+                        new Iterator<CdsExportIdentityDto>() {
+                            private int next;
 
-                    @Override
-                    public boolean hasNext() {
-                        return next < occurrences.size();
-                    }
+                            @Override
+                            public boolean hasNext() {
+                                return next < occurrences.size();
+                            }
 
-                    @Override
-                    public CdsExportIdentityDto next() {
-                        if (!hasNext()) throw new NoSuchElementException();
-                        return identity(next++);
-                    }
-                };
+                            @Override
+                            public CdsExportIdentityDto next() {
+                                if (!hasNext()) throw new NoSuchElementException();
+                                return identity(next++);
+                            }
+                        };
+                return merged(packed, companions.keySet().iterator(), value -> value);
             }
 
             @Override
             public int size() {
-                return occurrences.size();
+                return occurrences.size() + companions.size();
             }
 
             @Override
@@ -308,6 +369,58 @@ final class CdsExportOccurrenceIndex {
      */
     Iterator<CdsExportDispositionDto> dispositions(String captureDigest) {
         requireSealed();
+        var declared = new java.util.ArrayList<CdsExportDispositionDto>();
+        for (var entry : companions.entrySet()) {
+            int state = entry.getValue().state;
+            if ((state & DISPOSED) == 0) continue;
+            boolean blocked = (state & BLOCKED) != 0;
+            declared.add(
+                    new CdsExportDispositionDto(
+                            captureDigest,
+                            entry.getKey(),
+                            blocked
+                                    ? CdsExportDispositionDto.Disposition.BLOCKED
+                                    : CdsExportDispositionDto.Disposition.EMITTED,
+                            blocked ? null : HexFormat.of().formatHex(entry.getValue().digest),
+                            blocked
+                                    ? CdsExportDispositionDto.Blocker.values()[
+                                            (state & 0xff) >>> BLOCKER_SHIFT]
+                                    : null));
+        }
+        return merged(packedDispositions(captureDigest), declared.iterator(), CdsExportDispositionDto::identity);
+    }
+
+    /** The two ordered views merged in identity order; an identity is in at most one of them. */
+    private static <T> Iterator<T> merged(
+            Iterator<T> left,
+            Iterator<T> right,
+            java.util.function.Function<T, CdsExportIdentityDto> identity) {
+        if (!right.hasNext()) return left;
+        return new Iterator<>() {
+            private T a = left.hasNext() ? left.next() : null, b = right.next();
+
+            @Override
+            public boolean hasNext() {
+                return a != null || b != null;
+            }
+
+            @Override
+            public T next() {
+                if (!hasNext()) throw new NoSuchElementException();
+                T result;
+                if (b == null || a != null && identity.apply(a).compareTo(identity.apply(b)) < 0) {
+                    result = a;
+                    a = left.hasNext() ? left.next() : null;
+                } else {
+                    result = b;
+                    b = right.hasNext() ? right.next() : null;
+                }
+                return result;
+            }
+        };
+    }
+
+    private Iterator<CdsExportDispositionDto> packedDispositions(String captureDigest) {
         return new Iterator<>() {
             private int next = advance(0);
 

@@ -281,10 +281,13 @@ class CdsExportDataSummaryHtmlComposerUnitTest {
             String text = new PDFTextStripper().getText(document);
             assertThat(text).contains("CARLOS data summary: Patient photo").contains("not an original");
         }
+        // A check of the exporter's own output: every caller answers it with the next rung of
+        // the render (the notice page, then HTML), never with a hold.
         assertThatThrownBy(() -> CdsExportDataSummaryPdfService.requirePdf("<html>".getBytes(StandardCharsets.US_ASCII)))
-                .isInstanceOf(CdsExportMappingReviewException.class)
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED");
+                .isInstanceOf(java.io.IOException.class)
+                .isNotInstanceOf(CdsExportMappingReviewException.class)
+                .hasMessage("CDS_EXPORT_DATA_SUMMARY_PDF_INVALID");
         assertThatThrownBy(() -> CdsExportDataSummaryPdfService.requirePdf("%PDF-1.7 truncated".getBytes(StandardCharsets.US_ASCII)))
-                .hasMessage("CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED");
+                .hasMessage("CDS_EXPORT_DATA_SUMMARY_PDF_INVALID");
     }
 }

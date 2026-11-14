@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
-import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -54,8 +53,9 @@ final class CdsExportPrintedPdf {
      *
      * @param pdf the rendered PDF
      * @param seed 64 hexadecimal characters naming the record (its identifier is derived from it)
-     * @throws CdsExportMappingReviewException {@code CDS_EXPORT_DATA_SUMMARY_RENDER_FAILED} when the
-     *     bytes are not a PDF PDFBox can load and write
+     * @throws IOException {@code CDS_EXPORT_DATA_SUMMARY_PDF_INVALID} when the bytes are not a PDF
+     *     PDFBox can load and write; the caller records the printed form as not produced
+     *     ({@code RENDER_FAILED}), never a hold
      */
     static byte[] reproducible(byte[] pdf, String seed) throws IOException {
         if (seed == null || !seed.matches("[0-9a-f]{64}"))
@@ -82,7 +82,7 @@ final class CdsExportPrintedPdf {
             document.save(output);
             return output.toByteArray();
         } catch (IOException | RuntimeException unreadable) {
-            throw new CdsExportMappingReviewException(CdsExportDataSummaryPdfService.FAILED);
+            throw new IOException(CdsExportDataSummaryPdfService.FAILED);
         }
     }
 

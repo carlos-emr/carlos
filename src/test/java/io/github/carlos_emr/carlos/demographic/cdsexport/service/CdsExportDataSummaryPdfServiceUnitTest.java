@@ -282,6 +282,123 @@ class CdsExportDataSummaryPdfServiceUnitTest {
                 .isEqualTo("withheld");
     }
 
+    /** PDFBox steps that fail a given number of times before doing their work. */
+    private static final class FailingPages implements CdsExportDataSummaryPdfService.Pages {
+        int noticeFailures, attachFailures, notices, attaches;
+
+        @Override
+        public byte[] notice() throws java.io.IOException {
+            notices++;
+            if (noticeFailures-- > 0) throw new java.io.IOException("synthetic notice failure");
+            return CdsExportDataSummaryPdfService.PDFBOX.notice();
+        }
+
+        @Override
+        public byte[] attach(byte[] pdf, Group group) throws java.io.IOException {
+            attaches++;
+            if (attachFailures-- > 0) throw new java.io.IOException("synthetic attach failure");
+            return CdsExportDataSummaryPdfService.PDFBOX.attach(pdf, group);
+        }
+    }
+
+    private static HtmlPdfRenderService failingRenderer() throws Exception {
+        var renderer = mock(HtmlPdfRenderService.class);
+        when(renderer.drawsEveryCharacter(any())).thenReturn(true);
+        when(renderer.render(any())).thenThrow(new PDFGenerationException("synthetic"));
+        return renderer;
+    }
+
+    @Test
+    void shouldMakeTheNoticePageOnceMore_whenTheFirstNoticePageFails() throws Exception {
+        var pages = new FailingPages();
+        pages.noticeFailures = 1;
+        var service = new CdsExportDataSummaryPdfService(failingRenderer(), pages);
+
+        var rendered = service.document(tickler("ordinary text"), PATIENT);
+
+        assertThat(rendered.notice()).isEqualTo(CdsExportDataSummaryPdfService.UNPRINTED_NOTICE);
+        assertThat(rendered.html()).isNull();
+        CdsExportDataSummaryPdfService.requirePdf(rendered.pdf());
+        assertThat(CdsExportDataSummaryPdfService.attachments(rendered.pdf()))
+                .containsOnlyKeys(CdsExportDataSummaryPdfService.RECORD_FILE);
+        assertThat(pages.notices).isEqualTo(2);
+    }
+
+    @Test
+    void shouldUseTheNoticePage_whenTheModulePageWillNotTakeTheRecord() throws Exception {
+        // The module printed the page with its images left out, and attaching the record to
+        // that page fails: the notice page carries the record instead.
+        var renderer = mock(HtmlPdfRenderService.class);
+        when(renderer.drawsEveryCharacter(any())).thenReturn(true);
+        when(renderer.render(any()))
+                .thenReturn(
+                        new HtmlPdfRenderResult(
+                                anyPdf(), EnumSet.of(HtmlPdfRenderDegradation.IMAGE_UNAVAILABLE)));
+        var pages = new FailingPages();
+        pages.attachFailures = 1;
+
+        var rendered = new CdsExportDataSummaryPdfService(renderer, pages).document(photo(), PATIENT);
+
+        assertThat(rendered.notice()).isEqualTo(CdsExportDataSummaryPdfService.UNPRINTED_NOTICE);
+        assertThat(text(rendered.pdf())).contains("could not print this record as a PDF");
+        assertThat(CdsExportDataSummaryPdfService.attachments(rendered.pdf()))
+                .containsOnlyKeys(
+                        CdsExportDataSummaryPdfService.RECORD_FILE,
+                        "carlos-data-summary-image-1.png");
+        assertThat(pages.attaches).isEqualTo(2);
+    }
+
+    @Test
+    void shouldExportTheSummaryAsHtml_whenNotEvenTheNoticePageCanBeMade() throws Exception {
+        var pages = new FailingPages();
+        pages.noticeFailures = CdsExportDataSummaryPdfService.NOTICE_ATTEMPTS;
+        var service = new CdsExportDataSummaryPdfService(failingRenderer(), pages);
+
+        var rendered = service.document(tickler(UNDRAWABLE), PATIENT);
+
+        // Never held: the summary is HTML and the exact record travels beside it.
+        assertThat(rendered.pdf()).isNull();
+        assertThat(rendered.notice()).isEqualTo(CdsExportDataSummaryPdfService.HTML_NOTICE);
+        assertThat(pages.notices).isEqualTo(CdsExportDataSummaryPdfService.NOTICE_ATTEMPTS);
+        assertThat(rendered.html())
+                .startsWith("<!DOCTYPE html>")
+                .contains("could not make this record")
+                .contains("Seen with interpreter தமிழ்")
+                .contains(CdsExportDataSummaryPdfService.RECORD_SUBCLASS);
+        // The HTML is text an XML document can carry.
+        assertThat(CdsExportXmlText.element(rendered.html())).isEqualTo(rendered.html());
+        var record = new ObjectMapper().readTree(rendered.record());
+        assertThat(record.path("carrier").asText()).isEqualTo("CARLOS.DataSummary.Record.v1");
+        var values = record.path("rows").path(0).path("values");
+        assertThat(values.path("message").path("text").asText()).isEqualTo(UNDRAWABLE);
+        assertThat(values.path("priority").path("state").asText()).isEqualTo("null");
+    }
+
+    @Test
+    void shouldShowTheImageInTheHtmlSummary_whenNoPdfCanBeMade() throws Exception {
+        var pages = new FailingPages();
+        pages.attachFailures = Integer.MAX_VALUE;
+
+        var rendered =
+                new CdsExportDataSummaryPdfService(failingRenderer(), pages).document(photo(), PATIENT);
+
+        assertThat(rendered.pdf()).isNull();
+        // The image travels as its own bytes in the summary; the record names its size and
+        // digest, and no image file, since none is attached.
+        assertThat(rendered.html())
+                .contains("data:image/png;base64," + Base64.getEncoder().encodeToString(PNG));
+        var contents =
+                new ObjectMapper()
+                        .readTree(rendered.record())
+                        .path("rows")
+                        .path(0)
+                        .path("values")
+                        .path("contents");
+        assertThat(contents.has("file")).isFalse();
+        assertThat(contents.path("bytes").asLong()).isEqualTo(PNG.length);
+        assertThat(pages.attaches).isEqualTo(CdsExportDataSummaryPdfService.NOTICE_ATTEMPTS);
+    }
+
     @Test
     void shouldStopAsACancellation_whenTheWaitForTheRendererIsInterrupted() throws Exception {
         var renderer = mock(HtmlPdfRenderService.class);
