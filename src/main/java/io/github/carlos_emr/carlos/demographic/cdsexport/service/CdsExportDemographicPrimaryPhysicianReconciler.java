@@ -61,30 +61,46 @@ public final class CdsExportDemographicPrimaryPhysicianReconciler {
             if (provider!=null)scope();
             if (wasPresent&&!ids.isEmpty())changes.add(new CdsExportRetainedSectionWriter.Change("PrimaryPhysician[1]", ids, null));
             rule=wasPresent?"EXPLICIT_NATIVE_PRIMARY_RELATION_CLEARED":"UNPROJECTED_SOURCE_PRIMARY_DETAILS_RETAINED_WITHOUT_AN_INVENTED_PROVIDER";
+        }else if (provider==null||!id.equals(provider.fields().get("provider_no"))) {
+            // A number that names no captured provider record (the REST API stores any number):
+            // no PrimaryPhysician states it. A changed number no longer names the imported
+            // physician, so the imported element is removed; the number travels in the native
+            // demographic record, as on a chart added in CARLOS.
+            boolean changed=!Objects.equals(id, old);
+            if (changed&&!ids.isEmpty())changes.add(new CdsExportRetainedSectionWriter.Change("PrimaryPhysician[1]", ids, null));
+            fields.put(new CdsExportNativeFieldKeyDto("demographic", current.recordKey(), "provider_no"), new CdsExportFieldAssessmentDto(Presence.VALUE, Outcome.MAPPED, CdsExportDemographicSupportingMapper.DESTINATION, CdsExportDemographicMapper.PRIMARY_PHYSICIAN_WITHOUT_A_PROVIDER_RECORD));
+            values.requireActive(); checkpoint.run(); return new Result(index.sourceManifestSha256(), address, ids, fields, blockers, changes);
         }else {
-            if (provider==null||!id.equals(provider.fields().get("provider_no"))){blockers.add("CAPTURED_PRIMARY_PHYSICIAN_REQUIRED"); rule="CAPTURED_PRIMARY_PHYSICIAN_REQUIRED"; }
+            var mapped=new CdsExportPublicProviderMapper().map(provider, CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN); fields.putAll(mapped.fields());
+            // Provider names are varchar(30) NOT NULL (V1 baseline): a captured row always forms
+            // a CDS name, so this review stays only for a row no CARLOS schema stores.
+            if (!mapped.representable()){blockers.add("CURRENT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"); rule="CURRENT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"; }
             else {
-                var mapped=new CdsExportPublicProviderMapper().map(provider, CdsExportPublicProviderMapper.Target.PRIMARY_PHYSICIAN); fields.putAll(mapped.fields());
-                if (!mapped.representable()){blockers.add("CURRENT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"); rule="CURRENT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"; }
-                else if (!wasPresent&&!ids.isEmpty()){blockers.add("UNPROJECTED_SOURCE_PRIMARY_PHYSICIAN_CONFLICT"); rule="UNPROJECTED_SOURCE_PRIMARY_PHYSICIAN_CONFLICT"; }
-                else {
-                    var nativeValue=mapped.value(); var targets=new LinkedHashMap<String, String>(); targets.put("Name[1]/FirstName[1]", nativeValue.firstName()); targets.put("Name[1]/LastName[1]", nativeValue.lastName()); targets.put("OHIPPhysicianId[1]", nativeValue.ohipNumber()); targets.put("PrimaryPhysicianCPSO[1]", nativeValue.cpsoNumber());
-                    boolean changed=!Objects.equals(id, old), update=ids.isEmpty();
-                    if (!changed)for (var entry:source.entrySet()) {
-                        String target=targets.get(entry.getKey()); if (present(target)&&!target.equals(entry.getValue()))blockers.add("SOURCE_AND_CURRENT_PRIMARY_DETAILS_CONFLICT");
-                        else if (!present(target))targets.put(entry.getKey(), entry.getValue());
-                    }
-                    for (var entry:targets.entrySet())if (present(entry.getValue())&&!Objects.equals(entry.getValue(), source.get(entry.getKey())))update=true;
-                    if (changed)update=true;
-                    if (!changed&&update&&source.values().stream().anyMatch(String::isEmpty))blockers.add("EXPLICIT_EMPTY_SOURCE_PRIMARY_DETAILS_REQUIRE_REVIEW");
-                    if (blockers.isEmpty()&&update) {
-                        CdsExportPublicProviderDto wire;
-                        try {wire=new CdsExportPublicProviderDto(targets.get("Name[1]/FirstName[1]"), targets.get("Name[1]/LastName[1]"), targets.get("OHIPPhysicianId[1]"), targets.get("PrimaryPhysicianCPSO[1]")); }
-                        catch (IllegalArgumentException malformed){throw new IOException("CDS_EXPORT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"); }
-                        changes.add(new CdsExportRetainedSectionWriter.Change("PrimaryPhysician[1]", ids, xml-> new CdsExportPublicProviderXmlWriter().write(wire, xml, true)));
-                    }
-                    rule=changed?"EXPLICIT_CURRENT_NATIVE_PRIMARY_PHYSICIAN":"CURRENT_PRIMARY_RELATION_WITH_RETAINED_UNPROJECTED_DETAILS";
+                var nativeValue=mapped.value(); var targets=new LinkedHashMap<String, String>(); targets.put("Name[1]/FirstName[1]", nativeValue.firstName()); targets.put("Name[1]/LastName[1]", nativeValue.lastName()); targets.put("OHIPPhysicianId[1]", nativeValue.ohipNumber()); targets.put("PrimaryPhysicianCPSO[1]", nativeValue.cpsoNumber());
+                boolean changed=!Objects.equals(id, old), update=ids.isEmpty();
+                // A physician set in CARLOS on a chart whose imported physician the importer
+                // matched to no provider: the chart's physician replaces the imported element,
+                // which stays in the import's retained source and is listed as replaced.
+                boolean supersedes=!wasPresent&&!ids.isEmpty();
+                boolean edited=false;
+                if (!changed&&!supersedes)for (var entry:source.entrySet()) {
+                    String target=targets.get(entry.getKey());
+                    // The provider record edited since the import (or matched by number with
+                    // another spelling): CARLOS shows the record's values, so they replace the
+                    // imported ones. A value the record lacks keeps the imported one (an
+                    // explicitly empty imported part states nothing to keep).
+                    if (present(target)&&!target.equals(entry.getValue()))edited=true;
+                    else if (!present(target)&&present(entry.getValue()))targets.put(entry.getKey(), entry.getValue());
                 }
+                for (var entry:targets.entrySet())if (present(entry.getValue())&&!Objects.equals(entry.getValue(), source.get(entry.getKey())))update=true;
+                if (changed||supersedes)update=true;
+                if (update) {
+                    CdsExportPublicProviderDto wire;
+                    try {wire=new CdsExportPublicProviderDto(targets.get("Name[1]/FirstName[1]"), targets.get("Name[1]/LastName[1]"), targets.get("OHIPPhysicianId[1]"), targets.get("PrimaryPhysicianCPSO[1]")); }
+                    catch (IllegalArgumentException malformed){throw new IOException("CDS_EXPORT_PRIMARY_PHYSICIAN_VALUES_REQUIRES_REVIEW"); }
+                    changes.add(new CdsExportRetainedSectionWriter.Change("PrimaryPhysician[1]", ids, xml-> new CdsExportPublicProviderXmlWriter().write(wire, xml, true)));
+                }
+                rule=supersedes?"CURRENT_PRIMARY_PHYSICIAN_SUPERSEDES_UNMATCHED_SOURCE":changed?"EXPLICIT_CURRENT_NATIVE_PRIMARY_PHYSICIAN":edited?"CURRENT_PROVIDER_RECORD_SUPERSEDES_SOURCE_PRIMARY_DETAILS":"CURRENT_PRIMARY_RELATION_WITH_RETAINED_UNPROJECTED_DETAILS";
             }
         }
         fields.put(new CdsExportNativeFieldKeyDto("demographic", current.recordKey(), "provider_no"), new CdsExportFieldAssessmentDto(id==null?Presence.SQL_NULL:id.isEmpty()?Presence.EMPTY:Presence.VALUE, blockers.isEmpty()?present?Outcome.MAPPED:Outcome.ABSENT:Outcome.REQUIRES_REVIEW, "PrimaryPhysician", rule));
