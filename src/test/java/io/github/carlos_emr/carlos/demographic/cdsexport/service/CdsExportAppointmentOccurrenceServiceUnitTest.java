@@ -743,15 +743,128 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         original.originalPayload()));
         f.fields = more;
         refused(f);
-        var limit = fixture(false);
-        limit.scopes.put(
+        // A capture that states more appointments than it delivers is refused for what is
+        // missing, never for its size.
+        var short101 = fixture(false);
+        short101.scopes.put(
                 "appointment",
                 new CdsExportCapturedTableDto(
                         Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()),
                         101,
                         HASH));
-        assertThatThrownBy(() -> compose(limit, false)).hasMessage("CDS_EXPORT_RESOURCE_LIMIT");
-        verifyNoInteractions(limit.rows, limit.values);
+        assertThatThrownBy(() -> compose(short101, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    /** The UI-booked fixture with {@code count} more native appointments after its own. */
+    private Fixture chart(int count) throws Exception {
+        var f = uiBooked();
+        var parents = new ArrayList<>(f.parents);
+        var receiptRows = new ArrayList<>(f.receiptRows);
+        var template = f.parents.getFirst().fields();
+        for (int id = 1001; id <= 1000 + count; id++) {
+            var values = new TreeMap<>(template);
+            values.put("appointment_no", Integer.toString(id));
+            var row =
+                    new CdsExportCapturedTextRowDto(
+                            "appointment", CdsExportPatientTableSourceReader.key(id), values);
+            var columns = new ArrayList<CdsNativeRowDigest.Column>();
+            var cells = new ArrayList<CdsNativeRowState.Cell>();
+            for (var entry : values.entrySet()) {
+                columns.add(new CdsNativeRowDigest.Column(entry.getKey(), "VARCHAR", 255, 0));
+                String text = entry.getValue();
+                cells.add(
+                        new CdsNativeRowState.Cell(
+                                text == null,
+                                text == null
+                                        ? 0
+                                        : text.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                                                .length,
+                                text == null
+                                        ? null
+                                        : java.util.HexFormat.of()
+                                                .formatHex(
+                                                        io.github.carlos_emr.carlos.utility
+                                                                .CdsImportKeys.digest()
+                                                                .digest(
+                                                                        text.getBytes(
+                                                                                java.nio.charset
+                                                                                        .StandardCharsets
+                                                                                        .UTF_8)))));
+            }
+            var state =
+                    new CdsNativeRowState("appointment", Integer.toString(id), columns, cells);
+            parents.add(row);
+            receiptRows.add(
+                    new CdsExportNativeRowReceiptDto(
+                            "appointment",
+                            Integer.toString(id),
+                            row.recordKey(),
+                            state.digest(),
+                            state));
+        }
+        f.parents = parents;
+        f.receiptRows = receiptRows;
+        f.scopes.put(
+                "appointment",
+                new CdsExportCapturedTableDto(
+                        Set.copyOf(CdsExportPatientTableReadSupport.Plan.APPOINTMENTS.columns()),
+                        parents.size(),
+                        HASH));
+        return f;
+    }
+
+    @Test
+    void shouldEmitTheSameBytesAndReceipts_whenAChartIsReadInSmallWindows() throws Exception {
+        var whole = chart(10);
+        byte[] expected = compose(whole, false);
+        assertThat(whole.receipts).hasSize(11);
+        for (int window : new int[] {1, 2, 4, 10}) {
+            var windowed = chart(10);
+            windowed.bounds = windowed.bounds.withWindow(window, 8L << 20);
+            assertThat(compose(windowed, false)).isEqualTo(expected);
+            assertThat(windowed.receipts).isEqualTo(whole.receipts);
+            assertThat(windowed.result).isEqualTo(whole.result);
+            verify(windowed.witnesses, times((11 + window - 1) / window))
+                    .scan(any(), any(), anySet(), any(), anyLong(), anyLong(), any(), any());
+        }
+        var byBytes = chart(10);
+        byBytes.bounds = byBytes.bounds.withWindow(8192, 30_000);
+        assertThat(compose(byBytes, false)).isEqualTo(expected);
+        assertThat(byBytes.receipts).isEqualTo(whole.receipts);
+    }
+
+    @Test
+    void shouldRefuseAMissingOrUnwitnessedAppointment_whenTheChartIsReadByWindow()
+            throws Exception {
+        var unwitnessed = chart(6);
+        unwitnessed.bounds = unwitnessed.bounds.withWindow(2, 8L << 20);
+        unwitnessed.receiptRows = new ArrayList<>(unwitnessed.receiptRows.subList(0, 6));
+        assertThatThrownBy(() -> compose(unwitnessed, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_OCCURRENCE_SCOPE_INVALID");
+        var missing = chart(6);
+        missing.bounds = missing.bounds.withWindow(2, 8L << 20);
+        missing.parents = new ArrayList<>(missing.parents.subList(0, 6));
+        assertThatThrownBy(() -> compose(missing, false))
+                .hasMessage("CDS_EXPORT_APPOINTMENT_OCCURRENCE_SCOPE_INVALID");
+    }
+
+    @Test
+    void shouldExportTheChart_pastTheFormerRowBound() throws Exception {
+        // 8,193 appointments: one more than the former cds.export.maxNativeRows.
+        var f = chart(8192);
+        f.bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        CdsExportClinicalOccurrenceService.Bounds.UNLIMITED,
+                        1_000_000,
+                        64L << 20,
+                        8192,
+                        131_072);
+        compose(f, false);
+        assertThat(f.receipts).hasSize(8193);
+        assertThat(f.result.nativeRows()).isEqualTo(8193);
+        assertThat(f.receipts.getLast().nativeId()).isEqualTo("9192");
     }
 
     private void refused(Fixture f) {
@@ -787,6 +900,9 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                 receiptFailure,
                 revokeAtReceipt;
         CdsExportClinicalOccurrenceService.Result result;
+        CdsExportClinicalOccurrenceService.Bounds bounds =
+                new CdsExportClinicalOccurrenceService.Bounds(
+                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
     }
 
     /**
@@ -1107,9 +1223,7 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         mock(CdsExportImmunizationOccurrenceService.class),
                         appointments);
         var output = new ByteArrayOutputStream();
-        var bounds =
-                new CdsExportClinicalOccurrenceService.Bounds(
-                        100000, 8L << 20, 1000, 8L << 20, 100, 1000);
+        var bounds = f.bounds;
         new CdsExportXmlComposer()
                 .composeFromSource(
                         output,

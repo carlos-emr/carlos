@@ -29,7 +29,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.engine.CdsExportRunCont
 import io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportReviewException;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -238,7 +237,7 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                 || !lease.document().command().categories().contains(category)
                 || !tables.equals(source.capture().tables().keySet())
                 || !tables.containsAll(REQUIRED)) scope();
-        if (source.capture().tables().get("appointment").rows() > bounds.nativeRows()) limit();
+        long appointmentRows = source.capture().tables().get("appointment").rows();
         new CdsExportMergeScopeValidator(rows)
                 .requireUnmerged(
                         lease, patient, tables, source, bounds.fields(), bounds.bytes(), control);
@@ -302,8 +301,10 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                     var reasonCodes = new HashMap<String, List<CdsExportCapturedTextRowDto>>();
                     var earlierDisplays = new HashSet<String>();
                     var demographic = new CdsExportCapturedTextRowDto[1];
-                    // 0 rows, 1 bytes, 2 providers, 3 statuses, 4 demographic, 5 reason-list
-                    // items, 6 demographic archive snapshots
+                    // 2 providers, 3 statuses, 4 demographic, 5 reason-list items, 6 demographic
+                    // archive snapshots. These are the clinic's vocabulary and the patient's own
+                    // record, not rows that grow with the appointments: held for every window
+                    // and not counted against it.
                     long[] lookup = new long[7];
                     var first =
                             rows.forEachTable(
@@ -322,42 +323,16 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                     1_048_576,
                                     control,
                                     row -> {
-                                        if (++lookup[0] > bounds.lookupRows()) limit();
                                         if (row.table().equals("demographicArchive")) {
                                             // Only earlier display names are kept; the snapshot
                                             // itself belongs to the Demographics assembler.
-                                            for (String display :
+                                            earlierDisplays.addAll(
                                                     CdsExportAppointmentNativeMetadata
                                                             .archivedDisplays(
-                                                                    patient.patient(), row))
-                                                if (earlierDisplays.add(display))
-                                                    lookup[1] =
-                                                            Math.addExact(
-                                                                    lookup[1],
-                                                                    64L
-                                                                            + display.getBytes(
-                                                                                            StandardCharsets
-                                                                                                    .UTF_8)
-                                                                                    .length);
-                                            if (lookup[1] > bounds.indexBytes()) limit();
+                                                                    patient.patient(), row));
                                             lookup[6]++;
                                             return;
                                         }
-                                        lookup[1] =
-                                                Math.addExact(
-                                                        lookup[1],
-                                                        1024L + row.fields().size() * 256L);
-                                        for (String value : row.fields().values())
-                                            if (value != null)
-                                                lookup[1] =
-                                                        Math.addExact(
-                                                                lookup[1],
-                                                                value.getBytes(
-                                                                                        StandardCharsets
-                                                                                                .UTF_8)
-                                                                                .length
-                                                                        + 64L);
-                                        if (lookup[1] > bounds.indexBytes()) limit();
                                         if (!row.table().equals("demographic")
                                                 && lookupByKey.putIfAbsent(
                                                                 row.table() + "/" + row.recordKey(),
@@ -443,8 +418,33 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                     statuses,
                                     reasonCodes,
                                     earlierDisplays);
+                    var used = new HashSet<String>();
+                    var seen = new HashSet<String>();
+                    // The chart is read whole when it fits one window, as it always was, and
+                    // window by window otherwise (CdsExportSectionWindowPlanner): the witnesses
+                    // and rows of one window are held at a time.
+                    CdsExportSectionWindowPlanner.forEachWindow(
+                            appointmentRows,
+                            bounds.window(),
+                            owners -> {
+                                var listed =
+                                        rows.forEach(
+                                                lease,
+                                                patient,
+                                                tables,
+                                                "appointment",
+                                                source.manifest(),
+                                                bounds.fields(),
+                                                bounds.bytes(),
+                                                1_048_576,
+                                                control,
+                                                row ->
+                                                        owners.add(
+                                                                row.fields().get("appointment_no")));
+                                if (!listed.equals(source.capture())) scope();
+                            },
+                            (window, budget) -> {
                     var exact = new HashMap<String, CdsExportNativeRowReceiptDto>();
-                    long[] witnessBytes = {lookup[1]};
                     var receiptScan =
                             witnesses.scan(
                                     lease,
@@ -455,28 +455,23 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                     bounds.bytes(),
                                     control,
                                     witness -> {
-                                        if (!witness.table().equals("appointment")) return;
-                                        if (exact.size() >= bounds.nativeRows()) limit();
-                                        witnessBytes[0] =
-                                                Math.addExact(
-                                                        witnessBytes[0],
+                                        if (!witness.table().equals("appointment")
+                                                || !window.contains(witness.id())
+                                                || !budget.owner(
                                                         1024L
                                                                 + (witness.state() == null
                                                                         ? 0
                                                                         : witness.state()
                                                                                         .columns()
                                                                                         .size()
-                                                                                * 256L));
-                                        if (witnessBytes[0] > bounds.indexBytes()
-                                                || exact.putIfAbsent(witness.id(), witness) != null)
-                                            limit();
+                                                                                * 256L))) return;
+                                        if (exact.putIfAbsent(witness.id(), witness) != null)
+                                            scope();
                                     });
+                    if (budget.exceeded()) return false;
                     if (!receiptScan.sourceManifestSha256().equals(index.sourceManifestSha256())
-                            || exact.size() != source.capture().tables().get("appointment").rows())
-                        scope();
-                    var currentNumbers = Set.copyOf(exact.keySet());
-                    var used = new HashSet<String>();
-                    var seen = new HashSet<String>();
+                            || exact.size() != window.size()) scope();
+                    long[] emitted = {0};
                     var actual =
                             rows.forEach(
                                     lease,
@@ -493,7 +488,11 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                         patient.require(lease);
                                         control.checkpoint();
                                         String id = row.fields().get("appointment_no");
-                                        if (id == null || !seen.add(id)) scope();
+                                        // A row with no number belongs to no window: refused.
+                                        if (id == null) scope();
+                                        if (!window.contains(id)) return;
+                                        emitted[0]++;
+                                        if (!seen.add(id)) scope();
                                         var witness = exact.remove(id);
                                         if (witness == null) scope();
                                         CdsExportAppointmentProjectionEvidence.verifyCurrent(
@@ -610,9 +609,15 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
                                                         counts[3],
                                                         kept.size() + (long) replaced.size());
                                     });
+                    // Every witness this window loaded was used by one of its rows.
                     if (!actual.equals(source.capture())
                             || !exact.isEmpty()
-                            || counts[0] != actual.tables().get("appointment").rows()) scope();
+                            || emitted[0] != window.size()) scope();
+                    return true;
+                            });
+                    if (counts[0] != appointmentRows) scope();
+                    // Every current appointment number, known once every window is emitted.
+                    var currentNumbers = Set.copyOf(seen);
                     // An imported appointment that is no longer in this chart was deleted or cut
                     // to be pasted elsewhere: the day sheet and the appointment history no longer
                     // show it, so it is not exported. Its retained source fields are accounted as
@@ -733,9 +738,5 @@ public class CdsExportAppointmentOccurrenceService implements CdsExportCategoryO
 
     private static void ambiguous() {
         throw new CdsExportReviewException(CdsExportReviewException.Reason.AMBIGUOUS_SOURCE);
-    }
-
-    private static void limit() {
-        throw new CdsExportReviewException(CdsExportReviewException.Reason.RESOURCE_LIMIT);
     }
 }
