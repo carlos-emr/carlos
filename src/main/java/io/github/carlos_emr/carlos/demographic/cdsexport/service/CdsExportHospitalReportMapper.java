@@ -317,9 +317,7 @@ final class CdsExportHospitalReportMapper {
             case TEXT -> {
                 if (message == null || message.text() == null) invalid();
                 text.put("Format", "Text");
-                if (!CdsExportNativeFieldAssessments.legal(message.text(), Integer.MAX_VALUE))
-                    review("CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW");
-                text.put("TextContent", message.text());
+                text.put("TextContent", textContent(message.text(), unwritten));
             }
             case BINARY -> {
                 if (message == null || message.binary() == null) invalid();
@@ -657,6 +655,20 @@ final class CdsExportHospitalReportMapper {
     }
 
     /**
+     * The report text as TextContent. An HRM file is XML, so its text can hold a character XML
+     * 1.0 cannot carry only when the file declares XML 1.1, which the HRM specification does not
+     * use; such a character is written as U+FFFD ({@link CdsExportXmlText}) and the exact text
+     * travels in Notes with the other message values not written in their elements
+     * ({@code message.TextContent}, as its JSON escape). It held the chart with
+     * {@code CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW}.
+     */
+    private static String textContent(String value, Map<String, Object> unwritten) {
+        String shown = CdsExportXmlText.element(value);
+        if (!shown.equals(value)) unwritten.put("TextContent", value);
+        return shown;
+    }
+
+    /**
      * A further report of a message that holds several: its own content and message values. The
      * chart's rows are accounted with the first report, so this entry decides no field.
      */
@@ -681,9 +693,7 @@ final class CdsExportHospitalReportMapper {
             case TEXT -> {
                 if (message.text() == null) invalid();
                 text.put("Format", "Text");
-                if (!CdsExportNativeFieldAssessments.legal(message.text(), Integer.MAX_VALUE))
-                    review("CDS_EXPORT_HRM_REPORT_TEXT_REQUIRES_REVIEW");
-                text.put("TextContent", message.text());
+                text.put("TextContent", textContent(message.text(), unwritten));
             }
             case BINARY -> {
                 if (message.binary() == null) invalid();
