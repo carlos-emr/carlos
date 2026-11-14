@@ -112,7 +112,8 @@ class CdsExportActivePlanServiceUnitTest {
                                         + " cds.export.maxStagedFileBytes,"
                                         + " cds.export.maxCapturedFields,"
                                         + " cds.export.maxCapturedBytes,"
-                                        + " cds.export.captureTimeoutSeconds]");
+                                        + " cds.export.captureTimeoutSeconds,"
+                                        + " cds.export.maxIndexRows]");
             }
         }
     }
