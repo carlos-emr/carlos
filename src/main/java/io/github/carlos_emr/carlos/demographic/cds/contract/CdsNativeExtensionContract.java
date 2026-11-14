@@ -421,6 +421,21 @@ public final class CdsNativeExtensionContract {
      */
     public static final String PREVENTION_SOURCE_CONTEXT = "CARLOS.Prevention.Source.v1";
 
+    /**
+     * NewCategory record (CategoryName and residual DataElement) for one chart that Merge Records
+     * merged into the chart of the patient file: where its records are in the file, and its own
+     * Demographics in a standalone CDS document. Rules in {@link CdsMergedChartContract}; a CARLOS
+     * importer validates it and keeps it as source only.
+     */
+    public static final String MERGED_CHART = "CARLOS.MergedChart.v1";
+
+    /**
+     * NewCategory record (CategoryName and residual DataElement) holding every Merge Records link
+     * and chart privilege row of the charts in the patient file, exactly as stored. Rules in
+     * {@link CdsMergedChartContract}; a CARLOS importer keeps it as source only.
+     */
+    public static final String MERGE_LINKS = "CARLOS.MergeLinks.v1";
+
     public static final String BOOLEAN_TYPE = "boolean";
     public static final String STRING_TYPE = "string";
 
