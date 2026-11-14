@@ -168,7 +168,7 @@
         if (recordUnavailableKey != null) {
 %>
 <!DOCTYPE html>
-<html>
+<html lang="${carlos:forHtmlAttribute(pageContext.request.locale.language)}">
 <head>
     <title><fmt:message key="oscarprevention.index.oscarpreventiontitre"/></title>
 </head>
