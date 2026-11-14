@@ -957,13 +957,12 @@ the "additional information" in Notes), rendered when the export runs by the sam
 Chromium renderer that prints and faxes eForms. The data summary stays: it is the
 record of every stored value. A render never holds a patient. When the form cannot be
 rendered completely, its data summary carries a short note saying so and why (the
-renderer could not show all of the form's content, rendering timed out, the rendering
-browser failed or was unavailable, the renderer stayed busy, the eForm changed while
-the export ran, or the export ran outside the web application); the export never
-approves an incomplete form the way a clinician can when printing. eForms the chart no
-longer lists (deleted, or replaced by an edit) and patient-independent
-eForms are not exported; the ReadMe counts them per patient as "Patient records not
-exported".
+renderer could not show all of the form's content; rendering timed out, or the
+rendering browser failed, on the second of two attempts; the eForm changed while the
+export ran; or the export ran outside the web application); the export never approves
+an incomplete form the way a clinician can when printing. eForms the chart no longer
+lists (deleted, or replaced by an edit) and patient-independent eForms are not
+exported; the ReadMe counts them per patient as "Patient records not exported".
 
 Rendering needs the web application's renderer (see "eForm rendering" below), so
 browser-submitted exports render eForms and command-line exports hand their job to the
@@ -1035,14 +1034,28 @@ package-created `_carlos_demo_seed_complete` marker is ruled local operational.
 The export renders eForms in the web application, through the eForm renderer of
 `docs/eform-browser-pdf-renderer.md` (on the packaged install the
 `carlos-emr-render-browser` service). Check it with the renderer's startup probe in the
-application log before a large export. Renders run one at a time, so a clinician's print
-or fax always keeps the renderer's other slot; each takes a few seconds and is bounded
-by the renderer's own limits (30 seconds to wait for a slot, 30 to start the browser,
-90 to render). After three browser failures or timeouts in a row the export stops
-asking the renderer for five minutes and those eForms carry the "could not be rendered"
-note. The application log records, for each chart with eForms, one line
-`CDS_EXPORT_EFORM_RENDERS rendered=<n> unavailable=<n> renderMs=<total> longestMs=<max>`
-(counts and times only).
+application log before a large export. Renders run one at a time, so the export never
+holds more than one of the renderer's two slots and a clinician's print or fax always
+keeps the other. Each render takes a few seconds and is bounded by the renderer's own
+limits (30 seconds to start the browser, 90 to render). The export waits for the
+renderer rather than give a form up:
+
+- When the renderer is busy (clinicians printing or faxing), the export waits in its
+  queue for as long as it takes.
+- After three browser failures or timeouts in a row the renderer is left alone for five
+  minutes; the export waits that out and then carries on.
+- A form whose render timed out or failed is tried once more after the patient's other
+  eForms. Only a form that fails twice carries the "could not be rendered" note, which
+  then says "on the second of two attempts".
+
+So a broken or stopped renderer slows an export down (five minutes for every three
+failed attempts) instead of producing charts without their rendered forms: check the
+renderer before a large export, and cancel the job if it is not working. A cancel ends
+any of these waits within a second. A wait is not progress: an export that only waits
+for `cds.export.maxDurationMillis` is ended as stalled (`CDS_EXPORT_WORKER_STALLED`) and
+can be resumed. The application log records, for each chart with eForms, one line
+`CDS_EXPORT_EFORM_RENDERS rendered=<n> unavailable=<n> retried=<n> renderMs=<total>
+longestMs=<max>` (counts and times only).
 
 | Property | Default | Meaning |
 | --- | --- | --- |

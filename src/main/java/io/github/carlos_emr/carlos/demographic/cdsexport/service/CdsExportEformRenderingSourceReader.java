@@ -46,9 +46,14 @@ import org.springframework.stereotype.Service;
  * Spool)}): a browser render takes seconds and reads the eForm through the web application, so it
  * cannot run inside the capture's snapshot. Each eForm is rendered one at a time as the job's
  * effective provider, re-authorized for every render ({@link CdsExportRunControl#authorizeRendering}),
- * and the PDF goes straight to the capture's encrypted spool. Inside the snapshot the current
- * eForms are read again; a render is captured only when its eForm row is digest-for-digest the row
- * the capture holds, so an eForm edited, replaced or added meanwhile is captured as {@code CHANGED}.
+ * and the PDF goes straight to the capture's encrypted spool. A form whose render timed out or
+ * failed in the browser is tried once more after the patient's other eForms, before the chart is
+ * captured; a second failure is captured as {@code TIMEOUT_RETRIED} or
+ * {@code BROWSER_FAILURE_RETRIED}, and a second attempt that renders is captured exactly as a
+ * first one would be, so the capture says nothing of how many attempts a form took. Inside the
+ * snapshot the current eForms are read again; a render is captured only when its eForm row is
+ * digest-for-digest the row the capture holds, so an eForm edited, replaced or added meanwhile is
+ * captured as {@code CHANGED}.
  *
  * <p>One row per current eForm: {@code fdid}, {@code outcome} ({@code RENDERED} or {@code
  * UNAVAILABLE}), {@code reason} (empty, or a {@link CdsExportEformRenderService.Reason} code),
@@ -122,8 +127,9 @@ public class CdsExportEformRenderingSourceReader implements CdsExportNativeSourc
     }
 
     /**
-     * Renders every current eForm of the patient, one at a time, before the source transaction.
-     * The renders and their spooled PDFs belong to the returned reader only.
+     * Renders every current eForm of the patient, one at a time, before the source transaction,
+     * then tries once more, in eForm order, each form whose render timed out or failed in the
+     * browser. The renders and their spooled PDFs belong to the returned reader only.
      */
     @Override
     public CdsExportNativeSourceReader forCapture(
@@ -133,34 +139,62 @@ public class CdsExportEformRenderingSourceReader implements CdsExportNativeSourc
         control.checkpoint();
         var current = source.current(patient);
         var result = new TreeMap<Integer, Prepared>();
-        long rendered = 0, unavailable = 0, total = 0, longest = 0;
+        long rendered = 0, unavailable = 0, retried = 0, total = 0, longest = 0;
         for (var eform : current) {
             control.checkpoint();
             CdsExportEformRenderService.Outcome outcome;
             if (!renders.available()) {
                 outcome = CdsExportEformRenderService.Outcome.unavailable(
                         CdsExportEformRenderService.Reason.NOT_IN_THIS_PROCESS, 0);
-            } else {
-                // Fresh Reports and eForm rights for this patient, and the identity to render as.
-                var who = control.authorizeRendering(patient);
-                outcome = renders.render(eform.fdid(), who, spool, control::checkpoint);
-            }
-            if (outcome.rendered()) rendered++;
-            else unavailable++;
+            } else outcome = render(patient, eform.fdid(), control, spool);
             total += outcome.millis();
             longest = Math.max(longest, outcome.millis());
             result.put(eform.fdid(), new Prepared(eform.digest(), outcome));
         }
+        // A form that timed out or failed in the browser is tried once more, after the others,
+        // so a passing fault (a slow moment, a browser that did not start) costs it nothing. Only the second attempt's outcome is kept: a form rendered then is
+        // captured as one rendered at once, and one that fails again keeps its data summary with
+        // a note saying it was tried twice. The order is the eForms' own, and nothing about the
+        // attempts reaches the capture, so the same forms rendered give the same chart bytes.
+        for (var entry : result.entrySet()) {
+            var first = entry.getValue().outcome();
+            if (first.rendered() || !first.reason().retryable()) continue;
+            control.checkpoint();
+            var again = render(patient, entry.getKey(), control, spool);
+            retried++;
+            total += again.millis();
+            longest = Math.max(longest, again.millis());
+            entry.setValue(
+                    new Prepared(
+                            entry.getValue().digest(),
+                            again.rendered()
+                                    ? again
+                                    : CdsExportEformRenderService.Outcome.unavailable(
+                                            again.reason().onSecondAttempt(), again.millis())));
+        }
+        for (var made : result.values())
+            if (made.outcome().rendered()) rendered++;
+            else unavailable++;
         control.checkpoint();
         if (!current.isEmpty())
             // Counts and times only: no patient, eForm or provider identifier.
             LOG.info(
-                    "CDS_EXPORT_EFORM_RENDERS rendered={} unavailable={} renderMs={} longestMs={}",
+                    "CDS_EXPORT_EFORM_RENDERS rendered={} unavailable={} retried={} renderMs={}"
+                            + " longestMs={}",
                     rendered,
                     unavailable,
+                    retried,
                     total,
                     longest);
         return new CdsExportEformRenderingSourceReader(source, renders, result, spool);
+    }
+
+    /** One render, as the freshly authorized identity, with the attempt's waits not progress. */
+    private CdsExportEformRenderService.Outcome render(
+            int patient, int fdid, CdsExportRunControl control, Spool spool) throws IOException {
+        // Fresh Reports and eForm rights for this patient, and the identity to render as.
+        var who = control.authorizeRendering(patient);
+        return renders.render(fdid, who, spool, control::checkpoint, control::waitCheckpoint);
     }
 
     @Override

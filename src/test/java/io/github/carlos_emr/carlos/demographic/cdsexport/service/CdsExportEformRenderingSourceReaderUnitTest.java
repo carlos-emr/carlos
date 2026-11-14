@@ -33,6 +33,7 @@ import io.github.carlos_emr.carlos.eform.util.EFormBrowserPdfService.RenderedEfo
 import io.github.carlos_emr.carlos.eform.util.EFormRenderCompletenessReport;
 import io.github.carlos_emr.carlos.utility.EformContentUnavailableException;
 import io.github.carlos_emr.carlos.utility.LoggedInInfo;
+import io.github.carlos_emr.carlos.utility.PDFGenerationException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -86,13 +87,25 @@ class CdsExportEformRenderingSourceReaderUnitTest {
             };
 
     private CdsExportEformRenderService renders() {
+        return renders(fdid -> null);
+    }
+
+    /**
+     * eForm 9 cannot be shown completely; every other form renders unless {@code fails} gives the
+     * renderer's failure for this call of it.
+     */
+    private CdsExportEformRenderService renders(
+            java.util.function.IntFunction<PDFGenerationException> fails) {
         var settings = new Properties();
         settings.setProperty("cds.export.eformRenderIntervalMillis", "0");
         return new CdsExportEformRenderService(
-                (who, fdid) -> {
+                (who, fdid, waiting) -> {
+                    calls.add(fdid);
                     if (fdid == 9)
                         throw new EformContentUnavailableException(
                                 "omitted", fdid, EFormRenderCompletenessReport.complete());
+                    var failure = fails.apply(fdid);
+                    if (failure != null) throw failure;
                     try {
                         Path file = Files.createTempFile(directory, "eform-browser-render-", ".pdf");
                         Files.write(file, PDF);
@@ -103,6 +116,34 @@ class CdsExportEformRenderingSourceReaderUnitTest {
                 },
                 settings,
                 System::nanoTime);
+    }
+
+    private final List<Integer> calls = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** The capture's own bytes (values, then index), as the composer writes them. */
+    private static byte[] captured(CdsExportNativeSourceReader reader, int patient, long rows)
+            throws IOException {
+        var values = new ByteArrayOutputStream();
+        var index = new ByteArrayOutputStream();
+        new CdsExportNativeCaptureComposer()
+                .compose(
+                        values,
+                        index,
+                        Set.of(reader.table()),
+                        1_000_000,
+                        1L << 30,
+                        () -> {},
+                        writer -> {
+                            writer.beginTable(reader.table(), reader.columns(), rows);
+                            reader.capture(patient, writer, () -> {});
+                            writer.endTable();
+                        });
+        values.write(index.toByteArray());
+        return values.toByteArray();
+    }
+
+    private static PDFGenerationException timedOut() {
+        return new PDFGenerationException("Browser rendering timed out while generating the eForm PDF.");
     }
 
     /** Captures the prepared reader through the real composer and reads it back. */
@@ -173,6 +214,97 @@ class CdsExportEformRenderingSourceReaderUnitTest {
         assertThat(captured.get("11").reason()).isEqualTo(Reason.CHANGED);
         assertThat(captured.get("14").reason()).isEqualTo(Reason.CHANGED);
         assertThat(captured.get("9").row().fields()).containsEntry("content", "");
+    }
+
+    @Test
+    void shouldTryAFailedRenderOnceMoreAfterTheOtherEforms_andCaptureItAsAnyRender()
+            throws Exception {
+        // Before: a render that timed out left the form as its data summary with a note.
+        var source = mock(CdsExportEformRenderReadDao.class);
+        var forms =
+                List.of(
+                        new CdsExportEformRenderReadDao.Current(5, A, "Ann", "Fixture"),
+                        new CdsExportEformRenderReadDao.Current(9, B, null, null),
+                        new CdsExportEformRenderReadDao.Current(11, C, null, null));
+        when(source.current(27)).thenReturn(forms);
+        var timedOutOnce = new java.util.concurrent.atomic.AtomicBoolean();
+        var reader =
+                new CdsExportEformRenderingSourceReader(
+                        source,
+                        renders(
+                                fdid ->
+                                        fdid == 5 && timedOutOnce.compareAndSet(false, true)
+                                                ? timedOut()
+                                                : null));
+
+        var retried =
+                captured(
+                        reader.forCapture(27, control, new CdsExportEformRenderServiceUnitTest.Spool()),
+                        27,
+                        3);
+
+        // eForm 5 again after the others, freshly authorized; the incomplete eForm 9 is not
+        // tried again: the renderer's answer would be the same.
+        assertThat(calls).containsExactly(5, 9, 11, 5);
+        assertThat(authorizations).hasValue(4);
+        // A form rendered on its second attempt is captured exactly as one rendered at once:
+        // the same chart bytes, as a resumed attempt's adoption requires.
+        calls.clear();
+        var once =
+                captured(
+                        new CdsExportEformRenderingSourceReader(source, renders())
+                                .forCapture(27, control, new CdsExportEformRenderServiceUnitTest.Spool()),
+                        27,
+                        3);
+        assertThat(calls).containsExactly(5, 9, 11);
+        assertThat(retried).isEqualTo(once);
+    }
+
+    @Test
+    void shouldKeepTheDataSummaryFallback_whenTheSecondAttemptFailsToo_withANoteSayingSo()
+            throws Exception {
+        var source = mock(CdsExportEformRenderReadDao.class);
+        when(source.current(27))
+                .thenReturn(
+                        List.of(
+                                new CdsExportEformRenderReadDao.Current(5, A, null, null),
+                                new CdsExportEformRenderReadDao.Current(11, C, null, null)));
+        var attempts = new AtomicInteger();
+        var reader =
+                new CdsExportEformRenderingSourceReader(
+                        source,
+                        renders(
+                                fdid -> {
+                                    if (fdid != 5) return null;
+                                    // A timeout, then the browser failing: the second decides.
+                                    return attempts.incrementAndGet() == 1
+                                            ? timedOut()
+                                            : new PDFGenerationException(
+                                                    "Browser rendering failed while generating the eForm PDF.");
+                                }));
+
+        var captured =
+                capture(
+                        reader.forCapture(27, control, new CdsExportEformRenderServiceUnitTest.Spool()),
+                        27,
+                        2);
+
+        assertThat(calls).containsExactly(5, 11, 5);
+        assertThat(captured.get("11").rendered()).isTrue();
+        var failed = captured.get("5");
+        assertThat(failed.rendered()).isFalse();
+        assertThat(failed.reason()).isEqualTo(Reason.BROWSER_FAILURE_RETRIED);
+        assertThat(failed.row().fields())
+                .containsEntry("outcome", "UNAVAILABLE")
+                .containsEntry("reason", "BROWSER_FAILURE_RETRIED")
+                .containsEntry("content", "");
+        assertThat(CdsExportDataSummaryOccurrenceService.unavailableNote(failed.reason()))
+                .isEqualTo(
+                        "The eForm as CARLOS displays it could not be rendered for this export (the"
+                                + " rendering browser failed on the second of two attempts), so this"
+                                + " data summary is its only Report.");
+        assertThat(CdsExportDataSummaryOccurrenceService.unavailableNote(Reason.TIMEOUT_RETRIED))
+                .contains("(rendering timed out on the second of two attempts)");
     }
 
     @Test

@@ -2323,17 +2323,42 @@ makes the render `INCOMPLETE`; nothing is ever approved for the export. The iden
 effective provider from `CdsExportRunControl.authorizeRendering` (the same fresh Reports and chart
 checks as every other read, `CdsExportAccessService.requireEformRendering`), re-obtained for every
 render; the renderer checks `_eform` again and never runs as a system identity. Throttle: one export
-render at a time per JVM (a fair semaphore; the renderer has two global slots, so a clinician's
-print or fax keeps one), at least `cds.export.eformRenderIntervalMillis` apart (default 250 ms).
-Each render is bounded by the renderer's deadlines (slot wait 30 s, browser start 30 s, render
-90 s); three consecutive browser failures or timeouts open a five-minute breaker
-(`RENDERER_UNAVAILABLE`). Each attempt is timed, and a PHI-free line per chart records counts and
-times (`CDS_EXPORT_EFORM_RENDERS`). A capacity refusal is `RENDERER_BUSY`, a process without the
-renderer bean (the command line)
-`NOT_IN_THIS_PROCESS`. Only a `SecurityException` (changed authorization), cancellation and a
-spool write failure leave the render path, as on every other export path. A render without a
-request derives its base URL from Tomcat's connector (see `docs/eform-browser-pdf-renderer.md`,
-"Base URL for renders without a request").
+render at a time per JVM (a fair semaphore), so the export never holds more than one of the
+renderer's two global slots and a clinician's print or fax always keeps the other, at least
+`cds.export.eformRenderIntervalMillis` apart (default 250 ms).
+
+The export waits for the renderer instead of giving a form up (the owner's decision, "wait and
+retry"):
+
+- **A busy renderer is waited for.** The export waits for its own turn and then for a render
+  slot as long as each takes, keeping its place in the renderer's queue
+  (`EFormBrowserPdfService.renderSavedEformPdf` with a slot-wait check, `RenderAdmission`; a
+  clinician's print or fax still waits its ordinary 30 seconds). When the queue itself is full
+  the renderer refuses at once, and the export asks again after 1 s, then 2 s, doubling to 30 s.
+- **An open breaker is waited out.** Three consecutive browser failures or timeouts open a
+  five-minute breaker; the export waits until it closes and then tries the form.
+- **A failed render is tried once more.** A render that times out (`TIMEOUT`, the renderer's
+  90-second deadline) or fails in the browser (`BROWSER_FAILURE`, which includes the renderer's
+  30-second browser-start and page-load limits) is tried again after the patient's other eForms,
+  in eForm order, before the chart is captured (`CdsExportEformRenderingSourceReader.forCapture`).
+  A second attempt that renders is captured exactly as a first one would be. A second failure is
+  captured as `TIMEOUT_RETRIED` or `BROWSER_FAILURE_RETRIED`, and the eForm keeps today's fallback:
+  its data summary, with every stored value and the form's HTML source, and the note below.
+  Nothing about the attempts (their number, order or time) reaches the capture, so the same
+  outcomes give the same chart bytes, which a resumed attempt's adoption compares.
+- **Every wait is cancellable and is not progress.** Each wait runs
+  `CdsExportRunControl.waitCheckpoint` at least once a second: a cancellation ends it within a
+  second and the lease is renewed, but, unlike a checkpoint, the wait does not tell the stall
+  detector (`cds.export.maxDurationMillis`) that the worker is alive, so an attempt that only ever
+  waits is still ended as `CDS_EXPORT_WORKER_STALLED`, as for a statement's wait.
+
+Each attempt is timed (its wait for a slot included), and a PHI-free line per chart records counts
+and times (`CDS_EXPORT_EFORM_RENDERS rendered=<n> unavailable=<n> retried=<n> renderMs=<total>
+longestMs=<max>`). A process without the renderer bean (the command line) is
+`NOT_IN_THIS_PROCESS`, with no attempt. Only a `SecurityException` (changed authorization),
+cancellation and a spool write failure leave the render path, as on every other export path. A
+render without a request derives its base URL from Tomcat's connector (see
+`docs/eform-browser-pdf-renderer.md`, "Base URL for renders without a request").
 
 **Emission.** `CdsExportDataSummaryOccurrenceService.append` reads the captured outcomes
 (`CdsExportEformRenderings`) and requires one per listed eForm and none for anything else
@@ -2349,8 +2374,14 @@ outcome row: `form_data` and `content` `MAPPED` to `Reports/FilePath`, the name,
 time and provider `MAPPED` to the elements above when written, everything else `OPERATIONAL`
 (`CARLOS_EFORM_VALUE_IN_DATA_SUMMARY`, `CARLOS_EFORM_RENDER_OUTCOME`). An unavailable render adds
 to the eForm's data summary, in Notes and as a paragraph under the summary's statement, "The eForm
-as CARLOS displays it could not be rendered for this export (<reason>), so this data summary is its
-only Report."; the outcome row joins that receipt with `reason` `MAPPED` to `Reports/Notes`. The
+as CARLOS displays it could not be rendered for this export (`<reason>`), so this data summary is
+its only Report.", where `<reason>` is fixed text: "rendering timed out on the second of two attempts"
+(`TIMEOUT_RETRIED`), "the rendering browser failed on the second of two attempts"
+(`BROWSER_FAILURE_RETRIED`), "the renderer could not show all of the form's content, and an export
+never approves an incomplete form" (`INCOMPLETE`, not retried: the renderer's answer would be the
+same), "the eForm changed while the export ran" (`CHANGED`), "the export ran outside the web
+application, which renders eForms" (`NOT_IN_THIS_PROCESS`) or "rendering was not attempted"
+(`NOT_PREPARED`); the outcome row joins that receipt with `reason` `MAPPED` to `Reports/Notes`. The
 inventory expects the second identity for every captured rendered form. A job accepted before this
 table existed has no renderings and keeps the data summaries alone.
 

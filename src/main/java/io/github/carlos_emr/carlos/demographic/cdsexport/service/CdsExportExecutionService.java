@@ -498,7 +498,19 @@ public class CdsExportExecutionService {
         public void checkpoint() {
             if (TransactionSynchronizationManager.isActualTransactionActive())
                 throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
-            if (probe()) renew(() -> ledger.checkpoint(lease));
+            if (probe(true)) renew(() -> ledger.checkpoint(lease));
+        }
+
+        /**
+         * The checkpoint's checks and lease renewal, so a cancellation ends the wait within a
+         * second, without the proof of life: the stall window keeps running and ends an attempt
+         * that only ever waits, as it does for a statement's wait.
+         */
+        @Override
+        public void waitCheckpoint() {
+            if (TransactionSynchronizationManager.isActualTransactionActive())
+                throw new IllegalStateException("CDS_EXPORT_AMBIENT_TRANSACTION_REFUSED");
+            if (probe(false)) renew(() -> ledger.checkpoint(lease));
         }
 
         /**
@@ -542,11 +554,12 @@ public class CdsExportExecutionService {
                     || !TransactionSynchronizationManager.isCurrentTransactionReadOnly()) {
                 throw new IllegalStateException("CDS_EXPORT_READ_CAPTURE_TRANSACTION_REQUIRED");
             }
-            if (probe()) renew(() -> ledger.captureCheckpoint(lease));
+            if (probe(true)) renew(() -> ledger.captureCheckpoint(lease));
         }
 
-        private boolean probe() {
-            local(true);
+        /** @param proof true when the call proves the engine thread is alive (not a wait) */
+        private boolean probe(boolean proof) {
+            local(true, proof);
             long now = System.nanoTime();
             long previous = lastProbe.get();
             return now - previous >= 1_000_000_000L && lastProbe.compareAndSet(previous, now);
@@ -559,6 +572,14 @@ public class CdsExportExecutionService {
          *     on the heartbeat thread, which is the one that can see the engine has stalled
          */
         private void local(boolean engine) {
+            local(engine, engine);
+        }
+
+        /**
+         * @param proof true when the engine thread's call is proof of life (a checkpoint, not a
+         *     wait); ignored on the heartbeat thread
+         */
+        private void local(boolean engine, boolean proof) {
             if (Thread.currentThread().isInterrupted())
                 throw new CancellationException("CDS_EXPORT_WAIT_INTERRUPTED");
             if (fatal.get()) throw new CdsExportControlOutcomeUnknownException();
@@ -568,7 +589,7 @@ public class CdsExportExecutionService {
             configuration.requireEnabled();
             long now = System.nanoTime();
             if (engine) {
-                alive.set(now);
+                if (proof) alive.set(now);
                 return;
             }
             if (stalled.get() || now - alive.get() > maximumNanos) {
