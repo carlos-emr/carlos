@@ -53,8 +53,8 @@ The JDK also counts every predefined reference (`&amp;`, `&lt;`, `&gt;`, `&quot;
 threshold in large exports, and the parser would refuse the file part way through.
 CDS readers therefore set both counters to `0` (no limit). This is safe only because
 the same readers refuse any DOCTYPE: without a DTD the only entities are those five
-one-character references, which cannot expand, and `maxSourceBytes` already bounds
-how many a source can hold. No finite `int` ceiling fits every permitted source size.
+one-character references, which cannot expand, and their number grows only with
+the source, which is read as a stream. No finite `int` ceiling fits every permitted source size.
 Runtime identity already hashes the JDK module image,
 covering the XML implementation along with the existing runtime compatibility
 checks for prepared imports.
