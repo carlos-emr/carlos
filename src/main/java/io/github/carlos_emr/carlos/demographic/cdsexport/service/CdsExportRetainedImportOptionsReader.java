@@ -182,9 +182,10 @@ public final class CdsExportRetainedImportOptionsReader {
             if (!options.synthetic()) return options;
             Path folder = Path.of(run.fields().get("snapshot_location")).getParent();
             seal = privateFile(folder.resolve("copies.sha256"), 65);
-            // The copy plan is read as a stream: the importer writes as many copies as its own
-            // configured limits allow (cds.import.maxEntries, cds.import.maxExpandedBytes), so
-            // no size of ours refuses a plan it wrote.
+            // The copy plan is read as a stream: the importer writes every copy its course holds,
+            // with no count or size ceiling, and only its free-disk reserve
+            // (cds.import.minimumFreeDiskBytes) stops it, so no size of ours refuses a plan it
+            // wrote.
             Path plan = folder.resolve("copies.jsonl");
             var before = privateAttributes(plan);
             Options verified =
