@@ -24,6 +24,7 @@ package io.github.carlos_emr.carlos.commn.dao;
 import io.github.carlos_emr.carlos.commn.NativeSql;
 import io.github.carlos_emr.carlos.commn.dto.CdsImportControlDto;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
+import io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits;
 import io.github.carlos_emr.carlos.utility.OscarTrackingBasicDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -32,7 +33,15 @@ import java.sql.SQLException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 
-/** Fixed queries on the physical unpooled coordinator; the lease exposes no JDBC capability. */
+/**
+ * Fixed queries on the physical unpooled coordinator; the lease exposes no JDBC capability.
+ *
+ * <p>Every statement here runs inside an import run and waits for the database the import's way
+ * (the {@link CdsOwnedStatementWaits} its service supplies): it is sent with a deadline and sent
+ * again with a longer one each time the server ends it at that deadline, so a busy server never
+ * fails the coordinator's lock probes or control reads. Only a lost connection, another failure,
+ * a cancel or the import's stall window ends a wait.
+ */
 @Repository
 public class CdsImportCoordinatorDao {
     private final OscarTrackingBasicDataSource dataSource;
@@ -41,25 +50,40 @@ public class CdsImportCoordinatorDao {
         this.dataSource = dataSource;
     }
 
-    /** A null result means the physical coordinator is already owned by another process. */
+    /**
+     * A null result means the physical coordinator is already owned by another process.
+     *
+     * @param waits how this lease's statements wait for the database (the import's own waits)
+     */
     @NativeSql
-    public Lease acquire() throws SQLException {
+    public Lease acquire(CdsOwnedStatementWaits waits) throws SQLException {
+        java.util.Objects.requireNonNull(waits);
         Connection connection = dataSource.openUnpooledCdsMaintenanceConnection();
         try {
             // This connection is newly created and has performed no work. Each
             // later control SELECT must observe a fresh autocommit snapshot.
             connection.setAutoCommit(true);
-            String database;
-            try (PreparedStatement query = connection.prepareStatement("SELECT DATABASE()")) {
-                query.setQueryTimeout(3);
-                try (ResultSet rows = query.executeQuery()) {
-                    if (!rows.next() || (database = rows.getString(1)) == null || rows.next())
-                        throw new SQLException("Import database is not selected");
-                }
-            }
+            String database =
+                    waits.await(
+                            connection,
+                            seconds -> {
+                                try (PreparedStatement query =
+                                        connection.prepareStatement("SELECT DATABASE()")) {
+                                    query.setQueryTimeout(seconds);
+                                    try (ResultSet rows = query.executeQuery()) {
+                                        String selected;
+                                        if (!rows.next()
+                                                || (selected = rows.getString(1)) == null
+                                                || rows.next())
+                                            throw new SQLException(
+                                                    "Import database is not selected");
+                                        return selected;
+                                    }
+                                }
+                            });
             String name = "cds.coordinator." + CdsImportKeys.hash(database).substring(0, 40);
-            long acquired = scalar(connection, "SELECT GET_LOCK(?,0)", name);
-            if (acquired == 1) return new Lease(connection, name);
+            long acquired = scalar(waits, connection, "SELECT GET_LOCK(?,0)", name);
+            if (acquired == 1) return new Lease(connection, name, waits);
             if (acquired != 0) throw new SQLException("Invalid coordinator acquisition result");
         } catch (SQLException | RuntimeException | Error failure) {
             try { connection.close(); }
@@ -74,17 +98,24 @@ public class CdsImportCoordinatorDao {
         return null;
     }
 
-    private static long scalar(Connection connection, String sql, String name) throws SQLException {
-        try (PreparedStatement query = connection.prepareStatement(sql)) {
-            query.setQueryTimeout(3);
-            query.setString(1, name);
-            try (ResultSet rows = query.executeQuery()) {
-                if (!rows.next()) throw new SQLException("Missing coordinator response");
-                long value = rows.getLong(1);
-                if (rows.wasNull() || rows.next()) throw new SQLException("Invalid coordinator response");
-                return value;
-            }
-        }
+    private static long scalar(
+            CdsOwnedStatementWaits waits, Connection connection, String sql, String name)
+            throws SQLException {
+        return waits.await(
+                connection,
+                seconds -> {
+                    try (PreparedStatement query = connection.prepareStatement(sql)) {
+                        query.setQueryTimeout(seconds);
+                        query.setString(1, name);
+                        try (ResultSet rows = query.executeQuery()) {
+                            if (!rows.next()) throw new SQLException("Missing coordinator response");
+                            long value = rows.getLong(1);
+                            if (rows.wasNull() || rows.next())
+                                throw new SQLException("Invalid coordinator response");
+                            return value;
+                        }
+                    }
+                });
     }
 
     /** Only fixed lock and typed control operations are available on an acquired lease. */
@@ -98,19 +129,21 @@ public class CdsImportCoordinatorDao {
                 """;
         private final Connection connection;
         private final String name;
+        private final CdsOwnedStatementWaits waits;
         private PreparedStatement physical;
         private PreparedStatement control;
         private boolean closed;
 
-        private Lease(Connection connection, String name) {
+        private Lease(Connection connection, String name, CdsOwnedStatementWaits waits) {
             this.connection = connection;
             this.name = name;
+            this.waits = waits;
         }
 
         public void retainForDuration(long maximumMillis) throws SQLException {
             requireOpen();
             io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts
-                    .retainOwnerForDuration(connection, maximumMillis);
+                    .retainOwnerForDuration(connection, maximumMillis, waits);
         }
 
         @NativeSql
@@ -119,15 +152,19 @@ public class CdsImportCoordinatorDao {
             if (connection.isClosed()) return false;
             if (physical == null) {
                 physical = connection.prepareStatement("SELECT IS_USED_LOCK(?)=CONNECTION_ID()");
-                physical.setQueryTimeout(3);
                 physical.setString(1, name);
             }
-            try (ResultSet rows = physical.executeQuery()) {
-                if (!rows.next()) throw new SQLException("Missing coordinator response");
-                boolean owned = flag(rows, 1, true);
-                if (rows.next()) throw new SQLException("Duplicate coordinator response");
-                return owned;
-            }
+            return waits.await(
+                    connection,
+                    seconds -> {
+                        physical.setQueryTimeout(seconds);
+                        try (ResultSet rows = physical.executeQuery()) {
+                            if (!rows.next()) throw new SQLException("Missing coordinator response");
+                            boolean owned = flag(rows, 1, true);
+                            if (rows.next()) throw new SQLException("Duplicate coordinator response");
+                            return owned;
+                        }
+                    });
         }
 
         @NativeSql({"cds_import_run", "cds_import_admission"})
@@ -137,10 +174,14 @@ public class CdsImportCoordinatorDao {
                 throw new IllegalArgumentException("Invalid control run identity");
             if (control == null) {
                 control = connection.prepareStatement(CONTROL_SQL);
-                control.setQueryTimeout(3);
                 control.setString(1, name);
             }
             control.setString(2, runId);
+            return waits.await(connection, seconds -> control(runId, seconds));
+        }
+
+        private CdsImportControlDto control(String runId, int seconds) throws SQLException {
+            control.setQueryTimeout(seconds);
             try (ResultSet rows = control.executeQuery()) {
                 if (!rows.next()) throw new SQLException("Missing import control response");
                 boolean physicalOwned = flag(rows, 1, true);
@@ -182,7 +223,7 @@ public class CdsImportCoordinatorDao {
             try (Connection retiring = connection;
                     PreparedStatement retiredPhysical = physical;
                     PreparedStatement retiredControl = control) {
-                if (scalar(retiring, "SELECT RELEASE_LOCK(?)", name) != 1)
+                if (scalar(waits, retiring, "SELECT RELEASE_LOCK(?)", name) != 1)
                     throw new SQLException("Coordinator release failed");
             }
         }

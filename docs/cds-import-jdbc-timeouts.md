@@ -32,9 +32,9 @@ support. Default-off ordinary pools are not subjected to this controlled-connect
 
 These are driver TCP-connect and individual socket-read limits, including the initial server
 handshake: they detect a server or connection that has gone silent, not a slow statement (see
-[statement deadlines are waits](#statement-deadlines-are-waits)). They complement the 3-second
-lock probes and the maintenance drain bound described there, and the stall window; they do not
-claim a single wall-clock deadline for the entire import. Endpoint name resolution remains a
+[statement deadlines are waits](#statement-deadlines-are-waits)). They complement the short
+clinical-side bounds and the maintenance drain bound described there, and the stall window; they
+do not claim a single wall-clock deadline for the entire import. Endpoint name resolution remains a
 responsibility of the deployment's resolver. No global `DriverManager` login timeout, generic
 future executor or pool abandonment setting is introduced. Transport failure must retain the
 existing unknown-commit/hold/reconciliation rules.
@@ -64,14 +64,30 @@ the wait, and again until it is answered (`CdsImportStatementWaits`). This appli
 - the run's binding and report-entry reads, formerly failed at 120 seconds;
 - the target-safety catalogue reads on the maintenance owner's connection (tables, metadata pins,
   triggers and trigger privileges), formerly failed at 10 seconds;
-- the maintenance release's two locking reads, formerly failed at 30 seconds.
+- the maintenance release's two locking reads, formerly failed at 30 seconds;
+- every lock probe, readback and session setting an import run makes on its own connections,
+  formerly failed at 3 seconds: the coordinator's `DATABASE()`, `GET_LOCK`, physical-ownership
+  check, control read (the run's cancel flag and owner epoch with the advisory-lock check) and
+  `RELEASE_LOCK`; the maintenance owner's `GET_LOCK`, `CONNECTION_ID()`, `IS_USED_LOCK`
+  (catalogue verification, heartbeat, recovery claim, release) and `RELEASE_LOCK`, its recovery
+  readback and its release proof; both owners' `wait_timeout` and its readback; and an import
+  write's `SET SESSION sql_mode` and its restoration. A server too busy to answer one of these
+  within three seconds used to fail the attempt; it is now asked again with a longer deadline
+  (`CdsImportStatementWaits.awaitOwned`, offered to the coordinator DAO and
+  `CdsJdbcConnectionTimeouts` as `CdsOwnedStatementWaits` so they need not depend on the import's
+  packages).
 
 The applied-copy read the exporter makes through the import's run table waits the exporter's way
 (`CdsExportStatementWaitReadSupport`), inside the exporter's snapshot.
 
 Sending a statement again is sound because these are reads, including locking reads: a statement
 the server ends at its own deadline is rolled back by itself, changed nothing and acquired no lock,
-and the transaction with every lock it already holds is as it was. A statement ended for any other
+and the transaction with every lock it already holds is as it was. The session settings set the
+same value again. `GET_LOCK(name, 0)` and `RELEASE_LOCK` answer at once; if the server ended one
+after it had taken or given up the lock, sending it again leaves the session holding the lock
+(a nested `GET_LOCK` is counted, and closing the dedicated connection releases every count) or
+reports the release as unacknowledged, which ends the attempt loudly
+(`MAINTENANCE_RELEASE_REQUIRES_RECONCILIATION`), never silently. A statement ended for any other
 reason is passed on and never sent again: a lock-wait timeout (the server's own
 `innodb_lock_wait_timeout`) or a deadlock can roll back the whole transaction, and a lost connection
 loses it. Such a failure fails its unit loudly under the unit's existing code, and the run is
@@ -86,27 +102,25 @@ connection until the transaction completes, when it is restored before the conne
 its pool, and for the maintenance owner's dedicated connection until the statement is answered. A
 connection held outside a transaction is never changed, since nothing would put it back.
 
-Two kinds of short bound remain, deliberately:
+Two kinds of short bound remain, deliberately, and neither is part of an import run:
 
-- **3-second lock probes.** Each asks the server a question it answers at once, from its lock
-  table or session state, without waiting on a lock or reading a row: `GET_LOCK(name, 0)` (which
-  returns immediately whether or not it got the lock), `IS_USED_LOCK`, `RELEASE_LOCK`,
-  `CONNECTION_ID()`, `DATABASE()`, `@@autocommit` and `SET SESSION sql_mode`, on the coordinator,
-  maintenance and admission-guard connections. The coordinator's control read (the run's cancel
-  flag and owner epoch by primary key, with the advisory-lock check) and the admission guard's
-  gate are read the same way: the control read is a non-locking autocommit read, and the gate's
-  shared lock on the admission row can wait only behind a maintenance owner's exclusive lock,
-  which no other session holds while an import owns maintenance. The maintenance owner's own
-  recovery and release readbacks are the same kind of read. The clinical-access status read used
-  by the login and status filters is not part of a transfer at all; it fails closed quickly so
-  that every clinical request is not held behind a stalled status query. Three seconds of silence
-  on any of these means the server or the session is unreachable, which is a genuine failure.
-- **The maintenance drain** (`cds.import.drainTimeoutSeconds`, 30 seconds by default). Entering
-  maintenance takes the admission row exclusively, which waits for every clinical transaction
-  already admitted to finish while new clinical work is refused. The bound is how long the clinic
-  may be held out waiting for that, not how slow the database may be: when it passes, the attempt
-  ends with `MAINTENANCE_ACQUISITION_FAILED` before any unit, the clinic is let back in, and the
-  run is resumed later.
+- **Clinical-side checks, 3 seconds, failing closed.** The clinical-access status read used by
+  the login and status filters (`CdsImportMaintenanceService.isClinicalAccessBlocked`), the
+  per-connection admission gate an ordinary writer passes (`IS_USED_LOCK` and the shared read of
+  the admission row in `CdsJdbcAdmissionGuard`) and the ordinary filesystem lease's session check
+  (`CONNECTION_ID(),@@autocommit`). They run on every clinical request, so they fail closed
+  quickly rather than hold that request behind a stalled server: the clinic sees the request
+  refused and retries, and no import is affected.
+- **The maintenance drain** (`cds.import.drainTimeoutSeconds`, 30 seconds by default, kept by
+  owner decision). Entering maintenance takes the admission row exclusively, which waits for every
+  clinical transaction already admitted to finish while new clinical work is refused. The bound is
+  how long the clinic may be held out waiting for that, not how slow the database may be: when it
+  passes, the attempt ends with `MAINTENANCE_ACQUISITION_FAILED` before any unit, the clinic is let
+  back in, and the run is resumed later.
+
+`CdsImportMaintenanceServiceUnitTest` gives the owner's `IS_USED_LOCK` a server that answers after
+five seconds (the owner verifies, under a 30-second first deadline) and one that ends the probe at
+its deadline (it is sent again with 60 seconds).
 
 `CdsImportStatementWaitsUnitTest` sends a read again with doubling waits, passes every other
 failure on unsent, ends a wait at the scope's stall window or a cancel, and raises and restores

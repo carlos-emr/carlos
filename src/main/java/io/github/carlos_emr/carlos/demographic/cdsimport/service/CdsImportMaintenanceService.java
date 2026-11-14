@@ -116,7 +116,9 @@ public class CdsImportMaintenanceService {
             // Silent for the stall window plus the unwind allowance, the session is closed by
             // the database and its lock released, exactly as for a dead worker.
             io.github.carlos_emr.carlos.utility.CdsJdbcConnectionTimeouts.retainOwnerForDuration(
-                    connection, configuration.limits().stallWindowMillis());
+                    connection,
+                    configuration.limits().stallWindowMillis(),
+                    CdsImportStatementWaits.OWNED);
             // Keep transaction-duration DDL pins without a run-long consistent data read view.
             connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             if (scalar(connection, "SELECT GET_LOCK(?, 0)", state.lockName()) != 1) {
@@ -183,7 +185,11 @@ public class CdsImportMaintenanceService {
         }
     }
 
-    /** Reads durable maintenance/holds without touching clinical charts; permitted for status/login filters. */
+    /**
+     * Reads durable maintenance/holds without touching clinical charts; permitted for status/login
+     * filters. Not part of an import: it keeps its short deadline and fails closed, so that every
+     * clinical request is not held behind a stalled status query.
+     */
     public boolean isClinicalAccessBlocked() {
         if (dataSource.getCdsAdmissionState() == null) return false;
         try (Connection connection = dataSource.getConnection();
@@ -207,12 +213,24 @@ public class CdsImportMaintenanceService {
         }
     }
 
-    // FindSecBugs SQL_INJECTION_JDBC: Private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound.
-    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound")
+    /**
+     * One lock probe on the owner's dedicated connection (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK,
+     * CONNECTION_ID). It is part of the import run, so it waits for the database: sent with a
+     * deadline, and again with a longer one each time the server ends it at that deadline ({@link
+     * CdsImportStatementWaits#awaitOwned}). A busy server never fails it; a lost connection does.
+     */
     private static long scalar(Connection connection, String sql, String value)
             throws SQLException {
+        return CdsImportStatementWaits.awaitOwned(
+                connection, seconds -> scalar(connection, sql, value, seconds));
+    }
+
+    // FindSecBugs SQL_INJECTION_JDBC: Private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "SQL_INJECTION_JDBC", justification = "private helper whose every caller passes a string literal (GET_LOCK, RELEASE_LOCK, IS_USED_LOCK, CONNECTION_ID); the lock name is the only value and is bound")
+    private static long scalar(Connection connection, String sql, String value, int seconds)
+            throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setQueryTimeout(3);
+            statement.setQueryTimeout(seconds);
             if (value != null) statement.setString(1, value);
             try (ResultSet rows = statement.executeQuery()) {
                 if (!rows.next())
@@ -289,24 +307,30 @@ public class CdsImportMaintenanceService {
                         != lease.connectionId()) {
                     throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
                 }
-                try (PreparedStatement query =
-                        connection.prepareStatement(
-                                """
+                // The owner's readback waits for the database: a locking read the server ends at
+                // its deadline acquired nothing and is sent again.
+                boolean current =
+                        CdsImportStatementWaits.awaitOwned(
+                                connection,
+                                seconds -> {
+                                    try (PreparedStatement query =
+                                            connection.prepareStatement(
+                                                    """
                         SELECT maintenance_active,maintenance_generation,maintenance_owner_token,maintenance_connection_id
                         FROM cds_import_admission WHERE id=? LOCK IN SHARE MODE
                         """)) {
-                    query.setQueryTimeout(3);
-                    query.setString(1, CdsJdbcAdmissionState.ROW);
-                    try (ResultSet rows = query.executeQuery()) {
-                        if (!rows.next()
-                                || !rows.getBoolean(1)
-                                || rows.getLong(2) != lease.generation()
-                                || !lease.token().equals(rows.getString(3))
-                                || rows.getLong(4) != lease.connectionId()) {
-                            throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
-                        }
-                    }
-                }
+                                        query.setQueryTimeout(seconds);
+                                        query.setString(1, CdsJdbcAdmissionState.ROW);
+                                        try (ResultSet rows = query.executeQuery()) {
+                                            return rows.next()
+                                                    && rows.getBoolean(1)
+                                                    && rows.getLong(2) == lease.generation()
+                                                    && lease.token().equals(rows.getString(3))
+                                                    && rows.getLong(4) == lease.connectionId();
+                                        }
+                                    }
+                                });
+                if (!current) throw new CdsImportException("MAINTENANCE_OWNER_FENCED");
             } catch (SQLException unavailable) {
                 throw new CdsImportException("MAINTENANCE_OWNER_FENCED", false, unavailable);
             }
@@ -406,28 +430,33 @@ public class CdsImportMaintenanceService {
                     // The advisory lock is still ours. A different node cannot acquire a new
                     // maintenance generation between this commit and its proof readback.
                     connection.setAutoCommit(true);
-                    try (PreparedStatement proof =
-                            connection.prepareStatement(
-                                    """
+                    // The release readback waits for the database like the reads before it.
+                    boolean reopened =
+                            CdsImportStatementWaits.awaitOwned(
+                                    connection,
+                                    seconds -> {
+                                        try (PreparedStatement proof =
+                                                connection.prepareStatement(
+                                                        """
                             SELECT maintenance_active,maintenance_generation,maintenance_owner_token,
                                 maintenance_connection_id,EXISTS(SELECT 1 FROM cds_import_patient WHERE held=TRUE)
                             FROM cds_import_admission WHERE id=?
                             """)) {
-                        proof.setQueryTimeout(3);
-                        proof.setString(1, CdsJdbcAdmissionState.ROW);
-                        try (ResultSet rows = proof.executeQuery()) {
-                            if (!rows.next()
-                                    || rows.getBoolean(1)
-                                    || rows.getLong(2) != lease.generation()
-                                    || rows.getString(3) != null
-                                    || rows.getObject(4) != null
-                                    || rows.getBoolean(5)) {
-                                throw new SQLException(
-                                        "Maintenance release readback did not prove reopening",
-                                        "45000");
-                            }
-                        }
-                    }
+                                            proof.setQueryTimeout(seconds);
+                                            proof.setString(1, CdsJdbcAdmissionState.ROW);
+                                            try (ResultSet rows = proof.executeQuery()) {
+                                                return rows.next()
+                                                        && !rows.getBoolean(1)
+                                                        && rows.getLong(2) == lease.generation()
+                                                        && rows.getString(3) == null
+                                                        && rows.getObject(4) == null
+                                                        && !rows.getBoolean(5);
+                                            }
+                                        }
+                                    });
+                    if (!reopened)
+                        throw new SQLException(
+                                "Maintenance release readback did not prove reopening", "45000");
                     releaseVerified = true;
                 }
             } catch (SQLException problem) {

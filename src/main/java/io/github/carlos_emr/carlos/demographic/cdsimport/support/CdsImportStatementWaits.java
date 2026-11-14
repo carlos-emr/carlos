@@ -178,6 +178,24 @@ public final class CdsImportStatementWaits {
     }
 
     /**
+     * {@link #awaitOwned} as the shared {@link
+     * io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits}, for the classes outside these
+     * packages that run statements on an import's dedicated connections (the coordinator DAO, the
+     * session idle timeout).
+     */
+    public static final io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits OWNED =
+            new io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits() {
+                @Override
+                public <T> T await(
+                        Connection connection,
+                        io.github.carlos_emr.carlos.utility.CdsOwnedStatementWaits.Statement<T>
+                                statement)
+                        throws SQLException {
+                    return awaitOwned(connection, statement::send);
+                }
+            };
+
+    /**
      * A JDBC read on a dedicated connection the caller opened for itself and closes itself (the
      * maintenance owner's): its socket timeout is raised while the statement waits and put back
      * once it is answered.

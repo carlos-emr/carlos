@@ -213,7 +213,7 @@ class CdsImportReportControlUnitTest {
         var f = fixture(temp);
         var dao = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.class);
         var lease = mock(io.github.carlos_emr.carlos.commn.dao.CdsImportCoordinatorDao.Lease.class);
-        when(dao.acquire()).thenReturn(lease);
+        when(dao.acquire(org.mockito.ArgumentMatchers.any())).thenReturn(lease);
         var owner = new CdsImportCoordinatorService(dao).acquire();
         owner.close();
         f.results.generate(f.run, 1, owner);
@@ -225,7 +225,10 @@ class CdsImportReportControlUnitTest {
                                 .count())
                 .isGreaterThan(1);
         verify(dao, times(1))
-                .acquire(); // Reporting never reacquires ownership or changes clinical outcome.
+                .acquire(
+                        org.mockito.ArgumentMatchers
+                                .any()); // Reporting never reacquires ownership or changes
+        // clinical outcome.
         verify(f.ledger, never()).finish(anyString(), anyLong());
     }
 
