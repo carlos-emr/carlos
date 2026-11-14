@@ -311,6 +311,92 @@ class CdsFieldCorrectionUnitTest {
         assertEquals("CDS_CORRECTION_SOURCE_XML_OR_TARGET_MISMATCH", failure.code());
     }
 
+    @Test
+    void shouldApplyEveryCorrection_whenSourceHas300InvalidValues() throws Exception {
+        // 300 values another EMR wrote that the schema refuses, each with its own audited
+        // correction: more than the 128 one source file once allowed.
+        assertEquals(300, correctEvery(300));
+    }
+
+    @Test
+    void shouldApplyEveryCorrection_whenTheManifestIsLargerThan1MiB() throws Exception {
+        // 2,500 corrections make a manifest larger than the 1 MiB it was once read whole within.
+        assertEquals(2500, correctEvery(2500));
+    }
+
+    /**
+     * Parses a source of {@code count} allergies whose Severity no schema allows, corrects each
+     * one, parses it again with the corrections, and returns how many allergies read "MO".
+     */
+    private int correctEvery(int count) throws Exception {
+        String fixture = CdsXmlParserUnitTest.fixture();
+        int start = fixture.indexOf("<AllergiesAndAdverseReactions>");
+        int end =
+                fixture.indexOf("</AllergiesAndAdverseReactions>")
+                        + "</AllergiesAndAdverseReactions>".length();
+        String allergy =
+                fixture.substring(start, end).replace("<Severity>MO</Severity>", "<Severity>INVALID</Severity>");
+        String invalid = fixture.substring(0, start) + allergy.repeat(count) + fixture.substring(end);
+        Path source = Files.writeString(temp.resolve("many-invalid.xml"), invalid);
+        Path originalSpool = temp.resolve("many-invalid-spool");
+        assertThrows(
+                CdsInputException.class,
+                () ->
+                        new CdsXmlParser()
+                                .parse(
+                                        source,
+                                        originalSpool,
+                                        CdsInputLimitsDto.defaults(),
+                                        () -> false,
+                                        row -> {}));
+        List<CdsRecordDto> originals = new ArrayList<>();
+        fields.forEachRecord(originalSpool.resolve("records.jsonl"), originals::add);
+        Path folder = Files.createDirectory(originalSpool.resolve("corrections"));
+        byte[] replacement = "MO".getBytes(StandardCharsets.UTF_8);
+        Files.write(folder.resolve("replacement.txt"), replacement);
+        String xmlHash =
+                CdsPaths.hex(CdsPaths.sha256().digest(invalid.getBytes(StandardCharsets.UTF_8)));
+        ObjectNode manifest =
+                json.createObjectNode().put("version", 1).put("acceptedXmlSha256", xmlHash);
+        var entries = manifest.putArray("corrections");
+        for (CdsRecordDto record : originals) {
+            if (!record.section().equals("AllergiesAndAdverseReactions")) continue;
+            CdsFieldDto field = field(record, "Severity[1]");
+            entries.addObject()
+                    .put("sourceXPath", record.sourceXPath() + "/" + field.path())
+                    .put("namespace", field.namespace())
+                    .put("kind", field.kind())
+                    .put("schemaType", field.schemaType())
+                    .put("whitespace", field.whitespace())
+                    .put("originalSha256", field.sha256())
+                    .put("originalLength", field.length())
+                    .put("replacementFile", "replacement.txt")
+                    .put("replacementSha256", CdsPaths.hex(CdsPaths.sha256().digest(replacement)))
+                    .put("replacementBytes", replacement.length);
+        }
+        assertEquals(count, entries.size());
+        byte[] document = json.writeValueAsBytes(manifest);
+        if (count >= 2500) assertTrue(document.length > (1 << 20));
+        Path file = Files.write(folder.resolve("manifest.json"), document);
+        CdsCorrectionSetDto master =
+                new CdsCorrectionSetDto(
+                        file, CdsPaths.hex(CdsPaths.sha256().digest(document)), xmlHash);
+        List<CdsRecordDto> corrected = new ArrayList<>();
+        new CdsXmlParser()
+                .parse(
+                        source,
+                        temp.resolve("many-corrected"),
+                        CdsInputLimitsDto.defaults(),
+                        () -> false,
+                        corrected::add,
+                        master);
+        int restored = 0;
+        for (CdsRecordDto record : corrected)
+            if (record.section().equals("AllergiesAndAdverseReactions")
+                    && "MO".equals(fields.firstToken(record, "Severity", 2))) restored++;
+        return restored;
+    }
+
     private CdsRecordDto record() throws Exception {
         return record(CdsXmlParserUnitTest.fixture());
     }

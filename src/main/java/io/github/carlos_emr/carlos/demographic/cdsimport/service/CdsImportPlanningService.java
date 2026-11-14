@@ -1217,9 +1217,8 @@ public class CdsImportPlanningService {
         var corrections = work.record().corrections();
         if (corrections != null) {
             Path manifest = corrections.manifestFile();
+            // A manifest of any size: one entry for each audited correction of the source file.
             long manifestBytes = Files.size(manifest);
-            if (manifestBytes > (1 << 20))
-                throw new CdsImportException("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED");
             if (!files.verifiedFor(
                     runId, epoch, manifest.toString(), corrections.sha256(), manifestBytes)) {
                 // Publish the manifest's epoch proof LAST: it is the bounded group-completion

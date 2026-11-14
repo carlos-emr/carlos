@@ -1011,36 +1011,32 @@ public class CdsFieldParser {
                 && cached.digest().equals(reference.sha256())
                 && cached.xmlDigest().equals(reference.acceptedXmlSha256())) {
             if (cached.physicallyVerified()) return cached.entries();
+            // The file is hashed again as a stream, whatever its size.
             MessageDigest hash = CdsPaths.sha256();
-            long count = 0;
             try (InputStream input = Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
                 byte[] buffer = new byte[8192];
                 int n;
-                while ((n = input.read(buffer)) >= 0) {
-                    count += n;
-                    if (count > (1 << 20))
-                        throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED");
-                    hash.update(buffer, 0, n);
-                }
+                while ((n = input.read(buffer)) >= 0) hash.update(buffer, 0, n);
             }
             if (!reference.sha256().equals(CdsPaths.hex(hash.digest())))
                 throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
             return cached.entries();
         }
-        byte[] bytes;
-        try (InputStream input = Files.newInputStream(manifest, LinkOption.NOFOLLOW_LINKS)) {
-            bytes = input.readNBytes(1 << 20);
-            if (input.read() != -1) throw failure("CDS_CORRECTION_MANIFEST_CAPACITY_EXCEEDED");
-        }
-        if (!reference.sha256().equals(CdsPaths.hex(CdsPaths.sha256().digest(bytes))))
+        // Read as a stream, of any size and with any number of corrections; its digest is
+        // compared before its document is trusted.
+        var read =
+                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCorrectionFiles
+                        .readManifest(manifest);
+        if (!reference.sha256().equals(read.sha256()))
             throw failure("CDS_CORRECTION_MANIFEST_HASH_MISMATCH");
-        JsonNode document = JSON.readTree(bytes), entries = document.path("corrections");
+        JsonNode document = read.document();
+        if (document == null) throw failure("CDS_CORRECTION_MANIFEST_INVALID");
+        JsonNode entries = document.path("corrections");
         if (document.path("version").asInt() != 1
                 || !reference
                         .acceptedXmlSha256()
                         .equals(document.path("acceptedXmlSha256").asText())
-                || !entries.isArray()
-                || entries.size() > 128) throw failure("CDS_CORRECTION_MANIFEST_INVALID");
+                || !entries.isArray()) throw failure("CDS_CORRECTION_MANIFEST_INVALID");
         List<JsonNode> list = new ArrayList<>(entries.size());
         entries.forEach(list::add);
         List<JsonNode> immutable = List.copyOf(list);

@@ -340,6 +340,52 @@ class CdsImportReviewServiceUnitTest {
     }
 
     @Test
+    void shouldAcceptEveryCorrection_whenSourceNeedsMoreThan128() throws Exception {
+        // 130 allergies whose Severity the schema refuses: the reviewer corrects each in turn,
+        // past the 128 corrections one source file once allowed. Each stays an inactive draft
+        // until the last makes the whole XML valid.
+        int count = 130;
+        String xml;
+        try (var input = getClass().getResourceAsStream("/demographic/cds-import-summary.xml")) {
+            xml = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        int start = xml.indexOf("<AllergiesAndAdverseReactions>");
+        int end =
+                xml.indexOf("</AllergiesAndAdverseReactions>")
+                        + "</AllergiesAndAdverseReactions>".length();
+        String allergy =
+                xml.substring(start, end)
+                        .replace("<Severity>MO</Severity>", "<Severity>INVALID</Severity>");
+        source(xml.substring(0, start) + allergy.repeat(count) + xml.substring(end), true);
+        diagnostic.setSourcePath("/files[1]");
+        for (int n = 1; n <= count; n++) {
+            String id =
+                    service.accept(
+                            viewer,
+                            RUN,
+                            new CdsImportReviewCommand(
+                                    "CORRECT_VALUE",
+                                    1L,
+                                    "",
+                                    null,
+                                    n - 1,
+                                    "/OmdCds[1]/PatientRecord[1]/AllergiesAndAdverseReactions["
+                                            + n
+                                            + "]/Severity[1]",
+                                    "MO",
+                                    "Fixture verified severity " + n));
+            if (n < count)
+                assertThatThrownBy(() -> service.process(id))
+                        .isInstanceOf(CdsInputException.class);
+            else assertThat(service.process(id)).isEqualTo(RUN);
+        }
+        assertThat(history.values())
+                .hasSize(count)
+                .allSatisfy(row -> assertThat(row.getState()).isEqualTo("OVERLAY_READY"));
+        verify(ledger).resetUnsealedPlan(RUN, 5L, count);
+    }
+
+    @Test
     void shouldRequireAnotherOperatorToRestateInactiveScalars_whenAReviewDraftChangesOwnership()
             throws Exception {
         source("INVALID", "INVALID");
@@ -988,6 +1034,11 @@ class CdsImportReviewServiceUnitTest {
         xml = xml.replace("<Gender>F</Gender>", "<Gender>" + gender + "</Gender>");
         if (severity != null)
             xml = xml.replace("<Severity>MO</Severity>", "<Severity>" + severity + "</Severity>");
+        return source(xml, gender.equals("INVALID") || "INVALID".equals(severity));
+    }
+
+    /** The accepted source file of the review, parsed once as the original import parsed it. */
+    private CdsSnapshotFileDto source(String xml, boolean invalid) throws Exception {
         Path file = Files.writeString(root.resolve("source.xml"), xml);
         String sha = CdsPaths.hex(CdsPaths.sha256().digest(Files.readAllBytes(file)));
         Path parsed = Files.createDirectory(root.resolve("parsed"));
@@ -995,7 +1046,7 @@ class CdsImportReviewServiceUnitTest {
         try {
             parser.parse(file, folder, CdsInputLimitsDto.defaults(), () -> false, record -> {});
         } catch (CdsInputException expected) {
-            if (!gender.equals("INVALID") && !"INVALID".equals(severity)) throw expected;
+            if (!invalid) throw expected;
         }
         diagnostic.setProtectedDetailLocation(folder.resolve("parse-result.json").toString());
         var source = new CdsSnapshotFileDto("source.xml", file, sha, Files.size(file), true);

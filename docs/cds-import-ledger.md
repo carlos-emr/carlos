@@ -157,7 +157,9 @@ and publication still revalidate the current version and immutable evidence unde
 
 An explicit review uses a compare-and-set review version. It archives the prior patient/unit/
 dependency plan with counts and a durable digest, validates the effective corrected source against
-the pinned schema, and publishes an immutable correction manifest. Only a checkpoint-free,
+the pinned schema, and publishes an immutable correction manifest. A source file may need any
+number of corrections, one for each value its schema refuses: the manifest holds one entry for
+each, is read as a stream whatever its size, and nothing counts its entries. Only a checkpoint-free,
 unbound, unheld, unsealed plan can reset. `REPLANNING` freezes ordinary planning while bounded
 pages remove old expected units, dependencies and the preflight identity register. Patient IDs,
 lineages, original source and archived evidence remain. Interrupted resets are restartable.

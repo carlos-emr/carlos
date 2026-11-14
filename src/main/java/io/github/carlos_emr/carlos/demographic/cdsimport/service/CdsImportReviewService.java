@@ -842,16 +842,20 @@ public class CdsImportReviewService {
             var copied =
                     io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCorrectionFiles
                             .stage(prior, revision);
-            JsonNode document =
-                    JSON.readTree(CdsImportJobService.boundedFile(copied.manifestFile(), 1048576));
+            // Read as a stream, whatever its size: a source file needs one correction for each
+            // value its schema refuses, and nothing counts them.
+            var read =
+                    io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCorrectionFiles
+                            .readManifest(copied.manifestFile());
+            if (!read.sha256().equals(copied.sha256()) || read.document() == null)
+                throw new CdsImportException("REVIEW_MANIFEST_CHANGED");
+            JsonNode document = read.document();
             for (JsonNode entry : document.path("corrections")) {
                 if (!entry.path("sourceXPath").asText().equals(request.command().sourceXPath())
                         || !entry.path("namespace").asText().equals(target.field().namespace()))
                     entries.add(entry);
             }
         } else CdsPaths.privateDirectory(directory, revision);
-        if (entries.size() >= 128)
-            throw new CdsImportException("REVIEW_CORRECTION_CAPACITY_EXCEEDED");
         ByteBuffer encoded =
                 StandardCharsets.UTF_8
                         .newEncoder()
@@ -885,22 +889,22 @@ public class CdsImportReviewService {
                                 .put("version", 1)
                                 .put("acceptedXmlSha256", target.xml().sha256())
                                 .set("corrections", entries));
-        if (bytes.length > 1048576)
-            throw new CdsImportException("REVIEW_MANIFEST_CAPACITY_EXCEEDED");
         Path manifest = directory.resolve(hash(bytes) + ".json");
         write(manifest, directory, bytes);
         CdsPaths.forceDirectory(revision);
         return new CdsCorrectionSetDto(manifest, hash(bytes), target.xml().sha256());
     }
 
+    /** The entries of a published or draft manifest, read as a stream whatever its size. */
     private List<JsonNode> manifestEntries(CdsCorrectionSetDto reference) throws IOException {
-        byte[] bytes = CdsImportJobService.boundedFile(reference.manifestFile(), 1048576);
-        if (!hash(bytes).equals(reference.sha256()))
+        var read =
+                io.github.carlos_emr.carlos.demographic.cdsimport.support.CdsCorrectionFiles
+                        .readManifest(reference.manifestFile());
+        if (!read.sha256().equals(reference.sha256()) || read.document() == null)
             throw new CdsImportException("REVIEW_MANIFEST_CHANGED");
-        JsonNode document = JSON.readTree(bytes), entries = document.path("corrections");
+        JsonNode document = read.document(), entries = document.path("corrections");
         if (!reference.acceptedXmlSha256().equals(document.path("acceptedXmlSha256").asText())
-                || !entries.isArray()
-                || entries.size() > 128) throw new CdsImportException("REVIEW_MANIFEST_CHANGED");
+                || !entries.isArray()) throw new CdsImportException("REVIEW_MANIFEST_CHANGED");
         List<JsonNode> values = new ArrayList<>();
         entries.forEach(values::add);
         return values;
