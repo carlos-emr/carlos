@@ -334,7 +334,7 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
         current.add(property(3, "otherProperty", "Retained elsewhere"));
         var graph = graph();
         var base = graph.base();
-        assertThat(new CdsExportDemographicRetainedPhonesReconciler() .reconcile( 27, graph.address(), base.index(), base.checked(), base.fields(), base.current(), base.witness(), current, graph.witnesses(), 2, 1L << 20, values(), () -> {})).isNotNull();
+        assertThat(new CdsExportDemographicRetainedPhonesReconciler() .reconcile( 27, graph.address(), base.index(), base.checked(), base.fields(), base.current(), base.witness(), current, graph.witnesses(), values(), () -> {})).isNotNull();
         assertThatThrownBy(
                         () ->
                                 invoke(
@@ -519,8 +519,6 @@ class CdsExportDemographicRetainedPhonesReconcilerUnitTest {
                         base.witness(),
                         rows,
                         witnesses == null ? graph.witnesses() : witnesses,
-                        100,
-                        1L << 20,
                         values(),
                         () -> {});
     }

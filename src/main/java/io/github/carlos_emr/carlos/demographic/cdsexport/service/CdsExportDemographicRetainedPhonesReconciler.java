@@ -94,9 +94,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             CdsExportNativeRowReceiptDto witness,
             List<CdsExportCapturedTextRowDto> propertyRows,
             List<CdsExportNativeRowReceiptDto> witnesses,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -109,7 +106,7 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                         .verify(patient, address, index, checked, current, witness, checkpoint);
         var capturedProperties =
                 captureProperties(
-                        patient, propertyRows, witnesses, maximumRows, maximumBytes, checkpoint);
+                        patient, propertyRows, witnesses, checkpoint);
         var proofs = capturedProperties.proofs();
         var rows = capturedProperties.rows();
         var known = capturedProperties.known();
@@ -122,8 +119,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
                                 new CdsExportDemographicMapper().map(demographic),
                                 demographic,
                                 propertyRows,
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
         var fields = new LinkedHashMap<>(mapping.relatedFields());
         var original =
@@ -417,9 +412,6 @@ public final class CdsExportDemographicRetainedPhonesReconciler {
             int patient,
             List<CdsExportCapturedTextRowDto> propertyRows,
             List<CdsExportNativeRowReceiptDto> witnesses,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         if (propertyRows == null

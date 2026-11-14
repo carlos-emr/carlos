@@ -412,8 +412,6 @@ class CdsExportDemographicAdjunctAssemblyUnitTest {
                         propertyWitnesses,
                         custom,
                         customWitness,
-                        100,
-                        1L << 20,
                         values(),
                         () -> {});
     }

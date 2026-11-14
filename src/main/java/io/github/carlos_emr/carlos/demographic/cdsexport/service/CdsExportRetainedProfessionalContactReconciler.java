@@ -45,7 +45,7 @@ public final class CdsExportRetainedProfessionalContactReconciler {
     /** Uses one authenticated capture. Unprocessed personal/other contact facts remain explicit hand-offs to the enclosing assembler. */
     public Result reconcile(int patient, String address, CdsExportRetainedIndexDto index, CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields, CdsExportCapturedTextRowDto demographic, CdsExportNativeRowReceiptDto demographicWitness,
-            NativeRows current, int maximumRows, long maximumBytes, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
+            NativeRows current, CdsExportRetainedSectionWriter.Values values, Runnable checkpoint)throws IOException {
         Objects.requireNonNull(values); Objects.requireNonNull(checkpoint); values.requireActive(); checkpoint.run(); if (!index.sourceManifestSha256().equals(current.sourceManifestSha256()))throw new IOException("CDS_EXPORT_PROFESSIONAL_NATIVE_GENERATION_INVALID");
         var witnesses=new HashMap<String, CdsExportNativeRowReceiptDto>(); for (var witness:current.witnesses()){checkpoint.run(); if (!Set.of("Contact", "DemographicContact").contains(witness.table())||witnesses.putIfAbsent(witness.table()+"/"+witness.recordKey(), witness)!=null)scope(); }
         var all=new ArrayList<>(current.associations()); all.addAll(current.contacts()); var rows=new HashMap<String, CdsExportCapturedTextRowDto>(); var associations=new HashMap<String, CdsExportCapturedTextRowDto>();
@@ -60,7 +60,7 @@ public final class CdsExportRetainedProfessionalContactReconciler {
         }
         var contactRoles=CdsExportProfessionalContactMapper.contactRoleAssociations(current.associations()); // a specialist or dietician contact is a Demographics/Contact, appended with the personal contacts
         var professional=current.associations().stream().filter(row-> "professional".equals(row.fields().get("category"))&&!contactRoles.contains(row)).toList(); var ids=new HashSet<String>(); professional.stream().filter(row-> "2".equals(row.fields().get("type"))).forEach(row-> ids.add(row.fields().get("contactId"))); var contacts=current.contacts().stream().filter(row-> ids.contains(row.fields().get("id"))).toList();
-        var nativeMapping=new CdsExportProfessionalContactMapper().map(patient, professional, contacts, maximumRows, maximumBytes, checkpoint); var deferred=new HashSet<CdsExportNativeFieldKeyDto>(); for (var row:all)for (String column:row.fields().keySet()){var key=new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column); if (!nativeMapping.fields().containsKey(key))deferred.add(key); }
+        var nativeMapping=new CdsExportProfessionalContactMapper().map(patient, professional, contacts, checkpoint); var deferred=new HashSet<CdsExportNativeFieldKeyDto>(); for (var row:all)for (String column:row.fields().keySet()){var key=new CdsExportNativeFieldKeyDto(row.table(), row.recordKey(), column); if (!nativeMapping.fields().containsKey(key))deferred.add(key); }
         var blockers=new LinkedHashSet<String>(); var sourceIds=new HashSet<String>(); var changes=new ArrayList<CdsExportRetainedSectionWriter.Change>();
         if (!nativeMapping.representable())blockers.add("CURRENT_PROFESSIONAL_CONTACTS_REQUIRE_REVIEW");
         for (var role:CdsExportProfessionalContactMapper.Role.values()) {

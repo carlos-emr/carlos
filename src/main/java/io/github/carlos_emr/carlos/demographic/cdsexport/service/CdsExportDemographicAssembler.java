@@ -91,9 +91,6 @@ public final class CdsExportDemographicAssembler {
             CdsExportRetainedReceiptVerificationDto checked,
             List<CdsExportRetainedFieldDto> allFields,
             NativeRows rows,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -124,8 +121,6 @@ public final class CdsExportDemographicAssembler {
                                 rows.archives(),
                                 rows.archiveWitnesses(),
                                 rows.lookups(),
-                                maximumRows,
-                                maximumBytes,
                                 values,
                                 checkpoint);
         core =
@@ -145,8 +140,6 @@ public final class CdsExportDemographicAssembler {
                                 rows.witness(),
                                 rows.contacts(),
                                 rows.pharmacies(),
-                                maximumRows,
-                                maximumBytes,
                                 values,
                                 checkpoint);
         var completeBaseRow =

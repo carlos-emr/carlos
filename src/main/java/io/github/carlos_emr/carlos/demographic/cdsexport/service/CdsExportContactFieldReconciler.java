@@ -310,7 +310,7 @@ public final class CdsExportContactFieldReconciler {
             }
         var candidate =
                 new CdsExportPersonalContactMapper()
-                        .map(patient, links, List.of(contact), 2, 4L << 20, checkpoint);
+                        .map(patient, links, List.of(contact), checkpoint);
         var rows = new ArrayList<CdsExportCapturedTextRowDto>();
         rows.add(contact);
         rows.addAll(links);

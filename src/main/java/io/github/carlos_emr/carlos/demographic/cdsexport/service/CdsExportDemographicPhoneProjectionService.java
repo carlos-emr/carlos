@@ -138,8 +138,6 @@ public class CdsExportDemographicPhoneProjectionService {
                                 base,
                                 raw,
                                 properties,
-                                bounds.nativeRows(),
-                                bounds.indexBytes(),
                                 control::checkpoint);
         var result = new Result(source.manifest().plaintextSha256(), properties.size(), value);
         captures.authorizeSources(lease, patient, tables, control);

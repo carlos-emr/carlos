@@ -293,9 +293,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportNativeRowReceiptDto> propertyWitnesses,
             CdsExportCapturedTextRowDto custom,
             CdsExportNativeRowReceiptDto customWitness,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -322,8 +319,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                                 witness,
                                 properties,
                                 propertyWitnesses,
-                                maximumRows,
-                                maximumBytes,
                                 values,
                                 checkpoint);
         var note =
@@ -400,9 +395,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -420,8 +412,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                         propertyWitnesses,
                         custom,
                         customWitness,
-                        maximumRows,
-                        maximumBytes,
                         values,
                         checkpoint);
         var history =
@@ -437,8 +427,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                                 archives,
                                 archiveWitnesses,
                                 lookups,
-                                maximumRows,
-                                maximumBytes,
                                 values,
                                 checkpoint);
         var combined = withHistory(core, history);
@@ -502,9 +490,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
             List<CdsExportCapturedTextRowDto> archives,
             List<CdsExportNativeRowReceiptDto> archiveWitnesses,
             CdsExportPublicProviderLookupsDto lookups,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             CdsExportRetainedSectionWriter.Values values,
             Runnable checkpoint)
             throws IOException {
@@ -525,8 +510,6 @@ public final class CdsExportDemographicRetainedCoreReconciler {
                         archives,
                         archiveWitnesses,
                         lookups,
-                        maximumRows,
-                        maximumBytes,
                         values,
                         checkpoint);
         var primary =

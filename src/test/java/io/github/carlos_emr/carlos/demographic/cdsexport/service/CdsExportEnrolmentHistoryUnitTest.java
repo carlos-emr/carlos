@@ -461,7 +461,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     void shouldAcceptEveryRow_whenTheFormerRowAndByteBoundsArePassed() throws Exception {
         // Before: a second row past maximumRows, or 64 bytes of decisions, stopped the job
         // (CDS_EXPORT_ENROLMENT_HISTORY_RESOURCE_LIMIT). Neither number is a limit any more.
-        var history = new CdsExportEnrolmentHistory(27, 1, 64, () -> {});
+        var history = new CdsExportEnrolmentHistory(27, () -> {});
         history.accept(archive(1, null, null, null, null, null), null);
         history.accept(archive(2, null, null, null, null, null), null);
         history.accept(current(null, null, null, null, null), null);
@@ -469,8 +469,6 @@ class CdsExportEnrolmentHistoryUnitTest {
         var cancelled =
                 new CdsExportEnrolmentHistory(
                         27,
-                        3,
-                        1L << 20,
                         () -> {
                             throw new IllegalStateException("CANCELLED");
                         });
@@ -631,7 +629,7 @@ class CdsExportEnrolmentHistoryUnitTest {
     }
 
     static CdsExportEnrolmentHistory history() {
-        return new CdsExportEnrolmentHistory(27, 64, 1L << 20, () -> {});
+        return new CdsExportEnrolmentHistory(27, () -> {});
     }
 
     static CdsExportCapturedTextRowDto current(

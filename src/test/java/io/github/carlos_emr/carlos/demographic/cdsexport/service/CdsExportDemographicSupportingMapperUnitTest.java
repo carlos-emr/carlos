@@ -187,7 +187,7 @@ class CdsExportDemographicSupportingMapperUnitTest {
     private CdsExportNativeDemographicAssembler.Result assemble(Set<CdsCategory> categories)
             throws IOException {
         return new CdsExportNativeDemographicAssembler()
-                .assemble(27, categories, HASH, rows, 100, 1L << 20, () -> {});
+                .assemble(27, categories, HASH, rows, () -> {});
     }
 
     private CdsExportDemographicSupportingMapper.Rows supportingRows() {

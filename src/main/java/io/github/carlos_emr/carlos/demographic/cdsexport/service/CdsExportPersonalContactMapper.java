@@ -129,9 +129,6 @@ public final class CdsExportPersonalContactMapper {
             int patient,
             List<CdsExportCapturedTextRowDto> associations,
             List<CdsExportCapturedTextRowDto> contacts,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(checkpoint);

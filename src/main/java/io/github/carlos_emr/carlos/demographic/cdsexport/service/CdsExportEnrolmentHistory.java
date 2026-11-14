@@ -73,7 +73,7 @@ public final class CdsExportEnrolmentHistory {
     private boolean finished;
 
     public CdsExportEnrolmentHistory(
-            int patient, int maximumRows, long maximumBytes, Runnable checkpoint) {
+            int patient, Runnable checkpoint) {
         if (patient < 1)
             throw new IllegalArgumentException("CDS_EXPORT_ENROLMENT_HISTORY_LIMITS_INVALID");
         this.patient = patient;

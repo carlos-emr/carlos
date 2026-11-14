@@ -52,9 +52,6 @@ public final class CdsExportNativeDemographicAssembler {
             Set<CdsCategory> selected,
             String captureDigest,
             Map<String, List<CdsExportCapturedTextRowDto>> rows,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(checkpoint);
@@ -110,10 +107,8 @@ public final class CdsExportNativeDemographicAssembler {
                                 base,
                                 raw,
                                 rows.get("demographicExt"),
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
-        var history = new CdsExportEnrolmentHistory(patient, maximumRows, maximumBytes, checkpoint);
+        var history = new CdsExportEnrolmentHistory(patient, checkpoint);
         var archiveFields =
                 new LinkedHashMap<CdsExportNativeFieldKeyDto, CdsExportFieldAssessmentDto>();
         for (var archive : rows.get("demographicArchive")) {
@@ -199,7 +194,7 @@ public final class CdsExportNativeDemographicAssembler {
                     CdsExportDemographicSupportingMapper.careTeamProviders(
                             custom, providers, newCategory));
         }
-        var related = related(patient, rows, maximumRows, maximumBytes, checkpoint);
+        var related = related(patient, rows, checkpoint);
         var pharmacy = related.pharmacy();
         var contacts = related.contacts();
         var professional = related.professional();
@@ -260,9 +255,6 @@ public final class CdsExportNativeDemographicAssembler {
     static Related related(
             int patient,
             Map<String, List<CdsExportCapturedTextRowDto>> rows,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         var pharmacy =
@@ -271,8 +263,6 @@ public final class CdsExportNativeDemographicAssembler {
                                 patient,
                                 rows.get("demographicPharmacy"),
                                 rows.get("pharmacyInfo"),
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
         // A specialist or dietician external contact is a Demographics/Contact, decided with the
         // personal contacts; the other professional associations are decided as physicians.
@@ -316,8 +306,6 @@ public final class CdsExportNativeDemographicAssembler {
                                 patient,
                                 professionalLinks,
                                 professionalContacts,
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
         var contacts =
                 new CdsExportPersonalContactMapper()
@@ -325,8 +313,6 @@ public final class CdsExportNativeDemographicAssembler {
                                 patient,
                                 personalLinks,
                                 personalContacts,
-                                maximumRows,
-                                maximumBytes,
                                 checkpoint);
         return new Related(pharmacy, contacts, professional);
     }

@@ -78,7 +78,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
     private CdsExportNativeDemographicAssembler.Result assemble(Set<CdsCategory> categories)
             throws IOException {
         return new CdsExportNativeDemographicAssembler()
-                .assemble(27, categories, HASH, rows, 100, 1L << 20, () -> {});
+                .assemble(27, categories, HASH, rows, () -> {});
     }
 
     private CdsExportNativeDemographicAssembler.Result assemble() throws IOException {
@@ -570,7 +570,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         assertThat(own.get("provider")).hasSize(1);
         var result =
                 new CdsExportNativeDemographicAssembler()
-                        .assemble(27, selected, HASH, own, 100, 1L << 20, () -> {});
+                        .assemble(27, selected, HASH, own, () -> {});
         assertThat(result.demographic().demographic().primaryPhysician().lastName())
                 .isEqualTo("99");
         // Updated for D1: the demographic slice no longer depends on which other categories are
@@ -580,7 +580,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         assertThat(own.get("provider")).hasSize(1);
         assertThat(
                         new CdsExportNativeDemographicAssembler()
-                                .assemble(27, demographicsOnly, HASH, own, 100, 1L << 20, () -> {})
+                                .assemble(27, demographicsOnly, HASH, own, () -> {})
                                 .demographic()
                                 .demographic()
                                 .primaryPhysician())
@@ -626,8 +626,6 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS),
                                 HASH,
                                 own,
-                                100,
-                                1L << 20,
                                 () -> {});
         var former =
                 result.fields()
@@ -792,7 +790,7 @@ class CdsExportNativeDemographicAssemblerUnitTest {
         var owned = CdsExportDemographicOccurrenceService.demographicRows(rows);
         var assembled =
                 new CdsExportNativeDemographicAssembler()
-                        .assemble(27, selected, HASH, owned, 100, 1L << 20, () -> {});
+                        .assemble(27, selected, HASH, owned, () -> {});
         String source = "c".repeat(64);
         var result =
                 new CdsExportDemographicRetainedCoreReconciler.Result(

@@ -109,8 +109,6 @@ public class CdsExportPersonalContactProjectionService {
                                 patient.patient(),
                                 sources.get("DemographicContact"),
                                 sources.get("Contact"),
-                                bounds.nativeRows(),
-                                bounds.indexBytes(),
                                 control::checkpoint);
         var result = new Result(source.manifest().plaintextSha256(), mapped);
         captures.authorizeSources(lease, patient, tables, control);

@@ -108,8 +108,6 @@ public class CdsExportPharmacyProjectionService {
                                 patient.patient(),
                                 sources.get("demographicPharmacy"),
                                 sources.get("pharmacyInfo"),
-                                bounds.nativeRows(),
-                                bounds.indexBytes(),
                                 control::checkpoint);
         var result = new Result(source.manifest().plaintextSha256(), mapped);
         captures.authorizeSources(lease, patient, tables, control);

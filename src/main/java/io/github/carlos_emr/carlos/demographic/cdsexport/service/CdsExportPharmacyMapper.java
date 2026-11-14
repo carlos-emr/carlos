@@ -147,9 +147,6 @@ public final class CdsExportPharmacyMapper {
             int patient,
             List<CdsExportCapturedTextRowDto> links,
             List<CdsExportCapturedTextRowDto> pharmacies,
-            // Not limits any more: no row count or size is refused. Callers still pass them.
-            int maximumRows,
-            long maximumBytes,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(checkpoint);
