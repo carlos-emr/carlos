@@ -248,7 +248,11 @@ public class CdsExportService {
                 code,
                 row.createdAt(),
                 row.updatedAt(),
-                false);
+                false,
+                row.keptCharts(),
+                row.keptUntil(),
+                row.adoptedCharts(),
+                row.builtCharts());
     }
 
     public CdsExportJobDto submissionDelegated(

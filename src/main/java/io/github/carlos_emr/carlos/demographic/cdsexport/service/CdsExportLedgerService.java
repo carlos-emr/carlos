@@ -1825,16 +1825,35 @@ public class CdsExportLedgerService {
                         && run.getArtifactDigest() != null
                         && run.getExpiresAt() != null
                         && run.getExpiresAt().isAfter(now);
+        // The latest attempt: what it adopted and built, as its recorded checkpoint says.
+        var latest =
+                run.getOwnerEpoch() < 1 ? null : attempts.find(run.getId(), run.getOwnerEpoch());
         if (available) {
-            var retained = attempts.find(run.getId(), run.getOwnerEpoch());
-            if (retained == null || !"PUBLISHED".equals(retained.getState())) available = false;
+            if (latest == null || !"PUBLISHED".equals(latest.getState())) available = false;
             else
                 try {
-                    available = published(run, retained, context(retained), now);
+                    available = published(run, latest, context(latest), now);
                 } catch (IllegalStateException | IllegalArgumentException invalid) {
                     available = false;
                 }
         }
+        long adopted = 0, built = 0;
+        if (latest != null && latest.getCheckpointCharts() != null) {
+            adopted = latest.getAdoptedCharts() == null ? 0 : latest.getAdoptedCharts();
+            built = Math.max(0, latest.getCheckpointCharts() - adopted);
+        }
+        // What stopped attempts keep for a resume. A published or expired job keeps nothing
+        // (publication released it), so only other jobs are looked at.
+        long kept = 0;
+        Instant keptUntil = null;
+        if (state(run) != CdsExportState.READY && state(run) != CdsExportState.EXPIRED)
+            for (var attempt : attempts.kept(run.getId(), now)) {
+                if (attempt.getCheckpointCharts() == null || attempt.getCheckpointCharts() < 1)
+                    continue;
+                kept = Math.max(kept, attempt.getCheckpointCharts());
+                if (keptUntil == null || attempt.getExpiresAt().isBefore(keptUntil))
+                    keptUntil = attempt.getExpiresAt();
+            }
         return new CdsExportJobDto(
                 run.getId(),
                 state(run),
@@ -1848,7 +1867,11 @@ public class CdsExportLedgerService {
                 run.getSafeCode(),
                 run.getCreatedAt(),
                 run.getUpdatedAt(),
-                available);
+                available,
+                kept,
+                keptUntil,
+                adopted,
+                built);
     }
 
     private static CdsExportState state(CdsExportRun run) {

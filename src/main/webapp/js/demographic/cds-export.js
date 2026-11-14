@@ -58,7 +58,12 @@
         jobAccessDenied: 'You cannot view this export job.',
         submissionNotFound: 'No job uses submission key {0}. Submitting with this key is safe: the server accepts it only once.',
         downloadStarted: 'The transfer opened in a new window. Check the browser\'s downloads; this button is available again in a few seconds.',
-        confirmCancel: 'Cancel this export? Work stops and a ready package is withdrawn. The job can be started again later with Resume export.'
+        confirmCancel: 'Cancel this export? Work stops and a ready package is withdrawn. The job can be started again later with Resume export.',
+        keptCharts: 'This stopped job keeps {0} finished chart(s), encrypted, until {1}. Resume export adopts each one whose records are unchanged and builds the others again; Cancel export erases them.',
+        chartsAdopted: '{0} chart(s) adopted unchanged from a stopped attempt; {1} built from current records.',
+        confirmCancelKept: 'Cancel this export? The {0} finished chart(s) it keeps are erased now, so Resume export would build every chart again.',
+        cancelErased: 'Cancellation recorded. The kept charts were erased.',
+        resumeKept: 'Resume requested. Each of the {0} kept chart(s) is adopted only if its records are unchanged; the others are built again. Processing may still be waiting.'
     };
     /** Replaces known keys with page text; unknown keys and non-text values are ignored. */
     function useMessages(messages) {
@@ -79,7 +84,12 @@
                 || !(job.totalPatients === null || Number.isSafeInteger(job.totalPatients) && job.totalPatients >= 0)
                 || ![job.processedPatients, job.blockedPatients].every(n => Number.isSafeInteger(n) && n >= 0)
                 || ![job.cancelRequested, job.workerOwned, job.artifactAvailable, job.complete, job.heldBack, job.waiting].every(v => typeof v === 'boolean')
-                || !(job.safeCode === null || /^CDS_EXPORT_[A-Z0-9_]{1,85}$/.test(job.safeCode))) {
+                || !(job.safeCode === null || /^CDS_EXPORT_[A-Z0-9_]{1,85}$/.test(job.safeCode))
+                // Resume evidence (counts and a time); absent from an older server's answer.
+                || ![job.keptCharts, job.adoptedCharts, job.builtCharts].every(n => n === undefined || Number.isSafeInteger(n) && n >= 0)
+                || !(job.keptUntil === undefined || job.keptUntil === null
+                    || typeof job.keptUntil === 'string' && !Number.isNaN(Date.parse(job.keptUntil)))
+                || (kept(job) > 0) !== (typeof job.keptUntil === 'string')) {
             throw new Error('CDS_EXPORT_STATUS_INVALID');
         }
         const complete = job.state === 'READY' && job.artifactAvailable && !job.cancelRequested
@@ -91,6 +101,10 @@
                 || job.waiting !== (!FINAL.has(job.state) && !job.workerOwned)
                 || job.totalPatients !== null && job.processedPatients > job.totalPatients) throw new Error('CDS_EXPORT_STATUS_INVALID');
         return job;
+    }
+    /** The finished charts stopped attempts keep for a resume; 0 when the server sends none. */
+    function kept(job) {
+        return job.keptCharts || 0;
     }
     function newest(current, incoming) {
         checkedJob(incoming);
@@ -114,7 +128,13 @@
                 : running(job) ? text('countWorking', job.totalPatients)
                 : text('countProgress', job.processedPatients, job.totalPatients),
             running: running(job),
-            canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY'),
+            // What a stopped job keeps for a resume, and what the latest attempt adopted and built.
+            kept: kept(job) > 0 ? text('keptCharts', job.keptCharts, new Date(job.keptUntil).toLocaleString()) : '',
+            // Shown for any attempt that adopted a chart, and for every later attempt of the job.
+            adopted: (job.adoptedCharts || 0) > 0 || job.epoch > 1 && (job.builtCharts || 0) > 0
+                ? text('chartsAdopted', job.adoptedCharts || 0, job.builtCharts || 0) : '',
+            // A stopped job that keeps charts can still be cancelled: that erases them.
+            canCancel: !job.cancelRequested && (!FINAL.has(job.state) || job.state === 'READY' || kept(job) > 0),
             canResume: !job.workerOwned && !['READY', 'EXPIRED'].includes(job.state)};
     }
     /**
@@ -189,7 +209,11 @@
         const hex = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('');
         return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
     }
-    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay, useMessages};
+    /** The confirmation a cancel asks for: a stopped job that keeps charts says they are erased. */
+    function cancelQuestion(job) {
+        return job && FINAL.has(job.state) && kept(job) > 0 ? text('confirmCancelKept', job.keptCharts) : text('confirmCancel');
+    }
+    const api = {checkedJob, newest, presentation, responseFailure, submissionNotice, lookupNotice, randomKey, controlNotice, pollDelay, useMessages, cancelQuestion};
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
     global.CdsExportPage = api;
     if (!global.document) return;
@@ -251,8 +275,9 @@
         function render(job) {
             current = newest(current, job); const shown = presentation(current); fresh = true;
             byId('reportRunId').value = current.id; byId('downloadRunId').value = current.id; byId('exportStatus').hidden = false;
-            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = shown.count + ' '
-                + text(current.blockedPatients > 0 ? 'heldListed' : 'heldNone', current.blockedPatients);
+            byId('exportState').textContent = shown.label; byId('exportCounts').textContent = [shown.count,
+                text(current.blockedPatients > 0 ? 'heldListed' : 'heldNone', current.blockedPatients),
+                shown.adopted, shown.kept].filter(part => part).join(' ');
             byId('exportConnection').textContent = current.waiting ? text('waiting') : text('confirmed');
             byId('exportCode').textContent = current.safeCode === 'CDS_EXPORT_RUNTIME_CHANGED'
                 ? text('runtimeChanged')
@@ -374,11 +399,15 @@
             if (!fresh || busy || !current) return;
             // Fence in-flight polls as well as scheduled ones before starting a control.
             const id = current.id, revision = current.revision, generation = ++view;
+            // Charts a stopped job kept: a cancel erases them, a resume adopts the unchanged ones.
+            const keptBefore = kept(current), stoppedBefore = FINAL.has(current.state);
             clearTimeout(timer); busy = true; controls();
             try {
                 const data = await request('cdsExportControl', {runId: id, operation, expectedRevision: String(revision)}, true);
                 if (generation !== view) return; render(data.job);
-                notice(operation === 'cancel' ? text('cancelRecorded') : text('resumeRequested'));
+                notice(operation === 'cancel'
+                    ? text(keptBefore > 0 && stoppedBefore ? 'cancelErased' : 'cancelRecorded')
+                    : keptBefore > 0 ? text('resumeKept', keptBefore) : text('resumeRequested'));
             } catch (error) {
                 if (generation === view) { stale(); notice(controlNotice(error), true); }
             } finally {
@@ -386,7 +415,7 @@
                 if (generation === view) { clearTimeout(timer); await poll(id, generation); }
             }
         }
-        byId('cancelExport').addEventListener('click', () => global.confirm(text('confirmCancel')) ? control('cancel') : undefined);
+        byId('cancelExport').addEventListener('click', () => global.confirm(cancelQuestion(current)) ? control('cancel') : undefined);
         byId('resumeExport').addEventListener('click', () => control('resume'));
         byId('openExport').addEventListener('click', () => open(byId('runId').value));
         byId('refreshExports').addEventListener('click', () => history());

@@ -372,11 +372,24 @@ class CdsExportLedgerIntegrationTest {
                         Instant.now().plus(java.time.Duration.ofDays(7)).plusSeconds(120));
         assertThat(ledger.expiredArtifacts(16)).doesNotContain(job.id());
         assertThat(eventCodes(job.id(), "CHARTS_KEPT")).containsExactly("CDS_EXPORT_CHARTS_KEPT_3");
+        // The job's status says what is kept and until when, and what the attempt built.
+        var stopped = ledger.status(job.id());
+        assertThat(stopped.keptCharts()).isEqualTo(3);
+        var expiry = attemptExpiry(job.id(), lease.epoch());
+        assertThat(stopped.keptUntil()).isBetween(expiry.minusSeconds(1), expiry.plusSeconds(1));
+        assertThat(stopped.adoptedCharts()).isZero();
+        assertThat(stopped.builtCharts()).isEqualTo(3);
         // A resume keeps them for the next attempt, which is a new generation of its own.
         ledger.resume(job.id(), operatorKey(), COMPATIBLE);
         var next = ledger.claim(job.id(), COMPATIBLE);
         assertThat(next.epoch()).isEqualTo(lease.epoch() + 1);
         assertThat(attemptState(job.id(), lease.epoch())).isEqualTo("KEEPING");
+        assertThat(ledger.status(job.id()).keptCharts()).isEqualTo(3);
+        // The resumed attempt reports what it adopted and built as its checkpoint is recorded.
+        ledger.recordCheckpoint(next, pointer('2', 5), 2);
+        var resumed = ledger.status(job.id());
+        assertThat(resumed.adoptedCharts()).isEqualTo(2);
+        assertThat(resumed.builtCharts()).isEqualTo(3);
     }
 
     @Test
@@ -402,6 +415,9 @@ class CdsExportLedgerIntegrationTest {
         assertThat(cancelled.state()).isEqualTo(CdsExportState.REVIEW_REQUIRED);
         assertThat(cancelled.safeCode()).isEqualTo("CDS_EXPORT_UNMAPPED_DATA");
         assertThat(cancelled.cancelRequested()).isTrue();
+        // Nothing is kept any more.
+        assertThat(cancelled.keptCharts()).isZero();
+        assertThat(cancelled.keptUntil()).isNull();
         ledger.cancel(job.id(), operatorKey());
         // Due for the next retention sweep at once, which erases the attempt whole.
         assertThat(ledger.expiredArtifacts(16)).contains(job.id());

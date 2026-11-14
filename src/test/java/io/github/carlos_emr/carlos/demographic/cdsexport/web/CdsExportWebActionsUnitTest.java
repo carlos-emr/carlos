@@ -377,6 +377,40 @@ class CdsExportWebActionsUnitTest {
     }
 
     @Test
+    void shouldPublishResumeEvidence_asCountsAndATimeOnly() {
+        var stopped =
+                new CdsExportJobDto(
+                        java.util.UUID.randomUUID().toString(),
+                        io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportState
+                                .REVIEW_REQUIRED,
+                        3,
+                        6L,
+                        0,
+                        0,
+                        false,
+                        false,
+                        2,
+                        "CDS_EXPORT_DOCUMENT_STORAGE_UNTRUSTED",
+                        java.time.Instant.EPOCH,
+                        java.time.Instant.EPOCH,
+                        false,
+                        4,
+                        java.time.Instant.parse("2026-11-21T15:00:00Z"),
+                        1,
+                        3);
+        assertThat(web.job(stopped))
+                .containsEntry("keptCharts", 4L)
+                .containsEntry("keptUntil", "2026-11-21T15:00:00Z")
+                .containsEntry("adoptedCharts", 1L)
+                .containsEntry("builtCharts", 3L);
+        assertThat(web.job(job()))
+                .containsEntry("keptCharts", 0L)
+                .containsEntry("keptUntil", null)
+                .containsEntry("adoptedCharts", 0L)
+                .containsEntry("builtCharts", 0L);
+    }
+
+    @Test
     void shouldRefuseDuplicatedParameters_andNeverAcceptASmallerSelection() throws Exception {
         request.setMethod("POST");
         request.addParameter("patientNos", "27", "28");
