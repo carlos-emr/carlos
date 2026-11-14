@@ -31,6 +31,8 @@ public final class CdsCareScalarContract {
     public static final int GOAL_NATIVE_BYTE_BUDGET = 32768;
     public static final String OVERFLOW_GOALS = "[Imported collaborative goals: complete value available in Care Elements source details]";
     private CdsCareScalarContract() { }
+    // FindSecBugs REDOS: Whole-value match whose quantifiers are all possessive; no digit is ever given back, so matching is linear.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "whole-value match whose quantifiers are all possessive; no digit is ever given back, so matching is linear")
     public static String nonnegativeDecimal(String original) {
         if (original == null) return null;
         String value = original.strip();

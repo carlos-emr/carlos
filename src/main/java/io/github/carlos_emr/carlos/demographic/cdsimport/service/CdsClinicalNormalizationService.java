@@ -229,6 +229,8 @@ public class CdsClinicalNormalizationService {
      * agree exactly: a bare amount, another amount or unit, or a Quantity without the carried
      * amount (or the reverse) is contradictory and requires review, never a guess.
      */
+    // FindSecBugs REDOS: Whole-value match of a digit run with one optional fraction; digits and the dot are disjoint and nothing is repeated around a group, so matching is linear.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "whole-value match of a digit run with one optional fraction; digits and the dot are disjoint and nothing is repeated around a group, so matching is linear")
     private static String carriedQuantity(
             String standard, CdsMedicationResidualReader.SourceContext carried) {
         String amount = carried.quantity(), unit = carried.quantityUnit();

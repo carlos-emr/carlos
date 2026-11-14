@@ -190,6 +190,8 @@ public final class CdsNativeExtensionContract {
             java.util.Map.of("0", "Unknown", "1", "Immediate", "2", "Gradual", "3", "Slow");
 
     /** WHO ATC hierarchy: anatomical group through chemical substance; one exact code. */
+    // FindSecBugs REDOS: The pattern matches at most seven characters: every group is optional once and nothing is repeated without a fixed count, so there is nothing to backtrack over.
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "REDOS", justification = "the pattern matches at most seven characters: every group is optional once and nothing is repeated without a fixed count, so there is nothing to backtrack over")
     public static boolean validAllergyAtc(String value) {
         return value != null
                 && value.matches("[ABCDGHJLMNPRSV](?:[0-9]{2}(?:[A-Z](?:[A-Z](?:[0-9]{2})?)?)?)?");
