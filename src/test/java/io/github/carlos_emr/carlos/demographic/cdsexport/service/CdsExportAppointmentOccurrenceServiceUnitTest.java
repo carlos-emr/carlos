@@ -582,7 +582,6 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var folder = Files.createTempDirectory(directory, "transfer-");
@@ -1289,7 +1288,6 @@ class CdsExportAppointmentOccurrenceServiceUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.APPOINTMENTS),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var input = Files.write(directory.resolve(UUID.randomUUID() + ".xml"), xml);

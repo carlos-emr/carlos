@@ -75,7 +75,6 @@ class CdsExportRetainedSectionWriterUnitTest {
                                                     selected,
                                                     VERSION,
                                                     CdsLogicalProfile.ONTARIO_MD_5_2,
-                                                    CdsExportXmlLimitsDto.defaults(),
                                                     ignored -> {},
                                                     () -> {}))
                     .hasMessage("CDS_EXPORT_REPORT_FORMAT_MISMATCH");
@@ -294,7 +293,6 @@ class CdsExportRetainedSectionWriterUnitTest {
                         selected,
                         VERSION,
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var records = parse(Files.write(directory.resolve("changed.xml"), output), "changed");

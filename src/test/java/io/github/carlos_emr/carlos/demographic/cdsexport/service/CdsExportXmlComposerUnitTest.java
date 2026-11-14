@@ -27,7 +27,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDispositionDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -72,7 +71,6 @@ class CdsExportXmlComposerUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS),
                                 VERSION,
                                 PROFILE,
-                                CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
         assertThat(validation.senderPatientId()).isEqualTo("C27");
@@ -135,7 +133,6 @@ class CdsExportXmlComposerUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS),
                         VERSION,
                         PROFILE,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
     }
@@ -170,7 +167,6 @@ class CdsExportXmlComposerUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.REPORTS),
                                 VERSION,
                                 PROFILE,
-                                CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
         assertThat(validation.binaryReports()).isEqualTo(1);
@@ -521,7 +517,6 @@ class CdsExportXmlComposerUnitTest {
                                 CdsCategory.ALLERGIES_AND_ADVERSE_REACTIONS),
                         VERSION,
                         PROFILE,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
     }

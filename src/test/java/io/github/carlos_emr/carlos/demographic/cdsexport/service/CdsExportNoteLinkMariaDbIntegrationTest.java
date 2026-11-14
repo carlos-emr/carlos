@@ -585,7 +585,6 @@ class CdsExportNoteLinkMariaDbIntegrationTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         // Five chains (the revised discontinuation note is one), all ClinicalNotes.

@@ -692,7 +692,6 @@ class CdsExportNativeReportAssemblyUnitTest {
                         lease.document().command().categories(),
                         "2026.11.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         return new String(xml, StandardCharsets.UTF_8);

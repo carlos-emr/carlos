@@ -143,7 +143,6 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS),
                                 "2026.09.0-test",
                                 CdsLogicalProfile.ONTARIO_MD_5_2,
-                                CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
         assertThat(verified.occurrences()).containsEntry(CdsCategory.DEMOGRAPHICS, 1L);
@@ -466,7 +465,6 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS),
                                 "2026.09.0-test",
                                 CdsLogicalProfile.ONTARIO_MD_5_2,
-                                CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
             }
@@ -692,7 +690,6 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         assertThat(bytes.toString(java.nio.charset.StandardCharsets.UTF_8))
@@ -970,7 +967,6 @@ class CdsExportNativeDemographicAssemblerUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         return bytes.toString(java.nio.charset.StandardCharsets.UTF_8);

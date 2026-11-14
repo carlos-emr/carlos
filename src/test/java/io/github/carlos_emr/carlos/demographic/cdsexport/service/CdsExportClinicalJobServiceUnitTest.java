@@ -137,7 +137,6 @@ class CdsExportClinicalJobServiceUnitTest {
                         plan.applicationVersion(),
                         plan.clinicalZone(),
                         plan.source(),
-                        plan.xml(),
                         control))
                 .thenReturn(prepared);
         when(delivery.encrypt(lease, prepared, control))
@@ -206,7 +205,6 @@ class CdsExportClinicalJobServiceUnitTest {
                         plan.applicationVersion(),
                         plan.clinicalZone(),
                         plan.source(),
-                        plan.xml(),
                         control);
         order.verify(ledger).retainPrepared(lease, prepared);
         order.verify(delivery).encrypt(lease, prepared, control);

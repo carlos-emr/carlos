@@ -77,7 +77,7 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         var output = new ByteArrayOutputStream(); String key = "f".repeat(64), version = "2026.08.0-test"; var selected = Set.of(CdsCategory.DEMOGRAPHICS);
         new CdsExportXmlComposer().compose(output, graph.index().sourceManifestSha256(), key, version, CdsLogicalProfile.ONTARIO_MD_5_2, selected,
                 List.of(new CdsExportXmlComposer.Section(new CdsExportIdentityDto(key, CdsCategory.DEMOGRAPHICS, key), prepared.content())).iterator(), ignored -> { }, 1L << 20, () -> { });
-        new CdsExportXmlValidator().validate(new ByteArrayInputStream(output.toByteArray()), "old27", selected, version, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportXmlLimitsDto.defaults(), ignored -> { }, () -> { });
+        new CdsExportXmlValidator().validate(new ByteArrayInputStream(output.toByteArray()), "old27", selected, version, CdsLogicalProfile.ONTARIO_MD_5_2, ignored -> { }, () -> { });
         var parser = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance(); parser.setNamespaceAware(true);
         var document = parser.newDocumentBuilder().parse(new ByteArrayInputStream(output.toByteArray()));
         var pharmacy = (org.w3c.dom.Element) document.getElementsByTagNameNS("cds", "PreferredPharmacy").item(0);
@@ -209,7 +209,7 @@ class CdsExportRetainedPharmacyReconcilerUnitTest {
         var output = new ByteArrayOutputStream(); String key = "f".repeat(64), version = "2026.08.0-test"; var selected = Set.of(CdsCategory.DEMOGRAPHICS);
         new CdsExportXmlComposer().compose(output, graph.index().sourceManifestSha256(), key, version, CdsLogicalProfile.ONTARIO_MD_5_2, selected,
                 List.of(new CdsExportXmlComposer.Section(new CdsExportIdentityDto(key, CdsCategory.DEMOGRAPHICS, key), prepared.content())).iterator(), ignored -> { }, 1L << 20, () -> { });
-        new CdsExportXmlValidator().validate(new ByteArrayInputStream(output.toByteArray()), "old27", selected, version, CdsLogicalProfile.ONTARIO_MD_5_2, CdsExportXmlLimitsDto.defaults(), ignored -> { }, () -> { });
+        new CdsExportXmlValidator().validate(new ByteArrayInputStream(output.toByteArray()), "old27", selected, version, CdsLogicalProfile.ONTARIO_MD_5_2, ignored -> { }, () -> { });
         var parser = javax.xml.parsers.DocumentBuilderFactory.newDefaultInstance(); parser.setNamespaceAware(true);
         return (org.w3c.dom.Element) parser.newDocumentBuilder().parse(new ByteArrayInputStream(output.toByteArray())).getElementsByTagNameNS("cds", "PreferredPharmacy").item(0);
     }

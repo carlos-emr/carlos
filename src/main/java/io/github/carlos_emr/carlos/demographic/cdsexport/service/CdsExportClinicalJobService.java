@@ -140,7 +140,6 @@ public class CdsExportClinicalJobService {
                         plan.applicationVersion(),
                         plan.clinicalZone(),
                         plan.source(),
-                        plan.xml(),
                         control);
         ledger.retainPrepared(lease, prepared);
         var encrypted = delivery.encrypt(lease, prepared, control);

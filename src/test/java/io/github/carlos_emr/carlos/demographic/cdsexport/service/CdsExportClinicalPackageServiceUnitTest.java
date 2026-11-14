@@ -106,7 +106,7 @@ class CdsExportClinicalPackageServiceUnitTest {
         when(payloads.freeze(any(), any(), anySet(), any(), anyLong(), anyLong(), any()))
                 .thenReturn(new CdsExportRetainedPayloadReceiptDto(retained, manifest));
         when(documents.compose(
-                        any(), any(), anySet(), any(), any(), any(), anyString(), any(), any()))
+                        any(), any(), anySet(), any(), any(), any(), anyString(), any()))
                 .thenAnswer(call -> fixture.compose());
         when(naming.bind(any(), any(), anySet(), any(), any(), any(), any()))
                 .thenReturn(
@@ -156,7 +156,6 @@ class CdsExportClinicalPackageServiceUnitTest {
                 CdsExportPatientPipelineFixture.VERSION,
                 ZoneId.of("America/Toronto"),
                 fixture.bounds,
-                CdsExportXmlLimitsDto.defaults(),
                 fixture.control);
     }
 
@@ -413,7 +412,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                                     capture, unstaged("RETAINED_MANIFEST", patient, 6));
                         });
         when(documents.compose(
-                        any(), any(), anySet(), any(), any(), any(), anyString(), any(), any()))
+                        any(), any(), anySet(), any(), any(), any(), anyString(), any()))
                 .thenAnswer(
                         call -> {
                             int patient =
@@ -607,7 +606,7 @@ class CdsExportClinicalPackageServiceUnitTest {
                             return document;
                         })
                 .when(documents)
-                .compose(any(), any(), anySet(), any(), any(), any(), anyString(), any(), any());
+                .compose(any(), any(), anySet(), any(), any(), any(), anyString(), any());
         assertThatThrownBy(this::compose)
                 .isInstanceOf(IOException.class)
                 .hasMessage("CDS_EXPORT_DISK_RESERVE");

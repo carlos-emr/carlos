@@ -1193,7 +1193,6 @@ class CdsExportAppointmentFieldReconcilerUnitTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var input =

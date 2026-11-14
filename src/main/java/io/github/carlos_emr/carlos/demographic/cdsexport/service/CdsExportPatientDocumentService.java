@@ -74,11 +74,9 @@ public class CdsExportPatientDocumentService {
             CdsExportStagedFileDto payloadManifest,
             CdsExportClinicalOccurrenceService.Bounds bounds,
             String applicationVersion,
-            CdsExportXmlLimitsDto limits,
             CdsExportRunControl control)
             throws IOException {
         patient.require(lease);
-        Objects.requireNonNull(limits);
         Objects.requireNonNull(control);
         var tables = Set.copyOf(requiredTables);
         String patientKey =
@@ -292,7 +290,11 @@ public class CdsExportPatientDocumentService {
                                                                                             disposition))
                                                                                         invalid();
                                                                                 },
-                                                                                limits.maxBytes(),
+                                                                                // No size refuses a chart's
+                                                                                // XML (#57): it streams to
+                                                                                // staging; only a storage
+                                                                                // failure stops it.
+                                                                                Long.MAX_VALUE,
                                                                                 control
                                                                                         ::checkpoint));
                                 owned.add(xml[0]);
@@ -349,7 +351,6 @@ public class CdsExportPatientDocumentService {
                                         lease.document().command().categories(),
                                         applicationVersion,
                                         lease.document().command().profile(),
-                                        limits,
                                         references::add,
                                         control::checkpoint);
             }

@@ -36,7 +36,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDateDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportFieldAssessmentDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportNativeFieldKeyDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsInputLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsimport.dto.CdsRecordDto;
@@ -145,7 +144,6 @@ class CdsExportAllergyMapperUnitTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var file = Files.write(directory.resolve("patient.xml"), output.toByteArray());
@@ -566,7 +564,6 @@ class CdsExportAllergyMapperUnitTest {
                         selected,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         var folder = Files.createTempDirectory(directory, "receive-");

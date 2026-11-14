@@ -374,7 +374,6 @@ final class CdsExportPatientPipelineFixture {
                         source.manifest(),
                         bounds,
                         VERSION,
-                        CdsExportXmlLimitsDto.defaults(),
                         control);
     }
 

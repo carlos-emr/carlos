@@ -21,7 +21,6 @@
  */
 package io.github.carlos_emr.carlos.demographic.cdsexport.service;
 
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.utility.BuildInfo;
 import io.github.carlos_emr.carlos.utility.CdsImportKeys;
 import java.io.IOException;
@@ -39,7 +38,6 @@ public class CdsExportActivePlanService {
             ZoneId clinicalZone,
             String zoneSha256,
             CdsExportClinicalOccurrenceService.Bounds source,
-            CdsExportXmlLimitsDto xml,
             long retentionSeconds) {}
 
     private final Properties settings = new Properties();
@@ -109,7 +107,6 @@ public class CdsExportActivePlanService {
                 ZoneId.of(zone.zoneId()),
                 zone.sha256(),
                 bounds,
-                CdsExportXmlLimitsDto.defaults(),
                 number("retentionSeconds", 7 * 86_400L, 60, 30 * 86_400L));
     }
 

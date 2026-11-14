@@ -30,7 +30,6 @@ import io.github.carlos_emr.carlos.demographic.cds.contract.CdsXmlReaders;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportReportReferenceDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportPatientFileDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportPathComposer;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlValidationDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHeaderComposer;
 import java.io.FilterInputStream;
@@ -64,14 +63,50 @@ import org.xml.sax.ext.DefaultHandler2;
  * export rules. Large text, decimal and Base64 values use the shared schema-proven lexical
  * parser. The caller owns the input and any reference index: partial callbacks are not a
  * successful validation or a publishable manifest. Source completeness is a separate gate.
+ *
+ * <p>No size, count or time refuses a document (#57): its bytes, its elements, a binary value
+ * and the time validation takes are unbounded. A stuck validation is ended by cancellation and
+ * by the job's no-progress stall detector ({@code cds.export.maxDurationMillis}), both reached
+ * through {@code checkpoint}. The bounds below are integrity checks: a document CARLOS writes is
+ * valid against the pinned schema and uses only its names, and none of them can reach any bound.
+ * Each bounds what a document the schema or the writer would never produce can make the parser
+ * hold before the schema check refuses it ({@code CdsExportXmlValidatorUnitTest} proves each
+ * against the schema).
  */
 public final class CdsExportXmlValidator {
-    private static final int MAX_MARKUP = 65_536;
-    private static final int MAX_NAMES = 2048;
-    private static final int MAX_NAME = 256;
-    private static final int MAX_NAMESPACES = 64;
-    private static final int MAX_URI = 1024;
-    private static final int MAX_ATTRIBUTES = 128;
+    /** One tag with its attributes, comment or instruction; CARLOS writes tags of a few dozen. */
+    static final int MAX_MARKUP = 65_536;
+
+    /**
+     * One value of a length-, pattern- or code-restricted type; the longest the schema admits
+     * is a text64K of 65,536 characters, and dates, codes and identifiers are far shorter.
+     */
+    static final int MAX_RESTRICTED_VALUE = 65_536;
+
+    /** Distinct element, attribute and instruction names; the schema has fewer than 300. */
+    static final int MAX_NAMES = 2048;
+
+    /** One name or prefix; the schema's longest name has 40 characters. */
+    static final int MAX_NAME = 256;
+
+    /** Namespace prefixes and URIs; CARLOS declares the two CDS namespaces. */
+    static final int MAX_NAMESPACES = 64;
+
+    /** One namespace URI; the CDS namespaces are {@code cds} and {@code cds_dt}. */
+    static final int MAX_URI = 1024;
+
+    /** Attributes of one element; no schema type declares more than two. */
+    static final int MAX_ATTRIBUTES = 128;
+
+    /** Element nesting; the schema is not recursive and nests eight levels from OmdCds. */
+    static final int MAX_DEPTH = 256;
+
+    /**
+     * One captured identity or report value: a vendor identifier of 20 characters, a name part,
+     * report format or file extension of 50, a file path of 250, and a date of birth CARLOS
+     * writes from the chart's four-digit year.
+     */
+    static final int MAX_CAPTURE = 8192;
 
     // FindSecBugs XXE_XMLREADER: The reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses.
     @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(value = "XXE_XMLREADER", justification = "the reader comes from CdsXmlReaders.reader, which sets secure processing and disallow-doctype-decl, turns off external general and parameter entities and external DTD loading, clears ACCESS_EXTERNAL_DTD and installs a resolver that always refuses")
@@ -81,12 +116,10 @@ public final class CdsExportXmlValidator {
             Set<CdsCategory> selectedCategories,
             String applicationVersion,
             CdsLogicalProfile profile,
-            CdsExportXmlLimitsDto limits,
             Consumer<CdsExportReportReferenceDto> references,
             Runnable checkpoint)
             throws IOException {
         Objects.requireNonNull(input);
-        Objects.requireNonNull(limits);
         Objects.requireNonNull(references);
         Objects.requireNonNull(checkpoint);
         Set<CdsCategory> selected = Set.copyOf(selectedCategories);
@@ -96,17 +129,17 @@ public final class CdsExportXmlValidator {
             throw new IllegalArgumentException("CDS_EXPORT_XML_REQUEST_INVALID");
         }
         String header = new CdsExportHeaderComposer().comment(applicationVersion, profile);
-        CountingInput counted = new CountingInput(input, limits.maxBytes(), checkpoint);
+        CountingInput counted = new CountingInput(input, checkpoint);
         PushbackInputStream bytes = new PushbackInputStream(counted, 512);
         byte[] prefix = bytes.readNBytes(512);
         verifyDeclaration(prefix);
         bytes.unread(prefix);
         Pipeline pipeline =
-                new Pipeline(senderPatientId, selected, header, limits, references, checkpoint);
+                new Pipeline(senderPatientId, selected, header, references, checkpoint);
         try {
             XMLReader reader =
                     CdsXmlReaders.reader(
-                            MAX_NAME, MAX_URI, limits.maxDepth(), MAX_ATTRIBUTES, MAX_NAMESPACES);
+                            MAX_NAME, MAX_URI, MAX_DEPTH, MAX_ATTRIBUTES, MAX_NAMESPACES);
             reader.setContentHandler(pipeline);
             reader.setErrorHandler(pipeline);
             reader.setProperty("http://xml.org/sax/properties/lexical-handler", pipeline);
@@ -196,7 +229,6 @@ public final class CdsExportXmlValidator {
         private final String expectedId;
         private final Set<CdsCategory> selected;
         private final String expectedHeader;
-        private final CdsExportXmlLimitsDto limits;
         private final Consumer<CdsExportReportReferenceDto> references;
         private final Runnable checkpoint;
         private final ValidatorHandler validator = CdsWireSchema.newValidator();
@@ -206,10 +238,7 @@ public final class CdsExportXmlValidator {
         private final Set<String> prefixes = new HashSet<>();
         private final Set<String> uris = new HashSet<>();
         private final EnumMap<CdsCategory, Long> counts = new EnumMap<>(CdsCategory.class);
-        private final long started = System.nanoTime();
-        private long elements;
-        private long identityValues;
-        private long identityCharacters;
+        private boolean started;
         private long textReports;
         private long binaryReports;
         private long referenceCount;
@@ -222,13 +251,11 @@ public final class CdsExportXmlValidator {
                 String expectedId,
                 Set<CdsCategory> selected,
                 String header,
-                CdsExportXmlLimitsDto limits,
                 Consumer<CdsExportReportReferenceDto> references,
                 Runnable checkpoint) {
             this.expectedId = expectedId;
             this.selected = selected;
             expectedHeader = header;
-            this.limits = limits;
             this.references = references;
             this.checkpoint = checkpoint;
             for (CdsCategory category : selected) counts.put(category, 0L);
@@ -289,15 +316,14 @@ public final class CdsExportXmlValidator {
             try {
                 check();
                 name(qualified);
-                if (++elements > limits.maxElements()) fail("CDS_EXPORT_XML_ELEMENT_LIMIT");
-                if (stack.size() >= limits.maxDepth()) fail("CDS_EXPORT_XML_DEPTH_LIMIT");
+                if (stack.size() >= MAX_DEPTH) fail("CDS_EXPORT_XML_DEPTH_LIMIT");
                 if (attrs.getLength() > MAX_ATTRIBUTES) fail("CDS_EXPORT_XML_ATTRIBUTE_LIMIT");
                 for (int i = 0; i < attrs.getLength(); i++) name(attrs.getQName(i));
                 int depth = stack.size();
-                if (depth == 0
-                        && (!uri.equals("cds") || !local.equals("OmdCds") || elements != 1)) {
+                if (depth == 0 && (!uri.equals("cds") || !local.equals("OmdCds") || started)) {
                     fail("CDS_EXPORT_XML_ENVELOPE_INVALID");
                 }
+                started = true;
                 if (depth == 1
                         && (!uri.equals("cds")
                                 || !local.equals("PatientRecord")
@@ -363,14 +389,9 @@ public final class CdsExportXmlValidator {
                         "cds_dt:Part")) frame.identityField = "LAST";
                 frame.capture |= frame.identityField != null;
                 stack.push(frame);
-                for (int i = 0; i < attrs.getLength(); i++) {
-                    if (CdsSchemaTypeCursor.identity(
-                            types.attributeType(attrs.getURI(i), attrs.getLocalName(i)))) {
-                        char[] lexical = attrs.getValue(i).toCharArray();
-                        identity(new Frame("", ""), lexical, 0, lexical.length);
-                    }
-                }
-                // The identity guard precedes the JDK validator, which retains ID/IDREF state.
+                // No CDS type derives from xs:ID, IDREF or IDREFS, so the JDK validator keeps no
+                // identity values for any document; there is nothing to bound
+                // (CdsExportXmlValidatorUnitTest).
                 validator.startElement(uri, local, qualified, attrs);
                 if (report != null
                         && depth == 4
@@ -394,18 +415,17 @@ public final class CdsExportXmlValidator {
                     return;
                 }
                 if (frame.capture) {
-                    if (frame.value.length() + length > 8192) fail("CDS_EXPORT_XML_CAPTURE_LIMIT");
+                    if (frame.value.length() + length > MAX_CAPTURE)
+                        fail("CDS_EXPORT_XML_CAPTURE_LIMIT");
                     frame.value.append(chars, offset, length);
                 }
-                if (frame.scalar.identity()) identity(frame, chars, offset, length);
                 if (frame.scalar.mode() == CdsScalarParser.Mode.BINARY) {
+                    // base64Binary has no length facet: a value of any size is decoded into a
+                    // null sink as it streams, so none is refused for its size.
                     frame.scalar.base64(
-                            chars,
-                            offset,
-                            length,
-                            OutputStream.nullOutputStream(),
-                            limits.maxBinaryBytes());
-                } else frame.scalar.validate(chars, offset, length, validator, MAX_MARKUP);
+                            chars, offset, length, OutputStream.nullOutputStream(), Long.MAX_VALUE);
+                } else
+                    frame.scalar.validate(chars, offset, length, validator, MAX_RESTRICTED_VALUE);
             } catch (IOException failure) {
                 throw new SAXException(failure);
             }
@@ -488,19 +508,6 @@ public final class CdsExportXmlValidator {
             if (binary) binaryReports++;
         }
 
-        private void identity(Frame frame, char[] chars, int offset, int length)
-                throws IOException {
-            for (int i = offset; i < offset + length; i++) {
-                boolean token = !CdsScalarParser.xmlSpace(chars[i]);
-                if (token && !frame.identityToken) identityValues++;
-                frame.identityToken = token;
-                if (++identityCharacters > limits.maxIdentityCharacters()
-                        || identityValues > limits.maxIdentityValues()) {
-                    fail("CDS_EXPORT_XML_IDENTITY_LIMIT");
-                }
-            }
-        }
-
         private void name(String name) throws IOException {
             if (name.length() > MAX_NAME) fail("CDS_EXPORT_XML_NAME_LIMIT");
             names.add(name);
@@ -510,8 +517,6 @@ public final class CdsExportXmlValidator {
         private void check() throws IOException {
             checkpoint.run();
             if (Thread.currentThread().isInterrupted()) fail("CDS_EXPORT_CANCELLED");
-            if ((System.nanoTime() - started) / 1_000_000L > limits.maxDurationMillis())
-                fail("CDS_EXPORT_XML_DEADLINE");
         }
 
         @Override
@@ -567,7 +572,6 @@ public final class CdsExportXmlValidator {
         boolean child;
         boolean capture;
         String identityField;
-        boolean identityToken;
 
         Frame(String uri, String local) {
             this.uri = uri;
@@ -594,13 +598,11 @@ public final class CdsExportXmlValidator {
         @SuppressWarnings("java:S9428")
         final MessageDigest digest;
 
-        final long maximum;
         final Runnable checkpoint;
         long count;
 
-        CountingInput(InputStream input, long maximum, Runnable checkpoint) {
+        CountingInput(InputStream input, Runnable checkpoint) {
             super(input);
-            this.maximum = maximum;
             this.checkpoint = checkpoint;
             try {
                 digest = MessageDigest.getInstance("SHA-256");
@@ -633,7 +635,6 @@ public final class CdsExportXmlValidator {
             checkpoint.run();
             count = Math.addExact(count, length);
             if (Thread.currentThread().isInterrupted()) fail("CDS_EXPORT_CANCELLED");
-            if (count > maximum) fail("CDS_EXPORT_XML_BYTE_LIMIT");
         }
 
         @Override

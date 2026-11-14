@@ -31,7 +31,6 @@ import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographi
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto.Outcome;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportDemographicMappingDto.Presence;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportIdentityDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.validator.CdsExportXmlValidator;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -132,7 +131,6 @@ class CdsExportDemographicMapperUnitTest {
                                 Set.of(CdsCategory.DEMOGRAPHICS),
                                 VERSION,
                                 CdsLogicalProfile.ONTARIO_MD_5_2,
-                                CdsExportXmlLimitsDto.defaults(),
                                 ignored -> {},
                                 () -> {});
         assertThat(validation.occurrences()).containsEntry(CdsCategory.DEMOGRAPHICS, 1L);
@@ -537,7 +535,6 @@ class CdsExportDemographicMapperUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS),
                         VERSION,
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         return bytes;

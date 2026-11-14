@@ -25,8 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsCategory;
 import io.github.carlos_emr.carlos.demographic.cds.contract.CdsLogicalProfile;
+import io.github.carlos_emr.carlos.demographic.cds.contract.CdsWireSchema;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportReportReferenceDto;
-import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlLimitsDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.dto.CdsExportXmlValidationDto;
 import io.github.carlos_emr.carlos.demographic.cdsexport.service.CdsExportHeaderComposer;
 import java.io.ByteArrayInputStream;
@@ -34,10 +34,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
@@ -57,7 +61,6 @@ class CdsExportXmlValidatorUnitTest {
                 validate(
                         bytes,
                         EnumSet.allOf(CdsCategory.class),
-                        CdsExportXmlLimitsDto.defaults(),
                         new ArrayList<>());
         assertThat(result.occurrences())
                 .hasSize(16)
@@ -113,7 +116,6 @@ class CdsExportXmlValidatorUnitTest {
                 validate(
                         xml.getBytes(StandardCharsets.UTF_8),
                         EnumSet.allOf(CdsCategory.class),
-                        CdsExportXmlLimitsDto.defaults(),
                         references);
         assertThat(result.externalReferences()).isEqualTo(1);
         assertThat(references)
@@ -172,7 +174,6 @@ class CdsExportXmlValidatorUnitTest {
                                 validate(
                                         bytes,
                                         Set.of(CdsCategory.DEMOGRAPHICS),
-                                        CdsExportXmlLimitsDto.defaults(),
                                         new ArrayList<>()))
                 .hasMessage("CDS_EXPORT_XML_UNSELECTED_CATEGORY");
     }
@@ -217,7 +218,6 @@ class CdsExportXmlValidatorUnitTest {
                                 validate(
                                         sourceXml.getBytes(StandardCharsets.UTF_16),
                                         EnumSet.allOf(CdsCategory.class),
-                                        CdsExportXmlLimitsDto.defaults(),
                                         new ArrayList<>()))
                 .hasMessage("CDS_EXPORT_XML_UTF8_DECLARATION_REQUIRED");
     }
@@ -231,7 +231,6 @@ class CdsExportXmlValidatorUnitTest {
                                 validate(
                                         bytes,
                                         EnumSet.allOf(CdsCategory.class),
-                                        CdsExportXmlLimitsDto.defaults(),
                                         new ArrayList<>()))
                 .isInstanceOf(IOException.class);
     }
@@ -276,25 +275,99 @@ class CdsExportXmlValidatorUnitTest {
     }
 
     @Test
-    void shouldRefuseByteElementDepthAndBinaryLimits_withoutReturningPartialSuccess()
+    void shouldValidateALargeBinaryValue_withoutAByteBinaryElementOrClockLimit() throws Exception {
+        // #57: the document's bytes, its elements, a binary value and the time the check takes
+        // are not limited (64 GiB, 64 GiB, 20,000,000 elements and two hours were). A stuck check
+        // ends through its checkpoint: cancellation or the job's no-progress stall detector.
+        byte[] media = new byte[3 << 20];
+        new java.util.Random(57).nextBytes(media);
+        String xml =
+                fixture()
+                        .replaceAll(
+                                "<cdsd:Media>[^<]+</cdsd:Media>",
+                                "<cdsd:Media>"
+                                        + java.util.Base64.getEncoder().encodeToString(media)
+                                        + "</cdsd:Media>");
+        var result = validate(xml);
+        assertThat(result.binaryReports()).isEqualTo(1);
+        assertThat(result.xmlBytes()).isGreaterThan(4L << 20);
+    }
+
+    @Test
+    void shouldKeepOnlyIntegrityBounds_thatNoDocumentThePinnedSchemaAdmitsCanReach()
             throws Exception {
-        byte[] bytes = fixture().getBytes(StandardCharsets.UTF_8);
-        List<CdsExportXmlLimitsDto> limits =
-                List.of(
-                        new CdsExportXmlLimitsDto(100, 1000, 1000, 50, 1000, 10000, 10000),
-                        new CdsExportXmlLimitsDto(100000, 1000, 3, 50, 1000, 10000, 10000),
-                        new CdsExportXmlLimitsDto(100000, 1000, 1000, 3, 1000, 10000, 10000),
-                        new CdsExportXmlLimitsDto(100000, 1, 1000, 50, 1000, 10000, 10000));
-        for (var limit : limits) {
-            assertThatThrownBy(
-                            () ->
-                                    validate(
-                                            bytes,
-                                            EnumSet.allOf(CdsCategory.class),
-                                            limit,
-                                            new ArrayList<>()))
-                    .isInstanceOf(IOException.class);
+        var names = new HashSet<String>();
+        int[] deepest = {0}, longest = {0};
+        var identity = new ArrayList<String>();
+        walk(
+                CdsWireSchema.schemaModel().element("cds", "OmdCds"),
+                "cds",
+                "OmdCds",
+                1,
+                names,
+                deepest,
+                longest,
+                identity,
+                Collections.newSetFromMap(new IdentityHashMap<>()));
+        int attributes = 0, restricted = 0;
+        for (String file :
+                List.of("EMR_Data_Migration_Schema.xsd", "EMR_Data_Migration_Schema_DT.xsd")) {
+            try (var input = getClass().getResourceAsStream("/cds-import/schema/" + file)) {
+                String schema = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+                // No type, attribute types included, is an identity type the JDK validator
+                // would keep values of: the former identity bound guarded nothing.
+                assertThat(schema)
+                        .doesNotContainPattern("\"xs:(?:ID|IDREF|IDREFS|ENTITY|ENTITIES)\"");
+                var attribute = Pattern.compile("<xs:attribute name=\"([^\"]+)\"").matcher(schema);
+                while (attribute.find()) {
+                    attributes++;
+                    longest[0] = Math.max(longest[0], attribute.group(1).length());
+                }
+                var length = Pattern.compile("maxLength value=\"([0-9]+)\"").matcher(schema);
+                while (length.find())
+                    restricted = Math.max(restricted, Integer.parseInt(length.group(1)));
+            }
         }
+        assertThat(identity).isEmpty();
+        assertThat(deepest[0]).isLessThanOrEqualTo(8).isLessThan(CdsExportXmlValidator.MAX_DEPTH);
+        assertThat(names.size() + attributes).isLessThan(CdsExportXmlValidator.MAX_NAMES);
+        assertThat(longest[0]).isLessThan(CdsExportXmlValidator.MAX_NAME);
+        assertThat(restricted).isEqualTo(CdsExportXmlValidator.MAX_RESTRICTED_VALUE);
+        // A captured value the schema admits is far shorter than the capture bound: a name part
+        // past its 50 characters is refused by the schema check, not the bound.
+        String name = "Import";
+        assertThat(CdsExportXmlValidator.MAX_CAPTURE).isGreaterThan(250);
+        assertThatThrownBy(() -> validate(fixture().replace(">" + name + "<", ">" + "N".repeat(51) + "<")))
+                .hasMessage("CDS_EXPORT_XML_SCHEMA_INVALID");
+    }
+
+    private static void walk(
+            io.github.carlos_emr.carlos.demographic.cds.contract.CdsSchemaModel.Type type,
+            String namespace,
+            String local,
+            int depth,
+            Set<String> names,
+            int[] deepest,
+            int[] longest,
+            List<String> identity,
+            Set<Object> open) {
+        names.add(namespace + ":" + local);
+        deepest[0] = Math.max(deepest[0], depth);
+        longest[0] = Math.max(longest[0], local.length());
+        if (type.identity()) identity.add(namespace + ":" + local);
+        if (!open.add(type)) return;
+        for (var child : type.childNames())
+            walk(
+                    type.child(child.namespace(), child.local()),
+                    child.namespace(),
+                    child.local(),
+                    depth + 1,
+                    names,
+                    deepest,
+                    longest,
+                    identity,
+                    open);
+        open.remove(type);
     }
 
     @Test
@@ -318,7 +391,6 @@ class CdsExportXmlValidatorUnitTest {
                 EnumSet.allOf(CdsCategory.class),
                 VERSION,
                 PROFILE,
-                CdsExportXmlLimitsDto.defaults(),
                 ignored -> {},
                 () -> {});
         assertThat(input.closed).isFalse();
@@ -331,7 +403,6 @@ class CdsExportXmlValidatorUnitTest {
                                         EnumSet.allOf(CdsCategory.class),
                                         VERSION,
                                         PROFILE,
-                                        CdsExportXmlLimitsDto.defaults(),
                                         ignored -> {},
                                         () -> {
                                             throw new IllegalStateException("CANCELLED");
@@ -407,15 +478,11 @@ class CdsExportXmlValidatorUnitTest {
         return validate(
                 xml.getBytes(StandardCharsets.UTF_8),
                 EnumSet.allOf(CdsCategory.class),
-                CdsExportXmlLimitsDto.defaults(),
                 new ArrayList<>());
     }
 
     private CdsExportXmlValidationDto validate(
-            byte[] xml,
-            Set<CdsCategory> categories,
-            CdsExportXmlLimitsDto limits,
-            List<CdsExportReportReferenceDto> references)
+            byte[] xml, Set<CdsCategory> categories, List<CdsExportReportReferenceDto> references)
             throws IOException {
         return validator.validate(
                 new ByteArrayInputStream(xml),
@@ -423,7 +490,6 @@ class CdsExportXmlValidatorUnitTest {
                 categories,
                 VERSION,
                 PROFILE,
-                limits,
                 references::add,
                 () -> {});
     }

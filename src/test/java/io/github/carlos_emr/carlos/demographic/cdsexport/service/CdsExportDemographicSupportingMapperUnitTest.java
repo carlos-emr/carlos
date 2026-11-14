@@ -536,7 +536,6 @@ class CdsExportDemographicSupportingMapperUnitTest {
                         ALL,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
         Path directory = Files.createTempDirectory(root, "roundtrip-");
@@ -684,7 +683,6 @@ class CdsExportDemographicSupportingMapperUnitTest {
                         Set.of(CdsCategory.DEMOGRAPHICS, CdsCategory.NEW_CATEGORY),
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
     }
@@ -911,7 +909,6 @@ class CdsExportDemographicSupportingMapperUnitTest {
                         categories,
                         "2026.08.0-test",
                         CdsLogicalProfile.ONTARIO_MD_5_2,
-                        CdsExportXmlLimitsDto.defaults(),
                         ignored -> {},
                         () -> {});
     }
