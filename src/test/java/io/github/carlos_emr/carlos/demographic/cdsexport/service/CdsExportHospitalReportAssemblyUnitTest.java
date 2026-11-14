@@ -52,6 +52,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportHospitalReportAssemblyUnitTest {
     private static final String HASH = "a".repeat(64), PATIENT_KEY = "b".repeat(64);
     private static final String RUN = "44444444-4444-4444-8444-444444444444";

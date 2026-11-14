@@ -31,6 +31,8 @@ import org.junit.jupiter.api.io.TempDir;
  */
 @Tag("unit")
 @Tag("cds-export")
+@org.junit.jupiter.api.extension.ExtendWith(
+        io.github.carlos_emr.carlos.test.mocks.MockInvocationReleaseExtension.class)
 class CdsExportRetainedFieldListUnitTest {
     private static final String HASH = "a".repeat(64);
     private static final String RUN = "11111111-1111-4111-8111-111111111111";
