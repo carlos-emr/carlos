@@ -35,16 +35,46 @@ import java.util.*;
 
 /** Fieldwise prescription reconciliation; current values never erase unrelated, verified source meanings. */
 public final class CdsExportMedicationFieldReconciler {
+    /**
+     * @param currentSource the {@code CARLOS.Medication.CurrentSource.v1} content, or null when
+     *     every changed value has a CDS element: the complete current row of an imported
+     *     prescription whose in-place change (deleted or discontinued, hidden from the CPP, ...)
+     *     CDS 5.2 has no element for
+     * @param archived the archive state the occurrence's {@code CARLOS.Medication.Archived.v1}
+     *     must state once the archive columns were changed in CARLOS, or null when the retained
+     *     marker (or its absence) still stands
+     */
     public record Result(
             String sourceManifestSha256,
             String unitAddress,
             CdsExportMedicationMappingDto mapping,
             Set<String> preparedPaths,
             Set<String> currentPaths,
-            boolean retainedStrengthRequired) {
+            boolean retainedStrengthRequired,
+            String currentSource,
+            Boolean archived) {
         public Result {
             preparedPaths = Set.copyOf(preparedPaths);
             currentPaths = Set.copyOf(currentPaths);
+        }
+
+        /** A reconciliation with nothing to carry beside the standard elements. */
+        public Result(
+                String sourceManifestSha256,
+                String unitAddress,
+                CdsExportMedicationMappingDto mapping,
+                Set<String> preparedPaths,
+                Set<String> currentPaths,
+                boolean retainedStrengthRequired) {
+            this(
+                    sourceManifestSha256,
+                    unitAddress,
+                    mapping,
+                    preparedPaths,
+                    currentPaths,
+                    retainedStrengthRequired,
+                    null,
+                    null);
         }
 
         @Override
@@ -62,6 +92,31 @@ public final class CdsExportMedicationFieldReconciler {
             this(List.of(), path, Set.of(columns));
         }
     }
+
+    static final String RESIDUAL = "MedicationsAndTreatments/ResidualInfo";
+
+    /** Rule of a current value carried in {@code CARLOS.Medication.CurrentSource.v1}. */
+    static final String CARRIED = "CURRENT_NATIVE_VALUE_IN_EDITED_SOURCE_CONTEXT";
+
+    private static final String STATUS = "PrescriptionStatus/PastMedications";
+
+    /**
+     * The candidate rules of a current value CDS 5.2 has no element for. On a never-imported
+     * prescription the native mapper carries them in {@code CARLOS.Medication.Source.v1}; on an
+     * imported one changed in CARLOS they travel in {@code CARLOS.Medication.CurrentSource.v1},
+     * so an ordinary in-place change (Delete or Discontinue, Hide from CPP, the script a REST
+     * prescribe files it under) never holds the chart.
+     */
+    private static final Set<String> CARRIED_RULES =
+            Set.of(
+                    "UNMAPPED_NATIVE_VALUE",
+                    CdsExportMedicationMapper.DURATION_WITHOUT_UNIT,
+                    CdsExportMedicationMapper.DURATION_UNIT_UNKNOWN,
+                    CdsExportMedicationMapper.DURATION_NOT_A_NUMBER,
+                    "NUMERIC_QUANTITY_REQUIRES_REVIEW",
+                    "NONNEGATIVE_INTEGER_CAPACITY_REQUIRES_REVIEW",
+                    "NATIVE_BOOLEAN_REQUIRES_REVIEW",
+                    "UNRECOGNIZED_TREATMENT_TYPE");
 
     private static final List<Group> GROUPS =
             List.of(
@@ -310,9 +365,58 @@ public final class CdsExportMedicationFieldReconciler {
             if (old.fields().containsKey(field)) selected.put(field, old.fields().get(field));
             preparedPaths.add(field.name());
         }
+        // An imported prescription archived in CARLOS (Delete, Discontinue, a REST update) keeps
+        // the status it was imported with, so the archive decides its currentness, exactly as on
+        // a never-imported row: other receivers ignore CARLOS residuals and must not read it as
+        // current. An archive the import itself wrote (reason "cds:...") keeps its status.
+        Boolean archived = null;
+        if (currentPaths.contains(STATUS)) {
+            String flag = current.fields().get("archived");
+            String reason = current.fields().get("archived_reason");
+            if ("1".equals(flag)) {
+                archived = true;
+                if (reason == null || !reason.startsWith("cds:"))
+                    selected.put(
+                            Field.PrescriptionStatus,
+                            CdsExportNativeMedicationMapper.archivedStatus(reason));
+                selected.put(Field.PastMedications, "Y");
+                for (String column : List.of("rxStatus", "past_med")) {
+                    var key =
+                            new CdsExportNativeFieldKeyDto(
+                                    current.table(), current.recordKey(), column);
+                    var prior = decisions.get(key);
+                    if (prior.outcome() == Outcome.REQUIRES_REVIEW
+                            && Set.of(
+                                            "CONFLICTING_MEDICATION_CURRENTNESS",
+                                            "MEDICATION_CURRENTNESS_NOT_ESTABLISHED",
+                                            "UNRECOGNIZED_PRESCRIPTION_STATUS")
+                                    .contains(prior.rule()))
+                        decisions.put(
+                                key,
+                                new CdsExportFieldAssessmentDto(
+                                        prior.presence(),
+                                        Outcome.MAPPED,
+                                        STATUS + ";" + RESIDUAL,
+                                        "ARCHIVE_DECIDES_CURRENTNESS_STORED_VALUE_CARRIED"));
+                }
+            } else if ("0".equals(flag)) archived = false;
+        }
+        boolean carried = false;
+        for (String column : current.fields().keySet()) {
+            var key = new CdsExportNativeFieldKeyDto(current.table(), current.recordKey(), column);
+            var prior = decisions.get(key);
+            if (prior.outcome() != Outcome.REQUIRES_REVIEW || !CARRIED_RULES.contains(prior.rule()))
+                continue;
+            carried = true;
+            decisions.put(
+                    key,
+                    new CdsExportFieldAssessmentDto(
+                            prior.presence(), Outcome.MAPPED, RESIDUAL, CARRIED));
+        }
         boolean blocked =
                 decisions.values().stream()
                         .anyMatch(field -> field.outcome() == Outcome.REQUIRES_REVIEW);
+        String currentSource = carried && !blocked ? currentSource(current, precision) : null;
         CdsExportMedicationDto result = null;
         if (!blocked)
             result =
@@ -333,7 +437,37 @@ public final class CdsExportMedicationFieldReconciler {
                 new CdsExportMedicationMappingDto(result, decisions),
                 preparedPaths,
                 currentPaths,
-                source.strengthSourceOnly());
+                source.strengthSourceOnly(),
+                currentSource,
+                blocked ? null : archived);
+    }
+
+    /**
+     * The complete current row in the shape of {@code CARLOS.Medication.Source.v1}: every column
+     * with SQL NULL and empty text distinct, the exact FLOAT witnesses and the date-precision
+     * rows, in a fixed key order with every space escaped.
+     */
+    private static String currentSource(
+            CdsExportCapturedTextRowDto current, List<CdsExportCapturedTextRowDto> precision)
+            throws IOException {
+        var details = new LinkedHashMap<String, Object>();
+        details.put("version", 1);
+        details.put("fields", new TreeMap<>(current.fields()));
+        details.put("exactNumbers", new TreeMap<>(current.exactNumbers()));
+        details.put(
+                "precision",
+                precision.stream()
+                        .sorted(Comparator.comparing(CdsExportCapturedTextRowDto::recordKey))
+                        .map(row -> new TreeMap<>(row.fields()))
+                        .toList());
+        String content =
+                CdsExportScreeningMapper.tokenSafe(
+                        com.fasterxml.jackson.databind.json.JsonMapper.builder()
+                                .build()
+                                .writeValueAsString(details));
+        if (!CdsExportNativeFieldAssessments.legal(content, 1 << 24))
+            review("CDS_EXPORT_MEDICATION_CURRENT_SOURCE_REQUIRES_REVIEW");
+        return content;
     }
 
     private CdsExportRetainedReceiptVerificationDto.CheckedReference verifyNativeWitness(

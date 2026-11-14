@@ -119,6 +119,109 @@ class CdsExportMedicationFieldReconcilerUnitTest {
     }
 
     @Test
+    void shouldReadAnEditedDurationUnitAsCarlosDoes_andCarryOneWithNoCdsMeaning() throws Exception {
+        // The same rule as a never-imported prescription: d, w, m and y are the units whatever
+        // their case; any other stored unit, an amount with none and a duration typed as text
+        // have no Duration and travel exactly in CARLOS.Medication.CurrentSource.v1.
+        for (var unit : List.of(List.of("d", "7"), List.of("w", "49"), List.of("m", "7 months"))) {
+            var fields = baseline();
+            fields.put("duration", "7");
+            fields.put("durunit", unit.get(0));
+            var mapped = reconcile(fixture(fields, numbers(), true));
+            assertThat(mapped.mapping().nativeRowRepresentable()).isTrue();
+            assertThat(mapped.mapping().value().fields())
+                    .containsEntry(Field.Duration, unit.get(1));
+            assertThat(mapped.currentSource()).isNull();
+        }
+        for (var stored :
+                List.of(
+                        java.util.Arrays.asList("7", "x"),
+                        java.util.Arrays.asList("7", null),
+                        java.util.Arrays.asList("10 days", "D"))) {
+            var fields = baseline();
+            fields.put("duration", stored.get(0));
+            fields.put("durunit", stored.get(1));
+            var carried = reconcile(fixture(fields, numbers(), true));
+            assertThat(carried.mapping().nativeRowRepresentable()).as(stored.toString()).isTrue();
+            assertThat(carried.mapping().value().fields()).doesNotContainKey(Field.Duration);
+            assertThat(carried.currentPaths()).contains("Duration");
+            var row = JSON.readTree(carried.currentSource().replace("\\u0020", " ")).get("fields");
+            assertThat(row.get("duration").asText()).isEqualTo(stored.get(0));
+            if (stored.get(1) == null) assertThat(row.get("durunit").isNull()).isTrue();
+            else assertThat(row.get("durunit").asText()).isEqualTo(stored.get(1));
+            assertThat(row.get("freqcode").asText()).isEqualTo("BID");
+            assertThat(carried.mapping().fields().get(key("duration")).rule())
+                    .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        }
+    }
+
+    @Test
+    void shouldExportAnImportedPrescriptionArchivedInCarlos_asNoLongerCurrent() throws Exception {
+        // RxDeleteRx2Action.setDrugDelete and Discontinue, RxManagerImpl.discontinue/archiveDrug:
+        // archived 1 with its reason and date, on the imported row itself.
+        for (var reason :
+                List.of(
+                        List.of("deleted", "Nullified"),
+                        List.of("adverseReaction", "Aborted"),
+                        List.of("represcribed", "Obsolete"))) {
+            var fields = baseline();
+            fields.put("archived", "1");
+            fields.put("archived_reason", reason.get(0));
+            fields.put("archived_date", "2026-01-02 03:04:05");
+            var result = reconcile(fixture(fields, numbers(), true));
+            assertThat(result.mapping().nativeRowRepresentable()).as(reason.get(0)).isTrue();
+            assertThat(result.mapping().value().fields())
+                    .containsEntry(Field.PrescriptionStatus, reason.get(1))
+                    .containsEntry(Field.PastMedications, "Y")
+                    // Everything the edit did not touch is still the import's own projection.
+                    .containsEntry(Field.DrugIdentificationNumber, "00123456")
+                    .containsEntry(Field.Notes, "Original provider notes");
+            assertThat(result.archived()).isTrue();
+            assertThat(result.currentPaths()).containsExactly("PrescriptionStatus/PastMedications");
+            var row = JSON.readTree(result.currentSource().replace("\\u0020", " ")).get("fields");
+            assertThat(row.get("archived").asText()).isEqualTo("1");
+            assertThat(row.get("archived_reason").asText()).isEqualTo(reason.get(0));
+            assertThat(row.get("archived_date").asText()).isEqualTo("2026-01-02 03:04:05");
+            assertThat(row.get("rxStatus").asText()).isEqualTo("Active");
+            for (String column : List.of("archived", "archived_reason", "archived_date"))
+                assertThat(result.mapping().fields().get(key(column)).rule())
+                        .isEqualTo(CdsExportMedicationFieldReconciler.CARRIED);
+        }
+    }
+
+    @Test
+    void shouldCarryAnOptionSetOnAnImportedPrescription_withoutHoldingOrChangingItsElements()
+            throws Exception {
+        // RxHideCpp2Action (hide_cpp) and a REST prescribe's script link, on the imported row.
+        var unchanged = reconcile(fixture(baseline(), numbers(), true));
+        assertThat(unchanged.currentSource()).isNull();
+        assertThat(unchanged.archived()).isNull();
+        for (var option :
+                List.of(
+                        Map.of("hide_cpp", "1"),
+                        Map.of("script_no", "12"),
+                        Map.of("hide_from_drug_profile", "1"))) {
+            var fields = baseline();
+            fields.putAll(option);
+            var result = reconcile(fixture(fields, numbers(), true));
+            String column = option.keySet().iterator().next();
+            assertThat(result.mapping().nativeRowRepresentable()).as(column).isTrue();
+            assertThat(result.currentPaths()).isEmpty();
+            assertThat(result.archived()).isNull();
+            assertThat(result.mapping().value().fields())
+                    .isEqualTo(unchanged.mapping().value().fields());
+            assertThat(
+                            JSON.readTree(result.currentSource().replace("\\u0020", " "))
+                                    .get("fields")
+                                    .get(column)
+                                    .asText())
+                    .isEqualTo(option.get(column));
+            assertThat(result.mapping().fields().get(key(column)).destination())
+                    .isEqualTo(CdsExportMedicationFieldReconciler.RESIDUAL);
+        }
+    }
+
+    @Test
     void shouldKeepARestoredQuantityUnitAndAsNeededFlag_whenTheImportedPrescriptionIsUnchanged()
             throws Exception {
         // #6198: the import restored unitName "mL" and prn 1 from the sender's

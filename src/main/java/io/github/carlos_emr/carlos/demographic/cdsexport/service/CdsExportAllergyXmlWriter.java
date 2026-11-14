@@ -89,6 +89,12 @@ public final class CdsExportAllergyXmlWriter {
                     CdsNativeExtensionContract.ALLERGY_REACTION,
                     CdsNativeExtensionContract.STRING_TYPE,
                     CdsNativeExtensionContract.encodeNarrative(allergy.longReaction()));
+        if (allergy.sourceContext() != null)
+            residual(
+                    xml,
+                    CdsNativeExtensionContract.ALLERGY_SOURCE_CONTEXT,
+                    CdsNativeExtensionContract.STRING_TYPE,
+                    allergy.sourceContext());
         xml.end();
         optional(xml, "OffendingAgentDescription", allergy.description());
         optional(xml, "PropertyOfOffendingAgent", allergy.property());
@@ -137,6 +143,15 @@ public final class CdsExportAllergyXmlWriter {
         if (allergy.longReaction() != null
                 && !CdsExportNativeFieldAssessments.legal(allergy.longReaction(), 32768))
             throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_VALUES_REQUIRES_REVIEW");
+        // The complete-row carrier is one xs:token: no literal whitespace, at most 16,777,216
+        // characters (the bound of every JSON residual carrier).
+        String context = allergy.sourceContext();
+        if (context != null
+                && (context.isEmpty()
+                        || !CdsExportNativeFieldAssessments.legal(context, 1 << 24)
+                        || context.chars()
+                                .anyMatch(c -> c == ' ' || c == '\t' || c == '\r' || c == '\n')))
+            throw new io.github.carlos_emr.carlos.demographic.cdsexport.support.CdsExportMappingReviewException("CDS_EXPORT_ALLERGY_SOURCE_CONTEXT_REQUIRES_REVIEW");
         String code = allergy.codeValue();
         if (code != null
                 && (code.isEmpty()

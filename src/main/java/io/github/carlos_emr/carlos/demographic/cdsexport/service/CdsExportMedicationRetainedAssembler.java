@@ -143,7 +143,16 @@ public final class CdsExportMedicationRetainedAssembler {
                     new CdsExportRetainedSectionWriter.Change(
                             "ProblemCode[1]", Set.of(), xml -> xml.text(code)));
         }
-        if (reasons.residual() != null) residual(relative, reasons.residual(), changes, checkpoint);
+        var additions = new ArrayList<Marker>();
+        if (reasons.residual() != null)
+            additions.add(
+                    new Marker(
+                            CdsNativeExtensionContract.MEDICATION_REASONS,
+                            CdsNativeExtensionContract.STRING_TYPE,
+                            reasons.residual()));
+        if (decision.currentSource() != null || decision.archived() != null)
+            current(decision, relative, values, changes, additions, checkpoint);
+        if (!additions.isEmpty()) residual(relative, additions, changes, checkpoint);
         values.requireActive();
         checkpoint.run();
         return new Assembly(
@@ -152,15 +161,100 @@ public final class CdsExportMedicationRetainedAssembler {
                 problemCodeWritten);
     }
 
+    private record Marker(String name, String type, String content) {
+        @Override
+        public String toString() {
+            return "CdsExportMedicationRetainedAssembler.Marker[protected]";
+        }
+    }
+
+    private static final Pattern MARKER_NAME =
+            Pattern.compile("ResidualInfo\\[1\\]/DataElement\\[([1-9][0-9]{0,17})\\]/Name\\[1\\]");
+
     /**
-     * Adds the reasons carrier after the occurrence's own residual elements, or as a new
-     * ResidualInfo when it has none (an empty source ResidualInfo is replaced, as the allergy
-     * assembler does). Existing elements, an earlier CARLOS export's reasons included, stay
-     * untouched.
+     * The carriers of an imported prescription changed in CARLOS. Its complete current row
+     * replaces the content of an earlier {@code CARLOS.Medication.CurrentSource.v1} of the same
+     * occurrence (an earlier CARLOS export of the same edited chart) or is added; a sender's
+     * {@code CARLOS.Medication.Archived.v1} is corrected when the archive columns changed, or
+     * added when the prescription is now archived, so the occurrence never states a stale
+     * archive state. Every other residual element stays untouched.
+     */
+    private static void current(
+            CdsExportMedicationFieldReconciler.Result decision,
+            Map<String, CdsExportRetainedFieldDto> relative,
+            CdsExportRetainedSectionWriter.Values values,
+            List<CdsExportRetainedSectionWriter.Change> changes,
+            List<Marker> additions,
+            Runnable checkpoint)
+            throws IOException {
+        var existing = new HashMap<String, String>();
+        for (var entry : relative.entrySet()) {
+            checkpoint.run();
+            if (!MARKER_NAME.matcher(entry.getKey()).matches()) continue;
+            String name =
+                    CdsExportAllergyRetainedAssembler.token(
+                            values, entry.getValue(), checkpoint, 128);
+            if (!CdsNativeExtensionContract.MEDICATION_ARCHIVED.equals(name)
+                    && !CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE.equals(name)) continue;
+            String path = entry.getKey().substring(0, entry.getKey().lastIndexOf('/'));
+            if (existing.putIfAbsent(name, path) != null
+                    || !relative.containsKey(path + "/DataType[1]")
+                    || !relative.containsKey(path + "/Content[1]"))
+                review("CDS_EXPORT_MEDICATION_EXTENSION_REQUIRES_REVIEW");
+        }
+        if (decision.archived() != null) {
+            String state = Boolean.toString(decision.archived());
+            String path = existing.get(CdsNativeExtensionContract.MEDICATION_ARCHIVED);
+            if (path != null) {
+                var content = relative.get(path + "/Content[1]");
+                String prior =
+                        CdsExportAllergyRetainedAssembler.token(values, content, checkpoint, 128);
+                prior =
+                        switch (prior == null ? "" : prior) {
+                            case "true", "1" -> "true";
+                            case "false", "0" -> "false";
+                            default -> null;
+                        };
+                if (!state.equals(prior))
+                    changes.add(
+                            new CdsExportRetainedSectionWriter.Change(
+                                    path + "/Content[1]",
+                                    Set.of(content.id()),
+                                    xml -> xml.text(state)));
+            } else if (decision.archived())
+                additions.add(
+                        new Marker(
+                                CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                                CdsNativeExtensionContract.BOOLEAN_TYPE,
+                                state));
+        }
+        if (decision.currentSource() != null) {
+            String source = decision.currentSource();
+            String path = existing.get(CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+            if (path != null) {
+                var content = relative.get(path + "/Content[1]");
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                path + "/Content[1]",
+                                Set.of(content.id()),
+                                xml -> xml.text(source)));
+            } else
+                additions.add(
+                        new Marker(
+                                CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE,
+                                CdsNativeExtensionContract.STRING_TYPE,
+                                source));
+        }
+    }
+
+    /**
+     * Adds carriers after the occurrence's own residual elements, or as a new ResidualInfo when
+     * it has none (an empty source ResidualInfo is replaced, as the allergy assembler does).
+     * Existing elements, an earlier CARLOS export's reasons included, stay untouched.
      */
     private static void residual(
             Map<String, CdsExportRetainedFieldDto> relative,
-            String content,
+            List<Marker> additions,
             List<CdsExportRetainedSectionWriter.Change> changes,
             Runnable checkpoint) {
         boolean present = false;
@@ -178,23 +272,26 @@ public final class CdsExportMedicationRetainedAssembler {
                             "ResidualInfo[1]",
                             ids(relative, "ResidualInfo[1]"),
                             xml -> {
-                                xml.start("cds_dt", "DataElement");
-                                reasons(xml, content);
-                                xml.end();
+                                for (var marker : additions) {
+                                    xml.start("cds_dt", "DataElement");
+                                    marker(xml, marker);
+                                    xml.end();
+                                }
                             }));
         else
-            changes.add(
-                    new CdsExportRetainedSectionWriter.Change(
-                            "ResidualInfo[1]/DataElement[" + (maximum + 1) + "]",
-                            Set.of(),
-                            xml -> reasons(xml, content)));
+            for (var marker : additions)
+                changes.add(
+                        new CdsExportRetainedSectionWriter.Change(
+                                "ResidualInfo[1]/DataElement[" + (++maximum) + "]",
+                                Set.of(),
+                                xml -> marker(xml, marker)));
     }
 
-    private static void reasons(CdsExportXmlComposer.ContentWriter xml, String content)
+    private static void marker(CdsExportXmlComposer.ContentWriter xml, Marker marker)
             throws IOException {
-        xml.element("cds_dt", "Name", CdsNativeExtensionContract.MEDICATION_REASONS);
-        xml.element("cds_dt", "DataType", CdsNativeExtensionContract.STRING_TYPE);
-        xml.element("cds_dt", "Content", content);
+        xml.element("cds_dt", "Name", marker.name());
+        xml.element("cds_dt", "DataType", marker.type());
+        xml.element("cds_dt", "Content", marker.content());
     }
 
     private static boolean preservedPart(Set<String> prepared, String part) {

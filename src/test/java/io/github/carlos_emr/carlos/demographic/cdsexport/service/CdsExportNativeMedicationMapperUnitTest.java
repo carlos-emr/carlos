@@ -641,10 +641,10 @@ class CdsExportNativeMedicationMapperUnitTest {
                         Map.of("cds_currentness", "CURRENT"),
                         Map.of("cds_dose_text", "1"),
                         Map.of("cds_projection_incomplete", "1"),
-                        Map.of("durunit", "unknown"),
-                        Map.of("duration", "one"),
                         Map.of("archived", "yes"),
-                        Map.of("customName", " "))) {
+                        // Text no XML document can hold is the one value that still holds.
+                        Map.of("duration", "7\u0001"),
+                        Map.of("special", "take\u0001one"))) {
             var fields = source();
             fields.putAll(changes);
             assertThatThrownBy(() -> mapper.map(27, medication(fields), List.of(), Map.of()))
@@ -779,10 +779,216 @@ class CdsExportNativeMedicationMapperUnitTest {
         assertThat(amount.metadata()).contains("\"duration\":\"7\"", "\"durunit\":null");
         new CdsExportNativeFieldAssessmentValidator()
                 .requireRepresentable(List.of(medication(typed)), amount.fields(), 1000, () -> {});
-        // A unit CARLOS never writes is still not read as a length of time.
-        typed.put("durunit", "X");
-        assertThatThrownBy(() -> mapper.map(27, medication(typed), List.of(), Map.of()))
-                .isInstanceOf(java.io.IOException.class);
+    }
+
+    @Test
+    void shouldMapEveryDurationUnitCarlosReads_whateverCaseTheRxCardStored() throws Exception {
+        // The Rx card's duration-unit box is free text (prescribe.jsp durationUnit_<id>,
+        // RxWriteScript2Action.updateProperty) and drugs.durunit is CHAR(1): "days", "wk" or "mo"
+        // typed there are stored as d, w and m where the database truncates, and Prescription
+        // .calcEndDate and RxUtil.findNDays read the unit ignoring case.
+        for (var unit :
+                List.of(
+                        List.of("D", "7", "D"),
+                        List.of("d", "7", "D"),
+                        List.of("W", "49", "D"),
+                        List.of("w", "49", "D"),
+                        List.of("M", "7 months", "M"),
+                        List.of("m", "7 months", "M"),
+                        List.of("Y", "7 years", "Y"),
+                        List.of("y", "7 years", "Y"))) {
+            var fields = source();
+            fields.put("duration", "7");
+            fields.put("durunit", unit.get(0));
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields())
+                    .as(unit.get(0))
+                    .containsEntry(Field.Duration, unit.get(1));
+            // The stored character itself stays exact in CARLOS.Medication.Source.v1.
+            assertThat(result.metadata())
+                    .contains("\"duration\":\"7\"", "\"durunit\":\"" + unit.get(0) + "\"");
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            var received = receive(result);
+            assertThat(received.duration()).as(unit.get(0)).isEqualTo(unit.get(0).matches("[Ww]") ? "49" : "7");
+            assertThat(received.durationUnit()).as(unit.get(0)).isEqualTo(unit.get(2));
+        }
+        var single = source();
+        single.put("duration", "1");
+        single.put("durunit", "m");
+        assertThat(mapper.map(27, medication(single), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.Duration, "1 month");
+    }
+
+    @Test
+    void shouldCarryADurationWithNoCdsMeaning_exactlyInTheResidualInsteadOfHolding()
+            throws Exception {
+        // A unit that is no day, week, month or year (the truncated first letter of "hours" or
+        // "x"), a duration typed as text, and an amount with no unit: none is a Duration, none
+        // holds the patient, and each column is exact in CARLOS.Medication.Source.v1.
+        for (var stored :
+                List.of(
+                        java.util.Arrays.asList("7", "h", "BID"),
+                        java.util.Arrays.asList("7", "x", "BID"),
+                        java.util.Arrays.asList("7", "7", "BID"),
+                        java.util.Arrays.asList("7", "\u00e9", null),
+                        java.util.Arrays.asList("10 days", "D", "TID"),
+                        java.util.Arrays.asList("10 days", null, "TID"),
+                        java.util.Arrays.asList("2-4", "w", "QID"),
+                        java.util.Arrays.asList("one", null, null),
+                        java.util.Arrays.asList("7", null, "BID"))) {
+            var fields = source();
+            fields.put("duration", stored.get(0));
+            fields.put("durunit", stored.get(1));
+            fields.put("freqcode", stored.get(2));
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields()).as(stored.toString()).doesNotContainKey(Field.Duration);
+            var carried =
+                    new com.fasterxml.jackson.databind.ObjectMapper()
+                            .readTree(result.metadata().replace("\\u0020", " "))
+                            .get("fields");
+            assertThat(carried.get("duration").asText()).isEqualTo(stored.get(0));
+            if (stored.get(1) == null) assertThat(carried.get("durunit").isNull()).isTrue();
+            else assertThat(carried.get("durunit").asText()).isEqualTo(stored.get(1));
+            if (stored.get(2) == null) assertThat(carried.get("freqcode").isNull()).isTrue();
+            else assertThat(carried.get("freqcode").asText()).isEqualTo(stored.get(2));
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            assertThat(
+                            new String(
+                                    render(
+                                            CdsCategory.MEDICATIONS_AND_TREATMENTS,
+                                            xml -> mapper.write(result, xml)),
+                                    StandardCharsets.UTF_8))
+                    .doesNotContain("Duration>");
+            assertThat(receive(result).duration()).as(stored.toString()).isNull();
+        }
+    }
+
+    @Test
+    void shouldExportAPrescriptionNote_withALabelForItsMissingDrugName() throws Exception {
+        // The Rx page's Note button (newCustomNote): custom_note 1, no brand, no custom name, no
+        // drug code; the typed text is the whole prescription (rx-custom-note Playwright check).
+        var fields = source();
+        fields.put("BN", null);
+        fields.put("customName", null);
+        fields.put("regional_identifier", "");
+        fields.put("GCN_SEQNO", "0");
+        fields.put("custom_note", "1");
+        fields.put("special", "Bring the old pill bottles");
+        fields.put("special_instruction", null);
+        fields.put("dosage", "");
+        fields.put("unit", null);
+        fields.put("duration", "0");
+        fields.put("durunit", null);
+        fields.put("freqcode", null);
+        fields.put("quantity", "0");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(result.value().fields())
+                .containsEntry(Field.DrugName, CdsExportNativeMedicationMapper.NOTE_NAME)
+                .containsEntry(Field.PrescriptionInstructions, "Bring the old pill bottles")
+                .doesNotContainKey(Field.DrugIdentificationNumber);
+        assertThat(result.metadata()).contains("\"custom_note\":\"1\"", "\"BN\":null");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
+        var received = receive(result);
+        assertThat(received.name()).isEqualTo(CdsExportNativeMedicationMapper.NOTE_NAME);
+        // A migrated row that names no drug and is no note says so too; a blank name is no name.
+        fields.put("custom_note", "0");
+        fields.put("customName", " ");
+        assertThat(mapper.map(27, medication(fields), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.DrugName, CdsExportNativeMedicationMapper.UNNAMED);
+    }
+
+    @Test
+    void shouldLeaveOutAnElementItsStoredValueCannotFill_andCarryTheValue() throws Exception {
+        // Stored by the legacy Rx form, favourites, the REST service or OSCAR 19 data: none of
+        // these is rewritten into its element and none holds the patient.
+        var cases = new java.util.LinkedHashMap<Map<String, String>, Field>();
+        cases.put(Map.of("quantity", "30 tabs"), Field.Quantity);
+        cases.put(Map.of("quantity", "1e2"), Field.Quantity);
+        cases.put(Map.of("repeat", "-1"), Field.NumberOfRefills);
+        cases.put(Map.of("refill_quantity", "-5"), Field.RefillQuantity);
+        cases.put(Map.of("long_term", "2"), Field.LongTermMedication);
+        cases.put(Map.of("eTreatmentType", "LONG"), Field.TreatmentType);
+        cases.put(Map.of("comment", "c".repeat(32001)), Field.Notes);
+        cases.put(Map.of("dosage", "s".repeat(2001)), Field.DrugDescription);
+        cases.put(Map.of("special", "s".repeat(32001)), Field.PrescriptionInstructions);
+        for (var entry : cases.entrySet()) {
+            var fields = source();
+            fields.putAll(entry.getKey());
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            assertThat(result.value().fields())
+                    .as(entry.getValue().name())
+                    .doesNotContainKey(entry.getValue());
+            String column = entry.getKey().keySet().iterator().next();
+            assertThat(
+                            new com.fasterxml.jackson.databind.ObjectMapper()
+                                    .readTree(result.metadata().replace("\\u0020", " "))
+                                    .get("fields")
+                                    .get(column)
+                                    .asText())
+                    .isEqualTo(entry.getKey().get(column));
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+            render(CdsCategory.MEDICATIONS_AND_TREATMENTS, xml -> mapper.write(result, xml));
+        }
+        // A SIG that fits alone is written without the pharmacy instructions that overflow it.
+        var both = source();
+        both.put("special", "Take one");
+        both.put("special_instruction", "p".repeat(32000));
+        assertThat(mapper.map(27, medication(both), List.of(), Map.of()).value().fields())
+                .containsEntry(Field.PrescriptionInstructions, "Take one");
+        // A frequency that fills its element keeps it; the as-needed flag stays in the residual.
+        var full = source();
+        full.put("freqcode", "f".repeat(118));
+        full.put("prn", "1");
+        var qualified = mapper.map(27, medication(full), List.of(), Map.of());
+        assertThat(qualified.value().fields()).containsEntry(Field.Frequency, "f".repeat(118));
+        assertThat(qualified.metadata()).contains("\"prn\":\"1\"");
+    }
+
+    @Test
+    void shouldWriteNoDate_forOscarsNoDateDefaultsAndCarryTheColumn() throws Exception {
+        // drugs.rx_date and written_date default to 0001-01-01 (and old data holds the zero
+        // date): OSCAR's "no date", never a recorded clinical date.
+        for (var stored :
+                List.of(
+                        Map.of("rx_date", "0001-01-01"),
+                        Map.of("written_date", "0001-01-01"),
+                        Map.of("rx_date", "0000-00-00"))) {
+            var fields = source();
+            fields.putAll(stored);
+            var result = mapper.map(27, medication(fields), List.of(), Map.of());
+            String column = stored.keySet().iterator().next();
+            var date = column.equals("rx_date") ? result.value().start() : result.value().written();
+            assertThat(date.precision()).isEqualTo(CdsExportDateDto.Precision.ABSENT);
+            assertThat(result.metadata())
+                    .contains("\"" + column + "\":\"" + stored.get(column) + "\"");
+            new CdsExportNativeFieldAssessmentValidator()
+                    .requireRepresentable(
+                            List.of(medication(fields)), result.fields(), 1000, () -> {});
+        }
+    }
+
+    @Test
+    void shouldMoveADrugNameLongerThanItsElement_wholeToNotes() throws Exception {
+        var fields = source();
+        fields.put("customName", null);
+        String name = "Long brand ".repeat(12).strip();
+        fields.put("BN", name);
+        fields.put("comment", "Provider note");
+        var result = mapper.map(27, medication(fields), List.of(), Map.of());
+        assertThat(result.value().fields())
+                .containsEntry(Field.DrugName, CdsExportNativeMedicationMapper.LONG_NAME)
+                .containsEntry(
+                        Field.Notes,
+                        CdsExportNativeMedicationMapper.LONG_NAME_LABEL + name + "\nProvider note");
+        new CdsExportNativeFieldAssessmentValidator()
+                .requireRepresentable(List.of(medication(fields)), result.fields(), 1000, () -> {});
     }
 
     @Test

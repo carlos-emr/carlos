@@ -322,6 +322,68 @@ class CdsExportMedicationRetainedAssemblerUnitTest {
                 .isNull();
     }
 
+    @Test
+    void shouldAddTheArchiveStateAndCurrentRow_whenAnImportedPrescriptionIsDeletedInCarlos()
+            throws Exception {
+        var current = CdsExportMedicationFieldReconcilerUnitTest.baseline();
+        current.put("archived", "1");
+        current.put("archived_reason", "deleted");
+        current.put("archived_date", "2026-01-02 03:04:05");
+        var f = fixture(current);
+        var plan = prepare(f);
+        var record = parse(plan.content(), "archived").get(1);
+        var parser = new CdsFieldParser();
+        // The vendor's own residual is untouched and both CARLOS carriers follow it.
+        var names = new ArrayList<String>();
+        var contents = new ArrayList<String>();
+        parser.forEachField(
+                record,
+                field -> {
+                    try {
+                        if (CdsFieldParser.unindexed(field.path())
+                                .equals("ResidualInfo/DataElement/Name"))
+                            names.add(parser.readToken(record, field, 128));
+                        if (CdsFieldParser.unindexed(field.path())
+                                .equals("ResidualInfo/DataElement/Content"))
+                            contents.add(parser.readToken(record, field, 1 << 20));
+                    } catch (java.io.IOException invalid) {
+                        throw new java.io.UncheckedIOException(invalid);
+                    }
+                });
+        assertThat(names)
+                .hasSize(3)
+                .endsWith(
+                        CdsNativeExtensionContract.MEDICATION_ARCHIVED,
+                        CdsNativeExtensionContract.MEDICATION_CURRENT_SOURCE);
+        assertThat(contents.get(0)).isEqualTo("Vendor café 😀 content");
+        assertThat(contents.get(1)).isEqualTo("true");
+        var row =
+                new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readTree(contents.get(2))
+                        .get("fields");
+        assertThat(row.get("archived_reason").asText()).isEqualTo("deleted");
+        assertThat(row.get("archived_date").asText()).isEqualTo("2026-01-02 03:04:05");
+        assertThat(row.get("special").asText())
+                .isEqualTo("Original café drug 5 mg\n 0.5-1 tablet PO BID");
+        // A receiving CARLOS reads a prescription that is no longer current.
+        var medication = new CdsClinicalNormalizationService(parser).medication(record);
+        assertThat(medication.prescriptionStatus()).isEqualTo("Nullified");
+        assertThat(medication.past()).isTrue();
+        assertThat(medication.din()).isEqualTo("00123456");
+        assertThat(parser.firstToken(record, "ProblemCode", 100)).isEqualTo("B01");
+        // Only the status elements were replaced; every other source field is retained.
+        assertThat(plan.replacedFields())
+                .containsExactlyInAnyOrderElementsOf(
+                        f.fields().stream()
+                                .filter(
+                                        field ->
+                                                field.sourcePath().contains("/PrescriptionStatus[")
+                                                        || field.sourcePath()
+                                                                .contains("/PastMedications["))
+                                .map(CdsExportRetainedFieldDto::id)
+                                .toList());
+    }
+
     private static CdsExportMedicationReasonMapper.Result reasons() throws Exception {
         var drug =
                 CdsExportMedicationMapperUnitTest.medication(

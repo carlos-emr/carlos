@@ -51,6 +51,27 @@ public final class CdsExportMedicationMapper {
     /** Rule of a duration the prescription does not state (see {@link #notStated}). */
     static final String NOT_STATED = "NATIVE_DURATION_NOT_STATED";
 
+    /** Rule of a whole duration amount saved with no unit: a bare number would read as days. */
+    static final String DURATION_WITHOUT_UNIT = "DURATION_IS_NOT_KNOWN_DAYS";
+
+    /**
+     * Rule of a whole duration amount whose stored unit is not a day, week, month or year (the
+     * one-character {@code durunit} column holds whatever was typed into the Rx card's unit box).
+     */
+    static final String DURATION_UNIT_UNKNOWN = "DURATION_UNIT_IS_NOT_A_KNOWN_UNIT";
+
+    /** Rule of a duration typed as text ("10 days", "2-4") instead of a whole number. */
+    static final String DURATION_NOT_A_NUMBER = "DURATION_IS_NOT_A_WHOLE_NUMBER";
+
+    /**
+     * The rules of a stored duration that has no Duration element. None holds the patient: the
+     * native mapper carries the exact {@code duration} and {@code durunit} in
+     * {@code CARLOS.Medication.Source.v1}, and the reconciler in
+     * {@code CARLOS.Medication.CurrentSource.v1}.
+     */
+    static final Set<String> DURATION_CARRIED_RULES =
+            Set.of(DURATION_WITHOUT_UNIT, DURATION_UNIT_UNKNOWN, DURATION_NOT_A_NUMBER);
+
     public CdsExportMedicationMappingDto map(
             int patient,
             CdsExportCapturedTextRowDto row,
@@ -139,15 +160,22 @@ public final class CdsExportMedicationMapper {
             String number = values.get(entry.getValue());
             if (number != null
                     && (!number.matches("[0-9]+")
-                            || new java.math.BigInteger(number).bitLength() > 31))
+                            || new java.math.BigInteger(number).bitLength() > 31)) {
+                // Never written as its element; the caller carries the stored value.
+                values.remove(entry.getValue());
                 source.review(
                         entry.getKey(),
                         entry.getValue().name(),
                         "NONNEGATIVE_INTEGER_CAPACITY_REQUIRES_REVIEW");
+            }
         }
         String quantity = values.get(Field.Quantity);
-        if (quantity != null && !quantity.matches("[0-9]+(?:\\.[0-9]+)?"))
+        if (quantity != null && !quantity.matches("[0-9]+(?:\\.[0-9]+)?")) {
+            // Free text ("30 tabs", "1 bottle") is not written as Quantity, which the CARLOS
+            // importer and the guide read as a number; the caller carries the stored value.
+            values.remove(Field.Quantity);
             source.review("quantity", Field.Quantity.name(), "NUMERIC_QUANTITY_REQUIRES_REVIEW");
+        }
         String unit =
                 source.text(
                         "unit",
@@ -165,45 +193,7 @@ public final class CdsExportMedicationMapper {
                     "unitName", Field.DosageUnitOfMeasure.name(), "CONFLICTING_NATIVE_DOSE_UNITS");
         }
         put(values, Field.DosageUnitOfMeasure, unit == null ? unitName : unit);
-        text(source, values, "duration", Field.Duration);
-        String durationUnit = source.raw("durunit");
-        if (values.containsKey(Field.Duration)) {
-            String rendered = duration(values.get(Field.Duration), durationUnit);
-            if (!values.get(Field.Duration).matches("[0-9]+"))
-                source.review(
-                        "duration", Field.Duration.name(), "NUMERIC_DAY_DURATION_REQUIRES_REVIEW");
-            else if (notStated(values.get(Field.Duration))) {
-                // The Rx directions parser stores "0" when the directions name no duration ("use as
-                // directed", "2 puffs prn"; RxUtil), with the unit it deduced from a frequency or
-                // none at all (Drug.setDurUnit stores the empty unit as NULL). That is "not
-                // stated", never a 0-day course: no Duration is written, on the native and the
-                // reconciled paths alike.
-                values.remove(Field.Duration);
-                source.operational("duration", NOT_STATED);
-                if (!empty(durationUnit)) source.operational("durunit", NOT_STATED);
-            } else if (rendered == null
-                    || !CdsExportNativeFieldAssessments.legal(rendered, Field.Duration.maximum())) {
-                // An amount without a CARLOS unit is never written as a bare number, which a
-                // receiver reads as days. The native mapper carries an amount saved with no unit
-                // in its residual; a unit CARLOS never writes stays a review.
-                values.remove(Field.Duration);
-                source.review("durunit", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
-                source.review("duration", Field.Duration.name(), "DURATION_IS_NOT_KNOWN_DAYS");
-            } else {
-                values.put(Field.Duration, rendered);
-                source.set(
-                        "durunit",
-                        Outcome.MAPPED,
-                        Field.Duration.name(),
-                        switch (durationUnit) {
-                            case "D" -> "EXPLICIT_DURATION_DAYS";
-                            case "W" -> "EXACT_WEEK_DURATION_DAYS";
-                            default -> "CALENDAR_DURATION_UNIT_PRESERVED";
-                        });
-            }
-        } else if (empty(source.raw("duration")) && !empty(durationUnit))
-            // The unit the parser deduced from a frequency, with no duration to qualify.
-            source.operational("durunit", NOT_STATED);
+        duration(source, values);
         for (var pair :
                 Map.of(
                                 "long_term",
@@ -331,6 +321,73 @@ public final class CdsExportMedicationMapper {
                     "StartDate",
                     "UNKNOWN_START_DATE_REQUIRES_RECONCILIATION");
         return new Candidate(written, start, prescriber, values, assessments);
+    }
+
+    /**
+     * Decides the initial duration. A whole amount with a day, week, month or year unit is the
+     * Duration element ({@link #duration(String, String)}); the parser's "0" is "not stated".
+     * Every other stored value (an amount with no unit, a unit the Rx card's free-text unit box
+     * left that is none of those four, a duration typed as text) has no Duration element and is
+     * assessed with one of {@link #DURATION_CARRIED_RULES}, for the caller to carry exactly. Only
+     * text no XML document can hold stays an ordinary review.
+     */
+    private static void duration(
+            CdsExportNativeFieldAssessments source, EnumMap<Field, String> values) {
+        String amount = source.raw("duration");
+        String unit = source.raw("durunit");
+        if (empty(amount)) {
+            // The unit the parser deduced from a frequency, with no duration to qualify.
+            if (!empty(unit)) source.operational("durunit", NOT_STATED);
+            return;
+        }
+        if (!CdsExportNativeFieldAssessments.legal(amount, Integer.MAX_VALUE)) {
+            source.review("duration", Field.Duration.name(), "WIRE_TEXT_REQUIRES_REVIEW");
+            return;
+        }
+        if (!amount.matches("[0-9]+")) {
+            carriedDuration(source, unit, DURATION_NOT_A_NUMBER);
+            return;
+        }
+        if (notStated(amount)) {
+            // The Rx directions parser stores "0" when the directions name no duration ("use as
+            // directed", "2 puffs prn"; RxUtil), with the unit it deduced from a frequency or
+            // none at all (Drug.setDurUnit stores the empty unit as NULL). That is "not
+            // stated", never a 0-day course: no Duration is written, on the native and the
+            // reconciled paths alike.
+            source.operational("duration", NOT_STATED);
+            if (!empty(unit)) source.operational("durunit", NOT_STATED);
+            return;
+        }
+        String rendered = duration(amount, unit);
+        if (rendered == null
+                || !CdsExportNativeFieldAssessments.legal(rendered, Field.Duration.maximum())) {
+            // An amount without a known unit is never written as a bare number, which a receiver
+            // reads as days.
+            carriedDuration(
+                    source,
+                    unit,
+                    empty(unit)
+                            ? DURATION_WITHOUT_UNIT
+                            : rendered == null ? DURATION_UNIT_UNKNOWN : DURATION_NOT_A_NUMBER);
+            return;
+        }
+        values.put(Field.Duration, rendered);
+        source.set("duration", Outcome.MAPPED, Field.Duration.name(), "EXACT_NATIVE_TEXT");
+        source.set(
+                "durunit",
+                Outcome.MAPPED,
+                Field.Duration.name(),
+                switch (unit) {
+                    case "D", "d" -> "EXPLICIT_DURATION_DAYS";
+                    case "W", "w" -> "EXACT_WEEK_DURATION_DAYS";
+                    default -> "CALENDAR_DURATION_UNIT_PRESERVED";
+                });
+    }
+
+    private static void carriedDuration(
+            CdsExportNativeFieldAssessments source, String unit, String rule) {
+        source.review("duration", Field.Duration.name(), rule);
+        if (!empty(unit)) source.review("durunit", Field.Duration.name(), rule);
     }
 
     private static void initializeIdentity(
@@ -592,24 +649,33 @@ public final class CdsExportMedicationMapper {
     }
 
     /**
-     * The CDS Duration text of a native initial duration (whole number plus D/W/M/Y unit), or
-     * null when its meaning is not established. Days stay as authored; a week is exactly seven
-     * days. A month or a year is not an exact number of days, so it is never written as one: it
-     * keeps its unit as text ("3 months", "1 year"), which the medication Duration (CDS text,
-     * not a number) permits and the CARLOS importer reads back as the same amount and unit.
+     * The CDS Duration text of a native initial duration (whole number plus a day, week, month or
+     * year unit), or null when its meaning is not established. Days stay as authored; a week is
+     * exactly seven days. A month or a year is not an exact number of days, so it is never written
+     * as one: it keeps its unit as text ("3 months", "1 year"), which the medication Duration (CDS
+     * text, not a number) permits and the CARLOS importer reads back as the same amount and unit.
      * Refills are separate dispense information and never multiply the duration.
+     *
+     * <p>The unit is the one stored character, read without regard to case, as every CARLOS
+     * reader of {@code drugs.durunit} reads it ({@code Prescription.calcEndDate},
+     * {@code RxUtil.findNDays} and the legacy exporter all compare it ignoring case). CARLOS
+     * itself writes {@code D}, {@code W} and {@code M} (the directions parser, the Mitte quantity)
+     * and {@code Y} (the CDS importer); the Rx card's unit box is free text and the column holds
+     * one character, so "days", "wk" or "mo" typed there are stored as {@code d}, {@code w} and
+     * {@code m} on an installation whose database truncates (the packaged {@code sql_mode}). Any
+     * other character names no unit.
      */
     static String duration(String amount, String unit) {
         if (amount == null || unit == null || !amount.matches("[0-9]+")) return null;
         boolean one = new java.math.BigInteger(amount).equals(java.math.BigInteger.ONE);
         return switch (unit) {
-            case "D" -> amount;
-            case "W" ->
+            case "D", "d" -> amount;
+            case "W", "w" ->
                     new java.math.BigInteger(amount)
                             .multiply(java.math.BigInteger.valueOf(7))
                             .toString();
-            case "M" -> amount + (one ? " month" : " months");
-            case "Y" -> amount + (one ? " year" : " years");
+            case "M", "m" -> amount + (one ? " month" : " months");
+            case "Y", "y" -> amount + (one ? " year" : " years");
             default -> null;
         };
     }
@@ -623,20 +689,6 @@ public final class CdsExportMedicationMapper {
         return amount != null
                 && amount.matches("[0-9]+")
                 && new java.math.BigInteger(amount).signum() == 0;
-    }
-
-    /**
-     * Whether a native duration names a unit CARLOS never writes (anything but D, W, M or Y), so
-     * its amount cannot be read as a length of time. A duration that is not stated ({@link
-     * #notStated}), and an amount saved with no unit at all, are not: they have no Duration
-     * element, and the native mapper carries their exact columns in its residual.
-     */
-    static boolean unknownDurationUnit(String amount, String unit) {
-        return amount != null
-                && amount.matches("[0-9]+")
-                && !notStated(amount)
-                && !empty(unit)
-                && duration(amount, unit) == null;
     }
 
     private static boolean empty(String value) {

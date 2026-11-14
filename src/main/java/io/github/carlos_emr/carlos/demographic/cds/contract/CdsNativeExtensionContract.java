@@ -52,6 +52,18 @@ public final class CdsNativeExtensionContract {
      */
     public static final String ALLERGY_REACTION = "CARLOS.Allergy.Reaction.v1";
 
+    /**
+     * The complete native allergy row (and its date-precision rows) of an allergy with a stored
+     * value CDS 5.2 and the other allergy carriers have no place for: the recording provider
+     * number and the First Databank identifiers OSCAR 19 data carries ({@code providerNo},
+     * {@code HICL_SEQNO}, {@code HIC_SEQNO}, {@code AGCSP}, {@code AGCCS}), an unlisted catalogue
+     * type, severity, onset, life-stage or reaction-type code, an identifier that is neither a
+     * brand DIN nor a single ATC code, or a date whose precision is not established. JSON with
+     * SQL NULL and empty text distinct, a fixed key order and every space escaped. It is written
+     * only for such an allergy; an importer treats it as opaque source.
+     */
+    public static final String ALLERGY_SOURCE_CONTEXT = "CARLOS.Allergy.Source.v1";
+
     /** Native severity codes carried only by {@link #ALLERGY_SEVERITY}. */
     public static final java.util.Map<String, String> ALLERGY_SEVERITY_VALUES =
             java.util.Map.of("3", "Severe");
@@ -131,6 +143,17 @@ public final class CdsNativeExtensionContract {
      * written from the same row agree (#6198); every other column stays retained source.
      */
     public static final String MEDICATION_SOURCE_CONTEXT = "CARLOS.Medication.Source.v1";
+
+    /**
+     * The complete current native row of an imported prescription that was changed in CARLOS after
+     * its import and whose change CDS 5.2 has no element for (deleted or discontinued with its
+     * reason and date, hidden from the CPP, filed under a script, ...), in the shape of
+     * {@link #MEDICATION_SOURCE_CONTEXT}. It is written beside the sender's untouched residual
+     * elements and states the receiving chart's own columns; a sender's
+     * {@link #MEDICATION_SOURCE_CONTEXT} stays what the sender wrote. An importer treats it as
+     * opaque source.
+     */
+    public static final String MEDICATION_CURRENT_SOURCE = "CARLOS.Medication.CurrentSource.v1";
 
     /**
      * Exact native archive state. The exported PrescriptionStatus of an archived row is derived

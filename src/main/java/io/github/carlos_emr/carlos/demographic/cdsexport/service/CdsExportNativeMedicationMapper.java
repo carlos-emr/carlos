@@ -46,10 +46,33 @@ public final class CdsExportNativeMedicationMapper {
                     "MEDICATION_CURRENTNESS_NOT_ESTABLISHED",
                     "UNRECOGNIZED_PRESCRIPTION_STATUS",
                     "SQL_FLOAT_DISPLAY_IS_NOT_AN_EXACT_DOSE_WITNESS",
-                    // A duration amount saved with no unit (typed into the Rx card's duration box
-                    // when the directions named none): no Duration is written, and the amount
-                    // travels in the residual. A unit CARLOS never writes is refused in map().
-                    "DURATION_IS_NOT_KNOWN_DAYS",
+                    // A duration with no Duration element: an amount saved with no unit (typed
+                    // into the Rx card's duration box when the directions named none), a unit that
+                    // is not a day, week, month or year (the card's unit box is free text and the
+                    // column keeps one character), or a duration typed as text. No Duration is
+                    // written, and the exact duration and durunit travel in the residual.
+                    CdsExportMedicationMapper.DURATION_WITHOUT_UNIT,
+                    CdsExportMedicationMapper.DURATION_UNIT_UNKNOWN,
+                    CdsExportMedicationMapper.DURATION_NOT_A_NUMBER,
+                    // A quantity that is not a plain number ("30 tabs", "1 bottle": the legacy
+                    // Rx form, favourites, the REST service and OSCAR 19 data store free text), a
+                    // negative refill count, quantity or duration, a flag other than 0 or 1 and a
+                    // treatment type outside the CDS list: the element is left out, never
+                    // rewritten, and the stored value travels in the residual.
+                    "NUMERIC_QUANTITY_REQUIRES_REVIEW",
+                    "NONNEGATIVE_INTEGER_CAPACITY_REQUIRES_REVIEW",
+                    "NATIVE_BOOLEAN_REQUIRES_REVIEW",
+                    "UNRECOGNIZED_TREATMENT_TYPE",
+                    // OSCAR's "no date" defaults (0001-01-01, the zero date) and a date whose
+                    // precision rows disagree are not a recorded date: no date element is
+                    // written, and the column and its precision rows travel in the residual.
+                    "CDS_EXPORT_LEGACY_DATE_SENTINEL_REQUIRES_REVIEW",
+                    "CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW",
+                    // A precision row for a field other than the written or start date.
+                    "UNKNOWN_MEDICATION_PRECISION_FIELD",
+                    // The Rx page's Note button, or a row that names no drug at all: DrugName is
+                    // the exporter's label (below) and the row travels in the residual.
+                    "MEDICATION_IDENTITY_REQUIRED",
                     "CONFLICTING_NATIVE_DOSE_UNITS",
                     "PRESCRIBER_NAME_MUST_NOT_BE_SPLIT",
                     // The Rx page saves "Past medication" and the status select independently
@@ -71,13 +94,33 @@ public final class CdsExportNativeMedicationMapper {
                     "CONFLICTING_PRESCRIBER_IDENTIFIER");
 
     /**
-     * Optional elements narrower than their native column (dispense interval 100 characters
-     * against DispenseInterval's 10, protocol and prior protocol 255 against 20). The Rx page sets
-     * no maximum length, so a longer value is an ordinary saved prescription: the element is
-     * omitted, never truncated, and the exact value travels in the residual.
+     * DrugName of a prescription written with the Rx page's Note button ({@code custom_note} 1):
+     * free text with no drug. CDS 5.2 and the CARLOS importer need a name or a DIN for a
+     * medication, so the name says what the entry is; the note itself is the
+     * PrescriptionInstructions, and the row travels in the residual.
      */
-    private static final Set<String> RESIDUAL_ONLY_WHEN_OVERLONG =
-            Set.of("dispense_interval", "protocol", "priorRxProtocol");
+    static final String NOTE_NAME = "Prescription note (no drug named)";
+
+    /** DrugName of any other row that names no drug (a migrated row with an empty name). */
+    static final String UNNAMED = "Unnamed prescription";
+
+    /**
+     * DrugName of a row whose stored name is longer than the element (BN holds 255 characters,
+     * DrugName 120). The name is never clipped: it is the first line of Notes, after this label.
+     */
+    static final String LONG_NAME = "Drug name longer than 120 characters (see Notes)";
+
+    static final String LONG_NAME_LABEL = "Drug name: ";
+
+    /**
+     * The rules of a date with no date element, which its precision rows share: the rows travel
+     * in the residual's {@code precision} list with the drug row.
+     */
+    private static final Set<String> CARRIED_PRECISION_RULES =
+            Set.of(
+                    "CDS_EXPORT_LEGACY_DATE_SENTINEL_REQUIRES_REVIEW",
+                    "CDS_EXPORT_NATIVE_DATE_PRECISION_REQUIRES_REVIEW",
+                    "UNKNOWN_MEDICATION_PRECISION_FIELD");
 
     /**
      * One mapped prescription. {@code reasons} is the {@code CARLOS.Medication.Reasons.v1}
@@ -147,28 +190,39 @@ public final class CdsExportNativeMedicationMapper {
         String custom = source.get("customName"), brand = source.get("BN");
         // RxPrescriptionData.isCustom/getDrugName gives an authored custom name precedence.
         var reference = reference(row, referenceRow);
-        String name = populated(custom) ? custom : brand;
+        // A blank name names nothing (DrugName is a token: it would be written empty).
+        String name = populated(custom) && !custom.isBlank() ? custom : brand;
         values.remove(Field.DrugIdentificationNumber);
         if (reference != null) values.put(Field.DrugIdentificationNumber, reference.din());
-        if (populated(name)
-                && CdsExportNativeFieldAssessments.legal(name, Field.DrugName.maximum()))
+        String longName = null;
+        boolean named = populated(name) && !name.isBlank();
+        if (named && CdsExportNativeFieldAssessments.legal(name, Field.DrugName.maximum()))
             values.put(Field.DrugName, name);
-        else if (reference != null && !populated(custom)) values.remove(Field.DrugName);
-        else review();
+        else if (reference != null && !(populated(custom) && !custom.isBlank()))
+            values.remove(Field.DrugName);
+        else if (!named)
+            // No drug is named: the Rx page's Note button (free text only), or a migrated row
+            // with empty names. The entry says so instead of holding the chart.
+            values.put(Field.DrugName, "1".equals(source.get("custom_note")) ? NOTE_NAME : UNNAMED);
+        else if (CdsExportNativeFieldAssessments.legal(name, Integer.MAX_VALUE)) {
+            // Longer than DrugName: never clipped. It leads Notes when Notes can hold it, and
+            // is exact in the residual either way.
+            longName = name;
+            values.put(Field.DrugName, LONG_NAME);
+        } else review();
         String strength = source.get("dosage");
         if (populated(strength)) {
-            if (!CdsExportNativeFieldAssessments.legal(strength, Field.DrugDescription.maximum()))
-                review();
-            values.put(Field.DrugDescription, strength);
+            // A strength longer than DrugDescription is left out, never clipped (residual).
+            if (CdsExportNativeFieldAssessments.legal(strength, Field.DrugDescription.maximum()))
+                values.put(Field.DrugDescription, strength);
+            else if (!CdsExportNativeFieldAssessments.legal(strength, Integer.MAX_VALUE)) review();
         }
         // The shared candidate wrote days, weeks as exact days, and months/years with their
         // unit (never the calculator's 30-day month). It wrote no Duration for one the
         // prescription does not state (the Rx directions parser's "0", stored for "use as
-        // directed" or "2 puffs prn"), nor for an amount saved with no unit: both are ordinary
-        // saved prescriptions, and their exact columns travel in the residual. Only a unit
-        // CARLOS never writes is not established.
-        if (CdsExportMedicationMapper.unknownDurationUnit(
-                source.get("duration"), source.get("durunit"))) review();
+        // directed" or "2 puffs prn"), for an amount saved with no unit, for a unit that is not a
+        // day, week, month or year, nor for a duration typed as text: all are ordinary saved
+        // prescriptions, and their exact columns travel in the residual.
         String sig = source.get("special");
         if (populated(sig)) {
             String pharmacy = source.get("special_instruction");
@@ -176,9 +230,18 @@ public final class CdsExportNativeMedicationMapper {
                     populated(pharmacy) && !pharmacy.equals(sig)
                             ? sig + "\n[Native pharmacy instructions]\n" + pharmacy
                             : sig;
-            if (!CdsExportNativeFieldAssessments.legal(
-                    instructions, Field.PrescriptionInstructions.maximum())) review();
-            values.put(Field.PrescriptionInstructions, instructions);
+            if (CdsExportNativeFieldAssessments.legal(
+                    instructions, Field.PrescriptionInstructions.maximum()))
+                values.put(Field.PrescriptionInstructions, instructions);
+            else if (!CdsExportNativeFieldAssessments.legal(instructions, Integer.MAX_VALUE))
+                review();
+            else if (CdsExportNativeFieldAssessments.legal(
+                    sig, Field.PrescriptionInstructions.maximum()))
+                // Together they exceed the element: the SIG as printed is written, and the
+                // pharmacy instructions travel in the residual with the rest of the row.
+                values.put(Field.PrescriptionInstructions, sig);
+            // A SIG longer than the element itself is left out, never clipped (residual).
+            else values.remove(Field.PrescriptionInstructions);
         }
         String doseUnit =
                 doseUnit(source.get("unit"), source.get("dosage"), source.get("drug_form"));
@@ -194,8 +257,12 @@ public final class CdsExportNativeMedicationMapper {
             // importer copies the dose unit into both unit and unitName, so an equal pair is
             // that copy (kept by re-prescribing an imported drug), not a quantity unit.
             String authored = values.get(Field.Quantity) + " " + quantityUnit.strip();
-            if (!CdsExportNativeFieldAssessments.legal(authored, Field.Quantity.maximum())) review();
-            values.put(Field.Quantity, authored);
+            if (CdsExportNativeFieldAssessments.legal(authored, Field.Quantity.maximum()))
+                values.put(Field.Quantity, authored);
+            else if (!CdsExportNativeFieldAssessments.legal(authored, Integer.MAX_VALUE)) review();
+            // An amount that no longer fits with its unit is left out, never written as a bare
+            // number that would misstate the amount dispensed (residual).
+            else values.remove(Field.Quantity);
         }
         String status = source.get("rxStatus");
         boolean knownStatus =
@@ -231,10 +298,12 @@ public final class CdsExportNativeMedicationMapper {
                 && (treatmentValue == null || !treatmentValue.startsWith("PRN "))) {
             // The Rx page's as-needed box with an ordinary frequency means "BID as needed".
             String qualified = frequencyValue + " PRN";
-            if (!CdsExportNativeFieldAssessments.legal(qualified, Field.Frequency.maximum()))
-                review();
-            values.put(Field.Frequency, qualified);
-            prnResolved = true;
+            // A frequency that already fills the element is written as stored; the as-needed
+            // flag then travels in the residual (CONFLICTING_NATIVE_AS_NEEDED_INDICATOR).
+            if (CdsExportNativeFieldAssessments.legal(qualified, Field.Frequency.maximum())) {
+                values.put(Field.Frequency, qualified);
+                prnResolved = true;
+            }
         } else if (asNeeded
                 && frequencyValue == null
                 && !populated(source.get("freqcode"))
@@ -254,8 +323,20 @@ public final class CdsExportNativeMedicationMapper {
             var key = entry.getKey();
             var assessment = entry.getValue();
             if (!key.table().equals("drugs")) {
-                if (assessment.outcome() == Outcome.REQUIRES_REVIEW) review();
-                if (startUnknown
+                boolean carriedPrecision =
+                        assessment.outcome() == Outcome.REQUIRES_REVIEW
+                                && key.table().equals("partial_date")
+                                && CARRIED_PRECISION_RULES.contains(assessment.rule());
+                if (assessment.outcome() == Outcome.REQUIRES_REVIEW && !carriedPrecision) review();
+                if (carriedPrecision)
+                    fields.put(
+                            key,
+                            new CdsExportFieldAssessmentDto(
+                                    assessment.presence(),
+                                    Outcome.MAPPED,
+                                    "MedicationsAndTreatments/ResidualInfo",
+                                    "DATE_PRECISION_CARRIED_WITHOUT_A_DATE_ELEMENT"));
+                else if (startUnknown
                         && key.table().equals("partial_date")
                         && "StartDate".equals(assessment.destination()))
                     fields.put(
@@ -287,8 +368,13 @@ public final class CdsExportNativeMedicationMapper {
                             && assessment
                                     .rule()
                                     .equals("UNKNOWN_START_DATE_REQUIRES_RECONCILIATION"))
-                    && !(RESIDUAL_ONLY_WHEN_OVERLONG.contains(key.column())
-                            && assessment.rule().equals("WIRE_TEXT_REQUIRES_REVIEW")
+                    // A value longer than its element (the Rx page sets no maximum length: a
+                    // dispense interval of 100 characters against DispenseInterval's 10, a
+                    // protocol of 255 against 20, a MEDIUMTEXT comment against Notes' 32,000)
+                    // is an ordinary saved prescription: the element is omitted, never
+                    // truncated, and the exact value travels in the residual. Only text no XML
+                    // document can hold still requires review.
+                    && !(assessment.rule().equals("WIRE_TEXT_REQUIRES_REVIEW")
                             && CdsExportNativeFieldAssessments.legal(
                                     source.get(key.column()), Integer.MAX_VALUE)))
                 review();
@@ -301,6 +387,12 @@ public final class CdsExportNativeMedicationMapper {
                             Outcome.MAPPED,
                             "MedicationsAndTreatments/ResidualInfo",
                             "EXACT_NATIVE_MEDICATION_SOURCE_CONTEXT"));
+        }
+        if (longName != null) {
+            String comment = values.get(Field.Notes);
+            String notes = LONG_NAME_LABEL + longName + (comment == null ? "" : "\n" + comment);
+            if (CdsExportNativeFieldAssessments.legal(notes, Field.Notes.maximum()))
+                values.put(Field.Notes, notes);
         }
         var details = new LinkedHashMap<String, Object>();
         details.put("version", 1);
@@ -349,7 +441,16 @@ public final class CdsExportNativeMedicationMapper {
                         reference == null ? null : reference.components().getFirst().unit(),
                         outsidePrescriber ? null : candidate.prescriber(),
                         values);
-        CdsExportMedicationXmlWriter.validate(value);
+        try {
+            CdsExportMedicationXmlWriter.validate(value);
+        } catch (io.github.carlos_emr.carlos.demographic.cdsexport.support
+                        .CdsExportMappingReviewException held) {
+            throw held;
+        } catch (IOException unwritable) {
+            // A value of this one prescription the writer cannot hold concerns this patient's
+            // chart: the patient is held, the job is not stopped.
+            review();
+        }
         return new Result(value, metadata, fields, archived, reasons.residual());
     }
 

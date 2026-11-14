@@ -302,7 +302,7 @@ public final class CdsExportAllergyRetainedAssembler {
     }
 
     /** Bounded comparison only; oversized unknown names remain intact in the retained subtree. */
-    private static String token(
+    static String token(
             CdsExportRetainedSectionWriter.Values values,
             CdsExportRetainedFieldDto field,
             Runnable checkpoint,

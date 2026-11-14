@@ -43,7 +43,46 @@ public record CdsExportAllergyDto(
         String ageOfOnset,
         String onsetOfReaction,
         String nativeSeverity,
-        String longReaction) {
+        String longReaction,
+        String sourceContext) {
+    /** An allergy every stored value of which has an element or its own carrier. */
+    public CdsExportAllergyDto(
+            String description,
+            String property,
+            String codeType,
+            String codeValue,
+            String reactionType,
+            CdsExportDateDto start,
+            String lifeStage,
+            String severity,
+            String reaction,
+            CdsExportDateDto recorded,
+            String notes,
+            boolean archived,
+            String ageOfOnset,
+            String onsetOfReaction,
+            String nativeSeverity,
+            String longReaction) {
+        this(
+                description,
+                property,
+                codeType,
+                codeValue,
+                reactionType,
+                start,
+                lifeStage,
+                severity,
+                reaction,
+                recorded,
+                notes,
+                archived,
+                ageOfOnset,
+                onsetOfReaction,
+                nativeSeverity,
+                longReaction,
+                null);
+    }
+
     /** An allergy whose reaction fits the standard Reaction element. */
     public CdsExportAllergyDto(
             String description,
